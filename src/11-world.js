@@ -56,6 +56,10 @@
           self.spawn = { x: o.x, y: o.y };
           return;
         }
+        if (type === 'pen') {
+          self.pen = { x0: o.x, y0: o.y, x1: o.x + o.width, y1: o.y + o.height };
+          return;
+        }
         self.objects.push({
           type: type,
           x0: Math.floor(o.x / T), y0: Math.floor(o.y / T),
@@ -67,6 +71,7 @@
       // ----- crops
       this.crops = {};
       this.refreshAllSoil();
+      this.herd = new F.Herd(this, this.pen);
 
       // ----- player
       this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -178,6 +183,7 @@
       s.player.x = f.x;
       s.player.y = f.y;
       s.player.dir = this.dir;
+      this.player.setDepth(DEPTH.player + f.y / 1e5); // y-sorted with the animals
 
       // clock
       this.clockMs += dt;
@@ -190,6 +196,8 @@
         this.endDay(true);
         return;
       }
+
+      this.herd.update(dt, time, s.time);
 
       // target tile + contextual action
       var t = this.facing();
@@ -225,6 +233,12 @@
     // ----- what the action button would do right now
     resolve() {
       var self = this, s = this.state, t = this.facing();
+      var f = this.feet(), d = DIR_VEC[this.dir];
+      var m = this.herd.at(f.x + d[0] * T * 0.7, f.y + d[1] * T * 0.7);
+      if (m) {
+        this.herd.hold(m);
+        return this.animalAction(m);
+      }
       if (!this.inMap(t.x, t.y)) return null;
       var o = this.objectAt(t.x, t.y);
       var held = L.held(s), def = held ? C.ITEMS[held.id] : null;
@@ -253,10 +267,56 @@
         if (soil && !soil.c) return { label: 'Plant', icon: def.icon, run: function () { self.plantTile(t, idx); } };
         return { label: 'Plant', icon: def.icon, disabled: true, why: soil ? 'Something is already growing here.' : 'Till the soil with the Hoe first.' };
       }
-      if (def.kind === 'crop') {
+      if (def.kind === 'feed') {
+        return { label: 'Feed', icon: def.icon, disabled: true, why: 'Face a ' + C.ANIMALS[def.animal].name.toLowerCase() + ' in the pen and tap to feed it.' };
+      }
+      if (def.kind === 'crop' || def.kind === 'produce') {
         return { label: 'Ship', icon: def.icon, disabled: true, why: 'Put crops in the shipping box next to your house to sell them.' };
       }
       return null;
+    }
+
+    // ----- animals
+    animalAction(m) {
+      var self = this, s = this.state, a = s.animals[m.i], def = C.ANIMALS[a.kind];
+      var held = L.held(s), hdef = held ? C.ITEMS[held.id] : null;
+      if (a.ready) return { label: 'Collect', icon: C.ITEMS[def.product].icon, run: function () { self.collectFrom(m); } };
+      if (hdef && hdef.kind === 'feed' && !a.fed) {
+        if (hdef.animal === a.kind) return { label: 'Feed', icon: hdef.icon, run: function () { self.feedAnimal(m); } };
+        return { label: 'Feed', icon: hdef.icon, disabled: true, why: def.name + 's eat ' + C.ITEMS[def.feed].name + ', not ' + hdef.name + '.' };
+      }
+      if (!a.pet) return { label: 'Pet', icon: C.ICON.heart, run: function () { self.petAnimal(m); } };
+      return { label: a.name, icon: def.icon, run: function () { self.animalInfo(m); } };
+    }
+
+    collectFrom(m) {
+      var got = L.collect(this.state, m.i);
+      if (got === '!full') return F.ui.toast('Your bag is full!');
+      this.floatTextAt(m.x, m.y - m.def.height * T, '+1 ' + C.ITEMS[got].name);
+      this.changed();
+    }
+
+    feedAnimal(m) {
+      if (L.feedAnimal(this.state, m.i, this.state.sel) !== 'ok') return;
+      m.eat = true;
+      m.wait = 3000;
+      this.herd.hearts(m, 1);
+      this.floatTextAt(m.x, m.y - m.def.height * T, 'Yum!');
+      this.changed();
+    }
+
+    petAnimal(m) {
+      L.petAnimal(this.state, m.i);
+      this.herd.hearts(m, 3);
+      this.floatTextAt(m.x, m.y - m.def.height * T, this.state.animals[m.i].name + ' is happy!');
+      this.changed();
+    }
+
+    animalInfo(m) {
+      var a = this.state.animals[m.i], def = C.ANIMALS[a.kind], h = L.hearts(a);
+      F.ui.toast(a.name + '  ' + (h ? new Array(h + 1).join('\u2665') + ' (' + h + '/5)' : 'no hearts yet') + '\n' +
+        (a.fed ? 'Fed today. ' : 'Hungry! Give it ' + C.ITEMS[def.feed].name + '. ') +
+        (a.pet ? 'Petted today.' : 'Wants a pet.'));
     }
 
     // ----- actions
@@ -345,6 +405,7 @@
       cam.once('camerafadeoutcomplete', function () {
         var result = L.endDay(self.state, passedOut);
         self.refreshAllSoil();
+        self.herd.scatter();
         self.dir = 'down';
         self.setFeet(self.spawn.x, self.spawn.y);
         self.idle();
@@ -416,9 +477,13 @@
     }
 
     floatText(t, text) {
+      this.floatTextAt(t.x * T + T / 2, t.y * T, text);
+    }
+
+    floatTextAt(wx, wy, text) {
       var cam = this.cameras.main;
-      var sx = (t.x * T + T / 2 - cam.worldView.x) * cam.zoom / F.R; // layout px
-      var sy = (t.y * T - cam.worldView.y) * cam.zoom / F.R;
+      var sx = (wx - cam.worldView.x) * cam.zoom / F.R; // layout px
+      var sy = (wy - cam.worldView.y) * cam.zoom / F.R;
       F.ui.floatText(sx, sy, text);
     }
   };

@@ -1456,6 +1456,498 @@
     paint(g, fill, 4);
   }
 
+  // ---------- ranch buildings (barn 3x3, coop 2x2) ----------
+  function barn() {
+    var W = 3 * S, H = 3 * S, c = canvas(W, H), g = c.getContext('2d');
+    shadow(g, W / 2, 742, 372, 26, 0.35);
+    // walls
+    g.beginPath();
+    g.rect(44, 300, 680, 432);
+    paint(g, lin(g, 0, 300, 0, 732, [[0, '#dc5444'], [1, '#a8342a']]), 8);
+    for (var x = 84; x < 724; x += 40) {
+      g.fillStyle = 'rgba(90,15,10,0.28)';
+      g.fillRect(x, 304, 5, 424);
+    }
+    // side windows
+    [96, 582].forEach(function (wx) {
+      rrect(g, wx, 420, 90, 84, 8);
+      paint(g, '#fff8ee', 7);
+      rrect(g, wx + 12, 432, 66, 60, 4);
+      paint(g, lin(g, 0, 432, 0, 492, [[0, '#ffe7a3'], [1, '#c98a3a']]), 3);
+    });
+    // gambrel roof with white trim
+    var roof = function () {
+      g.beginPath();
+      g.moveTo(10, 330);
+      g.lineTo(124, 150);
+      g.lineTo(384, 36);
+      g.lineTo(644, 150);
+      g.lineTo(758, 330);
+      g.closePath();
+    };
+    roof();
+    paint(g, lin(g, 0, 36, 0, 330, [[0, '#a8392e'], [1, '#6e231c']]), 0);
+    g.save();
+    roof();
+    g.clip();
+    for (var y = 90; y < 330; y += 40) {
+      g.fillStyle = 'rgba(40,5,0,0.3)';
+      g.fillRect(0, y, W, 5);
+    }
+    g.restore();
+    roof();
+    g.lineWidth = 26;
+    g.strokeStyle = OUT;
+    g.stroke();
+    g.lineWidth = 14;
+    g.strokeStyle = '#fff8ee';
+    g.stroke();
+    // hay loft
+    rrect(g, 318, 168, 132, 112, 10);
+    paint(g, '#fff8ee', 8);
+    rrect(g, 332, 182, 104, 84, 6);
+    paint(g, '#4a2a18', 4);
+    g.beginPath();
+    g.moveTo(336, 266);
+    g.quadraticCurveTo(384, 214, 432, 266);
+    g.closePath();
+    paint(g, lin(g, 0, 220, 0, 266, [[0, '#ffe27a'], [1, '#d9a53a']]), 3);
+    // big door with white X braces (block column 1 => x 256..512)
+    rrect(g, 262, 476, 244, 256, 6);
+    paint(g, '#fff8ee', 8);
+    rrect(g, 278, 492, 212, 240, 4);
+    paint(g, lin(g, 0, 492, 0, 732, [[0, '#c43e31'], [1, '#922b22']]), 5);
+    g.beginPath();
+    g.moveTo(384, 492);
+    g.lineTo(384, 732);
+    g.moveTo(278, 492);
+    g.lineTo(384, 612);
+    g.lineTo(278, 732);
+    g.moveTo(490, 492);
+    g.lineTo(384, 612);
+    g.lineTo(490, 732);
+    g.lineWidth = 14;
+    g.strokeStyle = '#fff8ee';
+    g.stroke();
+    return c;
+  }
+
+  function coop() {
+    var W = 2 * S, H = 2 * S, c = canvas(W, H), g = c.getContext('2d');
+    shadow(g, W / 2, 490, 236, 20, 0.35);
+    [92, 196, 316, 420].forEach(function (x) {
+      rrect(g, x - 12, 400, 24, 90, 6);
+      paint(g, lin(g, x - 12, 0, x + 12, 0, [[0, '#a96d3c'], [1, '#6e4122']]), 6);
+    });
+    rrect(g, 56, 196, 400, 220, 14);
+    paint(g, lin(g, 0, 196, 0, 416, [[0, '#f6cf7d'], [1, '#d9a248']]), 8);
+    for (var y = 236; y < 410; y += 36) {
+      g.fillStyle = 'rgba(120,70,20,0.3)';
+      g.fillRect(60, y, 392, 5);
+    }
+    g.beginPath();
+    g.moveTo(24, 226);
+    g.lineTo(256, 64);
+    g.lineTo(488, 226);
+    g.closePath();
+    paint(g, lin(g, 0, 64, 0, 226, [[0, '#ee7563'], [1, '#b9392f']]), 8);
+    g.beginPath();
+    g.arc(256, 168, 32, 0, Math.PI * 2);
+    paint(g, '#4a2a18', 6);
+    g.beginPath();
+    g.moveTo(232, 184);
+    g.quadraticCurveTo(256, 160, 280, 184);
+    g.closePath();
+    paint(g, '#f2c94c', 3);
+    // little arched door + ramp
+    g.beginPath();
+    g.moveTo(206, 412);
+    g.lineTo(206, 330);
+    g.arc(256, 330, 50, Math.PI, 0);
+    g.lineTo(306, 412);
+    g.closePath();
+    paint(g, '#5a3420', 7);
+    g.beginPath();
+    g.moveTo(214, 404);
+    g.lineTo(298, 404);
+    g.lineTo(326, 500);
+    g.lineTo(186, 500);
+    g.closePath();
+    paint(g, lin(g, 0, 404, 0, 500, [[0, '#d9a066'], [1, '#a66d38']]), 6);
+    [432, 456, 480].forEach(function (y) {
+      g.fillStyle = 'rgba(70,35,10,0.45)';
+      g.fillRect(196 + (y - 432) * -0.2, y, 120 + (y - 432) * 0.55, 5);
+    });
+    // nest box with an egg
+    rrect(g, 352, 268, 84, 64, 8);
+    paint(g, '#c98447', 6);
+    egg(g, 394, 284, 0.42);
+    return c;
+  }
+
+  function hay() {
+    var c = canvas(S, S), g = c.getContext('2d');
+    shadow(g, 128, 222, 104, 18);
+    rrect(g, 26, 82, 204, 138, 34);
+    paint(g, lin(g, 0, 82, 0, 220, [[0, '#ffe58a'], [1, '#d9a53a']]), 7);
+    var r = rng(111);
+    for (var i = 0; i < 26; i++) {
+      var x = r.range(40, 216), y = r.range(96, 206);
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + r.range(-14, 14), y + r.range(6, 16));
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(160,100,20,0.6)';
+      g.stroke();
+    }
+    [86, 170].forEach(function (x) {
+      g.fillStyle = '#a0522d';
+      g.fillRect(x, 84, 10, 134);
+    });
+    return c;
+  }
+
+  function trough() {
+    var c = canvas(S, S), g = c.getContext('2d');
+    shadow(g, 128, 214, 112, 16);
+    [44, 196].forEach(function (x) {
+      rrect(g, x, 168, 18, 48, 4);
+      paint(g, '#7d4a26', 5);
+    });
+    g.beginPath();
+    g.moveTo(20, 110);
+    g.lineTo(236, 110);
+    g.lineTo(214, 186);
+    g.lineTo(42, 186);
+    g.closePath();
+    paint(g, lin(g, 0, 110, 0, 186, [[0, '#cf9257'], [1, '#93582d']]), 7);
+    ell(g, 128, 114, 102, 16);
+    paint(g, lin(g, 0, 98, 0, 130, [[0, '#ffe27a'], [1, '#d9a53a']]), 4);
+    var r = rng(121);
+    for (var i = 0; i < 24; i++) {
+      ell(g, r.range(40, 216), r.range(104, 122), 4, 3);
+      g.fillStyle = 'rgba(150,90,20,0.7)';
+      g.fill();
+    }
+    return c;
+  }
+
+  // ---------- animals (384x320 frames, facing left, feet at y = 300) ----------
+  // pose: 0 walk A, 1 walk B, 2 eat (head down), 3 asleep
+  function chicken(g, pose) {
+    var cx = 192;
+    shadow(g, cx + 6, 300, 74, 14);
+    g.save();
+    if (pose === 3) g.translate(0, 34);
+    else {
+      [[cx - 14, pose === 1 ? -10 : 6], [cx + 18, pose === 1 ? 8 : -8]].forEach(function (l) {
+        g.beginPath();
+        g.moveTo(l[0], 256);
+        g.lineTo(l[0] + l[1], 296);
+        g.lineTo(l[0] + l[1] - 18, 300);
+        g.moveTo(l[0] + l[1], 296);
+        g.lineTo(l[0] + l[1] + 8, 300);
+        g.lineWidth = 9;
+        g.strokeStyle = OUT;
+        g.stroke();
+        g.lineWidth = 5;
+        g.strokeStyle = '#f2a03d';
+        g.stroke();
+      });
+    }
+    // tail
+    [[-0.9, 40], [-0.45, 46], [0, 40]].forEach(function (f) {
+      g.save();
+      g.translate(cx + 62, 206);
+      g.rotate(f[0]);
+      ell(g, 18, -f[1] / 2, 18, f[1] / 1.6);
+      paint(g, '#f4f0e8', 6);
+      g.restore();
+    });
+    ell(g, cx + 8, 222, 72, 56);
+    paint(g, rad(g, cx - 14, 196, 6, cx + 8, 222, 80, [[0, '#ffffff'], [1, '#e2dacb']]));
+    var hx = pose === 2 ? cx - 62 : cx - 50, hy = pose === 2 ? 248 : 168;
+    if (pose !== 2) {
+      g.beginPath();
+      g.moveTo(cx - 70, 200);
+      g.quadraticCurveTo(cx - 60, 168, hx + 10, hy + 6);
+      g.lineTo(cx - 20, 210);
+      g.closePath();
+      paint(g, '#f8f5ee', 0);
+    }
+    // comb + wattle
+    [[-12, -36, 12], [2, -42, 13], [16, -36, 12]].forEach(function (b) {
+      ell(g, hx + b[0], hy + b[1], b[2], b[2] * 1.15);
+      paint(g, '#e5383f', 5);
+    });
+    ell(g, hx, hy, 36, 34);
+    paint(g, rad(g, hx - 10, hy - 12, 4, hx, hy, 38, [[0, '#ffffff'], [1, '#e8e1d4']]));
+    ell(g, hx - 26, hy + 30, 9, 14);
+    paint(g, '#e5383f', 4);
+    g.beginPath();
+    g.moveTo(hx - 30, hy - 6);
+    g.lineTo(hx - 60, hy + 6);
+    g.lineTo(hx - 30, hy + 16);
+    g.closePath();
+    paint(g, '#ffc23d', 5);
+    if (pose === 3) {
+      g.beginPath();
+      g.arc(hx - 8, hy - 2, 9, 0.1 * Math.PI, 0.9 * Math.PI);
+      g.lineWidth = 5;
+      g.strokeStyle = OUT;
+      g.stroke();
+    } else {
+      ell(g, hx - 8, hy - 4, 7, 9);
+      g.fillStyle = OUT;
+      g.fill();
+      ell(g, hx - 10, hy - 7, 2.5, 3);
+      g.fillStyle = '#fff';
+      g.fill();
+    }
+    // wing
+    g.save();
+    g.translate(cx + 20, 226);
+    g.rotate(-0.15);
+    ell(g, 0, 0, 44, 28);
+    paint(g, lin(g, 0, -28, 0, 28, [[0, '#ffffff'], [1, '#ddd3c2']]), 5);
+    [-14, 4, 22].forEach(function (x) {
+      g.beginPath();
+      g.moveTo(x, 4);
+      g.quadraticCurveTo(x + 8, 18, x + 18, 20);
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(120,100,80,0.5)';
+      g.stroke();
+    });
+    g.restore();
+    g.restore();
+  }
+
+  function cow(g, pose) {
+    shadow(g, 196, 302, 156, 18);
+    var down = pose === 3 ? 56 : 0;
+    var swing = pose === 0 ? 0.16 : pose === 1 ? -0.16 : 0;
+    var leg = function (x, ang, far) {
+      g.save();
+      g.translate(x, 236);
+      g.rotate(ang);
+      rrect(g, -15, -10, 30, 76, 12);
+      paint(g, far ? '#e1dbd0' : '#ffffff');
+      rrect(g, -16, 52, 32, 18, 6);
+      paint(g, '#4a3a30', 5);
+      g.restore();
+    };
+    if (!down) {
+      leg(110, -swing, true);
+      leg(282, swing, true);
+    }
+    g.save();
+    g.translate(0, down);
+    // tail
+    g.beginPath();
+    g.moveTo(324, 162);
+    g.quadraticCurveTo(354, 196, 344, 244);
+    g.lineWidth = 12;
+    g.strokeStyle = OUT;
+    g.stroke();
+    g.lineWidth = 6;
+    g.strokeStyle = '#f4efe6';
+    g.stroke();
+    ell(g, 344, 252, 12, 18);
+    paint(g, '#4a3a30', 5);
+    // body with patches
+    rrect(g, 70, 136, 266, 122, 60);
+    paint(g, lin(g, 0, 136, 0, 258, [[0, '#ffffff'], [1, '#e4ddd1']]));
+    g.save();
+    rrect(g, 73, 139, 260, 116, 58);
+    g.clip();
+    [[166, 168, 50, 36, 0.2], [282, 206, 44, 34, -0.3], [118, 236, 36, 22, 0.1], [236, 146, 30, 20, 0]].forEach(function (p) {
+      ell(g, p[0], p[1], p[2], p[3], p[4]);
+      g.fillStyle = '#2f2a28';
+      g.fill();
+    });
+    g.restore();
+    rrect(g, 70, 136, 266, 122, 60);
+    g.lineWidth = LW;
+    g.strokeStyle = OUT;
+    g.stroke();
+    if (!down) {
+      ell(g, 262, 256, 28, 14);
+      paint(g, '#f7b7b0', 5);
+    }
+    g.restore();
+    if (!down) {
+      leg(138, swing, false);
+      leg(306, -swing, false);
+    }
+    // head
+    var hx = 66, hy = (pose === 2 ? 232 : 150) + down * 0.7;
+    ell(g, hx + 30, hy - 40, 26, 12, -0.5);
+    paint(g, '#ffffff', 5);
+    [[hx - 10, hy - 44], [hx + 18, hy - 50]].forEach(function (h) {
+      g.beginPath();
+      g.moveTo(h[0] - 6, h[1] + 8);
+      g.quadraticCurveTo(h[0] - 4, h[1] - 14, h[0] + 8, h[1] - 18);
+      g.quadraticCurveTo(h[0] + 4, h[1] - 4, h[0] + 8, h[1] + 8);
+      g.closePath();
+      paint(g, '#fff1cf', 4);
+    });
+    ell(g, hx, hy, 50, 46);
+    paint(g, rad(g, hx - 14, hy - 16, 4, hx, hy, 54, [[0, '#ffffff'], [1, '#e4ddd1']]));
+    ell(g, hx + 14, hy - 18, 22, 18, 0.4);
+    g.fillStyle = '#2f2a28';
+    g.fill();
+    ell(g, hx - 22, hy + 24, 36, 24);
+    paint(g, rad(g, hx - 30, hy + 16, 2, hx - 22, hy + 24, 36, [[0, '#ffd2cc'], [1, '#f0a39a']]));
+    [[hx - 36, hy + 22], [hx - 12, hy + 24]].forEach(function (n) {
+      ell(g, n[0], n[1], 5, 7);
+      g.fillStyle = '#9a4f48';
+      g.fill();
+    });
+    if (pose === 3) {
+      g.beginPath();
+      g.arc(hx - 12, hy - 8, 10, 0.1 * Math.PI, 0.9 * Math.PI);
+      g.lineWidth = 5;
+      g.strokeStyle = OUT;
+      g.stroke();
+    } else {
+      ell(g, hx - 12, hy - 10, 8, 10);
+      g.fillStyle = OUT;
+      g.fill();
+      ell(g, hx - 14, hy - 13, 3, 3.5);
+      g.fillStyle = '#fff';
+      g.fill();
+    }
+    // bell
+    ell(g, hx + 48, hy + 44, 16, 15);
+    paint(g, rad(g, hx + 43, hy + 38, 2, hx + 48, hy + 44, 16, [[0, '#fff3a0'], [1, '#d4a01e']]), 5);
+  }
+
+  function egg(g, x, y, s) {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    g.beginPath();
+    g.moveTo(0, -46);
+    g.bezierCurveTo(30, -46, 40, 10, 38, 22);
+    g.bezierCurveTo(36, 44, 18, 52, 0, 52);
+    g.bezierCurveTo(-18, 52, -36, 44, -38, 22);
+    g.bezierCurveTo(-40, 10, -30, -46, 0, -46);
+    paint(g, rad(g, -12, -16, 4, 0, 4, 56, [[0, '#ffffff'], [0.6, '#fbf2e2'], [1, '#e7d6b8']]));
+    ell(g, -14, -18, 8, 14, -0.3);
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.fill();
+    g.restore();
+  }
+
+  Object.assign(ICON_DRAW, {
+    egg: function (g) { egg(g, 64, 66, 1.0); },
+    milk: function (g) {
+      rrect(g, 46, 12, 36, 18, 6);
+      paint(g, '#4aa3e8', 5);
+      g.beginPath();
+      g.moveTo(48, 30);
+      g.lineTo(80, 30);
+      g.lineTo(80, 44);
+      g.quadraticCurveTo(100, 56, 100, 76);
+      g.lineTo(100, 108);
+      g.quadraticCurveTo(100, 118, 90, 118);
+      g.lineTo(38, 118);
+      g.quadraticCurveTo(28, 118, 28, 108);
+      g.lineTo(28, 76);
+      g.quadraticCurveTo(28, 56, 48, 44);
+      g.closePath();
+      paint(g, lin(g, 28, 0, 100, 0, [[0, '#ffffff'], [1, '#e6edf2']]));
+      rrect(g, 34, 70, 60, 34, 6);
+      paint(g, '#4aa3e8', 4);
+      g.font = 'bold 22px "Trebuchet MS", "DejaVu Sans", Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#ffffff';
+      g.fillText('MILK', 64, 88);
+      rrect(g, 36, 48, 10, 18, 5);
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.fill();
+    },
+    chicken_feed: function (g) {
+      g.beginPath();
+      g.moveTo(30, 34);
+      g.quadraticCurveTo(64, 20, 98, 34);
+      g.lineTo(108, 112);
+      g.quadraticCurveTo(64, 124, 20, 112);
+      g.closePath();
+      paint(g, lin(g, 0, 30, 0, 120, [[0, '#f3e3bf'], [1, '#d6bf8e']]));
+      ell(g, 64, 32, 34, 10);
+      paint(g, lin(g, 0, 22, 0, 42, [[0, '#ffe27a'], [1, '#d9a53a']]), 4);
+      rrect(g, 36, 60, 56, 40, 8);
+      paint(g, '#5fa84a', 4);
+      g.save();
+      g.translate(-10, -30);
+      g.scale(0.4, 0.4);
+      chicken(g, 0);
+      g.restore();
+    },
+    fodder: function (g) {
+      g.save();
+      g.translate(64, 70);
+      g.scale(0.5, 0.5);
+      g.translate(-128, -150);
+      var h = hay();
+      g.drawImage(h, 0, 0);
+      g.restore();
+      [[40, 30], [64, 20], [88, 30]].forEach(function (p) {
+        g.beginPath();
+        g.moveTo(p[0], p[1] + 26);
+        g.quadraticCurveTo(p[0] - 6, p[1] + 10, p[0] + 4, p[1]);
+        g.lineWidth = 6;
+        g.strokeStyle = '#d9a53a';
+        g.stroke();
+      });
+    },
+    heart: function (g) {
+      g.beginPath();
+      g.moveTo(64, 112);
+      g.bezierCurveTo(20, 80, 10, 52, 22, 34);
+      g.bezierCurveTo(36, 14, 60, 20, 64, 40);
+      g.bezierCurveTo(68, 20, 92, 14, 106, 34);
+      g.bezierCurveTo(118, 52, 108, 80, 64, 112);
+      paint(g, lin(g, 0, 14, 0, 112, [[0, '#ff8a9a'], [1, '#e0304a']]));
+      ell(g, 40, 42, 10, 7, -0.6);
+      g.fillStyle = 'rgba(255,255,255,0.75)';
+      g.fill();
+    },
+    chicken: function (g) {
+      g.save();
+      g.translate(-30, -40);
+      g.scale(0.5, 0.5);
+      chicken(g, 0);
+      g.restore();
+    },
+    cow: function (g) {
+      g.save();
+      g.translate(-2, -24);
+      g.scale(0.34, 0.34);
+      cow(g, 0);
+      g.restore();
+    },
+    bubble: function (g) {
+      rrect(g, 10, 6, 108, 96, 30);
+      paint(g, '#ffffff', 6);
+      g.beginPath();
+      g.moveTo(52, 98);
+      g.lineTo(64, 122);
+      g.lineTo(76, 98);
+      g.closePath();
+      paint(g, '#ffffff', 0);
+      g.beginPath();
+      g.moveTo(52, 100);
+      g.lineTo(64, 122);
+      g.lineTo(76, 100);
+      g.lineWidth = 6;
+      g.strokeStyle = OUT;
+      g.stroke();
+    },
+  });
+
   // ---------- sheet assembly ----------
   function frameSheet(cols, rows, fw, fh, w, h, draw) {
     var c = canvas(w, h), g = c.getContext('2d');
@@ -1469,7 +1961,8 @@
     return c;
   }
 
-  window.makeArt = function (L) {
+  // A padded tileset sheet; place() copies a 256x256 tile into its cell and extrudes its edges.
+  function tileSheet(L) {
     var sheet = canvas(L.IMAGE_W, L.IMAGE_H), sg = sheet.getContext('2d');
     sg.imageSmoothingEnabled = false;
     var place = function (id, src, sx, sy) {
@@ -1485,7 +1978,17 @@
       sg.drawImage(src, sx, sy + S - 1, 1, 1, x - P, y + S, P, P);
       sg.drawImage(src, sx + S - 1, sy + S - 1, 1, 1, x + S, y + S, P, P);
     };
-    var T = L.T;
+    var placeBlock = function (name, pic) {
+      var B = L.BLOCKS[name];
+      for (var dy = 0; dy < B.h; dy++) for (var dx = 0; dx < B.w; dx++) {
+        place((B.row + dy) * L.COLS + B.col + dx, pic, dx * S, dy * S);
+      }
+    };
+    return { canvas: sheet, place: place, placeBlock: placeBlock };
+  }
+
+  window.makeArt = function (sets) {
+    var main = tileSheet(sets.TILES), T = sets.TILES.T, place = main.place;
     var grass = grassTile(1, 0);
     place(T.grass, grass, 0, 0);
     place(T.grass2, grassTile(2, 70), 0, 0);
@@ -1510,28 +2013,39 @@
     place(T.tallgrass, tallgrass(), 0, 0);
     place(T.shipbox, shipbox(), 0, 0);
     place(T.sign, sign(), 0, 0);
-    [['house', house()], ['shop', shop()], ['pond', pond(grass)]].forEach(function (b) {
-      var B = L.BLOCKS[b[0]];
-      for (var dy = 0; dy < B.h; dy++) for (var dx = 0; dx < B.w; dx++) {
-        place((B.row + dy) * L.COLS + B.col + dx, b[1], dx * S, dy * S);
-      }
-    });
+    main.placeBlock('house', house());
+    main.placeBlock('shop', shop());
+    main.placeBlock('pond', pond(grass));
 
-    // player: 3 directions x 3 steps of 256x384; crops: 3 crops x 4 stages; icons: 8x2 of 128
+    var ranch = tileSheet(sets.RANCH);
+    ranch.placeBlock('barn', barn());
+    ranch.placeBlock('coop', coop());
+    ranch.place(sets.RANCH.T.hay, hay(), 0, 0);
+    ranch.place(sets.RANCH.T.trough, trough(), 0, 0);
+
+    // player: 3 directions x 3 steps of 256x384; crops: 3 crops x 4 stages; icons: 8x3 of 128;
+    // animals: one row per animal, 4 poses of 384x320 (the 2048-wide sheet has room for 5 per row)
     var dirs = ['down', 'up', 'side'];
     var player = frameSheet(3, 3, 256, 384, 1024, 2048, function (g, step, row) { farmer(g, dirs[row], step); });
     var cropKeys = ['turnip', 'potato', 'strawberry'];
     var crops = frameSheet(3, 4, 256, 256, 1024, 2048, function (g, crop, stage) { CROP_DRAW[cropKeys[crop]][stage](g); });
     var iconNames = ['hoe', 'can', 'seed_turnip', 'seed_potato', 'seed_strawberry', 'turnip', 'potato', 'strawberry',
-      'coin', 'bolt', 'bag', 'moon', 'drop', 'sparkle', 'crate', 'tag'];
-    var items = frameSheet(8, 2, I, I, 8 + 8 * (I + 16) - 8, 8 + 2 * (I + 16) - 8, function (g, k, r) {
+      'coin', 'bolt', 'bag', 'moon', 'drop', 'sparkle', 'crate', 'tag',
+      'egg', 'milk', 'chicken_feed', 'fodder', 'heart', 'chicken', 'cow', 'bubble'];
+    var items = frameSheet(8, 3, I, I, 8 + 8 * (I + 16) - 8, 8 + 3 * (I + 16) - 8, function (g, k, r) {
       ICON_DRAW[iconNames[r * 8 + k]](g);
     });
+    var animals = frameSheet(4, 2, 384, 320, 2048, 1024, function (g, pose, row) {
+      if (row === 0) chicken(g, pose);
+      else cow(g, pose);
+    });
     return {
-      tiles: sheet.toDataURL('image/png'),
+      tiles: main.canvas.toDataURL('image/png'),
+      ranch: ranch.canvas.toDataURL('image/png'),
       player: player.toDataURL('image/png'),
       crops: crops.toDataURL('image/png'),
       items: items.toDataURL('image/png'),
+      animals: animals.toDataURL('image/png'),
     };
   };
 })();

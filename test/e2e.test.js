@@ -280,3 +280,112 @@ test('a garbage save from the host starts a new game instead of crashing', async
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Parks an animal at a tile and keeps it there, then puts the farmer just above it, facing down.
+async function meetAnimal(page, i, tx, ty) {
+  await page.evaluate(([i, tx, ty]) => {
+    const T = Farm.Config.TILE, m = Farm.world.herd.members[i];
+    m.x = m.tx = tx * T + T / 2;
+    m.y = m.ty = (ty + 0.8) * T;
+    m.wait = 1e9;
+  }, [i, tx, ty]);
+  await teleport(page, tx, ty - 1, 'down');
+}
+
+const actionLabel = (page) => page.evaluate(() => Farm.ui.actionLabel.text);
+
+test('animals: pet, feed, collect an egg, ship it, buy a cow, save', async () => {
+  const { page, problems, context } = await open();
+  await page.evaluate(() => window.__gameBack());
+  let s = await state(page);
+  assert.strictEqual(s.animals.length, 1);
+  assert.strictEqual(await page.evaluate(() => Farm.world.herd.members.length), 1);
+
+  // pet Clucky (holding the hoe)
+  await meetAnimal(page, 0, 5, 33);
+  assert.strictEqual(await actionLabel(page), 'Pet');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.animals[0].pet, 1);
+  assert.ok(s.animals[0].love > 0);
+
+  // feed her (Chicken Feed is in hotbar slot 4)
+  await tapHotbar(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Feed');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.animals[0].fed, 1);
+  assert.strictEqual(s.inv[3].n, 4);
+  assert.strictEqual(await actionLabel(page), 'Clucky', 'cared for: shows her name');
+  await shot(page, '10-pen');
+
+  // next morning there is an egg waiting
+  await sleepThroughNight(page);
+  s = await state(page);
+  assert.strictEqual(s.animals[0].ready, 1);
+  assert.strictEqual(await page.evaluate(() => Farm.world.herd.members[0].bubble.visible), true, 'egg bubble shows');
+  await meetAnimal(page, 0, 6, 33);
+  await shot(page, '11-egg-ready');
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
+  s = await state(page);
+  const eggSlot = s.inv.findIndex((x) => x && x.id === 'egg');
+  assert.ok(eggSlot >= 0, 'egg collected');
+  assert.strictEqual(s.animals[0].ready, 0);
+
+  // ship the egg
+  await page.evaluate((i) => { Farm.session.state.sel = i; Farm.world.hintKey = null; }, eggSlot);
+  await teleport(page, 10, 7, 'up');
+  assert.strictEqual(await actionLabel(page), 'Ship');
+  await tapAction(page);
+  s = await state(page);
+  assert.deepStrictEqual(s.box, [{ id: 'egg', n: 1 }]);
+
+  // buy a cow from the Animals tab
+  await page.evaluate(() => { Farm.session.state.gold = 1500; Farm.session.state.time = 600; });
+  await teleport(page, 16, 32, 'up');
+  await tapAction(page);
+  await tapButton(page, 'Animals');
+  await shot(page, '12-shop-animals');
+  const buys = await page.evaluate(() => {
+    const out = [];
+    const walk = (list) => list.forEach((o) => {
+      if (o.type === 'Text' && o.text === 'Buy') out.push(o.getBounds());
+      if (o.list) walk(o.list);
+    });
+    walk(Farm.ui.modals[0].c.list);
+    return out.map((b) => ({ x: b.centerX, y: b.centerY }));
+  });
+  assert.strictEqual(buys.length, 2);
+  await page.touchscreen.tap(buys[1].x, buys[1].y); // cow
+  await frames(page);
+  s = await state(page);
+  assert.strictEqual(s.animals.length, 2);
+  assert.strictEqual(s.animals[1].kind, 'cow');
+  assert.strictEqual(s.animals[1].name, 'Daisy');
+  assert.strictEqual(s.gold, 500);
+  assert.strictEqual(await page.evaluate(() => Farm.world.herd.members.length), 2);
+  await page.evaluate(() => window.__gameBack());
+
+  // the wrong feed is refused with a hint
+  await page.evaluate(() => { Farm.Logic.addItem(Farm.session.state, 'chicken_feed', 1); });
+  await page.evaluate(() => { Farm.session.state.sel = Farm.session.state.inv.findIndex((x) => x && x.id === 'chicken_feed'); Farm.world.hintKey = null; });
+  await meetAnimal(page, 1, 6, 33);
+  await shot(page, '13-cow');
+  assert.strictEqual(await actionLabel(page), 'Feed');
+  await tapAction(page);
+  assert.strictEqual((await state(page)).animals[1].fed, 0, 'chicken feed does not feed a cow');
+
+  // animals survive a save + reload
+  const saved = await page.evaluate(() => { Farm.world.save(); return gameHost.saves[gameHost.saves.length - 1]; });
+  assert.ok(saved.length < 16384);
+  const before = await state(page);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  const again = await open(JSON.parse(saved));
+  const after = await state(again.page);
+  assert.deepStrictEqual(after.animals, before.animals);
+  assert.strictEqual(await again.page.evaluate(() => Farm.world.herd.members.length), 2);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});

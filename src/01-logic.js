@@ -17,9 +17,11 @@
       inv: [],
       box: [], // items in the shipping box, paid out overnight: [{ id, n }]
       soil: {}, // tile index -> { w: watered 0|1, c: crop key or null, d: days grown }
+      animals: [], // { kind, name, love 0..100, fed 0|1, pet 0|1 (today), ready 0|1 (produce waiting) }
     };
     for (var i = 0; i < C.INV_SIZE; i++) s.inv.push(null);
     C.START_ITEMS.forEach(function (it) { L.addItem(s, it[0], it[1]); });
+    C.START_ANIMALS.forEach(function (kind) { L.addAnimal(s, kind); });
     return s;
   };
 
@@ -137,6 +139,73 @@
     return true;
   };
 
+  // ---------- animals ----------
+  L.animalCount = function (s, kind) {
+    return s.animals.filter(function (a) { return a.kind === kind; }).length;
+  };
+
+  // Picks the first unused name from the animal's list, then numbers them (Clucky 2, ...).
+  L.nextName = function (s, kind) {
+    var names = C.ANIMALS[kind].names, taken = s.animals.map(function (a) { return a.name; });
+    for (var round = 1; ; round++) {
+      for (var i = 0; i < names.length; i++) {
+        var n = round === 1 ? names[i] : names[i] + ' ' + round;
+        if (taken.indexOf(n) < 0) return n;
+      }
+    }
+  };
+
+  L.addAnimal = function (s, kind) {
+    s.animals.push({ kind: kind, name: L.nextName(s, kind), love: 0, fed: 0, pet: 0, ready: 0 });
+    return s.animals.length - 1;
+  };
+
+  // Returns the new animal's index, or 'gold' / 'full'.
+  L.buyAnimal = function (s, kind) {
+    var def = C.ANIMALS[kind];
+    if (L.animalCount(s, kind) >= def.max) return 'full';
+    if (s.gold < def.price) return 'gold';
+    s.gold -= def.price;
+    return L.addAnimal(s, kind);
+  };
+
+  function addLove(a, n) {
+    a.love = Math.max(0, Math.min(C.LOVE.max, a.love + n));
+  }
+
+  L.hearts = function (a) {
+    return Math.floor(a.love / 20);
+  };
+
+  L.feedAnimal = function (s, i, slotIndex) {
+    var a = s.animals[i], slot = s.inv[slotIndex];
+    if (!slot || C.ITEMS[slot.id].kind !== 'feed') return 'nofeed';
+    if (C.ITEMS[slot.id].animal !== a.kind) return 'wrong';
+    if (a.fed) return 'already';
+    a.fed = 1;
+    addLove(a, C.LOVE.feed);
+    L.removeAt(s, slotIndex, 1);
+    return 'ok';
+  };
+
+  L.petAnimal = function (s, i) {
+    var a = s.animals[i];
+    if (a.pet) return 'already';
+    a.pet = 1;
+    addLove(a, C.LOVE.pet);
+    return 'ok';
+  };
+
+  // Returns the collected item id, or an error string starting with '!'.
+  L.collect = function (s, i) {
+    var a = s.animals[i];
+    if (!a.ready) return '!notready';
+    var item = C.ANIMALS[a.kind].product;
+    if (L.addItem(s, item, 1) > 0) return '!full';
+    a.ready = 0;
+    return item;
+  };
+
   // ---------- shipping & shop ----------
   L.boxValue = function (s) {
     return s.box.reduce(function (sum, b) { return sum + C.ITEMS[b.id].sell * b.n; }, 0);
@@ -174,6 +243,20 @@
       if (t.c && t.w && !L.isRipe(t)) t.d += 1;
       t.w = 0;
     });
+    var hungry = [], produced = {};
+    s.animals.forEach(function (a) {
+      if (a.fed) {
+        a.ready = 1;
+        var item = C.ANIMALS[a.kind].product;
+        produced[item] = (produced[item] || 0) + 1;
+      } else {
+        addLove(a, C.LOVE.hungry);
+        hungry.push(a.name);
+      }
+      if (!a.pet) addLove(a, C.LOVE.lonely);
+      a.fed = 0;
+      a.pet = 0;
+    });
     var earned = L.boxValue(s);
     var shipped = s.box;
     s.gold += earned;
@@ -182,7 +265,7 @@
     s.time = C.DAY_START;
     s.energy = passedOut ? Math.floor(C.MAX_ENERGY / 2) : C.MAX_ENERGY;
     s.player = { x: null, y: null, dir: 'down' };
-    return { earned: earned, shipped: shipped, passedOut: !!passedOut };
+    return { earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced };
   };
 
   L.formatTime = function (minutes) {
@@ -212,6 +295,7 @@
         var t = s.soil[idx];
         return [Number(idx), t.w, t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.d];
       }),
+      a: s.animals.map(function (a) { return [C.ANIMAL_KEYS.indexOf(a.kind), a.love, a.fed, a.pet, a.ready, a.name]; }),
     };
     if (s.player.x != null) out.p = [Math.round(s.player.x), Math.round(s.player.y), DIRS.indexOf(s.player.dir)];
     return out;
@@ -251,6 +335,18 @@
       if (idx < 0) return;
       var crop = C.CROP_KEYS[int(e[2], 0, 1e6, 0) - 1] || null;
       s.soil[idx] = { w: e[1] ? 1 : 0, c: crop, d: crop ? int(e[3], 0, C.CROPS[crop].days, 0) : 0 };
+    });
+    // saves from before animals existed simply have none
+    s.animals = (Array.isArray(o.a) ? o.a : []).filter(function (e) {
+      return Array.isArray(e) && C.ANIMAL_KEYS[e[0]];
+    }).map(function (e) {
+      var kind = C.ANIMAL_KEYS[e[0]];
+      var name = typeof e[5] === 'string' && e[5] ? e[5].slice(0, 16) : C.ANIMALS[kind].names[0];
+      return { kind: kind, name: name, love: int(e[1], 0, C.LOVE.max, 0), fed: e[2] ? 1 : 0, pet: e[3] ? 1 : 0, ready: e[4] ? 1 : 0 };
+    });
+    C.ANIMAL_KEYS.forEach(function (kind) { // never more than a building holds
+      var seen = 0;
+      s.animals = s.animals.filter(function (a) { return a.kind !== kind || ++seen <= C.ANIMALS[kind].max; });
     });
     if (Array.isArray(o.p) && o.p.length === 3) {
       s.player = { x: int(o.p[0], 0, 1e5, 0), y: int(o.p[1], 0, 1e5, 0), dir: DIRS[int(o.p[2], 0, 3, 0)] };

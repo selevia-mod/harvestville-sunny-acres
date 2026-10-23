@@ -7,6 +7,7 @@
     player: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
     crops: { frameWidth: 256, frameHeight: 256, margin: 8, spacing: 16 },
     items: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
+    animals: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
   };
 
   // Shared between scenes: an event bus and the current touch/keyboard input.

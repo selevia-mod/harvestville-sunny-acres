@@ -19,7 +19,8 @@
     'Drag the joystick on the left to walk. Tap the big button to act on the highlighted tile.\n\n' +
     'Hoe: till the field.  Seeds: plant.\nCan: water every day. Refill it at the pond.\n\n' +
     'Harvest ripe crops and put them in the shipping box by your house. You get paid overnight.\n\n' +
-    "Buy seeds at Lily's shop (south, 9 AM to 5 PM). Go to bed in your house to end the day.";
+    'Animals: feed them once a day (Chicken Feed, Fodder) for an egg or milk the next morning. Pet them for hearts.\n\n' +
+    "Lily's shop (south, 9 AM to 5 PM) sells seeds, animals and feed. Go to bed in your house to end the day.";
 
   function style(size, color, extra) {
     var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: F.R };
@@ -54,7 +55,7 @@
       if (boot) boot.parentNode.removeChild(boot);
       if (F.session.isNew) {
         this.dialog('WELCOME TO YOUR FARM!\nTill the field, plant your turnip seeds, and water them every day. ' +
-          'Ship the harvest from the box by your house.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
+          'Your chicken Clucky is in the pen south of the field: feed her every day for eggs.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
       }
     }
 
@@ -431,6 +432,11 @@
       } else {
         lines.push('Nothing was shipped yesterday.');
       }
+      var made = Object.keys(result.produced || {}).map(function (id) {
+        return result.produced[id] + ' ' + C.ITEMS[id].name + (result.produced[id] > 1 && id === 'egg' ? 's' : '');
+      });
+      if (made.length) lines.push('\nYour animals made ' + made.join(' and ') + '. Collect them in the pen.');
+      if (result.hungry && result.hungry.length) lines.push((made.length ? '' : '\n') + result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
       this.dialog('GOOD MORNING! DAY ' + s.day + '\n' + lines.join('\n'));
     }
 
@@ -482,25 +488,37 @@
       this.button(c, W / 2, 470, 160, 44, 'Close', function () { self.closeModal(); });
     }
 
-    openShop() {
+    // Lily's shop: a Seeds tab and an Animals tab (animals + their feed).
+    openShop(tab) {
       var self = this, s = F.session.state;
+      tab = tab || 'seeds';
       var c = this.openModal();
-      this.panelImg(c, 12, 104, W - 24, 440);
-      c.add(this.txt(W / 2, 124, "Lily's Seed Shop", 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      var gold = this.txt(W / 2, 152, '', 15, INK).setOrigin(0.5, 0);
+      this.panelImg(c, 12, 66, W - 24, 540);
+      c.add(this.txt(W / 2, 86, "Lily's Shop", 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      var gold = this.txt(W / 2, 114, '', 15, INK).setOrigin(0.5, 0);
       c.add(gold);
       var showGold = function () { gold.setText('You have ' + s.gold + 'G'); };
       showGold();
-      C.SHOP_STOCK.forEach(function (id, row) {
-        var item = C.ITEMS[id], y = 186 + row * 98;
-        self.baked(c, 28, y, 'ui-shoprow', W - 56, 88, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 56, 88, 10); });
-        c.add(self.add.image(36, y + 8, self.slotTex('plain')).setOrigin(0).setScale(1 / F.R));
-        c.add(self.add.image(38 + SLOT / 2, y + 10 + SLOT / 2, 'items', item.icon).setScale(ICON));
-        c.add(self.txt(92, y + 10, item.name, 15, INK, { fontStyle: 'bold' }));
-        c.add(self.txt(92, y + 30, item.desc, 12, '#6a4a2a', { wordWrap: { width: 220 } }));
-        c.add(self.txt(38 + SLOT / 2, y + 58, item.price + 'G', 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      [['seeds', 'Seeds'], ['animals', 'Animals']].forEach(function (t, k) {
+        self.button(c, W / 2 + (k ? 72 : -72), 158, 136, 36, t[1], function () {
+          if (t[0] === tab) return;
+          self.closeModal();
+          self.openShop(t[0]);
+        }, t[0] === tab ? 0x5fa84a : 0xa08a68);
+      });
+      var row = function (y, h, icon, name, desc, price) {
+        self.baked(c, 28, y, 'ui-shoprow-' + h, W - 56, h, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 56, h, 10); });
+        c.add(self.add.image(36, y + 6, self.slotTex('plain')).setOrigin(0).setScale(1 / F.R));
+        c.add(self.add.image(38 + SLOT / 2, y + 8 + SLOT / 2, 'items', icon).setScale(ICON));
+        c.add(self.txt(92, y + 8, name, 15, INK, { fontStyle: 'bold' }));
+        c.add(self.txt(92, y + 28, desc, 12, '#6a4a2a', { wordWrap: { width: 222 } }));
+        c.add(self.txt(38 + SLOT / 2, y + h - 30, price + 'G', 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      };
+      var itemRow = function (id, y, h) {
+        var item = C.ITEMS[id];
+        row(y, h, item.icon, item.name, item.shop || item.desc, item.price);
         [1, 5].forEach(function (qty, k) {
-          self.button(c, 152 + k * 96, y + 66, 86, 32, 'Buy ' + qty, function () {
+          self.button(c, 152 + k * 96, y + h - 20, 86, 30, 'Buy ' + qty, function () {
             var r = L.buy(s, id, qty);
             if (r === 'gold') return self.toast('Not enough gold.');
             if (r === 'full') return self.toast('Your bag is full.');
@@ -510,8 +528,28 @@
             F.world.save();
           }, k ? 0x4a90c9 : 0x5fa84a);
         });
-      });
-      this.button(c, W / 2, 508, 160, 42, 'Close', function () { self.closeModal(); });
+      };
+      if (tab === 'seeds') {
+        C.SHOP_STOCK.forEach(function (id, i) { itemRow(id, 194 + i * 98, 88); });
+      } else {
+        C.SHOP_ANIMALS.forEach(function (kind, i) {
+          var def = C.ANIMALS[kind], y = 194 + i * 88;
+          row(y, 80, def.icon, def.name + '   ' + L.animalCount(s, kind) + '/' + def.max + ' in the ' + def.home, def.shop, def.price);
+          self.button(c, 248, y + 60, 86, 30, 'Buy', function () {
+            var r = L.buyAnimal(s, kind);
+            if (r === 'gold') return self.toast('Not enough gold.');
+            if (r === 'full') return self.toast('The ' + def.home + ' is full.');
+            F.world.herd.add(r);
+            F.world.changed();
+            F.world.save();
+            self.closeModal();
+            self.openShop('animals');
+            self.toast('Meet ' + s.animals[r].name + '! Your new ' + def.name.toLowerCase() + ' is in the pen.');
+          });
+        });
+        C.SHOP_FEED.forEach(function (id, i) { itemRow(id, 194 + (C.SHOP_ANIMALS.length + i) * 88, 80); });
+      }
+      this.button(c, W / 2, 568, 160, 40, 'Close', function () { self.closeModal(); });
     }
 
     // ---------- keyboard (desktop testing) ----------

@@ -33,6 +33,22 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
   Go to bed at the house door to end the day.
 - The bag button shows all 18 slots. The first 6 are the hotbar.
 
+### Animals
+
+- The pen south-west of the field has a **coop** (up to 4 chickens) and a **barn** (up to 4 cows).
+  A new game starts with one chicken, Clucky, and 5 Chicken Feed.
+- Face an animal and tap the action button:
+  - **Collect** an egg or milk when its bubble shows.
+  - **Feed** it while holding the right feed: Chicken Feed for chickens, Fodder for cows.
+  - **Pet** it once a day.
+  - Tap again to see its hearts and today's care.
+- A fed animal has produce ready the next morning: Egg 50G, Milk 120G. Ship it like crops.
+- Love (0 to 100, shown as 5 hearts) goes up with feeding (+2) and petting (+4). It drops when an animal goes
+  hungry (-6) or isn't petted (-3).
+- Lily's shop has an **Animals** tab: Chicken 250G, Cow 1000G, Chicken Feed 10G, Fodder 20G.
+- Animals wander inside the map's `pen` object, rest and graze, and sleep from 8 PM. Saves from before animals
+  existed load with no animals.
+
 Desktop keys for testing: WASD/arrows move, Space/Enter act, 1 to 6 hotbar, E bag, Esc back.
 
 ## Host integration
@@ -57,9 +73,11 @@ src/            game code, concatenated in filename order
   10-boot.js      registers inlined textures + Tiled maps, animations
   11-world.js     map, player, clock, action-button behaviour
   12-ui.js        HUD, joystick, hotbar, bag / shop / dialog / pause panels
+  13-animals.js   the herd in the pen: wandering, poses, produce bubbles, hearts
   20-main.js      decodes images, starts Phaser
 maps/farm.json  Tiled map (JSON, embedded tileset). Layers: Ground, Soil, Walls, Above, Objects
-assets/*.png    sprite sheets: tiles (256x256), player (256x384), crops (256x256), item icons (128x128)
+assets/*.png    sprite sheets: tiles + ranch (256x256 tiles), player (256x384), crops (256x256),
+                animals (384x320), item icons (128x128)
 tools/          make-art.js + art/draw.js (draws the art in headless Chromium), make-map.js (seeded the map)
 build.js        inlines everything into dist/index.html
 test/           logic.test.js (Node) and e2e.test.js (Playwright playthrough)
@@ -87,7 +105,9 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
   `name` = `tilled` / `tilled_wet` (used by the Soil layer at runtime).
 - Leave the **Soil** layer empty. The game paints tilled soil into it.
 - **Above** draws over the player (tree tops).
-- Objects use `type`: `spawn` (point), `sleep`, `ship`, `shop`, and `sign` (with a string property `text`).
+- There are two tilesets: `tiles` and `ranch` (barn, coop, hay, trough).
+- Objects use `type`: `spawn` (point), `sleep`, `ship`, `shop`, `pen` (the area animals wander in), and `sign`
+  (with a string property `text`).
 
 Run `npm run build` after editing. `tools/make-map.js` was only used to seed the map, and it won't overwrite it
 unless you pass `--force`.

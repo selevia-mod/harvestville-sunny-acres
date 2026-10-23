@@ -182,6 +182,8 @@ test('worst-case save stays under 16 KB', () => {
   s.gold = 999999999;
   s.day = 999999;
   s.player = { x: 12345, y: 12345, dir: 'right' };
+  s.animals = [];
+  C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < C.ANIMALS[k].max; i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 1 }); });
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, `save is ${size} bytes`);
 });
@@ -205,4 +207,117 @@ test('bad or foreign save data is rejected or sanitised', () => {
   same(s.soil[10], { w: 1, c: null, d: 0 });
   same(s.soil[11], { w: 0, c: 'turnip', d: C.CROPS.turnip.days });
   assert.strictEqual(s.player.x, null);
+});
+
+test('a new game starts with one chicken and some feed', () => {
+  const s = L.newState();
+  assert.strictEqual(s.animals.length, 1);
+  same(s.animals[0], { kind: 'chicken', name: 'Clucky', love: 0, fed: 0, pet: 0, ready: 0 });
+  assert.strictEqual(L.countItem(s, 'chicken_feed'), 5);
+});
+
+test('buying animals checks gold and building space, and names them', () => {
+  const s = L.newState();
+  s.gold = 999;
+  assert.strictEqual(L.buyAnimal(s, 'cow'), 'gold');
+  s.gold = 1e6;
+  assert.strictEqual(L.buyAnimal(s, 'cow'), 1);
+  assert.strictEqual(s.animals[1].name, 'Daisy');
+  assert.strictEqual(s.gold, 1e6 - C.ANIMALS.cow.price);
+  for (let i = 1; i < C.ANIMALS.chicken.max; i++) L.buyAnimal(s, 'chicken');
+  assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
+  assert.strictEqual(L.buyAnimal(s, 'chicken'), 'full');
+  same(s.animals.filter((a) => a.kind === 'chicken').map((a) => a.name), ['Clucky', 'Nugget', 'Pecky', 'Henrietta']);
+});
+
+test('names get numbered once the list runs out', () => {
+  const s = L.newState();
+  s.animals = C.ANIMALS.cow.names.map((name) => ({ kind: 'cow', name, love: 0, fed: 0, pet: 0, ready: 0 }));
+  assert.strictEqual(L.nextName(s, 'cow'), 'Daisy 2');
+});
+
+test('feeding needs the right feed, once a day', () => {
+  const s = L.newState();
+  const feed = slotOf(s, 'chicken_feed');
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'hoe')), 'nofeed');
+  L.addItem(s, 'fodder', 1);
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'fodder')), 'wrong');
+  assert.strictEqual(L.feedAnimal(s, 0, feed), 'ok');
+  assert.strictEqual(L.countItem(s, 'chicken_feed'), 4);
+  assert.strictEqual(L.feedAnimal(s, 0, feed), 'already');
+  assert.strictEqual(L.countItem(s, 'chicken_feed'), 4);
+});
+
+test('a fed animal has produce the next morning; collecting adds it to the bag', () => {
+  const s = L.newState();
+  assert.strictEqual(L.collect(s, 0), '!notready');
+  L.feedAnimal(s, 0, slotOf(s, 'chicken_feed'));
+  const r = L.endDay(s);
+  same(r.produced, { egg: 1 });
+  same(r.hungry, []);
+  assert.strictEqual(s.animals[0].ready, 1);
+  assert.strictEqual(s.animals[0].fed, 0, 'hunger resets overnight');
+  assert.strictEqual(L.collect(s, 0), 'egg');
+  assert.strictEqual(L.countItem(s, 'egg'), 1);
+  assert.strictEqual(L.collect(s, 0), '!notready');
+  // eggs sell through the shipping box like crops
+  assert.strictEqual(L.ship(s, slotOf(s, 'egg')).value, C.ITEMS.egg.sell);
+});
+
+test('uncollected produce does not stack up', () => {
+  const s = L.newState();
+  for (let d = 0; d < 3; d++) {
+    s.animals[0].fed = 1;
+    L.endDay(s);
+  }
+  assert.strictEqual(L.collect(s, 0), 'egg');
+  assert.strictEqual(L.collect(s, 0), '!notready');
+});
+
+test('a full bag keeps the produce waiting', () => {
+  const s = L.newState();
+  s.animals[0].ready = 1;
+  for (let i = 0; i < s.inv.length; i++) if (!s.inv[i]) s.inv[i] = { id: 'potato', n: 99 };
+  assert.strictEqual(L.collect(s, 0), '!full');
+  assert.strictEqual(s.animals[0].ready, 1);
+});
+
+test('love grows with care and drops with neglect', () => {
+  const s = L.newState();
+  const a = s.animals[0];
+  assert.strictEqual(L.petAnimal(s, 0), 'ok');
+  assert.strictEqual(L.petAnimal(s, 0), 'already');
+  L.feedAnimal(s, 0, slotOf(s, 'chicken_feed'));
+  assert.strictEqual(a.love, C.LOVE.pet + C.LOVE.feed);
+  L.endDay(s);
+  a.love = 50;
+  const r = L.endDay(s); // neither fed nor petted
+  same(r.hungry, ['Clucky']);
+  assert.strictEqual(a.love, 50 + C.LOVE.hungry + C.LOVE.lonely);
+  a.love = 99;
+  L.petAnimal(s, 0);
+  assert.strictEqual(a.love, C.LOVE.max);
+  assert.strictEqual(L.hearts(a), 5);
+});
+
+test('animals round-trip through the save, and old saves load without them', () => {
+  const s = L.newState();
+  s.gold = 1e6;
+  L.buyAnimal(s, 'cow');
+  s.animals[1].love = 42;
+  s.animals[1].ready = 1;
+  L.petAnimal(s, 0);
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  same(back.animals, s.animals);
+  const old = L.serialize(s);
+  delete old.a;
+  same(L.deserialize(old).animals, []);
+});
+
+test('bad animal save data is sanitised', () => {
+  const o = L.serialize(L.newState());
+  o.a = [[9, 1, 1, 1, 1, 'Ghost'], 'junk', [1, 500, 1, 0, 0, 12345], ...Array(6).fill([0, 10, 0, 0, 0, 'Hen'])];
+  const s = L.deserialize(o);
+  same(s.animals[0], { kind: 'cow', name: 'Daisy', love: C.LOVE.max, fed: 1, pet: 0, ready: 0 });
+  assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
 });

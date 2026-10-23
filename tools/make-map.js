@@ -4,7 +4,11 @@
 // unless you pass --force.
 const fs = require('fs');
 const path = require('path');
-const { SIZE, MARGIN, SPACING, IMAGE_W, IMAGE_H, TILECOUNT, T, BLOCKS, blockId } = require('./tiles');
+const { SIZE, TILES, RANCH, blockId } = require('./tiles');
+
+const T = TILES.T;
+const R = RANCH.T;
+const FIRSTGID = { tiles: 1, ranch: 1 + TILES.TILECOUNT };
 
 function rng(seed) { // deterministic, so the seeded map is reproducible
   let a = seed >>> 0;
@@ -30,11 +34,17 @@ const H = 38;
 const r = rng(42);
 const layer = () => new Array(W * H).fill(0);
 const ground = layer(), soil = layer(), walls = layer(), above = layer();
-const put = (l, x, y, id) => { if (x >= 0 && y >= 0 && x < W && y < H) l[y * W + x] = id + 1; };
+// put() takes a tile id of the main tileset; putRanch() one of the ranch tileset.
+const put = (l, x, y, id) => { if (x >= 0 && y >= 0 && x < W && y < H) l[y * W + x] = id + FIRSTGID.tiles; };
+const putRanch = (l, x, y, id) => { l[y * W + x] = id + FIRSTGID.ranch; };
 const get = (l, x, y) => l[y * W + x] - 1;
-const putBlock = (l, name, x0, y0) => {
-  const b = BLOCKS[name];
-  for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) put(l, x0 + dx, y0 + dy, blockId(name, dx, dy));
+const putBlock = (l, set, name, x0, y0) => {
+  const b = set.BLOCKS[name];
+  for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) {
+    const id = blockId(set, name, dx, dy);
+    if (set === RANCH) putRanch(l, x0 + dx, y0 + dy, id);
+    else put(l, x0 + dx, y0 + dy, id);
+  }
 };
 const tree = (x, y) => { // (x, y) = top-left of the 2x2 tree
   put(above, x, y, T.treeTL); put(above, x + 1, y, T.treeTR);
@@ -59,9 +69,9 @@ pathRect(11, 25, 12, 37); // bottom gate -> south exit
 pathRect(13, 32, 17, 33); // branch to the shop counter
 
 // --- buildings & pond
-putBlock(walls, 'house', 4, 3);  // door at (6, 6)
-putBlock(ground, 'pond', 15, 3);
-putBlock(walls, 'shop', 14, 28); // counter at (16..17, 31)
+putBlock(walls, TILES, 'house', 4, 3);  // door at (6, 6)
+putBlock(ground, TILES, 'pond', 15, 3);
+putBlock(walls, TILES, 'shop', 14, 28); // counter at (16..17, 31)
 put(walls, 10, 6, T.shipbox);
 put(walls, 8, 9, T.sign);
 put(walls, 13, 35, T.sign);
@@ -76,6 +86,20 @@ for (let y = 11; y <= 24; y++) { put(walls, 3, y, T.fenceV); put(walls, 20, y, T
 for (let x = 10; x <= 13; x++) put(walls, x, 37, T.fenceH); // south road is closed for now
 put(walls, 10, 37, T.fencePost); put(walls, 13, 37, T.fencePost);
 
+// --- animal pen (x 2..10, y 27..35) with a barn, a coop and a gate onto the path at y 31..32
+const PEN = { x0: 2, y0: 27, x1: 10, y1: 35 };
+for (let x = PEN.x0; x <= PEN.x1; x++) { put(walls, x, PEN.y0, T.fenceH); put(walls, x, PEN.y1, T.fenceH); }
+for (let y = PEN.y0 + 1; y < PEN.y1; y++) {
+  put(walls, PEN.x0, y, T.fenceV);
+  if (y !== 31 && y !== 32) put(walls, PEN.x1, y, T.fenceV);
+}
+[[PEN.x0, PEN.y0], [PEN.x1, PEN.y0], [PEN.x0, PEN.y1], [PEN.x1, PEN.y1], [PEN.x1, 30], [PEN.x1, 33]].forEach(([x, y]) => put(walls, x, y, T.fencePost));
+putBlock(walls, RANCH, 'barn', 3, 28);
+putBlock(walls, RANCH, 'coop', 7, 28);
+putRanch(walls, 9, 28, R.hay);
+putRanch(walls, 6, 30, R.trough);
+pathRect(10, 31, 10, 32); // through the gate
+
 // --- tree border
 for (let x = 0; x < W; x += 2) tree(x, 0);
 for (let y = 2; y <= 34; y += 2) { tree(0, y); tree(22, y); }
@@ -83,6 +107,7 @@ for (let x = 2; x < W - 2; x += 2) if (x !== 10 && x !== 12) tree(x, 36);
 
 // --- scattered decoration on open grass
 const free = (x, y) => {
+  if (x >= PEN.x0 && x <= PEN.x1 && y >= PEN.y0 - 1 && y <= PEN.y1) return false;
   if (get(walls, x, y) >= 0 || get(above, x, y) >= 0) return false;
   const g = get(ground, x, y);
   if (g !== T.grass && g !== T.grass2 && g !== T.grass3 && g !== T.flowers) return false;
@@ -106,20 +131,26 @@ decor.forEach(([id, count]) => {
 
 // --- tileset tile properties
 const prop = (name, type, value) => ({ name, type, value });
-const tileProps = {};
-const add = (id, ...props) => { tileProps[id] = (tileProps[id] || []).concat(props); };
+const tileProps = { tiles: {}, ranch: {} };
+let current = 'tiles';
+const add = (id, ...props) => { tileProps[current][id] = (tileProps[current][id] || []).concat(props); };
 [T.fenceH, T.fenceV, T.fencePost, T.treeBL, T.treeBR, T.bush, T.rock, T.shipbox, T.sign, T.stump].forEach((id) => add(id, prop('collides', 'bool', true)));
 add(T.water, prop('collides', 'bool', true), prop('water', 'bool', true));
 add(T.field, prop('tillable', 'bool', true), prop('name', 'string', 'field'));
 add(T.tilled, prop('name', 'string', 'tilled'));
 add(T.tilledWet, prop('name', 'string', 'tilled_wet'));
-Object.keys(BLOCKS).forEach((name) => {
-  const b = BLOCKS[name];
-  for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) {
-    add(blockId(name, dx, dy), prop('collides', 'bool', true));
-    if (name === 'pond') add(blockId(name, dx, dy), prop('water', 'bool', true));
-  }
+[TILES, RANCH].forEach((set) => {
+  current = set.NAME;
+  Object.keys(set.BLOCKS).forEach((name) => {
+    const b = set.BLOCKS[name];
+    for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) {
+      add(blockId(set, name, dx, dy), prop('collides', 'bool', true));
+      if (name === 'pond') add(blockId(set, name, dx, dy), prop('water', 'bool', true));
+    }
+  });
 });
+add(R.hay, prop('collides', 'bool', true));
+add(R.trough, prop('collides', 'bool', true));
 
 // --- objects (Tiled object layer)
 let nextId = 1;
@@ -133,6 +164,7 @@ const objects = [
   obj('shipping_box', 'ship', 10, 6),
   obj('seed_shop', 'shop', 16, 31, 2, 1),
   obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nTill soil with the Hoe, plant seeds, and water them every day. Ripe crops go in the shipping box by the house.')]),
+  obj('animal_pen', 'pen', 3, 31, 7, 4), // where the animals wander
   obj('road_sign', 'sign', 13, 35, 1, 1, [prop('text', 'string', 'SOUTH: Town\nThe road is closed for repairs. Come back another season!')]),
 ];
 
@@ -150,13 +182,12 @@ const map = {
     tileLayer(4, 'Above', above),
     { id: 5, name: 'Objects', type: 'objectgroup', draworder: 'topdown', x: 0, y: 0, opacity: 1, visible: true, objects },
   ],
-  tilesets: [{
-    firstgid: 1, name: 'tiles', image: '../assets/tiles.png',
-    imagewidth: IMAGE_W, imageheight: IMAGE_H, tilewidth: SIZE, tileheight: SIZE,
-    columns: Math.floor((IMAGE_W - MARGIN * 2 + SPACING) / (SIZE + SPACING)), tilecount: TILECOUNT,
-    margin: MARGIN, spacing: SPACING,
-    tiles: Object.keys(tileProps).map(Number).sort((a, b) => a - b).map((id) => ({ id, properties: tileProps[id] })),
-  }],
+  tilesets: [TILES, RANCH].map((set) => ({
+    firstgid: FIRSTGID[set.NAME], name: set.NAME, image: '../assets/' + set.NAME + '.png',
+    imagewidth: set.IMAGE_W, imageheight: set.IMAGE_H, tilewidth: SIZE, tileheight: SIZE,
+    columns: set.COLS, tilecount: set.TILECOUNT, margin: set.MARGIN, spacing: set.SPACING,
+    tiles: Object.keys(tileProps[set.NAME]).map(Number).sort((a, b) => a - b).map((id) => ({ id, properties: tileProps[set.NAME][id] })),
+  })),
 };
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });

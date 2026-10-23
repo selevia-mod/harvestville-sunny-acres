@@ -16,7 +16,7 @@ const OUT = path.join(__dirname, '..', 'assets');
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setContent('<!DOCTYPE html><html><body></body></html>');
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'draw.js') });
-  const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify(layout)));
+  const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify({ TILES: layout.TILES, RANCH: layout.RANCH })));
   await browser.close();
   if (errors.length) throw new Error(errors.join('\n'));
   Object.keys(sheets).forEach((name) => {
