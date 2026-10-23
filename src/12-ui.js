@@ -51,13 +51,13 @@
       this.input.addPointer(2);
       // The canvas is WIDTH*R x HEIGHT*R; zoom so all UI code works in WIDTH x HEIGHT layout px.
       this.cameras.main.setZoom(F.R).centerOn(W / 2, H / 2);
-      this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0).setDepth(-1);
       this.weatherKey = ''; // petals / leaves / snow / rain, rebuilt when the season or weather changes
       this.buildHud();
       this.buildHotbar();
       this.buildAction();
       this.buildJoystick();
       this.buildToast();
+      this.buildGoal();
       this.setupKeys();
       F.bus.on('hud', this.refresh, this);
       F.bus.on('hint', this.setHint, this);
@@ -217,21 +217,18 @@
       var weather = L.weather(s, s.day), mapKey = F.world ? F.world.mapKey : 'farm';
       var outdoors = mapKey === 'farm' || mapKey === 'town';
       this.weatherIcon.setFrame(C.WEATHER[weather].icon);
-      this.weatherText.setText(C.WEATHER[weather].name);
+      this.weatherText.setText(mapKey === 'mine' ? 'Mine B' + F.session.mineFloor : C.WEATHER[weather].name);
       var wkey = date.season + '|' + weather + '|' + outdoors;
       if (wkey !== this.weatherKey) this.buildWeather(date.season, weather, outdoors, wkey);
       this.timeText.setText(L.formatTime(s.time));
-      this.goldText.setText(s.gold + 'G');
+      this.showGold(s.gold);
       var pct = s.energy / C.MAX_ENERGY;
       this.energyBar.setFillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d);
       this.energyBar.setSize(Math.max(0.01, 70 * pct), 11).setVisible(pct > 0);
       for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
-      var dark = this.nightAlpha(s.time);
-      if (mapKey === 'house') dark *= 0.35; // the lamps are on
-      if (mapKey === 'mine') dark = 0.3;
-      if (outdoors && weather === 'storm') dark = Math.max(dark, 0.28);
-      else if (outdoors && weather === 'rain') dark = Math.max(dark, 0.16);
-      this.night.setAlpha(dark);
+      // the night sheet lives in the world, so windows and lamps can glow through it
+      if (F.world && F.world.applyDark) F.world.applyDark(this.darkness());
+      if (this.refreshGoal) this.refreshGoal();
       if (this.invRefresh) this.invRefresh();
     }
 
@@ -284,6 +281,38 @@
       this.weather.fastForward(12000); // start with the screen already filled
     }
 
+    darkness() {
+      var s = F.session.state, mapKey = F.world ? F.world.mapKey : 'farm', weather = L.weather(s, s.day);
+      var outdoors = mapKey === 'farm' || mapKey === 'town';
+      var dark = this.nightAlpha(s.time);
+      if (mapKey === 'house') dark *= 0.35; // the lamps are on
+      if (mapKey === 'mine') dark = 0.3;
+      if (outdoors && weather === 'storm') dark = Math.max(dark, 0.28);
+      else if (outdoors && weather === 'rain') dark = Math.max(dark, 0.16);
+      return dark;
+    }
+
+    // The gold counter rolls up to the new amount.
+    showGold(gold) {
+      var self = this;
+      if (this.goldShown == null || gold <= this.goldShown) {
+        if (this.goldTween) this.goldTween.remove();
+        this.goldShown = gold;
+        this.goldText.setText(gold + 'G');
+        return;
+      }
+      if (this.goldTarget === gold) return;
+      this.goldTarget = gold;
+      if (this.goldTween) this.goldTween.remove();
+      var from = this.goldShown;
+      this.goldTween = this.tweens.addCounter({
+        from: from, to: gold, duration: Math.min(1200, 300 + (gold - from) / 2), ease: 'Quad.out',
+        onUpdate: function (tw) { self.goldShown = Math.round(tw.getValue()); self.goldText.setText(self.goldShown + 'G'); },
+        onComplete: function () { self.goldShown = gold; self.goldText.setText(gold + 'G'); },
+      });
+      this.tweens.add({ targets: this.goldText, scale: { from: 1.18, to: 1 }, duration: 300 });
+    }
+
     nightAlpha(t) {
       if (t < C.NIGHT_START) return 0;
       if (t < C.NIGHT_FULL) return 0.45 * (t - C.NIGHT_START) / (C.NIGHT_FULL - C.NIGHT_START);
@@ -304,6 +333,7 @@
       var bag = this.slotWidget(null, bx, HOTBAR_Y - SLOT / 2, function () { if (!self.modals.length) self.openInventory(); });
       bag.bg.setTexture(this.slotTex('bag'));
       bag.icon.setFrame(C.ICON.bag);
+      this.bagWidget = bag;
     }
 
     select(i) {
@@ -419,7 +449,9 @@
       this.fpsSince = 0;
     }
 
-    update(time) {
+    update(time, delta) {
+      this.updateArrow(time);
+      if (this.game2) this.game2.update(Math.min(delta, 100), time);
       if (!this.fpsText.visible) return;
       this.fpsFrames++;
       if (time - this.fpsSince < 1000) return;
@@ -436,14 +468,20 @@
       this.hideToast();
     }
 
-    toast(msg) {
+    toast(msg, ms, color) {
       if (!msg) return;
-      this.toastText.setText(msg).setVisible(true);
+      this.toastText.setText(msg).setVisible(true).setY(this.goalBar && this.goalBar.visible ? 114 : 84);
       var b = this.toastText.getBounds();
       this.toastBg.clear().setVisible(true);
-      this.toastBg.fillStyle(0x24160b, 0.82).fillRoundedRect(b.x - 12, b.y - 8, b.width + 24, b.height + 16, 10);
+      this.toastBg.fillStyle(color || 0x24160b, 0.86).fillRoundedRect(b.x - 12, b.y - 8, b.width + 24, b.height + 16, 10);
       if (this.toastTimer) this.toastTimer.remove();
-      this.toastTimer = this.time.delayedCall(2400, this.hideToast, [], this);
+      this.toastTimer = this.time.delayedCall(ms || 2400, this.hideToast, [], this);
+    }
+
+    // A tip the first time you hold something: stays up longer, on a green card.
+    tip(text) {
+      this.toast(text, 6000, 0x2f5a22);
+      if (F.Audio) F.Audio.sfx('pick');
     }
 
     hideToast() {
@@ -462,6 +500,7 @@
     }
 
     openModal(onBack) {
+      this.hideToast(); // don't cover the panel's title
       var c = this.add.container(0, 0).setDepth(100 + this.modals.length);
       var dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.45).setOrigin(0).setInteractive();
       c.add(dim);
@@ -567,6 +606,7 @@
         if (e.repeat) return;
         if (F.Audio) F.Audio.unlock();
         if (e.key === 'Escape' || e.key === 'Backspace') { self.back(); return; }
+        if (self.game2 && (e.key === ' ' || e.key === 'Enter' || e.key === 'j')) { self.game2.press(true); return; }
         if (self.modals.length) return;
         if (e.key === ' ' || e.key === 'Enter' || e.key === 'j') {
           F.input.action = true;
@@ -576,6 +616,7 @@
         else if (e.key >= '1' && e.key <= '6') self.select(Number(e.key) - 1);
       });
       kb.on('keyup', function (e) {
+        if (self.game2 && (e.key === ' ' || e.key === 'Enter' || e.key === 'j')) self.game2.press(false);
         if ((e.key === ' ' || e.key === 'Enter' || e.key === 'j') && F.input.holding) {
           F.input.holding = false;
           F.input.released = true;

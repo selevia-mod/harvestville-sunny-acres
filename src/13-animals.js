@@ -120,16 +120,17 @@
 
   // The farm dog: trots around his yard by the house, sits when he sees you, sleeps at night.
   F.Dog = class {
-    constructor(scene, area) {
+    constructor(scene, area, def, scale) {
       this.scene = scene;
       this.area = area;
+      this.def = def || C.DOG;
       var p = this.spot();
       this.x = this.tx = p.x;
       this.y = this.ty = p.y;
       this.wait = 1000;
       this.sit = 0;
       this.flip = false;
-      this.sprite = scene.add.image(p.x, p.y, 'animals', C.DOG.frame0).setOrigin(0.5, 300 / 320).setScale(0.8);
+      this.sprite = scene.add.image(p.x, p.y, 'animals', this.def.frame0).setOrigin(0.5, 300 / 320).setScale(scale || 0.8);
     }
 
     spot() {
@@ -155,7 +156,7 @@
           this.ty = p.y;
         }
       } else {
-        var dx = this.tx - this.x, dy = this.ty - this.y, d = Math.sqrt(dx * dx + dy * dy), step = C.DOG.speed * dt / 1000;
+        var dx = this.tx - this.x, dy = this.ty - this.y, d = Math.sqrt(dx * dx + dy * dy), step = this.def.speed * dt / 1000;
         if (d <= step) {
           this.x = this.tx;
           this.y = this.ty;
@@ -167,12 +168,12 @@
           pose = Math.floor(time / 120) % 2;
         }
       }
-      this.sprite.setPosition(this.x, this.y).setFrame(C.DOG.frame0 + pose).setFlipX(this.flip).setDepth(DEPTH + this.y / 1e5);
+      this.sprite.setPosition(this.x, this.y).setFrame(this.def.frame0 + pose).setFlipX(this.flip).setDepth(DEPTH + this.y / 1e5);
     }
 
     near(x, y) {
-      var cx = this.x, cy = this.y - C.DOG.height * T * 0.4;
-      return Math.sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y)) < C.DOG.reach * T;
+      var cx = this.x, cy = this.y - this.def.height * T * 0.4;
+      return Math.sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y)) < this.def.reach * T;
     }
 
     happy() {

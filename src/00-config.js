@@ -17,6 +17,7 @@
     'boiled_egg', 'hot_milk', 'baked_potato', 'jam', 'tomato_soup', 'grilled_fish', 'veggie_stew', 'pumpkin_pie',
     'mushroom_soup', 'sandwich', 'hot_soup', 'tonic', 'egg_l', 'milk_l', 'seed_grass', 'blue_feather', 'miracle',
     'rain', 'storm', 'snow', 'ribbon', 'bobber', 'exclaim', 'gift', 'calendar', 'note', 'dog', 'ring', 'lunch',
+    'letter', 'book', 'horse', 'cat', 'chest', 'star', 'aquarium', 'music_box', 'big_plant', 'cat_basket',
   ];
 
   // Villagers in the order of the people sprite sheet (tools/make-art.js reads this list too).

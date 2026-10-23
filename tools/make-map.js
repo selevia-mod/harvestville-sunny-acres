@@ -250,8 +250,10 @@ function farm() {
   for (let x = 2; x < m.W - 2; x += 2) if (x !== 10 && x !== 12) m.tree(x, 36);
 
   m.prop('doghouse', 12, 3);
+  m.prop('mailbox', 9, 5);
+  m.prop('stable', 18, 32, [prop('requires', 'string', 'stable')]);
   const keep = (x, y) => (x >= PEN.x0 && x <= PEN.x1 && y >= PEN.y0 - 1 && y <= PEN.y1)
-    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || x === 2 || x === 21;
+    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
   decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 6], [T.rock, 4], [T.stump, 2]]);
 
   m.point('spawn', 'spawn', 6.5, 7.6);
@@ -260,13 +262,15 @@ function farm() {
   m.obj('house_door', 'warp', 6, 6, 1, 1, [prop('to', 'string', 'house'), prop('spawn', 'string', 'door'), prop('label', 'string', 'Enter')]);
   m.obj('road_south', 'warp', 10, 37, 4, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_farm'), prop('walk', 'bool', true)]);
   m.obj('shipping_box', 'ship', 10, 6);
+  m.obj('mailbox', 'mail', 9, 6);
+  m.point('horse', 'place', 17.3, 35.2);
   m.obj('seed_shop', 'shop', 16, 31, 2, 1);
   m.obj('incubator', 'incubator', 7, 28, 2, 2);
   m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Ship your crops in the box by the house.')]);
   m.obj('road_sign', 'sign', 13, 35, 1, 1, [prop('text', 'string', 'SOUTH: Willowbrook\nThe town is just down the road. Say hello to everyone!')]);
   m.obj('animal_pen', 'pen', 3, 31, 7, 4);
   m.obj('dog_yard', 'dogarea', 11, 5, 4, 5);
-  [[11, 2, 4, 3], [2, 11, 1, 14], [18, 32, 4, 4], [21, 26, 1, 6]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
+  [[11, 2, 4, 3], [2, 11, 1, 14], [14, 34, 3, 2], [21, 26, 1, 6]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
   return m.json();
 }
 
@@ -299,6 +303,11 @@ function house() {
   m.prop('bed2', 8, 2, [prop('requires', 'string', 'bighouse')]);
   m.prop('dresser', 9, 6, [prop('requires', 'string', 'bighouse')]);
   m.prop('wall_calendar', 10, 0, [prop('requires', 'string', 'bighouse')]);
+  // furniture bought from Mira
+  m.prop('big_plant', 3, 1, [prop('requires', 'string', 'f_plant')]);
+  m.prop('music_box', 5, 2, [prop('requires', 'string', 'f_music')]);
+  m.prop('aquarium', 1, 5, [prop('requires', 'string', 'f_aquarium')]);
+  m.prop('cat_bed', 6, 6, [prop('requires', 'string', 'f_cat')]);
 
   m.point('door', 'spawn', 6, 8.6, [prop('dir', 'string', 'up')]);
   m.point('bed', 'spawn', 2, 4.5, [prop('dir', 'string', 'down')]);
@@ -306,6 +315,9 @@ function house() {
   m.obj('exit', 'warp', 5, 9, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'house_door'), prop('walk', 'bool', true)]);
   m.obj('bed', 'sleep', 1, 2, 2, 2);
   m.obj('tv', 'tv', 4, 2);
+  m.obj('music_box', 'musicbox', 5, 2, 1, 1, [prop('requires', 'string', 'f_music')]);
+  m.obj('aquarium', 'aquarium', 1, 5, 2, 2, [prop('requires', 'string', 'f_aquarium')]);
+  m.obj('cat_area', 'catarea', 1, 4, 6, 4);
   m.obj('kitchen', 'kitchen', 1, 7, 3, 2, [prop('requires', 'string', 'kitchen')]);
   return m.json();
 }

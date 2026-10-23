@@ -149,6 +149,8 @@
       }
     }
     if (this.dog && this.dog.near(pt.x, pt.y)) return this.dogAction();
+    var pet = this.petAction(pt);
+    if (pet) return pet;
     if (!this.inMap(t.x, t.y)) return null;
     var held = L.held(s), def = held ? C.ITEMS[held.id] : null;
     var o = this.objectAt(t.x, t.y);
@@ -156,6 +158,7 @@
       var oa = this.objectAction(o, held, def);
       if (oa) return oa;
     }
+    if (F.session.riding) return this.rideAction(held, def);
     var idx = this.idx(t.x, t.y);
     if (this.forage[idx]) return { label: 'Pick', icon: C.ITEMS[L.forageItem(s.day)].icon, run: function () { self.pickForage(idx); } };
     var wt = this.tileAt('Walls', t.x, t.y);
@@ -200,7 +203,7 @@
         if (held && C.FOOD_GROUPS.egg.indexOf(held.id) >= 0 && !s.inc) return { label: 'Incubate', icon: def.icon, run: function () { self.incubate(); } };
         return { label: 'Coop', icon: C.ICON.chicken, run: function () { self.coopInfo(); } };
     }
-    return null;
+    return this.extraObjectAction(o, held, def);
   };
 
   // ---------- tools ----------
@@ -278,46 +281,63 @@
       effects = effects.slice(0, s.water);
     }
     if (!effects.length) return F.ui.toast(this.toolWhy(tool, t));
-    if (!L.spendEnergy(s, L.toolEnergy(s, tool, effects.length))) return this.tired();
-    var gotLumber = 0, gotStone = 0, items = {};
+    var rocks = effects.filter(function (e) { return e.kind === 'rock'; }).length;
+    var cost = rocks ? rocks * L.mineEnergy(s, F.session.mineFloor) : L.toolEnergy(s, tool, effects.length);
+    if (!L.spendEnergy(s, cost)) return this.tired();
+    var gotLumber = 0, gotStone = 0, items = {}, counts = { till: 0, water: 0, clear: 0, cut: 0 };
+    this.animateUse(L.iconOf(s, tool), tool === 'can' ? 'pour' : 'swing');
     effects.forEach(function (e) {
       var x = e.idx % self.map.width, y = Math.floor(e.idx / self.map.width), tile = { x: x, y: y };
       if (e.kind === 'till') {
         L.till(s, e.idx);
+        counts.till++;
         self.refreshTile(e.idx);
         self.puff(tile, 0x8a5a30, 4);
       } else if (e.kind === 'water') {
         L.water(s, e.idx);
+        counts.water++;
         self.refreshTile(e.idx);
+        self.wiggle(e.idx);
         self.drops(tile);
       } else if (e.kind === 'cut') {
         var got = L.cut(s, e.idx);
         if (got[0] === '!') return;
         items[got] = (items[got] || 0) + 1;
+        counts.cut++;
         self.refreshTile(e.idx);
         self.puff(tile, 0x93d66b, 5);
+        self.flyTile(tile, C.ITEMS[got].icon);
       } else if (e.kind === 'untill') {
         delete s.soil[e.idx];
         self.refreshTile(e.idx);
         self.puff(tile, 0x8a5a30, 3);
       } else if (e.kind === 'debris') {
         self.hits[e.idx] = (self.hits[e.idx] || 0) + 1;
+        var chip = e.debris === 'weed' ? 0x6cbf4a : e.debris === 'branch' || e.debris === 'stump' ? 0xc48945 : 0x9aa0a8;
         if (self.hits[e.idx] < e.hits) {
           self.shake(tile);
+          self.chips(tile, chip, 3);
           return;
         }
         delete self.hits[e.idx];
         var r = L.clearDebris(s, e.idx);
         gotLumber += r.lumber;
         gotStone += r.stone;
+        counts.clear++;
         self.removeDebrisTile(e.idx);
-        self.puff(tile, e.debris === 'weed' ? 0x6cbf4a : e.debris === 'branch' || e.debris === 'stump' ? 0xa0703a : 0x9a9a9a, 6);
+        self.puff(tile, chip, 4);
+        self.chips(tile, chip, e.debris === 'weed' ? 4 : 7);
+        if (r.lumber) self.flyTile(tile, C.ICON.lumber);
+        if (r.stone) self.flyTile(tile, C.ICON.stone);
       } else if (e.kind === 'rock') {
         self.breakRock(e.idx, tile, items);
       }
     });
-    this.swing(t, L.iconOf(s, tool));
     sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
+    if (counts.clear) this.progress('clear', counts.clear);
+    if (counts.till) this.progress('till', counts.till);
+    if (counts.water) this.progress('water', counts.water);
+    if (counts.cut) this.progress('harvest', counts.cut);
     var notes = [];
     if (gotLumber) notes.push('+' + gotLumber + ' Lumber');
     if (gotStone) notes.push('+' + gotStone + ' Stone');
@@ -325,6 +345,13 @@
     if (notes.length) this.floatText(t, notes.join('  '));
     if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true });
     this.changed();
+    if (this.mapKey === 'mine' && s.energy <= 0) this.faint();
+  };
+
+  // Out of energy deep in the mine: everything goes dark, and you wake up at home.
+  M.faint = function () {
+    F.ui.toast('You collapsed from exhaustion...', 2500);
+    this.endDay(true);
   };
 
   M.shake = function (t) {
@@ -353,8 +380,12 @@
     this.puff(t, 0x8a7a6a, 7);
     if (!drop) return;
     if (drop === 'stone') s.stone += 1;
-    else L.addItem(s, drop, 1);
+    else {
+      L.addItem(s, drop, 1);
+      L.discover(s, drop);
+    }
     items[drop] = (items[drop] || 0) + 1;
+    this.flyTile(t, C.ICON[drop]);
   };
 
   M.tired = function () {
@@ -364,7 +395,7 @@
 
   M.refill = function () {
     L.refill(this.state);
-    this.swing(this.facing(), L.iconOf(this.state, 'can'));
+    this.animateUse(L.iconOf(this.state, 'can'), 'pour');
     this.drops(this.facing());
     sfx('water');
     F.ui.toast('Watering can refilled!');
@@ -395,10 +426,12 @@
     var r = L.plantBag(s, idxs, s.sel);
     if (typeof r !== 'number') return;
     idxs.forEach(function (idx) { self.refreshTile(idx); });
+    this.animateUse(C.ITEMS[L.held(s) ? L.held(s).id : 'seed_turnip'].icon, 'pour');
     this.puff(t, 0x4a2e18, 6);
     sfx('plant');
     this.floatText(t, 'Planted ' + r);
     this.changed();
+    this.progress('plant');
   };
 
   M.harvest = function (t, idx) {
@@ -407,9 +440,10 @@
     if (got[0] === '!') return;
     this.refreshTile(idx);
     this.puff(t, 0x93d66b, 6);
-    this.floatText(t, '+1 ' + C.ITEMS[got].name);
+    this.flyTile(t, C.ITEMS[got].icon);
     sfx('harvest');
     this.changed();
+    this.progress('harvest');
   };
 
   M.eat = function () {
@@ -429,8 +463,8 @@
     if (got === '!full') return F.ui.toast('Your bag is full!');
     var img = this.forage[idx];
     delete this.forage[idx];
-    this.tweens.add({ targets: img, y: img.y - 160, alpha: 0, duration: 400, onComplete: function () { img.destroy(); } });
-    this.floatTextAt(img.x, img.y - T, '+1 ' + C.ITEMS[got].name);
+    img.destroy();
+    this.flyItem(img.x, img.y, C.ITEMS[got].icon);
     sfx('pick');
     this.changed();
   };
@@ -442,6 +476,7 @@
     sfx('coin');
     F.ui.toast('Shipped ' + r.n + ' ' + C.ITEMS[r.id].name + '. ' + r.value + 'G arrives in the morning.');
     this.changed();
+    this.progress('ship');
     this.save();
   };
 
@@ -509,9 +544,10 @@
     if (got === '!milker') return F.ui.toast('You need a Milker to milk cows. Lily sells them.');
     if (got === '!full') return F.ui.toast('Your bag is full!');
     if (got[0] === '!') return;
-    this.floatTextAt(m.x, m.y - m.def.height * T, '+1 ' + C.ITEMS[got].name);
+    this.flyItem(m.x, m.y - m.def.height * T * 0.5, C.ITEMS[got].icon);
     sfx('pick');
     this.changed();
+    this.progress('collect');
   };
 
   M.feedAnimal = function (m) {
@@ -522,6 +558,7 @@
     sfx(m.def === C.ANIMALS.cow ? 'moo' : 'cluck');
     this.floatTextAt(m.x, m.y - m.def.height * T, 'Yum!');
     this.changed();
+    this.progress('feed');
   };
 
   M.petAnimal = function (m) {
@@ -588,7 +625,7 @@
     var bob = this.add.image(t.x * T + T / 2, t.y * T + T / 2, 'items', C.ICON.bobber).setScale(1).setDepth(DEPTH.fx);
     this.tweens.add({ targets: bob, y: bob.y + 16, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.fishing = { state: 'wait', biteAt: this.time.now + Phaser.Math.Between(C.FISH_BITE[0], C.FISH_BITE[1]), bob: bob, t: t };
-    this.swing(t, C.ICON.rod);
+    this.animateUse(C.ICON.rod, 'swing');
     sfx('cast');
     F.bus.emit('hint', { label: 'Wait...', icon: C.ICON.rod });
     this.hintKey = 'fishing';
@@ -610,13 +647,27 @@
     if (F.input.action) {
       F.input.action = false;
       if (f.state === 'bite') {
-        var got = L.catchFish(s, this.mapKey === 'town' ? 'river' : 'pond', Math.random());
-        this.endFishing();
-        if (got === '!full') return F.ui.toast('Your bag is full!');
-        sfx('catch');
-        this.iconPop(f.bob.x, f.bob.y, C.ITEMS[got].icon);
-        F.ui.toast('You caught a ' + C.ITEMS[got].name + '!');
-        this.changed();
+        // hooked! now reel it in with the mini-game
+        var self = this, fish = L.rollFish(this.mapKey === 'town' ? 'river' : 'pond', Math.random());
+        f.state = 'game';
+        if (f.mark) f.mark.destroy();
+        f.mark = null;
+        F.ui.startFishGame(fish, function (ok) {
+          var bx = f.bob.x, by = f.bob.y;
+          self.endFishing();
+          if (!ok) {
+            sfx('nope');
+            return F.ui.toast('It got away...');
+          }
+          var got = L.landFish(s, fish);
+          if (got === '!full') return F.ui.toast('Your bag is full!');
+          sfx('catch');
+          self.flyItem(bx, by, C.ITEMS[got].icon);
+          F.ui.toast('You caught a ' + C.ITEMS[got].name + '!' + (got === 'fish_k' ? ' The legendary King Trout!' : ''));
+          self.changed();
+        });
+      } else if (f.state === 'game') {
+        return;
       } else {
         this.endFishing();
         F.ui.toast('Too soon! Wait for the "!" before you reel in.');

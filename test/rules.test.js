@@ -464,7 +464,7 @@ test('everything new survives a save, and the save stays under 16 KB in the wors
   s.tools = { hoe: 3, can: 2, axe: 1, hammer: 1, sickle: 0 };
   s.lumber = 999999;
   s.stone = 999999;
-  C.VILLAGER_ORDER.forEach((k) => { s.friends[k] = { pts: 100, talked: 1, gifted: 1, met: 1 }; });
+  C.VILLAGER_ORDER.forEach((k) => { s.friends[k] = { pts: 100, talked: 1, gifted: 1, met: 1, ev: 3 }; });
   s.builds = { kitchen: 1, bighouse: 1, coop2: 1, barn2: 1 };
   s.inc = 2;
   s.dog = { name: 'Biscuit', love: 50, pet: 1 };

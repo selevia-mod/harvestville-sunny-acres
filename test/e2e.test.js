@@ -199,6 +199,10 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await tapAction(page);
   s = await state(page);
   assert.ok(!s.debris[idx(5, 12)] && !s.debris[idx(6, 12)] && !s.debris[idx(7, 12)], 'debris cleared');
+  assert.strictEqual(s.goal, 1, 'the first goal (clear 3) is done');
+  assert.strictEqual(s.gold, 300 + 100, 'and paid its reward');
+  assert.match(await page.evaluate(() => Farm.ui.goalText.text), /Till 3 tiles/);
+  assert.ok(await page.evaluate(() => Farm.ui.arrow.visible), 'the guide arrow shows');
   assert.strictEqual(s.lumber, 1);
   assert.strictEqual(s.stone, 1);
   assert.strictEqual(s.energy, 100 - 1 - 3 - 3);
@@ -224,7 +228,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await tapAction(page);
   s = await state(page);
   for (let y = 12; y <= 14; y++) for (let x = 5; x <= 7; x++) assert.strictEqual(s.soil[idx(x, y)].c, 'turnip');
-  assert.strictEqual(count(s, 'seed_turnip'), 2);
+  assert.strictEqual(count(s, 'seed_turnip'), 3, '3 bags + 1 from the till goal - 1 planted');
 
   // water the top row each day, then sleep in the farmhouse; three watered days ripen turnips
   for (let day = 0; day < 3; day++) {
@@ -288,7 +292,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await shot(page, '07-shop');
   await tapButton(page, 'Buy 120G'); // a bag of turnip seeds
   s = await state(page);
-  assert.strictEqual(count(s, 'seed_turnip'), 3);
+  assert.strictEqual(count(s, 'seed_turnip'), 4);
   assert.strictEqual(s.gold, goldBefore + 180 - 120);
   await tapButton(page, 'Supplies');
   assert.match(await modalText(page), /Milker/);
@@ -654,6 +658,11 @@ test('fishing at the pond and foraging', async () => {
   assert.strictEqual(await actionLabel(page), 'Reel!');
   await shot(page, '20-bite');
   await tapAction(page);
+  // hooked: the reel-in mini-game. Hold the screen to lift the green bar over the fish.
+  await page.waitForFunction(() => Farm.ui.game2, null, SLOW);
+  await shot(page, '20b-reel');
+  await page.evaluate(() => { Farm.Config.FISH_GAME.fill = 50; Farm.Config.FISH_GAME.drain = 0; });
+  await page.waitForFunction(() => !Farm.ui.game2 && !Farm.world.fishing, null, SLOW);
   let s = await state(page);
   assert.strictEqual(['fish_s', 'fish_m', 'fish_l'].reduce((n, id) => n + count(s, id), 0), 1, 'caught a fish');
   assert.strictEqual(s.energy, 100 - 2);
@@ -807,8 +816,12 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   assert.strictEqual(await actionLabel(page), 'Festival');
   await tapAction(page);
   await shot(page, '27-festival');
+  await page.evaluate(() => { Farm.Config.DANCE.bpm = 900; }); // a quick dance (no taps: every beat is missed)
   await tapButton(page, 'Dance');
-  assert.match(await modalText(page), /dance with Lily/);
+  await page.waitForFunction(() => Farm.ui.game2, null, SLOW);
+  await shot(page, '27b-dance');
+  await page.waitForFunction(() => !Farm.ui.game2 && /dance with Lily/.test(Farm.ui.modals.length ? '' + Farm.ui.modals[Farm.ui.modals.length - 1].c.list.filter((o) => o.type === 'Text').map((o) => o.text) : ''), null, SLOW);
+  assert.match(await modalText(page), /toes/);
   await tapButton(page, 'OK');
   s = await state(page);
   assert.strictEqual(s.fest.flower, 1);
@@ -834,6 +847,119 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   await go(page, 'house', 'bed');
   assert.ok(await page.evaluate(() => Farm.world.villagers.list.some((v) => v.key === 'lily' && v.visible)), 'Lily is at home in the morning');
   await shot(page, '28-married');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('new things: mail, a heart event, the horse and saddlebag, the cat, furniture, a mine chest, the collection', async () => {
+  const save = await makeSave(`
+    s.day = 2;
+    s.time = 600;
+    s.gold = 5000;
+    s.mail = ['welcome'];
+    s.builds.stable = 1;
+    s.horse = { name: 'Chestnut', love: 0, pet: 0 };
+    L.friend(s, 'leo').pts = 25;
+    L.friend(s, 'leo').met = 1;
+    L.addItem(s, 'turnip', 2);
+  `);
+  const { page, problems, context } = await open(save);
+
+  // the welcome letter waits in the mailbox, with a gift
+  assert.ok(await page.evaluate(() => Farm.world.mailFlag.visible), 'the mailbox shows a letter');
+  await teleport(page, 9, 7, 'up');
+  assert.strictEqual(await actionLabel(page), 'Read');
+  await tapAction(page);
+  assert.match(await modalText(page), /LETTER FROM MAYOR HOLLIS/);
+  await shot(page, '29-letter');
+  await tapButton(page, 'OK');
+  let s = await state(page);
+  assert.strictEqual(count(s, 'sandwich'), 1);
+  assert.deepStrictEqual(s.mail, []);
+
+  // the horse waits by the stable: ride it, ship from the saddlebag, and get off
+  const horse = await page.evaluate(() => [Farm.world.horse.x / 256, Farm.world.horse.y / 256]);
+  await teleport(page, Math.floor(horse[0]), Math.floor(horse[1]) - 1, 'down');
+  assert.strictEqual(await actionLabel(page), 'Ride');
+  await tapAction(page);
+  assert.strictEqual(await page.evaluate(() => Farm.session.riding), true);
+  assert.strictEqual((await state(page)).horse.pet, 1, 'riding counts as a pat');
+  await page.evaluate(() => { Farm.input.jx = 1; });
+  await page.waitForTimeout(300);
+  await shot(page, '30-riding');
+  await page.evaluate(() => { Farm.input.jx = 0; });
+  await hold(page, 'turnip');
+  assert.strictEqual(await actionLabel(page), 'Ship');
+  await tapAction(page);
+  assert.deepStrictEqual((await state(page)).box, [{ id: 'turnip', n: 2 }], 'shipped from the saddlebag');
+  await hold(page, 'hoe');
+  assert.strictEqual(await actionLabel(page), 'Get off');
+  await tapAction(page);
+  assert.strictEqual(await page.evaluate(() => Farm.session.riding), false);
+
+  // a heart event with Leo (2 hearts) when you first talk to him today
+  await go(page, 'town', 'from_farm');
+  await page.evaluate(() => {
+    const v = Farm.world.villagers.list.find((x) => x.key === 'leo');
+    Farm.world.villagers.put(v, 14.5 * 256, 19.6 * 256, true);
+    v.place = Farm.Logic.villagerAt(Farm.session.state, 'leo', Farm.session.state.time);
+    v.hold = 1e9;
+  });
+  await teleport(page, 14, 18, 'down');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /King Trout/);
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  await shot(page, '31-heart-choice');
+  await tapButton(page, "Let's catch him together.");
+  assert.match(await modalText(page), /partner/);
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(s.friends.leo.pts, 31);
+  assert.strictEqual(s.friends.leo.ev, 1);
+
+  // furniture from Mira: the cat basket brings a cat
+  await teleport(page, 25, 19, 'up');
+  await tapAction(page);
+  await tapButton(page, 'Furniture');
+  await tapButton(page, 'Buy 600G');
+  s = await state(page);
+  assert.strictEqual(s.cat.name, 'Mochi');
+  await page.evaluate(() => window.__gameBack());
+
+  // a treasure chest on floor 5 of the mine
+  await go(page, 'mine', 'entrance');
+  await page.evaluate(() => Farm.world.travel('mine', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.mineFloor === 5 && Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.world.chest, null, SLOW);
+  await teleport(page, 8, 3, 'right');
+  assert.strictEqual(await actionLabel(page), 'Open');
+  await tapAction(page);
+  assert.match(await modalText(page), /TREASURE/);
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(count(s, 'ore_copper'), 3);
+  assert.strictEqual(s.stats.deepest, 5);
+
+  // home: pet the cat
+  await go(page, 'house', 'door');
+  await page.evaluate(() => {
+    const c = Farm.world.cat;
+    c.x = c.tx = 4.5 * 256;
+    c.y = c.ty = 4.9 * 256;
+    c.wait = 1e9;
+  });
+  await teleport(page, 4, 3, 'down');
+  assert.strictEqual(await actionLabel(page), 'Pet');
+  await tapAction(page);
+  assert.strictEqual((await state(page)).cat.pet, 1);
+  await shot(page, '32-cat');
+
+  // the collection book in the pause menu
+  await page.evaluate(() => window.__gameBack());
+  await tapButton(page, 'Collection');
+  assert.match(await modalText(page), /Shipped: 0G/);
+  await shot(page, '33-collection');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

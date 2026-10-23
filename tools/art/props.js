@@ -741,6 +741,9 @@
     };
   };
 
+  A.PROP_DRAW = D; // extra2.js adds more
+  A.windowPane = windowPane;
+
   var prevExtra = A.extra;
   A.extra = function (sets) {
     var out = prevExtra ? prevExtra(sets) : { sheets: {}, props: {} };

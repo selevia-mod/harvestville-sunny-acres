@@ -28,6 +28,15 @@
         if (target.point) self.put(v, target.point.x, target.point.y, !target.hide);
         if (target.hide) v.from = target.point; // they will come out of this door
       });
+      // villagers are solid: the farmer walks around them, not through them
+      var sprites = this.list.map(function (v) {
+        scene.physics.add.existing(v.sprite);
+        v.sprite.body.setSize(60, 30).setOffset(34, 145).setImmovable(true);
+        v.sprite.body.moves = false;
+        v.sprite.body.enable = v.visible;
+        return v.sprite;
+      });
+      if (sprites.length) scene.physics.add.collider(scene.player, sprites);
     }
 
     // Where a villager should be right now: { place, point, hide } (hide = goes indoors / out of town there).
@@ -45,6 +54,7 @@
       v.visible = visible;
       v.path = [];
       v.sprite.setVisible(visible).setPosition(x, y).setDepth(DEPTH + y / 1e5);
+      if (v.sprite.body) v.sprite.body.enable = visible;
       this.stand(v);
     }
 
@@ -78,6 +88,7 @@
             if (v.hideAtEnd) {
               v.visible = false;
               v.sprite.setVisible(false);
+              v.sprite.body.enable = false;
             }
             v.dir = 'down';
             self.stand(v);
@@ -181,12 +192,40 @@
   };
 
   M.talkTo = function (v) {
-    var s = this.state, r = L.talk(s, v.key);
+    var self = this, s = this.state;
     this.villagers.greet(v, this.dir);
+    var ev = !L.friend(s, v.key).talked && L.heartEvent(s, v.key);
+    if (ev) return this.playHeartEvent(v, ev);
+    var r = L.talk(s, v.key);
     sfx('talk');
+    this.emote(v, C.ICON.note);
     var name = v.def.name + (s.spouse === v.key ? ' (your spouse)' : '');
     F.ui.say(v.key, name, r.line);
     this.changed();
+    if (r.first) this.progress('meet');
+    void self;
+  };
+
+  // A little story scene at a friendship milestone, with a choice at the end.
+  M.playHeartEvent = function (v, e) {
+    var self = this, s = this.state, ev = e.ev;
+    L.friend(s, v.key).met = 1;
+    sfx('gift');
+    this.emote(v, C.ICON.heart);
+    F.ui.playLines(ev.lines, function () {
+      F.ui.choose(v.key, ev.choice.q, ev.choice.a.map(function (a, k) {
+        return {
+          label: a[0], cb: function () {
+            var reply = L.finishEvent(s, v.key, e.i, k);
+            if (a[1] > 0) self.villagers.hearts(v, a[1] >= 8 ? 5 : 3);
+            sfx(a[1] > 0 ? 'gift' : 'nope');
+            F.ui.say(v.key, v.def.name, reply);
+            self.changed();
+            self.save();
+          },
+        };
+      }));
+    });
   };
 
   M.gift = function (v) {
@@ -195,6 +234,7 @@
     if (r.error) return;
     this.villagers.greet(v, this.dir);
     if (r.pts > 0) this.villagers.hearts(v, r.reaction === 'love' ? 4 : r.reaction === 'like' ? 2 : 1);
+    this.emote(v, r.pts > 0 ? C.ICON.heart : C.ICON.exclaim);
     sfx(r.pts > 0 ? 'gift' : 'nope');
     F.ui.say(v.key, v.def.name, '(You gave the ' + item + '.)\n' + r.line);
     this.changed();

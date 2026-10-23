@@ -24,7 +24,7 @@ const OUT = path.join(__dirname, '..', 'assets');
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setContent('<!DOCTYPE html><html><body></body></html>');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
   const C = gameConfig();

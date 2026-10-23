@@ -74,6 +74,10 @@
       if (this.mapKey === 'mine') this.setupMine();
       this.setupForage();
       if (this.mapKey === 'town' || this.mapKey === 'house') this.villagers = new F.Villagers(this);
+      this.setupExtras();
+      this.setupPolish();
+      if (this.mapKey === 'mine') L.reachFloor(s, F.session.mineFloor);
+      if (this.mapKey === 'town') this.time.delayedCall(600, function () { if (F.ui) self.progress('town'); });
 
       // ----- camera: follows the player, and centres maps smaller than the screen
       var cam = this.cameras.main;
@@ -199,7 +203,7 @@
           x1: Math.ceil((o.x + o.width) / T) - 1, y1: Math.ceil((o.y + o.height) / T) - 1,
           px: o.x, py: o.y, pw: o.width, ph: o.height, props: props,
         };
-        if (type === 'pen' || type === 'dogarea' || type === 'forage' || type === 'minefloor') {
+        if (type === 'pen' || type === 'dogarea' || type === 'catarea' || type === 'forage' || type === 'minefloor') {
           (self.zones[type] = self.zones[type] || []).push(rect);
           return;
         }
@@ -313,7 +317,7 @@
       this.updateCamera(0.15);
       if (!F.ui) return;
 
-      if (this.busy || F.ui.blocking() || this.fishing || this.charge) {
+      if (this.busy || F.ui.blocking() || this.fishing || this.charge || this.acting > 0) {
         body.setVelocity(0, 0);
         if (this.player.anims.isPlaying) this.idle();
         if (this.busy || F.ui.blocking()) {
@@ -334,6 +338,8 @@
       this.player.setDepth(DEPTH.actor + f.y / 1e5);
 
       if (this.tickClock(dt)) return;
+      this.updatePolish(dt, time);
+      this.updateExtras(dt, time);
       if (this.herd) this.herd.update(dt, time, s.time);
       if (this.dog) this.dog.update(dt, time, s.time);
       if (this.villagers) this.villagers.update(dt, time, false);
@@ -361,7 +367,14 @@
       var len = Math.sqrt(vx * vx + vy * vy);
       if (len < 0.2) vx = vy = 0;
       else if (len > 1) { vx /= len; vy /= len; }
-      body.setVelocity(vx * C.SPEED, vy * C.SPEED);
+      var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1);
+      body.setVelocity(vx * speed, vy * speed);
+      if (F.session.riding) {
+        if (vx || vy) this.dir = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? 'left' : 'right') : (vy < 0 ? 'up' : 'down');
+        if (vx) this.rideFlip = vx > 0;
+        this.moving = !!(vx || vy);
+        return;
+      }
       if (vx || vy) {
         this.dir = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? 'left' : 'right') : (vy < 0 ? 'up' : 'down');
         this.player.anims.play(this.dir === 'left' || this.dir === 'right' ? 'walk-side' : 'walk-' + this.dir, true);
@@ -414,6 +427,7 @@
     travel(to, spawn, floor) {
       if (this.busy) return;
       var self = this, s = this.state;
+      this.beforeTravel(to);
       this.busy = true;
       this.charge = null;
       this.player.body.setVelocity(0, 0);
@@ -461,6 +475,8 @@
         F.session.report = result;
         F.session.spawn = 'bed';
         F.session.mineBroken = {};
+        F.session.riding = false;
+        F.session.horseAt = null;
         self.save();
         self.scene.restart();
       });

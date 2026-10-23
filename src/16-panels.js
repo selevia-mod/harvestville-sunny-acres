@@ -23,6 +23,7 @@
     if (o.talk) {
       this.button(c, 50, 96, 56, 34, 'Talk', function () {
         var r = L.talk(F.session.state, o.talk);
+        if (r.first) world().progress('meet');
         sfx('talk');
         world().changed();
         self.say(o.talk, C.VILLAGERS[o.talk].name, r.line);
@@ -108,6 +109,9 @@
     if (made.length) lines.push('Your animals made ' + made.join(', ') + '. Collect them in the pen.');
     if (result.hungry && result.hungry.length) lines.push(result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
     if (result.lunch && s.spouse) lines.push(C.VILLAGERS[s.spouse].name + ' packed you a ' + C.ITEMS[result.lunch].name + ' for lunch.');
+    if (result.horse) lines.push('The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
+    if (result.mail) lines.push('You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
+    if (result.goalDone) lines.push('Goal complete! Check the next one at the top of the screen.');
     this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.join('\n\n'));
     sfx('morning');
   };
@@ -147,7 +151,7 @@
       self.fpsText.setVisible(F.showFps);
       self.closeModal();
     }, BROWN);
-    this.button(c, col(1), 418, 128, 40, 'Bag', function () { self.closeModal(); self.openInventory(); }, BROWN);
+    this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
     this.button(c, W / 2, 510, 200, 42, 'New game', function () {
       self.confirm('START A NEW FARM?\nYour current farm, gold, crops, animals and friendships will be gone for good.', function () {
         self.newGame();
@@ -340,11 +344,11 @@
     var self = this, s = F.session.state, o, rows;
     tab = tab || 'build';
     if (tab === 'build') {
-      rows = C.BUILD_KEYS.map(function (id) {
+      rows = C.BUILD_KEYS.filter(function (id) { return C.BUILDS[id]; }).map(function (id) {
         var b = C.BUILDS[id], building = s.project && s.project.id === id;
         var cost = b.gold + 'G, ' + b.lumber + ' lumber' + (b.stone ? ', ' + b.stone + ' stone' : '');
         return {
-          icon: { kitchen: C.ICON.lunch, bighouse: C.ICON.ring, coop2: C.ICON.chicken, barn2: C.ICON.cow }[id],
+          icon: { kitchen: C.ICON.lunch, bighouse: C.ICON.ring, coop2: C.ICON.chicken, barn2: C.ICON.cow, stable: C.ICON.horse }[id],
           name: b.name, desc: s.builds[id] ? 'Built!' : building ? 'Mira is building it. Ready tomorrow.' : cost + '. ' + b.desc,
           buttons: s.builds[id] || building ? [] : [{
             label: 'Build', cb: function () {
@@ -357,6 +361,26 @@
               self.closeModal();
               self.openWoodshop('build');
               self.say('mira', 'Mira', "Deal! I'll have your " + b.name + ' ready by tomorrow morning.');
+            },
+          }],
+        };
+      });
+    } else if (tab === 'furniture') {
+      rows = C.FURNITURE_KEYS.map(function (id) {
+        var f = C.FURNITURE[id];
+        return {
+          icon: f.icon, name: f.name, desc: s.builds[id] ? 'In your house!' : f.gold + 'G. ' + f.desc,
+          buttons: s.builds[id] ? [] : [{
+            label: 'Buy ' + f.gold + 'G', cb: function () {
+              var r = L.buyFurniture(s, id);
+              if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+              if (r !== 'ok') return;
+              sfx('coin');
+              world().changed();
+              world().save();
+              self.closeModal();
+              self.openWoodshop('furniture');
+              self.toast(id === 'f_cat' ? 'A cat named ' + s.cat.name + ' moved into your house!' : 'Mira delivered the ' + f.name + ' to your house!');
             },
           }],
         };
@@ -380,7 +404,7 @@
     }
     o = this.listPanel({
       title: "Mira's Woodshop", tab: tab, page: page, rows: rows, talk: 'mira', reopen: this.openWoodshop.bind(this),
-      tabs: [['build', 'Build'], ['materials', 'Materials']],
+      tabs: [['build', 'Build'], ['furniture', 'Furniture'], ['materials', 'Materials']],
       sub: function () { return s.gold + 'G   Lumber ' + s.lumber + '   Stone ' + s.stone; },
     });
   };
@@ -450,15 +474,43 @@
       }
       sfx('fanfare');
       self.closeAll();
-      if (fest.kind === 'date' || fest.kind === 'dance') self.fireworks(fest.key === 'flower' ? 'petals' : fest.key === 'starry' ? 'stars' : 'fireworks');
+      self.fireworks(fest.key === 'flower' ? 'petals' : fest.key === 'starry' ? 'stars' : 'fireworks');
       s.time = Math.max(s.time, fest.to - 10);
       world().changed();
       world().save();
       self.dialog(fest.name.toUpperCase() + '\n' + r.text);
     };
+    // the judging, with a drumroll
+    var judged = function (intro, play) {
+      self.closeAll();
+      self.playLines([['hollis', intro]], function () {
+        sfx('drumroll');
+        self.dialog('...', [{ label: 'And the winner is...', cb: function () { finish(play()); } }]);
+      });
+    };
     if (fest.kind === 'cow') {
-      return this.dialog('THE COW FESTIVAL\nYour happiest cow will compete for the blue ribbon. Ready?', [{ label: 'Not yet', color: GREY }, { label: 'Enter', cb: function () { finish(L.joinFestival(s, fest)); } }]);
+      var cows = s.animals.filter(function (a) { return a.kind === 'cow' && !a.young; });
+      if (!cows.length) return this.say('hollis', 'Mayor Hollis', 'Welcome to the Cow Festival! Bring a grown cow next year and enter the contest.');
+      var best = cows.reduce(function (a, b) { return b.love > a.love ? b : a; });
+      return this.dialog('THE COW FESTIVAL\nYour happiest cow, ' + best.name + ', will compete for the blue ribbon. Ready?', [{ label: 'Not yet', color: GREY }, {
+        label: 'Enter', cb: function () {
+          judged('Here comes ' + best.name + ' from Sunny Acres! What a shiny coat. The judges are taking notes...', function () { return L.joinFestival(s, fest); });
+        },
+      }]);
     }
+    // a dance (a rhythm mini-game) or an evening together
+    var withPartner = function (k) {
+      self.closeAll();
+      if (fest.kind === 'dance') {
+        self.startDance(k, function (score) { finish(L.joinFestival(s, fest, k, score)); });
+        return;
+      }
+      self.fireworks(fest.key === 'starry' ? 'stars' : 'fireworks');
+      var lines = fest.key === 'starry'
+        ? [[k, 'So many stars tonight... Quick, make a wish!'], [k, 'I already know what mine is. Maybe someday I will tell you.']]
+        : [[k, 'Ooh! Look at that one! It is like a flower blooming in the sky.'], [k, 'I am really glad I am watching this with you.']];
+      self.playLines(lines, function () { finish(L.joinFestival(s, fest, k)); });
+    };
     var rows;
     if (fest.kind === 'harvest') {
       var seen = {};
@@ -466,13 +518,17 @@
       s.inv.forEach(function (slot, i) {
         if (!slot || C.ITEMS[slot.id].kind !== 'crop' || seen[slot.id]) return;
         seen[slot.id] = 1;
-        rows.push({ icon: C.ITEMS[slot.id].icon, name: C.ITEMS[slot.id].name, desc: 'Sells for ' + C.ITEMS[slot.id].sell + 'G.', buttons: [{ label: 'Enter', cb: function () { finish(L.joinFestival(s, fest, i)); } }] });
+        rows.push({ icon: C.ITEMS[slot.id].icon, name: C.ITEMS[slot.id].name, desc: 'Sells for ' + C.ITEMS[slot.id].sell + 'G.', buttons: [{
+          label: 'Enter', cb: function () {
+            judged('Our next entry: a ' + C.ITEMS[slot.id].name + ' from Sunny Acres! The judges take a bite...', function () { return L.joinFestival(s, fest, i); });
+          },
+        }] });
       });
     } else {
       rows = C.VILLAGER_ORDER.filter(function (k) { return k !== 'hollis' && L.friend(s, k).met; }).map(function (k) {
         return {
           people: k, name: C.VILLAGERS[k].name, desc: L.friendHearts(s, k) + ' hearts',
-          buttons: [{ label: fest.kind === 'dance' ? 'Dance' : 'Invite', cb: function () { finish(L.joinFestival(s, fest, k)); } }],
+          buttons: [{ label: fest.kind === 'dance' ? 'Dance' : 'Invite', cb: function () { withPartner(k); } }],
         };
       });
     }
@@ -554,6 +610,27 @@
     c.add(this.txt(W / 2, y0 + 18 + 4 * ch + 10, events.join('\n') || 'No events this season.', 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
     if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'This season', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
     if (offset < 3) this.button(c, W / 2 + 80, 556, 130, 38, 'Next season', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
+  };
+
+  M.openCollection = function () {
+    var self = this, s = F.session.state;
+    var c = this.openModal();
+    this.panelImg(c, 12, 70, W - 24, 530);
+    c.add(this.txt(W / 2, 88, 'Collection', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
+    c.add(this.txt(W / 2, 116, L.collectionCount(s) + ' of ' + C.COLLECTION.length + ' found', 13, '#7a5a3a').setOrigin(0.5, 0));
+    var cols = 7, cell = 44, x0 = (W - cols * cell) / 2, y0 = 140;
+    C.COLLECTION.forEach(function (id, i) {
+      var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, got = L.discovered(s, id);
+      self.baked(c, x + 2, y + 2, 'ui-colcell', cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });
+      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.26);
+      if (!got) icon.setTint(0x000000).setAlpha(0.22);
+      c.add(icon);
+    });
+    var st = s.stats;
+    c.add(this.txt(W / 2, y0 + 5 * cell + 18, 'RECORDS\nShipped: ' + st.earned + 'G\nFish caught: ' + st.fish + '\nDishes cooked: ' + st.cooked +
+      '\nDeepest mine floor: ' + (st.deepest || '-') + '\nFriends with 5+ hearts: ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
+    14, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
   };
 
   M.openFriends = function () {

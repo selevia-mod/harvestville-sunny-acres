@@ -1155,15 +1155,17 @@
     paint(g, lin(g, 0, y, 0, y + 32, [[0, BOOT[0]], [1, BOOT[1]]]));
   }
 
-  function farmer(g, dir, step) {
+  // pose: null (walking), 'raise' (tool up over the head) or 'strike' (tool down in front).
+  function farmer(g, dir, step, pose) {
     var bob = step ? -6 : 0;
+    if (pose) step = 0;
     var swing = step === 1 ? 10 : step === 2 ? -10 : 0;
     var lift = [0, 0];
     if (step === 1) lift[0] = 16;
     if (step === 2) lift[1] = 16;
     g.save();
     if (dir === 'side') {
-      farmerSide(g, step, bob);
+      farmerSide(g, step, bob, pose);
       g.restore();
       return;
     }
@@ -1174,8 +1176,14 @@
       paint(g, lin(g, l[0], 0, l[0] + 40, 0, [[0, DENIM[0]], [1, DENIM[1]]]));
       boot(g, l[0], 340 - l[1], 40, false);
     });
-    // arms
-    [[40, swing], [182, -swing]].forEach(function (a) {
+    // arms (in a tool pose they are drawn as limbs pointing up or forward, see below)
+    var poseArms = function () {
+      var ang = pose === 'raise' ? 2.667 : 0.668;
+      limb(g, 60, 196 + bob, -ang, 34, 84, SHIRT, true);
+      limb(g, 196, 196 + bob, ang, 34, 84, SHIRT, true);
+    };
+    if (pose === 'raise' || (pose === 'strike' && back)) poseArms();
+    if (!pose) [[40, swing], [182, -swing]].forEach(function (a) {
       rrect(g, a[0], 186 + bob + a[1], 36, 86, 18);
       paint(g, lin(g, a[0], 0, a[0] + 36, 0, [[0, SHIRT[0]], [1, SHIRT[1]]]));
       ell(g, a[0] + 18, 278 + bob + a[1], 18, 18);
@@ -1195,7 +1203,9 @@
       });
       rrect(g, 110, 222 + bob, 36, 26, 6);
       paint(g, 'rgba(255,255,255,0.18)', 3, 'rgba(30,50,110,0.7)');
-    } else {
+    }
+    if (pose === 'strike' && !back) poseArms();
+    if (back) {
       g.beginPath();
       g.moveTo(82, 184 + bob);
       g.lineTo(168, 254 + bob);
@@ -1268,14 +1278,16 @@
     g.restore();
   }
 
-  function farmerSide(g, step, bob) {
+  function farmerSide(g, step, bob, pose) {
     var legA = step === 1 ? 0.42 : step === 2 ? -0.3 : 0.06;
     var legB = step === 1 ? -0.3 : step === 2 ? 0.42 : -0.06;
     var arm = step === 1 ? -0.45 : step === 2 ? 0.45 : 0;
+    if (pose === 'raise') arm = -2.9;
+    if (pose === 'strike') arm = 1.0;
     var hipY = 270 + bob;
     // back leg, back arm
     sideLeg(g, 132, hipY, legB, true);
-    limb(g, 136, 196 + bob, -arm, 32, 82, [SHIRT[1], '#d8962a'], true);
+    limb(g, 136, 196 + bob, pose ? arm * 0.9 : -arm, 32, 82, [SHIRT[1], '#d8962a'], true);
     // body
     rrect(g, 84, 174 + bob, 96, 112, 36);
     paint(g, lin(g, 84, 0, 180, 0, [[0, SHIRT[0]], [1, SHIRT[1]]]));
@@ -2371,7 +2383,13 @@
     // player: 3 directions x 3 steps of 256x384; crops: 3 crops x 4 stages; icons: 8x3 of 128;
     // animals: one row per animal, 4 poses of 384x320 (the 2048-wide sheet has room for 5 per row)
     var dirs = ['down', 'up', 'side'];
-    var player = frameSheet(3, 3, 256, 384, 1024, 2048, function (g, step, row) { farmer(g, dirs[row], step); });
+    // rows 0-2: walking (down, up, side x stand, step A, step B); rows 3-4: tool poses
+    // (down raise, down strike, up raise / up strike, side raise, side strike)
+    var player = frameSheet(3, 5, 256, 384, 1024, 2048, function (g, col, row) {
+      if (row < 3) return farmer(g, dirs[row], col);
+      var k = (row - 3) * 3 + col;
+      farmer(g, ['down', 'down', 'up', 'up', 'side', 'side'][k], 0, k % 2 ? 'strike' : 'raise');
+    });
     // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame
     var cropKeys = sets.CROP_KEYS;
     var crops = frameSheet(3, 6, 256, 256, 1024, 2048, function (g, col, row) {
@@ -2389,10 +2407,13 @@
       if (!ICON_DRAW[name]) throw new Error('no icon art for ' + name);
       ICON_DRAW[name](g);
     });
-    var animals = frameSheet(4, 3, 384, 320, 2048, 1024, function (g, pose, row) {
+    // one row per animal: chicken, cow, dog, horse, cat
+    var animals = frameSheet(4, 5, 384, 320, 2048, 2048, function (g, pose, row) {
       if (row === 0) chicken(g, pose);
       else if (row === 1) cow(g, pose);
-      else window.ART.dog(g, pose);
+      else if (row === 2) window.ART.dog(g, pose);
+      else if (row === 3) window.ART.horse(g, pose);
+      else window.ART.cat(g, pose);
     });
     // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
     var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, crops: crops, items: items, animals: animals };

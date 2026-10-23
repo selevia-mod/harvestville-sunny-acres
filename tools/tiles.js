@@ -78,6 +78,9 @@ const PROPS = {
   lamp: { w: 1, h: 2, foot: 1 }, flowerbed: { w: 2, h: 1, foot: 1 },
   flower_arch: { w: 3, h: 2, foot: 0 }, lantern: { w: 1, h: 2, foot: 1 }, pumpkin_pile: { w: 2, h: 1, foot: 1 },
   festive_tree: { w: 2, h: 3, foot: 1 }, doghouse: { w: 2, h: 2, foot: 1 },
+  mailbox: { w: 1, h: 2, foot: 1 }, stable: { w: 3, h: 3, foot: 2 }, chest: { w: 1, h: 1, foot: 1 },
+  aquarium: { w: 2, h: 2, foot: 1 }, music_box: { w: 1, h: 1, foot: 1 }, big_plant: { w: 1, h: 2, foot: 1 },
+  cat_bed: { w: 1, h: 1, foot: 0, flat: true },
 };
 
 function blockId(set, name, dx, dy) {
