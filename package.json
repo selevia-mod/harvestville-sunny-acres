@@ -6,6 +6,7 @@
   "scripts": {
     "art": "node tools/make-art.js",
     "map": "node tools/make-map.js",
+    "simulate": "node tools/simulate.js",
     "build": "node build.js",
     "test": "node --test test/logic.test.js test/rules.test.js test/content.test.js",
     "test:e2e": "node build.js && node --test test/e2e.test.js"

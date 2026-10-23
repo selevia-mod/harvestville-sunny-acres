@@ -71,7 +71,7 @@
     TOOL_LEVELS: ['Basic', 'Copper', 'Silver', 'Gold'],
     TOOLS: {
       hoe: { energy: 2, area: true },
-      can: { energy: 1, area: true, capacity: [20, 30, 45, 60] },
+      can: { energy: 2, area: true, capacity: [20, 30, 45, 60] },
       axe: { energy: 3, area: true },
       hammer: { energy: 3, area: true },
       sickle: { energy: 1, area: true },
@@ -80,9 +80,9 @@
     TOOL_ENERGY_SCALE: [1, 0.8, 0.65, 0.5], // energy per tile at each tool level
     CHARGE_MS: 450, // hold the action button this long per charge level
     UPGRADES: [ // cost to reach level 1, 2, 3 at the forge
-      { gold: 600, ore: 'ore_copper', n: 5 },
-      { gold: 1500, ore: 'ore_silver', n: 5 },
-      { gold: 3000, ore: 'ore_gold', n: 5 },
+      { gold: 1000, ore: 'ore_copper', n: 5 },
+      { gold: 2500, ore: 'ore_silver', n: 5 },
+      { gold: 5000, ore: 'ore_gold', n: 5 },
     ],
 
     // ---------- field debris ----------
@@ -110,26 +110,26 @@
       rod: { name: 'Fishing Rod', icon: 'rod', kind: 'tool', price: 400, desc: 'Cast into water, then tap when a fish bites.' },
 
       seed_turnip: { name: 'Turnip Seeds', icon: 'seed_turnip', kind: 'seed', crop: 'turnip', price: 120, desc: 'Spring. Plants 3x3. Ready in 3 days.' },
-      seed_potato: { name: 'Potato Seeds', icon: 'seed_potato', kind: 'seed', crop: 'potato', price: 220, desc: 'Spring. Plants 3x3. Ready in 5 days.' },
-      seed_strawberry: { name: 'Strawberry Seeds', icon: 'seed_strawberry', kind: 'seed', crop: 'strawberry', price: 380, desc: 'Spring. Plants 3x3. Ready in 7 days, then every 3.' },
-      seed_tomato: { name: 'Tomato Seeds', icon: 'seed_tomato', kind: 'seed', crop: 'tomato', price: 300, desc: 'Summer. Plants 3x3. Ready in 6 days, then every 3.' },
-      seed_corn: { name: 'Corn Seeds', icon: 'seed_corn', kind: 'seed', crop: 'corn', price: 420, desc: 'Summer. Plants 3x3. Ready in 9 days, then every 3.' },
-      seed_carrot: { name: 'Carrot Seeds', icon: 'seed_carrot', kind: 'seed', crop: 'carrot', price: 180, desc: 'Fall. Plants 3x3. Ready in 4 days.' },
-      seed_pumpkin: { name: 'Pumpkin Seeds', icon: 'seed_pumpkin', kind: 'seed', crop: 'pumpkin', price: 600, desc: 'Fall. Plants 3x3. Ready in 10 days.' },
+      seed_potato: { name: 'Potato Seeds', icon: 'seed_potato', kind: 'seed', crop: 'potato', price: 150, desc: 'Spring. Plants 3x3. Ready in 5 days.' },
+      seed_strawberry: { name: 'Strawberry Seeds', icon: 'seed_strawberry', kind: 'seed', crop: 'strawberry', price: 300, desc: 'Spring. Plants 3x3. Ready in 7 days, then every 3.' },
+      seed_tomato: { name: 'Tomato Seeds', icon: 'seed_tomato', kind: 'seed', crop: 'tomato', price: 250, desc: 'Summer. Plants 3x3. Ready in 6 days, then every 3.' },
+      seed_corn: { name: 'Corn Seeds', icon: 'seed_corn', kind: 'seed', crop: 'corn', price: 350, desc: 'Summer. Plants 3x3. Ready in 9 days, then every 4.' },
+      seed_carrot: { name: 'Carrot Seeds', icon: 'seed_carrot', kind: 'seed', crop: 'carrot', price: 160, desc: 'Fall. Plants 3x3. Ready in 4 days.' },
+      seed_pumpkin: { name: 'Pumpkin Seeds', icon: 'seed_pumpkin', kind: 'seed', crop: 'pumpkin', price: 500, desc: 'Fall. Plants 3x3. Ready in 10 days.' },
       seed_grass: { name: 'Grass Seeds', icon: 'seed_grass', kind: 'seed', crop: 'grass', price: 100, desc: 'Plants 3x3. Cut it with the Sickle for Fodder. Regrows.' },
 
       turnip: { name: 'Turnip', icon: 'turnip', kind: 'crop', sell: 60, energy: 8, desc: 'A crunchy white turnip.' },
-      potato: { name: 'Potato', icon: 'potato', kind: 'crop', sell: 110, energy: 10, desc: 'A hearty potato.' },
-      strawberry: { name: 'Strawberry', icon: 'strawberry', kind: 'crop', sell: 170, energy: 6, desc: 'A sweet strawberry.' },
-      tomato: { name: 'Tomato', icon: 'tomato', kind: 'crop', sell: 130, energy: 8, desc: 'A juicy tomato.' },
-      corn: { name: 'Corn', icon: 'corn', kind: 'crop', sell: 220, energy: 10, desc: 'Sweet corn.' },
-      carrot: { name: 'Carrot', icon: 'carrot', kind: 'crop', sell: 90, energy: 6, desc: 'A crunchy carrot.' },
-      pumpkin: { name: 'Pumpkin', icon: 'pumpkin', kind: 'crop', sell: 360, energy: 15, desc: 'A giant pumpkin.' },
+      potato: { name: 'Potato', icon: 'potato', kind: 'crop', sell: 80, energy: 10, desc: 'A hearty potato.' },
+      strawberry: { name: 'Strawberry', icon: 'strawberry', kind: 'crop', sell: 50, energy: 6, desc: 'A sweet strawberry.' },
+      tomato: { name: 'Tomato', icon: 'tomato', kind: 'crop', sell: 60, energy: 8, desc: 'A juicy tomato.' },
+      corn: { name: 'Corn', icon: 'corn', kind: 'crop', sell: 100, energy: 10, desc: 'Sweet corn.' },
+      carrot: { name: 'Carrot', icon: 'carrot', kind: 'crop', sell: 70, energy: 6, desc: 'A crunchy carrot.' },
+      pumpkin: { name: 'Pumpkin', icon: 'pumpkin', kind: 'crop', sell: 250, energy: 15, desc: 'A giant pumpkin.' },
 
-      egg: { name: 'Egg', icon: 'egg', kind: 'produce', sell: 50, energy: 8, desc: 'A fresh egg.' },
-      egg_l: { name: 'Large Egg', icon: 'egg_l', kind: 'produce', sell: 80, energy: 12, desc: 'A big egg from a happy hen.' },
-      milk: { name: 'Milk', icon: 'milk', kind: 'produce', sell: 120, energy: 12, desc: 'Fresh milk.' },
-      milk_l: { name: 'Large Milk', icon: 'milk_l', kind: 'produce', sell: 180, energy: 18, desc: 'Rich milk from a happy cow.' },
+      egg: { name: 'Egg', icon: 'egg', kind: 'produce', sell: 40, energy: 8, desc: 'A fresh egg.' },
+      egg_l: { name: 'Large Egg', icon: 'egg_l', kind: 'produce', sell: 70, energy: 12, desc: 'A big egg from a happy hen.' },
+      milk: { name: 'Milk', icon: 'milk', kind: 'produce', sell: 100, energy: 12, desc: 'Fresh milk.' },
+      milk_l: { name: 'Large Milk', icon: 'milk_l', kind: 'produce', sell: 150, energy: 18, desc: 'Rich milk from a happy cow.' },
       chicken_feed: { name: 'Chicken Feed', icon: 'chicken_feed', kind: 'feed', animal: 'chicken', price: 10, desc: 'Feed a chicken once a day and it lays an egg.', shop: 'One a day for each chicken.' },
       fodder: { name: 'Fodder', icon: 'fodder', kind: 'feed', animal: 'cow', price: 20, desc: 'Feed a cow once a day and it gives milk.', shop: 'One a day for each cow. Or cut grass.' },
       miracle: { name: 'Miracle Potion', icon: 'miracle', kind: 'potion', price: 800, desc: 'Give to a cow with 2+ hearts and a calf arrives in 7 days.' },
@@ -167,12 +167,12 @@
     // frame0 = first frame in the animals sheet (poses: walk A, walk B, eat, sleep; 5 frames per row)
     ANIMALS: {
       chicken: {
-        name: 'Chicken', price: 250, max: 4, feed: 'chicken_feed', product: 'egg', large: 'egg_l', icon: 'chicken', frame0: 0,
+        name: 'Chicken', price: 500, max: 4, feed: 'chicken_feed', product: 'egg', large: 'egg_l', icon: 'chicken', frame0: 0,
         speed: 230, reach: 0.6, height: 0.6, names: ['Clucky', 'Nugget', 'Pecky', 'Henrietta'], grow: 5, young: 'chick',
         desc: 'Lays an egg every morning after a day it was fed.', shop: 'Lays an egg when fed every day.', home: 'coop',
       },
       cow: {
-        name: 'Cow', price: 1000, max: 4, feed: 'fodder', product: 'milk', large: 'milk_l', icon: 'cow', frame0: 5,
+        name: 'Cow', price: 2000, max: 4, feed: 'fodder', product: 'milk', large: 'milk_l', icon: 'cow', frame0: 5,
         speed: 140, reach: 0.9, height: 1.0, names: ['Daisy', 'Bessie', 'Clover', 'Buttercup'], grow: 10, young: 'calf',
         desc: 'Gives milk every morning after a day it was fed.', shop: 'Gives milk when fed every day.', home: 'barn',
       },
@@ -192,7 +192,7 @@
       potato: { days: 5, item: 'potato', art: 1, seasons: ['spring'] },
       strawberry: { days: 7, item: 'strawberry', art: 2, seasons: ['spring'], regrow: 3 },
       tomato: { days: 6, item: 'tomato', art: 3, seasons: ['summer'], regrow: 3 },
-      corn: { days: 9, item: 'corn', art: 4, seasons: ['summer'], regrow: 3 },
+      corn: { days: 9, item: 'corn', art: 4, seasons: ['summer'], regrow: 4 },
       carrot: { days: 4, item: 'carrot', art: 5, seasons: ['fall'] },
       pumpkin: { days: 10, item: 'pumpkin', art: 6, seasons: ['fall'] },
       grass: { days: 4, item: 'fodder', art: 7, seasons: ['spring', 'summer', 'fall'], regrow: 3, sickle: true },
@@ -245,14 +245,14 @@
 
     // ---------- the carpenter ----------
     BUILDS: {
-      kitchen: { name: 'Kitchen', gold: 1200, lumber: 30, stone: 0, desc: 'Cook dishes at home. They restore lots of energy.' },
-      bighouse: { name: 'House Extension', gold: 3000, lumber: 60, stone: 10, desc: 'A bedroom with a double bed. Needed to marry.' },
-      coop2: { name: 'Bigger Coop', gold: 1000, lumber: 25, stone: 0, desc: 'Room for 8 chickens.' },
-      barn2: { name: 'Bigger Barn', gold: 2000, lumber: 50, stone: 10, desc: 'Room for 8 cows.' },
+      kitchen: { name: 'Kitchen', gold: 2500, lumber: 40, stone: 0, desc: 'Cook dishes at home. They restore lots of energy.' },
+      bighouse: { name: 'House Extension', gold: 8000, lumber: 100, stone: 30, desc: 'A bedroom with a double bed. Needed to marry.' },
+      coop2: { name: 'Bigger Coop', gold: 3000, lumber: 40, stone: 0, desc: 'Room for 8 chickens.' },
+      barn2: { name: 'Bigger Barn', gold: 6000, lumber: 80, stone: 20, desc: 'Room for 8 cows.' },
     },
     BUILD_KEYS: ['kitchen', 'bighouse', 'coop2', 'barn2'], // stable order, used by the save format
-    LUMBER_PRICE: 30,
-    STONE_PRICE: 20,
+    LUMBER_PRICE: 50,
+    STONE_PRICE: 30,
 
     // ---------- villagers ----------
     VILLAGER_ORDER: VILLAGER_ORDER,

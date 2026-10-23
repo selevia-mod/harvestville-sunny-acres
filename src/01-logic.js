@@ -762,7 +762,7 @@
     } else if (fest.kind === 'harvest') {
       var slot = s.inv[choice];
       if (!slot || C.ITEMS[slot.id].kind !== 'crop') return { error: 'nocrop' };
-      var value = C.ITEMS[slot.id].sell, place = value >= 300 ? 1 : value >= 150 ? 2 : 3;
+      var value = C.ITEMS[slot.id].sell, place = value >= 200 ? 1 : value >= 80 ? 2 : 3;
       out.gold = [0, 1000, 500, 200][place];
       out.place = place;
       out.text = 'The judges taste your ' + C.ITEMS[slot.id].name + '... ' + ['', '1st place', '2nd place', '3rd place'][place] + '! You win ' + out.gold + 'G.';

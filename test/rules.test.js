@@ -380,8 +380,8 @@ test('the carpenter builds overnight with gold, lumber and stone', () => {
   const s = fresh();
   s.gold = 5000;
   assert.strictEqual(L.startBuild(s, 'kitchen'), 'lumber');
-  assert.strictEqual(L.buyMaterial(s, 'lumber', 30), 'ok');
-  assert.strictEqual(s.gold, 5000 - 30 * C.LUMBER_PRICE);
+  assert.strictEqual(L.buyMaterial(s, 'lumber', C.BUILDS.kitchen.lumber), 'ok');
+  assert.strictEqual(s.gold, 5000 - C.BUILDS.kitchen.lumber * C.LUMBER_PRICE);
   assert.strictEqual(L.startBuild(s, 'kitchen'), 'ok');
   assert.strictEqual(L.startBuild(s, 'coop2'), 'busy');
   same(roundTrip(s).project, s.project);

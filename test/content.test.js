@@ -172,7 +172,7 @@ test('heart events play once each, in order, when the hearts are reached', () =>
 test('the stable brings a horse; the cat basket brings a cat; pets want a daily pat', () => {
   const s = fresh();
   s.gold = 10000;
-  s.lumber = 50;
+  s.lumber = C.BUILDS.stable.lumber;
   assert.strictEqual(L.startBuild(s, 'stable'), 'ok');
   let r = L.endDay(s, false);
   assert.strictEqual(r.built, 'stable');

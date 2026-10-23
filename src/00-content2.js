@@ -68,7 +68,7 @@
     f_cat: { name: 'Cat Basket', gold: 600, icon: 'cat_basket', desc: 'A cosy basket... and a cat comes to live with you!' },
   };
   C.FURNITURE_KEYS = ['f_plant', 'f_music', 'f_aquarium', 'f_cat'];
-  C.BUILDS.stable = { name: 'Stable', gold: 2000, lumber: 40, stone: 0, desc: 'A horse to ride: faster, and a saddlebag to ship from anywhere.' };
+  C.BUILDS.stable = { name: 'Stable', gold: 4000, lumber: 60, stone: 0, desc: 'A horse to ride: faster, and a saddlebag to ship from anywhere.' };
   C.BUILD_KEYS.push('stable', 'f_plant', 'f_music', 'f_aquarium', 'f_cat'); // appended: older saves keep their order
 
   // ---------- the mine gets harder (and richer) the deeper you go ----------

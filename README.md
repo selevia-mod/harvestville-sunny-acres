@@ -14,13 +14,14 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 
 | Place | JS time per frame (avg / p95) |
 | --- | --- |
-| Farm | 7.8 / 10.9 ms |
-| Town plaza | 7.2 / 10.7 ms |
-| Town in a storm | 8.2 / 12.2 ms |
-| House, mine | 5.6 ms avg |
+| Farm | 8.6 / 12.6 ms |
+| Farm at night (glows, fireflies) | 8.7 / 13.3 ms |
+| Town plaza | 8.6 to 10.3 / 16.3 ms |
+| Town in a storm | 11.4 ms avg |
+| House, mine | 4.4 to 5.4 ms avg |
 
 - **Frame budget:** 60 fps needs under 16.7 ms, so every place fits.
-- **Startup:** cold start is about 7.7 s at 6x slowdown (about 2 s at full speed). A "Loading your farm…" message
+- **Startup:** cold start is about 8 s at 6x slowdown (about 2 s at full speed). A "Loading your farm…" message
   shows meanwhile.
 - **GPU memory:** only the farm sheets are uploaded at boot. Indoor tiles, villagers and props are added the first
   time a map needs them.
@@ -33,6 +34,15 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 Drag anywhere to walk. The big action button acts on the highlighted tile and shows what it will do.
 Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 to 6 hotbar, E bag, Esc back.
 
+### Getting started
+
+- **Goals:** a new farm shows one goal at a time under the top bar: clear debris, till, plant, water, feed
+  Clucky, sleep, collect an egg, ship, visit town, meet villagers, harvest. Each one pays a small reward. A
+  yellow arrow points the way, even across maps. Tap the goal bar for details.
+- **Tips:** the first time you hold each kind of item (a tool, seeds, feed, food...), a tip explains it.
+- **Mail:** the mailbox by the house gets letters: a welcome lunch, festival invitations, birthday reminders,
+  thank-you gifts from villagers at 3 hearts, and rewards for shipping milestones and deep mine floors.
+
 ### The farm
 
 - **Clearing:** a new farm is overgrown. Use the **Sickle** on weeds, the **Axe** on branches and stumps (lumber),
@@ -44,9 +54,9 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
   | Season | Crops |
   | --- | --- |
-  | Spring | Turnip 3 days/60G, Potato 5/110G, Strawberry 7/170G (regrows every 3) |
-  | Summer | Tomato 6/130G (regrows), Corn 9/220G (regrows) |
-  | Fall | Carrot 4/90G, Pumpkin 10/360G |
+  | Spring | Turnip 3 days/60G, Potato 5/80G, Strawberry 7/50G (regrows every 3) |
+  | Summer | Tomato 6/60G (regrows every 3), Corn 9/100G (regrows every 4) |
+  | Fall | Carrot 4/70G, Pumpkin 10/250G |
   | All but winter | Grass: cut it with the Sickle for Fodder, and it regrows |
 
 - **Selling:** put crops, produce, fish, ore and forage in the **shipping box** by the house. It pays out overnight.
@@ -57,11 +67,14 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 ### Tools and energy
 
-- **Tool upgrades:** Bram at the forge upgrades each tool: Copper (600G + 5 Copper Ore), Silver (1500G + 5 Silver
-  Ore), Gold (3000G + 5 Gold Ore). Upgrades are instant.
+- **Tool upgrades:** Bram at the forge upgrades each tool: Copper (1000G + 5 Copper Ore), Silver (2500G + 5 Silver
+  Ore), Gold (5000G + 5 Gold Ore). Upgrades are instant.
+- **Swings:** the farmer raises and swings each tool (or tips the can and seed bag). Chips fly off debris,
+  watered crops wiggle, and what you gather flies into the bag.
 - **Charging:** upgraded tools use less energy and **charge**. Hold the action button and release: 3 tiles, then
   3×3, then 3×5.
-- **Watering can:** it holds 20 waters, up to 60 at Gold.
+- **Watering can:** it holds 20 waters, up to 60 at Gold. Each tile costs 2 energy with the basic can, less with
+  upgrades.
 - **Food:** eat food to restore energy (tap Eat with it in hand, or from the bag). With a **kitchen** you cook 9
   recipes from your crops, eggs, milk, fish and mushrooms. Rosa's inn and Ivy's clinic sell meals and tonics.
 
@@ -72,8 +85,14 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   Large Eggs and Large Milk.
 - **Chicks and calves:** hold an egg at the coop to put it in the incubator, and a chick hatches in 3 days.
   A Miracle Potion given to a cow with 2+ hearts brings a calf in 7 days. Chicks and calves grow up in a few days.
+- **Prices:** Chicken 500G, Cow 2000G. Egg 40G (large 70G), milk 100G (large 150G).
 - **Bigger buildings:** Mira builds a Bigger Coop and a Bigger Barn (8 each).
-- **Biscuit the dog** lives by the house. Pet him every day.
+- **Pets:**
+  - **Biscuit the dog** lives by the house. Pet him every day.
+  - **The horse:** Mira's Stable brings Chestnut the horse. Walk up to him to ride: he's 1.7× faster, he can
+    go to town, and his saddlebag ships what you hold from anywhere. He waits outside when you go indoors or
+    down the mine.
+  - **Mochi the cat** comes with the Cat Basket from Mira's furniture tab and lives in the farmhouse.
 
 ### Willowbrook (the town)
 
@@ -93,22 +112,36 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 - **Friendship:** talk to each villager once a day, and give one gift a day. They love, like, don't mind, or dislike
   each item, and birthday gifts count double. Friendship shows as 10 hearts (pause → Friends).
+- **Heart events:** at friendship milestones (2, 4 and 6 hearts for Lily, Mira, Leo and Ivy; 3 for the others),
+  talking to them starts a little story scene that ends with a choice.
+- **In town:** villagers are solid, show their name when you are near, and hum or react with speech bubbles.
 - **Buildings:** doors open shop menus during opening hours. Every panel has a Talk button for the person who runs
   it.
   - Forge: tool upgrades.
-  - Woodshop: Kitchen, House Extension, Bigger Coop and Bigger Barn, built overnight with gold, lumber and stone.
-    It also sells lumber and stone.
+  - Woodshop:
+    - Built overnight with gold, lumber and stone: Kitchen (2500G + 40 lumber), House Extension (8000G + 100 lumber
+      + 30 stone), Bigger Coop (3000G + 40 lumber), Bigger Barn (6000G + 80 lumber + 20 stone), Stable (4000G + 60
+      lumber).
+    - Furniture: Big Plant, Music Box (a tune and +5 energy once a day), Aquarium (shows the fish you have caught)
+      and the Cat Basket.
+    - Lumber 50G and stone 30G.
   - Inn: meals.
   - Clinic: tonics.
   - Town Hall: festival news.
   - Homes: knock to talk.
 - **The notice board** in the plaza lists the next two weeks of events.
-- **Fishing:** hold the rod facing water, wait for the "!", then tap. The river has bigger fish (and the King
-  Trout) than the farm pond.
+- **Fishing:**
+  - Hold the rod facing water and wait for the "!". Then tap to hook the fish.
+  - To reel it in, hold anywhere on the screen (or the action button) to lift the green bar, and keep the fish
+    inside it until the meter is full.
+  - Bigger fish are faster and the bar is smaller. The river has bigger fish (and the King Trout) than the farm
+    pond.
 - **Foraging:** herbs, berries, mushrooms and winter roots appear in the woods on the farm and in town, fresh
   every day.
 - **The mine** (east of town): smash rocks with the Hammer for stone, copper, silver, gold and gems. One rock on
-  each floor hides the ladder down, and deeper floors have better ore. The floors change daily.
+  each floor hides the ladder down, and deeper floors have better ore. The floors change daily. Every 5 floors
+  the swings cost 1 more energy, and every 5th floor has a treasure chest (once ever). Run out of energy down
+  there and you collapse, waking up at home.
 
 ### Seasons, weather and festivals
 
@@ -120,16 +153,37 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
   | Festival | Date | What you do |
   | --- | --- | --- |
-  | Flower Festival | Spring 14 | Dance |
-  | Fireworks Night | Summer 24 | Watch with someone |
-  | Harvest Festival | Fall 12 | Crop judged for prizes |
-  | Cow Festival | Fall 20 | Your happiest cow competes |
+  | Flower Festival | Spring 14 | The Flower Dance: tap when each ring reaches the circle. A better dance means more friendship |
+  | Fireworks Night | Summer 24 | Watch with someone you invite |
+  | Harvest Festival | Fall 12 | Judges taste your crop, with a drumroll before the prize |
+  | Cow Festival | Fall 20 | Your happiest cow competes for the blue ribbon |
   | Starry Night | Winter 24 | Spend the evening with someone |
 
   Talk to Mayor Hollis there to take part. Shops close on festival days.
 - **Marriage:** Lily, Mira, Leo and Ivy can marry you. You need 8 hearts, the House Extension and a Blue Feather.
   Show them the feather, and the wedding is 3 days later. Your spouse then lives at the farmhouse and sometimes packs
   you lunch.
+
+### Collection and records
+
+Pause → **Collection** shows 35 things to find: crops, produce, fish, forage, ore and dishes (unknown ones are
+silhouettes). It also shows your records: total shipped, fish caught, dishes cooked, the deepest mine floor, and
+close friends.
+
+### Balance
+
+`npm run simulate` plays a year with the real rules: an efficient player who waters as much as energy allows,
+keeps animals and mines on rainy days. It prints gold and income per week, and when the buildings and upgrades
+become affordable. With the current numbers:
+
+| When | What |
+| --- | --- |
+| Spring | About 21,000G shipped |
+| End of spring | The kitchen |
+| Early fall | The house extension, so marriage is possible in fall of year 1 |
+| End of year 1 | About 200,000G shipped |
+
+A relaxed player will be well behind that.
 
 ### Sound
 
@@ -162,11 +216,17 @@ src/              game code, concatenated in filename order
   10-boot.js        textures (lazy for props, villagers, indoor), Tiled maps, animations, the session
   11-world.js       map loading, props, player, camera, clock, travel between maps, sleeping
   12-ui.js          HUD, weather particles, joystick, action button (charge meter), hotbar, dialogs
-  13-animals.js     the herd in the pen, chicks and calves, and the dog
+  00-content2.js    goals, tips, the collection list, pets, furniture, mine depth, mini-game tuning
+  00-story.js       letters and heart events
+  01-logic2.js      rules for goals, tips, collection, mail, heart events, pets, furniture, chests (wraps 01-logic)
+  13-animals.js     the herd in the pen, chicks and calves, and pets (the dog, the cat)
   14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
-  15-villagers.js   villagers walking their schedules (path finding), talking, gifts, proposals
-  16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends
+  15-villagers.js   villagers walking their schedules (path finding), talking, gifts, heart events, proposals
+  16-games.js       goal banner + guide arrow, items flying into the bag, choices, fishing and dance mini-games
+  16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends, collection
   17-audio.js       WebAudio music and sound effects
+  18-polish.js      tool swings, night darkness with glowing windows, fireflies, name tags, emotes, goals
+  19-extras.js      the horse (riding, saddlebag), the cat, the mailbox, mine chests, music box, aquarium
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house, town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -180,8 +240,9 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (61 tests)
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (10 tests, ~10 min)
+npm test           # rules + save-format unit tests (77 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (11 tests, ~13 min)
+npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
 ```
@@ -223,5 +284,5 @@ Run `npm run build` after editing.
 
 ## Next up
 
-A horse, more festivals' mini-games, rival romances, and more mine floors with dangers. The save format has a
-version field (`v`) and a migration level (`mg`).
+Wrap it as an Android/iOS app with Capacitor; play-test on real phones. The save format has a version field (`v`)
+and a migration level (`mg`).

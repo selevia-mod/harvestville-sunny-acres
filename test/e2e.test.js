@@ -435,12 +435,12 @@ test('animals: pet, feed, brush, collect an egg, ship it, buy a cow, the dog, sa
   assert.deepStrictEqual(s.box, [{ id: 'egg', n: 1 }]);
 
   // buy a cow from the Animals tab
-  await page.evaluate(() => { Farm.session.state.gold = 1500; Farm.session.state.time = 600; });
+  await page.evaluate(() => { Farm.session.state.gold = 2500; Farm.session.state.time = 600; });
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
   await tapButton(page, 'Animals');
   await shot(page, '12-shop-animals');
-  await tapButton(page, 'Buy 1000G');
+  await tapButton(page, 'Buy 2000G');
   s = await state(page);
   assert.strictEqual(s.animals.length, 2);
   assert.strictEqual(s.animals[1].kind, 'cow');
@@ -719,7 +719,7 @@ test('town: walk down the road, talk, gift, the forge, the woodshop, the inn, an
   await tapButton(page, 'Upgrade', 0);
   s = await state(page);
   assert.strictEqual(s.tools.hoe, 1);
-  assert.strictEqual(s.gold, 1400);
+  assert.strictEqual(s.gold, 1000);
   assert.strictEqual(count(s, 'ore_copper'), 0);
   await page.evaluate(() => window.__gameBack());
 
@@ -727,11 +727,11 @@ test('town: walk down the road, talk, gift, the forge, the woodshop, the inn, an
   await teleport(page, 25, 19, 'up');
   await tapAction(page);
   await tapButton(page, 'Materials');
-  await tapButton(page, 'Buy 10 300G');
+  await tapButton(page, 'Buy 10 500G');
   assert.strictEqual((await state(page)).lumber, 10);
   await tapButton(page, 'Build');
-  await tapButton(page, 'Build', 0); // the kitchen: 1200G + 30 lumber
-  assert.strictEqual((await state(page)).project, null, 'not enough lumber yet');
+  await tapButton(page, 'Build', 0); // the kitchen: 2500G + 40 lumber
+  assert.strictEqual((await state(page)).project, null, 'not enough gold and lumber yet');
   await page.evaluate(() => window.__gameBack());
 
   // the inn serves a meal
@@ -741,7 +741,7 @@ test('town: walk down the road, talk, gift, the forge, the woodshop, the inn, an
   await tapButton(page, 'Eat 150G');
   s = await state(page);
   assert.strictEqual(s.energy, 80);
-  assert.strictEqual(s.gold, 1100 - 150);
+  assert.strictEqual(s.gold, 500 - 150);
   await page.evaluate(() => window.__gameBack());
 
   // the mine: break the rock hiding the ladder and go down
