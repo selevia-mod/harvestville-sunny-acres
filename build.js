@@ -42,11 +42,12 @@ const html = `<!DOCTYPE html>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1f3518; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   #game { width: 100%; height: 100%; }
-  canvas { display: block; image-rendering: pixelated; }
+  canvas { display: block; }
 </style>
 </head>
 <body>
 <div id="game"></div>
+<div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm…</div>
 <script>${inline(phaser)}</script>
 <script>${inline(assets)}</script>
 <script>${inline(game)}</script>

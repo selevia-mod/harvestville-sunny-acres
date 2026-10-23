@@ -49,6 +49,9 @@
       F.bus.on('hint', this.setHint, this);
       this.refresh();
       this.setHint(null);
+      this.buildFpsMeter();
+      var boot = document.getElementById('boot');
+      if (boot) boot.parentNode.removeChild(boot);
       if (F.session.isNew) {
         this.dialog('WELCOME TO YOUR FARM!\nTill the field, plant your turnip seeds, and water them every day. ' +
           'Ship the harvest from the box by your house.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
@@ -58,6 +61,44 @@
     // ---------- drawing helpers ----------
     txt(x, y, str, size, color, extra) {
       return this.add.text(x, y, str, style(size, color, extra));
+    }
+
+    // Draws a picture once into a texture at render resolution; the result is shown as an image.
+    // Live Graphics objects are re-tessellated on every frame, which is the slowest thing a
+    // low-end phone CPU has to do here, so the UI only uses baked images and plain rectangles.
+    bake(key, w, h, draw) {
+      if (!this.textures.exists(key)) {
+        var g = this.make.graphics({ x: 0, y: 0 }, false);
+        g.scaleCanvas(F.R, F.R);
+        draw(g);
+        g.generateTexture(key, Math.ceil(w * F.R), Math.ceil(h * F.R));
+        g.destroy();
+      }
+      return key;
+    }
+
+    baked(parent, x, y, key, w, h, draw) {
+      var img = this.add.image(x, y, this.bake(key, w, h, draw)).setOrigin(0).setScale(1 / F.R);
+      if (parent) parent.add(img);
+      return img;
+    }
+
+    panelImg(parent, x, y, w, h) {
+      var self = this;
+      return this.baked(parent, x, y, 'ui-panel-' + w + 'x' + h, w, h, function (g) { self.panel(g, 0, 0, w, h); });
+    }
+
+    // Slot textures are SLOT + 4 wide so the selected glow fits; draw them 2px up and left.
+    slotTex(kind) {
+      var self = this;
+      return this.bake('ui-slot-' + kind, SLOT + 4, SLOT + 4, function (g) {
+        if (kind === 'bag') {
+          g.fillStyle(0x6aa84f, 1).fillRoundedRect(2, 2, SLOT, SLOT, 7);
+          g.fillStyle(0x8fd06a, 1).fillRoundedRect(5, 5, SLOT - 6, SLOT - 6, 5);
+        } else {
+          self.slotBox(g, 2, 2, SLOT, kind === 'sel');
+        }
+      });
     }
 
     panel(g, x, y, w, h) {
@@ -79,37 +120,42 @@
 
     button(parent, x, y, w, h, label, onTap, color) {
       var c = this.add.container(x, y);
-      var g = this.add.graphics();
-      g.fillStyle(0x3d2614, 1).fillRoundedRect(-w / 2, -h / 2, w, h, 9);
-      g.fillStyle(color || 0x5fa84a, 1).fillRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 8);
-      g.fillStyle(0xffffff, 0.22).fillRoundedRect(-w / 2 + 5, -h / 2 + 4, w - 10, (h - 8) / 2, 6);
+      color = color || 0x5fa84a;
+      var bg = this.baked(null, -w / 2, -h / 2, 'ui-btn-' + w + 'x' + h + '-' + color, w, h, function (g) {
+        g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, w, h, 9);
+        g.fillStyle(color, 1).fillRoundedRect(2, 2, w - 4, h - 4, 8);
+        g.fillStyle(0xffffff, 0.22).fillRoundedRect(5, 4, w - 10, (h - 8) / 2, 6);
+      });
       var t = this.txt(0, 0, label, 15, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
       var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
       z.on('pointerdown', function () { c.setScale(0.94); });
       z.on('pointerout', function () { c.setScale(1); });
       z.on('pointerup', function () { c.setScale(1); onTap(); });
-      c.add([g, t, z]);
+      c.add([bg, t, z]);
       if (parent) parent.add(c);
       return c;
     }
 
     // An inventory slot widget: background, icon, count, and the watering-can level bar.
     slotWidget(parent, x, y, onTap) {
-      var w = { g: this.add.graphics(), x: x, y: y };
+      var w = { x: x, y: y };
+      w.bg = this.add.image(x - 2, y - 2, this.slotTex('plain')).setOrigin(0).setScale(1 / F.R);
       w.icon = this.add.image(x + SLOT / 2, y + SLOT / 2 - 1, 'items', 0).setScale(ICON);
       w.count = this.txt(x + SLOT - 5, y + SLOT - 4, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(1, 1);
-      w.bar = this.add.graphics();
+      w.barBg = this.add.rectangle(x + 7, y + SLOT - 9, SLOT - 14, 5, 0x3d2614).setOrigin(0).setVisible(false);
+      w.bar = this.add.rectangle(x + 8, y + SLOT - 8, SLOT - 16, 3, 0x4aa3e8).setOrigin(0).setVisible(false);
       w.zone = this.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
       w.zone.on('pointerdown', onTap);
-      if (parent) parent.add([w.g, w.icon, w.count, w.bar, w.zone]);
+      if (parent) parent.add([w.bg, w.icon, w.count, w.barBg, w.bar, w.zone]);
       return w;
     }
 
     drawSlot(w, slot, selected) {
       var s = F.session.state;
-      w.g.clear();
-      this.slotBox(w.g, w.x, w.y, SLOT, selected);
-      w.bar.clear();
+      w.bg.setTexture(this.slotTex(selected ? 'sel' : 'plain'));
+      var can = !!slot && slot.id === 'can';
+      w.barBg.setVisible(can);
+      w.bar.setVisible(can);
       if (!slot) {
         w.icon.setVisible(false);
         w.count.setText('');
@@ -117,28 +163,26 @@
       }
       w.icon.setVisible(true).setFrame(C.ITEMS[slot.id].icon);
       w.count.setText(slot.n > 1 ? String(slot.n) : '');
-      if (slot.id === 'can') {
-        w.bar.fillStyle(0x3d2614, 1).fillRect(w.x + 7, w.y + SLOT - 9, SLOT - 14, 5);
-        w.bar.fillStyle(0x4aa3e8, 1).fillRect(w.x + 8, w.y + SLOT - 8, (SLOT - 16) * s.water / C.CAN_CAPACITY, 3);
-      }
+      if (can) w.bar.setSize(Math.max(0.01, (SLOT - 16) * s.water / C.CAN_CAPACITY), 3);
     }
 
     // ---------- HUD ----------
     buildHud() {
-      var g = this.add.graphics();
-      this.panel(g, 6, 6, W - 12, 58);
+      this.panelImg(null, 6, 6, W - 12, 58);
       this.dayText = this.txt(22, 14, '', 13, INK, { fontStyle: 'bold' });
       this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
       this.add.image(124, 35, 'items', C.ICON.bolt).setScale(ICON * 0.8);
-      this.energyBar = this.add.graphics();
+      this.baked(null, 136, 28, 'ui-energy', 74, 15, function (g) { g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, 74, 15, 5); });
+      this.energyBar = this.add.rectangle(138, 30, 70, 11, 0x5fc24a).setOrigin(0);
       this.add.image(228, 35, 'items', C.ICON.coin).setScale(ICON * 0.8);
       this.goldText = this.txt(242, 26, '', 17, INK, { fontStyle: 'bold' });
       var self = this;
       var menu = this.add.container(326, 35);
-      var mg = this.add.graphics();
-      mg.fillStyle(COL.slotEdge, 1).fillRoundedRect(-17, -17, 34, 34, 8);
-      mg.fillStyle(COL.slot, 1).fillRoundedRect(-14, -14, 28, 28, 6);
-      mg.fillStyle(0x5a3a1e, 1).fillRect(-7, -8, 5, 16).fillRect(2, -8, 5, 16);
+      var mg = this.baked(null, -17, -17, 'ui-menu', 34, 34, function (g) {
+        g.fillStyle(COL.slotEdge, 1).fillRoundedRect(0, 0, 34, 34, 8);
+        g.fillStyle(COL.slot, 1).fillRoundedRect(3, 3, 28, 28, 6);
+        g.fillStyle(0x5a3a1e, 1).fillRect(10, 9, 5, 16).fillRect(19, 9, 5, 16);
+      });
       var mz = this.add.zone(0, 0, 44, 44).setInteractive({ useHandCursor: true });
       mz.on('pointerdown', function () { if (!self.modals.length) self.openPause(); });
       menu.add([mg, mz]);
@@ -150,10 +194,8 @@
       this.timeText.setText(L.formatTime(s.time));
       this.goldText.setText(s.gold + 'G');
       var pct = s.energy / C.MAX_ENERGY;
-      this.energyBar.clear();
-      this.energyBar.fillStyle(0x3d2614, 1).fillRoundedRect(136, 28, 74, 15, 5);
-      this.energyBar.fillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d, 1);
-      if (pct > 0) this.energyBar.fillRoundedRect(138, 30, Math.max(6, 70 * pct), 11, 4);
+      this.energyBar.setFillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d);
+      this.energyBar.setSize(Math.max(0.01, 70 * pct), 11).setVisible(pct > 0);
       for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
       this.night.setAlpha(this.nightAlpha(s.time));
       if (this.invRefresh) this.invRefresh();
@@ -168,8 +210,7 @@
     // ---------- hotbar ----------
     buildHotbar() {
       var self = this;
-      var g = this.add.graphics();
-      this.panel(g, 4, HOTBAR_Y - 30, W - 8, 60);
+      this.panelImg(null, 4, HOTBAR_Y - 30, W - 8, 60);
       var total = (C.HOTBAR + 1) * SLOT + C.HOTBAR * GAP;
       var x0 = (W - total) / 2;
       this.slots = [];
@@ -178,8 +219,7 @@
       }
       var bx = x0 + C.HOTBAR * (SLOT + GAP);
       var bag = this.slotWidget(null, bx, HOTBAR_Y - SLOT / 2, function () { if (!self.modals.length) self.openInventory(); });
-      bag.g.fillStyle(0x6aa84f, 1).fillRoundedRect(bx, HOTBAR_Y - SLOT / 2, SLOT, SLOT, 7);
-      bag.g.fillStyle(0x8fd06a, 1).fillRoundedRect(bx + 3, HOTBAR_Y - SLOT / 2 + 3, SLOT - 6, SLOT - 6, 5);
+      bag.bg.setTexture(this.slotTex('bag'));
       bag.icon.setFrame(C.ICON.bag);
     }
 
@@ -194,12 +234,14 @@
     // ---------- action button ----------
     buildAction() {
       var a = this.actionBtn = this.add.container(ACTION.x, ACTION.y);
-      var g = this.add.graphics();
-      g.fillStyle(0x000000, 0.2).fillCircle(0, 4, ACTION.r);
-      g.fillStyle(COL.edge, 1).fillCircle(0, 0, ACTION.r);
-      g.fillStyle(0xffd23f, 1).fillCircle(0, 0, ACTION.r - 4);
-      g.fillStyle(COL.panel, 1).fillCircle(0, 0, ACTION.r - 9);
-      g.fillStyle(0xffffff, 0.35).fillEllipse(-8, -16, 34, 16);
+      var r = ACTION.r;
+      var g = this.baked(null, -r, -r, 'ui-action', r * 2, r * 2 + 4, function (b) {
+        b.fillStyle(0x000000, 0.2).fillCircle(r, r + 4, r);
+        b.fillStyle(COL.edge, 1).fillCircle(r, r, r);
+        b.fillStyle(0xffd23f, 1).fillCircle(r, r, r - 4);
+        b.fillStyle(COL.panel, 1).fillCircle(r, r, r - 9);
+        b.fillStyle(0xffffff, 0.35).fillEllipse(r - 8, r - 16, 34, 16);
+      });
       this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(ICON * 1.15);
       this.actionLabel = this.txt(0, 21, '', 13, INK, { fontStyle: 'bold' }).setOrigin(0.5);
       var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
@@ -262,6 +304,23 @@
       if (!this.joyBase) return;
       this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(0.7);
       this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(0.7);
+    }
+
+    // ---------- frame-rate meter (toggled from the pause menu) ----------
+    buildFpsMeter() {
+      this.fpsText = this.txt(W - 10, 70, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(1, 0).setDepth(400).setVisible(false);
+      this.fpsFrames = 0;
+      this.fpsSince = 0;
+    }
+
+    update(time) {
+      if (!this.fpsText.visible) return;
+      this.fpsFrames++;
+      if (time - this.fpsSince < 1000) return;
+      this.fpsText.setText(Math.round(this.fpsFrames * 1000 / (time - this.fpsSince)) + ' fps  x' + F.R);
+      this.fpsFrames = 0;
+      this.fpsSince = time;
     }
 
     // ---------- toast + floating text ----------
@@ -338,11 +397,9 @@
       var titleText = title ? this.txt(W / 2, 0, title, 18, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0) : null;
       var body = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 272 }, lineSpacing: 3 }).setOrigin(0.5, 0);
       var th = titleText ? titleText.height + 10 : 0;
-      var h = 28 + th + body.height + 24 + 44 + 20;
-      var y0 = Math.max(80, (H - h) / 2 - 40);
-      var g = this.add.graphics();
-      this.panel(g, 24, y0, W - 48, h);
-      c.add(g);
+      var h = Math.round(28 + th + body.height + 24 + 44 + 20);
+      var y0 = Math.round(Math.max(80, (H - h) / 2 - 40));
+      this.panelImg(c, 24, y0, W - 48, h);
       if (titleText) { titleText.y = y0 + 24; c.add(titleText); }
       body.y = y0 + 26 + th;
       c.add(body);
@@ -380,22 +437,22 @@
     openPause() {
       var self = this, s = F.session.state;
       var c = this.openModal();
-      var g = this.add.graphics();
-      this.panel(g, 40, 170, W - 80, 290);
-      c.add(g);
-      c.add(this.txt(W / 2, 196, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      c.add(this.txt(W / 2, 230, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
-      this.button(c, W / 2, 314, 190, 46, 'Resume', function () { self.closeModal(); });
-      this.button(c, W / 2, 372, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
-      this.button(c, W / 2, 426, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
+      this.panelImg(c, 40, 150, W - 80, 350);
+      c.add(this.txt(W / 2, 176, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      c.add(this.txt(W / 2, 210, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+      this.button(c, W / 2, 294, 190, 46, 'Resume', function () { self.closeModal(); });
+      this.button(c, W / 2, 352, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
+      this.button(c, W / 2, 406, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
+      this.button(c, W / 2, 456, 190, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
+        self.fpsText.setVisible(!self.fpsText.visible);
+        self.closeModal();
+      }, 0x9a7a4a);
     }
 
     openInventory() {
       var self = this, s = F.session.state;
       var c = this.openModal();
-      var g = this.add.graphics();
-      this.panel(g, 14, 118, W - 28, 390);
-      c.add(g);
+      this.panelImg(c, 14, 118, W - 28, 390);
       c.add(this.txt(W / 2, 138, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
       var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 176;
       var widgets = [];
@@ -428,9 +485,7 @@
     openShop() {
       var self = this, s = F.session.state;
       var c = this.openModal();
-      var g = this.add.graphics();
-      this.panel(g, 12, 104, W - 24, 440);
-      c.add(g);
+      this.panelImg(c, 12, 104, W - 24, 440);
       c.add(this.txt(W / 2, 124, "Lily's Seed Shop", 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
       var gold = this.txt(W / 2, 152, '', 15, INK).setOrigin(0.5, 0);
       c.add(gold);
@@ -438,12 +493,8 @@
       showGold();
       C.SHOP_STOCK.forEach(function (id, row) {
         var item = C.ITEMS[id], y = 186 + row * 98;
-        var rg = self.add.graphics();
-        rg.fillStyle(0xe8cf98, 1).fillRoundedRect(28, y, W - 56, 88, 10);
-        c.add(rg);
-        var slot = self.add.graphics();
-        self.slotBox(slot, 38, y + 10, SLOT, false);
-        c.add(slot);
+        self.baked(c, 28, y, 'ui-shoprow', W - 56, 88, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 56, 88, 10); });
+        c.add(self.add.image(36, y + 8, self.slotTex('plain')).setOrigin(0).setScale(1 / F.R));
         c.add(self.add.image(38 + SLOT / 2, y + 10 + SLOT / 2, 'items', item.icon).setScale(ICON));
         c.add(self.txt(92, y + 10, item.name, 15, INK, { fontStyle: 'bold' }));
         c.add(self.txt(92, y + 30, item.desc, 12, '#6a4a2a', { wordWrap: { width: 220 } }));
