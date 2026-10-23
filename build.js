@@ -19,11 +19,21 @@ list('assets', '.png').forEach((f) => {
     : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', f)).toString('base64');
 });
 
+// Props (furniture, buildings) are one image each, keyed "props/<name>".
+list('assets/props', '.png').forEach((f) => {
+  const name = path.basename(f, '.png');
+  const webp = path.join(ROOT, 'assets', 'props', name + '.webp');
+  images['props/' + name] = fs.existsSync(webp)
+    ? 'data:image/webp;base64,' + fs.readFileSync(webp).toString('base64')
+    : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', 'props', f)).toString('base64');
+});
+
 const maps = {};
 list('maps', '.json').forEach((f) => {
   const map = JSON.parse(read(path.join('maps', f)));
   map.tilesets.forEach((ts) => {
     if (ts.source) throw new Error(`${f}: tileset "${ts.source}" is external. In Tiled, use "Embed Tileset" so it can be inlined.`);
+    if (ts.name === 'props') return;
     if (!images[ts.name]) throw new Error(`${f}: tileset "${ts.name}" needs a matching assets/${ts.name}.png`);
   });
   maps[path.basename(f, '.json')] = map;

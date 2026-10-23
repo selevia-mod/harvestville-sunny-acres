@@ -56,6 +56,7 @@
     Host.sleeping = sleeping;
     if (sleeping && F.session) Host.save(F.session.state);
     if (F.input) F.input.reset();
+    if (F.Audio) F.Audio.suspend(sleeping);
     if (!Host.game) return;
     if (sleeping) Host.game.loop.sleep();
     else Host.game.loop.wake();

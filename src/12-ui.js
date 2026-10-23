@@ -15,19 +15,30 @@
   var JOY = { x: 86, y: 512, r: 46, knob: 22 };
   var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
 
-  var HELP = 'HOW TO PLAY\n' +
-    'Drag the joystick on the left to walk. Tap the big button to act on the highlighted tile.\n\n' +
-    'Hoe: till the field.  Seeds: plant.\nCan: water every day. Refill it at the pond.\n\n' +
-    'Harvest ripe crops and put them in the shipping box by your house. You get paid overnight.\n\n' +
-    'Animals: feed them once a day (Chicken Feed, Fodder) for an egg or milk the next morning. Pet them for hearts.\n\n' +
-    'Seasons last 28 days. Each season has its own crops, and crops wither when the season ends. Nothing grows in winter.\n\n' +
-    "Lily's shop (south, 9 AM to 5 PM) sells seeds, animals and feed. Go to bed in your house to end the day.";
+  var HELP = [
+    'HOW TO PLAY\n' +
+    'Drag anywhere to walk. Tap the big button to act on the highlighted tile. Hold it with an upgraded tool to work a whole patch.\n\n' +
+    'Clear the field: Sickle for weeds, Axe for branches and stumps (lumber), Hammer for stones (stone).\n\n' +
+    'Hoe the soil, plant a seed bag (it sows 3x3), water every day. Rain waters for you.',
+    'SELLING AND ANIMALS\n' +
+    'Put crops, fish, ore and more in the shipping box by your house. You get paid overnight.\n\n' +
+    'Feed animals once a day for eggs and milk (a Milker is needed for cows). Pet and brush them: happy animals give large produce.',
+    'TOWN\n' +
+    'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
+    'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn), Rosa feeds you, Ivy sells tonics. ' +
+    'The mine east of town has ore. Fish at the river or the pond.',
+    'SEASONS AND FESTIVALS\n' +
+    'Seasons last 28 days and crops wither when theirs ends. Check the calendar for festivals and birthdays.\n\n' +
+    'With 8 hearts, the House Extension and a Blue Feather, you can propose. Go to bed in your house to end the day.',
+  ];
 
   function style(size, color, extra) {
     var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: F.R };
     if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
     return s;
   }
+
+  F.UI_CONST = { W: W, H: H, INK: INK, COL: COL, SLOT: SLOT, ICON: ICON };
 
   F.UIScene = class extends Phaser.Scene {
     constructor() {
@@ -41,7 +52,7 @@
       // The canvas is WIDTH*R x HEIGHT*R; zoom so all UI code works in WIDTH x HEIGHT layout px.
       this.cameras.main.setZoom(F.R).centerOn(W / 2, H / 2);
       this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0).setDepth(-1);
-      this.weatherSeason = -1; // petals / leaves / snow, rebuilt when the season changes
+      this.weatherKey = ''; // petals / leaves / snow / rain, rebuilt when the season or weather changes
       this.buildHud();
       this.buildHotbar();
       this.buildAction();
@@ -60,8 +71,8 @@
       var boot = document.getElementById('boot');
       if (boot) boot.parentNode.removeChild(boot);
       if (F.session.isNew) {
-        this.dialog('WELCOME TO YOUR FARM!\nTill the field, plant your turnip seeds, and water them every day. ' +
-          'Your chicken Clucky is in the pen south of the field: feed her every day for eggs.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
+        this.dialog('WELCOME TO SUNNY ACRES!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
+          'then hoe it, plant your turnip seeds and water them every day.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
       }
     }
 
@@ -168,9 +179,9 @@
         w.count.setText('');
         return;
       }
-      w.icon.setVisible(true).setFrame(C.ITEMS[slot.id].icon);
+      w.icon.setVisible(true).setFrame(L.iconOf(s, slot.id));
       w.count.setText(slot.n > 1 ? String(slot.n) : '');
-      if (can) w.bar.setSize(Math.max(0.01, (SLOT - 16) * s.water / C.CAN_CAPACITY), 3);
+      if (can) w.bar.setSize(Math.max(0.01, (SLOT - 16) * s.water / L.canCapacity(s)), 3);
     }
 
     // ---------- HUD ----------
@@ -179,6 +190,8 @@
       this.seasonIcon = this.add.image(26, 21, 'items', C.SEASONS[0].icon).setScale(0.13);
       this.dayText = this.txt(36, 14, '', 13, INK, { fontStyle: 'bold' });
       this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
+      this.weatherIcon = this.add.image(143, 18, 'items', 0).setScale(0.15);
+      this.weatherText = this.txt(154, 10, '', 11, INK, { fontStyle: 'bold' });
       this.add.image(124, 35, 'items', C.ICON.bolt).setScale(ICON * 0.8);
       this.baked(null, 136, 28, 'ui-energy', 74, 15, function (g) { g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, 74, 15, 5); });
       this.energyBar = this.add.rectangle(138, 30, 70, 11, 0x5fc24a).setOrigin(0);
@@ -201,24 +214,61 @@
       var date = L.date(s.day);
       this.dayText.setText(L.formatDate(s.day));
       this.seasonIcon.setFrame(C.SEASONS[date.season].icon);
-      if (date.season !== this.weatherSeason) this.buildWeather(date.season);
+      var weather = L.weather(s, s.day), mapKey = F.world ? F.world.mapKey : 'farm';
+      var outdoors = mapKey === 'farm' || mapKey === 'town';
+      this.weatherIcon.setFrame(C.WEATHER[weather].icon);
+      this.weatherText.setText(C.WEATHER[weather].name);
+      var wkey = date.season + '|' + weather + '|' + outdoors;
+      if (wkey !== this.weatherKey) this.buildWeather(date.season, weather, outdoors, wkey);
       this.timeText.setText(L.formatTime(s.time));
       this.goldText.setText(s.gold + 'G');
       var pct = s.energy / C.MAX_ENERGY;
       this.energyBar.setFillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d);
       this.energyBar.setSize(Math.max(0.01, 70 * pct), 11).setVisible(pct > 0);
       for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
-      this.night.setAlpha(this.nightAlpha(s.time));
+      var dark = this.nightAlpha(s.time);
+      if (mapKey === 'house') dark *= 0.35; // the lamps are on
+      if (mapKey === 'mine') dark = 0.3;
+      if (outdoors && weather === 'storm') dark = Math.max(dark, 0.28);
+      else if (outdoors && weather === 'rain') dark = Math.max(dark, 0.16);
+      this.night.setAlpha(dark);
       if (this.invRefresh) this.invRefresh();
     }
 
-    // Gentle seasonal particles drifting down the screen (none in summer). Under the night tint and HUD.
-    buildWeather(season) {
-      this.weatherSeason = season;
+    // Gentle seasonal particles drifting down the screen (petals, leaves, snow), or rain and storms.
+    // Outdoors only. Drawn under the night tint and the HUD.
+    buildWeather(season, weather, outdoors, key) {
+      this.weatherKey = key;
       if (this.weather) this.weather.destroy();
+      if (this.flashTimer) this.flashTimer.remove();
       this.weather = null;
+      this.flashTimer = null;
+      if (!outdoors) return;
+      if (weather === 'rain' || weather === 'storm') {
+        var tex = this.bake('ui-raindrop', 3, 18, function (g) { g.fillStyle(0xbfe2ff, 0.8).fillRoundedRect(0, 0, 3, 18, 1.5); });
+        this.weather = this.add.particles(0, 0, tex, {
+          x: { min: -40, max: W + 60 }, y: -30, lifespan: 1400,
+          speedY: { min: 520, max: 680 }, speedX: weather === 'storm' ? { min: -200, max: -150 } : { min: -60, max: -40 },
+          rotate: weather === 'storm' ? 16 : 5, scale: 1 / F.R, alpha: { min: 0.45, max: 0.8 },
+          frequency: weather === 'storm' ? 14 : 24,
+        }).setDepth(-2);
+        this.weather.fastForward(1500);
+        if (weather === 'storm') {
+          var self = this;
+          this.flashTimer = this.time.addEvent({
+            delay: 6000, loop: true, callback: function () {
+              if (Math.random() < 0.55) return;
+              var flash = self.add.rectangle(0, 0, W, H, 0xffffff, 0.55).setOrigin(0).setDepth(-1);
+              self.tweens.add({ targets: flash, alpha: 0, duration: 380, onComplete: function () { flash.destroy(); } });
+              if (F.Audio) F.Audio.sfx('thunder');
+            },
+          });
+        }
+        return;
+      }
       var p = C.SEASONS[season].particles;
       if (!p) return;
+      var heavy = weather === 'snow' ? 0.35 : 1;
       this.weather = this.add.particles(0, 0, 'items', {
         frame: C.SEASONS[season].icon,
         x: { min: -20, max: W + 20 },
@@ -229,7 +279,7 @@
         scale: { min: p.scale[0], max: p.scale[1] },
         rotate: { start: 0, end: 360 },
         alpha: 0.85,
-        frequency: p.every,
+        frequency: p.every * heavy,
       }).setDepth(-2);
       this.weather.fastForward(12000); // start with the screen already filled
     }
@@ -278,13 +328,34 @@
       this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(ICON * 1.15);
       this.actionLabel = this.txt(0, 21, '', 13, INK, { fontStyle: 'bold' }).setOrigin(0.5);
       var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
+      var up = function () {
+        if (F.input.holding) F.input.released = true;
+        F.input.holding = false;
+        a.setScale(1);
+      };
       z.on('pointerdown', function () {
+        if (F.Audio) F.Audio.unlock();
         F.input.action = true;
+        F.input.holding = true;
         a.setScale(0.92);
       });
-      z.on('pointerup', function () { a.setScale(1); });
-      z.on('pointerout', function () { a.setScale(1); });
+      z.on('pointerup', up);
+      z.on('pointerout', up);
       a.add([g, this.actionIcon, this.actionLabel, z]);
+      // charge meter: one pip per charge level, shown while an upgraded tool is held down
+      this.chargeText = this.txt(ACTION.x, ACTION.y - ACTION.r - 14, '', 14, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 })
+        .setOrigin(0.5).setVisible(false);
+      F.bus.on('charge', this.showCharge, this);
+      this.events.once('shutdown', function () { F.bus.off('charge', this.showCharge, this); }, this);
+    }
+
+    showCharge(level) {
+      if (level < 0) {
+        this.chargeText.setVisible(false);
+        return;
+      }
+      this.chargeText.setVisible(true).setText(['1 tile', '3 tiles', '3 x 3', '3 x 5'][level] + '  ' + new Array(level + 2).join('\u25CF'));
+      this.tweens.add({ targets: this.chargeText, scale: { from: 1.3, to: 1 }, duration: 160 });
     }
 
     setHint(a) {
@@ -295,7 +366,7 @@
         this.actionLabel.setText(held ? '' : 'Action').setAlpha(0.6).setY(held ? 21 : 0);
         return;
       }
-      var hasIcon = a.icon >= 0;
+      var hasIcon = a.icon != null && a.icon >= 0;
       this.actionIcon.setVisible(hasIcon).setAlpha(a.disabled ? 0.45 : 1);
       if (hasIcon) this.actionIcon.setFrame(a.icon);
       this.actionLabel.setText(a.label).setAlpha(a.disabled ? 0.5 : 1).setY(hasIcon ? 21 : 0);
@@ -308,6 +379,7 @@
       this.joyId = null;
       var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {
+        if (F.Audio) F.Audio.unlock();
         if (this.joyId !== null || this.modals.length || over.length) return;
         var pt = cam.getWorldPoint(p.x, p.y);
         if (pt.y < 70 || pt.y > HOTBAR_Y - 34) return;
@@ -404,6 +476,10 @@
       if (!this.modals.length) this.invRefresh = null;
     }
 
+    closeAll() {
+      while (this.modals.length) this.closeModal();
+    }
+
     // Back button: close the top panel, otherwise open the pause menu.
     back() {
       if (this.modals.length) {
@@ -418,8 +494,10 @@
     }
 
     // buttons: [{ label, cb, color }]; Back acts like the first button when there are two.
-    dialog(text, buttons) {
+    // opts.portrait = villager key: their picture, name and hearts head the panel.
+    dialog(text, buttons, opts) {
       var self = this;
+      opts = opts || {};
       buttons = buttons || [{ label: 'OK' }];
       var c = this.openModal(function () {
         self.closeModal();
@@ -430,10 +508,22 @@
       var titleText = title ? this.txt(W / 2, 0, title, 18, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0) : null;
       var body = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 272 }, lineSpacing: 3 }).setOrigin(0.5, 0);
       var th = titleText ? titleText.height + 10 : 0;
+      if (opts.portrait) th = 92;
       var h = Math.round(28 + th + body.height + 24 + 44 + 20);
       var y0 = Math.round(Math.max(80, (H - h) / 2 - 40));
       this.panelImg(c, 24, y0, W - 48, h);
-      if (titleText) { titleText.y = y0 + 24; c.add(titleText); }
+      if (opts.portrait) {
+        F.ensureTexture(this, 'people');
+        var vi = C.VILLAGER_ORDER.indexOf(opts.portrait);
+        this.baked(c, 44, y0 + 18, 'ui-portrait-bg', 70, 80, function (g) {
+          g.fillStyle(COL.slotEdge, 1).fillRoundedRect(0, 0, 70, 80, 10);
+          g.fillStyle(0xbfe0f0, 1).fillRoundedRect(3, 3, 64, 74, 8);
+        });
+        c.add(this.add.image(79, y0 + 98, 'people', vi * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150));
+        c.add(this.txt(126, y0 + 26, opts.name || C.VILLAGERS[opts.portrait].name, 18, INK, { fontStyle: 'bold' }));
+        c.add(this.txt(126, y0 + 50, C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
+        c.add(this.heartsText(126, y0 + 66, L.friendHearts(F.session.state, opts.portrait)));
+      } else if (titleText) { titleText.y = y0 + 24; c.add(titleText); }
       body.y = y0 + 26 + th;
       c.add(body);
       var bw = buttons.length > 1 ? 120 : 150;
@@ -451,164 +541,22 @@
       return this.dialog(text, [{ label: 'No', color: 0xc0703a }, { label: 'Yes', cb: onYes }]);
     }
 
-    help() {
-      this.dialog(HELP);
+    heartsText(x, y, n) {
+      var full = new Array(n + 1).join('\u2665'), empty = new Array(10 - n + 1).join('\u2661');
+      return this.txt(x, y, full + empty, 13, '#d2394a', { fontStyle: 'bold' });
     }
 
-    dayReport(result, s) {
-      var lines = [];
-      if (result.passedOut) lines.push('You stayed up too late and passed out. You only got half your energy back.\n');
-      if (result.shipped.length) {
-        result.shipped.forEach(function (b) { lines.push(b.n + ' x ' + C.ITEMS[b.id].name + '  ' + C.ITEMS[b.id].sell * b.n + 'G'); });
-        lines.push('Earned ' + result.earned + 'G from shipping!');
-      } else {
-        lines.push('Nothing was shipped yesterday.');
-      }
-      var made = Object.keys(result.produced || {}).map(function (id) {
-        return result.produced[id] + ' ' + C.ITEMS[id].name + (result.produced[id] > 1 && id === 'egg' ? 's' : '');
-      });
-      if (made.length) lines.push('\nYour animals made ' + made.join(' and ') + '. Collect them in the pen.');
-      if (result.hungry && result.hungry.length) lines.push((made.length ? '' : '\n') + result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
-      if (result.newSeason) {
-        var seeds = L.seedsInSeason(s.day);
-        lines.unshift(result.newSeason + ' has arrived! ' + (seeds.length
-          ? 'Lily now sells ' + seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(' and ') + ' seeds.'
-          : 'Nothing grows in winter, so look after your animals.') +
-          (result.withered ? '\n' + result.withered + (result.withered > 1 ? ' crops' : ' crop') + ' from last season withered.' : '') + '\n');
-      }
-      this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.join('\n'));
+    // A villager speaking, with their portrait.
+    say(key, name, text) {
+      return this.dialog(text, null, { portrait: key, name: name });
     }
 
-    openPause() {
-      var self = this, s = F.session.state;
-      var c = this.openModal();
-      this.panelImg(c, 40, 120, W - 80, 420);
-      c.add(this.txt(W / 2, 146, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      c.add(this.txt(W / 2, 180, L.formatDate(s.day) + ', Year ' + L.date(s.day).year + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
-      this.button(c, W / 2, 264, 190, 46, 'Resume', function () { self.closeModal(); });
-      this.button(c, W / 2, 322, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
-      this.button(c, W / 2, 376, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
-      this.button(c, W / 2, 426, 190, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
-        F.showFps = !self.fpsText.visible;
-        self.fpsText.setVisible(F.showFps);
-        self.closeModal();
-      }, 0x9a7a4a);
-      this.button(c, W / 2, 492, 190, 44, 'New game', function () {
-        self.confirm('START A NEW FARM?\nYour current farm, gold, crops and animals will be gone for good.', function () {
-          self.newGame();
-        });
-      }, 0xc0503a);
-    }
-
-    // Replaces the save with a fresh farm and restarts both scenes on it.
-    newGame() {
-      F.session = { state: L.newState(), dirty: false, isNew: true };
-      F.Host.save(F.session.state);
-      F.input.reset();
-      F.ui = null; // the world idles until the new UI scene is up
-      F.world.scene.restart();
-      this.scene.restart();
-    }
-
-    openInventory() {
-      var self = this, s = F.session.state;
-      var c = this.openModal();
-      this.panelImg(c, 14, 118, W - 28, 390);
-      c.add(this.txt(W / 2, 138, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 176;
-      var widgets = [];
-      var name = this.txt(W / 2, 336, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
-      var desc = this.txt(W / 2, 360, '', 14, INK, { align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0);
-      var note = this.txt(W / 2, 410, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
-      c.add([name, desc, note]);
-      for (var i = 0; i < C.INV_SIZE; i++) {
-        (function (i) {
-          var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
-          widgets.push(self.slotWidget(c, x, y, function () {
-            if (s.sel === i && s.inv[i]) { self.closeModal(); return; }
-            s.sel = i;
-            F.session.dirty = true;
-            F.world.hintKey = null;
-            self.refresh();
-          }));
-        })(i);
-      }
-      this.invRefresh = function () {
-        widgets.forEach(function (w, i) { self.drawSlot(w, s.inv[i], s.sel === i); });
-        var held = L.held(s);
-        name.setText(held ? C.ITEMS[held.id].name + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
-        desc.setText(held ? C.ITEMS[held.id].desc : 'Choose something to hold.');
-      };
-      this.invRefresh();
-      this.button(c, W / 2, 470, 160, 44, 'Close', function () { self.closeModal(); });
-    }
-
-    // Lily's shop: a Seeds tab and an Animals tab (animals + their feed).
-    openShop(tab) {
-      var self = this, s = F.session.state;
-      tab = tab || 'seeds';
-      var c = this.openModal();
-      this.panelImg(c, 12, 66, W - 24, 540);
-      c.add(this.txt(W / 2, 86, "Lily's Shop", 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      var gold = this.txt(W / 2, 114, '', 15, INK).setOrigin(0.5, 0);
-      c.add(gold);
-      var showGold = function () { gold.setText('You have ' + s.gold + 'G'); };
-      showGold();
-      [['seeds', 'Seeds'], ['animals', 'Animals']].forEach(function (t, k) {
-        self.button(c, W / 2 + (k ? 72 : -72), 158, 136, 36, t[1], function () {
-          if (t[0] === tab) return;
-          self.closeModal();
-          self.openShop(t[0]);
-        }, t[0] === tab ? 0x5fa84a : 0xa08a68);
-      });
-      var row = function (y, h, icon, name, desc, price) {
-        self.baked(c, 28, y, 'ui-shoprow-' + h, W - 56, h, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 56, h, 10); });
-        c.add(self.add.image(36, y + 6, self.slotTex('plain')).setOrigin(0).setScale(1 / F.R));
-        c.add(self.add.image(38 + SLOT / 2, y + 8 + SLOT / 2, 'items', icon).setScale(ICON));
-        c.add(self.txt(92, y + 8, name, 15, INK, { fontStyle: 'bold' }));
-        c.add(self.txt(92, y + 28, desc, 12, '#6a4a2a', { wordWrap: { width: 222 } }));
-        c.add(self.txt(38 + SLOT / 2, y + h - 30, price + 'G', 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      };
-      var itemRow = function (id, y, h) {
-        var item = C.ITEMS[id];
-        row(y, h, item.icon, item.name, item.shop || item.desc, item.price);
-        [1, 5].forEach(function (qty, k) {
-          self.button(c, 152 + k * 96, y + h - 20, 86, 30, 'Buy ' + qty, function () {
-            var r = L.buy(s, id, qty);
-            if (r === 'gold') return self.toast('Not enough gold.');
-            if (r === 'full') return self.toast('Your bag is full.');
-            self.toast('Bought ' + qty + ' ' + item.name + '.');
-            showGold();
-            F.world.changed();
-            F.world.save();
-          }, k ? 0x4a90c9 : 0x5fa84a);
-        });
-      };
-      if (tab === 'seeds') {
-        var seeds = L.seedsInSeason(s.day);
-        seeds.forEach(function (id, i) { itemRow(id, 194 + i * 98, 88); });
-        if (!seeds.length) {
-          c.add(self.txt(W / 2, 260, "LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, the Animals tab has feed.", 15, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
-        }
-      } else {
-        C.SHOP_ANIMALS.forEach(function (kind, i) {
-          var def = C.ANIMALS[kind], y = 194 + i * 88;
-          row(y, 80, def.icon, def.name + '   ' + L.animalCount(s, kind) + '/' + def.max + ' in the ' + def.home, def.shop, def.price);
-          self.button(c, 248, y + 60, 86, 30, 'Buy', function () {
-            var r = L.buyAnimal(s, kind);
-            if (r === 'gold') return self.toast('Not enough gold.');
-            if (r === 'full') return self.toast('The ' + def.home + ' is full.');
-            F.world.herd.add(r);
-            F.world.changed();
-            F.world.save();
-            self.closeModal();
-            self.openShop('animals');
-            self.toast('Meet ' + s.animals[r].name + '! Your new ' + def.name.toLowerCase() + ' is in the pen.');
-          });
-        });
-        C.SHOP_FEED.forEach(function (id, i) { itemRow(id, 194 + (C.SHOP_ANIMALS.length + i) * 88, 80); });
-      }
-      this.button(c, W / 2, 568, 160, 40, 'Close', function () { self.closeModal(); });
+    help(page) {
+      var self = this;
+      page = page || 0;
+      var buttons = [{ label: 'Close' }];
+      if (page < HELP.length - 1) buttons.push({ label: 'Next', color: 0x4a90c9, cb: function () { self.help(page + 1); } });
+      this.dialog(HELP[page], buttons);
     }
 
     // ---------- keyboard (desktop testing) ----------
@@ -617,11 +565,21 @@
       if (!kb) return;
       kb.on('keydown', function (e) {
         if (e.repeat) return;
+        if (F.Audio) F.Audio.unlock();
         if (e.key === 'Escape' || e.key === 'Backspace') { self.back(); return; }
         if (self.modals.length) return;
-        if (e.key === ' ' || e.key === 'Enter' || e.key === 'j') F.input.action = true;
+        if (e.key === ' ' || e.key === 'Enter' || e.key === 'j') {
+          F.input.action = true;
+          F.input.holding = true;
+        }
         else if (e.key === 'e' || e.key === 'i') self.openInventory();
         else if (e.key >= '1' && e.key <= '6') self.select(Number(e.key) - 1);
+      });
+      kb.on('keyup', function (e) {
+        if ((e.key === ' ' || e.key === 'Enter' || e.key === 'j') && F.input.holding) {
+          F.input.holding = false;
+          F.input.released = true;
+        }
       });
     }
   };

@@ -2302,6 +2302,16 @@
     return { canvas: sheet, place: place, placeBlock: placeBlock };
   }
 
+  // Helpers shared with the other art files (tools/art/*.js), which add icons, tiles, props and people.
+  window.ART = {
+    S: S, OUT: OUT, LW: LW, rng: rng, canvas: canvas, lin: lin, rad: rad, rrect: rrect, ell: ell, paint: paint,
+    shadow: shadow, wrap: wrap, puffs: puffs, leaf: leaf, flower: flower, star: star, eyes: eyes, LEAF: LEAF, DARK_LEAF: DARK_LEAF,
+    WOOD: WOOD, turnipBulb: turnipBulb, potato: potato, strawberry: strawberry, tomato: tomato, cornCob: cornCob,
+    pumpkin: pumpkin, carrot: carrot, egg: egg, chicken: chicken, cow: cow, mound: mound, grassTile: grassTile,
+    ICON_DRAW: ICON_DRAW, CROP_DRAW: CROP_DRAW, TILE_DRAW: {}, frameSheet: frameSheet, tileSheet: tileSheet,
+    SKIN: SKIN, CAP: CAP, SHIRT: SHIRT, DENIM: DENIM, BOOT: BOOT,
+  };
+
   window.makeArt = function (sets) {
     var main = tileSheet(sets.TILES), T = sets.TILES.T, place = main.place;
     // the main tileset holds the spring look; the seasons tileset holds every season's version
@@ -2335,6 +2345,9 @@
     place(T.tallgrass, tallgrass(0), 0, 0);
     place(T.shipbox, shipbox(), 0, 0);
     place(T.sign, sign(), 0, 0);
+    Object.keys(window.ART.TILE_DRAW).forEach(function (name) {
+      if (T[name] !== undefined) place(T[name], window.ART.TILE_DRAW[name](), 0, 0);
+    });
     main.placeBlock('house', house());
     main.placeBlock('shop', shop());
     main.placeBlock('pond', pond(null)); // transparent corners: the seasonal grass shows through
@@ -2360,7 +2373,7 @@
     var dirs = ['down', 'up', 'side'];
     var player = frameSheet(3, 3, 256, 384, 1024, 2048, function (g, step, row) { farmer(g, dirs[row], step); });
     // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame
-    var cropKeys = ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin'];
+    var cropKeys = sets.CROP_KEYS;
     var crops = frameSheet(3, 6, 256, 256, 1024, 2048, function (g, col, row) {
       var f = row * 3 + col;
       if (f < 2) return CROP_DRAW.turnip[f](g);
@@ -2368,26 +2381,27 @@
       if (!crop) return false;
       CROP_DRAW[crop][2 + (f - 2) % 2](g);
     });
-    var iconNames = ['hoe', 'can', 'seed_turnip', 'seed_potato', 'seed_strawberry', 'turnip', 'potato', 'strawberry',
-      'coin', 'bolt', 'bag', 'moon', 'drop', 'sparkle', 'crate', 'tag',
-      'egg', 'milk', 'chicken_feed', 'fodder', 'heart', 'chicken', 'cow', 'bubble',
-      'seed_tomato', 'seed_corn', 'seed_carrot', 'seed_pumpkin', 'tomato', 'corn', 'carrot', 'pumpkin',
-      'spring', 'summer', 'fall', 'winter'];
-    var items = frameSheet(8, 5, I, I, 8 + 8 * (I + 16) - 8, 8 + 5 * (I + 16) - 8, function (g, k, r) {
+    var iconNames = sets.ICON_ORDER;
+    var iconRows = Math.ceil(iconNames.length / 8);
+    var items = frameSheet(8, iconRows, I, I, 8 + 8 * (I + 16) - 8, 8 + iconRows * (I + 16) - 8, function (g, k, r) {
       var name = iconNames[r * 8 + k];
       if (!name) return false;
+      if (!ICON_DRAW[name]) throw new Error('no icon art for ' + name);
       ICON_DRAW[name](g);
     });
-    var animals = frameSheet(4, 2, 384, 320, 2048, 1024, function (g, pose, row) {
+    var animals = frameSheet(4, 3, 384, 320, 2048, 1024, function (g, pose, row) {
       if (row === 0) chicken(g, pose);
-      else cow(g, pose);
+      else if (row === 1) cow(g, pose);
+      else window.ART.dog(g, pose);
     });
     // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
     var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, crops: crops, items: items, animals: animals };
+    var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
+    Object.keys(extra.sheets).forEach(function (k) { sheets[k] = extra.sheets[k]; });
     var out = {};
-    Object.keys(sheets).forEach(function (k) {
-      out[k] = { png: sheets[k].toDataURL('image/png'), webp: sheets[k].toDataURL('image/webp', 0.92) };
-    });
+    var encode = function (c) { return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.92) }; };
+    Object.keys(sheets).forEach(function (k) { out[k] = encode(sheets[k]); });
+    Object.keys(extra.props).forEach(function (k) { out['props/' + k] = encode(extra.props[k]); });
     return out;
   };
 })();

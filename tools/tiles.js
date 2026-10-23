@@ -41,6 +41,8 @@ const TILES = layout('tiles', 7, 2048, {
   'grass', 'grass2', 'grass3', 'flowers', 'field', 'tilled', 'tilledWet', 'path', 'water',
   'fenceH', 'fenceV', 'fencePost', 'treeTL', 'treeTR', 'treeBL', 'treeBR',
   'bush', 'rock', 'stump', 'tallgrass', 'shipbox', 'sign',
+  // field debris (cleared with tools), plus town ground
+  'd_weed', 'd_branch', 'd_stone', 'd_stump', 'd_boulder', 'dock', 'plaza',
 ]);
 
 const RANCH = layout('ranch', 3, 1024, {
@@ -54,9 +56,33 @@ const SEASON_NAMES = ['spring', 'summer', 'fall', 'winter'];
 const SEASONAL = ['grass', 'grass2', 'grass3', 'flowers', 'field', 'path', 'treeTL', 'treeTR', 'treeBL', 'treeBR', 'bush', 'tallgrass'];
 const SEASONS = layout('seasons', 7, 2048, {}, [].concat(...SEASON_NAMES.map((s) => SEASONAL.map((k) => s + '_' + k))));
 
+// House interior and mine cave tiles.
+const INDOOR = layout('indoor', 7, 2048, {}, [
+  'floor', 'floor2', 'wall', 'wall_low', 'wall_side', 'void',
+  'cave', 'cave2', 'cave_wall', 'cave_top', 'ladder_down', 'ladder_up', 'mine_rock',
+]);
+
+// Props: furniture, town buildings and decorations, placed as image objects on maps.
+// w x h in tiles; foot = solid rows at the bottom; door = [first column, width] of the door in the bottom row;
+// flat props lie on the floor (no collision, drawn under people). Stored at half resolution (128 px per tile).
+const PROPS = {
+  bed: { w: 2, h: 2, foot: 2 }, bed2: { w: 3, h: 2, foot: 2 }, tv: { w: 1, h: 1, foot: 1 }, table: { w: 2, h: 2, foot: 1 },
+  fireplace: { w: 2, h: 2, foot: 0 }, kitchen: { w: 3, h: 2, foot: 1 }, shelf: { w: 2, h: 2, foot: 0 },
+  rug: { w: 3, h: 2, foot: 0, flat: true }, plant: { w: 1, h: 1, foot: 1 }, window: { w: 2, h: 1, foot: 0 },
+  wall_calendar: { w: 1, h: 1, foot: 0 }, doormat: { w: 2, h: 1, foot: 0, flat: true }, dresser: { w: 2, h: 2, foot: 1 },
+  mayor: { w: 6, h: 5, foot: 2, door: [2, 2] }, inn: { w: 6, h: 5, foot: 2, door: [2, 2] },
+  forge: { w: 5, h: 4, foot: 2, door: [2, 1] }, woodshop: { w: 5, h: 4, foot: 2, door: [2, 1] },
+  clinic: { w: 4, h: 4, foot: 2, door: [1, 2] }, cottage: { w: 4, h: 4, foot: 2, door: [1, 2] },
+  cabin: { w: 4, h: 3, foot: 2, door: [1, 2] }, mine_entrance: { w: 4, h: 3, foot: 2, door: [1, 2] },
+  fountain: { w: 3, h: 3, foot: 2 }, notice: { w: 2, h: 2, foot: 1 }, bench: { w: 2, h: 1, foot: 1 },
+  lamp: { w: 1, h: 2, foot: 1 }, flowerbed: { w: 2, h: 1, foot: 1 },
+  flower_arch: { w: 3, h: 2, foot: 0 }, lantern: { w: 1, h: 2, foot: 1 }, pumpkin_pile: { w: 2, h: 1, foot: 1 },
+  festive_tree: { w: 2, h: 3, foot: 1 }, doghouse: { w: 2, h: 2, foot: 1 },
+};
+
 function blockId(set, name, dx, dy) {
   const b = set.BLOCKS[name];
   return (b.row + dy) * set.COLS + b.col + dx;
 }
 
-module.exports = { SIZE, MARGIN, SPACING, TILES, RANCH, SEASONS, SEASON_NAMES, SEASONAL, TILESETS: [TILES, RANCH, SEASONS], blockId };
+module.exports = { SIZE, MARGIN, SPACING, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, TILESETS: [TILES, RANCH, SEASONS, INDOOR], blockId };

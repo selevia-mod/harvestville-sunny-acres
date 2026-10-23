@@ -1,13 +1,16 @@
-// The farm: Tiled map, player movement, the clock, and everything the action button does.
+// The world scene: loads the current map (farm, house, town or mine) from Tiled, places props, moves the
+// player, runs the clock, and travels between maps. What the action button does is in 14-actions.js.
 (function (F) {
   'use strict';
   var C = F.Config;
   var L = F.Logic;
   var T = C.TILE;
-  var DEPTH = { Ground: 0, Soil: 1, Walls: 2, crops: 3, cursor: 4, shadow: 9, player: 10, fx: 11, Above: 20 };
+  var DEPTH = { Ground: 0, Soil: 1, Debris: 1.5, Walls: 2, Closed: 2.2, flat: 2.5, crops: 3, cursor: 4, forage: 4.5, shadow: 9, actor: 10, fx: 11, Above: 20 };
   var DIR_VEC = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // body centre sits this far below the sprite centre (see body offset below)
+  var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance' };
+  var OUTDOORS = { farm: true, town: true };
 
   function propsOf(list) {
     var out = {};
@@ -22,23 +25,99 @@
     }
 
     create() {
-      var self = this;
+      var self = this, s = this.state = F.session.state;
       F.world = this;
-      this.state = F.session.state;
+      this.mapKey = s.map;
+      this.outdoors = !!OUTDOORS[s.map];
       this.busy = false;
       this.clockMs = 0;
       this.saveMs = 0;
       this.hintKey = '';
+      this.charge = null;
+      this.fishing = null;
+      this.hits = {}; // tile index -> swings so far on a stump or boulder
+      this.herd = null;
+      this.dog = null;
+      this.villagers = null;
+      this.mine = null;
 
-      // ----- map
-      var map = this.map = this.make.tilemap({ key: 'farm' });
-      var tilesets = map.tilesets.map(function (ts) { return map.addTilesetImage(ts.name, ts.name); });
+      this.buildMap();
+      this.buildObjects();
+
+      // ----- player
+      this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+      this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
+      this.player = this.physics.add.sprite(0, 0, 'player', 0).setDepth(DEPTH.actor);
+      this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
+      this.player.setCollideWorldBounds(true);
+      this.physics.add.collider(this.player, this.collideLayers);
+      this.physics.add.collider(this.player, this.solids);
+      var p = s.player, spawn = this.points[F.session.spawn] || this.points[p.spawn] || this.points[DEFAULT_SPAWN[this.mapKey]] || { x: this.map.widthInPixels / 2, y: this.map.heightInPixels / 2, props: {} };
+      F.session.spawn = null;
+      delete p.spawn;
+      if (p.x != null) {
+        this.dir = p.dir || 'down';
+        this.setFeet(p.x, p.y);
+      } else {
+        this.dir = spawn.props.dir || 'down';
+        this.setFeet(spawn.x, spawn.y);
+      }
+      this.idle();
+
+      this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
+      this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+      this.areaCells = [];
+      for (var i = 0; i < 15; i++) this.areaCells.push(this.add.rectangle(0, 0, T - 24, T - 24, 0xffffff, 0.28).setOrigin(0).setDepth(DEPTH.cursor).setVisible(false));
+
+      // ----- what lives on this map
+      if (this.mapKey === 'farm') this.setupFarm();
+      if (this.mapKey === 'mine') this.setupMine();
+      this.setupForage();
+      if (this.mapKey === 'town' || this.mapKey === 'house') this.villagers = new F.Villagers(this);
+
+      // ----- camera: follows the player, and centres maps smaller than the screen
+      var cam = this.cameras.main;
+      cam.setZoom(F.R * C.VIEW_TILE / T);
+      cam.setBackgroundColor(this.mapKey === 'mine' ? '#1a1410' : this.mapKey === 'house' ? '#2a1a10' : '#3a7a2f');
+      this.updateCamera(1);
+      cam.fadeIn(350);
+
+      this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
+      F.bus.emit('map', this.mapKey);
+      F.bus.emit('hud');
+      if (F.Audio) {
+        var weather = L.weather(s, s.day);
+        F.Audio.music(this.musicMood());
+        F.Audio.ambient(this.outdoors && C.WEATHER[weather].waters ? weather : null);
+      }
+      if (F.session.report) {
+        var report = F.session.report;
+        F.session.report = null;
+        this.time.delayedCall(400, function () { if (F.ui) F.ui.dayReport(report, self.state); });
+      } else if (this.mapKey === 'mine') {
+        F.ui && F.ui.toast('Mine, floor ' + F.session.mineFloor);
+      }
+    }
+
+    // ----- map, layers and seasons
+    buildMap() {
+      var self = this, s = this.state, key = this.mapKey;
+      var raw = F.ASSETS.maps[key];
+      var map = this.map = this.make.tilemap({ key: key });
+      // (Phaser lists each image of the props collection as a tileset of its own; props are drawn as images instead.)
+      var tilesets = map.tilesets.filter(function (ts) { return F.images[ts.name]; })
+        .map(function (ts) { return map.addTilesetImage(ts.name, F.ensureTexture(self, ts.name)); });
       this.layers = {};
-      ['Ground', 'Soil', 'Walls', 'Above'].forEach(function (name) {
-        self.layers[name] = map.createLayer(name, tilesets).setDepth(DEPTH[name]);
+      this.collideLayers = [];
+      raw.layers.forEach(function (l) {
+        if (l.type !== 'tilelayer') return;
+        var cond = propsOf(l.properties);
+        if (cond.unless && s.builds[cond.unless]) return;
+        if (cond.requires && !s.builds[cond.requires]) return;
+        var layer = self.layers[l.name] = map.createLayer(l.name, tilesets).setDepth(l.name in DEPTH ? DEPTH[l.name] : 2);
+        layer.setCollisionByProperty({ collides: true });
+        self.collideLayers.push(layer);
       });
-      this.layers.Ground.setCollisionByProperty({ collides: true });
-      this.layers.Walls.setCollisionByProperty({ collides: true });
 
       this.gids = {};
       this.slotOf = {}; // gid of a spring tile -> its slot in the seasons tileset
@@ -50,76 +129,99 @@
         });
       });
       this.seasonal = [];
-      ['Ground', 'Walls', 'Above'].forEach(function (name) {
-        self.layers[name].forEachTile(function (t) {
-          if (self.slotOf[t.index] !== undefined) self.seasonal.push({ layer: name, x: t.x, y: t.y, slot: self.slotOf[t.index] });
+      if (map.getTileset('seasons')) {
+        ['Ground', 'Walls', 'Above'].forEach(function (name) {
+          if (!self.layers[name]) return;
+          self.layers[name].forEachTile(function (t) {
+            if (self.slotOf[t.index] !== undefined) self.seasonal.push({ layer: name, x: t.x, y: t.y, slot: self.slotOf[t.index] });
+          });
         });
-      });
+      }
       this.seasonShown = -1;
       this.applySeason();
-
-      this.objects = [];
-      this.spawn = { x: map.widthInPixels / 2, y: map.heightInPixels / 2 };
-      map.getObjectLayer('Objects').objects.forEach(function (o) {
-        var type = o.type || o.class || o.name;
-        if (type === 'spawn') {
-          self.spawn = { x: o.x, y: o.y };
-          return;
-        }
-        if (type === 'pen') {
-          self.pen = { x0: o.x, y0: o.y, x1: o.x + o.width, y1: o.y + o.height };
-          return;
-        }
-        self.objects.push({
-          type: type,
-          x0: Math.floor(o.x / T), y0: Math.floor(o.y / T),
-          x1: Math.ceil((o.x + o.width) / T) - 1, y1: Math.ceil((o.y + o.height) / T) - 1,
-          props: propsOf(o.properties),
-        });
-      });
-
-      // ----- crops
-      this.crops = {};
-      this.refreshAllSoil();
-      this.herd = new F.Herd(this, this.pen);
-
-      // ----- player
-      this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-      this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
-      this.player = this.physics.add.sprite(0, 0, 'player', 0).setDepth(DEPTH.player);
-      this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
-      this.player.setCollideWorldBounds(true);
-      this.physics.add.collider(this.player, [this.layers.Ground, this.layers.Walls]);
-      var p = this.state.player;
-      this.dir = p.dir || 'down';
-      if (p.x != null) this.setFeet(p.x, p.y);
-      else this.setFeet(this.spawn.x, this.spawn.y);
-      this.idle();
-
-      this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
-      this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
-
-      // ----- camera
-      var cam = this.cameras.main;
-      cam.setZoom(F.R * C.VIEW_TILE / T).setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-      cam.startFollow(this.player, false, 0.15, 0.15).setFollowOffset(0, -T);
-      cam.setBackgroundColor('#3a7a2f');
-
-      this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
     }
 
-    // Swaps every seasonal tile for the current season's version (the map itself is drawn in spring).
+    // Swaps every seasonal tile for the current season's version (the maps are drawn in spring).
     applySeason() {
       var season = L.date(this.state.day).season;
-      if (season === this.seasonShown) return;
+      if (season === this.seasonShown || !this.seasonal.length) return;
       this.seasonShown = season;
       var ts = this.map.getTileset('seasons'), self = this;
-      var perSeason = Object.keys(this.slotOf).length;
+      var perSeason = C.SEASONS.length ? Object.keys(this.slotOf).length : 0;
       this.seasonal.forEach(function (e) {
-        self.layers[e.layer].putTileAt(ts.firstgid + season * perSeason + e.slot, e.x, e.y);
+        self.putTile(e.layer, ts.firstgid + season * perSeason + e.slot, e.x, e.y);
       });
-      this.layers.Ground.setCollisionByProperty({ collides: true });
-      this.layers.Walls.setCollisionByProperty({ collides: true });
+      this.recollide();
+    }
+
+    // Phaser's putTileAt keeps the old tile's properties (or none), so copy the new tile's own.
+    putTile(layer, gid, x, y) {
+      var map = this.map, tile = this.layers[layer].putTileAt(gid, x, y);
+      if (!tile) return null;
+      var ts = map.tilesets[map.tiles[gid][2]];
+      tile.properties = (ts && ts.getTileProperties(gid)) || {};
+      return tile;
+    }
+
+    recollide() {
+      this.collideLayers.forEach(function (l) { l.setCollisionByProperty({ collides: true }); });
+    }
+
+    // ----- objects: spawn points, places, warps, things to use, and props (furniture, buildings)
+    buildObjects() {
+      var self = this, s = this.state, raw = F.ASSETS.maps[this.mapKey];
+      var propSet = raw.tilesets.filter(function (ts) { return ts.name === 'props'; })[0];
+      var fest = L.festivalOn(s.day);
+      this.objects = [];
+      this.points = {};
+      this.zones = {}; // type -> [rect in tiles]
+      this.blocked = {}; // tile index -> true under the solid part of a prop
+      this.solids = this.physics.add.staticGroup();
+      this.props = [];
+      var layer = raw.layers.filter(function (l) { return l.type === 'objectgroup'; })[0];
+      (layer ? layer.objects : []).forEach(function (o) {
+        var props = propsOf(o.properties), type = o.type || o.class || '';
+        if (props.requires && !s.builds[props.requires]) return;
+        if (props.unless && s.builds[props.unless]) return;
+        if (props.festival && !(fest && props.festival.split(',').indexOf(fest.key) >= 0)) return;
+        if (o.gid && propSet) {
+          var tile = propSet.tiles.filter(function (t) { return t.id === o.gid - propSet.firstgid; })[0];
+          if (tile) self.addProp(tile.image.replace(/^.*\/|\.png$/g, ''), o, propsOf(tile.properties));
+          return;
+        }
+        if (o.point) {
+          self.points[o.name] = { x: o.x, y: o.y, props: props, type: type };
+          return;
+        }
+        var rect = {
+          type: type, name: o.name,
+          x0: Math.floor(o.x / T), y0: Math.floor(o.y / T),
+          x1: Math.ceil((o.x + o.width) / T) - 1, y1: Math.ceil((o.y + o.height) / T) - 1,
+          px: o.x, py: o.y, pw: o.width, ph: o.height, props: props,
+        };
+        if (type === 'pen' || type === 'dogarea' || type === 'forage' || type === 'minefloor') {
+          (self.zones[type] = self.zones[type] || []).push(rect);
+          return;
+        }
+        self.objects.push(rect);
+      });
+    }
+
+    addProp(name, o, tp) {
+      F.ensureTexture(this, 'props/' + name);
+      var img = this.add.image(o.x, o.y, 'props/' + name).setOrigin(0, 1).setDisplaySize(o.width, o.height);
+      img.setDepth(tp.flat ? DEPTH.flat : DEPTH.actor + o.y / 1e5);
+      this.props.push(img);
+      var foot = tp.foot || 0;
+      if (!foot || tp.flat) return;
+      var x0 = Math.round(o.x / T), w = Math.round(o.width / T), y1 = Math.round(o.y / T) - 1;
+      for (var y = y1 - foot + 1; y <= y1; y++) for (var x = x0; x < x0 + w; x++) this.blocked[this.idx(x, y)] = true;
+      var zone = this.add.zone(o.x + o.width / 2, o.y - foot * T / 2 + 8, o.width - 16, foot * T - 16);
+      this.physics.add.existing(zone, true);
+      this.solids.add(zone);
+      if (name === 'notice') {
+        this.objects.push({ type: 'notice', x0: x0, y0: y1 - foot + 1, x1: x0 + w - 1, y1: y1, props: {} });
+      }
     }
 
     // ----- player helpers
@@ -138,9 +240,18 @@
       this.player.setFlipX(this.dir === 'right');
     }
 
+    face(dir) {
+      this.dir = dir;
+      this.idle();
+    }
+
     facing() {
       var f = this.feet(), d = DIR_VEC[this.dir];
       return { x: Math.floor(f.x / T) + d[0], y: Math.floor(f.y / T) + d[1] };
+    }
+
+    dirVec() {
+      return DIR_VEC[this.dir];
     }
 
     // ----- map queries
@@ -153,20 +264,45 @@
     }
 
     tileProps(layer, x, y) {
-      var t = this.layers[layer].getTileAt(x, y);
+      var l = this.layers[layer], t = l && l.getTileAt(x, y);
       return t ? t.properties || {} : {};
     }
 
+    tileAt(layer, x, y) {
+      var l = this.layers[layer];
+      return l ? l.getTileAt(x, y) : null;
+    }
+
     isTillable(x, y) {
-      return !!this.tileProps('Ground', x, y).tillable && !this.layers.Walls.getTileAt(x, y);
+      return this.mapKey === 'farm' && !!this.tileProps('Ground', x, y).tillable && !this.tileAt('Walls', x, y);
     }
 
     isWater(x, y) {
       return !!(this.tileProps('Ground', x, y).water || this.tileProps('Walls', x, y).water);
     }
 
+    // Can a person stand on this tile? (Used for villager routes and forage spots.)
+    walkable(x, y) {
+      if (!this.inMap(x, y) || this.blocked[this.idx(x, y)]) return false;
+      for (var i = 0; i < this.collideLayers.length; i++) {
+        var t = this.collideLayers[i].getTileAt(x, y);
+        if (t && t.collides) return false;
+      }
+      return true;
+    }
+
     objectAt(x, y) {
       return this.objects.filter(function (o) { return x >= o.x0 && x <= o.x1 && y >= o.y0 && y <= o.y1; })[0] || null;
+    }
+
+    musicMood() {
+      var s = this.state;
+      if (L.festivalNow(s) || (L.festivalOn(s.day) && this.mapKey === 'town')) return 'festival';
+      if (this.mapKey === 'mine') return 'mine';
+      if (s.time >= 20 * 60) return 'night';
+      if (this.mapKey === 'town') return 'town';
+      if (this.mapKey === 'house') return 'house';
+      return L.date(s.day).key;
     }
 
     // ----- frame loop
@@ -174,16 +310,47 @@
       var dt = Math.min(delta, 100);
       var s = this.state;
       var body = this.player.body;
+      this.updateCamera(0.15);
       if (!F.ui) return;
 
-      if (this.busy || F.ui.blocking()) {
+      if (this.busy || F.ui.blocking() || this.fishing || this.charge) {
         body.setVelocity(0, 0);
         if (this.player.anims.isPlaying) this.idle();
-        F.input.action = false;
-        return;
+        if (this.busy || F.ui.blocking()) {
+          F.input.action = false;
+          this.charge = null;
+          this.showArea(null);
+          if (this.villagers) this.villagers.update(dt, time, true);
+          return;
+        }
+      } else {
+        this.move(body);
+      }
+      var f = this.feet();
+      this.shadow.setPosition(f.x, f.y + 16);
+      s.player.x = f.x;
+      s.player.y = f.y;
+      s.player.dir = this.dir;
+      this.player.setDepth(DEPTH.actor + f.y / 1e5);
+
+      if (this.tickClock(dt)) return;
+      if (this.herd) this.herd.update(dt, time, s.time);
+      if (this.dog) this.dog.update(dt, time, s.time);
+      if (this.villagers) this.villagers.update(dt, time, false);
+      if (this.checkWalkWarp()) return;
+
+      if (this.fishing) {
+        this.updateFishing(time);
+      } else {
+        this.updateAction(time);
       }
 
-      // movement: joystick plus keyboard
+      // periodic autosave of mid-day progress
+      this.saveMs += dt;
+      if (F.session.dirty && this.saveMs > 15000) this.save();
+    }
+
+    move(body) {
       var vx = F.input.jx, vy = F.input.jy, k = this.keys;
       if (k) {
         if (k.LEFT.isDown || k.A.isDown) vx = -1;
@@ -202,45 +369,65 @@
       } else if (this.player.anims.isPlaying) {
         this.idle();
       }
-      var f = this.feet();
-      this.shadow.setPosition(f.x, f.y + 16);
-      s.player.x = f.x;
-      s.player.y = f.y;
-      s.player.dir = this.dir;
-      this.player.setDepth(DEPTH.player + f.y / 1e5); // y-sorted with the animals
+    }
 
-      // clock
+    // Advances the clock; returns true if the day just ended.
+    tickClock(dt) {
+      var s = this.state;
       this.clockMs += dt;
       while (this.clockMs >= C.MS_PER_MINUTE) {
         this.clockMs -= C.MS_PER_MINUTE;
         s.time += 1;
-        if (s.time % 10 === 0) F.bus.emit('hud');
+        if (s.time % 10 === 0) {
+          F.bus.emit('hud');
+          if (F.Audio && s.time % 30 === 0) F.Audio.music(this.musicMood());
+        }
       }
       if (s.time >= C.PASS_OUT) {
         this.endDay(true);
-        return;
+        return true;
       }
+      return false;
+    }
 
-      this.herd.update(dt, time, s.time);
+    updateCamera(lerp) {
+      var cam = this.cameras.main, f = this.feet();
+      var vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
+      var mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+      var cx = f.x, cy = f.y - T; // a little above the feet, since the HUD covers the bottom
+      cx = mw <= vw ? mw / 2 : Phaser.Math.Clamp(cx, vw / 2, mw - vw / 2);
+      cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(cy, vh / 2 - 2 * T, mh - vh / 2 + 3 * T);
+      var cur = cam.midPoint;
+      cam.centerOn(cur.x + (cx - cur.x) * lerp, cur.y + (cy - cur.y) * lerp);
+    }
 
-      // target tile + contextual action
-      var t = this.facing();
-      this.cursor.setPosition(t.x * T, t.y * T).setVisible(this.inMap(t.x, t.y));
-      var action = this.resolve();
-      var key = action ? action.label + '|' + action.icon + '|' + !!action.disabled : '';
-      if (key !== this.hintKey) {
-        this.hintKey = key;
-        F.bus.emit('hint', action);
-      }
-      if (F.input.action) {
-        F.input.action = false;
-        if (action && action.disabled) F.ui.toast(action.why);
-        else if (action) action.run();
-      }
+    // Walk-through warps (the road between the farm and town, the house door).
+    checkWalkWarp() {
+      var f = this.feet(), tx = Math.floor(f.x / T), ty = Math.floor(f.y / T);
+      var o = this.objects.filter(function (w) { return w.type === 'warp' && w.props.walk && tx >= w.x0 && tx <= w.x1 && ty >= w.y0 && ty <= w.y1; })[0];
+      if (!o) return false;
+      this.travel(o.props.to, o.props.spawn);
+      return true;
+    }
 
-      // periodic autosave of mid-day progress
-      this.saveMs += dt;
-      if (F.session.dirty && this.saveMs > 15000) this.save();
+    // Goes to another map: saves, fades out, and restarts this scene on the new map.
+    travel(to, spawn, floor) {
+      if (this.busy) return;
+      var self = this, s = this.state;
+      this.busy = true;
+      this.charge = null;
+      this.player.body.setVelocity(0, 0);
+      F.input.reset();
+      if (to === 'mine') F.session.mineFloor = floor || 1;
+      if (F.Audio) F.Audio.sfx(to === this.mapKey ? 'ladder' : 'door');
+      this.cameras.main.fadeOut(250, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', function () {
+        s.map = to;
+        s.player = { x: null, y: null, dir: 'down' };
+        F.session.spawn = spawn;
+        self.save();
+        self.scene.restart();
+      });
     }
 
     save() {
@@ -254,233 +441,29 @@
       F.bus.emit('hud');
     }
 
-    // ----- what the action button would do right now
-    resolve() {
-      var self = this, s = this.state, t = this.facing();
-      var f = this.feet(), d = DIR_VEC[this.dir];
-      var m = this.herd.at(f.x + d[0] * T * 0.7, f.y + d[1] * T * 0.7);
-      if (m) {
-        this.herd.hold(m);
-        return this.animalAction(m);
-      }
-      if (!this.inMap(t.x, t.y)) return null;
-      var o = this.objectAt(t.x, t.y);
-      var held = L.held(s), def = held ? C.ITEMS[held.id] : null;
-      if (o) {
-        if (o.type === 'sleep') return { label: 'Sleep', icon: C.ICON.moon, run: function () { self.askSleep(); } };
-        if (o.type === 'shop') return { label: 'Shop', icon: C.ICON.tag, run: function () { self.openShop(); } };
-        if (o.type === 'sign') return { label: 'Read', icon: -1, run: function () { F.ui.dialog(o.props.text || '...'); } };
-        if (o.type === 'ship') {
-          if (def && def.sell) return { label: 'Ship', icon: C.ICON.crate, run: function () { self.ship(); } };
-          return { label: 'Box', icon: C.ICON.crate, run: function () { self.showBox(); } };
-        }
-      }
-      var idx = this.idx(t.x, t.y), soil = s.soil[idx];
-      if (L.isRipe(soil)) return { label: 'Harvest', icon: C.ICON.sparkle, run: function () { self.harvest(t, idx); } };
-      if (!def) return null;
-      if (held.id === 'hoe') {
-        if (this.isTillable(t.x, t.y) && !soil) return { label: 'Till', icon: def.icon, run: function () { self.till(t, idx); } };
-        return { label: 'Till', icon: def.icon, disabled: true, why: soil ? 'This soil is already tilled.' : 'You can only till the soil in your field.' };
-      }
-      if (held.id === 'can') {
-        if (this.isWater(t.x, t.y)) return { label: 'Refill', icon: C.ICON.drop, run: function () { self.refill(); } };
-        if (soil && !soil.w) return { label: 'Water', icon: def.icon, run: function () { self.waterTile(t, idx); } };
-        return { label: 'Water', icon: def.icon, disabled: true, why: soil ? 'Already watered today.' : 'Water tilled soil, or refill the can at the pond.' };
-      }
-      if (def.kind === 'seed') {
-        if (soil && !soil.c && !L.cropInSeason(def.crop, s.day)) {
-          return { label: 'Plant', icon: def.icon, disabled: true, why: def.name + ' only grow in ' + L.seasonsOf(def.crop) + '. Keep them for then!' };
-        }
-        if (soil && !soil.c) return { label: 'Plant', icon: def.icon, run: function () { self.plantTile(t, idx); } };
-        return { label: 'Plant', icon: def.icon, disabled: true, why: soil ? 'Something is already growing here.' : 'Till the soil with the Hoe first.' };
-      }
-      if (def.kind === 'feed') {
-        return { label: 'Feed', icon: def.icon, disabled: true, why: 'Face a ' + C.ANIMALS[def.animal].name.toLowerCase() + ' in the pen and tap to feed it.' };
-      }
-      if (def.kind === 'crop' || def.kind === 'produce') {
-        return { label: 'Ship', icon: def.icon, disabled: true, why: 'Put crops in the shipping box next to your house to sell them.' };
-      }
-      return null;
-    }
-
-    // ----- animals
-    animalAction(m) {
-      var self = this, s = this.state, a = s.animals[m.i], def = C.ANIMALS[a.kind];
-      var held = L.held(s), hdef = held ? C.ITEMS[held.id] : null;
-      if (a.ready) return { label: 'Collect', icon: C.ITEMS[def.product].icon, run: function () { self.collectFrom(m); } };
-      if (hdef && hdef.kind === 'feed' && !a.fed) {
-        if (hdef.animal === a.kind) return { label: 'Feed', icon: hdef.icon, run: function () { self.feedAnimal(m); } };
-        return { label: 'Feed', icon: hdef.icon, disabled: true, why: def.name + 's eat ' + C.ITEMS[def.feed].name + ', not ' + hdef.name + '.' };
-      }
-      if (!a.pet) return { label: 'Pet', icon: C.ICON.heart, run: function () { self.petAnimal(m); } };
-      return { label: a.name, icon: def.icon, run: function () { self.animalInfo(m); } };
-    }
-
-    collectFrom(m) {
-      var got = L.collect(this.state, m.i);
-      if (got === '!full') return F.ui.toast('Your bag is full!');
-      this.floatTextAt(m.x, m.y - m.def.height * T, '+1 ' + C.ITEMS[got].name);
-      this.changed();
-    }
-
-    feedAnimal(m) {
-      if (L.feedAnimal(this.state, m.i, this.state.sel) !== 'ok') return;
-      m.eat = true;
-      m.wait = 3000;
-      this.herd.hearts(m, 1);
-      this.floatTextAt(m.x, m.y - m.def.height * T, 'Yum!');
-      this.changed();
-    }
-
-    petAnimal(m) {
-      L.petAnimal(this.state, m.i);
-      this.herd.hearts(m, 3);
-      this.floatTextAt(m.x, m.y - m.def.height * T, this.state.animals[m.i].name + ' is happy!');
-      this.changed();
-    }
-
-    animalInfo(m) {
-      var a = this.state.animals[m.i], def = C.ANIMALS[a.kind], h = L.hearts(a);
-      F.ui.toast(a.name + '  ' + (h ? new Array(h + 1).join('\u2665') + ' (' + h + '/5)' : 'no hearts yet') + '\n' +
-        (a.fed ? 'Fed today. ' : 'Hungry! Give it ' + C.ITEMS[def.feed].name + '. ') +
-        (a.pet ? 'Petted today.' : 'Wants a pet.'));
-    }
-
-    // ----- actions
-    tired() {
-      F.ui.toast("You're too tired. Go to bed to recover.");
-    }
-
-    till(t, idx) {
-      if (!L.spendEnergy(this.state, C.ENERGY_COST.hoe)) return this.tired();
-      L.till(this.state, idx);
-      this.refreshTile(idx);
-      this.swing(t, C.ITEMS.hoe.icon);
-      this.puff(t, 0x8a5a30, 6);
-      this.changed();
-    }
-
-    waterTile(t, idx) {
-      if (this.state.water <= 0) return F.ui.toast('The can is empty. Refill it at the pond.');
-      if (!L.spendEnergy(this.state, C.ENERGY_COST.can)) return this.tired();
-      L.water(this.state, idx);
-      this.refreshTile(idx);
-      this.swing(t, C.ITEMS.can.icon);
-      this.drops(t);
-      this.changed();
-    }
-
-    refill() {
-      L.refill(this.state);
-      this.swing(this.facing(), C.ITEMS.can.icon);
-      this.drops(this.facing());
-      F.ui.toast('Watering can refilled!');
-      this.changed();
-    }
-
-    plantTile(t, idx) {
-      if (L.plant(this.state, idx, this.state.sel) !== 'ok') return;
-      this.refreshTile(idx);
-      this.puff(t, 0x4a2e18, 4);
-      this.changed();
-    }
-
-    harvest(t, idx) {
-      var got = L.harvest(this.state, idx);
-      if (got === '!full') return F.ui.toast('Your bag is full!');
-      this.refreshTile(idx);
-      this.puff(t, 0x93d66b, 6);
-      this.floatText(t, '+1 ' + C.ITEMS[got].name);
-      this.changed();
-    }
-
-    ship() {
-      var r = L.ship(this.state, this.state.sel);
-      if (!r) return;
-      F.ui.toast('Shipped ' + r.n + ' ' + C.ITEMS[r.id].name + '. ' + r.value + 'G arrives in the morning.');
-      this.changed();
-      this.save();
-    }
-
-    showBox() {
-      var s = this.state;
-      var lines = s.box.map(function (b) { return b.n + ' x ' + C.ITEMS[b.id].name; });
-      F.ui.dialog('SHIPPING BOX\n' + (lines.length
-        ? lines.join('\n') + '\nTotal: ' + L.boxValue(s) + 'G, paid while you sleep.'
-        : 'Hold a crop and press the action button here to ship it. You get paid while you sleep.'));
-    }
-
-    openShop() {
-      if (!L.shopOpen(this.state)) {
-        F.ui.dialog("LILY: Sorry, we're closed!\nThe seed shop is open from 9:00 AM to 5:00 PM.");
-        return;
-      }
-      F.ui.openShop();
-    }
-
     askSleep() {
-      var self = this;
-      F.ui.confirm('Go to bed and end Day ' + this.state.day + '?', function () { self.endDay(false); });
+      var self = this, s = this.state;
+      var w = L.weather(s, s.day + 1);
+      F.ui.confirm('Go to bed and end ' + L.formatDate(s.day) + '?\nTomorrow: ' + C.WEATHER[w].name + '.', function () { self.endDay(false); });
     }
 
+    // Ends the day (going to bed, or passing out at 2 AM) and wakes up at home.
     endDay(passedOut) {
       var self = this, cam = this.cameras.main;
+      if (this.busy) return;
       this.busy = true;
       this.player.body.setVelocity(0, 0);
       F.input.reset();
-      cam.fadeOut(passedOut ? 1200 : 600, 0, 0, 0);
+      if (F.ui) F.ui.closeAll();
+      cam.fadeOut(passedOut ? 1200 : 700, 0, 0, 0);
       cam.once('camerafadeoutcomplete', function () {
-        var result = L.endDay(self.state, passedOut);
-        self.refreshAllSoil();
-        self.herd.scatter();
-        self.applySeason();
-        self.dir = 'down';
-        self.setFeet(self.spawn.x, self.spawn.y);
-        self.idle();
-        self.clockMs = 0;
+        var result = L.endDay(self.state, passedOut, { fieldTiles: F.fieldTiles() });
+        F.session.report = result;
+        F.session.spawn = 'bed';
+        F.session.mineBroken = {};
         self.save();
-        F.bus.emit('hud');
-        cam.fadeIn(600);
-        self.busy = false;
-        F.ui.dayReport(result, self.state);
+        self.scene.restart();
       });
-    }
-
-    // ----- soil & crop rendering
-    refreshTile(idx) {
-      var w = this.map.width, x = idx % w, y = Math.floor(idx / w);
-      var tile = this.state.soil[idx];
-      if (tile) this.layers.Soil.putTileAt(tile.w ? this.gids.tilled_wet : this.gids.tilled, x, y);
-      else this.layers.Soil.removeTileAt(x, y);
-
-      var stage = L.cropStage(tile), spr = this.crops[idx];
-      if (stage < 0) {
-        if (spr) { spr.destroy(); delete this.crops[idx]; }
-        return;
-      }
-      if (!spr) {
-        spr = this.crops[idx] = this.add.image(x * T + T / 2, y * T + T - 12, 'crops').setOrigin(0.5, 1).setDepth(DEPTH.crops);
-      }
-      spr.setFrame(stage < 2 ? stage : 2 + C.CROPS[tile.c].art * 2 + (stage - 2)); // seeds, sprout, then per-crop frames
-      if (stage === 3 && !spr.sway) {
-        spr.sway = this.tweens.add({ targets: spr, angle: { from: -4, to: 4 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: (idx * 37) % 500 });
-      } else if (stage !== 3 && spr.sway) {
-        spr.sway.remove();
-        spr.sway = null;
-        spr.angle = 0;
-      }
-    }
-
-    refreshAllSoil() {
-      var self = this, soil = this.layers.Soil;
-      soil.forEachTile(function (t) { if (t.index !== -1) soil.removeTileAt(t.x, t.y); });
-      Object.keys(this.crops).forEach(function (idx) {
-        if (!self.state.soil[idx]) {
-          self.crops[idx].destroy();
-          delete self.crops[idx];
-        }
-      });
-      Object.keys(this.state.soil).forEach(function (idx) { self.refreshTile(Number(idx)); });
     }
 
     // ----- little effects
@@ -514,5 +497,13 @@
       var sy = (wy - cam.worldView.y) * cam.zoom / F.R;
       F.ui.floatText(sx, sy, text);
     }
+
+    iconPop(wx, wy, frame) {
+      var img = this.add.image(wx, wy, 'items', frame).setScale(1.2).setDepth(DEPTH.fx);
+      this.tweens.add({ targets: img, y: wy - 200, alpha: 0, duration: 800, ease: 'Quad.out', onComplete: function () { img.destroy(); } });
+    }
   };
+
+  F.WorldScene.DEPTH = DEPTH;
+  F.WorldScene.DIR_VEC = DIR_VEC;
 })(window.Farm = window.Farm || {});

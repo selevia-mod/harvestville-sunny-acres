@@ -7,8 +7,13 @@ const vm = require('vm');
 
 const ctx = { window: {}, console };
 vm.createContext(ctx);
-['00-config.js', '01-logic.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
+// every rules/content file (the Phaser-free ones), in build order
+fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
+  .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+// Weather would water test crops on random rainy mornings; keep it sunny unless a test asks for it.
+const realWeather = L.weather;
+L.weather = () => 'sunny';
 
 // Objects made inside the vm context have a different prototype; compare plain copies.
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -27,7 +32,8 @@ test('new game starts with tools, seeds and gold', () => {
   assert.strictEqual(s.gold, C.START_GOLD);
   assert.strictEqual(L.countItem(s, 'hoe'), 1);
   assert.strictEqual(L.countItem(s, 'can'), 1);
-  assert.strictEqual(L.countItem(s, 'seed_turnip'), 6);
+  assert.strictEqual(L.countItem(s, 'seed_turnip'), 3);
+  ['axe', 'hammer', 'sickle'].forEach((t) => assert.strictEqual(L.countItem(s, t), 1, t));
   assert.strictEqual(s.inv.length, C.INV_SIZE);
 });
 
@@ -49,7 +55,7 @@ test('till, plant, water and grow a turnip to harvest', () => {
   assert.strictEqual(L.till(s, 5), 'ok');
   assert.strictEqual(L.till(s, 5), 'already');
   assert.strictEqual(L.plant(s, 5, seeds), 'ok');
-  assert.strictEqual(L.countItem(s, 'seed_turnip'), 5);
+  assert.strictEqual(L.countItem(s, 'seed_turnip'), 2);
   assert.strictEqual(L.plant(s, 5, seeds), 'occupied');
   assert.strictEqual(L.cropStage(s.soil[5]), 0);
 
@@ -84,7 +90,7 @@ test('growth stages progress for every crop', () => {
 
 test('watering can runs dry and refills', () => {
   const s = L.newState();
-  for (let i = 0; i < C.CAN_CAPACITY; i++) {
+  for (let i = 0; i < L.canCapacity(s); i++) {
     L.till(s, i);
     assert.strictEqual(L.water(s, i), 'ok');
   }
@@ -125,10 +131,10 @@ test('shipping pays out overnight', () => {
 test('shop checks gold and bag space', () => {
   const s = L.newState();
   s.gold = 100;
-  assert.strictEqual(L.buy(s, 'seed_potato', 5), 'gold');
-  assert.strictEqual(L.buy(s, 'seed_potato', 2), 'ok');
+  assert.strictEqual(L.buy(s, 'chicken_feed', 11), 'gold');
+  assert.strictEqual(L.buy(s, 'chicken_feed', 8), 'ok');
   assert.strictEqual(s.gold, 20);
-  assert.strictEqual(L.countItem(s, 'seed_potato'), 2);
+  assert.strictEqual(L.countItem(s, 'chicken_feed'), 13);
   s.gold = 1e6;
   for (let i = 0; i < s.inv.length; i++) if (!s.inv[i]) s.inv[i] = { id: 'potato', n: 99 };
   assert.strictEqual(L.buy(s, 'seed_strawberry', 1), 'full');
@@ -191,7 +197,7 @@ test('worst-case save stays under 16 KB', () => {
 test('bad or foreign save data is rejected or sanitised', () => {
   [null, undefined, 'x', 42, [], {}, { v: 99 }].forEach((bad) => assert.strictEqual(L.deserialize(bad), null));
   const s = L.deserialize({
-    v: 1, d: -5, t: 'noon', g: 1e20, e: 500, w: -1, s: 77,
+    v: 1, mg: 2, d: -5, t: 'noon', g: 1e20, e: 500, w: -1, s: 77,
     i: [['hoe', 1], ['rocket', 3], ['turnip', 1000], 'junk'],
     b: [['hoe', 1], ['turnip', 2]],
     f: [[10, 1, 9, 3], [11, 0, 1, 99], 'junk', [-1, 0, 0, 0]],
@@ -212,7 +218,7 @@ test('bad or foreign save data is rejected or sanitised', () => {
 test('a new game starts with one chicken and some feed', () => {
   const s = L.newState();
   assert.strictEqual(s.animals.length, 1);
-  same(s.animals[0], { kind: 'chicken', name: 'Clucky', love: 0, fed: 0, pet: 0, ready: 0 });
+  same(s.animals[0], { kind: 'chicken', name: 'Clucky', love: 0, fed: 0, pet: 0, ready: 0, brushed: 0, young: 0, preg: 0 });
   assert.strictEqual(L.countItem(s, 'chicken_feed'), 5);
 });
 
@@ -318,7 +324,7 @@ test('bad animal save data is sanitised', () => {
   const o = L.serialize(L.newState());
   o.a = [[9, 1, 1, 1, 1, 'Ghost'], 'junk', [1, 500, 1, 0, 0, 12345], ...Array(6).fill([0, 10, 0, 0, 0, 'Hen'])];
   const s = L.deserialize(o);
-  same(s.animals[0], { kind: 'cow', name: 'Daisy', love: C.LOVE.max, fed: 1, pet: 0, ready: 0 });
+  same(s.animals[0], { kind: 'cow', name: 'Daisy', love: C.LOVE.max, fed: 1, pet: 0, ready: 0, brushed: 0, young: 0, preg: 0 });
   assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
 });
 
@@ -334,9 +340,9 @@ test('calendar: 4 seasons of 28 days, then a new year', () => {
 
 test('the shop sells only this season\'s seeds, and none in winter', () => {
   const N = C.DAYS_PER_SEASON;
-  same(L.seedsInSeason(1), ['seed_turnip', 'seed_potato', 'seed_strawberry']);
-  same(L.seedsInSeason(N + 1), ['seed_tomato', 'seed_corn']);
-  same(L.seedsInSeason(2 * N + 1), ['seed_carrot', 'seed_pumpkin']);
+  same(L.seedsInSeason(1), ['seed_turnip', 'seed_potato', 'seed_strawberry', 'seed_grass']);
+  same(L.seedsInSeason(N + 1), ['seed_tomato', 'seed_corn', 'seed_grass']);
+  same(L.seedsInSeason(2 * N + 1), ['seed_carrot', 'seed_pumpkin', 'seed_grass']);
   same(L.seedsInSeason(3 * N + 1), []);
   assert.strictEqual(L.seasonsOf('tomato'), 'Summer');
 });
@@ -370,5 +376,5 @@ test('crops wither when the season changes, but tilled soil stays', () => {
 
 test('every crop can ripen within its season', () => {
   C.CROP_KEYS.forEach((k) => assert.ok(C.CROPS[k].days < C.DAYS_PER_SEASON, k));
-  C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell, k + ' sells'));
+  C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell || C.CROPS[k].sickle, k + ' sells'));
 });

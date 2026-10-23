@@ -1,109 +1,178 @@
 # Sunny Acres
 
 A Harvest Moon style farming game: portrait (9:16), touch-first, built with Phaser 3 in plain JavaScript.
-It ships as **one offline HTML file** (`dist/index.html`, about 3 MB) with Phaser, the code, the Tiled map and all
-art inlined as data URLs (WebP). It makes no network requests and uses no CDNs.
+It ships as **one offline HTML file** (`dist/index.html`, about 4.4 MB) with Phaser, the code, the Tiled maps, all
+art (as WebP data URLs) and synthesized music. It makes no network requests and uses no CDNs.
 
 The art is drawn at **256×256 per tile** in a smooth cartoon style and scaled down on screen. A tile is shown at
 32 layout pixels, and the game renders at the screen's pixel density (up to 3×) so the detail stays sharp.
+Props (furniture, town buildings) and villagers are stored at half resolution to save memory.
 
 ## Performance on low-end phones
 
 Tested with the CPU slowed 6x (about OPPO A5 class):
 
-- **Per frame:** about 10 ms (60 fps needs under 16.7 ms).
-- **Art cost:** the 256 px art is cheap for the GPU. The world costs under 1 ms per frame at normal CPU speed.
-- **UI drawing:** UI panels, slots and buttons are drawn once into textures (`bake()` in `src/12-ui.js`). Live Phaser
-  Graphics re-tessellate every frame, and that used to cost most of the frame time, so avoid them in the UI.
-- **Startup:** cold start is about 7 s at 6x slowdown (about 1.7 s at full speed). A "Loading your farm…" message shows
-  meanwhile. The build inlines the WebP copies of the sheets, which are about 6x smaller than the PNGs.
-- **FPS meter:** pause menu → **Show FPS** puts a frame-rate meter in the corner. The `x2`/`x3` next to it is the
-  render scale.
+| Place | JS time per frame (avg / p95) |
+| --- | --- |
+| Farm | 7.8 / 10.9 ms |
+| Town plaza | 7.2 / 10.7 ms |
+| Town in a storm | 8.2 / 12.2 ms |
+| House, mine | 5.6 ms avg |
 
-## Play loop (v0.1)
+- **Frame budget:** 60 fps needs under 16.7 ms, so every place fits.
+- **Startup:** cold start is about 7.7 s at 6x slowdown (about 2 s at full speed). A "Loading your farm…" message
+  shows meanwhile.
+- **GPU memory:** only the farm sheets are uploaded at boot. Indoor tiles, villagers and props are added the first
+  time a map needs them.
+- **UI drawing:** UI panels are drawn once into textures (`bake()` in `src/12-ui.js`). Live Phaser Graphics
+  re-tessellate every frame, so avoid them in the UI.
+- **FPS meter:** pause menu → **Show FPS**.
 
-- Walk with the on-screen joystick (drag anywhere on the left/middle of the screen).
-- The big action button works on the highlighted tile in front of you and shows what it will do
-  (Till / Plant / Water / Refill / Harvest / Ship / Sleep / Shop / Read).
-- **Hoe** tills the field (2 energy). **Seeds** plant on tilled soil. The **watering can** (1 energy)
-  holds 20 waters. Refill it at the pond.
-- Crops grow one stage per *watered* night (see Seasons for which crops grow when).
-- Put crops in the **shipping box** by the house. It pays out overnight.
-- **Lily's Seed Shop** (south of the field) is open 9 AM to 5 PM.
-- The clock runs from 6 AM. Evening darkens the screen, and at 2 AM you pass out (half energy next day).
-  Go to bed at the house door to end the day.
-- The bag button shows all 18 slots. The first 6 are the hotbar.
-- **Pause menu → New game** starts a fresh farm after a confirmation. The new farm is saved right away, replacing
-  the old save.
+## How to play
 
-### Seasons
+Drag anywhere to walk. The big action button acts on the highlighted tile and shows what it will do.
+Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 to 6 hotbar, E bag, Esc back.
 
-- **Calendar:** Spring, Summer, Fall, Winter, 28 days each, then a new year. The top bar shows the date (Spring 3)
-  with a season icon. The pause menu shows the year.
+### The farm
+
+- **Clearing:** a new farm is overgrown. Use the **Sickle** on weeds, the **Axe** on branches and stumps (lumber),
+  and the **Hammer** on stones and boulders (stone). Stumps and boulders take several swings, and boulders need a
+  Copper Hammer. A few weeds sprout at each new season.
+- **Crops:** hoe the soil, then plant. A **seed bag** sows the 3×3 tilled patch around the tile. Water every day;
+  rain does it for you. The Hammer flattens empty tilled soil.
 - **Crops by season:**
 
   | Season | Crops |
   | --- | --- |
-  | Spring | Turnip 3 days/60G, Potato 5/110G, Strawberry 7/170G |
-  | Summer | Tomato 6/130G, Corn 9/220G |
+  | Spring | Turnip 3 days/60G, Potato 5/110G, Strawberry 7/170G (regrows every 3) |
+  | Summer | Tomato 6/130G (regrows), Corn 9/220G (regrows) |
   | Fall | Carrot 4/90G, Pumpkin 10/360G |
-  | Winter | Nothing grows. Tend your animals. |
+  | All but winter | Grass: cut it with the Sickle for Fodder, and it regrows |
 
-- **Shop:** it sells only the current season's seeds. Seeds can't be planted out of season, so keep them for later.
-- **Season change:** crops that don't belong to the new season wither, but the tilled soil stays. The morning report
-  says what's new.
-- **Looks:** the farm changes with the seasons, from spring blossoms to lush summer, orange autumn and snow.
-  Petals, leaves and snowflakes drift down the screen.
-- **Saves:** they only store the day count, so older saves land in the right season automatically.
+- **Selling:** put crops, produce, fish, ore and forage in the **shipping box** by the house. It pays out overnight.
+- **Lily's Seed Stand** (south of the field, 9 AM to 5 PM) has Seeds, Animals and Supplies (Brush, Milker,
+  Fishing Rod, Miracle Potion, Blue Feather).
+- **Days:** the clock runs from 6 AM. At 2 AM you pass out (half energy next day). Sleep in the bed in your
+  farmhouse. The **TV** has tomorrow's weather.
+
+### Tools and energy
+
+- **Tool upgrades:** Bram at the forge upgrades each tool: Copper (600G + 5 Copper Ore), Silver (1500G + 5 Silver
+  Ore), Gold (3000G + 5 Gold Ore). Upgrades are instant.
+- **Charging:** upgraded tools use less energy and **charge**. Hold the action button and release: 3 tiles, then
+  3×3, then 3×5.
+- **Watering can:** it holds 20 waters, up to 60 at Gold.
+- **Food:** eat food to restore energy (tap Eat with it in hand, or from the bag). With a **kitchen** you cook 9
+  recipes from your crops, eggs, milk, fish and mushrooms. Rosa's inn and Ivy's clinic sell meals and tonics.
 
 ### Animals
 
-- The pen south-west of the field has a **coop** (up to 4 chickens) and a **barn** (up to 4 cows).
-  A new game starts with one chicken, Clucky, and 5 Chicken Feed.
-- Face an animal and tap the action button:
-  - **Collect** an egg or milk when its bubble shows.
-  - **Feed** it while holding the right feed: Chicken Feed for chickens, Fodder for cows.
-  - **Pet** it once a day.
-  - Tap again to see its hearts and today's care.
-- A fed animal has produce ready the next morning: Egg 50G, Milk 120G. Ship it like crops.
-- Love (0 to 100, shown as 5 hearts) goes up with feeding (+2) and petting (+4). It drops when an animal goes
-  hungry (-6) or isn't petted (-3).
-- Lily's shop has an **Animals** tab: Chicken 250G, Cow 1000G, Chicken Feed 10G, Fodder 20G.
-- Animals wander inside the map's `pen` object, rest and graze, and sleep from 8 PM. Saves from before animals
-  existed load with no animals.
+- **Care:** chickens live in the coop and cows in the barn. Feed, pet and **brush** them daily.
+- **Produce:** a fed animal has an egg or milk ready the next morning. Cows need a **Milker**. At 3+ hearts they give
+  Large Eggs and Large Milk.
+- **Chicks and calves:** hold an egg at the coop to put it in the incubator, and a chick hatches in 3 days.
+  A Miracle Potion given to a cow with 2+ hearts brings a calf in 7 days. Chicks and calves grow up in a few days.
+- **Bigger buildings:** Mira builds a Bigger Coop and a Bigger Barn (8 each).
+- **Biscuit the dog** lives by the house. Pet him every day.
 
-Desktop keys for testing: WASD/arrows move, Space/Enter act, 1 to 6 hotbar, E bag, Esc back.
+### Willowbrook (the town)
+
+- **Getting there:** walk down the road south of the farm.
+- **The people:** seven villagers walk their daily schedules between their homes, shops, the plaza, the dock and
+  the forest:
+
+  | Who | Role |
+  | --- | --- |
+  | Lily | Seed stand |
+  | Mayor Hollis | Mayor |
+  | Bram | Blacksmith |
+  | Mira | Carpenter |
+  | Rosa | Innkeeper |
+  | Leo | Fisherman |
+  | Ivy | Herbalist |
+
+- **Friendship:** talk to each villager once a day, and give one gift a day. They love, like, don't mind, or dislike
+  each item, and birthday gifts count double. Friendship shows as 10 hearts (pause → Friends).
+- **Buildings:** doors open shop menus during opening hours. Every panel has a Talk button for the person who runs
+  it.
+  - Forge: tool upgrades.
+  - Woodshop: Kitchen, House Extension, Bigger Coop and Bigger Barn, built overnight with gold, lumber and stone.
+    It also sells lumber and stone.
+  - Inn: meals.
+  - Clinic: tonics.
+  - Town Hall: festival news.
+  - Homes: knock to talk.
+- **The notice board** in the plaza lists the next two weeks of events.
+- **Fishing:** hold the rod facing water, wait for the "!", then tap. The river has bigger fish (and the King
+  Trout) than the farm pond.
+- **Foraging:** herbs, berries, mushrooms and winter roots appear in the woods on the farm and in town, fresh
+  every day.
+- **The mine** (east of town): smash rocks with the Hammer for stone, copper, silver, gold and gems. One rock on
+  each floor hides the ladder down, and deeper floors have better ore. The floors change daily.
+
+### Seasons, weather and festivals
+
+- **Seasons:** Spring, Summer, Fall and Winter, 28 days each. Crops wither when their season ends. The farm and town
+  change look, with petals, leaves or snow drifting down.
+- **Weather:** sunny, rain, storms (summer) or snow (winter). Rain and storms water the field. The forecast is on
+  the TV, and when you go to bed.
+- **Festivals** (in the plaza; the calendar in the pause menu shows them and the birthdays):
+
+  | Festival | Date | What you do |
+  | --- | --- | --- |
+  | Flower Festival | Spring 14 | Dance |
+  | Fireworks Night | Summer 24 | Watch with someone |
+  | Harvest Festival | Fall 12 | Crop judged for prizes |
+  | Cow Festival | Fall 20 | Your happiest cow competes |
+  | Starry Night | Winter 24 | Spend the evening with someone |
+
+  Talk to Mayor Hollis there to take part. Shops close on festival days.
+- **Marriage:** Lily, Mira, Leo and Ivy can marry you. You need 8 hearts, the House Extension and a Blue Feather.
+  Show them the feather, and the wedding is 3 days later. Your spouse then lives at the farmhouse and sometimes packs
+  you lunch.
+
+### Sound
+
+The music is synthesized live with WebAudio, so there are no audio files. There is a tune for each season, plus
+town, house, night, mine and festival tunes, and sound effects for every action. Rain and storms have their own
+ambience. Sound starts after the first touch, as browsers require, and is muted on `__gameSleep(true)`. Music and
+sounds can be switched off in the pause menu.
 
 ## Host integration
 
 | Hook | Behaviour |
 | --- | --- |
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
-| `window.gameHost.save(state)` | Called with a compact JSON-safe object (well under 16 KB) after sleeping, shipping, buying, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
-| `window.__gameSleep(true/false)` | `true` saves and stops the game loop (clock, input, rendering). `false` resumes. |
+| `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, shipping, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
+| `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |
 | `window.__gameBack()` | Closes the top panel or dialog, otherwise opens the pause menu. Returns `true` when handled. |
 
 If no `window.gameHost` exists (for example, when you open the file directly in a browser), the game creates one
-that keeps the save in `localStorage`.
+that keeps the save in `localStorage`. Older saves still load. A save from before the town gets the Axe, Hammer and
+Sickle (and a Milker if it has cows).
 
 ## Project layout
 
 ```
-src/            game code, concatenated in filename order
-  00-config.js    constants and content tables (items, crops, prices, times)
-  01-logic.js     pure rules + save format (unit tested, no Phaser)
-  02-host.js      gameHost / __gameSleep / __gameBack bridge
-  10-boot.js      registers inlined textures + Tiled maps, animations
-  11-world.js     map, player, clock, action-button behaviour
-  12-ui.js        HUD, joystick, hotbar, bag / shop / dialog / pause panels
-  13-animals.js   the herd in the pen: wandering, poses, produce bubbles, hearts
-  20-main.js      decodes images, starts Phaser
-maps/farm.json  Tiled map (JSON, embedded tileset). Layers: Ground, Soil, Walls, Above, Objects
-assets/*.png    sprite sheets: tiles + ranch (256x256 tiles), player (256x384), crops (256x256),
-                animals (384x320), item icons (128x128)
-tools/          make-art.js + art/draw.js (draws the art in headless Chromium), make-map.js (seeded the map)
-build.js        inlines everything into dist/index.html
-test/           logic.test.js (Node) and e2e.test.js (Playwright playthrough)
+src/              game code, concatenated in filename order
+  00-config.js      constants and content tables (items, crops, tools, villagers, festivals, recipes, ...)
+  00-dialogue.js    what the villagers say, and the TV lines
+  01-logic.js       pure rules + save format (unit tested, no Phaser)
+  02-host.js        gameHost / __gameSleep / __gameBack bridge
+  10-boot.js        textures (lazy for props, villagers, indoor), Tiled maps, animations, the session
+  11-world.js       map loading, props, player, camera, clock, travel between maps, sleeping
+  12-ui.js          HUD, weather particles, joystick, action button (charge meter), hotbar, dialogs
+  13-animals.js     the herd in the pen, chicks and calves, and the dog
+  14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
+  15-villagers.js   villagers walking their schedules (path finding), talking, gifts, proposals
+  16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends
+  17-audio.js       WebAudio music and sound effects
+  20-main.js        decodes images, starts Phaser
+maps/             Tiled maps (JSON, embedded tilesets): farm, house, town, mine
+assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
+tools/            make-art.js + art/*.js (draws all the art in headless Chromium), make-map.js (seeds the maps)
+build.js          inlines everything into dist/index.html
+test/             logic + rules unit tests (Node), e2e.test.js (Playwright playthrough)
 ```
 
 ## Commands
@@ -111,34 +180,48 @@ test/           logic.test.js (Node) and e2e.test.js (Playwright playthrough)
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen
-npm run art        # redraw assets/*.png (uses Playwright's Chromium)
+npm test           # rules + save-format unit tests (61 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (10 tests, ~10 min)
+npm run art        # redraw assets/ (uses Playwright's Chromium)
+npm run map        # seed maps/ (won't overwrite existing maps without --force)
 ```
 
-## Editing the map in Tiled
+## Editing the maps in Tiled
 
-Open `maps/farm.json` in Tiled. Tiles are 256×256. The tileset is embedded and points at `../assets/tiles.png`
-(margin 8, spacing 16). Keep it embedded, because the build rejects external tilesets.
+Open `maps/*.json` in Tiled. Tiles are 256×256. The tilesets are embedded and point at `../assets/<name>.png`
+(margin 8, spacing 16). Keep them embedded, because the build rejects external tilesets.
 
 Each tile in the sheet has its edge pixels copied into the padding around it, so tiles don't show seams when the GPU
 scales them down. The sheets are power-of-two sized so they get mipmaps. If you add art by hand, keep both of those.
 
-- Tile properties drive gameplay: `collides`, `tillable` (field soil), `water` (refill spot), and
-  `name` = `tilled` / `tilled_wet` (used by the Soil layer at runtime).
-- Leave the **Soil** layer empty. The game paints tilled soil into it.
-- **Above** draws over the player (tree tops).
-- There are three tilesets: `tiles`, `ranch` (barn, coop, hay, trough) and `seasons`. Draw the map with the spring
-  tiles from `tiles`. Tiles with a `seasonal` property (grass, flowers, field, path, trees, bushes, tall grass) are
-  swapped at runtime for that slot's version in `seasons`. The pond sits on the Walls layer so seasonal grass shows
-  around it.
-- Objects use `type`: `spawn` (point), `sleep`, `ship`, `shop`, `pen` (the area animals wander in), and `sign`
-  (with a string property `text`).
+- **Tilesets:**
+  - `tiles`: farm and town ground, fences, trees, debris, the dock and plaza.
+  - `ranch`: barn, coop, hay and trough.
+  - `seasons`: the seasonal swaps.
+  - `indoor`: floors, walls, cave, ladders and mine rocks.
+  - `props`: an image collection of furniture, buildings and decorations, placed as tile objects.
+- **Tile properties:**
+  - `collides`
+  - `tillable` (field soil)
+  - `water` (refill and fishing spot)
+  - `seasonal` (swapped for the current season)
+  - `name`: `tilled`, `tilled_wet`, `debris_<kind>`, `ladder_down` or `mine_rock`, looked up at runtime
+- **Layers:**
+  - Soil and Debris (farm): leave these empty. The game paints them.
+  - Above: drawn over the player.
+  - A layer can have `requires` / `unless` = a build key (the house's closed-off wing uses `unless: bighouse`).
+- **Props** have `foot` (solid rows at the bottom) and `flat` (lies on the floor). On the map, a prop object can
+  have `requires`, `unless`, or `festival` (a list of festival keys it shows on).
+- **Objects** use `type`:
+  - Points: `spawn` and `place` (villager destinations; `fest_0..6` are festival spots).
+  - `warp`, with `to`, `spawn`, and `walk` (walk through it) or `label` (use it).
+  - `door`, with `building`.
+  - `sleep`, `tv`, `kitchen`, `ship`, `shop`, `incubator` and `sign` (with `text`).
+  - Areas: `pen`, `dogarea`, `forage` and `minefloor`.
 
-Run `npm run build` after editing. `tools/make-map.js` was only used to seed the map, and it won't overwrite it
-unless you pass `--force`.
+Run `npm run build` after editing.
 
 ## Next up
 
-Towns and villagers, weather (rain waters crops), festivals, and more shops.
-The save format has a version field (`v`) for migrations.
+A horse, more festivals' mini-games, rival romances, and more mine floors with dangers. The save format has a
+version field (`v`) and a migration level (`mg`).
