@@ -41,12 +41,22 @@
       this.layers.Walls.setCollisionByProperty({ collides: true });
 
       this.gids = {};
+      this.slotOf = {}; // gid of a spring tile -> its slot in the seasons tileset
       map.tilesets.forEach(function (ts) {
         Object.keys(ts.tileProperties || {}).forEach(function (id) {
-          var name = ts.tileProperties[id].name;
-          if (name) self.gids[name] = ts.firstgid + Number(id);
+          var props = ts.tileProperties[id];
+          if (props.name) self.gids[props.name] = ts.firstgid + Number(id);
+          if (props.seasonal !== undefined) self.slotOf[ts.firstgid + Number(id)] = props.seasonal;
         });
       });
+      this.seasonal = [];
+      ['Ground', 'Walls', 'Above'].forEach(function (name) {
+        self.layers[name].forEachTile(function (t) {
+          if (self.slotOf[t.index] !== undefined) self.seasonal.push({ layer: name, x: t.x, y: t.y, slot: self.slotOf[t.index] });
+        });
+      });
+      this.seasonShown = -1;
+      this.applySeason();
 
       this.objects = [];
       this.spawn = { x: map.widthInPixels / 2, y: map.heightInPixels / 2 };
@@ -98,6 +108,20 @@
       this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
     }
 
+    // Swaps every seasonal tile for the current season's version (the map itself is drawn in spring).
+    applySeason() {
+      var season = L.date(this.state.day).season;
+      if (season === this.seasonShown) return;
+      this.seasonShown = season;
+      var ts = this.map.getTileset('seasons'), self = this;
+      var perSeason = Object.keys(this.slotOf).length;
+      this.seasonal.forEach(function (e) {
+        self.layers[e.layer].putTileAt(ts.firstgid + season * perSeason + e.slot, e.x, e.y);
+      });
+      this.layers.Ground.setCollisionByProperty({ collides: true });
+      this.layers.Walls.setCollisionByProperty({ collides: true });
+    }
+
     // ----- player helpers
     setFeet(x, y) {
       this.player.body.reset(x, y - FEET_OFFSET);
@@ -138,7 +162,7 @@
     }
 
     isWater(x, y) {
-      return !!this.tileProps('Ground', x, y).water;
+      return !!(this.tileProps('Ground', x, y).water || this.tileProps('Walls', x, y).water);
     }
 
     objectAt(x, y) {
@@ -264,6 +288,9 @@
         return { label: 'Water', icon: def.icon, disabled: true, why: soil ? 'Already watered today.' : 'Water tilled soil, or refill the can at the pond.' };
       }
       if (def.kind === 'seed') {
+        if (soil && !soil.c && !L.cropInSeason(def.crop, s.day)) {
+          return { label: 'Plant', icon: def.icon, disabled: true, why: def.name + ' only grow in ' + L.seasonsOf(def.crop) + '. Keep them for then!' };
+        }
         if (soil && !soil.c) return { label: 'Plant', icon: def.icon, run: function () { self.plantTile(t, idx); } };
         return { label: 'Plant', icon: def.icon, disabled: true, why: soil ? 'Something is already growing here.' : 'Till the soil with the Hoe first.' };
       }
@@ -406,6 +433,7 @@
         var result = L.endDay(self.state, passedOut);
         self.refreshAllSoil();
         self.herd.scatter();
+        self.applySeason();
         self.dir = 'down';
         self.setFeet(self.spawn.x, self.spawn.y);
         self.idle();
@@ -433,7 +461,7 @@
       if (!spr) {
         spr = this.crops[idx] = this.add.image(x * T + T / 2, y * T + T - 12, 'crops').setOrigin(0.5, 1).setDepth(DEPTH.crops);
       }
-      spr.setFrame(stage * C.CROP_KEYS.length + C.CROPS[tile.c].row); // sheet: one column per crop, one row per stage
+      spr.setFrame(stage < 2 ? stage : 2 + C.CROPS[tile.c].art * 2 + (stage - 2)); // seeds, sprout, then per-crop frames
       if (stage === 3 && !spr.sway) {
         spr.sway = this.tweens.add({ targets: spr, angle: { from: -4, to: 4 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: (idx * 37) % 500 });
       } else if (stage !== 3 && spr.sway) {

@@ -16,13 +16,19 @@ const OUT = path.join(__dirname, '..', 'assets');
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setContent('<!DOCTYPE html><html><body></body></html>');
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'draw.js') });
-  const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify({ TILES: layout.TILES, RANCH: layout.RANCH })));
+  const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify({
+    TILES: layout.TILES, RANCH: layout.RANCH, SEASONS: layout.SEASONS, SEASON_NAMES: layout.SEASON_NAMES, SEASONAL: layout.SEASONAL,
+  })));
   await browser.close();
   if (errors.length) throw new Error(errors.join('\n'));
   Object.keys(sheets).forEach((name) => {
-    const png = Buffer.from(sheets[name].split(',')[1], 'base64');
-    fs.writeFileSync(path.join(OUT, name + '.png'), png);
-    console.log(`assets/${name}.png  ${(png.length / 1024).toFixed(0)} KB`);
+    ['png', 'webp'].forEach((ext) => {
+      const url = sheets[name][ext];
+      if (!url.startsWith('data:image/' + ext)) throw new Error(`${name}: the browser could not encode ${ext}`);
+      const buf = Buffer.from(url.split(',')[1], 'base64');
+      fs.writeFileSync(path.join(OUT, `${name}.${ext}`), buf);
+      console.log(`assets/${name}.${ext}`.padEnd(22), `${(buf.length / 1024).toFixed(0)} KB`);
+    });
   });
 })().catch((e) => {
   console.error(e);

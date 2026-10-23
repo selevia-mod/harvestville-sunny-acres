@@ -321,3 +321,54 @@ test('bad animal save data is sanitised', () => {
   same(s.animals[0], { kind: 'cow', name: 'Daisy', love: C.LOVE.max, fed: 1, pet: 0, ready: 0 });
   assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
 });
+
+test('calendar: 4 seasons of 28 days, then a new year', () => {
+  const N = C.DAYS_PER_SEASON;
+  same(L.date(1), { season: 0, key: 'spring', name: 'Spring', day: 1, year: 1 });
+  assert.strictEqual(L.formatDate(N), 'Spring 28');
+  assert.strictEqual(L.formatDate(N + 1), 'Summer 1');
+  assert.strictEqual(L.formatDate(2 * N + 5), 'Fall 5');
+  assert.strictEqual(L.formatDate(3 * N + 1), 'Winter 1');
+  same(L.date(4 * N + 1), { season: 0, key: 'spring', name: 'Spring', day: 1, year: 2 });
+});
+
+test('the shop sells only this season\'s seeds, and none in winter', () => {
+  const N = C.DAYS_PER_SEASON;
+  same(L.seedsInSeason(1), ['seed_turnip', 'seed_potato', 'seed_strawberry']);
+  same(L.seedsInSeason(N + 1), ['seed_tomato', 'seed_corn']);
+  same(L.seedsInSeason(2 * N + 1), ['seed_carrot', 'seed_pumpkin']);
+  same(L.seedsInSeason(3 * N + 1), []);
+  assert.strictEqual(L.seasonsOf('tomato'), 'Summer');
+});
+
+test('seeds only go in the ground in their season', () => {
+  const s = L.newState();
+  L.addItem(s, 'seed_tomato', 2);
+  L.till(s, 1);
+  assert.strictEqual(L.plant(s, 1, slotOf(s, 'seed_tomato')), 'season');
+  assert.strictEqual(L.countItem(s, 'seed_tomato'), 2, 'seeds are kept');
+  s.day = C.DAYS_PER_SEASON + 1;
+  assert.strictEqual(L.plant(s, 1, slotOf(s, 'seed_tomato')), 'ok');
+});
+
+test('crops wither when the season changes, but tilled soil stays', () => {
+  const s = L.newState();
+  s.day = C.DAYS_PER_SEASON - 1; // Spring 27
+  L.till(s, 1);
+  L.plant(s, 1, slotOf(s, 'seed_turnip'));
+  L.till(s, 2);
+  L.water(s, 1);
+  let r = L.endDay(s); // -> Spring 28: still growing
+  assert.strictEqual(r.newSeason, null);
+  assert.strictEqual(s.soil[1].d, 1);
+  r = L.endDay(s); // -> Summer 1
+  assert.strictEqual(r.newSeason, 'Summer');
+  assert.strictEqual(r.withered, 1);
+  same(s.soil[1], { w: 0, c: null, d: 0 });
+  assert.ok(s.soil[2], 'tilled soil is still there');
+});
+
+test('every crop can ripen within its season', () => {
+  C.CROP_KEYS.forEach((k) => assert.ok(C.CROPS[k].days < C.DAYS_PER_SEASON, k));
+  C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell, k + ' sells'));
+});

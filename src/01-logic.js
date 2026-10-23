@@ -78,6 +78,40 @@
     return s.inv[s.sel] || null;
   };
 
+  // ---------- calendar ----------
+  // state.day counts days since the farm started (1 = Spring 1 of year 1).
+  L.date = function (day) {
+    var n = C.DAYS_PER_SEASON, i = day - 1;
+    var season = Math.floor(i / n) % C.SEASONS.length;
+    return {
+      season: season,
+      key: C.SEASONS[season].key,
+      name: C.SEASONS[season].name,
+      day: (i % n) + 1,
+      year: Math.floor(i / (n * C.SEASONS.length)) + 1,
+    };
+  };
+
+  L.formatDate = function (day) {
+    var d = L.date(day);
+    return d.name + ' ' + d.day;
+  };
+
+  L.cropInSeason = function (crop, day) {
+    return C.CROPS[crop].seasons.indexOf(L.date(day).key) >= 0;
+  };
+
+  L.seasonsOf = function (crop) {
+    return C.CROPS[crop].seasons.map(function (k) {
+      return C.SEASONS.filter(function (x) { return x.key === k; })[0].name;
+    }).join(' and ');
+  };
+
+  // Seed items the shop sells today.
+  L.seedsInSeason = function (day) {
+    return C.SHOP_STOCK.filter(function (id) { return L.cropInSeason(C.ITEMS[id].crop, day); });
+  };
+
   // ---------- soil & crops ----------
   L.cropStage = function (tile) {
     if (!tile || !tile.c) return -1;
@@ -116,6 +150,7 @@
     if (!slot || C.ITEMS[slot.id].kind !== 'seed') return 'noseed';
     if (!t) return 'nosoil';
     if (t.c) return 'occupied';
+    if (!L.cropInSeason(C.ITEMS[slot.id].crop, s.day)) return 'season';
     t.c = C.ITEMS[slot.id].crop;
     t.d = 0;
     L.removeAt(s, slotIndex, 1);
@@ -261,11 +296,27 @@
     var shipped = s.box;
     s.gold += earned;
     s.box = [];
+    var before = L.date(s.day);
     s.day += 1;
+    var now = L.date(s.day);
+    var withered = 0;
+    if (now.season !== before.season) {
+      Object.keys(s.soil).forEach(function (idx) {
+        var t = s.soil[idx];
+        if (t.c && !L.cropInSeason(t.c, s.day)) {
+          t.c = null;
+          t.d = 0;
+          withered++;
+        }
+      });
+    }
     s.time = C.DAY_START;
     s.energy = passedOut ? Math.floor(C.MAX_ENERGY / 2) : C.MAX_ENERGY;
     s.player = { x: null, y: null, dir: 'down' };
-    return { earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced };
+    return {
+      earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced,
+      newSeason: now.season !== before.season ? now.name : null, withered: withered,
+    };
   };
 
   L.formatTime = function (minutes) {

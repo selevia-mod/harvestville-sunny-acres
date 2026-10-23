@@ -4,11 +4,11 @@
 // unless you pass --force.
 const fs = require('fs');
 const path = require('path');
-const { SIZE, TILES, RANCH, blockId } = require('./tiles');
+const { SIZE, TILES, RANCH, SEASONS, SEASON_NAMES, SEASONAL, blockId } = require('./tiles');
 
 const T = TILES.T;
 const R = RANCH.T;
-const FIRSTGID = { tiles: 1, ranch: 1 + TILES.TILECOUNT };
+const FIRSTGID = { tiles: 1, ranch: 1 + TILES.TILECOUNT, seasons: 1 + TILES.TILECOUNT + RANCH.TILECOUNT };
 
 function rng(seed) { // deterministic, so the seeded map is reproducible
   let a = seed >>> 0;
@@ -70,7 +70,7 @@ pathRect(13, 32, 17, 33); // branch to the shop counter
 
 // --- buildings & pond
 putBlock(walls, TILES, 'house', 4, 3);  // door at (6, 6)
-putBlock(ground, TILES, 'pond', 15, 3);
+putBlock(walls, TILES, 'pond', 15, 3); // transparent corners over the (seasonal) grass
 putBlock(walls, TILES, 'shop', 14, 28); // counter at (16..17, 31)
 put(walls, 10, 6, T.shipbox);
 put(walls, 8, 9, T.sign);
@@ -131,7 +131,7 @@ decor.forEach(([id, count]) => {
 
 // --- tileset tile properties
 const prop = (name, type, value) => ({ name, type, value });
-const tileProps = { tiles: {}, ranch: {} };
+const tileProps = { tiles: {}, ranch: {}, seasons: {} };
 let current = 'tiles';
 const add = (id, ...props) => { tileProps[current][id] = (tileProps[current][id] || []).concat(props); };
 [T.fenceH, T.fenceV, T.fencePost, T.treeBL, T.treeBR, T.bush, T.rock, T.shipbox, T.sign, T.stump].forEach((id) => add(id, prop('collides', 'bool', true)));
@@ -151,6 +151,16 @@ add(T.tilledWet, prop('name', 'string', 'tilled_wet'));
 });
 add(R.hay, prop('collides', 'bool', true));
 add(R.trough, prop('collides', 'bool', true));
+
+// Seasonal tiles: each spring tile names its slot; every season's copy gets the same gameplay properties.
+SEASON_NAMES.forEach((season) => {
+  SEASONAL.forEach((kind) => {
+    current = 'seasons';
+    (tileProps.tiles[T[kind]] || []).filter((p) => p.name !== 'name').forEach((p) => add(SEASONS.T[season + '_' + kind], p));
+  });
+});
+current = 'tiles';
+SEASONAL.forEach((kind, k) => add(T[kind], prop('seasonal', 'int', k)));
 
 // --- objects (Tiled object layer)
 let nextId = 1;
@@ -182,7 +192,7 @@ const map = {
     tileLayer(4, 'Above', above),
     { id: 5, name: 'Objects', type: 'objectgroup', draworder: 'topdown', x: 0, y: 0, opacity: 1, visible: true, objects },
   ],
-  tilesets: [TILES, RANCH].map((set) => ({
+  tilesets: [TILES, RANCH, SEASONS].map((set) => ({
     firstgid: FIRSTGID[set.NAME], name: set.NAME, image: '../assets/' + set.NAME + '.png',
     imagewidth: set.IMAGE_W, imageheight: set.IMAGE_H, tilewidth: SIZE, tileheight: SIZE,
     columns: set.COLS, tilecount: set.TILECOUNT, margin: set.MARGIN, spacing: set.SPACING,

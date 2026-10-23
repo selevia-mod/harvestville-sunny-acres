@@ -20,6 +20,7 @@
     'Hoe: till the field.  Seeds: plant.\nCan: water every day. Refill it at the pond.\n\n' +
     'Harvest ripe crops and put them in the shipping box by your house. You get paid overnight.\n\n' +
     'Animals: feed them once a day (Chicken Feed, Fodder) for an egg or milk the next morning. Pet them for hearts.\n\n' +
+    'Seasons last 28 days. Each season has its own crops, and crops wither when the season ends. Nothing grows in winter.\n\n' +
     "Lily's shop (south, 9 AM to 5 PM) sells seeds, animals and feed. Go to bed in your house to end the day.";
 
   function style(size, color, extra) {
@@ -39,7 +40,8 @@
       this.input.addPointer(2);
       // The canvas is WIDTH*R x HEIGHT*R; zoom so all UI code works in WIDTH x HEIGHT layout px.
       this.cameras.main.setZoom(F.R).centerOn(W / 2, H / 2);
-      this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0);
+      this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0).setDepth(-1);
+      this.weatherSeason = -1; // petals / leaves / snow, rebuilt when the season changes
       this.buildHud();
       this.buildHotbar();
       this.buildAction();
@@ -174,7 +176,8 @@
     // ---------- HUD ----------
     buildHud() {
       this.panelImg(null, 6, 6, W - 12, 58);
-      this.dayText = this.txt(22, 14, '', 13, INK, { fontStyle: 'bold' });
+      this.seasonIcon = this.add.image(26, 21, 'items', C.SEASONS[0].icon).setScale(0.13);
+      this.dayText = this.txt(36, 14, '', 13, INK, { fontStyle: 'bold' });
       this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
       this.add.image(124, 35, 'items', C.ICON.bolt).setScale(ICON * 0.8);
       this.baked(null, 136, 28, 'ui-energy', 74, 15, function (g) { g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, 74, 15, 5); });
@@ -195,7 +198,10 @@
 
     refresh() {
       var s = F.session.state;
-      this.dayText.setText('Day ' + s.day);
+      var date = L.date(s.day);
+      this.dayText.setText(L.formatDate(s.day));
+      this.seasonIcon.setFrame(C.SEASONS[date.season].icon);
+      if (date.season !== this.weatherSeason) this.buildWeather(date.season);
       this.timeText.setText(L.formatTime(s.time));
       this.goldText.setText(s.gold + 'G');
       var pct = s.energy / C.MAX_ENERGY;
@@ -204,6 +210,28 @@
       for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
       this.night.setAlpha(this.nightAlpha(s.time));
       if (this.invRefresh) this.invRefresh();
+    }
+
+    // Gentle seasonal particles drifting down the screen (none in summer). Under the night tint and HUD.
+    buildWeather(season) {
+      this.weatherSeason = season;
+      if (this.weather) this.weather.destroy();
+      this.weather = null;
+      var p = C.SEASONS[season].particles;
+      if (!p) return;
+      this.weather = this.add.particles(0, 0, 'items', {
+        frame: C.SEASONS[season].icon,
+        x: { min: -20, max: W + 20 },
+        y: -20,
+        lifespan: 16000,
+        speedY: { min: p.fall[0], max: p.fall[1] },
+        speedX: { min: -18, max: 18 },
+        scale: { min: p.scale[0], max: p.scale[1] },
+        rotate: { start: 0, end: 360 },
+        alpha: 0.85,
+        frequency: p.every,
+      }).setDepth(-2);
+      this.weather.fastForward(12000); // start with the screen already filled
     }
 
     nightAlpha(t) {
@@ -441,7 +469,14 @@
       });
       if (made.length) lines.push('\nYour animals made ' + made.join(' and ') + '. Collect them in the pen.');
       if (result.hungry && result.hungry.length) lines.push((made.length ? '' : '\n') + result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
-      this.dialog('GOOD MORNING! DAY ' + s.day + '\n' + lines.join('\n'));
+      if (result.newSeason) {
+        var seeds = L.seedsInSeason(s.day);
+        lines.unshift(result.newSeason + ' has arrived! ' + (seeds.length
+          ? 'Lily now sells ' + seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(' and ') + ' seeds.'
+          : 'Nothing grows in winter, so look after your animals.') +
+          (result.withered ? '\n' + result.withered + (result.withered > 1 ? ' crops' : ' crop') + ' from last season withered.' : '') + '\n');
+      }
+      this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.join('\n'));
     }
 
     openPause() {
@@ -449,7 +484,7 @@
       var c = this.openModal();
       this.panelImg(c, 40, 120, W - 80, 420);
       c.add(this.txt(W / 2, 146, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      c.add(this.txt(W / 2, 180, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+      c.add(this.txt(W / 2, 180, L.formatDate(s.day) + ', Year ' + L.date(s.day).year + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
       this.button(c, W / 2, 264, 190, 46, 'Resume', function () { self.closeModal(); });
       this.button(c, W / 2, 322, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
       this.button(c, W / 2, 376, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
@@ -550,7 +585,11 @@
         });
       };
       if (tab === 'seeds') {
-        C.SHOP_STOCK.forEach(function (id, i) { itemRow(id, 194 + i * 98, 88); });
+        var seeds = L.seedsInSeason(s.day);
+        seeds.forEach(function (id, i) { itemRow(id, 194 + i * 98, 88); });
+        if (!seeds.length) {
+          c.add(self.txt(W / 2, 260, "LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, the Animals tab has feed.", 15, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
+        }
       } else {
         C.SHOP_ANIMALS.forEach(function (kind, i) {
           var def = C.ANIMALS[kind], y = 194 + i * 88;

@@ -1,8 +1,8 @@
 # Sunny Acres
 
 A Harvest Moon style farming game: portrait (9:16), touch-first, built with Phaser 3 in plain JavaScript.
-It ships as **one offline HTML file** (`dist/index.html`, about 7 MB) with Phaser, the code, the Tiled map and all
-art inlined as data URLs. It makes no network requests and uses no CDNs.
+It ships as **one offline HTML file** (`dist/index.html`, about 3 MB) with Phaser, the code, the Tiled map and all
+art inlined as data URLs (WebP). It makes no network requests and uses no CDNs.
 
 The art is drawn at **256×256 per tile** in a smooth cartoon style and scaled down on screen. A tile is shown at
 32 layout pixels, and the game renders at the screen's pixel density (up to 3×) so the detail stays sharp.
@@ -15,7 +15,8 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 - **Art cost:** the 256 px art is cheap for the GPU. The world costs under 1 ms per frame at normal CPU speed.
 - **UI drawing:** UI panels, slots and buttons are drawn once into textures (`bake()` in `src/12-ui.js`). Live Phaser
   Graphics re-tessellate every frame, and that used to cost most of the frame time, so avoid them in the UI.
-- **Startup:** cold start is about 6 s at 6x slowdown. A "Loading your farm…" message shows meanwhile.
+- **Startup:** cold start is about 7 s at 6x slowdown (about 1.7 s at full speed). A "Loading your farm…" message shows
+  meanwhile. The build inlines the WebP copies of the sheets, which are about 6x smaller than the PNGs.
 - **FPS meter:** pause menu → **Show FPS** puts a frame-rate meter in the corner. The `x2`/`x3` next to it is the
   render scale.
 
@@ -26,7 +27,7 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
   (Till / Plant / Water / Refill / Harvest / Ship / Sleep / Shop / Read).
 - **Hoe** tills the field (2 energy). **Seeds** plant on tilled soil. The **watering can** (1 energy)
   holds 20 waters. Refill it at the pond.
-- Crops grow one stage per *watered* night: Turnip 3 days, Potato 5, Strawberry 7.
+- Crops grow one stage per *watered* night (see Seasons for which crops grow when).
 - Put crops in the **shipping box** by the house. It pays out overnight.
 - **Lily's Seed Shop** (south of the field) is open 9 AM to 5 PM.
 - The clock runs from 6 AM. Evening darkens the screen, and at 2 AM you pass out (half energy next day).
@@ -34,6 +35,26 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 - The bag button shows all 18 slots. The first 6 are the hotbar.
 - **Pause menu → New game** starts a fresh farm after a confirmation. The new farm is saved right away, replacing
   the old save.
+
+### Seasons
+
+- **Calendar:** Spring, Summer, Fall, Winter, 28 days each, then a new year. The top bar shows the date (Spring 3)
+  with a season icon. The pause menu shows the year.
+- **Crops by season:**
+
+  | Season | Crops |
+  | --- | --- |
+  | Spring | Turnip 3 days/60G, Potato 5/110G, Strawberry 7/170G |
+  | Summer | Tomato 6/130G, Corn 9/220G |
+  | Fall | Carrot 4/90G, Pumpkin 10/360G |
+  | Winter | Nothing grows. Tend your animals. |
+
+- **Shop:** it sells only the current season's seeds. Seeds can't be planted out of season, so keep them for later.
+- **Season change:** crops that don't belong to the new season wither, but the tilled soil stays. The morning report
+  says what's new.
+- **Looks:** the farm changes with the seasons, from spring blossoms to lush summer, orange autumn and snow.
+  Petals, leaves and snowflakes drift down the screen.
+- **Saves:** they only store the day count, so older saves land in the right season automatically.
 
 ### Animals
 
@@ -107,7 +128,10 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
   `name` = `tilled` / `tilled_wet` (used by the Soil layer at runtime).
 - Leave the **Soil** layer empty. The game paints tilled soil into it.
 - **Above** draws over the player (tree tops).
-- There are two tilesets: `tiles` and `ranch` (barn, coop, hay, trough).
+- There are three tilesets: `tiles`, `ranch` (barn, coop, hay, trough) and `seasons`. Draw the map with the spring
+  tiles from `tiles`. Tiles with a `seasonal` property (grass, flowers, field, path, trees, bushes, tall grass) are
+  swapped at runtime for that slot's version in `seasons`. The pond sits on the Walls layer so seasonal grass shows
+  around it.
 - Objects use `type`: `spawn` (point), `sleep`, `ship`, `shop`, `pen` (the area animals wander in), and `sign`
   (with a string property `text`).
 
@@ -116,5 +140,5 @@ unless you pass `--force`.
 
 ## Next up
 
-Towns and villagers, seasons (crop seasons, weather), and more shops.
+Towns and villagers, weather (rain waters crops), festivals, and more shops.
 The save format has a version field (`v`) for migrations.

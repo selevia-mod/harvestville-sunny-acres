@@ -8,9 +8,15 @@ const ROOT = __dirname;
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const list = (dir, ext) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(ext)).sort();
 
+// Each sheet is inlined from its .webp copy when there is one (about 6x smaller than the PNG,
+// which stays in assets/ for Tiled), otherwise from the PNG.
 const images = {};
 list('assets', '.png').forEach((f) => {
-  images[path.basename(f, '.png')] = 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', f)).toString('base64');
+  const name = path.basename(f, '.png');
+  const webp = path.join(ROOT, 'assets', name + '.webp');
+  images[name] = fs.existsSync(webp)
+    ? 'data:image/webp;base64,' + fs.readFileSync(webp).toString('base64')
+    : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', f)).toString('base64');
 });
 
 const maps = {};

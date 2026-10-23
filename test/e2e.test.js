@@ -439,7 +439,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
   await shot(page, '15-new-game');
   await page.evaluate(() => window.__gameBack());
-  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Day 1');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 1');
   await teleport(page, 5, 11, 'down');
   await tapHotbar(page, 0);
   await tapAction(page);
@@ -453,4 +453,85 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual((await state(again.page)).day, 1);
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
+});
+
+// The gid drawn at a map tile, and the seasons tileset's first gid, to check which season's art is showing.
+const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.layers[l].getTileAt(x, y).index, [layer, x, y]);
+
+test('seasons: summer arrives, spring crops wither, the shop and the farm change', async () => {
+  // Spring 28 with a growing turnip
+  const save = await (async () => {
+    const { page, context } = await open();
+    const out = await page.evaluate(() => {
+      const L = Farm.Logic, s = L.newState();
+      s.day = Farm.Config.DAYS_PER_SEASON;
+      L.till(s, 12 * 24 + 5);
+      L.plant(s, 12 * 24 + 5, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
+      return L.serialize(s);
+    });
+    await context.close();
+    return out;
+  })();
+  const { page, problems, context } = await open(save);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 28');
+  const springGrass = await tileGid(page, 'Ground', 2, 3);
+  const seasonsFirst = await page.evaluate(() => Farm.world.map.getTileset('seasons').firstgid);
+  assert.ok(springGrass >= seasonsFirst && springGrass < seasonsFirst + 12, 'spring art from the seasons tileset');
+
+  // summer seeds can't be planted yet
+  await page.evaluate(() => {
+    Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 1);
+    Farm.Logic.till(Farm.session.state, 12 * 24 + 6);
+    Farm.world.refreshAllSoil();
+    Farm.session.state.sel = Farm.session.state.inv.findIndex((x) => x && x.id === 'seed_tomato');
+  });
+  await teleport(page, 6, 11, 'down');
+  await tapAction(page);
+  assert.strictEqual((await state(page)).soil[12 * 24 + 6].c, null, 'tomato refused in spring');
+
+  await sleepThroughNight(page);
+  let s = await state(page);
+  assert.strictEqual(s.day, 29);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Summer 1');
+  assert.strictEqual(s.soil[12 * 24 + 5].c, null, 'the spring turnip withered');
+  assert.ok(s.soil[12 * 24 + 5], 'its soil is still tilled');
+  const summerGrass = await tileGid(page, 'Ground', 2, 3);
+  assert.strictEqual(summerGrass, springGrass + 12, 'grass switched to the summer art');
+  await teleport(page, 6, 9, 'down');
+  await shot(page, '16-summer');
+
+  // now the tomato goes in
+  await teleport(page, 6, 11, 'down');
+  await tapAction(page);
+  assert.strictEqual((await state(page)).soil[12 * 24 + 6].c, 'tomato');
+
+  // the shop's seeds tab follows the season
+  await page.evaluate(() => { Farm.session.state.time = 600; });
+  await teleport(page, 16, 32, 'up');
+  await tapAction(page);
+  const names = await page.evaluate(() => Farm.ui.modals[0].c.list.filter((o) => o.type === 'Text').map((o) => o.text));
+  assert.ok(names.includes('Tomato Seeds') && names.includes('Corn Seeds'));
+  assert.ok(!names.includes('Turnip Seeds'));
+  await page.evaluate(() => window.__gameBack());
+
+  // jump to the last day of fall and sleep into winter
+  await page.evaluate(() => { Farm.session.state.day = 3 * Farm.Config.DAYS_PER_SEASON; });
+  await sleepThroughNight(page);
+  s = await state(page);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Winter 1');
+  assert.strictEqual(s.soil[12 * 24 + 6].c, null, 'the summer tomato withered');
+  assert.strictEqual(await tileGid(page, 'Ground', 2, 3), springGrass + 36, 'snow');
+  assert.ok(await page.evaluate(() => Farm.ui.weather && Farm.ui.weather.getAliveParticleCount() > 0), 'snow is falling');
+  // trees still block the way in winter (collision follows the swapped tiles)
+  assert.strictEqual(await page.evaluate(() => Farm.world.layers.Walls.getTileAt(0, 3).collides), true);
+  await teleport(page, 6, 9, 'down');
+  await shot(page, '17-winter');
+  await page.evaluate(() => { Farm.session.state.time = 600; });
+  await teleport(page, 16, 32, 'up');
+  await tapAction(page);
+  const winterShop = await page.evaluate(() => Farm.ui.modals[0].c.list.filter((o) => o.type === 'Text').map((o) => o.text).join(' '));
+  assert.match(winterShop, /Nothing grows in winter/);
+  await shot(page, '18-winter-shop');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
 });

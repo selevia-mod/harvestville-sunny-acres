@@ -223,23 +223,30 @@
   }
 
   // ---------- ground tiles (opaque, seamless) ----------
-  function grassTile(seed, extra) {
-    var c = canvas(S, S), g = c.getContext('2d'), r = rng(seed);
-    g.fillStyle = '#79c94a';
+  // Seasons: 0 spring, 1 summer, 2 fall, 3 winter.
+  var GRASS = [
+    { base: '#79c94a', light: '160,226,98', dark: '78,160,48', blades: ['#58a832', '#66b83a', '#8ed65a', '#4b9a2b', '#a2e06c'] },
+    { base: '#5aae37', light: '130,205,78', dark: '45,125,30', blades: ['#3f8f25', '#4fa52f', '#7cc84a', '#367f20', '#8fd85a'] },
+    { base: '#b9a648', light: '222,196,98', dark: '150,118,40', blades: ['#9a8a32', '#a89a3a', '#cdb95a', '#8a7a2a', '#dcc870'] },
+    { base: '#eef3f8', light: '255,255,255', dark: '170,190,218', blades: ['#a4b48a', '#8ea074'] },
+  ];
+
+  function grassTile(seed, extra, ss) {
+    var c = canvas(S, S), g = c.getContext('2d'), r = rng(seed), P = GRASS[ss || 0];
+    g.fillStyle = P.base;
     g.fillRect(0, 0, S, S);
     for (var i = 0; i < 16; i++) {
       var px = r() * S, py = r() * S, pr = r.range(28, 70), light = r() < 0.5;
       wrap(S, px, py, pr, function (x, y) {
-        g.fillStyle = rad(g, x, y, 0, x, y, pr, light
-          ? [[0, 'rgba(160,226,98,0.55)'], [1, 'rgba(160,226,98,0)']]
-          : [[0, 'rgba(78,160,48,0.45)'], [1, 'rgba(78,160,48,0)']]);
+        var col = light ? P.light : P.dark;
+        g.fillStyle = rad(g, x, y, 0, x, y, pr, [[0, 'rgba(' + col + ',' + (light ? 0.55 : 0.45) + ')'], [1, 'rgba(' + col + ',0)']]);
         g.fillRect(x - pr, y - pr, pr * 2, pr * 2);
       });
     }
-    var blades = 120 + (extra || 0);
-    var cols = ['#58a832', '#66b83a', '#8ed65a', '#4b9a2b', '#a2e06c'];
+    // winter: only a few grass tips poke through the snow
+    var blades = ss === 3 ? 16 + (extra || 0) / 4 : 120 + (extra || 0);
     for (var b = 0; b < blades; b++) {
-      var bx = r() * S, by = r() * S, h = r.range(14, 30), lean = r.range(-8, 8), col = r.pick(cols);
+      var bx = r() * S, by = r() * S, h = r.range(14, 30) * (ss === 3 ? 0.5 : 1), lean = r.range(-8, 8), col = r.pick(P.blades);
       wrap(S, bx, by, 40, function (x, y) {
         g.beginPath();
         g.moveTo(x - 3.5, y);
@@ -249,6 +256,84 @@
         g.fillStyle = col;
         g.fill();
       });
+    }
+    if (ss === 2) fallenLeaves(g, r, 7);
+    if (ss === 3) {
+      for (var k = 0; k < 18; k++) {
+        var sx = r() * S, sy = r() * S;
+        wrap(S, sx, sy, 6, function (x, y) {
+          ell(g, x, y, 2.5, 2.5);
+          g.fillStyle = 'rgba(255,255,255,0.95)';
+          g.fill();
+        });
+      }
+    }
+    return c;
+  }
+
+  function fallenLeaves(g, r, n) {
+    for (var i = 0; i < n; i++) {
+      var lx = r() * S, ly = r() * S, rot = r.range(0, 6), col = r.pick(['#e8742a', '#d9452b', '#f2b33d']);
+      wrap(S, lx, ly, 16, function (x, y) {
+        g.save();
+        g.translate(x, y);
+        g.rotate(rot);
+        g.beginPath();
+        g.moveTo(-10, 0);
+        g.quadraticCurveTo(0, -8, 10, 0);
+        g.quadraticCurveTo(0, 8, -10, 0);
+        g.fillStyle = col;
+        g.fill();
+        g.restore();
+      });
+    }
+  }
+
+  // Grass with flowers / seasonal details: 'grass3' (light flowers) or 'flowers' (bright flowers).
+  function flowerTile(kind, ss) {
+    var bright = kind === 'flowers';
+    var c = grassTile(bright ? 4 : 3, 0, ss), g = c.getContext('2d'), r = rng(bright ? 10 : 9);
+    if (ss === 0) {
+      return addFlowers(c, bright ? 10 : 9, bright
+        ? [['#ff6b7a', '#ffe27a'], ['#c38bff', '#ffe27a'], ['#ff9ad5', '#fff3c0']]
+        : [['#ffffff', '#ffd84d'], ['#fff3a0', '#ff9a3d']], bright ? 6 : 4);
+    }
+    if (ss === 1) {
+      return addFlowers(c, bright ? 10 : 9, bright
+        ? [['#ffcf3d', '#8a4a1a'], ['#ff8a3d', '#ffe27a']]
+        : [['#ffffff', '#ffd84d'], ['#8fd0ff', '#ffffff']], bright ? 6 : 4);
+    }
+    if (ss === 2) {
+      fallenLeaves(g, r, bright ? 16 : 10);
+      if (!bright) {
+        [[70, 90], [170, 170]].forEach(function (p) { // little mushrooms
+          rrect(g, p[0] - 5, p[1], 10, 18, 4);
+          paint(g, '#fff4e0', 3);
+          g.beginPath();
+          g.arc(p[0], p[1] + 2, 15, Math.PI, 0);
+          g.closePath();
+          paint(g, '#c9622e', 3);
+        });
+      }
+      return c;
+    }
+    // winter: snow mounds, and holly berries on the bright tile
+    for (var i = 0; i < (bright ? 3 : 4); i++) {
+      var mx = r.range(40, 216), my = r.range(40, 216);
+      ell(g, mx, my + 6, 30, 10);
+      g.fillStyle = 'rgba(150,170,200,0.35)';
+      g.fill();
+      ell(g, mx, my, 28, 12);
+      g.fillStyle = '#ffffff';
+      g.fill();
+      if (bright) {
+        leaf(g, mx - 6, my - 4, 22, 9, -1.1, DARK_LEAF);
+        leaf(g, mx + 6, my - 4, 22, 9, 1.1, DARK_LEAF);
+        [[-4, -8], [4, -9], [0, -2]].forEach(function (b) {
+          ell(g, mx + b[0], my + b[1], 6, 6);
+          paint(g, '#e5383f', 3);
+        });
+      }
     }
     return c;
   }
@@ -265,14 +350,16 @@
     return c;
   }
 
-  function fieldTile() {
-    var c = canvas(S, S), g = c.getContext('2d'), r = rng(31);
-    g.fillStyle = '#b87a49';
+  function fieldTile(ss) {
+    var c = canvas(S, S), g = c.getContext('2d'), r = rng(31), snow = ss === 3;
+    g.fillStyle = snow ? '#eaf0f6' : '#b87a49';
     g.fillRect(0, 0, S, S);
     for (var i = 0; i < 22; i++) {
       var px = r() * S, py = r() * S, pr = r.range(20, 60), light = r() < 0.5;
       wrap(S, px, py, pr, function (x, y) {
-        g.fillStyle = rad(g, x, y, 0, x, y, pr, light
+        g.fillStyle = rad(g, x, y, 0, x, y, pr, snow
+          ? (light ? [[0, 'rgba(255,255,255,0.8)'], [1, 'rgba(255,255,255,0)']] : [[0, 'rgba(150,110,80,0.4)'], [1, 'rgba(150,110,80,0)']])
+          : light
           ? [[0, 'rgba(212,150,98,0.5)'], [1, 'rgba(212,150,98,0)']]
           : [[0, 'rgba(140,88,50,0.45)'], [1, 'rgba(140,88,50,0)']]);
         g.fillRect(x - pr, y - pr, pr * 2, pr * 2);
@@ -282,10 +369,10 @@
       var sx = r() * S, sy = r() * S, sr = r.range(4, 9);
       wrap(S, sx, sy, 12, function (x, y) {
         ell(g, x, y + 2, sr, sr * 0.7);
-        g.fillStyle = 'rgba(90,55,30,0.45)';
+        g.fillStyle = snow ? 'rgba(120,140,170,0.35)' : 'rgba(90,55,30,0.45)';
         g.fill();
         ell(g, x, y, sr, sr * 0.7);
-        g.fillStyle = '#d29a63';
+        g.fillStyle = snow ? '#a89484' : '#d29a63';
         g.fill();
         ell(g, x - sr * 0.3, y - sr * 0.3, sr * 0.4, sr * 0.25);
         g.fillStyle = 'rgba(255,230,190,0.7)';
@@ -338,11 +425,11 @@
     return c;
   }
 
-  function pathTile() {
-    var c = canvas(S, S), g = c.getContext('2d'), r = rng(51);
-    g.fillStyle = '#c9a774';
+  function pathTile(ss) {
+    var c = canvas(S, S), g = c.getContext('2d'), r = rng(51), snow = ss === 3;
+    g.fillStyle = snow ? '#cfdbe7' : '#c9a774';
     g.fillRect(0, 0, S, S);
-    var fills = ['#ead4a4', '#e2c895', '#d9bd87', '#efdcb2'];
+    var fills = snow ? ['#ffffff', '#f3f7fb', '#eaf1f8', '#ffffff'] : ['#ead4a4', '#e2c895', '#d9bd87', '#efdcb2'];
     for (var gy = 0; gy < 4; gy++) {
       for (var gx = 0; gx < 4; gx++) {
         var cx = gx * 64 + 32 + r.range(-8, 8) + (gy % 2) * 10, cy = gy * 64 + 32 + r.range(-6, 6);
@@ -352,7 +439,7 @@
           g.fillStyle = 'rgba(120,90,50,0.35)';
           g.fill();
           ell(g, x, y, rx, ry, rot);
-          paint(g, f, 3, '#b18e5b');
+          paint(g, f, 3, snow ? '#b3c3d4' : '#b18e5b');
           ell(g, x - rx * 0.3, y - ry * 0.35, rx * 0.45, ry * 0.28, rot);
           g.fillStyle = 'rgba(255,248,225,0.65)';
           g.fill();
@@ -408,7 +495,7 @@
 
   function pond(grass) {
     var W = 5 * S, H = 4 * S, c = canvas(W, H), g = c.getContext('2d'), r = rng(71);
-    for (var ty = 0; ty < 4; ty++) for (var tx = 0; tx < 5; tx++) g.drawImage(grass, tx * S, ty * S);
+    if (grass) for (var ty = 0; ty < 4; ty++) for (var tx = 0; tx < 5; tx++) g.drawImage(grass, tx * S, ty * S);
     var cx = W / 2, cy = H / 2 + 10;
     shadow(g, cx, cy + 30, 600, 440, 0.25);
     blobPath(g, cx, cy, 590, 450, 3);
@@ -848,7 +935,14 @@
     return c;
   }
 
-  function tree() {
+  var TREE_LEAF = [
+    LEAF,
+    { hi: '#9fe06a', base: '#4fa52f', dark: '#2a6e1f', marks: 'rgba(200,255,150,0.45)' },
+    { hi: '#ffd27a', base: '#f08a2c', dark: '#b4501c', marks: 'rgba(255,230,170,0.55)' },
+    { hi: '#cfe0d4', base: '#6f9a86', dark: '#3f6656', marks: null },
+  ];
+
+  function tree(ss) {
     var c = canvas(2 * S, 2 * S), g = c.getContext('2d'), r = rng(91);
     shadow(g, 256, 462, 170, 36, 0.32);
     g.beginPath();
@@ -866,29 +960,64 @@
       g.strokeStyle = 'rgba(50,25,10,0.5)';
       g.stroke();
     });
-    puffs(g, [[256, 118, 100], [150, 168, 92], [362, 168, 92], [116, 262, 78], [396, 262, 78], [196, 288, 96], [316, 288, 96], [256, 222, 108]], LEAF);
-    for (var i = 0; i < 7; i++) {
+    var crown = [[256, 118, 100], [150, 168, 92], [362, 168, 92], [116, 262, 78], [396, 262, 78], [196, 288, 96], [316, 288, 96], [256, 222, 108]];
+    puffs(g, crown, TREE_LEAF[ss || 0]);
+    var spot = function () {
       var a = r.range(0, Math.PI * 2), d = r.range(60, 170);
-      var ax = 256 + Math.cos(a) * d * 1.1, ay = 220 + Math.sin(a) * d * 0.75;
-      ell(g, ax, ay, 17, 17);
-      paint(g, rad(g, ax - 5, ay - 6, 2, ax, ay, 17, [[0, '#ff8b7a'], [1, '#d42c2c']]), 5);
-      g.beginPath();
-      g.moveTo(ax, ay - 16);
-      g.lineTo(ax + 3, ay - 26);
-      g.lineWidth = 4;
-      g.strokeStyle = '#5d3418';
-      g.stroke();
+      return [256 + Math.cos(a) * d * 1.1, 220 + Math.sin(a) * d * 0.75];
+    };
+    if (!ss) { // spring blossoms
+      for (var b = 0; b < 12; b++) {
+        var p = spot();
+        flower(g, p[0], p[1], 15, b % 3 ? '#ffc4dd' : '#ffffff', '#ff8ab5');
+      }
+    } else if (ss === 2) { // autumn apples
+      for (var i = 0; i < 7; i++) {
+        var q = spot();
+        ell(g, q[0], q[1], 17, 17);
+        paint(g, rad(g, q[0] - 5, q[1] - 6, 2, q[0], q[1], 17, [[0, '#ff8b7a'], [1, '#d42c2c']]), 5);
+        g.beginPath();
+        g.moveTo(q[0], q[1] - 16);
+        g.lineTo(q[0] + 3, q[1] - 26);
+        g.lineWidth = 4;
+        g.strokeStyle = '#5d3418';
+        g.stroke();
+      }
+    } else if (ss === 3) { // snow caps on every puff
+      crown.forEach(function (pf) {
+        g.beginPath();
+        g.ellipse(pf[0] - pf[2] * 0.05, pf[1] - pf[2] * 0.45, pf[2] * 0.78, pf[2] * 0.42, 0, Math.PI, 0);
+        g.quadraticCurveTo(pf[0] + pf[2] * 0.3, pf[1] - pf[2] * 0.25, pf[0], pf[1] - pf[2] * 0.3);
+        g.quadraticCurveTo(pf[0] - pf[2] * 0.4, pf[1] - pf[2] * 0.2, pf[0] - pf[2] * 0.83, pf[1] - pf[2] * 0.45);
+        g.fillStyle = '#ffffff';
+        g.fill();
+      });
     }
     return c;
   }
 
-  function bush() {
+  function bush(ss) {
     var c = canvas(S, S), g = c.getContext('2d');
     shadow(g, 128, 222, 96, 22);
-    puffs(g, [[128, 128, 62], [76, 168, 54], [180, 168, 54], [128, 180, 62]], DARK_LEAF);
-    [[92, 140], [150, 120], [170, 176], [110, 190], [70, 176]].forEach(function (p) {
-      flower(g, p[0], p[1], 13, '#ff9ad5', '#fff3c0');
-    });
+    var parts = [[128, 128, 62], [76, 168, 54], [180, 168, 54], [128, 180, 62]];
+    puffs(g, parts, ss === 2 ? TREE_LEAF[2] : ss === 3 ? TREE_LEAF[3] : DARK_LEAF);
+    var dots = [[92, 140], [150, 120], [170, 176], [110, 190], [70, 176]];
+    if (!ss) dots.forEach(function (p) { flower(g, p[0], p[1], 13, '#ff9ad5', '#fff3c0'); });
+    if (ss === 1) {
+      dots.concat([[130, 160], [100, 110]]).forEach(function (p) {
+        ell(g, p[0], p[1], 9, 9);
+        paint(g, rad(g, p[0] - 3, p[1] - 3, 1, p[0], p[1], 9, [[0, '#9aa8ff'], [1, '#3b4fc4']]), 3);
+      });
+    }
+    if (ss === 3) {
+      parts.forEach(function (pf) {
+        g.beginPath();
+        g.ellipse(pf[0], pf[1] - pf[2] * 0.42, pf[2] * 0.75, pf[2] * 0.4, 0, Math.PI, 0);
+        g.closePath();
+        g.fillStyle = '#ffffff';
+        g.fill();
+      });
+    }
     return c;
   }
 
@@ -946,8 +1075,9 @@
     return c;
   }
 
-  function tallgrass() {
+  function tallgrass(ss) {
     var c = canvas(S, S), g = c.getContext('2d'), r = rng(101);
+    var cols = [['#a7e06c', '#4a9a2b', '#2f6a1c'], ['#8fd85a', '#3f8f25', '#25601a'], ['#f2d77a', '#b08a3a', '#6e5320'], ['#c9b48a', '#8a7454', '#5a4a34']][ss || 0];
     shadow(g, 128, 214, 70, 12, 0.2);
     for (var i = 0; i < 13; i++) {
       var x = 70 + i * 9 + r.range(-4, 4), h = r.range(70, 130), lean = r.range(-30, 30);
@@ -956,9 +1086,15 @@
       g.quadraticCurveTo(x + lean * 0.3, 214 - h * 0.6, x + lean, 214 - h);
       g.quadraticCurveTo(x + lean * 0.3 + 4, 214 - h * 0.5, x + 7, 214);
       g.closePath();
-      paint(g, lin(g, 0, 214 - h, 0, 214, [[0, '#a7e06c'], [1, '#4a9a2b']]), 3.5, '#2f6a1c');
+      paint(g, lin(g, 0, 214 - h, 0, 214, [[0, cols[0]], [1, cols[1]]]), 3.5, cols[2]);
     }
-    flower(g, 150, 110, 14, '#ffffff', '#ffd84d');
+    if (ss === 3) {
+      ell(g, 128, 210, 70, 18);
+      g.fillStyle = '#ffffff';
+      g.fill();
+    } else {
+      flower(g, 150, 110, 14, ss === 2 ? '#f2a03d' : '#ffffff', '#ffd84d');
+    }
     return c;
   }
 
@@ -1227,6 +1363,59 @@
     leaf(g, 128, 172, 54, 20, 1.0, LEAF);
   }
 
+  function tomato(g, x, y, s) {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    ell(g, 0, 6, 46, 40);
+    paint(g, rad(g, -14, -8, 4, 0, 6, 50, [[0, '#ff8a7a'], [0.55, '#ea3b2e'], [1, '#b52419']]));
+    ell(g, -16, -10, 10, 7, -0.5);
+    g.fillStyle = 'rgba(255,255,255,0.6)';
+    g.fill();
+    for (var k = 0; k < 5; k++) leaf(g, 0, -28, 22, 9, -1.3 + k * 0.65, { hi: '#a4e36a', base: '#5cb23a', dark: '#3a7d26' });
+    g.restore();
+  }
+
+  function cornCob(g, x, y, s, rot) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(rot || 0);
+    g.scale(s, s);
+    ell(g, 0, 0, 22, 54);
+    paint(g, lin(g, -22, 0, 22, 0, [[0, '#fff09a'], [1, '#f2b72f']]));
+    for (var ry = -40; ry < 46; ry += 12) {
+      for (var rx = -14; rx <= 14; rx += 10) {
+        ell(g, rx, ry, 4, 5);
+        g.fillStyle = 'rgba(200,130,20,0.45)';
+        g.fill();
+      }
+    }
+    [-1, 1].forEach(function (side) {
+      g.beginPath();
+      g.moveTo(side * 6, 54);
+      g.quadraticCurveTo(side * 40, 20, side * 18, -30);
+      g.quadraticCurveTo(side * 26, 20, side * 2, 54);
+      paint(g, lin(g, 0, -30, 0, 54, [[0, '#a4e36a'], [1, '#4f9a33']]), 4);
+    });
+    g.restore();
+  }
+
+  function pumpkin(g, x, y, s) {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    [[-34, 30, 40], [34, 30, 40], [0, 34, 46]].forEach(function (p) {
+      ell(g, p[0], 0, p[2] * 0.8, p[1] * 1.45);
+      paint(g, rad(g, p[0] - 10, -14, 4, p[0], 0, 60, [[0, '#ffc06a'], [0.6, '#f58a1f'], [1, '#c45d0e']]));
+    });
+    rrect(g, -7, -58, 14, 20, 5);
+    paint(g, '#6b8a2a', 4);
+    ell(g, -18, -24, 8, 14, -0.3);
+    g.fillStyle = 'rgba(255,240,200,0.5)';
+    g.fill();
+    g.restore();
+  }
+
   var CROP_DRAW = {
     turnip: [cropSeeds, cropSprout, function (g) {
       mound(g, 62);
@@ -1260,6 +1449,63 @@
         strawberry(g, p[0], p[1], 0.36);
       });
       flower(g, 116, 104, 14, '#ffffff', '#ffe27a');
+    }],
+    tomato: [cropSeeds, cropSprout, function (g) {
+      mound(g, 64);
+      puffs(g, [[104, 172, 42], [152, 172, 42], [128, 140, 44]], LEAF);
+      flower(g, 110, 150, 13, '#ffe27a', '#f2a03d');
+      flower(g, 150, 168, 13, '#ffe27a', '#f2a03d');
+    }, function (g) {
+      mound(g, 80);
+      rrect(g, 122, 40, 12, 186, 5);
+      paint(g, '#b07a46', 4);
+      puffs(g, [[90, 150, 50], [166, 150, 50], [128, 100, 52], [128, 178, 48]], LEAF);
+      [[92, 168], [164, 150], [124, 120], [150, 196], [100, 116]].forEach(function (p) { tomato(g, p[0], p[1], 0.36); });
+    }],
+    corn: [cropSeeds, cropSprout, function (g) {
+      mound(g, 60);
+      [-0.5, -0.15, 0.2, 0.55].forEach(function (a) { leaf(g, 128, 216, 130, 22, a, LEAF); });
+    }, function (g) {
+      mound(g, 70);
+      rrect(g, 120, 12, 16, 210, 6);
+      paint(g, lin(g, 120, 0, 136, 0, [[0, '#8fd85a'], [1, '#4f9a33']]), 4);
+      [-0.8, -0.4, 0.4, 0.8].forEach(function (a, i) { leaf(g, 128, 210 - i * 26, 110, 20, a, LEAF); });
+      cornCob(g, 158, 118, 0.85, 0.35);
+      [[124, 16], [132, 10], [140, 18]].forEach(function (t) {
+        g.beginPath();
+        g.moveTo(128, 30);
+        g.lineTo(t[0], t[1]);
+        g.lineWidth = 5;
+        g.strokeStyle = '#e0b04a';
+        g.stroke();
+      });
+    }],
+    carrot: [cropSeeds, cropSprout, function (g) {
+      mound(g, 60);
+      [-0.7, -0.35, 0, 0.35, 0.7].forEach(function (a) { leaf(g, 128, 214, 84, 12, a, LEAF); });
+    }, function (g) {
+      mound(g, 72);
+      [-0.8, -0.45, -0.1, 0.25, 0.6, 0.9].forEach(function (a) { leaf(g, 128, 196, 104, 13, a, LEAF); });
+      g.beginPath();
+      g.moveTo(96, 196);
+      g.quadraticCurveTo(128, 180, 160, 196);
+      g.quadraticCurveTo(150, 226, 128, 232);
+      g.quadraticCurveTo(106, 226, 96, 196);
+      paint(g, lin(g, 96, 0, 160, 0, [[0, '#ffb04a'], [1, '#e8741e']]));
+    }],
+    pumpkin: [cropSeeds, cropSprout, function (g) {
+      mound(g, 70);
+      [[96, 186, -0.9], [160, 186, 0.9], [128, 176, 0]].forEach(function (l) { leaf(g, l[0], l[1] + 20, 70, 40, l[2], DARK_LEAF); });
+      g.beginPath();
+      g.moveTo(60, 214);
+      g.quadraticCurveTo(128, 180, 200, 214);
+      g.lineWidth = 6;
+      g.strokeStyle = '#4f9a33';
+      g.stroke();
+    }, function (g) {
+      mound(g, 90);
+      [[70, 200, -1.1], [190, 200, 1.1]].forEach(function (l) { leaf(g, l[0], l[1] + 20, 70, 40, l[2], DARK_LEAF); });
+      pumpkin(g, 128, 176, 1.0);
     }],
   };
 
@@ -1840,6 +2086,75 @@
   }
 
   Object.assign(ICON_DRAW, {
+    seed_tomato: seedPacket(function (g) { tomato(g, 64, 56, 0.5); }, '#e2363e'),
+    seed_corn: seedPacket(function (g) { cornCob(g, 64, 54, 0.6, 0.4); }, '#e0a52a'),
+    seed_carrot: seedPacket(function (g) { g.save(); g.translate(64, 56); g.scale(1.1, 1.1); carrot(g, 0, 0); g.restore(); }, '#e8741e'),
+    seed_pumpkin: seedPacket(function (g) { pumpkin(g, 64, 58, 0.45); }, '#c45d0e'),
+    tomato: function (g) { tomato(g, 64, 66, 1.05); },
+    corn: function (g) { cornCob(g, 64, 66, 0.95, 0.5); },
+    carrot: function (g) { g.save(); g.translate(60, 70); g.rotate(0.6); g.scale(1.55, 1.55); carrot(g, 0, 0); g.restore(); },
+    pumpkin: function (g) { pumpkin(g, 64, 70, 0.95); },
+    spring: function (g) {
+      for (var i = 0; i < 5; i++) {
+        var a = i * Math.PI * 2 / 5 - Math.PI / 2;
+        ell(g, 64 + Math.cos(a) * 26, 64 + Math.sin(a) * 26, 22, 17, a);
+        paint(g, lin(g, 0, 20, 0, 108, [[0, '#ffd6e8'], [1, '#ff8ab5']]), 5);
+      }
+      ell(g, 64, 64, 14, 14);
+      paint(g, '#ffe27a', 4);
+    },
+    summer: function (g) {
+      for (var i = 0; i < 8; i++) {
+        var a = i * Math.PI / 4;
+        g.beginPath();
+        g.moveTo(64 + Math.cos(a) * 34, 64 + Math.sin(a) * 34);
+        g.lineTo(64 + Math.cos(a) * 56, 64 + Math.sin(a) * 56);
+        g.lineWidth = 14;
+        g.strokeStyle = OUT;
+        g.stroke();
+        g.lineWidth = 7;
+        g.strokeStyle = '#ffc23d';
+        g.stroke();
+      }
+      ell(g, 64, 64, 30, 30);
+      paint(g, rad(g, 54, 54, 4, 64, 64, 32, [[0, '#fff3a0'], [1, '#f2a91e']]), 5);
+    },
+    fall: function (g) {
+      g.save();
+      g.translate(64, 64);
+      g.rotate(-0.6);
+      g.beginPath();
+      g.moveTo(0, -54);
+      g.bezierCurveTo(40, -30, 40, 30, 0, 50);
+      g.bezierCurveTo(-40, 30, -40, -30, 0, -54);
+      paint(g, lin(g, 0, -54, 0, 50, [[0, '#ffc36a'], [1, '#d9532a']]), 5);
+      g.beginPath();
+      g.moveTo(0, -44);
+      g.lineTo(0, 62);
+      g.lineWidth = 5;
+      g.strokeStyle = '#7a3a1a';
+      g.stroke();
+      g.restore();
+    },
+    winter: function (g) {
+      for (var i = 0; i < 6; i++) {
+        var a = i * Math.PI / 3;
+        var ex = 64 + Math.cos(a) * 52, ey = 64 + Math.sin(a) * 52;
+        [[12, OUT], [6, '#bfe6ff']].forEach(function (st) {
+          g.beginPath();
+          g.moveTo(64, 64);
+          g.lineTo(ex, ey);
+          var bx = 64 + Math.cos(a) * 32, by = 64 + Math.sin(a) * 32;
+          g.moveTo(bx, by);
+          g.lineTo(bx + Math.cos(a + 0.8) * 16, by + Math.sin(a + 0.8) * 16);
+          g.moveTo(bx, by);
+          g.lineTo(bx + Math.cos(a - 0.8) * 16, by + Math.sin(a - 0.8) * 16);
+          g.lineWidth = st[0];
+          g.strokeStyle = st[1];
+          g.stroke();
+        });
+      }
+    },
     egg: function (g) { egg(g, 64, 66, 1.0); },
     milk: function (g) {
       rrect(g, 46, 12, 36, 18, 6);
@@ -1989,33 +2304,50 @@
 
   window.makeArt = function (sets) {
     var main = tileSheet(sets.TILES), T = sets.TILES.T, place = main.place;
-    var grass = grassTile(1, 0);
-    place(T.grass, grass, 0, 0);
-    place(T.grass2, grassTile(2, 70), 0, 0);
-    place(T.grass3, addFlowers(grassTile(3, 0), 9, [['#ffffff', '#ffd84d'], ['#fff3a0', '#ff9a3d']], 4), 0, 0);
-    place(T.flowers, addFlowers(grassTile(4, 0), 10, [['#ff6b7a', '#ffe27a'], ['#c38bff', '#ffe27a'], ['#ff9ad5', '#fff3c0']], 6), 0, 0);
-    place(T.field, fieldTile(), 0, 0);
+    // the main tileset holds the spring look; the seasons tileset holds every season's version
+    var seasonal = function (kind, ss) {
+      if (kind === 'grass') return grassTile(1, 0, ss);
+      if (kind === 'grass2') return grassTile(2, 70, ss);
+      if (kind === 'grass3' || kind === 'flowers') return flowerTile(kind, ss);
+      if (kind === 'field') return fieldTile(ss);
+      if (kind === 'path') return pathTile(ss);
+      if (kind === 'bush') return bush(ss);
+      if (kind === 'tallgrass') return tallgrass(ss);
+      throw new Error('no seasonal art for ' + kind);
+    };
+    ['grass', 'grass2', 'grass3', 'flowers'].forEach(function (k) { place(T[k], seasonal(k, 0), 0, 0); });
+    place(T.field, fieldTile(0), 0, 0);
     place(T.tilled, tilledTile(false), 0, 0);
     place(T.tilledWet, tilledTile(true), 0, 0);
-    place(T.path, pathTile(), 0, 0);
+    place(T.path, pathTile(0), 0, 0);
     place(T.water, waterTile(), 0, 0);
     place(T.fenceH, fenceH(), 0, 0);
     place(T.fenceV, fenceV(), 0, 0);
     place(T.fencePost, fencePostTile(), 0, 0);
-    var t = tree();
+    var t = tree(0);
     place(T.treeTL, t, 0, 0);
     place(T.treeTR, t, S, 0);
     place(T.treeBL, t, 0, S);
     place(T.treeBR, t, S, S);
-    place(T.bush, bush(), 0, 0);
+    place(T.bush, bush(0), 0, 0);
     place(T.rock, rock(), 0, 0);
     place(T.stump, stump(), 0, 0);
-    place(T.tallgrass, tallgrass(), 0, 0);
+    place(T.tallgrass, tallgrass(0), 0, 0);
     place(T.shipbox, shipbox(), 0, 0);
     place(T.sign, sign(), 0, 0);
     main.placeBlock('house', house());
     main.placeBlock('shop', shop());
-    main.placeBlock('pond', pond(grass));
+    main.placeBlock('pond', pond(null)); // transparent corners: the seasonal grass shows through
+
+    var seasons = tileSheet(sets.SEASONS);
+    sets.SEASON_NAMES.forEach(function (season, ss) {
+      var trees = tree(ss), parts = { treeTL: [0, 0], treeTR: [S, 0], treeBL: [0, S], treeBR: [S, S] };
+      sets.SEASONAL.forEach(function (kind) {
+        var id = sets.SEASONS.T[season + '_' + kind];
+        if (parts[kind]) seasons.place(id, trees, parts[kind][0], parts[kind][1]);
+        else seasons.place(id, seasonal(kind, ss), 0, 0);
+      });
+    });
 
     var ranch = tileSheet(sets.RANCH);
     ranch.placeBlock('barn', barn());
@@ -2027,25 +2359,35 @@
     // animals: one row per animal, 4 poses of 384x320 (the 2048-wide sheet has room for 5 per row)
     var dirs = ['down', 'up', 'side'];
     var player = frameSheet(3, 3, 256, 384, 1024, 2048, function (g, step, row) { farmer(g, dirs[row], step); });
-    var cropKeys = ['turnip', 'potato', 'strawberry'];
-    var crops = frameSheet(3, 4, 256, 256, 1024, 2048, function (g, crop, stage) { CROP_DRAW[cropKeys[crop]][stage](g); });
+    // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame
+    var cropKeys = ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin'];
+    var crops = frameSheet(3, 6, 256, 256, 1024, 2048, function (g, col, row) {
+      var f = row * 3 + col;
+      if (f < 2) return CROP_DRAW.turnip[f](g);
+      var crop = cropKeys[Math.floor((f - 2) / 2)];
+      if (!crop) return false;
+      CROP_DRAW[crop][2 + (f - 2) % 2](g);
+    });
     var iconNames = ['hoe', 'can', 'seed_turnip', 'seed_potato', 'seed_strawberry', 'turnip', 'potato', 'strawberry',
       'coin', 'bolt', 'bag', 'moon', 'drop', 'sparkle', 'crate', 'tag',
-      'egg', 'milk', 'chicken_feed', 'fodder', 'heart', 'chicken', 'cow', 'bubble'];
-    var items = frameSheet(8, 3, I, I, 8 + 8 * (I + 16) - 8, 8 + 3 * (I + 16) - 8, function (g, k, r) {
-      ICON_DRAW[iconNames[r * 8 + k]](g);
+      'egg', 'milk', 'chicken_feed', 'fodder', 'heart', 'chicken', 'cow', 'bubble',
+      'seed_tomato', 'seed_corn', 'seed_carrot', 'seed_pumpkin', 'tomato', 'corn', 'carrot', 'pumpkin',
+      'spring', 'summer', 'fall', 'winter'];
+    var items = frameSheet(8, 5, I, I, 8 + 8 * (I + 16) - 8, 8 + 5 * (I + 16) - 8, function (g, k, r) {
+      var name = iconNames[r * 8 + k];
+      if (!name) return false;
+      ICON_DRAW[name](g);
     });
     var animals = frameSheet(4, 2, 384, 320, 2048, 1024, function (g, pose, row) {
       if (row === 0) chicken(g, pose);
       else cow(g, pose);
     });
-    return {
-      tiles: main.canvas.toDataURL('image/png'),
-      ranch: ranch.canvas.toDataURL('image/png'),
-      player: player.toDataURL('image/png'),
-      crops: crops.toDataURL('image/png'),
-      items: items.toDataURL('image/png'),
-      animals: animals.toDataURL('image/png'),
-    };
+    // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
+    var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, crops: crops, items: items, animals: animals };
+    var out = {};
+    Object.keys(sheets).forEach(function (k) {
+      out[k] = { png: sheets[k].toDataURL('image/png'), webp: sheets[k].toDataURL('image/webp', 0.92) };
+    });
+    return out;
   };
 })();

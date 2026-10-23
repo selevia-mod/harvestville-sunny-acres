@@ -48,9 +48,15 @@ const RANCH = layout('ranch', 3, 1024, {
   coop: { col: 0, row: 3, w: 2, h: 2 },
 }, ['hay', 'trough']);
 
+// Every season's version of the tiles that change with the seasons, laid out season by season.
+// The map is drawn with the spring tiles from TILES; the game swaps them for the current season.
+const SEASON_NAMES = ['spring', 'summer', 'fall', 'winter'];
+const SEASONAL = ['grass', 'grass2', 'grass3', 'flowers', 'field', 'path', 'treeTL', 'treeTR', 'treeBL', 'treeBR', 'bush', 'tallgrass'];
+const SEASONS = layout('seasons', 7, 2048, {}, [].concat(...SEASON_NAMES.map((s) => SEASONAL.map((k) => s + '_' + k))));
+
 function blockId(set, name, dx, dy) {
   const b = set.BLOCKS[name];
   return (b.row + dy) * set.COLS + b.col + dx;
 }
 
-module.exports = { SIZE, MARGIN, SPACING, TILES, RANCH, TILESETS: [TILES, RANCH], blockId };
+module.exports = { SIZE, MARGIN, SPACING, TILES, RANCH, SEASONS, SEASON_NAMES, SEASONAL, TILESETS: [TILES, RANCH, SEASONS], blockId };
