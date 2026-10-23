@@ -1,0 +1,474 @@
+// Touch UI drawn over the world: HUD, joystick, action button, hotbar, and modal panels.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var W = C.WIDTH;
+  var H = C.HEIGHT;
+  var FONT = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif';
+  var INK = '#4a2c14';
+  var COL = { panel: 0xf3e2b8, edge: 0x5a3a1e, inner: 0xc9a26b, slot: 0xe8cf98, slotEdge: 0x8a5a32, sel: 0xffd23f };
+  var SLOT = 44;
+  var GAP = 4;
+  var HOTBAR_Y = 606;
+  var ACTION = { x: 294, y: 512, r: 42 };
+  var JOY = { x: 86, y: 512, r: 46, knob: 22 };
+
+  var HELP = 'HOW TO PLAY\n' +
+    'Drag the joystick on the left to walk. Tap the big button to act on the highlighted tile.\n\n' +
+    'Hoe: till the field.  Seeds: plant.\nCan: water every day. Refill it at the pond.\n\n' +
+    'Harvest ripe crops and put them in the shipping box by your house. You get paid overnight.\n\n' +
+    "Buy seeds at Lily's shop (south, 9 AM to 5 PM). Go to bed in your house to end the day.";
+
+  function style(size, color, extra) {
+    var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: 3 };
+    if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
+    return s;
+  }
+
+  F.UIScene = class extends Phaser.Scene {
+    constructor() {
+      super('UI');
+    }
+
+    create() {
+      F.ui = this;
+      this.modals = [];
+      this.input.addPointer(2);
+      this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0);
+      this.buildHud();
+      this.buildHotbar();
+      this.buildAction();
+      this.buildJoystick();
+      this.buildToast();
+      this.setupKeys();
+      F.bus.on('hud', this.refresh, this);
+      F.bus.on('hint', this.setHint, this);
+      this.refresh();
+      this.setHint(null);
+      if (F.session.isNew) {
+        this.dialog('WELCOME TO YOUR FARM!\nTill the field, plant your turnip seeds, and water them every day. ' +
+          'Ship the harvest from the box by your house.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
+      }
+    }
+
+    // ---------- drawing helpers ----------
+    txt(x, y, str, size, color, extra) {
+      return this.add.text(x, y, str, style(size, color, extra));
+    }
+
+    panel(g, x, y, w, h) {
+      g.fillStyle(COL.edge, 1).fillRoundedRect(x, y, w, h, 12);
+      g.fillStyle(COL.panel, 1).fillRoundedRect(x + 3, y + 3, w - 6, h - 6, 10);
+      g.lineStyle(2, COL.inner, 1).strokeRoundedRect(x + 7, y + 7, w - 14, h - 14, 7);
+    }
+
+    slotBox(g, x, y, size, selected) {
+      if (selected) {
+        g.fillStyle(0xffffff, 1).fillRoundedRect(x - 2, y - 2, size + 4, size + 4, 9);
+        g.fillStyle(COL.sel, 1).fillRoundedRect(x, y, size, size, 7);
+        g.fillStyle(0xfff3c4, 1).fillRoundedRect(x + 4, y + 4, size - 8, size - 8, 4);
+        return;
+      }
+      g.fillStyle(COL.slotEdge, 1).fillRoundedRect(x, y, size, size, 7);
+      g.fillStyle(COL.slot, 1).fillRoundedRect(x + 3, y + 3, size - 6, size - 6, 5);
+    }
+
+    button(parent, x, y, w, h, label, onTap, color) {
+      var c = this.add.container(x, y);
+      var g = this.add.graphics();
+      g.fillStyle(0x3d2614, 1).fillRoundedRect(-w / 2, -h / 2, w, h, 9);
+      g.fillStyle(color || 0x5fa84a, 1).fillRoundedRect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4, 8);
+      g.fillStyle(0xffffff, 0.22).fillRoundedRect(-w / 2 + 5, -h / 2 + 4, w - 10, (h - 8) / 2, 6);
+      var t = this.txt(0, 0, label, 15, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+      var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+      z.on('pointerdown', function () { c.setScale(0.94); });
+      z.on('pointerout', function () { c.setScale(1); });
+      z.on('pointerup', function () { c.setScale(1); onTap(); });
+      c.add([g, t, z]);
+      if (parent) parent.add(c);
+      return c;
+    }
+
+    // An inventory slot widget: background, icon, count, and the watering-can level bar.
+    slotWidget(parent, x, y, onTap) {
+      var w = { g: this.add.graphics(), x: x, y: y };
+      w.icon = this.add.image(x + SLOT / 2, y + SLOT / 2 - 1, 'items', 0).setScale(2);
+      w.count = this.txt(x + SLOT - 5, y + SLOT - 4, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(1, 1);
+      w.bar = this.add.graphics();
+      w.zone = this.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
+      w.zone.on('pointerdown', onTap);
+      if (parent) parent.add([w.g, w.icon, w.count, w.bar, w.zone]);
+      return w;
+    }
+
+    drawSlot(w, slot, selected) {
+      var s = F.session.state;
+      w.g.clear();
+      this.slotBox(w.g, w.x, w.y, SLOT, selected);
+      w.bar.clear();
+      if (!slot) {
+        w.icon.setVisible(false);
+        w.count.setText('');
+        return;
+      }
+      w.icon.setVisible(true).setFrame(C.ITEMS[slot.id].icon);
+      w.count.setText(slot.n > 1 ? String(slot.n) : '');
+      if (slot.id === 'can') {
+        w.bar.fillStyle(0x3d2614, 1).fillRect(w.x + 7, w.y + SLOT - 9, SLOT - 14, 5);
+        w.bar.fillStyle(0x4aa3e8, 1).fillRect(w.x + 8, w.y + SLOT - 8, (SLOT - 16) * s.water / C.CAN_CAPACITY, 3);
+      }
+    }
+
+    // ---------- HUD ----------
+    buildHud() {
+      var g = this.add.graphics();
+      this.panel(g, 6, 6, W - 12, 58);
+      this.dayText = this.txt(22, 14, '', 13, INK, { fontStyle: 'bold' });
+      this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
+      this.add.image(124, 35, 'items', C.ICON.bolt).setScale(1.5);
+      this.energyBar = this.add.graphics();
+      this.add.image(228, 35, 'items', C.ICON.coin).setScale(1.5);
+      this.goldText = this.txt(242, 26, '', 17, INK, { fontStyle: 'bold' });
+      var self = this;
+      var menu = this.add.container(326, 35);
+      var mg = this.add.graphics();
+      mg.fillStyle(COL.slotEdge, 1).fillRoundedRect(-17, -17, 34, 34, 8);
+      mg.fillStyle(COL.slot, 1).fillRoundedRect(-14, -14, 28, 28, 6);
+      mg.fillStyle(0x5a3a1e, 1).fillRect(-7, -8, 5, 16).fillRect(2, -8, 5, 16);
+      var mz = this.add.zone(0, 0, 44, 44).setInteractive({ useHandCursor: true });
+      mz.on('pointerdown', function () { if (!self.modals.length) self.openPause(); });
+      menu.add([mg, mz]);
+    }
+
+    refresh() {
+      var s = F.session.state;
+      this.dayText.setText('Day ' + s.day);
+      this.timeText.setText(L.formatTime(s.time));
+      this.goldText.setText(s.gold + 'G');
+      var pct = s.energy / C.MAX_ENERGY;
+      this.energyBar.clear();
+      this.energyBar.fillStyle(0x3d2614, 1).fillRoundedRect(136, 28, 74, 15, 5);
+      this.energyBar.fillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d, 1);
+      if (pct > 0) this.energyBar.fillRoundedRect(138, 30, Math.max(6, 70 * pct), 11, 4);
+      for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
+      this.night.setAlpha(this.nightAlpha(s.time));
+      if (this.invRefresh) this.invRefresh();
+    }
+
+    nightAlpha(t) {
+      if (t < C.NIGHT_START) return 0;
+      if (t < C.NIGHT_FULL) return 0.45 * (t - C.NIGHT_START) / (C.NIGHT_FULL - C.NIGHT_START);
+      return Math.min(0.58, 0.45 + 0.13 * (t - C.NIGHT_FULL) / (24 * 60 - C.NIGHT_FULL));
+    }
+
+    // ---------- hotbar ----------
+    buildHotbar() {
+      var self = this;
+      var g = this.add.graphics();
+      this.panel(g, 4, HOTBAR_Y - 30, W - 8, 60);
+      var total = (C.HOTBAR + 1) * SLOT + C.HOTBAR * GAP;
+      var x0 = (W - total) / 2;
+      this.slots = [];
+      for (var i = 0; i < C.HOTBAR; i++) {
+        this.slots.push(this.slotWidget(null, x0 + i * (SLOT + GAP), HOTBAR_Y - SLOT / 2, this.select.bind(this, i)));
+      }
+      var bx = x0 + C.HOTBAR * (SLOT + GAP);
+      var bag = this.slotWidget(null, bx, HOTBAR_Y - SLOT / 2, function () { if (!self.modals.length) self.openInventory(); });
+      bag.g.fillStyle(0x6aa84f, 1).fillRoundedRect(bx, HOTBAR_Y - SLOT / 2, SLOT, SLOT, 7);
+      bag.g.fillStyle(0x8fd06a, 1).fillRoundedRect(bx + 3, HOTBAR_Y - SLOT / 2 + 3, SLOT - 6, SLOT - 6, 5);
+      bag.icon.setFrame(C.ICON.bag);
+    }
+
+    select(i) {
+      if (this.modals.length) return;
+      F.session.state.sel = i;
+      F.session.dirty = true;
+      this.refresh();
+      F.world.hintKey = null; // force the action button to re-evaluate
+    }
+
+    // ---------- action button ----------
+    buildAction() {
+      var a = this.actionBtn = this.add.container(ACTION.x, ACTION.y);
+      var g = this.add.graphics();
+      g.fillStyle(0x000000, 0.2).fillCircle(0, 4, ACTION.r);
+      g.fillStyle(COL.edge, 1).fillCircle(0, 0, ACTION.r);
+      g.fillStyle(0xffd23f, 1).fillCircle(0, 0, ACTION.r - 4);
+      g.fillStyle(COL.panel, 1).fillCircle(0, 0, ACTION.r - 9);
+      g.fillStyle(0xffffff, 0.35).fillEllipse(-8, -16, 34, 16);
+      this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(2.25);
+      this.actionLabel = this.txt(0, 21, '', 13, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+      var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
+      z.on('pointerdown', function () {
+        F.input.action = true;
+        a.setScale(0.92);
+      });
+      z.on('pointerup', function () { a.setScale(1); });
+      z.on('pointerout', function () { a.setScale(1); });
+      a.add([g, this.actionIcon, this.actionLabel, z]);
+    }
+
+    setHint(a) {
+      var held = L.held(F.session.state);
+      if (!a) {
+        this.actionIcon.setVisible(!!held).setAlpha(0.5);
+        if (held) this.actionIcon.setFrame(C.ITEMS[held.id].icon);
+        this.actionLabel.setText(held ? '' : 'Action').setAlpha(0.6).setY(held ? 21 : 0);
+        return;
+      }
+      var hasIcon = a.icon >= 0;
+      this.actionIcon.setVisible(hasIcon).setAlpha(a.disabled ? 0.45 : 1);
+      if (hasIcon) this.actionIcon.setFrame(a.icon);
+      this.actionLabel.setText(a.label).setAlpha(a.disabled ? 0.5 : 1).setY(hasIcon ? 21 : 0);
+    }
+
+    // ---------- joystick ----------
+    buildJoystick() {
+      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.16).setStrokeStyle(3, 0xffffff, 0.45);
+      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.5).setStrokeStyle(2, 0x5a3a1e, 0.5);
+      this.joyId = null;
+      this.input.on('pointerdown', function (p, over) {
+        if (this.joyId !== null || this.modals.length || over.length) return;
+        if (p.y < 70 || p.y > HOTBAR_Y - 34) return;
+        this.joyId = p.id;
+        this.joyOrigin = { x: p.x, y: p.y };
+        this.joyBase.setPosition(p.x, p.y).setAlpha(1);
+        this.joyKnob.setPosition(p.x, p.y).setAlpha(1);
+      }, this);
+      this.input.on('pointermove', function (p) {
+        if (p.id !== this.joyId) return;
+        var dx = p.x - this.joyOrigin.x, dy = p.y - this.joyOrigin.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d > JOY.r) { dx *= JOY.r / d; dy *= JOY.r / d; }
+        this.joyKnob.setPosition(this.joyOrigin.x + dx, this.joyOrigin.y + dy);
+        F.input.jx = dx / JOY.r;
+        F.input.jy = dy / JOY.r;
+      }, this);
+      var up = function (p) { if (p.id === this.joyId) this.releaseJoystick(); };
+      this.input.on('pointerup', up, this);
+      this.input.on('pointerupoutside', up, this);
+    }
+
+    releaseJoystick() {
+      this.joyId = null;
+      F.input.jx = F.input.jy = 0;
+      if (!this.joyBase) return;
+      this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(0.7);
+      this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(0.7);
+    }
+
+    // ---------- toast + floating text ----------
+    buildToast() {
+      this.toastBg = this.add.graphics().setDepth(300);
+      this.toastText = this.txt(W / 2, 84, '', 14, '#ffffff', { align: 'center', wordWrap: { width: W - 70 }, lineSpacing: 2 })
+        .setOrigin(0.5, 0).setDepth(301);
+      this.hideToast();
+    }
+
+    toast(msg) {
+      if (!msg) return;
+      this.toastText.setText(msg).setVisible(true);
+      var b = this.toastText.getBounds();
+      this.toastBg.clear().setVisible(true);
+      this.toastBg.fillStyle(0x24160b, 0.82).fillRoundedRect(b.x - 12, b.y - 8, b.width + 24, b.height + 16, 10);
+      if (this.toastTimer) this.toastTimer.remove();
+      this.toastTimer = this.time.delayedCall(2400, this.hideToast, [], this);
+    }
+
+    hideToast() {
+      this.toastText.setVisible(false);
+      this.toastBg.setVisible(false);
+    }
+
+    floatText(x, y, str) {
+      var t = this.txt(x, y, str, 15, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5).setDepth(250);
+      this.tweens.add({ targets: t, y: y - 34, alpha: { from: 1, to: 0 }, duration: 1000, ease: 'Quad.out', onComplete: function () { t.destroy(); } });
+    }
+
+    // ---------- modals ----------
+    blocking() {
+      return this.modals.length > 0;
+    }
+
+    openModal(onBack) {
+      var c = this.add.container(0, 0).setDepth(100 + this.modals.length);
+      var dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.45).setOrigin(0).setInteractive();
+      c.add(dim);
+      this.modals.push({ c: c, onBack: onBack });
+      F.input.reset();
+      return c;
+    }
+
+    closeModal() {
+      var m = this.modals.pop();
+      if (m) m.c.destroy();
+      if (!this.modals.length) this.invRefresh = null;
+    }
+
+    // Back button: close the top panel, otherwise open the pause menu.
+    back() {
+      if (this.modals.length) {
+        var m = this.modals[this.modals.length - 1];
+        if (m.onBack) m.onBack();
+        else this.closeModal();
+        return true;
+      }
+      if (F.world && F.world.busy) return true;
+      this.openPause();
+      return true;
+    }
+
+    // buttons: [{ label, cb, color }]; Back acts like the first button when there are two.
+    dialog(text, buttons) {
+      var self = this;
+      buttons = buttons || [{ label: 'OK' }];
+      var c = this.openModal(function () {
+        self.closeModal();
+        if (buttons.length === 1 && buttons[0].cb) buttons[0].cb();
+      });
+      var lines = text.split('\n');
+      var title = /^[A-Z0-9 !?.,:'-]+$/.test(lines[0]) && lines.length > 1 ? lines.shift() : null;
+      var titleText = title ? this.txt(W / 2, 0, title, 18, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0) : null;
+      var body = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 272 }, lineSpacing: 3 }).setOrigin(0.5, 0);
+      var th = titleText ? titleText.height + 10 : 0;
+      var h = 28 + th + body.height + 24 + 44 + 20;
+      var y0 = Math.max(80, (H - h) / 2 - 40);
+      var g = this.add.graphics();
+      this.panel(g, 24, y0, W - 48, h);
+      c.add(g);
+      if (titleText) { titleText.y = y0 + 24; c.add(titleText); }
+      body.y = y0 + 26 + th;
+      c.add(body);
+      var bw = buttons.length > 1 ? 120 : 150;
+      buttons.forEach(function (b, i) {
+        var bx = W / 2 + (i - (buttons.length - 1) / 2) * (bw + 14);
+        self.button(c, bx, y0 + h - 42, bw, 42, b.label, function () {
+          self.closeModal();
+          if (b.cb) b.cb();
+        }, b.color);
+      });
+      return c;
+    }
+
+    confirm(text, onYes) {
+      return this.dialog(text, [{ label: 'No', color: 0xc0703a }, { label: 'Yes', cb: onYes }]);
+    }
+
+    help() {
+      this.dialog(HELP);
+    }
+
+    dayReport(result, s) {
+      var lines = [];
+      if (result.passedOut) lines.push('You stayed up too late and passed out. You only got half your energy back.\n');
+      if (result.shipped.length) {
+        result.shipped.forEach(function (b) { lines.push(b.n + ' x ' + C.ITEMS[b.id].name + '  ' + C.ITEMS[b.id].sell * b.n + 'G'); });
+        lines.push('Earned ' + result.earned + 'G from shipping!');
+      } else {
+        lines.push('Nothing was shipped yesterday.');
+      }
+      this.dialog('GOOD MORNING! DAY ' + s.day + '\n' + lines.join('\n'));
+    }
+
+    openPause() {
+      var self = this, s = F.session.state;
+      var c = this.openModal();
+      var g = this.add.graphics();
+      this.panel(g, 40, 170, W - 80, 290);
+      c.add(g);
+      c.add(this.txt(W / 2, 196, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      c.add(this.txt(W / 2, 230, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+      this.button(c, W / 2, 314, 190, 46, 'Resume', function () { self.closeModal(); });
+      this.button(c, W / 2, 372, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
+      this.button(c, W / 2, 426, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
+    }
+
+    openInventory() {
+      var self = this, s = F.session.state;
+      var c = this.openModal();
+      var g = this.add.graphics();
+      this.panel(g, 14, 118, W - 28, 390);
+      c.add(g);
+      c.add(this.txt(W / 2, 138, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 176;
+      var widgets = [];
+      var name = this.txt(W / 2, 336, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+      var desc = this.txt(W / 2, 360, '', 14, INK, { align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0);
+      var note = this.txt(W / 2, 410, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+      c.add([name, desc, note]);
+      for (var i = 0; i < C.INV_SIZE; i++) {
+        (function (i) {
+          var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
+          widgets.push(self.slotWidget(c, x, y, function () {
+            if (s.sel === i && s.inv[i]) { self.closeModal(); return; }
+            s.sel = i;
+            F.session.dirty = true;
+            F.world.hintKey = null;
+            self.refresh();
+          }));
+        })(i);
+      }
+      this.invRefresh = function () {
+        widgets.forEach(function (w, i) { self.drawSlot(w, s.inv[i], s.sel === i); });
+        var held = L.held(s);
+        name.setText(held ? C.ITEMS[held.id].name + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
+        desc.setText(held ? C.ITEMS[held.id].desc : 'Choose something to hold.');
+      };
+      this.invRefresh();
+      this.button(c, W / 2, 470, 160, 44, 'Close', function () { self.closeModal(); });
+    }
+
+    openShop() {
+      var self = this, s = F.session.state;
+      var c = this.openModal();
+      var g = this.add.graphics();
+      this.panel(g, 12, 104, W - 24, 440);
+      c.add(g);
+      c.add(this.txt(W / 2, 124, "Lily's Seed Shop", 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      var gold = this.txt(W / 2, 152, '', 15, INK).setOrigin(0.5, 0);
+      c.add(gold);
+      var showGold = function () { gold.setText('You have ' + s.gold + 'G'); };
+      showGold();
+      C.SHOP_STOCK.forEach(function (id, row) {
+        var item = C.ITEMS[id], y = 186 + row * 98;
+        var rg = self.add.graphics();
+        rg.fillStyle(0xe8cf98, 1).fillRoundedRect(28, y, W - 56, 88, 10);
+        c.add(rg);
+        var slot = self.add.graphics();
+        self.slotBox(slot, 38, y + 10, SLOT, false);
+        c.add(slot);
+        c.add(self.add.image(38 + SLOT / 2, y + 10 + SLOT / 2, 'items', item.icon).setScale(2));
+        c.add(self.txt(92, y + 10, item.name, 15, INK, { fontStyle: 'bold' }));
+        c.add(self.txt(92, y + 30, item.desc, 12, '#6a4a2a', { wordWrap: { width: 220 } }));
+        c.add(self.txt(38 + SLOT / 2, y + 58, item.price + 'G', 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+        [1, 5].forEach(function (qty, k) {
+          self.button(c, 152 + k * 96, y + 66, 86, 32, 'Buy ' + qty, function () {
+            var r = L.buy(s, id, qty);
+            if (r === 'gold') return self.toast('Not enough gold.');
+            if (r === 'full') return self.toast('Your bag is full.');
+            self.toast('Bought ' + qty + ' ' + item.name + '.');
+            showGold();
+            F.world.changed();
+            F.world.save();
+          }, k ? 0x4a90c9 : 0x5fa84a);
+        });
+      });
+      this.button(c, W / 2, 508, 160, 42, 'Close', function () { self.closeModal(); });
+    }
+
+    // ---------- keyboard (desktop testing) ----------
+    setupKeys() {
+      var self = this, kb = this.input.keyboard;
+      if (!kb) return;
+      kb.on('keydown', function (e) {
+        if (e.repeat) return;
+        if (e.key === 'Escape' || e.key === 'Backspace') { self.back(); return; }
+        if (self.modals.length) return;
+        if (e.key === ' ' || e.key === 'Enter' || e.key === 'j') F.input.action = true;
+        else if (e.key === 'e' || e.key === 'i') self.openInventory();
+        else if (e.key >= '1' && e.key <= '6') self.select(Number(e.key) - 1);
+      });
+    }
+  };
+})(window.Farm = window.Farm || {});
