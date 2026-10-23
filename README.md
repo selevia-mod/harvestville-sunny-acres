@@ -32,6 +32,8 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 - The clock runs from 6 AM. Evening darkens the screen, and at 2 AM you pass out (half energy next day).
   Go to bed at the house door to end the day.
 - The bag button shows all 18 slots. The first 6 are the hotbar.
+- **Pause menu → New game** starts a fresh farm after a confirmation. The new farm is saved right away, replacing
+  the old save.
 
 ### Animals
 

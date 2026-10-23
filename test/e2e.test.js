@@ -389,3 +389,68 @@ test('animals: pet, feed, collect an egg, ship it, buy a cow, save', async () =>
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
 });
+
+test('New game in the pause menu replaces a progressed farm with a fresh one', async () => {
+  // a farm in progress: day 9, rich, crops planted, two animals
+  const progressed = await (async () => {
+    const { page, context } = await open();
+    const save = await page.evaluate(() => {
+      const L = Farm.Logic, s = L.newState();
+      s.day = 9;
+      s.gold = 4321;
+      L.till(s, 300);
+      L.plant(s, 300, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
+      L.buyAnimal(s, 'cow');
+      return L.serialize(s);
+    });
+    await context.close();
+    return save;
+  })();
+
+  const { page, problems, context } = await open(progressed);
+  let s = await state(page);
+  assert.strictEqual(s.day, 9);
+  assert.strictEqual(s.animals.length, 2);
+
+  // Back opens the pause menu; "No" keeps the farm
+  await page.evaluate(() => window.__gameBack());
+  await shot(page, '14-pause-newgame');
+  await tapButton(page, 'New game');
+  await tapButton(page, 'No');
+  assert.strictEqual((await state(page)).day, 9, 'No keeps the farm');
+
+  // "Yes" starts over
+  await tapButton(page, 'New game');
+  await tapButton(page, 'Yes');
+  await page.waitForFunction(() => Farm.ui && Farm.ui.refresh && Farm.world && Farm.world.herd, null, SLOW);
+  await frames(page, 5);
+  s = await state(page);
+  assert.strictEqual(s.day, 1);
+  assert.strictEqual(s.gold, 300);
+  assert.deepStrictEqual(s.soil, {});
+  assert.deepStrictEqual(s.animals.map((a) => a.name), ['Clucky']);
+  assert.strictEqual(await page.evaluate(() => Farm.world.herd.members.length), 1);
+  assert.strictEqual(await page.evaluate(() => Farm.world.crops && Object.keys(Farm.world.crops).length), 0);
+  const last = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.strictEqual(last.d, 1, 'the new farm is saved straight away');
+  assert.strictEqual(last.g, 300);
+
+  // the welcome message shows, the HUD is live, and the farm is playable
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
+  await shot(page, '15-new-game');
+  await page.evaluate(() => window.__gameBack());
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Day 1');
+  await teleport(page, 5, 11, 'down');
+  await tapHotbar(page, 0);
+  await tapAction(page);
+  assert.ok((await state(page)).soil[12 * 24 + 5], 'can till on the new farm');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300G');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+
+  // and the new farm is what loads next time
+  const again = await open(last);
+  assert.strictEqual((await state(again.page)).day, 1);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});

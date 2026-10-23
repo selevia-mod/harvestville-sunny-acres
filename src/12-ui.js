@@ -48,6 +48,10 @@
       this.setupKeys();
       F.bus.on('hud', this.refresh, this);
       F.bus.on('hint', this.setHint, this);
+      this.events.once('shutdown', function () { // the scene restarts on New game
+        F.bus.off('hud', this.refresh, this);
+        F.bus.off('hint', this.setHint, this);
+      }, this);
       this.refresh();
       this.setHint(null);
       this.buildFpsMeter();
@@ -310,7 +314,7 @@
     // ---------- frame-rate meter (toggled from the pause menu) ----------
     buildFpsMeter() {
       this.fpsText = this.txt(W - 10, 70, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 })
-        .setOrigin(1, 0).setDepth(400).setVisible(false);
+        .setOrigin(1, 0).setDepth(400).setVisible(!!F.showFps);
       this.fpsFrames = 0;
       this.fpsSince = 0;
     }
@@ -443,16 +447,32 @@
     openPause() {
       var self = this, s = F.session.state;
       var c = this.openModal();
-      this.panelImg(c, 40, 150, W - 80, 350);
-      c.add(this.txt(W / 2, 176, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-      c.add(this.txt(W / 2, 210, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
-      this.button(c, W / 2, 294, 190, 46, 'Resume', function () { self.closeModal(); });
-      this.button(c, W / 2, 352, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
-      this.button(c, W / 2, 406, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
-      this.button(c, W / 2, 456, 190, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
-        self.fpsText.setVisible(!self.fpsText.visible);
+      this.panelImg(c, 40, 120, W - 80, 420);
+      c.add(this.txt(W / 2, 146, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      c.add(this.txt(W / 2, 180, 'Day ' + s.day + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+      this.button(c, W / 2, 264, 190, 46, 'Resume', function () { self.closeModal(); });
+      this.button(c, W / 2, 322, 190, 46, 'How to play', function () { self.help(); }, 0x4a90c9);
+      this.button(c, W / 2, 376, 190, 40, 'Save now', function () { F.world.save(); self.toast('Game saved.'); }, 0x9a7a4a);
+      this.button(c, W / 2, 426, 190, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
+        F.showFps = !self.fpsText.visible;
+        self.fpsText.setVisible(F.showFps);
         self.closeModal();
       }, 0x9a7a4a);
+      this.button(c, W / 2, 492, 190, 44, 'New game', function () {
+        self.confirm('START A NEW FARM?\nYour current farm, gold, crops and animals will be gone for good.', function () {
+          self.newGame();
+        });
+      }, 0xc0503a);
+    }
+
+    // Replaces the save with a fresh farm and restarts both scenes on it.
+    newGame() {
+      F.session = { state: L.newState(), dirty: false, isNew: true };
+      F.Host.save(F.session.state);
+      F.input.reset();
+      F.ui = null; // the world idles until the new UI scene is up
+      F.world.scene.restart();
+      this.scene.restart();
     }
 
     openInventory() {
