@@ -1,8 +1,11 @@
 # Sunny Acres
 
 A Harvest Moon style farming game: portrait (9:16), touch-first, built with Phaser 3 in plain JavaScript.
-It ships as **one offline HTML file** (`dist/index.html`) with Phaser, the code, the Tiled map and all
-pixel art inlined as data URLs. It makes no network requests and uses no CDNs.
+It ships as **one offline HTML file** (`dist/index.html`, about 7 MB) with Phaser, the code, the Tiled map and all
+art inlined as data URLs. It makes no network requests and uses no CDNs.
+
+The art is drawn at **256×256 per tile** in a smooth cartoon style and scaled down on screen. A tile is shown at
+32 layout pixels, and the game renders at the screen's pixel density (up to 3×) so the detail stays sharp.
 
 ## Play loop (v0.1)
 
@@ -44,8 +47,8 @@ src/            game code, concatenated in filename order
   12-ui.js        HUD, joystick, hotbar, bag / shop / dialog / pause panels
   20-main.js      decodes images, starts Phaser
 maps/farm.json  Tiled map (JSON, embedded tileset). Layers: Ground, Soil, Walls, Above, Objects
-assets/*.png    sprite sheets: tiles, player (16x24), crops, items (16x16)
-tools/          make-art.js (generates the pixel art), make-map.js (seeded the map)
+assets/*.png    sprite sheets: tiles (256x256), player (256x384), crops (256x256), item icons (128x128)
+tools/          make-art.js + art/draw.js (draws the art in headless Chromium), make-map.js (seeded the map)
 build.js        inlines everything into dist/index.html
 test/           logic.test.js (Node) and e2e.test.js (Playwright playthrough)
 ```
@@ -57,13 +60,16 @@ npm install
 npm run build      # -> dist/index.html
 npm test           # rules + save-format unit tests
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen
-npm run art        # regenerate assets/*.png
+npm run art        # redraw assets/*.png (uses Playwright's Chromium)
 ```
 
 ## Editing the map in Tiled
 
-Open `maps/farm.json` in Tiled. The tileset is embedded and points at `../assets/tiles.png`.
-Keep it embedded, because the build rejects external tilesets.
+Open `maps/farm.json` in Tiled. Tiles are 256×256. The tileset is embedded and points at `../assets/tiles.png`
+(margin 8, spacing 16). Keep it embedded, because the build rejects external tilesets.
+
+Each tile in the sheet has its edge pixels copied into the padding around it, so tiles don't show seams when the GPU
+scales them down. The sheets are power-of-two sized so they get mipmaps. If you add art by hand, keep both of those.
 
 - Tile properties drive gameplay: `collides`, `tillable` (field soil), `water` (refill spot), and
   `name` = `tilled` / `tilled_wet` (used by the Soil layer at runtime).

@@ -10,6 +10,8 @@ const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
 const W = 24; // map width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
+// Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
+const SLOW = { timeout: 30000 };
 
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
@@ -48,7 +50,8 @@ const frames = (page, n = 3) => page.evaluate((n) => new Promise((r) => {
 
 async function teleport(page, tx, ty, dir) {
   await page.evaluate(([tx, ty, dir]) => {
-    Farm.world.setFeet(tx * 16 + 8, ty * 16 + 8);
+    const T = Farm.Config.TILE;
+    Farm.world.setFeet(tx * T + T / 2, ty * T + T / 2);
     Farm.world.dir = dir;
     Farm.world.idle();
   }, [tx, ty, dir]);
@@ -90,8 +93,8 @@ async function sleepThroughNight(page) {
   await teleport(page, 6, 7, 'up'); // facing the house door
   await tapAction(page);
   await tapButton(page, 'Yes');
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && !Farm.world.busy, day, { timeout: 5000 });
-  await page.waitForTimeout(700); // camera fade-in
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && !Farm.world.busy, day, SLOW);
+  await page.waitForFunction(() => !Farm.world.cameras.main.fadeEffect.isRunning, null, SLOW);
   await tapButton(page, 'OK'); // morning report
 }
 
@@ -117,7 +120,7 @@ test('full farming loop: till, plant, water, sleep, harvest, ship, shop, save', 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await frames(page);
   const moved = await state(page);
-  assert.ok(moved.player.x > 6 * 16 + 8 + 10, 'player walked right with the joystick');
+  assert.ok(moved.player.x > 6.5 * 256 + 160, 'player walked right with the joystick');
   assert.strictEqual(Math.round(moved.player.y), Math.round(y0));
   assert.deepStrictEqual(await page.evaluate(() => [Farm.input.jx, Farm.input.jy]), [0, 0], 'joystick released');
 
@@ -235,8 +238,7 @@ test('full farming loop: till, plant, water, sleep, harvest, ship, shop, save', 
   assert.strictEqual((await state(page)).time, t0, 'clock stopped while asleep');
   assert.strictEqual(await page.evaluate(() => gameHost.saves.length), savesBefore + 1, 'saved on sleep');
   await page.evaluate(() => window.__gameSleep(false));
-  await page.waitForTimeout(1300);
-  assert.ok((await state(page)).time > t0, 'clock runs again after waking');
+  await page.waitForFunction((t0) => Farm.session.state.time > t0, t0, SLOW); // clock runs again after waking
 
   // saves are small and restore correctly in a fresh page
   const saves = await page.evaluate(() => gameHost.saves);
@@ -263,7 +265,7 @@ test('passing out at 2 AM ends the day with half energy', async () => {
   const { page, problems, context } = await open();
   await page.evaluate(() => window.__gameBack());
   await page.evaluate(() => { Farm.session.state.time = Farm.Config.PASS_OUT - 1; });
-  await page.waitForFunction(() => Farm.session.state.day === 2 && !Farm.world.busy, null, { timeout: 5000 });
+  await page.waitForFunction(() => Farm.session.state.day === 2 && !Farm.world.busy, null, SLOW);
   const s = await state(page);
   assert.strictEqual(s.energy, 50);
   assert.strictEqual(s.time, 360);

@@ -7,7 +7,7 @@
   var DEPTH = { Ground: 0, Soil: 1, Walls: 2, crops: 3, cursor: 4, shadow: 9, player: 10, fx: 11, Above: 20 };
   var DIR_VEC = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
-  var FEET_OFFSET = 8; // body centre sits 8px below the sprite centre (see body offset below)
+  var FEET_OFFSET = 128; // body centre sits this far below the sprite centre (see body offset below)
 
   function propsOf(list) {
     var out = {};
@@ -70,9 +70,9 @@
 
       // ----- player
       this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-      this.shadow = this.add.ellipse(0, 0, 11, 4, 0x000000, 0.25).setDepth(DEPTH.shadow);
+      this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
       this.player = this.physics.add.sprite(0, 0, 'player', 0).setDepth(DEPTH.player);
-      this.player.body.setSize(10, 6).setOffset(3, 17);
+      this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
       this.player.setCollideWorldBounds(true);
       this.physics.add.collider(this.player, [this.layers.Ground, this.layers.Walls]);
       var p = this.state.player;
@@ -81,13 +81,13 @@
       else this.setFeet(this.spawn.x, this.spawn.y);
       this.idle();
 
-      this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(1, 0xffffff, 0.9).setDepth(DEPTH.cursor);
+      this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
       this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
 
       // ----- camera
       var cam = this.cameras.main;
-      cam.setZoom(C.ZOOM).setBounds(0, 0, map.widthInPixels, map.heightInPixels).setRoundPixels(true);
-      cam.startFollow(this.player, true, 0.15, 0.15).setFollowOffset(0, -16);
+      cam.setZoom(F.R * C.VIEW_TILE / T).setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+      cam.startFollow(this.player, false, 0.15, 0.15).setFollowOffset(0, -T);
       cam.setBackgroundColor('#3a7a2f');
 
       this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
@@ -96,7 +96,7 @@
     // ----- player helpers
     setFeet(x, y) {
       this.player.body.reset(x, y - FEET_OFFSET);
-      this.shadow.setPosition(x, y + 1);
+      this.shadow.setPosition(x, y + 16);
     }
 
     feet() {
@@ -174,7 +174,7 @@
         this.idle();
       }
       var f = this.feet();
-      this.shadow.setPosition(f.x, f.y + 1);
+      this.shadow.setPosition(f.x, f.y + 16);
       s.player.x = f.x;
       s.player.y = f.y;
       s.player.dir = this.dir;
@@ -370,9 +370,9 @@
         return;
       }
       if (!spr) {
-        spr = this.crops[idx] = this.add.image(x * T + 8, y * T + 15, 'crops').setOrigin(0.5, 1).setDepth(DEPTH.crops);
+        spr = this.crops[idx] = this.add.image(x * T + T / 2, y * T + T - 12, 'crops').setOrigin(0.5, 1).setDepth(DEPTH.crops);
       }
-      spr.setFrame(C.CROPS[tile.c].row * 4 + stage);
+      spr.setFrame(stage * C.CROP_KEYS.length + C.CROPS[tile.c].row); // sheet: one column per crop, one row per stage
       if (stage === 3 && !spr.sway) {
         spr.sway = this.tweens.add({ targets: spr, angle: { from: -4, to: 4 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: (idx * 37) % 500 });
       } else if (stage !== 3 && spr.sway) {
@@ -396,29 +396,29 @@
 
     // ----- little effects
     swing(t, frame) {
-      var img = this.add.image(t.x * T + 8, t.y * T + 4, 'items', frame).setDepth(DEPTH.fx).setAngle(-50);
-      this.tweens.add({ targets: img, angle: 20, y: img.y + 4, duration: 160, ease: 'Quad.in' });
+      var img = this.add.image(t.x * T + T / 2, t.y * T + T / 4, 'items', frame).setScale(1.6).setDepth(DEPTH.fx).setAngle(-50);
+      this.tweens.add({ targets: img, angle: 20, y: img.y + T / 4, duration: 160, ease: 'Quad.in' });
       this.tweens.add({ targets: img, alpha: 0, delay: 200, duration: 150, onComplete: function () { img.destroy(); } });
     }
 
     puff(t, color, n) {
       for (var i = 0; i < n; i++) {
-        var r = this.add.rectangle(t.x * T + 8 + Phaser.Math.Between(-6, 6), t.y * T + 11 + Phaser.Math.Between(-3, 3), 2, 2, color).setDepth(DEPTH.fx);
-        this.tweens.add({ targets: r, y: r.y - Phaser.Math.Between(4, 9), alpha: 0, duration: Phaser.Math.Between(300, 520), onComplete: function (tw, targets) { targets[0].destroy(); } });
+        var r = this.add.circle(t.x * T + T / 2 + Phaser.Math.Between(-96, 96), t.y * T + 176 + Phaser.Math.Between(-48, 48), 18, color).setDepth(DEPTH.fx);
+        this.tweens.add({ targets: r, y: r.y - Phaser.Math.Between(64, 144), alpha: 0, duration: Phaser.Math.Between(300, 520), onComplete: function (tw, targets) { targets[0].destroy(); } });
       }
     }
 
     drops(t) {
       for (var i = 0; i < 6; i++) {
-        var r = this.add.rectangle(t.x * T + 3 + i * 2, t.y * T + 2, 1, 2, 0x8fd0ff).setDepth(DEPTH.fx);
-        this.tweens.add({ targets: r, y: r.y + 10, alpha: 0, delay: i * 30, duration: 320, onComplete: function (tw, targets) { targets[0].destroy(); } });
+        var r = this.add.ellipse(t.x * T + 48 + i * 32, t.y * T + 32, 14, 30, 0x8fd0ff).setDepth(DEPTH.fx);
+        this.tweens.add({ targets: r, y: r.y + 160, alpha: 0, delay: i * 30, duration: 320, onComplete: function (tw, targets) { targets[0].destroy(); } });
       }
     }
 
     floatText(t, text) {
       var cam = this.cameras.main;
-      var sx = (t.x * T + 8 - cam.worldView.x) * cam.zoom;
-      var sy = (t.y * T - cam.worldView.y) * cam.zoom;
+      var sx = (t.x * T + T / 2 - cam.worldView.x) * cam.zoom / F.R; // layout px
+      var sy = (t.y * T - cam.worldView.y) * cam.zoom / F.R;
       F.ui.floatText(sx, sy, text);
     }
   };

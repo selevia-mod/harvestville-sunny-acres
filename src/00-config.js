@@ -5,9 +5,9 @@
   F.Config = {
     WIDTH: 360,
     HEIGHT: 640,
-    TILE: 16,
-    ZOOM: 2,
-    SPEED: 72, // world px per second
+    TILE: 256, // world units per tile = pixels per tile in the art
+    VIEW_TILE: 32, // on-screen size of one tile, in layout px (WIDTH x HEIGHT space)
+    SPEED: 1152, // world units per second (4.5 tiles/s)
 
     DAY_START: 6 * 60, // 6:00 AM, minutes after midnight
     PASS_OUT: 26 * 60, // 2:00 AM the next morning

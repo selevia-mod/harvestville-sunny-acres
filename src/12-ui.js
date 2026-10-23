@@ -13,6 +13,7 @@
   var HOTBAR_Y = 606;
   var ACTION = { x: 294, y: 512, r: 42 };
   var JOY = { x: 86, y: 512, r: 46, knob: 22 };
+  var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
 
   var HELP = 'HOW TO PLAY\n' +
     'Drag the joystick on the left to walk. Tap the big button to act on the highlighted tile.\n\n' +
@@ -21,7 +22,7 @@
     "Buy seeds at Lily's shop (south, 9 AM to 5 PM). Go to bed in your house to end the day.";
 
   function style(size, color, extra) {
-    var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: 3 };
+    var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: F.R };
     if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
     return s;
   }
@@ -35,6 +36,8 @@
       F.ui = this;
       this.modals = [];
       this.input.addPointer(2);
+      // The canvas is WIDTH*R x HEIGHT*R; zoom so all UI code works in WIDTH x HEIGHT layout px.
+      this.cameras.main.setZoom(F.R).centerOn(W / 2, H / 2);
       this.night = this.add.rectangle(0, 0, W, H, 0x0d1440, 1).setOrigin(0).setAlpha(0);
       this.buildHud();
       this.buildHotbar();
@@ -93,7 +96,7 @@
     // An inventory slot widget: background, icon, count, and the watering-can level bar.
     slotWidget(parent, x, y, onTap) {
       var w = { g: this.add.graphics(), x: x, y: y };
-      w.icon = this.add.image(x + SLOT / 2, y + SLOT / 2 - 1, 'items', 0).setScale(2);
+      w.icon = this.add.image(x + SLOT / 2, y + SLOT / 2 - 1, 'items', 0).setScale(ICON);
       w.count = this.txt(x + SLOT - 5, y + SLOT - 4, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(1, 1);
       w.bar = this.add.graphics();
       w.zone = this.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
@@ -126,9 +129,9 @@
       this.panel(g, 6, 6, W - 12, 58);
       this.dayText = this.txt(22, 14, '', 13, INK, { fontStyle: 'bold' });
       this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
-      this.add.image(124, 35, 'items', C.ICON.bolt).setScale(1.5);
+      this.add.image(124, 35, 'items', C.ICON.bolt).setScale(ICON * 0.8);
       this.energyBar = this.add.graphics();
-      this.add.image(228, 35, 'items', C.ICON.coin).setScale(1.5);
+      this.add.image(228, 35, 'items', C.ICON.coin).setScale(ICON * 0.8);
       this.goldText = this.txt(242, 26, '', 17, INK, { fontStyle: 'bold' });
       var self = this;
       var menu = this.add.container(326, 35);
@@ -197,7 +200,7 @@
       g.fillStyle(0xffd23f, 1).fillCircle(0, 0, ACTION.r - 4);
       g.fillStyle(COL.panel, 1).fillCircle(0, 0, ACTION.r - 9);
       g.fillStyle(0xffffff, 0.35).fillEllipse(-8, -16, 34, 16);
-      this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(2.25);
+      this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(ICON * 1.15);
       this.actionLabel = this.txt(0, 21, '', 13, INK, { fontStyle: 'bold' }).setOrigin(0.5);
       var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
       z.on('pointerdown', function () {
@@ -228,17 +231,20 @@
       this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.16).setStrokeStyle(3, 0xffffff, 0.45);
       this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.5).setStrokeStyle(2, 0x5a3a1e, 0.5);
       this.joyId = null;
+      var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {
         if (this.joyId !== null || this.modals.length || over.length) return;
-        if (p.y < 70 || p.y > HOTBAR_Y - 34) return;
+        var pt = cam.getWorldPoint(p.x, p.y);
+        if (pt.y < 70 || pt.y > HOTBAR_Y - 34) return;
         this.joyId = p.id;
-        this.joyOrigin = { x: p.x, y: p.y };
-        this.joyBase.setPosition(p.x, p.y).setAlpha(1);
-        this.joyKnob.setPosition(p.x, p.y).setAlpha(1);
+        this.joyOrigin = { x: pt.x, y: pt.y };
+        this.joyBase.setPosition(pt.x, pt.y).setAlpha(1);
+        this.joyKnob.setPosition(pt.x, pt.y).setAlpha(1);
       }, this);
       this.input.on('pointermove', function (p) {
         if (p.id !== this.joyId) return;
-        var dx = p.x - this.joyOrigin.x, dy = p.y - this.joyOrigin.y;
+        var pt = cam.getWorldPoint(p.x, p.y);
+        var dx = pt.x - this.joyOrigin.x, dy = pt.y - this.joyOrigin.y;
         var d = Math.sqrt(dx * dx + dy * dy);
         if (d > JOY.r) { dx *= JOY.r / d; dy *= JOY.r / d; }
         this.joyKnob.setPosition(this.joyOrigin.x + dx, this.joyOrigin.y + dy);
@@ -438,7 +444,7 @@
         var slot = self.add.graphics();
         self.slotBox(slot, 38, y + 10, SLOT, false);
         c.add(slot);
-        c.add(self.add.image(38 + SLOT / 2, y + 10 + SLOT / 2, 'items', item.icon).setScale(2));
+        c.add(self.add.image(38 + SLOT / 2, y + 10 + SLOT / 2, 'items', item.icon).setScale(ICON));
         c.add(self.txt(92, y + 10, item.name, 15, INK, { fontStyle: 'bold' }));
         c.add(self.txt(92, y + 30, item.desc, 12, '#6a4a2a', { wordWrap: { width: 220 } }));
         c.add(self.txt(38 + SLOT / 2, y + 58, item.price + 'G', 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));

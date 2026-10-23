@@ -4,8 +4,20 @@
 // unless you pass --force.
 const fs = require('fs');
 const path = require('path');
-const { rng } = require('./pix');
-const { COLS, ROWS, SIZE, T, BLOCKS, blockId } = require('./tiles');
+const { SIZE, MARGIN, SPACING, IMAGE_W, IMAGE_H, TILECOUNT, T, BLOCKS, blockId } = require('./tiles');
+
+function rng(seed) { // deterministic, so the seeded map is reproducible
+  let a = seed >>> 0;
+  const next = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  next.int = (n) => Math.floor(next() * n);
+  return next;
+}
 
 const OUT = path.join(__dirname, '..', 'maps', 'farm.json');
 if (fs.existsSync(OUT) && !process.argv.includes('--force')) {
@@ -116,7 +128,7 @@ const obj = (name, type, tx, ty, tw = 1, th = 1, props) => ({
   rotation: 0, visible: true, ...(props ? { properties: props } : {}),
 });
 const objects = [
-  { id: nextId++, name: 'spawn', type: 'spawn', point: true, x: 6 * SIZE + 8, y: 7 * SIZE + 10, width: 0, height: 0, rotation: 0, visible: true },
+  { id: nextId++, name: 'spawn', type: 'spawn', point: true, x: 6.5 * SIZE, y: Math.round(7.6 * SIZE), width: 0, height: 0, rotation: 0, visible: true },
   obj('house_door', 'sleep', 6, 6),
   obj('shipping_box', 'ship', 10, 6),
   obj('seed_shop', 'shop', 16, 31, 2, 1),
@@ -140,8 +152,9 @@ const map = {
   ],
   tilesets: [{
     firstgid: 1, name: 'tiles', image: '../assets/tiles.png',
-    imagewidth: COLS * SIZE, imageheight: ROWS * SIZE, tilewidth: SIZE, tileheight: SIZE,
-    columns: COLS, tilecount: COLS * ROWS, margin: 0, spacing: 0,
+    imagewidth: IMAGE_W, imageheight: IMAGE_H, tilewidth: SIZE, tileheight: SIZE,
+    columns: Math.floor((IMAGE_W - MARGIN * 2 + SPACING) / (SIZE + SPACING)), tilecount: TILECOUNT,
+    margin: MARGIN, spacing: SPACING,
     tiles: Object.keys(tileProps).map(Number).sort((a, b) => a - b).map((id) => ({ id, properties: tileProps[id] })),
   }],
 };
