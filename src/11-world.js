@@ -46,6 +46,11 @@
 
       // ----- player
       this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+      // Arcade ignores a wall the body has sunk into by more than TILE_BIAS in one step. At our scale
+      // (256 per tile) the farmer moves ~19 units a step (33 on the horse), past the default 16, so walls
+      // were walked straight through. Allow for a few steps' worth.
+      this.physics.world.TILE_BIAS = 128;
+      this.physics.world.OVERLAP_BIAS = 48;
       this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
       this.player = this.physics.add.sprite(0, 0, 'player', 0).setDepth(DEPTH.actor);
       this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
@@ -63,6 +68,7 @@
         this.setFeet(spawn.x, spawn.y);
       }
       this.idle();
+      this.unstick();
 
       this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
       this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
@@ -225,6 +231,29 @@
       this.solids.add(zone);
       if (name === 'notice') {
         this.objects.push({ type: 'notice', x0: x0, y0: y1 - foot + 1, x1: x0 + w - 1, y1: y1, props: {} });
+      }
+    }
+
+    // A save from before walls were solid may have left the farmer inside something: step out to the
+    // nearest open tile.
+    unstick() {
+      var f = this.feet(), sx = Math.floor(f.x / T), sy = Math.floor(f.y / T);
+      if (this.walkable(sx, sy)) return;
+      var W = this.map.width, seen = {}, q = [[sx, sy]];
+      seen[sy * W + sx] = true;
+      while (q.length) {
+        var p = q.shift();
+        if (this.walkable(p[0], p[1])) {
+          this.setFeet(p[0] * T + T / 2, p[1] * T + T / 2);
+          return;
+        }
+        for (var k = 0; k < 4; k++) {
+          var nx = p[0] + [1, -1, 0, 0][k], ny = p[1] + [0, 0, 1, -1][k];
+          if (this.inMap(nx, ny) && !seen[ny * W + nx]) {
+            seen[ny * W + nx] = true;
+            q.push([nx, ny]);
+          }
+        }
       }
     }
 

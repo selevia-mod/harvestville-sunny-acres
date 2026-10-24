@@ -963,3 +963,53 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Pushes the farmer into every solid tile, building, prop and villager on every map from each open side, at
+// walking and riding speed, with the game's own physics. Nothing solid may be walked into or through.
+test('nothing solid can be walked through, on any map, on foot or on horseback', async () => {
+  const save = await makeSave(`
+    Object.assign(s.builds, { kitchen: 1, bighouse: 1, stable: 1, f_plant: 1, f_music: 1, f_aquarium: 1, f_cat: 1 });
+    s.debris = L.makeDebris(5, Farm.fieldTiles());
+    s.time = 600;
+  `);
+  const { page, problems, context } = await open(save);
+  for (const map of ['farm', 'house', 'town', 'mine']) {
+    await page.evaluate((m) => { Farm.ui.closeAll(); Farm.world.travel(m, null, 5); }, map);
+    await waitMap(page, map);
+    const r = await page.evaluate(() => {
+      const w = Farm.world, T = 256, pw = w.physics.world, body = w.player.body, S = Farm.Config.SPEED;
+      w.busy = true; // keep the scene's own update out of the way while we step the physics by hand
+      if (w.villagers) w.villagers.list.forEach((v) => { v.path = []; v.hold = 1e9; });
+      const villagerAt = (x, y) => w.villagers && w.villagers.list.some((v) => v.visible && Math.floor(v.x / T) === x && Math.floor(v.y / T) === y);
+      const fails = [];
+      let tries = 0;
+      for (let y = 0; y < w.map.height; y++) for (let x = 0; x < w.map.width; x++) {
+        if (w.walkable(x, y)) continue;
+        [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+          const nx = x - dx, ny = y - dy;
+          if (!w.inMap(nx, ny) || !w.walkable(nx, ny) || villagerAt(nx, ny)) return;
+          [1, Farm.Config.HORSE.speed].forEach((mul) => {
+            tries++;
+            w.setFeet(nx * T + T / 2, ny * T + T / 2);
+            for (let i = 0; i < 40; i++) { body.setVelocity(dx * S * mul, dy * S * mul); pw.singleStep(); }
+            body.setVelocity(0, 0);
+            const f = w.feet();
+            if (Math.floor(f.x / T) !== nx || Math.floor(f.y / T) !== ny) fails.push(`(${nx},${ny}) -> (${x},${y}) x${mul}`);
+          });
+        });
+      }
+      if (w.villagers) w.villagers.list.filter((v) => v.visible).forEach((v) => {
+        tries++;
+        w.setFeet(v.x, v.y - 1.3 * T);
+        for (let i = 0; i < 40; i++) { body.setVelocity(0, S); pw.singleStep(); }
+        if (w.feet().y > v.y - 0.2 * T) fails.push('through ' + v.key);
+      });
+      w.busy = false;
+      return { tries, fails };
+    });
+    assert.ok(r.tries > 50, `${map}: tested ${r.tries} pushes`);
+    assert.deepStrictEqual(r.fails, [], `${map}: walked into something solid`);
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
