@@ -2276,14 +2276,12 @@
   });
 
   // ---------- sheet assembly ----------
-  // keyOf(col, row): the key of an imported picture that replaces that frame (see tools/art/import.js)
-  function frameSheet(cols, rows, fw, fh, w, h, draw, keyOf) {
-    var c = canvas(w, h), g = c.getContext('2d'), O = window.ART.OVR || {};
+  function frameSheet(cols, rows, fw, fh, w, h, draw) {
+    var c = canvas(w, h), g = c.getContext('2d');
     for (var r = 0; r < rows; r++) {
       for (var k = 0; k < cols; k++) {
-        var f = canvas(fw, fh), key = keyOf && keyOf(k, r);
-        if (key && O[key]) f.getContext('2d').drawImage(O[key], 0, 0, fw, fh);
-        else if (draw(f.getContext('2d'), k, r) === false) continue;
+        var f = canvas(fw, fh);
+        if (draw(f.getContext('2d'), k, r) === false) continue;
         g.drawImage(f, 8 + k * (fw + 16), 8 + r * (fh + 16));
       }
     }
@@ -2294,24 +2292,7 @@
   function tileSheet(L) {
     var sheet = canvas(L.IMAGE_W, L.IMAGE_H), sg = sheet.getContext('2d');
     sg.imageSmoothingEnabled = false;
-    var names = {};
-    Object.keys(L.T).forEach(function (n) { names[L.T[n]] = n; });
-    // An imported picture replaces a tile: tiles:<name>, season:<kind>:<season> (the tiles sheet holds the
-    // spring look), or tree:<season> for the four quarters of a tree.
-    var override = function (id) {
-      var O = window.ART.OVR || {}, name = names[id];
-      if (!name) return null;
-      var m = /^(spring|summer|fall|winter)_(\w+)$/.exec(name), season = m ? m[1] : 'spring', kind = m ? m[2] : name;
-      var tq = /^tree(TL|TR|BL|BR)$/.exec(kind);
-      if (tq && O['tree:' + season]) return { src: O['tree:' + season], sx: tq[1][1] === 'R' ? S : 0, sy: tq[1][0] === 'B' ? S : 0 };
-      var key = m ? 'season:' + kind + ':' + season : L.NAME + ':' + name;
-      if (O[key]) return { src: O[key], sx: 0, sy: 0 };
-      if (!m && L.NAME === 'tiles' && O['season:' + name + ':spring']) return { src: O['season:' + name + ':spring'], sx: 0, sy: 0 };
-      return null;
-    };
     var place = function (id, src, sx, sy) {
-      var o = override(id);
-      if (o) { src = o.src; sx = o.sx; sy = o.sy; }
       var x = L.MARGIN + (id % L.COLS) * (S + L.SPACING), y = L.MARGIN + Math.floor(id / L.COLS) * (S + L.SPACING);
       var P = L.SPACING / 2;
       sg.drawImage(src, sx, sy, S, S, x, y, S, S);
@@ -2325,8 +2306,7 @@
       sg.drawImage(src, sx + S - 1, sy + S - 1, 1, 1, x + S, y + S, P, P);
     };
     var placeBlock = function (name, pic) {
-      var B = L.BLOCKS[name], O = window.ART.OVR || {};
-      if (O[L.NAME + ':' + name]) pic = O[L.NAME + ':' + name];
+      var B = L.BLOCKS[name];
       for (var dy = 0; dy < B.h; dy++) for (var dx = 0; dx < B.w; dx++) {
         place((B.row + dy) * L.COLS + B.col + dx, pic, dx * S, dy * S);
       }
@@ -2409,7 +2389,7 @@
       if (row < 3) return farmer(g, dirs[row], col);
       var k = (row - 3) * 3 + col;
       farmer(g, ['down', 'down', 'up', 'up', 'side', 'side'][k], 0, k % 2 ? 'strike' : 'raise');
-    }, function (col, row) { return 'player:' + (row * 3 + col); });
+    });
     // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame
     var cropKeys = sets.CROP_KEYS;
     var crops = frameSheet(3, 6, 256, 256, 1024, 2048, function (g, col, row) {
@@ -2418,7 +2398,7 @@
       var crop = cropKeys[Math.floor((f - 2) / 2)];
       if (!crop) return false;
       CROP_DRAW[crop][2 + (f - 2) % 2](g);
-    }, function (col, row) { return 'crops:' + (row * 3 + col); });
+    });
     var iconNames = sets.ICON_ORDER;
     var iconRows = Math.ceil(iconNames.length / 8);
     var items = frameSheet(8, iconRows, I, I, 8 + 8 * (I + 16) - 8, 8 + iconRows * (I + 16) - 8, function (g, k, r) {
@@ -2426,7 +2406,7 @@
       if (!name) return false;
       if (!ICON_DRAW[name]) throw new Error('no icon art for ' + name);
       ICON_DRAW[name](g);
-    }, function (k, r) { return iconNames[r * 8 + k] ? 'icon:' + iconNames[r * 8 + k] : null; });
+    });
     // one row per animal: chicken, cow, dog, horse, cat
     var animals = frameSheet(4, 5, 384, 320, 2048, 2048, function (g, pose, row) {
       if (row === 0) chicken(g, pose);
@@ -2434,7 +2414,7 @@
       else if (row === 2) window.ART.dog(g, pose);
       else if (row === 3) window.ART.horse(g, pose);
       else window.ART.cat(g, pose);
-    }, function (pose, row) { return 'animals:' + row + ':' + pose; });
+    });
     // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
     var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, crops: crops, items: items, animals: animals };
     var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
