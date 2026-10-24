@@ -752,7 +752,9 @@
       if (!D[name]) throw new Error('no art for prop ' + name);
       var W = def.w * S, H = def.h * S;
       var full = A.canvas(W, H);
-      D[name]({ W: W, H: H, door: def.door })(full.getContext('2d'));
+      var O = A.OVR || {};
+      if (O['prop:' + name]) full.getContext('2d').drawImage(O['prop:' + name], 0, 0, W, H);
+      else D[name]({ W: W, H: H, door: def.door })(full.getContext('2d'));
       var half = A.canvas(def.w * 128, def.h * 128), hg = half.getContext('2d');
       hg.imageSmoothingEnabled = true;
       hg.imageSmoothingQuality = 'high';
