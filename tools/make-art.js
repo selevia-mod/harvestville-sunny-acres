@@ -27,7 +27,23 @@ const OUT = path.join(__dirname, '..', 'assets');
   for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
+  await page.addScriptTag({ path: path.join(__dirname, 'art', 'import.js') });
   const C = gameConfig();
+  // generated pictures in art-src/ (see tools/art-manifest.js) replace the drawn art they cover
+  const { jobs } = require('./art-manifest');
+  const SRC = process.env.ART_SRC || path.join(__dirname, '..', 'art-src');
+  const found = [];
+  jobs.forEach((j) => {
+    const file = path.join(SRC, j.file);
+    if (fs.existsSync(file)) found.push({ ...j, data: 'data:image/png;base64,' + fs.readFileSync(file).toString('base64') });
+  });
+  // single icons: art-src/icons/<icon name>.png
+  C.ICON_ORDER.forEach((name) => {
+    const file = path.join(SRC, 'icons', name + '.png');
+    if (fs.existsSync(file)) found.push({ id: 'icon_' + name, file: 'icons/' + name + '.png', mode: 'icon', name, data: 'data:image/png;base64,' + fs.readFileSync(file).toString('base64') });
+  });
+  console.log(`Using ${found.length} generated pictures from art-src/ (${jobs.length} possible, the rest keep the drawn art)`);
+  if (found.length) await page.evaluate((list) => window.ART.prepareOverrides(list), found);
   const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify({
     TILES: layout.TILES, RANCH: layout.RANCH, SEASONS: layout.SEASONS, INDOOR: layout.INDOOR, PROPS: layout.PROPS,
     SEASON_NAMES: layout.SEASON_NAMES, SEASONAL: layout.SEASONAL,

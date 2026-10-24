@@ -348,7 +348,7 @@
       if (!LOOKS[v]) throw new Error('no look for villager ' + v);
       var local = f % 9;
       person(g, v, dirs[Math.floor(local / 3)], local % 3);
-    });
+    }, function (c, r) { return 'people:' + (r * 14 + c); });
     return out;
   };
 })();

@@ -243,9 +243,27 @@ npm run build      # -> dist/index.html
 npm test           # rules + save-format unit tests (77 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (11 tests, ~13 min)
 npm run simulate   # plays a year with the real rules and prints the economy
-npm run art        # redraw assets/ (uses Playwright's Chromium)
+npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
 ```
+
+## Replacing the art with generated pictures
+
+`tools/art-manifest.js` lists every picture the game uses (131 of them), each with:
+- a file name under `art-src/`
+- the size to ask an image generator for
+- the in-game size
+- a ready-made prompt in one shared style
+
+Save generated PNGs under those names and run `npm run art`. The importer (`tools/art/import.js`) does the
+fitting:
+- removes flat backgrounds
+- splits grids (characters, animals, seasons, icons)
+- trims and scales to the sheet's frame size, with feet on the ground line
+- makes ground textures seamless
+- keeps the drawn art for anything still missing
+
+See `art-src/README.md`.
 
 ## Editing the maps in Tiled
 
