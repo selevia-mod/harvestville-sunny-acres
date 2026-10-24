@@ -159,6 +159,39 @@
     }, RED);
   };
 
+  // ---------- a new farm: play as the boy or the girl ----------
+  M.chooseLook = function (done) {
+    var self = this, s = F.session.state;
+    var c = this.openModal(function () {}); // Back doesn't skip the choice
+    this.panelImg(c, 20, 120, W - 40, 400);
+    c.add(this.txt(W / 2, 142, 'Who will you play?', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, 172, 'Pick your farmer.', 14, '#7a5a3a').setOrigin(0.5, 0));
+    var pick = function (look) {
+      s.look = look;
+      F.session.dirty = true;
+      if (F.world && F.world.applyLook) F.world.applyLook();
+      sfx('coin');
+      self.closeModal();
+      if (look === 'boy') { // the girl's sheet was only needed for the picture: free its memory
+        ['down', 'up', 'side'].forEach(function (d) { self.anims.remove('walk-' + d + '-g'); });
+        self.textures.remove('player_girl');
+      }
+      done();
+    };
+    [['boy', 'player', 'Boy', 0x4a90c9, 0xbfe0f0], ['girl', 'player_girl', 'Girl', 0xd9669a, 0xf8d3e4]].forEach(function (o, i) {
+      var x = W / 2 + (i ? 72 : -72);
+      self.baked(c, x - 62, 200, 'ui-look-' + o[0], 124, 210, function (g) {
+        g.fillStyle(COL.slotEdge, 1).fillRoundedRect(0, 0, 124, 210, 12);
+        g.fillStyle(o[4], 1).fillRoundedRect(4, 4, 116, 202, 10);
+      });
+      c.add(self.add.image(x, 398, F.ensureTexture(self, o[1]), 0).setOrigin(0.5, 1).setScale(0.48));
+      var z = self.add.zone(x, 305, 124, 210).setInteractive({ useHandCursor: true });
+      z.on('pointerup', function () { pick(o[0]); });
+      c.add(z);
+      self.button(c, x, 456, 112, 44, o[2], function () { pick(o[0]); }, o[3]);
+    });
+  };
+
   // Replaces the save with a fresh farm and restarts both scenes on it.
   M.newGame = function () {
     F.session = F.newSession(null);
@@ -628,7 +661,7 @@
       c.add(icon);
     });
     var st = s.stats;
-    c.add(this.txt(W / 2, y0 + 5 * cell + 18, 'RECORDS\nShipped: ' + st.earned + 'G\nFish caught: ' + st.fish + '\nDishes cooked: ' + st.cooked +
+    c.add(this.txt(W / 2, y0 + Math.ceil(C.COLLECTION.length / cols) * cell + 12, 'RECORDS\nShipped: ' + st.earned + 'G\nFish caught: ' + st.fish + '\nDishes cooked: ' + st.cooked +
       '\nDeepest mine floor: ' + (st.deepest || '-') + '\nFriends with 5+ hearts: ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
     14, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
   };

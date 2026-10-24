@@ -270,3 +270,59 @@ test('the save stays under 16 KB with everything filled in', () => {
   assert.ok(json.length < 16384, json.length + ' bytes');
   assert.strictEqual(L.collectionCount(roundTrip(s)), C.COLLECTION.length);
 });
+
+test('the farmer is a boy unless the girl was picked, and the choice is saved', () => {
+  const s = fresh();
+  assert.strictEqual(s.look, 'boy');
+  assert.strictEqual(roundTrip(s).look, 'boy');
+  s.look = 'girl';
+  assert.strictEqual(roundTrip(s).look, 'girl');
+  const o = plain(L.serialize(s));
+  o.lk = 'nonsense';
+  assert.strictEqual(L.deserialize(o).look, 'boy');
+});
+
+test('pigs and carabaos live in the barn, eat fodder and give truffles and carabao milk', () => {
+  const s = fresh();
+  s.gold = 100000;
+  const pig = L.buyAnimal(s, 'pig'), cara = L.buyAnimal(s, 'carabao');
+  assert.strictEqual(s.animals[pig].kind, 'pig');
+  assert.strictEqual(L.buyAnimal(s, 'pig'), 2 + s.animals.filter((a) => a.kind === 'chicken').length);
+  assert.strictEqual(L.buyAnimal(s, 'pig'), 'full', 'two pigs in a small barn');
+  s.builds.barn2 = 1;
+  assert.strictEqual(L.capacity(s, 'pig'), 4);
+  // they eat fodder, not chicken feed
+  L.addItem(s, 'chicken_feed', 1);
+  assert.strictEqual(L.feedAnimal(s, pig, slotOf(s, 'chicken_feed')), 'wrong');
+  L.addItem(s, 'fodder', 2);
+  assert.strictEqual(L.feedAnimal(s, pig, slotOf(s, 'fodder')), 'ok');
+  assert.strictEqual(L.feedAnimal(s, cara, slotOf(s, 'fodder')), 'ok');
+  L.endDay(s, false, {});
+  assert.strictEqual(L.collect(s, pig), 'truffle');
+  // the carabao needs the milker, like a cow
+  s.inv = s.inv.map((x) => (x && x.id === 'milker' ? null : x));
+  assert.strictEqual(L.collect(s, cara), '!milker');
+  L.addItem(s, 'milker', 1);
+  assert.strictEqual(L.collect(s, cara), 'carabao_milk');
+  assert.ok(L.discovered(s, 'truffle') && L.discovered(s, 'carabao_milk'), 'both go in the collection');
+  // a miracle potion is for cows only
+  L.addItem(s, 'miracle', 1);
+  s.animals[cara].love = 100;
+  assert.strictEqual(L.givePotion(s, cara, slotOf(s, 'miracle')), 'notcow');
+  // they survive a save
+  const back = roundTrip(s);
+  assert.deepStrictEqual(plain(back.animals.map((a) => a.kind)), plain(s.animals.map((a) => a.kind)));
+});
+
+test('the new animals and produce have icons, prices and a place in the shop', () => {
+  ['pig', 'carabao'].forEach((k) => {
+    const d = C.ANIMALS[k];
+    assert.ok(C.SHOP_ANIMALS.includes(k) && C.ANIMAL_KEYS.includes(k), k);
+    assert.strictEqual(typeof d.icon, 'number');
+    assert.ok(C.ITEMS[d.product].sell > 0 && C.ITEMS[d.large], k);
+    assert.strictEqual(d.sheet, 'animals2');
+  });
+  assert.strictEqual(C.ANIMAL_KEYS.slice(0, 2).join(), 'chicken,cow', 'older saves keep their animals');
+  assert.strictEqual(C.ICON_ORDER.slice(0, 110).pop(), 'cat_basket', 'new icons are appended');
+  assert.ok(C.FOOD_GROUPS.milk.includes('carabao_milk'), 'carabao milk cooks like milk');
+});

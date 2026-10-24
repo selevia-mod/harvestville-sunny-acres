@@ -153,8 +153,19 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   const { page, problems, context, cdp } = await open();
   const idx = (x, y) => y * W + x;
 
-  // welcome dialog closes with the host Back button
+  // a new game asks: boy or girl? Back can't skip it. Picking the girl changes the farmer's picture.
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
+  assert.match(await modalText(page), /Who will you play/);
+  await shot(page, '00-choose');
+  assert.strictEqual(await page.evaluate(() => window.__gameBack()), true);
+  assert.match(await modalText(page), /Who will you play/);
+  await tapButton(page, 'Girl');
+  assert.strictEqual((await state(page)).look, 'girl');
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player_girl');
+
+  // then the welcome dialog, which closes with the host Back button
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
+  assert.match(await modalText(page), /WELCOME/);
   await shot(page, '01-welcome');
   assert.strictEqual(await page.evaluate(() => window.__gameBack()), true);
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
@@ -337,6 +348,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
 
   const again = await open(last);
   assert.strictEqual(await again.page.evaluate(() => Farm.ui.modals.length), 0, 'no welcome dialog on a loaded game');
+  assert.strictEqual(await again.page.evaluate(() => Farm.world.player.texture.key), 'player_girl', 'still the girl after loading');
   const after = await state(again.page);
   assert.strictEqual(after.day, before.day);
   assert.strictEqual(after.gold, before.gold);
@@ -349,8 +361,45 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await again.context.close();
 });
 
+test('a pig and a carabao from the shop join the pen; the carabao is milked, the pig finds truffles', async () => {
+  const { page, problems, context } = await open(await makeSave("s.gold = 5000; s.time = 600; L.addItem(s, 'milker', 1); L.addItem(s, 'fodder', 5);"));
+  await teleport(page, 16, 32, 'up');
+  await tapAction(page);
+  await tapButton(page, 'Animals');
+  await tapButton(page, 'Buy 1500G');
+  await tapButton(page, 'Buy 3000G');
+  let s = await state(page);
+  assert.deepStrictEqual(s.animals.map((a) => a.kind), ['chicken', 'pig', 'carabao']);
+  assert.strictEqual(s.gold, 500);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals', 'animals2', 'animals2']);
+  await page.evaluate(() => window.__gameBack());
+  // fodder feeds them both; the next morning there is a truffle and carabao milk
+  await hold(page, 'fodder');
+  await meetAnimal(page, 1, 6, 33);
+  assert.strictEqual(await actionLabel(page), 'Feed');
+  await tapAction(page);
+  await away(page, 1);
+  await meetAnimal(page, 2, 6, 33);
+  await tapAction(page);
+  s = await state(page);
+  assert.deepStrictEqual(s.animals.slice(1).map((a) => a.fed), [1, 1]);
+  await page.evaluate(() => { Farm.Logic.endDay(Farm.session.state, false, {}); Farm.world.changed(); });
+  await meetAnimal(page, 2, 6, 33);
+  assert.strictEqual(await actionLabel(page), 'Milk');
+  await tapAction(page);
+  await away(page, 2);
+  await meetAnimal(page, 1, 6, 33);
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
+  s = await state(page);
+  assert.ok(s.inv.some((x) => x && x.id === 'truffle') && s.inv.some((x) => x && x.id === 'carabao_milk'));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('passing out at 2 AM wakes you in bed with half energy', async () => {
   const { page, problems, context } = await open();
+  await tapButton(page, 'Boy');
   await page.evaluate(() => window.__gameBack());
   await page.evaluate(() => { Farm.session.state.time = Farm.Config.PASS_OUT - 1; });
   await page.waitForFunction(() => Farm.session.state.day === 2 && Farm.world.mapKey === 'house' && !Farm.world.busy, null, SLOW);
@@ -372,6 +421,14 @@ test('a garbage save from the host starts a new game instead of crashing', async
 });
 
 // Parks an animal at a tile and keeps it there, then puts the farmer just above it, facing down.
+// moves a pen animal out of the way, to a corner of the pen
+const away = (page, i) => page.evaluate((i) => {
+  const h = Farm.world.herd, m = h.members[i];
+  m.x = m.tx = h.pen.x0 + 300;
+  m.y = m.ty = h.pen.y1 - 100;
+  m.wait = 1e9;
+}, i);
+
 async function meetAnimal(page, i, tx, ty) {
   await page.evaluate(([i, tx, ty]) => {
     const T = Farm.Config.TILE, m = Farm.world.herd.members[i];
@@ -521,8 +578,10 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(last.d, 1, 'the new farm is saved straight away');
   assert.strictEqual(last.g, 300);
 
-  // the welcome message shows, the HUD is live, and the farm is playable
+  // the boy-or-girl choice and the welcome message show, the HUD is live, and the farm is playable
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
+  await tapButton(page, 'Boy');
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 1');
   await page.evaluate(() => { delete Farm.session.state.debris[12 * 24 + 5]; Farm.world.refreshDebris(); });

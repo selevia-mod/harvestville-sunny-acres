@@ -26,6 +26,7 @@
     s.cat = null; // { name, love, pet } once the cat basket is bought
     s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ...)
     s.musicDay = 0; // last day the music box was played
+    s.look = 'boy'; // the farmer: 'boy' or 'girl', picked at the start
     return s;
   };
 
@@ -336,6 +337,7 @@
     o.ct = s.cat ? [s.cat.love, s.cat.pet] : 0;
     o.ch = s.chests;
     o.mb = s.musicDay;
+    o.lk = s.look === 'girl' ? 1 : 0;
     Object.keys(s.friends).forEach(function (k) { if (o.fr[k]) o.fr[k][4] = s.friends[k].ev || 0; });
     return o;
   };
@@ -377,6 +379,7 @@
     if (s.builds.f_cat && !s.cat) s.cat = { name: C.CAT.name, love: 0, pet: 0 };
     s.chests = int(o.ch, 0, 1 << 20, 0);
     s.musicDay = int(o.mb, 0, 1e6, 0);
+    s.look = o.lk === 1 ? 'girl' : 'boy';
     if (o.fr && typeof o.fr === 'object') {
       Object.keys(s.friends).forEach(function (k) {
         var f = o.fr[k];

@@ -511,7 +511,7 @@
   // Free places in the coop / barn, counting eggs in the incubator and calves on the way.
   L.space = function (s, kind) {
     var pending = kind === 'chicken' ? (s.inc ? 1 : 0)
-      : s.animals.filter(function (a) { return a.preg; }).length;
+      : s.animals.filter(function (a) { return a.preg && a.kind === kind; }).length;
     return L.capacity(s, kind) - L.animalCount(s, kind) - pending;
   };
 
@@ -552,7 +552,7 @@
   L.feedAnimal = function (s, i, slotIndex) {
     var a = s.animals[i], slot = s.inv[slotIndex];
     if (!slot || C.ITEMS[slot.id].kind !== 'feed') return 'nofeed';
-    if (C.ITEMS[slot.id].animal !== a.kind) return 'wrong';
+    if (C.ANIMALS[a.kind].feed !== slot.id) return 'wrong';
     if (a.young) return 'young';
     if (a.fed) return 'already';
     a.fed = 1;
@@ -578,11 +578,11 @@
     return 'ok';
   };
 
-  // Returns the collected item id, or an error string starting with '!'. Cows need the milker.
+  // Returns the collected item id, or an error string starting with '!'. Cows and carabaos need the milker.
   L.collect = function (s, i) {
     var a = s.animals[i];
     if (!a.ready) return '!notready';
-    if (a.kind === 'cow' && !L.hasItem(s, 'milker')) return '!milker';
+    if (C.ANIMALS[a.kind].milk && !L.hasItem(s, 'milker')) return '!milker';
     var def = C.ANIMALS[a.kind], item = a.ready === 2 ? def.large : def.product;
     if (L.addItem(s, item, 1) > 0) return '!full';
     a.ready = 0;

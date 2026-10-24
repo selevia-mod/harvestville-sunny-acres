@@ -54,6 +54,7 @@
     'ore_copper', 'ore_silver', 'ore_gold', 'gem',
     'boiled_egg', 'hot_milk', 'baked_potato', 'jam', 'tomato_soup', 'grilled_fish', 'veggie_stew', 'pumpkin_pie',
     'mushroom_soup', 'sandwich', 'hot_soup', 'tonic',
+    'truffle', 'carabao_milk', // appended: saved as a bitset in this order
   ];
 
   // ---------- pets ----------

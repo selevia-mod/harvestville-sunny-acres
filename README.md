@@ -36,6 +36,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 ### Getting started
 
+- **Boy or girl:** a new game starts by asking who you will play: the farmer boy or the farmer girl.
 - **Goals:** a new farm shows one goal at a time under the top bar: clear debris, till, plant, water, feed
   Clucky, sleep, collect an egg, ship, visit town, meet villagers, harvest. Each one pays a small reward. A
   yellow arrow points the way, even across maps. Tap the goal bar for details.
@@ -80,13 +81,16 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 ### Animals
 
-- **Care:** chickens live in the coop and cows in the barn. Feed, pet and **brush** them daily.
-- **Produce:** a fed animal has an egg or milk ready the next morning. Cows need a **Milker**. At 3+ hearts they give
-  Large Eggs and Large Milk.
+- **Care:** chickens live in the coop; cows, pigs and carabaos in the barn. Feed, pet and **brush** them daily.
+  Chickens eat Chicken Feed; the others eat Fodder.
+- **Produce:** a fed animal has its produce ready the next morning: an egg, milk, a truffle (pig) or carabao milk.
+  Cows and carabaos need a **Milker**. At 3+ hearts chickens and cows give Large Eggs and Large Milk.
 - **Chicks and calves:** hold an egg at the coop to put it in the incubator, and a chick hatches in 3 days.
   A Miracle Potion given to a cow with 2+ hearts brings a calf in 7 days. Chicks and calves grow up in a few days.
-- **Prices:** Chicken 500G, Cow 2000G. Egg 40G (large 70G), milk 100G (large 150G).
-- **Bigger buildings:** Mira builds a Bigger Coop and a Bigger Barn (8 each).
+- **Prices:** Chicken 500G, Pig 1500G, Cow 2000G, Carabao 3000G. Egg 40G (large 70G), milk 100G (large 150G),
+  truffle 90G, carabao milk 130G (it cooks like milk).
+- **Bigger buildings:** Mira builds a Bigger Coop and a Bigger Barn (8 chickens; 8 cows, 4 pigs and 4 carabaos).
+  The small barn holds 4 cows, 2 pigs and 2 carabaos.
 - **Pets:**
   - **Biscuit the dog** lives by the house. Pet him every day.
   - **The horse:** Mira's Stable brings Chestnut the horse. Walk up to him to ride: he's 1.7× faster, he can
@@ -166,7 +170,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 ### Collection and records
 
-Pause → **Collection** shows 35 things to find: crops, produce, fish, forage, ore and dishes (unknown ones are
+Pause → **Collection** shows 37 things to find: crops, produce (truffles and carabao milk too), fish, forage, ore and dishes (unknown ones are
 silhouettes). It also shows your records: total shipped, fish caught, dishes cooked, the deepest mine floor, and
 close friends.
 
@@ -249,7 +253,7 @@ npm run map        # seed maps/ (won't overwrite existing maps without --force)
 
 ## Replacing the art with generated pictures
 
-`tools/art-manifest.js` lists every picture the game uses (131 of them), each with:
+`tools/art-manifest.js` lists every picture the game uses (135 of them), each with:
 - a file name under `art-src/`
 - the size to ask an image generator for
 - the in-game size
@@ -262,6 +266,16 @@ fitting:
 - trims and scales to the sheet's frame size, with feet on the ground line
 - makes ground textures seamless
 - keeps the drawn art for anything still missing
+
+The generated pictures in `art-src/` so far cover:
+- the farmer boy and girl and the villagers
+- the animals, including the pig and the carabao
+- the farm and town buildings
+- the objects on one tile
+- the seasonal trees, bushes and tall grass
+- the crops and the item icons
+
+The ground textures, the cottage and the cabin, and the furniture still use the drawn art.
 
 See `art-src/README.md`.
 

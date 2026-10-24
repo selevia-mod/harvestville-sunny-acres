@@ -18,6 +18,7 @@
     'mushroom_soup', 'sandwich', 'hot_soup', 'tonic', 'egg_l', 'milk_l', 'seed_grass', 'blue_feather', 'miracle',
     'rain', 'storm', 'snow', 'ribbon', 'bobber', 'exclaim', 'gift', 'calendar', 'note', 'dog', 'ring', 'lunch',
     'letter', 'book', 'horse', 'cat', 'chest', 'star', 'aquarium', 'music_box', 'big_plant', 'cat_basket',
+    'pig', 'carabao', 'truffle', 'carabao_milk',
   ];
 
   // Villagers in the order of the people sprite sheet (tools/make-art.js reads this list too).
@@ -130,8 +131,10 @@
       egg_l: { name: 'Large Egg', icon: 'egg_l', kind: 'produce', sell: 70, energy: 12, desc: 'A big egg from a happy hen.' },
       milk: { name: 'Milk', icon: 'milk', kind: 'produce', sell: 100, energy: 12, desc: 'Fresh milk.' },
       milk_l: { name: 'Large Milk', icon: 'milk_l', kind: 'produce', sell: 150, energy: 18, desc: 'Rich milk from a happy cow.' },
+      truffle: { name: 'Truffle', icon: 'truffle', kind: 'produce', sell: 90, desc: 'A rare mushroom your pig sniffed out.' },
+      carabao_milk: { name: 'Carabao Milk', icon: 'carabao_milk', kind: 'produce', sell: 130, energy: 16, desc: 'Creamy milk from your carabao.' },
       chicken_feed: { name: 'Chicken Feed', icon: 'chicken_feed', kind: 'feed', animal: 'chicken', price: 10, desc: 'Feed a chicken once a day and it lays an egg.', shop: 'One a day for each chicken.' },
-      fodder: { name: 'Fodder', icon: 'fodder', kind: 'feed', animal: 'cow', price: 20, desc: 'Feed a cow once a day and it gives milk.', shop: 'One a day for each cow. Or cut grass.' },
+      fodder: { name: 'Fodder', icon: 'fodder', kind: 'feed', animal: 'cow', price: 20, desc: 'Feed a cow, pig or carabao once a day.', shop: 'One a day for each cow, pig and carabao. Or cut grass.' },
       miracle: { name: 'Miracle Potion', icon: 'miracle', kind: 'potion', price: 800, desc: 'Give to a cow with 2+ hearts and a calf arrives in 7 days.' },
       blue_feather: { name: 'Blue Feather', icon: 'blue_feather', kind: 'feather', price: 1000, desc: 'Show it to someone you love to propose.' },
 
@@ -174,10 +177,21 @@
       cow: {
         name: 'Cow', price: 2000, max: 4, feed: 'fodder', product: 'milk', large: 'milk_l', icon: 'cow', frame0: 5,
         speed: 140, reach: 0.9, height: 1.0, names: ['Daisy', 'Bessie', 'Clover', 'Buttercup'], grow: 10, young: 'calf',
-        desc: 'Gives milk every morning after a day it was fed.', shop: 'Gives milk when fed every day.', home: 'barn',
+        desc: 'Gives milk every morning after a day it was fed.', shop: 'Gives milk when fed every day.', home: 'barn', milk: true,
+      },
+      // sheet: these two are in the animals2 sheet (4 frames per row)
+      pig: {
+        name: 'Pig', price: 1500, max: 2, feed: 'fodder', product: 'truffle', large: 'truffle', icon: 'pig', sheet: 'animals2', frame0: 0,
+        speed: 160, reach: 0.7, height: 0.7, names: ['Oinky', 'Truffles', 'Porkchop', 'Peaches'], grow: 7, young: 'piglet',
+        desc: 'Sniffs out a truffle every morning after a day it was fed.', shop: 'Finds a truffle when fed every day.', home: 'barn',
+      },
+      carabao: {
+        name: 'Carabao', price: 3000, max: 2, feed: 'fodder', product: 'carabao_milk', large: 'carabao_milk', icon: 'carabao', sheet: 'animals2', frame0: 4,
+        speed: 120, reach: 1.0, height: 1.1, names: ['Kalabaw', 'Bantay', 'Dakila', 'Tikling'], grow: 10, young: 'calf',
+        desc: 'Strong and gentle. Gives creamy milk every morning after a day it was fed.', shop: 'Gives carabao milk when fed every day.', home: 'barn', milk: true,
       },
     },
-    ANIMAL_KEYS: ['chicken', 'cow'], // stable order, used by the save format
+    ANIMAL_KEYS: ['chicken', 'cow', 'pig', 'carabao'], // stable order, used by the save format
     LOVE: { pet: 4, feed: 2, brush: 3, hungry: -6, lonely: -3, max: 100, large: 60, potion: 40 },
     INCUBATE_DAYS: 3,
     PREGNANT_DAYS: 7,
@@ -200,13 +214,13 @@
     CROP_KEYS: ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin', 'grass'], // save-format order
 
     SHOP_STOCK: ['seed_turnip', 'seed_potato', 'seed_strawberry', 'seed_tomato', 'seed_corn', 'seed_carrot', 'seed_pumpkin', 'seed_grass'],
-    SHOP_ANIMALS: ['chicken', 'cow'],
+    SHOP_ANIMALS: ['chicken', 'cow', 'pig', 'carabao'],
     SHOP_FEED: ['chicken_feed', 'fodder'],
     SHOP_SUPPLIES: ['brush', 'milker', 'rod', 'miracle', 'blue_feather'],
 
     // ---------- kitchen & food ----------
     // Ingredients may name a group: any item of that group will do.
-    FOOD_GROUPS: { egg: ['egg', 'egg_l'], milk: ['milk', 'milk_l'], fish: ['fish_s', 'fish_m', 'fish_l', 'fish_k'] },
+    FOOD_GROUPS: { egg: ['egg', 'egg_l'], milk: ['milk', 'milk_l', 'carabao_milk'], fish: ['fish_s', 'fish_m', 'fish_l', 'fish_k'] },
     RECIPES: [
       { dish: 'boiled_egg', needs: ['egg'] },
       { dish: 'hot_milk', needs: ['milk'] },

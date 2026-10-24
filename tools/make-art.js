@@ -23,24 +23,33 @@ const OUT = path.join(__dirname, '..', 'assets');
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.setContent('<!DOCTYPE html><html><body></body></html>');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js']) {
+  const SRC = path.resolve(process.env.ART_SRC || path.join(__dirname, '..', 'art-src'));
+  // The page fetches the pictures one by one from a made-up origin (sending them all inside one call is too
+  // much at once); the page itself is on that origin, so the canvases stay readable.
+  const ORIGIN = 'http://art.local/';
+  await page.route(ORIGIN + '**', (route) => {
+    const rel = decodeURIComponent(route.request().url().slice(ORIGIN.length));
+    if (rel === 'index.html') return route.fulfill({ contentType: 'text/html', body: '<!DOCTYPE html><html><body></body></html>' });
+    const file = path.join(SRC, rel);
+    if (!file.startsWith(SRC) || !fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
+    return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(file) });
+  });
+  await page.goto(ORIGIN + 'index.html');
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'import.js') });
   const C = gameConfig();
   // generated pictures in art-src/ (see tools/art-manifest.js) replace the drawn art they cover
   const { jobs } = require('./art-manifest');
-  const SRC = process.env.ART_SRC || path.join(__dirname, '..', 'art-src');
   const found = [];
   jobs.forEach((j) => {
-    const file = path.join(SRC, j.file);
-    if (fs.existsSync(file)) found.push({ ...j, data: 'data:image/png;base64,' + fs.readFileSync(file).toString('base64') });
+    if (fs.existsSync(path.join(SRC, j.file))) found.push({ ...j, data: ORIGIN + j.file });
   });
   // single icons: art-src/icons/<icon name>.png
   C.ICON_ORDER.forEach((name) => {
-    const file = path.join(SRC, 'icons', name + '.png');
-    if (fs.existsSync(file)) found.push({ id: 'icon_' + name, file: 'icons/' + name + '.png', mode: 'icon', name, data: 'data:image/png;base64,' + fs.readFileSync(file).toString('base64') });
+    const file = 'icons/' + name + '.png';
+    if (fs.existsSync(path.join(SRC, file))) found.push({ id: 'icon_' + name, file, mode: 'icon', name, data: ORIGIN + file });
   });
   console.log(`Using ${found.length} generated pictures from art-src/ (${jobs.length} possible, the rest keep the drawn art)`);
   if (found.length) await page.evaluate((list) => window.ART.prepareOverrides(list), found);

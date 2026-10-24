@@ -6,9 +6,11 @@
   // Frames are padded in the sheets (8px margin, 16px gaps) so scaled-down sprites never bleed.
   var SHEETS = {
     player: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
+    player_girl: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
     crops: { frameWidth: 256, frameHeight: 256, margin: 8, spacing: 16 },
     items: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
     animals: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
+    animals2: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
     people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 },
   };
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
@@ -38,7 +40,21 @@
     if (SHEETS[key]) tex.addSpriteSheet(key, F.images[key], SHEETS[key]);
     else tex.addImage(key, F.images[key]);
     if (key === 'people') F.makePeopleAnims(scene);
+    if (SHEETS[key] && key.indexOf('player') === 0) F.makeWalkAnims(scene, key);
     return key;
+  };
+
+  // The farmer's walk cycle: frame = dir * 3 + step (stand, step A, step B).
+  F.makeWalkAnims = function (scene, key) {
+    [['down', 0], ['up', 3], ['side', 6]].forEach(function (d) {
+      var f = d[1];
+      scene.anims.create({
+        key: 'walk-' + d[0] + (key === 'player_girl' ? '-g' : ''),
+        frames: scene.anims.generateFrameNumbers(key, { frames: [f + 1, f, f + 2, f] }),
+        frameRate: 8,
+        repeat: -1,
+      });
+    });
   };
 
   // Walk cycles for every villager: frame = villager * 9 + dir * 3 + step (stand, step A, step B).
@@ -54,6 +70,16 @@
         });
       });
     });
+  };
+
+  // The farmer's picture: the boy or the girl, picked at the start of a new game (the girl's sheet is only
+  // added when she is played). Pass a scene to make sure the texture is there.
+  F.playerKey = function (scene) {
+    var key = F.session && F.session.state.look === 'girl' ? 'player_girl' : 'player';
+    return scene ? F.ensureTexture(scene, key) : key;
+  };
+  F.walkAnim = function (dir) {
+    return 'walk-' + dir + (F.playerKey() === 'player_girl' ? '-g' : '');
   };
 
   // Tillable field tiles on the farm map: where new farms get their debris and where weeds sprout.
@@ -82,16 +108,6 @@
       EAGER.forEach(function (key) { F.ensureTexture(self, key); });
       Object.keys(F.ASSETS.maps).forEach(function (key) {
         self.cache.tilemap.add(key, { format: Phaser.Tilemaps.Formats.TILED_JSON, data: F.ASSETS.maps[key] });
-      });
-
-      [['down', 0], ['up', 3], ['side', 6]].forEach(function (d) {
-        var f = d[1];
-        self.anims.create({
-          key: 'walk-' + d[0],
-          frames: self.anims.generateFrameNumbers('player', { frames: [f + 1, f, f + 2, f] }),
-          frameRate: 8,
-          repeat: -1,
-        });
       });
 
       var saved = F.Host.load();

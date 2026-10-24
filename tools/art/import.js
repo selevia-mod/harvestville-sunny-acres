@@ -151,7 +151,9 @@
   // jobs: [{ ...manifest job, data: data URL }]
   A.prepareOverrides = function (jobs) {
     var O = A.OVR;
-    return Promise.all(jobs.map(function (j) {
+    // one at a time: the pictures are big, and decoding them all at once runs the browser out of memory
+    return jobs.reduce(function (done, j) { return done.then(function () { return one(j); }); }, Promise.resolve());
+    function one(j) {
       return load(j.data).then(function (img) {
         if (j.mode === 'texture') {
           var t = texture(img);
@@ -183,7 +185,7 @@
           });
         } else if (j.mode === 'icon') O['icon:' + j.name] = fit(c, whole, 128, 128, 0.88, null);
       }).catch(function (e) { throw new Error(j.file + ': ' + e.message); });
-    }));
+    }
   };
   var PROPS_FLAT = { rug: 1, doormat: 1, cat_bed: 1 };
 
@@ -191,12 +193,13 @@
   function frames(j, c) {
     var cs = cells(c, j.cols, j.rows), n = j.cols * j.rows;
     cs.slice(0, n).forEach(function (b, k) { if (!b) throw new Error(j.file + ': frame ' + (k + 1) + ' is empty'); });
-    var s = Math.min.apply(null, cs.slice(0, n).map(function (b) { return Math.min(j.fw * 0.94 / b.w, j.base * 0.96 / b.h); }));
+    var s = Math.min.apply(null, cs.slice(0, n).map(function (b) { return Math.min(j.fw * 0.94 / b.w, j.base * 0.96 / b.h); })) * (j.size || 1);
     cs.slice(0, n).forEach(function (b, k) {
       var f = place(c, b, j.fw, j.fh, s, j.base), key;
-      if (j.sheet === 'animals') key = 'animals:' + j.row + ':' + k;
+      if (j.sheet === 'animals' || j.sheet === 'animals2') key = j.sheet + ':' + j.row + ':' + k;
       else key = j.sheet + ':' + j.frames[k];
       A.OVR[key] = f;
     });
+    if (j.icon) A.OVR['icon:' + j.icon] = fit(c, cs[0], 128, 128, 0.9, null);
   }
 })();

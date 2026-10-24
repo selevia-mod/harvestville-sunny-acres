@@ -2435,8 +2435,18 @@
       else if (row === 3) window.ART.horse(g, pose);
       else window.ART.cat(g, pose);
     }, function (pose, row) { return 'animals:' + row + ':' + pose; });
+    // the farmer girl: her own pictures, or the farmer boy recoloured
+    var playerGirl = frameSheet(3, 5, 256, 384, 1024, 2048, function (g, col, row) {
+      g.filter = window.ART.girlFilter;
+      g.drawImage(player, 8 + col * 272, 8 + row * 400, 256, 384, 0, 0, 256, 384);
+    }, function (col, row) { return 'player_girl:' + (row * 3 + col); });
+    // more animals, 4 poses a row: pig, carabao
+    var animals2 = frameSheet(4, 2, 384, 320, 1600, 672, function (g, pose, row) {
+      if (row === 0) window.ART.pig(g, pose);
+      else window.ART.carabao(g, pose);
+    }, function (pose, row) { return 'animals2:' + row + ':' + pose; });
     // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
-    var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, crops: crops, items: items, animals: animals };
+    var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, player_girl: playerGirl, crops: crops, items: items, animals: animals, animals2: animals2 };
     var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
     Object.keys(extra.sheets).forEach(function (k) { sheets[k] = extra.sheets[k]; });
     var out = {};

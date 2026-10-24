@@ -201,7 +201,7 @@
     c.add(this.txt(W / 2, 122, 'The Flower Dance', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     c.add(this.txt(W / 2, 152, 'Tap when the ring reaches the circle!', 13, INK).setOrigin(0.5, 0));
     F.ensureTexture(this, 'people');
-    c.add(this.add.image(W / 2 - 70, 470, 'player', 0).setOrigin(0.5, 1).setScale(0.36));
+    c.add(this.add.image(W / 2 - 70, 470, F.playerKey(this), 0).setOrigin(0.5, 1).setScale(0.36));
     c.add(this.add.image(W / 2 + 70, 470, 'people', C.VILLAGER_ORDER.indexOf(partner) * 9).setOrigin(0.5, 1).setScale(0.72));
     var CX = W / 2, CY = 300, R0 = 40;
     var target = this.add.image(CX, CY, this.bake('ui-dance-target', 92, 92, function (g) {

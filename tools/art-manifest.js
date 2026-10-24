@@ -201,6 +201,17 @@ add({
     'facing away from the camera with both arms raised high. Bottom row: facing away with arms swung down in front, facing left with arms raised up and back, ' +
     `facing left with arms swung forward and down. ${CUTOUT}`,
 });
+const GIRL = 'a cheerful young farmer girl with a pink baseball cap, brown hair in two short pigtails, a pink shirt, lilac overalls and pink boots, chibi proportions with a big head';
+add({
+  id: 'char_girl_walk', group: 'Characters', file: 'characters/girl_walk.png', gen: '1024x1536', final: '9 frames of 256x384',
+  mode: 'frames', sheet: 'player_girl', cols: 3, rows: 3, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8], fw: 256, fh: 384, base: 372, targets: ['player_girl:walk'],
+  prompt: `${STYLE} A walking sprite sheet of ${GIRL}. ${GRID(3, 3)} ${CHAR_GRID} ${WALK} ${CUTOUT}`,
+});
+add({
+  id: 'char_girl_tools', group: 'Characters', file: 'characters/girl_tools.png', gen: '1536x1024', final: '6 frames of 256x384',
+  mode: 'frames', sheet: 'player_girl', cols: 3, rows: 2, frames: [9, 10, 11, 12, 13, 14], fw: 256, fh: 384, base: 372, targets: ['player_girl:tools'],
+  prompt: `${STYLE} A tool-use sprite sheet of ${GIRL}, with EMPTY hands, in the same six poses as the farmer boy's tool sheet. ${GRID(3, 2)} ${CHAR_GRID} ${CUTOUT}`,
+});
 const VILLAGERS = {
   lily: 'Lily, a sweet young woman with long ginger-orange hair, a yellow flower in her hair, a pink dress over a cream blouse and brown shoes',
   hollis: 'Mayor Hollis, a kind old man, bald with white hair at the sides, a white mustache, round glasses, a purple coat over a white shirt and grey trousers',
@@ -221,18 +232,21 @@ ORDER.forEach((v, i) => {
 });
 
 // ---------- 7. animals (4 poses each, all facing left) ----------
+// [name, sheet, row, description, size in the frame (1 = fills it), icon cut from the first pose]
 const ANIMALS = [
-  ['chicken', 0, 'a plump white hen with a red comb'],
-  ['cow', 1, 'a friendly black and white dairy cow with a golden bell'],
-  ['dog', 2, 'a cute tan puppy dog with a red collar'],
-  ['horse', 3, 'a chestnut brown horse with a dark mane and a red saddle'],
-  ['cat', 4, 'a cute grey tabby cat with green eyes'],
+  ['chicken', 'animals', 0, 'a plump white hen with a red comb', 0.5],
+  ['cow', 'animals', 1, 'a friendly black and white dairy cow with a golden bell', 0.98],
+  ['dog', 'animals', 2, 'a cute tan puppy dog with a red collar', 0.62],
+  ['horse', 'animals', 3, 'a chestnut brown horse with a dark mane and a red saddle', 0.8],
+  ['cat', 'animals', 4, 'a cute grey tabby cat with green eyes', 0.5],
+  ['pig', 'animals2', 0, 'a cute round pink pig with a curly tail', 0.72, 'pig'],
+  ['carabao', 'animals2', 1, 'a gentle dark grey carabao (water buffalo) with big curved horns', 1, 'carabao'],
 ];
-ANIMALS.forEach(([name, row, desc]) => {
+ANIMALS.forEach(([name, sheet, row, desc, size, icon]) => {
   const third = name === 'dog' || name === 'cat' ? 'sitting' : name === 'horse' ? 'standing still' : 'eating, head down to the ground';
   add({
     id: `animal_${name}`, group: 'Animals', file: `animals/${name}.png`, gen: '1024x1024', final: '4 frames of 384x320',
-    mode: 'frames', sheet: 'animals', cols: 2, rows: 2, row: row, fw: 384, fh: 320, base: 300, targets: ['animals:' + name],
+    mode: 'frames', sheet: sheet, cols: 2, rows: 2, row: row, fw: 384, fh: 320, base: 300, size: size, icon: icon, targets: [sheet + ':' + name],
     prompt: `${STYLE} A sprite sheet of ${desc}, side view facing LEFT in every cell. ${GRID(2, 2)} ${CHAR_GRID} ` +
       `Top-left: walking, legs apart. Top-right: walking, the other step. Bottom-left: ${third}. Bottom-right: lying down asleep with eyes closed. ${CUTOUT}`,
   });
@@ -252,13 +266,13 @@ const CROPS = {
 const MOUND = 'Growing out of a small mound of tilled brown soil at the bottom center of the cell.';
 add({
   id: 'crop_seedling', group: 'Crops', file: 'crops/seedling.png', gen: '1536x1024', final: '2 frames of 256x256', mode: 'frames', sheet: 'crops',
-  cols: 2, rows: 1, frames: [0, 1], fw: 256, fh: 256, base: 236, targets: ['crops:seedling'],
+  cols: 2, rows: 1, frames: [0, 1], fw: 256, fh: 256, base: 236, size: 0.62, targets: ['crops:seedling'],
   prompt: `${STYLE} ${GRID(2, 1)} Left: freshly sown seeds in a small mound of tilled soil. Right: a tiny green two-leaf sprout in a small mound of tilled soil. ${CUTOUT}`,
 });
 Object.keys(CROPS).forEach((crop, i) => {
   add({
     id: `crop_${crop}`, group: 'Crops', file: `crops/${crop}.png`, gen: '1536x1024', final: '2 frames of 256x256', mode: 'frames', sheet: 'crops',
-    cols: 2, rows: 1, frames: [2 + i * 2, 3 + i * 2], fw: 256, fh: 256, base: 236, targets: ['crops:' + crop],
+    cols: 2, rows: 1, frames: [2 + i * 2, 3 + i * 2], fw: 256, fh: 256, base: 236, size: 0.92, targets: ['crops:' + crop],
     prompt: `${STYLE} ${GRID(2, 1)} Left: ${CROPS[crop][0]}, still growing. Right: ${CROPS[crop][1]}. ${MOUND} ${CUTOUT}`,
   });
 });
@@ -302,7 +316,7 @@ function iconOrder() {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', '00-config.js'), 'utf8'), ctx);
   return ctx.window.Farm.Config.ICON_ORDER;
 }
-const ORDER_ICONS = iconOrder();
+const ORDER_ICONS = iconOrder().slice(0, 110); // the 7 icon pictures; later icons are cut from other art
 ORDER_ICONS.forEach((n) => { if (!ICONS[n]) throw new Error('no icon description for ' + n); });
 for (let i = 0; i < ORDER_ICONS.length; i += 16) {
   const names = ORDER_ICONS.slice(i, i + 16), n = Math.floor(i / 16) + 1;

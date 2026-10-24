@@ -175,7 +175,8 @@
     }
     if (def.kind === 'seed') return this.seedAction(t, def);
     if (def.kind === 'feed') {
-      return { label: 'Feed', icon: def.icon, disabled: true, why: 'Face a ' + C.ANIMALS[def.animal].name.toLowerCase() + ' in the pen and tap to feed it.' };
+      var eaters = C.ANIMAL_KEYS.filter(function (k) { return C.ANIMALS[k].feed === held.id; }).map(function (k) { return C.ANIMALS[k].name.toLowerCase(); });
+      return { label: 'Feed', icon: def.icon, disabled: true, why: 'Face a ' + eaters.join(' or ') + ' in the pen and tap to feed it.' };
     }
     if (def.kind === 'feather') return { label: 'Propose', icon: def.icon, disabled: true, why: 'Show the Blue Feather to the one you love (8+ hearts, and you need the bigger house).' };
     if (def.kind === 'potion') return { label: 'Potion', icon: def.icon, disabled: true, why: 'Give it to a happy cow (2+ hearts) in the pen.' };
@@ -527,10 +528,10 @@
   M.animalAction = function (m) {
     var self = this, s = this.state, a = s.animals[m.i], def = C.ANIMALS[a.kind];
     var held = L.held(s), hdef = held ? C.ITEMS[held.id] : null;
-    if (a.ready) return { label: a.kind === 'cow' ? 'Milk' : 'Collect', icon: C.ITEMS[a.ready === 2 ? def.large : def.product].icon, run: function () { self.collectFrom(m); } };
+    if (a.ready) return { label: def.milk ? 'Milk' : 'Collect', icon: C.ITEMS[a.ready === 2 ? def.large : def.product].icon, run: function () { self.collectFrom(m); } };
     if (hdef && hdef.kind === 'feed' && !a.fed) {
       if (a.young) return { label: 'Feed', icon: hdef.icon, disabled: true, why: a.name + ' is still little and drinks from mum. Grown in ' + a.young + (a.young > 1 ? ' days.' : ' day.') };
-      if (hdef.animal === a.kind) return { label: 'Feed', icon: hdef.icon, run: function () { self.feedAnimal(m); } };
+      if (def.feed === held.id) return { label: 'Feed', icon: hdef.icon, run: function () { self.feedAnimal(m); } };
       return { label: 'Feed', icon: hdef.icon, disabled: true, why: def.name + 's eat ' + C.ITEMS[def.feed].name + ', not ' + hdef.name + '.' };
     }
     if (held && held.id === 'brush' && !a.brushed) return { label: 'Brush', icon: C.ICON.brush, run: function () { self.brushAnimal(m); } };

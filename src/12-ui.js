@@ -71,8 +71,11 @@
       var boot = document.getElementById('boot');
       if (boot) boot.parentNode.removeChild(boot);
       if (F.session.isNew) {
-        this.dialog('WELCOME TO SUNNY ACRES!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
-          'then hoe it, plant your turnip seeds and water them every day.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: this.help.bind(this) }, { label: "Let's go!" }]);
+        var self = this;
+        this.chooseLook(function () {
+          self.dialog('WELCOME TO SUNNY ACRES!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
+            'then hoe it, plant your turnip seeds and water them every day.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
+        });
       }
     }
 

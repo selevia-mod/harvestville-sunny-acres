@@ -52,7 +52,7 @@
       this.physics.world.TILE_BIAS = 128;
       this.physics.world.OVERLAP_BIAS = 48;
       this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
-      this.player = this.physics.add.sprite(0, 0, 'player', 0).setDepth(DEPTH.actor);
+      this.player = this.physics.add.sprite(0, 0, F.playerKey(this), 0).setDepth(DEPTH.actor);
       this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
       this.player.setCollideWorldBounds(true);
       this.physics.add.collider(this.player, this.collideLayers);
@@ -406,7 +406,7 @@
       }
       if (vx || vy) {
         this.dir = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? 'left' : 'right') : (vy < 0 ? 'up' : 'down');
-        this.player.anims.play(this.dir === 'left' || this.dir === 'right' ? 'walk-side' : 'walk-' + this.dir, true);
+        this.player.anims.play(F.walkAnim(this.dir === 'left' || this.dir === 'right' ? 'side' : this.dir), true);
         this.player.setFlipX(this.dir === 'right');
       } else if (this.player.anims.isPlaying) {
         this.idle();

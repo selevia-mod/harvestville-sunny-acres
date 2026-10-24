@@ -12,6 +12,14 @@
 
   var M = {};
 
+  // the boy or the girl was just picked: swap the farmer's picture
+  M.applyLook = function () {
+    var key = F.playerKey(this);
+    this.player.setTexture(key, 0);
+    this.idle();
+    if (this.rider) this.rider.setTexture(key, 6);
+  };
+
   M.setupExtras = function () {
     var s = this.state, self = this;
     this.horse = null;
@@ -25,7 +33,7 @@
         : this.mapKey === 'farm' ? this.points.horse : null;
       if (at) {
         this.horse = { x: at.x, y: at.y, sprite: this.add.image(at.x, at.y, 'animals', C.HORSE.frame0 + 2).setOrigin(0.5, 300 / 320).setScale(1.4) };
-        this.rider = this.add.image(0, 0, 'player', 6).setVisible(false);
+        this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
       }
     }
     // the cat lives in the farmhouse

@@ -11,10 +11,10 @@
 
   // Tool pose frames in the player sheet (rows 3-4) and where the hands are in the 256x384 frame.
   var USE = {
-    down: { raise: 9, strike: 10, hand: { raise: [128, 120], strike: [128, 268] }, angle: { raise: -150, strike: 100 } },
-    up: { raise: 11, strike: 12, hand: { raise: [128, 116], strike: [128, 236] }, angle: { raise: -40, strike: -80 } },
-    left: { raise: 13, strike: 14, hand: { raise: [143, 118], strike: [60, 238] }, angle: { raise: 20, strike: -100 } },
-    right: { raise: 13, strike: 14, hand: { raise: [113, 118], strike: [196, 238] }, angle: { raise: 160, strike: 280 }, flip: true },
+    down: { raise: 9, strike: 10, hand: { raise: [128, 66], strike: [128, 300] }, angle: { raise: -45, strike: 135 } },
+    up: { raise: 11, strike: 12, hand: { raise: [128, 64], strike: [128, 236] }, angle: { raise: -45, strike: -80 } },
+    left: { raise: 13, strike: 14, hand: { raise: [206, 78], strike: [46, 268] }, angle: { raise: 0, strike: 180 } },
+    right: { raise: 13, strike: 14, hand: { raise: [50, 78], strike: [210, 268] }, angle: { raise: 0, strike: 180 }, flip: true },
   };
 
   var M = {};

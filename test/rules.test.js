@@ -474,7 +474,7 @@ test('everything new survives a save, and the save stays under 16 KB in the wors
   s.opts = { music: 0, sfx: 1 };
   s.map = 'town';
   s.animals = [];
-  C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < 8; i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 2, brushed: 1, young: 3, preg: 5 }); });
+  C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < L.capacity(s, k); i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 2, brushed: 1, young: 3, preg: 5 }); });
   for (let i = 0; i < 24 * 38; i++) if (!s.debris[i]) s.soil[i] = { w: 1, c: 'pumpkin', d: 9 };
   s.inv = s.inv.map(() => ({ id: 'seed_strawberry', n: 99 }));
   const back = roundTrip(s);
