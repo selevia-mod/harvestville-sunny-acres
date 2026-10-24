@@ -124,25 +124,51 @@
 
   // A seamless 256 texture: the picture in the middle, blended toward a half-offset copy at the edges
   // (whose borders are the picture's own interior, so neighbouring tiles join without a seam).
-  function texture(img) {
+  // Pictures that already repeat cleanly along an axis are left alone on it; `only` = 'x' blends just the left
+  // and right edges (for a wall strip that is not meant to repeat up and down).
+  function texture(img, only) {
     var c = canvas(S, S), g = c.getContext('2d'), side = Math.min(img.width, img.height);
     g.imageSmoothingQuality = 'high';
     g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
-    var a = g.getImageData(0, 0, S, S), o = canvas(S, S), og = o.getContext('2d');
-    og.drawImage(c, -S / 2, -S / 2);
-    og.drawImage(c, S / 2, -S / 2);
-    og.drawImage(c, -S / 2, S / 2);
-    og.drawImage(c, S / 2, S / 2);
+    var a = g.getImageData(0, 0, S, S), d = a.data;
+    // edge mismatch compared with how much neighbouring rows / columns differ anyway
+    var diff = function (p, q) { return Math.abs(d[p] - d[q]) + Math.abs(d[p + 1] - d[q + 1]) + Math.abs(d[p + 2] - d[q + 2]); };
+    var seam = function (horizontal) {
+      var edge = 0, inner = 0;
+      for (var k = 0; k < S; k++) {
+        var at = function (u, v) { return ((horizontal ? k : u) * S + (horizontal ? u : k)) * 4; };
+        edge += diff(at(0, 0), at(S - 1, 0));
+        inner += diff(at(S / 2, 0), at(S / 2 + 1, 0));
+      }
+      return edge > inner * 2.5;
+    };
+    var bx = seam(true), by = only !== 'x' && seam(false);
+    if (!bx && !by) return c;
+    var o = canvas(S, S), og = o.getContext('2d');
+    var dx = bx ? S / 2 : 0, dy = by ? S / 2 : 0;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { og.drawImage(c, q[0] * dx, q[1] * dy); });
     var b = og.getImageData(0, 0, S, S), BAND = 72;
     for (var y = 0; y < S; y++) for (var x = 0; x < S; x++) {
-      var e = Math.min(x, y, S - 1 - x, S - 1 - y), t = Math.min(1, e / BAND);
+      var e = Math.min(bx ? Math.min(x, S - 1 - x) : S, by ? Math.min(y, S - 1 - y) : S), t = Math.min(1, e / BAND);
       t = t * t * (3 - 2 * t);
       var i = (y * S + x) * 4;
-      for (var k = 0; k < 3; k++) a.data[i + k] = a.data[i + k] * t + b.data[i + k] * (1 - t);
-      a.data[i + 3] = 255;
+      for (var k = 0; k < 3; k++) d[i + k] = d[i + k] * t + b.data[i + k] * (1 - t);
+      d[i + 3] = 255;
     }
     g.putImageData(a, 0, 0);
     return c;
+  }
+
+  // Shifts a texture's average colour to another's, so two variants laid side by side don't make a checkerboard.
+  function matchColour(c, ref) {
+    var mean = function (cv) {
+      var d = cv.getContext('2d').getImageData(0, 0, S, S).data, m = [0, 0, 0];
+      for (var i = 0; i < d.length; i += 4) for (var k = 0; k < 3; k++) m[k] += d[i + k];
+      return m.map(function (v) { return v / (S * S); });
+    };
+    var want = mean(ref), have = mean(c), g = c.getContext('2d'), a = g.getImageData(0, 0, S, S);
+    for (var i = 0; i < a.data.length; i += 4) for (var k = 0; k < 3; k++) a.data[i + k] = a.data[i + k] * want[k] / Math.max(1, have[k]);
+    g.putImageData(a, 0, 0);
   }
 
   // how much of the tile each one-tile object fills
@@ -156,7 +182,8 @@
     function one(j) {
       return load(j.data).then(function (img) {
         if (j.mode === 'texture') {
-          var t = texture(img);
+          var t = texture(img, j.wrap);
+          if (j.match && O[j.match]) matchColour(t, O[j.match]);
           j.targets.forEach(function (k) { O[k] = t; });
           return;
         }

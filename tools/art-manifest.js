@@ -68,6 +68,8 @@ Object.keys(GROUND2).forEach((k) => {
   add({
     id: `ground_${k}`, group: 'Ground (other)', file: `ground/${k}.png`, gen: '1024x1024', final: '256x256 tile', mode: 'texture',
     targets: [GROUND2[k][0]], prompt: `${TEXTURE} ${GROUND2[k][1]}.`,
+    wrap: k === 'wall_low' ? 'x' : undefined, // one row high: only its sides join up
+    match: { cave2: 'indoor:cave', floor2: 'indoor:floor' }[k], // the same average colour as its pair
   });
 });
 
