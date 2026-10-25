@@ -9,13 +9,26 @@
   var DEPTH = F.WorldScene.DEPTH;
   var NIGHT_DEPTH = 30, GLOW_DEPTH = 31;
 
-  // Tool pose frames in the player sheet (rows 3-4), where the hands are in the 256x384 frame, and which way
-  // the tool's head points (screen degrees: 0 right, 90 down, -90 up) when raised and when it lands.
+  // Tool pose frames in the player sheet (rows 3-4), where the hands are in the 256x384 frame, which way the
+  // tool's head points (screen degrees: 0 right, 90 down, -90 up), and which way its working side should face
+  // (an x, y vector). Raised facing down or up, the farmer holds the handle across both fists over his head.
   var USE = {
-    down: { raise: 9, strike: 10, hand: { raise: [128, 66], strike: [128, 290] }, aim: { raise: -90, strike: 90, pour: 115 } },
-    up: { raise: 11, strike: 12, hand: { raise: [128, 64], strike: [128, 120], pour: [150, 215] }, aim: { raise: -90, strike: -90, pour: -100 } },
-    left: { raise: 13, strike: 14, hand: { raise: [206, 78], strike: [46, 268] }, aim: { raise: -100, strike: 150, pour: 160 }, side: -1 },
-    right: { raise: 13, strike: 14, hand: { raise: [50, 78], strike: [210, 268] }, aim: { raise: -80, strike: 30, pour: 20 }, side: 1, flip: true },
+    down: {
+      raise: 9, strike: 10, hand: { raise: [52, 70], strike: [128, 290] },
+      aim: { raise: 0, strike: 90, pour: 115 }, face: { raise: [0, -1], strike: [0, 1], pour: [0, 1] },
+    },
+    up: {
+      raise: 11, strike: 12, hand: { raise: [52, 58], strike: [128, 120], pour: [150, 215] },
+      aim: { raise: 0, strike: -90, pour: -100 }, face: { raise: [0, -1], strike: [0, -1], pour: [0, -1] }, behind: true,
+    },
+    left: {
+      raise: 13, strike: 14, hand: { raise: [183, 55], strike: [46, 268] },
+      aim: { raise: -100, strike: 150, pour: 160 }, face: { raise: [-1, -0.3], strike: [-1, 0.5], pour: [-1, 0.5] },
+    },
+    right: {
+      raise: 13, strike: 14, hand: { raise: [73, 55], strike: [210, 268] },
+      aim: { raise: -80, strike: 30, pour: 20 }, face: { raise: [1, -0.3], strike: [1, 0.5], pour: [1, 0.5] }, flip: true,
+    },
   };
   // How each tool icon is drawn: the grip (handle end, as a share of the 128x128 icon), which way its head
   // points from there, and which way its working side faces (the axe's blade, the hammer's face, the hoe's
@@ -33,27 +46,24 @@
     var name = (C.ICON_ORDER[frame] || '').replace(/_\d$/, '');
     return GRIP[name] || null;
   };
-  // Places a held tool so its grip is at (x, y) and its head points along `aim`. The icon is mirrored (around
-  // the grip) so its working side faces `side` (-1 left, 1 right) when the farmer faces sideways, and so it
-  // stays closer to upright otherwise.
+  // Places a held tool so its grip is at (x, y), its head points along `aim`, and its working side faces as
+  // close to `face` as it can (the icon is mirrored around the grip when that does better).
   var rotate = function (v, deg) {
     var a = Phaser.Math.DegToRad(deg), c = Math.cos(a), s = Math.sin(a);
     return [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
   };
-  var hold = function (img, g, x, y, aim, side) {
+  var hold = function (img, g, x, y, aim, face) {
     img.setPosition(x, y);
     if (!g) {
-      img.setOrigin(0.5, 0.75).setScale(TOOL_SCALE * 0.8).setAngle(Math.max(-30, Math.min(30, aim > 90 || aim < -90 ? -20 : 20)));
+      img.setOrigin(0.5, 0.75).setScale(TOOL_SCALE * 0.8).setAngle(face[0] < 0 ? -20 : 20);
       return;
     }
     var pose = function (mirror) {
       var dir = mirror ? 180 - g.dir : g.dir, angle = Phaser.Math.Angle.WrapDegrees(aim - dir);
       var edge = rotate(mirror ? [-g.edge[0], g.edge[1]] : g.edge, angle);
-      return { mirror: mirror, angle: angle, edgeX: edge[0] };
+      return { mirror: mirror, angle: angle, score: edge[0] * face[0] + edge[1] * face[1] };
     };
-    var a = pose(false), b = pose(true), pick;
-    if (side) pick = a.edgeX * side >= b.edgeX * side ? a : b;
-    else pick = Math.abs(a.angle) <= Math.abs(b.angle) ? a : b;
+    var a = pose(false), b = pose(true), pick = a.score >= b.score ? a : b;
     img.setOrigin(g.x, g.y).setScale(pick.mirror ? -TOOL_SCALE : TOOL_SCALE, TOOL_SCALE).setFlipX(false).setAngle(pick.angle);
   };
 
@@ -173,21 +183,21 @@
     this.acting = kind === 'pour' ? (g === GRIP.can ? 620 : 420) : 320; // watering holds the can until the stream ends
     p.anims.stop();
     var tool = this.add.image(0, 0, 'items', frame);
-    var place = function (pose, aim, hand) {
+    var place = function (pose, use) {
       p.setFrame(u[pose]).setFlipX(flip);
-      var h = u.hand[hand || pose];
-      hold(tool, g, p.x - 128 + h[0], p.y - 192 + h[1], aim, u.side || 0);
-      tool.setDepth(self.dir === 'up' && pose === 'strike' ? p.depth - 0.001 : p.depth + 0.001);
+      var h = u.hand[use] || u.hand[pose];
+      hold(tool, g, p.x - 128 + h[0], p.y - 192 + h[1], u.aim[use], u.face[use]);
+      tool.setDepth(u.behind && use !== 'pour' ? p.depth - 0.001 : p.depth + 0.001);
     };
     if (kind === 'pour') {
-      place('strike', u.aim.pour, u.hand.pour ? 'pour' : null);
+      place('strike', 'pour');
       var tip = u.aim.pour > -90 && u.aim.pour < 90 ? 25 : -25; // tip the spout further down, then back
       this.tweens.add({ targets: tool, angle: tool.angle + tip, duration: 220, yoyo: true, hold: 60 });
     } else {
-      place('raise', u.aim.raise);
+      place('raise', 'raise');
       var from = { x: tool.x, y: tool.y, angle: tool.angle };
       this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
-        place('strike', u.aim.strike);
+        place('strike', 'strike');
         if (self.swoosh) self.swoosh(tool, from);
       });
     }
