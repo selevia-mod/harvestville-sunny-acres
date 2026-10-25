@@ -9,12 +9,14 @@ const fsys = require('fs');
 const pth = require('path');
 
 // the home's furniture and styles come from the game's data
-const HOME = (() => {
+const GAME = (() => {
   const ctx = { window: {} };
   vm.createContext(ctx);
-  ['00-config.js', '00-home.js'].forEach((f) => vm.runInContext(fsys.readFileSync(pth.join(__dirname, '..', 'src', f), 'utf8'), ctx));
-  return ctx.window.Farm.Config.HOME;
+  const dir = pth.join(__dirname, '..', 'src');
+  fsys.readdirSync(dir).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fsys.readFileSync(pth.join(dir, f), 'utf8'), ctx));
+  return ctx.window.Farm.Config;
 })();
+const HOME = GAME.HOME;
 
 // ---------- the shared style, put in front of every prompt ----------
 const STYLE = 'Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: ' +
@@ -67,6 +69,7 @@ const GROUND2 = {
   water: ['tiles:water', 'clear blue pond water with gentle ripples and soft light sparkles'],
   dock: ['tiles:dock', 'wooden dock planks running left to right, warm honey wood with small nail heads'],
   plaza: ['tiles:plaza', 'a town plaza of light grey-beige square paving stones'],
+  sand: ['tiles:sand', 'soft warm golden beach sand with a few tiny shells and pebbles'],
   floor: ['indoor:floor', 'warm wooden floorboards for a cozy cottage interior'],
   floor2: ['indoor:floor2', 'warm wooden floorboards for a cozy cottage interior, slightly different plank pattern'],
   wall: ['indoor:wall', 'a cottage interior wall seen from the front: cream wallpaper with a small flower pattern'],
@@ -196,17 +199,41 @@ const PROP_DESC = {
   music_box: 'a pink and gold music box with a little winding key',
   big_plant: 'a tall leafy potted plant in a terracotta pot',
   cat_bed: 'a round woven cat basket with a pink cushion, lying flat on the floor',
+  // the bigger town
+  bakery: "a cozy town bakery with cream walls, a chocolate-brown roof, pink and white striped awnings over the windows, loaves of bread on display and a little chimney",
+  florist: 'a small flower shop with mint green walls, a pink roof, an arched door and pots of colourful flowers along the front',
+  post: 'a small post office of warm brick with a blue roof, a blue door and a red post box beside the door',
+  library: 'a town library of pale stone with a dark green roof, white columns either side of a big wooden double door, and tall warm windows',
+  school: 'a little red country schoolhouse with a grey roof, a small white bell tower with a golden bell on top, and a white double door',
+  chapel: 'a small white stone village chapel with a slate blue roof, a pointed steeple with a golden bell, a round stained-glass window and an arched wooden double door',
+  vet: "a country veterinarian's clinic with white walls, a green roof with a white paw print, and a green door",
+  shack: 'a little seaside fish shack made of light wooden planks with a blue roof, a wide serving hatch and a fish sign by the door',
+  townhouse_1: 'a cozy small town house with pale yellow walls, a red roof, a chimney and flowers along the front',
+  townhouse_2: 'a cozy small town house with pale blue walls, a blue roof, an arched door and flowers along the front',
+  townhouse_3: 'a cozy small town house with lavender walls, a purple roof, a chimney and flowers along the front',
+  townhouse_4: 'a cozy small town house with peach walls, a green roof, an arched door and flowers along the front',
+  wagon: "a travelling merchant's wooden market wagon with big wheels, a red and gold striped canopy, and colourful goods on its counter",
+  gazebo: 'a white wooden park gazebo with a red pointed roof, open sides and a round wooden floor',
+  playground: 'a small playground with a blue swing set with two red seats and a yellow and orange slide',
+  fruit_stall: 'a small market stall with a green and white striped awning and baskets of colourful fruit',
+  cloth_stall: 'a small market stall with a blue and white striped awning and folded colourful fabrics',
+  statue: 'a stone statue of a farmer holding up a sheaf of golden wheat, on a square stone pedestal',
+  boat: 'a small white and wooden rowboat with two benches, floating, seen from above at an angle',
+  umbrella: 'a pink and white beach umbrella over a blue striped beach towel',
+  easel: "a painter's wooden easel holding a small landscape painting",
 };
 Object.keys(PROPS).forEach((name) => {
   const p = PROPS[name];
   if (!PROP_DESC[name]) throw new Error('no prop description for ' + name);
   const gen = p.w > p.h * 1.2 ? '1536x1024' : p.h > p.w * 1.2 ? '1024x1536' : '1024x1024';
   const town = ['mayor', 'inn', 'forge', 'woodshop', 'clinic', 'cottage', 'cabin', 'mine_entrance', 'stable'].includes(name);
+  const town2 = !!p.door && !town; // the newer town buildings: say where the door goes
+  const decor = ['wagon', 'gazebo', 'playground', 'fruit_stall', 'cloth_stall', 'statue', 'boat', 'umbrella', 'easel'].includes(name);
   const home = /^house_\d+$/.test(name);
   add({
-    id: `prop_${name}`, group: home ? 'House levels' : town ? 'Town buildings' : 'Props and furniture', file: `props/${name}.png`, gen: gen,
+    id: `prop_${name}`, group: home ? 'House levels' : town || town2 ? 'Town buildings' : decor ? 'Town decorations' : 'Props and furniture', file: `props/${name}.png`, gen: gen,
     final: `${p.w * 128}x${p.h * 128} (${p.w}x${p.h} tiles, stored at half size)`, mode: 'prop', w: p.w, h: p.h, targets: [`prop:${name}`],
-    prompt: `${STYLE} ${PROP_DESC[name]}. ` + (home ? 'The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. ' : '') +
+    prompt: `${STYLE} ${PROP_DESC[name]}. ` + (town2 ? 'Seen from the front, with its front door in the middle of the front wall at the bottom. ' : '') + (home ? 'The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. ' : '') +
       (p.flat ? 'Lying flat on the ground. ' : 'Its base along the bottom of the picture. ') +
       `Its shape is about ${p.w} wide by ${p.h} tall. ${CUTOUT}`,
   });
@@ -249,11 +276,30 @@ const VILLAGERS = {
   rosa: 'Rosa, a plump friendly middle-aged innkeeper with grey hair in a bun, a red dress and a white apron',
   leo: 'Leo, a relaxed young fisherman with short black hair, an olive bucket hat, a blue vest over a white shirt and khaki trousers',
   ivy: 'Ivy, a calm young herbalist with long dark green hair with a leaf clip, a lilac dress and purple shoes',
+  pearl: 'Grandma Pearl, a sweet little old lady with silver hair in a bun, round glasses and a lavender dress over a cream blouse',
+  ewan: 'Grandpa Ewan, a cheerful old retired fisherman with a white beard, a navy flat cap, a navy waistcoat, brown trousers and a wooden walking stick',
+  pip: 'Pip, an energetic 8-year-old boy with messy brown hair, a blue cap, a red T-shirt, blue shorts and white sneakers (child size, a head shorter than the adults)',
+  daisy: 'Daisy, a sweet 6-year-old girl with long blond hair with a white flower, a yellow dress and pink shoes (child size, a head shorter than the adults)',
+  clara: 'Clara, a kind young schoolteacher with brown hair in a bun, round glasses and a teal dress with a white collar',
+  tomas: 'Father Tomas, a gentle middle-aged village priest with short grey hair, a black cassock with a white collar and black shoes',
+  hana: "Hana, a cheerful young baker with black hair in a bun, a white chef's hat, a pink dress and a white apron",
+  marco: 'Marco, a charming young travelling merchant with black hair, a neat mustache, a yellow bandana, a red waistcoat over a white shirt and dark trousers',
+  sora: 'Sora, a dreamy young male artist with dark blue hair, a red beret, an orange painter\'s coat with paint spots and grey trousers',
+  hale: "Dr. Hale, a warm middle-aged woman doctor with grey hair in a bun, glasses, a white doctor's coat, a stethoscope and grey trousers",
+  nina: "Nina, a bubbly young nurse with long auburn hair, a white nurse's cap with a red cross and a light blue uniform dress",
+  owen: 'Owen, a friendly young veterinarian with ginger hair, a teal shirt under a brown vest and blue jeans',
+  poppy: 'Poppy, a sunny young florist with long pink hair with a red flower, a green dress and a cream apron',
+  finn: 'Finn, an eager young mail carrier with blond hair, a blue postman\'s cap, a blue uniform jacket, a brown mail satchel and dark trousers',
+  elliot: 'Elliot, a quiet young librarian with neat dark brown hair, glasses, a brown sweater vest over a white shirt and grey trousers',
+  jules: 'Jules, a cool young woman musician with short purple hair, a red beanie, a black vest over a yellow shirt and black trousers',
 };
-const ORDER = ['lily', 'hollis', 'bram', 'mira', 'rosa', 'leo', 'ivy'];
+const SHOPPER_LOOKS = {};
+GAME.SHOPPERS.forEach((x) => { SHOPPER_LOOKS[x.key] = x.look; });
+Object.assign(VILLAGERS, SHOPPER_LOOKS);
+const ORDER = GAME.VILLAGER_ORDER.concat(GAME.SHOPPERS.map((x) => x.key));
 ORDER.forEach((v, i) => {
   add({
-    id: `char_${v}`, group: 'Characters', file: `characters/${v}.png`, gen: '1024x1536', final: '9 frames of 128x192 (stored at half size)',
+    id: `char_${v}`, group: SHOPPER_LOOKS[v] ? 'Visitors' : i >= 7 ? 'New villagers' : 'Characters', file: `characters/${v}.png`, gen: '1024x1536', final: '9 frames of 128x192 (stored at half size)',
     mode: 'frames', sheet: 'people', cols: 3, rows: 3, frames: Array.from({ length: 9 }, (_, k) => i * 9 + k), fw: 128, fh: 192, base: 186, sheetCols: 14,
     targets: ['people:' + v],
     prompt: `${STYLE} A walking sprite sheet of ${VILLAGERS[v]}, chibi proportions with a big head, same scale as a small farmer boy. ${GRID(3, 3)} ${CHAR_GRID} ${WALK} ${CUTOUT}`,
@@ -357,6 +403,14 @@ for (let i = 0; i < ORDER_ICONS.length; i += 16) {
       `Row by row, left to right: ${names.map((x, k) => (k + 1) + ') ' + ICONS[x]).join('; ')}.` + (rows < 4 ? ' Leave the remaining cells empty.' : '') + ` ${CUTOUT}`,
   });
 }
+
+add({
+  id: 'icons_town', group: 'Item icons', file: 'icons/icons_town.png', gen: '1024x1024', final: '5 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['bread', 'cookie', 'cake', 'bouquet', 'treat'], targets: ['bread', 'cookie', 'cake', 'bouquet', 'treat'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 5 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) a crusty golden loaf of bread; 2) two round butter cookies with chocolate chips; 3) a small round strawberry cream cake; ' +
+    '4) a bouquet of colourful flowers wrapped in pink paper; 5) a bone-shaped animal treat biscuit. Leave the remaining cells empty. ' + CUTOUT,
+});
 
 // ---------- 10. effects: bits that fly when tools land (4 pieces per picture, a 2 x 2 grid) ----------
 // The order is the effects sheet's rows (see makeArt in tools/art/draw.js).

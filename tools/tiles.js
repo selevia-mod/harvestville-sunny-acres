@@ -43,6 +43,7 @@ const TILES = layout('tiles', 7, 2048, {
   'bush', 'rock', 'stump', 'tallgrass', 'shipbox', 'sign',
   // field debris (cleared with tools), plus town ground
   'd_weed', 'd_branch', 'd_stone', 'd_stump', 'd_boulder', 'dock', 'plaza',
+  'sand', // the beach
 ]);
 
 const RANCH = layout('ranch', 3, 1024, {
@@ -89,6 +90,16 @@ const PROPS = {
   house_2: { w: 5, h: 5, foot: 0 }, house_3: { w: 5, h: 5, foot: 0 }, house_4: { w: 5, h: 5, foot: 0 },
   house_5: { w: 5, h: 5, foot: 0 }, house_6: { w: 5, h: 5, foot: 0 }, house_7: { w: 5, h: 5, foot: 0 },
   house_8: { w: 5, h: 5, foot: 0 }, house_9: { w: 5, h: 5, foot: 0 }, house_10: { w: 5, h: 5, foot: 0 },
+  // the bigger town: shops and homes (door = [first column, width] in the bottom row), park and beach things
+  bakery: { w: 5, h: 4, foot: 2, door: [2, 1] }, florist: { w: 4, h: 4, foot: 2, door: [1, 2] },
+  post: { w: 5, h: 4, foot: 2, door: [2, 1] }, library: { w: 6, h: 5, foot: 2, door: [2, 2] },
+  school: { w: 6, h: 4, foot: 2, door: [2, 2] }, chapel: { w: 4, h: 5, foot: 2, door: [1, 2] },
+  vet: { w: 5, h: 4, foot: 2, door: [2, 1] }, shack: { w: 4, h: 3, foot: 2, door: [1, 2] },
+  townhouse_1: { w: 4, h: 4, foot: 2, door: [1, 2] }, townhouse_2: { w: 4, h: 4, foot: 2, door: [1, 2] },
+  townhouse_3: { w: 4, h: 4, foot: 2, door: [1, 2] }, townhouse_4: { w: 4, h: 4, foot: 2, door: [1, 2] },
+  wagon: { w: 3, h: 3, foot: 2 }, gazebo: { w: 4, h: 4, foot: 2 }, playground: { w: 4, h: 3, foot: 1 },
+  fruit_stall: { w: 2, h: 2, foot: 1 }, cloth_stall: { w: 2, h: 2, foot: 1 }, statue: { w: 2, h: 3, foot: 1 },
+  boat: { w: 3, h: 2, foot: 0, flat: true }, umbrella: { w: 2, h: 2, foot: 1 }, easel: { w: 1, h: 2, foot: 1 },
 };
 
 function blockId(set, name, dx, dy) {

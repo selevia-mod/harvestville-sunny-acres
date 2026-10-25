@@ -438,7 +438,7 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   const at = await page.evaluate((k) => { const v = Farm.world.villagers.list.find((x) => x.key === k), p = Farm.world.points.stall_front; return Math.hypot(v.x - p.x, v.y - p.y); }, buyer);
   assert.ok(at < 256, 'they stood at the stall');
   const s = await state(page);
-  assert.strictEqual(s.shelves[0].buyer, buyer);
+  if (!buyer.startsWith('visitor_')) assert.strictEqual(s.shelves[0].buyer, buyer); // a visitor's sale goes down as a villager's
   assert.strictEqual(s.shelves[0].coins, 320);
   await page.waitForFunction(() => !Farm.world.villagers.list.some((v) => v.errand), null, SLOW); // they head off
   await teleport(page, 11, 15, 'up');
@@ -1158,6 +1158,74 @@ test('home: decorate, buy furniture, upgrade the house', async () => {
   // the bigger house on the farm
   await go(page, 'farm', 'house_door');
   assert.ok(await page.evaluate(() => !!Farm.world.houseImg));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Sends anyone standing near a tile on their way (hidden until their next walk), so a door can be used.
+const clearAround = (page, tx, ty) => page.evaluate(([tx, ty]) => {
+  const T = 256, vs = Farm.world.villagers;
+  vs.list.forEach((v) => { if (v.visible && Math.hypot(v.x - (tx + 0.5) * T, v.y - (ty + 0.5) * T) < 2.5 * T) { v.errand = null; vs.put(v, v.x, v.y, false); v.hideAtEnd = false; } });
+}, [tx, ty]);
+
+test('the bigger town: new villagers and visitors, the bakery, the chapel, the school, and an animal treat', async () => {
+  const save = await makeSave(`
+    s.time = 600; // 10 AM on a weekday
+    s.gold = 5000;
+    s.energy = 60;
+    L.addItem(s, 'treat', 1);
+  `);
+  const { page, problems, context } = await open(save);
+
+  // an animal treat for Clucky on the farm
+  await hold(page, 'treat');
+  await meetAnimal(page, 0, 5, 33);
+  assert.strictEqual(await actionLabel(page), 'Treat');
+  const love = (await state(page)).animals[0].love;
+  await tapAction(page);
+  let s = await state(page);
+  assert.strictEqual(s.animals[0].love, love + 12);
+  assert.strictEqual(count(s, 'treat'), 0);
+
+  // the town is bigger, with the new villagers out and visitors about
+  await go(page, 'town', 'from_farm');
+  const town = await page.evaluate(() => ({
+    w: Farm.world.map.width, h: Farm.world.map.height,
+    people: Farm.world.villagers.list.filter((v) => !v.shopper).length,
+    visitors: Farm.world.villagers.list.filter((v) => v.shopper && v.visible).length,
+  }));
+  assert.deepStrictEqual([town.w, town.h, town.people], [54, 52, 23]);
+  assert.ok(town.visitors >= 1, 'visitors are in town');
+  await shot(page, '36-town');
+
+  // breakfast at Hana's bakery: walk up to the door and eat a loaf
+  await clearAround(page, 32, 11);
+  await teleport(page, 32, 11, 'up');
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  await tapAction(page);
+  assert.match(await modalText(page), /Hana's Bakery/);
+  await tapButton(page, 'Eat 60G');
+  s = await state(page);
+  assert.strictEqual(s.energy, 85);
+  assert.strictEqual(s.gold, 4940);
+  await shot(page, '37-bakery');
+  await page.evaluate(() => Farm.ui.closeAll());
+
+  // help at school (over the bridge), then rest in the chapel
+  await clearAround(page, 11, 47);
+  await teleport(page, 11, 47, 'up');
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  await tapAction(page);
+  await tapButton(page, 'Help');
+  s = await state(page);
+  ['clara', 'pip', 'daisy'].forEach((k) => assert.strictEqual(s.friends[k].pts, 4, k));
+  await page.evaluate(() => Farm.ui.closeAll());
+  await clearAround(page, 4, 47);
+  await teleport(page, 4, 47, 'up');
+  await tapAction(page);
+  await tapButton(page, 'Rest');
+  s = await state(page);
+  assert.strictEqual(s.energy, 100);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

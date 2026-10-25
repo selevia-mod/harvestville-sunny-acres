@@ -11,7 +11,8 @@ const { SIZE, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, HOME
 function gameConfig() {
   const ctx = { window: {} };
   vm.createContext(ctx);
-  ['00-config.js', '00-home.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
+  const dir = path.join(__dirname, '..', 'src');
+  fs.readdirSync(dir).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx));
   return ctx.window.Farm.Config;
 }
 const HOME = gameConfig().HOME;
@@ -307,29 +308,49 @@ function house(level) {
 
 // ---------- town ----------
 function town() {
-  const m = new MapBuilder('town', 30, 36, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  // The old town (x 0..29, y 0..35) keeps its coordinates. East of it: Market Street and the park; south-east:
+  // the beach and the lake; over the bridge to the south: the lane of homes, the school and the chapel.
+  const m = new MapBuilder('town', 54, 52, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
   const r = rng(77);
   grassFill(m, r);
   const path = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.path);
   m.rect('Ground', 8, 14, 21, 22, 'tiles', T.plaza);
   path(14, 0, 15, 13); // road from the farm into the plaza
-  path(2, 11, 29, 12); // the main street
+  path(2, 11, 53, 12); // the main street, east along Market Street to the valley road
   path(4, 8, 5, 10); // town hall
   path(24, 8, 25, 10); // inn
   path(4, 19, 7, 20); // forge -> plaza
-  path(22, 19, 25, 20); // woodshop -> plaza
+  path(22, 19, 51, 20); // woodshop -> plaza, and on into the park
   path(13, 23, 14, 31); // plaza -> dock
   path(4, 27, 25, 28); // clinic / cottage street
   path(20, 29, 21, 31); // cabin
-  m.rect('Ground', 0, 32, 29, 35, 'tiles', T.water); // the river
-  m.rect('Ground', 13, 31, 14, 33, 'tiles', T.dock);
+  path(24, 29, 25, 31); // down to the bridge
+  path(48, 18, 48, 18); // vet door
+  path(29, 21, 30, 28); // park: west walk down to the beach
+  path(31, 26, 51, 27); // park: the pond walk
+  path(43, 21, 44, 25); // park: between the pond and the playground
+  // the beach and the lake, the river, the bridge and the pier
+  m.rect('Ground', 28, 29, 53, 51, 'tiles', T.sand);
+  m.rect('Ground', 36, 32, 51, 47, 'tiles', T.water);
+  m.rect('Ground', 0, 32, 35, 35, 'tiles', T.water); // the river
+  m.rect('Ground', 13, 31, 14, 33, 'tiles', T.dock); // the old dock
+  m.rect('Ground', 24, 32, 25, 35, 'tiles', T.dock); // the bridge
+  m.rect('Ground', 42, 32, 43, 37, 'tiles', T.dock); // the pier
+  // over the bridge: the lane and Chapel Row
+  path(24, 36, 25, 48);
+  path(2, 40, 29, 41); // the lane, out to the beach
+  path(2, 47, 25, 48); // Chapel Row
+  m.block('Walls', 'tiles', 'pond', 38, 22); // transparent corners over the grass
 
   for (let x = 0; x < m.W; x += 2) if (x !== 14) m.tree(x, 0);
   for (let y = 2; y <= 28; y += 2) {
     m.tree(0, y);
-    if (y < 8 || y > 13) m.tree(28, y);
+    if (y < 8 || (y > 13 && y < 14)) m.tree(28, y);
+    if (y < 10 || y > 13) m.tree(52, y);
   }
-  [[4, 29], [7, 29], [2, 30], [24, 29], [26, 30]].forEach(([x, y]) => m.tree(x, y));
+  for (let y = 36; y <= 48; y += 2) m.tree(0, y);
+  for (let x = 2; x <= 26; x += 2) m.tree(x, 50);
+  [[4, 29], [7, 29], [2, 30], [26, 30], [16, 2], [44, 2], [48, 2], [31, 2], [50, 22], [22, 43], [26, 43]].forEach(([x, y]) => m.tree(x, y));
 
   m.prop('mayor', 2, 3);
   m.prop('inn', 22, 3);
@@ -348,37 +369,88 @@ function town() {
   m.prop('bench', 18, 22);
   m.prop('flowerbed', 10, 10);
   m.prop('flowerbed', 18, 10);
+  // Market Street
+  m.prop('bakery', 30, 7);
+  m.prop('florist', 35, 7);
+  m.prop('post', 40, 7);
+  m.prop('library', 45, 6);
+  m.prop('wagon', 31, 13);
+  m.prop('fruit_stall', 36, 13);
+  m.prop('cloth_stall', 39, 13);
+  m.prop('statue', 42, 13);
+  m.prop('vet', 46, 14);
+  [[34, 16], [45, 16]].forEach(([x, y]) => m.prop('lamp', x, y));
+  // the park
+  m.prop('gazebo', 31, 22);
+  m.prop('playground', 45, 22);
+  m.prop('easel', 36, 24);
+  m.prop('flowerbed', 38, 21);
+  m.prop('flowerbed', 41, 21);
+  m.prop('bench', 32, 28);
+  m.prop('bench', 46, 28);
+  // the beach
+  m.prop('shack', 30, 37);
+  m.prop('umbrella', 30, 44);
+  m.prop('umbrella', 33, 48);
+  m.prop('boat', 45, 40);
+  // the lane and Chapel Row
+  m.prop('townhouse_1', 2, 36);
+  m.prop('townhouse_2', 7, 36);
+  m.prop('townhouse_3', 12, 36);
+  m.prop('townhouse_4', 17, 36);
+  m.prop('flowerbed', 21, 37);
+  m.prop('flowerbed', 21, 38);
+  m.prop('chapel', 3, 42);
+  m.prop('school', 9, 43);
+  m.prop('flowerbed', 16, 45);
+  m.prop('lamp', 19, 45);
   // festival decorations (only shown on the day)
   m.prop('flower_arch', 13, 12, [prop('festival', 'string', 'flower')]);
   [[10, 15], [19, 15], [10, 19], [19, 19]].forEach(([x, y]) => m.prop('lantern', x, y, [prop('festival', 'string', 'fireworks,starry')]));
   [[9, 16], [19, 16]].forEach(([x, y]) => m.prop('pumpkin_pile', x, y, [prop('festival', 'string', 'harvest,cowfest')]));
   m.prop('festive_tree', 17, 13, [prop('festival', 'string', 'starry')]);
 
-  const keep = (x, y) => (x >= 8 && x <= 21 && y >= 13 && y <= 23) || y >= 31;
-  decorate(m, r, keep, [[T.tallgrass, 10], [T.bush, 6]]);
-
   // spawns, warps and doors
   m.point('from_farm', 'spawn', 15, 1.6, [prop('dir', 'string', 'down')]);
   m.point('from_mine', 'spawn', 28, 11.6, [prop('dir', 'string', 'down')]);
+  m.point('from_east', 'place', 53.5, 11.6); // visitors from out of town come along the valley road
   m.obj('road_north', 'warp', 14, 0, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'from_town'), prop('walk', 'bool', true)]);
   m.obj('mine_door', 'warp', 27, 10, 2, 1, [prop('to', 'string', 'mine'), prop('spawn', 'string', 'entrance'), prop('label', 'string', 'Enter')]);
-  const doors = { mayor: [4, 7, 2], inn: [24, 7, 2], forge: [4, 18, 1], woodshop: [25, 18, 1], clinic: [4, 26, 2], cottage: [24, 26, 2], cabin: [20, 30, 2] };
+  const doors = {
+    mayor: [4, 7, 2], inn: [24, 7, 2], forge: [4, 18, 1], woodshop: [25, 18, 1], clinic: [4, 26, 2], cottage: [24, 26, 2], cabin: [20, 30, 2],
+    bakery: [32, 10, 1], florist: [36, 10, 2], post: [42, 10, 1], library: [47, 10, 2], vet: [48, 17, 1], shack: [31, 39, 2],
+    lane1: [3, 39, 2], lane2: [8, 39, 2], lane3: [13, 39, 2], lane4: [18, 39, 2], chapel: [4, 46, 2], school: [11, 46, 2],
+  };
   Object.keys(doors).forEach((b) => {
     const [x, y, w] = doors[b];
     m.obj('door_' + b, 'door', x, y, w, 1, [prop('building', 'string', b)]);
     m.point('door_' + b, 'place', x + w / 2, y + 1.5);
   });
+  m.obj('door_wagon', 'door', 31, 13, 3, 1, [prop('building', 'string', 'wagon')]); // Marco sells from the street side
   // places villagers walk between (hub = plaza_c: every walk goes through it)
-  [['plaza_c', 14.5, 19.6], ['plaza_n', 14.5, 13.6], ['plaza_e', 19.5, 18.5], ['plaza_w', 9.5, 18.5], ['plaza_s', 14.5, 22.4],
-    ['dock', 13.9, 31.4], ['forest', 6.5, 31.2]].forEach(([n, x, y]) => m.point(n, 'place', x, y));
-  [[11.5, 19.6], [14.5, 19.6], [17.5, 19.6], [10.2, 21.2], [18.8, 21.2], [12.2, 22.3], [16.8, 22.3]]
+  const places = [['plaza_c', 14.5, 19.6], ['plaza_n', 14.5, 13.6], ['plaza_e', 19.5, 18.5], ['plaza_w', 9.5, 18.5], ['plaza_s', 14.5, 22.4],
+    ['dock', 13.9, 31.4], ['forest', 6.5, 31.2],
+    ['market_w', 35.5, 12.5], ['market_e', 45.5, 12.5], ['wagon', 34.5, 14.6],
+    ['gazebo', 32.5, 26.6], ['park_pond', 40.5, 26.6], ['park_easel', 36.5, 26.6], ['park_bench', 47, 27.4], ['playground', 46.5, 25.6],
+    ['beach', 31.5, 42.5], ['pier', 42.5, 36.5], ['lane', 10.5, 40.6], ['lane_garden', 22.5, 39.6], ['chapel_yard', 7.5, 47.6]];
+  places.forEach(([n, x, y]) => m.point(n, 'place', x, y));
+  // festival spots, one per villager (fest_<index in VILLAGER_ORDER>)
+  [[11.5, 19.6], [14.5, 19.6], [17.5, 19.6], [10.2, 21.2], [18.8, 21.2], [12.2, 22.3], [16.8, 22.3],
+    [9.5, 18.6], [11, 18.6], [18, 18.6], [19.5, 18.6], [9.5, 20.4], [12.5, 20.4], [14.5, 20.4], [16.5, 20.4], [20.5, 20.4],
+    [9.5, 15.6], [11.5, 15.6], [17.5, 15.6], [20.5, 15.6], [11.5, 17.2], [17.5, 17.2], [20.5, 17.2]]
     .forEach(([x, y], i) => m.point('fest_' + i, 'place', x, y));
-  [[2, 27, 9, 4], [16, 2, 6, 8], [26, 25, 2, 5]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
+  [[2, 27, 9, 4], [16, 2, 6, 8], [26, 25, 2, 5], [30, 2, 12, 3], [2, 44, 6, 2]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
   m.obj('farm_stand', 'stand', 11, 14, 2, 1);
   m.obj('order_board', 'orders', 9, 13, 2, 2);
   m.point('stall_front', 'place', 12, 15.7); // where buyers stand
   m.put('Walls', 16, 2, 'tiles', T.sign);
-  m.obj('town_sign', 'sign', 16, 2, 1, 1, [prop('text', 'string', 'WILLOWBROOK\nTown Hall, Inn, Forge, Woodshop and Clinic around the plaza. The mine is east, the river south.')]);
+  m.obj('town_sign', 'sign', 16, 2, 1, 1, [prop('text', 'string', 'WILLOWBROOK\nTown Hall, Inn, Forge, Woodshop and Clinic around the plaza. Market Street and the park to the east, the beach to the south-east, and over the bridge the lane, the school and the chapel.')]);
+
+  // keep paths, plazas, the beach and everyone's standing spots clear of random bushes
+  const spots = new Set(m.objects.filter((o) => o.point).map((o) => Math.floor(o.y / SIZE) * m.W + Math.floor(o.x / SIZE)));
+  const keep = (x, y) => (x >= 8 && x <= 21 && y >= 13 && y <= 23) || y >= 31 || spots.has(y * m.W + x)
+    || (x >= 29 && y >= 18) || [...spots].some((k) => Math.abs((k % m.W) - x) <= 1 && Math.abs(Math.floor(k / m.W) - y) <= 1);
+  decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 10]]);
   return m.json();
 }
 

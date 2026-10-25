@@ -13,7 +13,32 @@
     rosa: { skin: ['#f6d2b4', '#e0a888'], hair: ['#9a8a80', '#6e6058'], style: 'bun', shirt: ['#e5484d', '#b52e33'], outfit: 'dressApron', dress: ['#e5484d', '#b52e33'], apron: ['#ffffff', '#e6e6e6'], shoes: '#5a3420', big: true },
     leo: { skin: ['#d9a07a', '#b57a55'], hair: ['#2f2a28', '#1a1614'], style: 'short', shirt: ['#ffffff', '#dfe6ee'], outfit: 'vest', vest: ['#3f6fc0', '#2d4f8f'], pants: ['#8a7454', '#64523a'], hat: 'bucket', hatColor: ['#a8b06a', '#7a8244'], shoes: '#4a3020' },
     ivy: { skin: ['#ffe6d0', '#f2bfa0'], hair: ['#2f4a3a', '#1c2e24'], style: 'long', shirt: ['#fff6e8', '#eadcc4'], outfit: 'dress', dress: ['#b48ae0', '#8a5fc0'], leaf: true, shoes: '#5a3a5a' },
+    // the bigger town (src/00-town2.js)
+    pearl: { skin: ['#f8dcc4', '#e6b498'], hair: ['#f0f0f0', '#c4c4c4'], style: 'bun', shirt: ['#fff6e8', '#eadcc4'], outfit: 'dress', dress: ['#a58ad0', '#7a60a8'], glasses: true, shoes: '#6a4a3a' },
+    ewan: { skin: ['#efc4a0', '#d29c78'], hair: ['#f2f2f2', '#c9c9c9'], style: 'short', shirt: ['#dfe9f2', '#b8c8d6'], outfit: 'vest', vest: ['#2f4f7a', '#1f3a5e'], pants: ['#7a6448', '#5a4834'], beard: '#ececec', hat: 'flatcap', hatColor: ['#3f5f8a', '#2a446a'], cane: true, shoes: '#3b2a20' },
+    pip: { skin: ['#ffdcc0', '#f0b48e'], hair: ['#8a5a2a', '#5e3a18'], style: 'short', shirt: ['#ff6b5a', '#d9483a'], pants: ['#4a78c8', '#33599a'], hat: 'cap', hatColor: ['#4a90e0', '#2f6ab8'], child: true, shoes: '#ffffff' },
+    daisy: { skin: ['#ffe2c8', '#f2bc98'], hair: ['#f2d06a', '#d4aa3a'], style: 'long', shirt: ['#ffffff', '#ececec'], outfit: 'dress', dress: ['#ffd84d', '#f2b01e'], flower: '#ffffff', child: true, shoes: '#ff8aa4' },
+    clara: { skin: ['#fbe0c8', '#ecb894'], hair: ['#7a4a2a', '#52301a'], style: 'bun', shirt: ['#ffffff', '#e6ecef'], outfit: 'dress', dress: ['#3fa8a0', '#2a807a'], glasses: true, shoes: '#5a3a2a' },
+    tomas: { skin: ['#e8b890', '#c8906a'], hair: ['#8a8a8a', '#5e5e5e'], style: 'short', shirt: ['#2e2e38', '#1e1e26'], outfit: 'coat', coat: ['#33333e', '#1f1f28'], pants: ['#2a2a32', '#1a1a22'], collar: true, shoes: '#1a1a1a' },
+    hana: { skin: ['#fde4cc', '#eebc9a'], hair: ['#2a2220', '#141010'], style: 'bun', shirt: ['#ff9ab5', '#e07090'], outfit: 'dressApron', dress: ['#ff9ab5', '#e07090'], apron: ['#ffffff', '#ececec'], hat: 'chef', shoes: '#6a3a2a' },
+    marco: { skin: ['#e4ac80', '#c4865c'], hair: ['#2a1e18', '#140c08'], style: 'short', shirt: ['#ffffff', '#e6e6e6'], outfit: 'vest', vest: ['#b5302a', '#86201c'], pants: ['#3a3a4a', '#26262e'], mustache: '#2a1e18', hat: 'bandana', hatColor: ['#f2c13a', '#c8961e'], shoes: '#4a2a18' },
+    sora: { skin: ['#f6dcc0', '#e2b694'], hair: ['#2a3a5e', '#18223e'], style: 'short', shirt: ['#ffffff', '#e6ecef'], outfit: 'coat', coat: ['#e08a3a', '#b8641e'], pants: ['#4a5a6a', '#33404e'], hat: 'beret', hatColor: ['#c83a5a', '#9a2440'], shoes: '#3a2a20' },
+    hale: { skin: ['#f2cfb0', '#dca888'], hair: ['#b8b0a8', '#8a8078'], style: 'bun', shirt: ['#bfe0f2', '#94c0dc'], outfit: 'coat', coat: ['#ffffff', '#dde4ea'], pants: ['#5a6472', '#404854'], glasses: true, scope: true, shoes: '#3a3a44' },
+    nina: { skin: ['#ffe4d0', '#f2bca0'], hair: ['#b85a3a', '#8a3a22'], style: 'long', shirt: ['#ffffff', '#ececec'], outfit: 'dress', dress: ['#8ac8f0', '#5aa0d4'], hat: 'nurse', hatColor: ['#ffffff', '#e6e6e6'], shoes: '#ffffff' },
+    owen: { skin: ['#f2c8a4', '#dca07c'], hair: ['#d4742e', '#a8521a'], style: 'short', shirt: ['#4ab0a0', '#2f8a7c'], outfit: 'vest', vest: ['#8a6a44', '#644a2e'], pants: ['#3f5f9a', '#2c4472'], shoes: '#4a3020' },
+    poppy: { skin: ['#ffe0cc', '#f2b8a0'], hair: ['#e8507a', '#b8305a'], style: 'long', shirt: ['#fff6e8', '#eadcc4'], outfit: 'dressApron', dress: ['#6cbf57', '#4a9a3c'], apron: ['#fff6dc', '#eadcb8'], flower: '#ff5a7a', shoes: '#6a3a2a' },
+    finn: { skin: ['#f8d8bc', '#e4ae8e'], hair: ['#f0c85a', '#c89a2e'], style: 'short', shirt: ['#ffffff', '#e6ecef'], outfit: 'coat', coat: ['#3a6ac8', '#284c96'], pants: ['#2e3e66', '#1e2a48'], hat: 'cap', hatColor: ['#3a6ac8', '#284c96'], satchel: true, shoes: '#3a2a20' },
+    elliot: { skin: ['#f4d2b4', '#dea888'], hair: ['#4a3426', '#2e1e14'], style: 'short', shirt: ['#ffffff', '#e6ecef'], outfit: 'vest', vest: ['#7a5a3a', '#5a4026'], pants: ['#6a6a74', '#4a4a54'], glasses: true, shoes: '#3a2a20' },
+    jules: { skin: ['#e8b48c', '#c88c66'], hair: ['#7a4ab8', '#58308e'], style: 'short', shirt: ['#ffd84d', '#e6b01e'], outfit: 'vest', vest: ['#2a2a30', '#18181e'], pants: ['#2a2a30', '#18181e'], hat: 'beanie', hatColor: ['#e5484d', '#b52e33'], shoes: '#1a1a1a' },
+    // visitors from out of town (Config.SHOPPERS)
+    visitor_farmer: { skin: ['#eebc94', '#d09870'], hair: ['#6a4a2a', '#4a3018'], style: 'short', shirt: ['#d94a3a', '#a8302a'], outfit: 'overalls', over: ['#4a78c8', '#33599a'], pants: ['#4a78c8', '#33599a'], hat: 'straw', hatColor: ['#f2d47a', '#d4ae4a'], shoes: '#5a3a20' },
+    visitor_tourist: { skin: ['#ffdcc4', '#f2b494'], hair: ['#c8783a', '#9a5422'], style: 'short', shirt: ['#ff9a3d', '#e0741e'], pants: ['#d8c49a', '#b8a274'], hat: 'sunhat', hatColor: ['#fff1c8', '#e6d29a'], shoes: '#ffffff' },
+    visitor_mother: { skin: ['#f6d0b0', '#e0a888'], hair: ['#5a3a22', '#3a2412'], style: 'long', shirt: ['#ffffff', '#ececec'], outfit: 'coat', coat: ['#f2c83a', '#d4a41e'], pants: ['#4a6ab8', '#33508e'], satchel: true, shoes: '#8a4a2a' },
+    visitor_elder: { skin: ['#efc8a8', '#d4a284'], hair: ['#d8d8d8', '#aaaaaa'], style: 'short', shirt: ['#f2efe6', '#d8d2c4'], outfit: 'vest', vest: ['#8a5a30', '#5e3b1b'], pants: ['#5a5a62', '#404048'], mustache: '#dcdcdc', hat: 'flatcap', hatColor: ['#8a6a4a', '#644a32'], cane: true, shoes: '#2b1d14' },
+    visitor_student: { skin: ['#f8dcc4', '#e4b494'], hair: ['#1e1e24', '#0e0e12'], style: 'short', shirt: ['#5ab85a', '#3a943a'], outfit: 'coat', coat: ['#5ab85a', '#3a943a'], pants: ['#3a4a6a', '#28344e'], glasses: true, satchel: true, shoes: '#ffffff' },
+    visitor_chef: { skin: ['#e6b088', '#c88a64'], hair: ['#3a2a20', '#20160e'], style: 'short', shirt: ['#ffffff', '#e6e6e6'], outfit: 'coat', coat: ['#ffffff', '#e2e6ea'], pants: ['#2a2a30', '#18181e'], mustache: '#3a2a20', hat: 'chef', big: true, shoes: '#1a1a1a' },
   };
+  A.LOOKS = LOOKS;
 
   function grad(g, x0, y0, x1, y1, pair) {
     return lin(g, x0, y0, x1, y1, [[0, pair[0]], [1, pair[1]]]);
@@ -192,6 +217,73 @@
         g.fillStyle = 'rgba(255,255,255,0.8)';
         g.fill();
       }
+    } else if (L.hat === 'cap') { // a peaked cap (the brim points forward, or to the left when seen from the side)
+      g.beginPath();
+      g.arc(cx, hy - 30, 74, Math.PI, 0);
+      g.closePath();
+      paint(g, grad(g, 0, hy - 104, 0, hy - 30, c));
+      if (side) ell(g, cx - 70, hy - 30, 44, 12);
+      else if (!back) ell(g, cx, hy - 26, 66, 16);
+      if (side || !back) paint(g, c[1], 4);
+      ell(g, cx, hy - 104, 9, 7);
+      paint(g, c[1], 3);
+    } else if (L.hat === 'chef') {
+      rrect(g, cx - 66, hy - 70, 132, 40, 10);
+      paint(g, '#ffffff', 5);
+      [[-38, -110, 40], [0, -126, 46], [38, -110, 40]].forEach(function (p) {
+        ell(g, cx + p[0], hy + p[1], p[2], p[2] * 0.9);
+        paint(g, '#ffffff', 5);
+      });
+      rrect(g, cx - 64, hy - 66, 128, 34, 8);
+      g.fillStyle = '#ffffff';
+      g.fill();
+    } else if (L.hat === 'beret') {
+      ell(g, cx + (side ? 6 : 10), hy - 66, 82, 34, side ? 0.12 : -0.12);
+      paint(g, grad(g, 0, hy - 100, 0, hy - 32, c));
+      ell(g, cx + 4, hy - 100, 8, 8);
+      paint(g, c[1], 3);
+    } else if (L.hat === 'straw' || L.hat === 'sunhat') {
+      var brim = L.hat === 'sunhat' ? 120 : 104;
+      ell(g, cx, hy - 32, brim, 28);
+      paint(g, grad(g, 0, hy - 60, 0, hy - 4, c));
+      g.beginPath();
+      g.moveTo(cx - 62, hy - 40);
+      g.quadraticCurveTo(cx - 58, hy - 116, cx, hy - 116);
+      g.quadraticCurveTo(cx + 58, hy - 116, cx + 62, hy - 40);
+      g.closePath();
+      paint(g, grad(g, 0, hy - 116, 0, hy - 40, c));
+      rrect(g, cx - 62, hy - 60, 124, 16, 6);
+      paint(g, L.hat === 'sunhat' ? '#ff8aa4' : '#c8302a', 3);
+    } else if (L.hat === 'flatcap') {
+      g.beginPath();
+      g.moveTo(cx - 80, hy - 26);
+      g.quadraticCurveTo(cx - 72, hy - 100, cx + 6, hy - 98);
+      g.quadraticCurveTo(cx + 80, hy - 92, cx + 82, hy - 30);
+      g.closePath();
+      paint(g, grad(g, 0, hy - 100, 0, hy - 26, c));
+      if (!back) {
+        ell(g, side ? cx - 64 : cx, hy - 26, side ? 40 : 76, 13);
+        paint(g, c[1], 4);
+      }
+    } else if (L.hat === 'nurse') {
+      rrect(g, cx - 46, hy - 106, 92, 40, 8);
+      paint(g, '#ffffff', 4);
+      if (!back) {
+        rrect(g, cx - 6, hy - 100, 12, 28, 2);
+        g.fillStyle = '#e5484d';
+        g.fill();
+        rrect(g, cx - 14, hy - 92, 28, 12, 2);
+        g.fill();
+      }
+    } else if (L.hat === 'beanie') {
+      g.beginPath();
+      g.arc(cx, hy - 24, 80, Math.PI, 0);
+      g.closePath();
+      paint(g, grad(g, 0, hy - 104, 0, hy - 24, c));
+      rrect(g, cx - 82, hy - 40, 164, 26, 10);
+      paint(g, c[1], 4);
+      ell(g, cx, hy - 108, 18, 16);
+      paint(g, '#ffffff', 4);
     } else if (L.hat === 'bucket') {
       ell(g, cx, hy - 26, 104, 26);
       paint(g, grad(g, 0, hy - 50, 0, hy, c));
@@ -332,23 +424,81 @@
     var L = LOOKS[key], bob = step ? -6 : 0;
     g.save();
     g.scale(0.5, 0.5);
+    if (L.child) { // smaller, feet on the same line
+      g.translate(128, 372);
+      g.scale(0.74, 0.74);
+      g.translate(-128, -372);
+    }
+    if (L.satchel && dir === 'up') satchel(g, L, dir, bob);
     if (dir === 'side') side(g, L, step, bob);
     else front(g, L, dir === 'up', step, bob);
+    extras(g, L, dir, step, bob);
     g.restore();
   }
+
+  // Bits drawn over a person: a priest's collar, a stethoscope, a postbag, a walking stick.
+  function extras(g, L, dir, step, bob) {
+    var back = dir === 'up', sideOn = dir === 'side';
+    if (L.collar && !back) {
+      rrect(g, sideOn ? 96 : 110, 178 + bob, sideOn ? 30 : 36, 16, 4);
+      paint(g, '#ffffff', 3);
+    }
+    if (L.scope && !back && !sideOn) {
+      g.beginPath();
+      g.moveTo(98, 184 + bob);
+      g.quadraticCurveTo(96, 250 + bob, 128, 256 + bob);
+      g.quadraticCurveTo(160, 250 + bob, 158, 184 + bob);
+      g.lineWidth = 7;
+      g.strokeStyle = '#4a4f58';
+      g.stroke();
+      ell(g, 128, 262 + bob, 14, 14);
+      paint(g, '#c0c6cc', 4);
+    }
+    if (L.satchel && !back) satchel(g, L, dir, bob);
+    if (L.cane) {
+      var x = sideOn ? 54 : 40, lean = step === 1 ? 8 : step === 2 ? -8 : 0;
+      g.beginPath();
+      g.moveTo(x + lean, 262 + bob);
+      g.lineTo(x - 6, 366);
+      g.lineWidth = 11;
+      g.lineCap = 'round';
+      g.strokeStyle = '#6a4024';
+      g.stroke();
+      g.beginPath();
+      g.arc(x + lean + 12, 262 + bob, 14, Math.PI, 0);
+      g.stroke();
+    }
+  }
+
+  function satchel(g, L, dir, bob) {
+    var back = dir === 'up';
+    g.beginPath();
+    g.moveTo(80, 180 + bob);
+    g.lineTo(176, 270 + bob);
+    g.lineWidth = 10;
+    g.strokeStyle = '#6a4024';
+    g.stroke();
+    if (!back) {
+      rrect(g, 150, 250 + bob, 62, 50, 10);
+      paint(g, lin(g, 0, 250, 0, 300, [[0, '#a8743f'], [1, '#7a4e26']]), 5);
+    }
+  }
   A.person = person;
+  A.PEOPLE_COLS = 18;
 
   var prevExtra = A.extra;
   A.extra = function (sets) {
     var out = prevExtra ? prevExtra(sets) : { sheets: {}, props: {} };
-    var dirs = ['down', 'up', 'side'], order = sets.VILLAGER_ORDER;
-    out.sheets.people = A.frameSheet(14, 5, 128, 192, 2048, 1040, function (g, c, r) {
-      var f = r * 14 + c, v = order[Math.floor(f / 9)];
+    // villagers, then the visitors; 18 frames a row (two villagers), so 29 people fit under 4096 px
+    var dirs = ['down', 'up', 'side'], order = sets.VILLAGER_ORDER.concat(sets.SHOPPER_KEYS || []);
+    var cols = A.PEOPLE_COLS, rows = Math.ceil(order.length * 9 / cols);
+    out.sheets.people = A.frameSheet(cols, rows, 128, 192, 8 + cols * 144 - 8, 8 + rows * 208 - 8, function (g, c, r) {
+      var f = r * cols + c, v = order[Math.floor(f / 9)];
       if (!v) return false;
       if (!LOOKS[v]) throw new Error('no look for villager ' + v);
       var local = f % 9;
       person(g, v, dirs[Math.floor(local / 3)], local % 3);
-    }, function (c, r) { return 'people:' + (r * 14 + c); });
+    }, function (c, r) { return 'people:' + (r * cols + c); });
     return out;
   };
 })();

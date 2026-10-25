@@ -271,7 +271,7 @@
     var s = this.state, r = L.propose(s, v.key, s.sel), D = C.DIALOGUE[v.key];
     this.villagers.greet(v, this.dir);
     var why = {
-      taken: "You're already spoken for!", house: 'You need the House Extension from the woodshop before you can marry.',
+      taken: "You're already spoken for!", house: 'You need the Farmhouse (house level 3) from Mira before you can marry.',
       hearts: D.propose ? D.propose.no : '', notcandidate: '',
     };
     if (r === 'yes') {

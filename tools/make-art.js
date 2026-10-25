@@ -11,7 +11,8 @@ const layout = require('./tiles');
 function gameConfig() {
   const ctx = { window: {} };
   vm.createContext(ctx);
-  ['00-config.js', '00-home.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
+  const dir = path.join(__dirname, '..', 'src');
+  fs.readdirSync(dir).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx));
   return ctx.window.Farm.Config;
 }
 
@@ -35,7 +36,7 @@ const OUT = path.join(__dirname, '..', 'assets');
     return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(file) });
   });
   await page.goto(ORIGIN + 'index.html');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'import.js') });
@@ -56,7 +57,7 @@ const OUT = path.join(__dirname, '..', 'assets');
   const sheets = await page.evaluate((L) => window.makeArt(L), JSON.parse(JSON.stringify({
     TILES: layout.TILES, RANCH: layout.RANCH, SEASONS: layout.SEASONS, INDOOR: layout.INDOOR, PROPS: layout.PROPS,
     SEASON_NAMES: layout.SEASON_NAMES, SEASONAL: layout.SEASONAL,
-    ICON_ORDER: C.ICON_ORDER, CROP_KEYS: C.CROP_KEYS, VILLAGER_ORDER: C.VILLAGER_ORDER,
+    ICON_ORDER: C.ICON_ORDER, CROP_KEYS: C.CROP_KEYS, VILLAGER_ORDER: C.VILLAGER_ORDER, SHOPPER_KEYS: C.SHOPPERS.map((x) => x.key),
     FX_KINDS: require('./art-manifest').FX_KINDS, HOME: C.HOME,
   })));
   await browser.close();

@@ -742,6 +742,9 @@
   };
 
   A.PROP_DRAW = D; // extra2.js adds more
+  A.building = building; // town2.js draws the newer town buildings with it
+  A.signBoard = signBoard;
+  A.propText = text;
   A.windowPane = windowPane;
 
   var prevExtra = A.extra;

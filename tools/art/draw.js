@@ -2455,7 +2455,7 @@
     var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
     Object.keys(extra.sheets).forEach(function (k) { sheets[k] = extra.sheets[k]; });
     var out = {};
-    var encode = function (c) { return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.92) }; };
+    var encode = function (c) { return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.86) }; };
     Object.keys(sheets).forEach(function (k) { out[k] = encode(sheets[k]); });
     Object.keys(extra.props).forEach(function (k) { out['props/' + k] = encode(extra.props[k]); });
     return out;

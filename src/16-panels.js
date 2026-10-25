@@ -70,8 +70,11 @@
     } else if (row.icon != null) {
       c.add(this.add.image(36 + SLOT / 2, y + 15 + SLOT / 2, 'items', row.icon).setScale(ICON));
     }
-    c.add(this.txt(88, y + 7, row.name, 14, INK, { fontStyle: 'bold', wordWrap: { width: 138 } }));
-    c.add(this.txt(88, y + 26, row.desc || '', 11, '#6a4a2a', { wordWrap: { width: 138 }, lineSpacing: 1 }));
+    var name = this.txt(88, y + 7, row.name, row.name.length > 18 ? 13 : 14, INK, { fontStyle: 'bold', wordWrap: { width: 138 } });
+    c.add(name);
+    // a long name takes two lines: the description starts under it
+    var dy = Math.max(26, 7 + name.height + 2);
+    c.add(this.txt(88, y + dy, row.desc || '', dy > 26 ? 10 : 11, '#6a4a2a', { wordWrap: { width: 138 }, lineSpacing: 1 }));
     var b = row.buttons || [];
     b.forEach(function (btn, k) {
       var by = b.length === 1 ? y + ROW_H / 2 : y + 20 + k * 34;
