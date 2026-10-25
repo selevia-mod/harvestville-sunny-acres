@@ -283,7 +283,7 @@ The generated pictures in `art-src/` so far cover:
 
 - the seasonal ground (grass, flowers, field, path in all four seasons)
 - the furniture and decorations (house, town and farm)
-- the effects that fly when tools land (dirt, wood chips, leaves, water, dust); stone chips are still drawn
+- the effects that fly when tools land (dirt, wood chips, leaves, water, dust), stone chips
 
 Every other picture in the manifest comes from art-src/. The drawn art in tools/art/ is only the stand-in
 for any picture that is removed. Ground textures that already repeat cleanly are kept as they are;
