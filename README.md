@@ -130,22 +130,35 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 ### Willowbrook (the town)
 
 - **Getting there:** walk down the road south of the farm.
-- **The people:** seven villagers walk their daily schedules between their homes, shops, the plaza, the dock and
-  the forest:
+- **The town** (54 x 52 tiles): the plaza with the market stall and the order board in the middle; Market Street
+  to the east (bakery, flower shop, post office, library, Marco's wagon, market stalls and the vet); the park
+  (pond, gazebo, playground, benches); the beach on the lake (pier, boat, the Seaside Shack); and over the bridge
+  to the south, the lane of homes, the school and the chapel.
+- **The people:** 23 villagers walk their daily schedules between their homes, shops and the town's places. On rest
+  days (the 6th and 7th day of each week) there is no school, so the children and the teacher do other things.
 
-  | Who | Role |
-  | --- | --- |
-  | Lily | Seed stand |
-  | Mayor Hollis | Mayor |
-  | Bram | Blacksmith |
-  | Mira | Carpenter |
-  | Rosa | Innkeeper |
-  | Leo | Fisherman |
-  | Ivy | Herbalist |
+  | Who | Role | | Who | Role |
+  | --- | --- | --- | --- | --- |
+  | Lily | Seed stand | | Clara | Teacher |
+  | Mayor Hollis | Mayor | | Father Tomas | Priest |
+  | Bram | Blacksmith | | Hana | Baker |
+  | Mira | Carpenter | | Marco | Travelling merchant |
+  | Rosa | Innkeeper | | Sora | Artist |
+  | Leo | Fisherman | | Dr. Hale | Doctor |
+  | Ivy | Herbalist | | Nina | Nurse |
+  | Grandma Pearl | Grandmother | | Owen | Veterinarian |
+  | Grandpa Ewan | Retired fisherman (runs the Seaside Shack) | | Poppy | Florist |
+  | Pip | Schoolboy | | Finn | Mail carrier |
+  | Daisy | Schoolgirl | | Elliot | Librarian |
+  | | | | Jules | Musician |
+
+- **Visitors:** people from out of town (a farmer, a tourist, a chef...) walk in along the valley road during the
+  day, look around Market Street and the park, buy at your market stall, and leave.
 
 - **Friendship:** talk to each villager once a day, and give one gift a day. They love, like, don't mind, or dislike
   each item, and birthday gifts count double. Friendship shows as 10 hearts (pause → Friends).
-- **Heart events:** at friendship milestones (2, 4 and 6 hearts for Lily, Mira, Leo and Ivy; 3 for the others),
+- **Heart events:** at friendship milestones (2, 4 and 6 hearts for the 14 marriage candidates: Lily, Mira, Leo,
+  Ivy, Clara, Hana, Marco, Sora, Nina, Owen, Poppy, Finn, Elliot and Jules; 3 for the others),
   talking to them starts a little story scene that ends with a choice.
 - **In town:** villagers are solid, show their name when you are near, and hum or react with speech bubbles.
 - **Buildings:** doors open shop menus during opening hours. Every panel has a Talk button for the person who runs
@@ -161,6 +174,18 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   - Inn: meals.
   - Clinic: tonics.
   - Town Hall: festival news.
+  - Hana's Bakery (7 AM to 3 PM): bread, cookies and strawberry cake, to eat there or take away.
+  - Poppy's Flowers: bouquets (a gift almost everyone loves) and potted plants for your house.
+  - Post Office: mail what you are holding to anyone you have met (30G). It counts as their gift for the day, at
+    three quarters of the friendship.
+  - Willow Library: books with tips and the valley's history.
+  - Willowbrook School (weekdays, 8 AM to 2 PM): help with a lesson once a day for friendship with Clara, Pip and
+    Daisy.
+  - Chapel: sit and rest once a day (+15 energy).
+  - Owen's Animal Clinic: animal treats (one a day per animal, for more love), the Miracle Potion, a brush, and a
+    check-up on how your animals feel.
+  - Marco's Wagon on Market Street: four pieces of furniture a day from any style (festival ones too), 20% off.
+  - Seaside Shack (Grandpa Ewan, 10 AM to 4 PM): grilled fish and tomato soup.
   - Homes: knock to talk.
 - **The notice board** in the plaza lists the next two weeks of events.
 - **Fishing:**
@@ -193,7 +218,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   | Starry Night | Winter 24 | Spend the evening with someone |
 
   Talk to Mayor Hollis there to take part. Shops close on festival days.
-- **Marriage:** Lily, Mira, Leo and Ivy can marry you. You need 8 hearts, the Farmhouse (house Lv 3) and a Blue Feather.
+- **Marriage:** any of the 14 candidates (see Heart events) can marry you. You need 8 hearts, the Farmhouse (house Lv 3) and a Blue Feather.
   Show them the feather, and the wedding is 3 days later. Your spouse then lives at the farmhouse and sometimes packs
   you lunch.
 
@@ -255,6 +280,10 @@ src/              game code, concatenated in filename order
   01-logic3.js      the market stall: selling now, shelves with prices and buyers, the order board
   00-home.js        the house levels, the furniture catalog (kinds and styles), Home Beauty tiers
   01-logic4.js      home rules: upgrades, buying, placing, moving, storing, wallpaper and floor, beauty, save
+  00-town2.js       the bigger town: 16 more villagers (schedules, gifts, dialogue, letters, heart events), the
+                    new shops and homes, new goods, books, visitors
+  01-logic5.js      town rules: days of the week, rest-day schedules, treats, mailing gifts, chapel, school,
+                    Marco's deals
   13-animals.js     the herd in the pen, chicks and calves, and pets (the dog, the cat)
   14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
   15-villagers.js   villagers walking their schedules (path finding), talking, gifts, heart events, proposals
@@ -269,6 +298,7 @@ src/              game code, concatenated in filename order
   19c-stand.js      the market stall and order board in town: villagers walk up to buy, coins and "!" markers
   19d-home.js       the house inside (furniture, wallpaper, floor), the bigger house on the farm, Decorate mode,
                     storage, Mira's catalog and house upgrades
+  19e-town.js       visitors who walk in and shop, the new shops' panels, animal treats
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -282,8 +312,8 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (97 tests)
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (15 tests, ~20 min)
+npm test           # rules + save-format unit tests (108 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (16 tests, ~25 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
@@ -291,7 +321,7 @@ npm run map        # seed maps/ (won't overwrite existing maps without --force)
 
 ## Replacing the art with generated pictures
 
-`tools/art-manifest.js` lists every picture the game uses (173 of them), each with:
+`tools/art-manifest.js` lists every picture the game uses (218 of them), each with:
 - a file name under `art-src/`
 - the size to ask an image generator for
 - the in-game size
