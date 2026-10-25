@@ -100,6 +100,7 @@ const PROPS = {
   wagon: { w: 3, h: 3, foot: 2 }, gazebo: { w: 4, h: 4, foot: 2 }, playground: { w: 4, h: 3, foot: 1 },
   fruit_stall: { w: 2, h: 2, foot: 1 }, cloth_stall: { w: 2, h: 2, foot: 1 }, statue: { w: 2, h: 3, foot: 1 },
   boat: { w: 3, h: 2, foot: 0, flat: true }, umbrella: { w: 2, h: 2, foot: 1 }, easel: { w: 1, h: 2, foot: 1 },
+  trader_tent: { w: 3, h: 2, foot: 1 }, // shown by the game on the trader's days
 };
 
 function blockId(set, name, dx, dy) {

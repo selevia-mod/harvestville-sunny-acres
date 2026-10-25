@@ -32,6 +32,7 @@ async function open(savedState) {
   await page.addInitScript((state) => {
     window.gameHost = {
       state: state,
+      quiet: !window.__loud, // no daily-gift popup or quest toasts in the way of the other tests
       saves: [],
       save(s) { this.saves.push(JSON.stringify(s)); this.state = s; },
     };
@@ -1286,6 +1287,72 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+test('phase 3: the daily gift, claiming a quest, a request on the board, the trader, a Power-Up', async () => {
+  const save = await makeSave(`
+    s.day = 2; // a trader day
+    s.time = 600;
+    s.gold = 1000;
+    s.energy = 30;
+    L.addItem(s, 'gem', 5);
+    L.addItem(s, 'power_up', 1);
+  `);
+  const { page, problems, context } = await open(save);
+  // the daily gift pops up once the game is quiet
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.match(await modalText(page), /DAILY GIFT/);
+  await tapButton(page, 'Claim');
+  let s = await state(page);
+  assert.strictEqual(s.gold, 1200);
+  assert.strictEqual(s.lg.streak, 1);
+  await page.evaluate(() => { window.gameHost.quiet = true; });
+
+  // 10 daily quests; finish one and claim it from the Quests button
+  assert.strictEqual(s.dq.list.length, 10);
+  await page.evaluate(() => { const q = Farm.session.state.dq.list[0]; q.b -= q.n; });
+  await page.touchscreen.tap(316, 116); // Quests
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  await tapButton(page, 'Claim');
+  s = await state(page);
+  assert.strictEqual(s.dq.list[0].done, 1);
+  assert.strictEqual(s.cnt.dquest, 1);
+  await shot(page, '39-quests');
+  await page.evaluate(() => Farm.ui.closeAll());
+
+  // a Power-Up: full energy
+  await hold(page, 'power_up');
+  await teleport(page, 26, 14, 'down');
+  assert.strictEqual(await actionLabel(page), 'Drink');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.energy, 100);
+  assert.ok(s.pwr.until > s.time);
+
+  // in town: a request on the notice board, then Saffron's tent
+  await go(page, 'town', 'from_farm');
+  const req = await page.evaluate(() => { const r = Farm.session.state.rq.list[0]; Farm.Logic.addItem(Farm.session.state, r.id, r.n); return r; });
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.noticeBoard(); });
+  const g0 = (await state(page)).gold;
+  await tapButton(page, 'Give');
+  s = await state(page);
+  assert.strictEqual(s.rq.list[0].done, 1);
+  assert.strictEqual(s.gold - g0, req.gold);
+  assert.strictEqual(s.rq.streak, 1);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await page.waitForFunction(() => Farm.world.trader, null, SLOW);
+  await teleport(page, 39, 18, 'up');
+  assert.strictEqual(await actionLabel(page), 'Trade');
+  await tapAction(page);
+  await tapButton(page, 'Swap'); // the tab
+  await tapButton(page, 'Swap', 1); // 5 gems for a Star
+  s = await state(page);
+  assert.strictEqual(s.stars, 1);
+  assert.strictEqual(count(s, 'gem'), 0);
+  await shot(page, '40-trader');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 // Pushes the farmer into every solid tile, building, prop and villager on every map from each open side, at
 // walking and riding speed, with the game's own physics. Nothing solid may be walked into or through.
 test('nothing solid can be walked through, on any map, on foot or on horseback', async () => {

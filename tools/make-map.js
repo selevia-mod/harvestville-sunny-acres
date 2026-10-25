@@ -446,6 +446,8 @@ function town() {
   m.obj('farm_stand', 'stand', 11, 14, 2, 1);
   m.obj('order_board', 'orders', 9, 13, 2, 2);
   m.point('stall_front', 'place', 12, 15.7); // where buyers stand
+  m.point('trader_spot', 'place', 38, 16); // the travelling trader's tent (top-left), on her days
+  m.point('trader_npc', 'place', 41.6, 17.7);
   m.put('Walls', 16, 2, 'tiles', T.sign);
   m.obj('town_sign', 'sign', 16, 2, 1, 1, [prop('text', 'string', 'WILLOWBROOK\nTown Hall, Inn, Forge, Woodshop and Clinic around the plaza. Market Street and the park to the east, the beach to the south-east, and over the bridge the lane, the school and the chapel.')]);
 

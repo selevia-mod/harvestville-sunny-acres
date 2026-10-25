@@ -221,6 +221,7 @@ const PROP_DESC = {
   boat: 'a small white and wooden rowboat with two benches, floating, seen from above at an angle',
   umbrella: 'a pink and white beach umbrella over a blue striped beach towel',
   easel: "a painter's wooden easel holding a small landscape painting",
+  trader_tent: "a travelling trader's tent stall with a striped purple and gold roof and a wooden counter piled with colourful exotic goods and a gold star",
 };
 Object.keys(PROPS).forEach((name) => {
   const p = PROPS[name];
@@ -228,7 +229,7 @@ Object.keys(PROPS).forEach((name) => {
   const gen = p.w > p.h * 1.2 ? '1536x1024' : p.h > p.w * 1.2 ? '1024x1536' : '1024x1024';
   const town = ['mayor', 'inn', 'forge', 'woodshop', 'clinic', 'cottage', 'cabin', 'mine_entrance', 'stable'].includes(name);
   const town2 = !!p.door && !town; // the newer town buildings: say where the door goes
-  const decor = ['wagon', 'gazebo', 'playground', 'fruit_stall', 'cloth_stall', 'statue', 'boat', 'umbrella', 'easel'].includes(name);
+  const decor = ['wagon', 'gazebo', 'playground', 'fruit_stall', 'cloth_stall', 'statue', 'boat', 'umbrella', 'easel', 'trader_tent'].includes(name);
   const home = /^house_\d+$/.test(name);
   add({
     id: `prop_${name}`, group: home ? 'House levels' : town || town2 ? 'Town buildings' : decor ? 'Town decorations' : 'Props and furniture', file: `props/${name}.png`, gen: gen,
@@ -295,8 +296,9 @@ const VILLAGERS = {
 };
 const SHOPPER_LOOKS = {};
 GAME.SHOPPERS.forEach((x) => { SHOPPER_LOOKS[x.key] = x.look; });
+SHOPPER_LOOKS[GAME.TRADER.key] = GAME.TRADER.look;
 Object.assign(VILLAGERS, SHOPPER_LOOKS);
-const ORDER = GAME.VILLAGER_ORDER.concat(GAME.SHOPPERS.map((x) => x.key));
+const ORDER = GAME.VILLAGER_ORDER.concat(GAME.SHOPPERS.map((x) => x.key), GAME.TRADER.key);
 ORDER.forEach((v, i) => {
   add({
     id: `char_${v}`, group: SHOPPER_LOOKS[v] ? 'Visitors' : i >= 7 ? 'New villagers' : 'Characters', file: `characters/${v}.png`, gen: '1024x1536', final: '9 frames of 128x192 (stored at half size)',
@@ -410,6 +412,13 @@ add({
   prompt: `${STYLE} A set of 5 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
     'Row by row, left to right: 1) a crusty golden loaf of bread; 2) two round butter cookies with chocolate chips; 3) a small round strawberry cream cake; ' +
     '4) a bouquet of colourful flowers wrapped in pink paper; 5) a bone-shaped animal treat biscuit. Leave the remaining cells empty. ' + CUTOUT,
+});
+
+add({
+  id: 'icons_quests', group: 'Item icons', file: 'icons/icons_quests.png', gen: '1024x1024', final: '2 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['power_up', 'pet_meal'], targets: ['icon:power_up', 'icon:pet_meal'],
+  prompt: `${STYLE} A set of 2 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) a glowing orange potion bottle with a yellow lightning bolt on it (a power-up); 2) a red pet food bowl heaped with kibble and a bone on top. Leave the remaining cells empty. ' + CUTOUT,
 });
 
 // ---------- 10. effects: bits that fly when tools land (4 pieces per picture, a 2 x 2 grid) ----------
