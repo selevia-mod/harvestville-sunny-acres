@@ -8514,6 +8514,13 @@
     if (F.world) showBtn(F.world.mapKey);
   };
 
+  // Back leaves Decorate mode (after closing any panel on top of it)
+  var back = U2.back;
+  U2.back = function () {
+    if (!this.modals.length && world() && world().decor) { world().endDecor(); return true; }
+    return back.call(this);
+  };
+
   U2.openDecor = function () {
     if (!world() || this.blocking()) return;
     if (!this.tipDecor) {
