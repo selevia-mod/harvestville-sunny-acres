@@ -43,6 +43,8 @@ list('maps', '.json').forEach((f) => {
 const inline = (code) => code.replace(/<\/script/gi, '<\\/script');
 
 const phaser = fs.readFileSync(require.resolve('phaser/dist/phaser-arcade-physics.min.js'), 'utf8');
+// the Supabase browser client, for online play (src/02-net.js); it does nothing until online is switched on
+const supabaseJs = fs.readFileSync(require.resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8');
 const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps }) + ';';
 const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
 
@@ -65,6 +67,7 @@ const html = `<!DOCTYPE html>
 <div id="game"></div>
 <div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm…</div>
 <script>${inline(phaser)}</script>
+<script>${inline(supabaseJs)}</script>
 <script>${inline(assets)}</script>
 <script>${inline(game)}</script>
 </body>
