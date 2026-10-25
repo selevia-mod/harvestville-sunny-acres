@@ -286,38 +286,40 @@
     var cost = rocks ? rocks * L.mineEnergy(s, F.session.mineFloor) : L.toolEnergy(s, tool, effects.length);
     if (!L.spendEnergy(s, cost)) return this.tired();
     var gotLumber = 0, gotStone = 0, items = {}, counts = { till: 0, water: 0, clear: 0, cut: 0 };
-    this.animateUse(L.iconOf(s, tool), tool === 'can' ? 'pour' : 'swing');
+    var kind = tool === 'can' ? 'pour' : 'swing';
+    this.animateUse(L.iconOf(s, tool), kind);
+    // The rules happen now; what you see and hear waits until the tool lands (fx runs at impact).
+    var fx = [], heavy = 0;
     effects.forEach(function (e) {
       var x = e.idx % self.map.width, y = Math.floor(e.idx / self.map.width), tile = { x: x, y: y };
       if (e.kind === 'till') {
         L.till(s, e.idx);
         counts.till++;
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x8a5a30, 4);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); });
       } else if (e.kind === 'water') {
         L.water(s, e.idx);
         counts.water++;
-        self.refreshTile(e.idx);
-        self.wiggle(e.idx);
-        self.drops(tile);
+        fx.push(function () {
+          var soak = self.soakIn(tile);
+          self.refreshTile(e.idx);
+          if (soak) soak();
+          self.wiggle(e.idx);
+          self.drops(tile);
+        });
       } else if (e.kind === 'cut') {
         var got = L.cut(s, e.idx);
         if (got[0] === '!') return;
         items[got] = (items[got] || 0) + 1;
         counts.cut++;
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x93d66b, 5);
-        self.flyTile(tile, C.ITEMS[got].icon);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); self.flyTile(tile, C.ITEMS[got].icon); });
       } else if (e.kind === 'untill') {
         delete s.soil[e.idx];
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x8a5a30, 3);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); });
       } else if (e.kind === 'debris') {
         self.hits[e.idx] = (self.hits[e.idx] || 0) + 1;
-        var chip = e.debris === 'weed' ? 0x6cbf4a : e.debris === 'branch' || e.debris === 'stump' ? 0xc48945 : 0x9aa0a8;
         if (self.hits[e.idx] < e.hits) {
-          self.shake(tile);
-          self.chips(tile, chip, 3);
+          fx.push(function () { self.impact(tool, e, tile, false); });
+          heavy = Math.max(heavy, 1);
           return;
         }
         delete self.hits[e.idx];
@@ -325,26 +327,41 @@
         gotLumber += r.lumber;
         gotStone += r.stone;
         counts.clear++;
-        self.removeDebrisTile(e.idx);
-        self.puff(tile, chip, 4);
-        self.chips(tile, chip, e.debris === 'weed' ? 4 : 7);
-        if (r.lumber) self.flyTile(tile, C.ICON.lumber);
-        if (r.stone) self.flyTile(tile, C.ICON.stone);
+        if (e.debris === 'stump' || e.debris === 'boulder') heavy = 2;
+        else if (e.debris !== 'weed') heavy = Math.max(heavy, 1);
+        fx.push(function () {
+          self.popOut('Debris', tile);
+          self.removeDebrisTile(e.idx);
+          self.impact(tool, e, tile, true);
+          sfx(e.debris === 'weed' ? 'leaves' : e.debris === 'branch' || e.debris === 'stump' ? 'woodbreak' : 'stonebreak');
+          if (r.lumber) self.flyTile(tile, C.ICON.lumber);
+          if (r.stone) self.flyTile(tile, C.ICON.stone);
+        });
       } else if (e.kind === 'rock') {
-        self.breakRock(e.idx, tile, items);
+        var show = self.breakRock(e.idx, tile, items);
+        if (show) {
+          heavy = 2;
+          fx.push(function () { show(); self.impact(tool, e, tile, true); sfx('stonebreak'); });
+        }
       }
     });
-    sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
-    if (counts.clear) this.progress('clear', counts.clear);
-    if (counts.till) this.progress('till', counts.till);
-    if (counts.water) this.progress('water', counts.water);
-    if (counts.cut) this.progress('harvest', counts.cut);
+    var area = effects.map(function (e) { return [e.idx % self.map.width, Math.floor(e.idx / self.map.width)]; });
     var notes = [];
     if (gotLumber) notes.push('+' + gotLumber + ' Lumber');
     if (gotStone) notes.push('+' + gotStone + ' Stone');
     Object.keys(items).forEach(function (id) { notes.push('+' + items[id] + ' ' + (id === 'stone' ? 'Stone' : C.ITEMS[id].name)); });
-    if (notes.length) this.floatText(t, notes.join('  '));
-    if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true });
+    this.time.delayedCall(this.IMPACT[kind], function () {
+      fx.forEach(function (f) { f(); });
+      sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
+      if (tool !== 'can') self.bump(heavy || (level ? 1 : 0));
+      self.chargeImpact(area, level);
+      if (notes.length) self.floatText(t, notes.join('  '));
+      if (self.layers.Debris) self.layers.Debris.setCollisionByProperty({ collides: true });
+    });
+    if (counts.clear) this.progress('clear', counts.clear);
+    if (counts.till) this.progress('till', counts.till);
+    if (counts.water) this.progress('water', counts.water);
+    if (counts.cut) this.progress('harvest', counts.cut);
     this.changed();
     if (this.mapKey === 'mine' && s.energy <= 0) this.faint();
   };
@@ -355,38 +372,35 @@
     this.endDay(true);
   };
 
-  M.shake = function (t) {
-    var layer = this.layers.Debris, tile = layer && layer.getTileAt(t.x, t.y);
-    this.puff(t, 0xc9a26b, 2);
-    if (!tile) return;
-    var cam = this.cameras.main;
-    cam.shake(80, 0.002);
-  };
-
+  // Breaks a mine rock now and returns what to show when the hammer lands (or nothing if the bag is full).
   M.breakRock = function (idx, t, items) {
-    var s = this.state, floor = F.session.mineFloor, drop = L.mineDrop(floor, Math.random());
+    var self = this, s = this.state, floor = F.session.mineFloor, drop = L.mineDrop(floor, Math.random());
     if (drop && drop !== 'stone' && !L.canAdd(s, drop, 1)) {
       F.ui.toast('Your bag is full!');
-      return;
+      return null;
     }
     this.mine.broken[idx] = 1;
-    if (idx === this.mine.stairs) {
-      this.putTile('Walls', this.gids.ladder_down, t.x, t.y);
-      F.ui.toast('You found the ladder down!');
-      sfx('found');
-    } else {
-      this.layers.Walls.removeTileAt(t.x, t.y);
+    var stairs = idx === this.mine.stairs;
+    if (drop) {
+      if (drop === 'stone') s.stone += 1;
+      else {
+        L.addItem(s, drop, 1);
+        L.discover(s, drop);
+      }
+      items[drop] = (items[drop] || 0) + 1;
     }
-    this.recollide();
-    this.puff(t, 0x8a7a6a, 7);
-    if (!drop) return;
-    if (drop === 'stone') s.stone += 1;
-    else {
-      L.addItem(s, drop, 1);
-      L.discover(s, drop);
-    }
-    items[drop] = (items[drop] || 0) + 1;
-    this.flyTile(t, C.ICON[drop]);
+    return function () {
+      self.popOut('Walls', t);
+      if (stairs) {
+        self.putTile('Walls', self.gids.ladder_down, t.x, t.y);
+        F.ui.toast('You found the ladder down!');
+        sfx('found');
+      } else {
+        self.layers.Walls.removeTileAt(t.x, t.y);
+      }
+      self.recollide();
+      if (drop) self.flyTile(t, C.ICON[drop]);
+    };
   };
 
   M.tired = function () {

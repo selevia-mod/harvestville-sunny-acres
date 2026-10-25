@@ -4063,38 +4063,40 @@
     var cost = rocks ? rocks * L.mineEnergy(s, F.session.mineFloor) : L.toolEnergy(s, tool, effects.length);
     if (!L.spendEnergy(s, cost)) return this.tired();
     var gotLumber = 0, gotStone = 0, items = {}, counts = { till: 0, water: 0, clear: 0, cut: 0 };
-    this.animateUse(L.iconOf(s, tool), tool === 'can' ? 'pour' : 'swing');
+    var kind = tool === 'can' ? 'pour' : 'swing';
+    this.animateUse(L.iconOf(s, tool), kind);
+    // The rules happen now; what you see and hear waits until the tool lands (fx runs at impact).
+    var fx = [], heavy = 0;
     effects.forEach(function (e) {
       var x = e.idx % self.map.width, y = Math.floor(e.idx / self.map.width), tile = { x: x, y: y };
       if (e.kind === 'till') {
         L.till(s, e.idx);
         counts.till++;
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x8a5a30, 4);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); });
       } else if (e.kind === 'water') {
         L.water(s, e.idx);
         counts.water++;
-        self.refreshTile(e.idx);
-        self.wiggle(e.idx);
-        self.drops(tile);
+        fx.push(function () {
+          var soak = self.soakIn(tile);
+          self.refreshTile(e.idx);
+          if (soak) soak();
+          self.wiggle(e.idx);
+          self.drops(tile);
+        });
       } else if (e.kind === 'cut') {
         var got = L.cut(s, e.idx);
         if (got[0] === '!') return;
         items[got] = (items[got] || 0) + 1;
         counts.cut++;
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x93d66b, 5);
-        self.flyTile(tile, C.ITEMS[got].icon);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); self.flyTile(tile, C.ITEMS[got].icon); });
       } else if (e.kind === 'untill') {
         delete s.soil[e.idx];
-        self.refreshTile(e.idx);
-        self.puff(tile, 0x8a5a30, 3);
+        fx.push(function () { self.refreshTile(e.idx); self.impact(tool, e, tile); });
       } else if (e.kind === 'debris') {
         self.hits[e.idx] = (self.hits[e.idx] || 0) + 1;
-        var chip = e.debris === 'weed' ? 0x6cbf4a : e.debris === 'branch' || e.debris === 'stump' ? 0xc48945 : 0x9aa0a8;
         if (self.hits[e.idx] < e.hits) {
-          self.shake(tile);
-          self.chips(tile, chip, 3);
+          fx.push(function () { self.impact(tool, e, tile, false); });
+          heavy = Math.max(heavy, 1);
           return;
         }
         delete self.hits[e.idx];
@@ -4102,26 +4104,41 @@
         gotLumber += r.lumber;
         gotStone += r.stone;
         counts.clear++;
-        self.removeDebrisTile(e.idx);
-        self.puff(tile, chip, 4);
-        self.chips(tile, chip, e.debris === 'weed' ? 4 : 7);
-        if (r.lumber) self.flyTile(tile, C.ICON.lumber);
-        if (r.stone) self.flyTile(tile, C.ICON.stone);
+        if (e.debris === 'stump' || e.debris === 'boulder') heavy = 2;
+        else if (e.debris !== 'weed') heavy = Math.max(heavy, 1);
+        fx.push(function () {
+          self.popOut('Debris', tile);
+          self.removeDebrisTile(e.idx);
+          self.impact(tool, e, tile, true);
+          sfx(e.debris === 'weed' ? 'leaves' : e.debris === 'branch' || e.debris === 'stump' ? 'woodbreak' : 'stonebreak');
+          if (r.lumber) self.flyTile(tile, C.ICON.lumber);
+          if (r.stone) self.flyTile(tile, C.ICON.stone);
+        });
       } else if (e.kind === 'rock') {
-        self.breakRock(e.idx, tile, items);
+        var show = self.breakRock(e.idx, tile, items);
+        if (show) {
+          heavy = 2;
+          fx.push(function () { show(); self.impact(tool, e, tile, true); sfx('stonebreak'); });
+        }
       }
     });
-    sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
-    if (counts.clear) this.progress('clear', counts.clear);
-    if (counts.till) this.progress('till', counts.till);
-    if (counts.water) this.progress('water', counts.water);
-    if (counts.cut) this.progress('harvest', counts.cut);
+    var area = effects.map(function (e) { return [e.idx % self.map.width, Math.floor(e.idx / self.map.width)]; });
     var notes = [];
     if (gotLumber) notes.push('+' + gotLumber + ' Lumber');
     if (gotStone) notes.push('+' + gotStone + ' Stone');
     Object.keys(items).forEach(function (id) { notes.push('+' + items[id] + ' ' + (id === 'stone' ? 'Stone' : C.ITEMS[id].name)); });
-    if (notes.length) this.floatText(t, notes.join('  '));
-    if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true });
+    this.time.delayedCall(this.IMPACT[kind], function () {
+      fx.forEach(function (f) { f(); });
+      sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
+      if (tool !== 'can') self.bump(heavy || (level ? 1 : 0));
+      self.chargeImpact(area, level);
+      if (notes.length) self.floatText(t, notes.join('  '));
+      if (self.layers.Debris) self.layers.Debris.setCollisionByProperty({ collides: true });
+    });
+    if (counts.clear) this.progress('clear', counts.clear);
+    if (counts.till) this.progress('till', counts.till);
+    if (counts.water) this.progress('water', counts.water);
+    if (counts.cut) this.progress('harvest', counts.cut);
     this.changed();
     if (this.mapKey === 'mine' && s.energy <= 0) this.faint();
   };
@@ -4132,38 +4149,35 @@
     this.endDay(true);
   };
 
-  M.shake = function (t) {
-    var layer = this.layers.Debris, tile = layer && layer.getTileAt(t.x, t.y);
-    this.puff(t, 0xc9a26b, 2);
-    if (!tile) return;
-    var cam = this.cameras.main;
-    cam.shake(80, 0.002);
-  };
-
+  // Breaks a mine rock now and returns what to show when the hammer lands (or nothing if the bag is full).
   M.breakRock = function (idx, t, items) {
-    var s = this.state, floor = F.session.mineFloor, drop = L.mineDrop(floor, Math.random());
+    var self = this, s = this.state, floor = F.session.mineFloor, drop = L.mineDrop(floor, Math.random());
     if (drop && drop !== 'stone' && !L.canAdd(s, drop, 1)) {
       F.ui.toast('Your bag is full!');
-      return;
+      return null;
     }
     this.mine.broken[idx] = 1;
-    if (idx === this.mine.stairs) {
-      this.putTile('Walls', this.gids.ladder_down, t.x, t.y);
-      F.ui.toast('You found the ladder down!');
-      sfx('found');
-    } else {
-      this.layers.Walls.removeTileAt(t.x, t.y);
+    var stairs = idx === this.mine.stairs;
+    if (drop) {
+      if (drop === 'stone') s.stone += 1;
+      else {
+        L.addItem(s, drop, 1);
+        L.discover(s, drop);
+      }
+      items[drop] = (items[drop] || 0) + 1;
     }
-    this.recollide();
-    this.puff(t, 0x8a7a6a, 7);
-    if (!drop) return;
-    if (drop === 'stone') s.stone += 1;
-    else {
-      L.addItem(s, drop, 1);
-      L.discover(s, drop);
-    }
-    items[drop] = (items[drop] || 0) + 1;
-    this.flyTile(t, C.ICON[drop]);
+    return function () {
+      self.popOut('Walls', t);
+      if (stairs) {
+        self.putTile('Walls', self.gids.ladder_down, t.x, t.y);
+        F.ui.toast('You found the ladder down!');
+        sfx('found');
+      } else {
+        self.layers.Walls.removeTileAt(t.x, t.y);
+      }
+      self.recollide();
+      if (drop) self.flyTile(t, C.ICON[drop]);
+    };
   };
 
   M.tired = function () {
@@ -5868,6 +5882,12 @@
     chop: function () { tone(260, 0.09, 'triangle', 0.35, 130); noise(0.07, 'highpass', 1800, 0.25); },
     smash: function () { noise(0.18, 'lowpass', 1300, 0.5); tone(95, 0.14, 'square', 0.12, 60); },
     cut: function () { noise(0.1, 'highpass', 3200, 0.3); },
+    swoosh: function () { noise(0.11, 'bandpass', 900, 0.1); },
+    step: function () { noise(0.05, 'lowpass', 380 + Math.random() * 160, 0.07); },
+    stepWood: function () { tone(150 + Math.random() * 30, 0.05, 'triangle', 0.06, 110); noise(0.03, 'lowpass', 900, 0.04); },
+    leaves: function () { noise(0.16, 'highpass', 2600, 0.2); noise(0.1, 'bandpass', 1800, 0.12, 0.05); },
+    woodbreak: function () { tone(180, 0.18, 'triangle', 0.35, 90); noise(0.22, 'bandpass', 900, 0.35); noise(0.1, 'highpass', 2500, 0.2, 0.04); },
+    stonebreak: function () { noise(0.35, 'lowpass', 900, 0.55); tone(70, 0.2, 'square', 0.14, 45); noise(0.15, 'highpass', 2000, 0.15, 0.05); },
     plant: function () { noise(0.12, 'lowpass', 900, 0.22); tone(520, 0.08, 'sine', 0.1, null, 0.05); },
     harvest: function () { arp([660, 880], 0.06, 'triangle', 0.25); },
     pick: function () { arp([700, 1050], 0.05, 'sine', 0.25); },
@@ -5983,12 +6003,42 @@
   var DEPTH = F.WorldScene.DEPTH;
   var NIGHT_DEPTH = 30, GLOW_DEPTH = 31;
 
-  // Tool pose frames in the player sheet (rows 3-4) and where the hands are in the 256x384 frame.
+  // Tool pose frames in the player sheet (rows 3-4), where the hands are in the 256x384 frame, and which way
+  // the tool's head points (screen degrees: 0 right, 90 down, -90 up) when raised and when it lands.
   var USE = {
-    down: { raise: 9, strike: 10, hand: { raise: [128, 66], strike: [128, 300] }, angle: { raise: -45, strike: 135 } },
-    up: { raise: 11, strike: 12, hand: { raise: [128, 64], strike: [128, 236] }, angle: { raise: -45, strike: -80 } },
-    left: { raise: 13, strike: 14, hand: { raise: [206, 78], strike: [46, 268] }, angle: { raise: 0, strike: 180 } },
-    right: { raise: 13, strike: 14, hand: { raise: [50, 78], strike: [210, 268] }, angle: { raise: 0, strike: 180 }, flip: true },
+    down: { raise: 9, strike: 10, hand: { raise: [128, 66], strike: [128, 290] }, aim: { raise: -90, strike: 90, pour: 115 } },
+    up: { raise: 11, strike: 12, hand: { raise: [128, 64], strike: [128, 120], pour: [150, 215] }, aim: { raise: -90, strike: -90, pour: -100 } },
+    left: { raise: 13, strike: 14, hand: { raise: [206, 78], strike: [46, 268] }, aim: { raise: -70, strike: 150, pour: 160 } },
+    right: { raise: 13, strike: 14, hand: { raise: [50, 78], strike: [210, 268] }, aim: { raise: -110, strike: 30, pour: 20 }, flip: true },
+  };
+  // How each tool icon is drawn: the grip (handle end, as a share of the 128x128 icon) and which way its head
+  // points from there. Anything else (seed bags, food) is held by its middle, upright.
+  var GRIP = {
+    hoe: { x: 0.84, y: 0.16, dir: 132 },
+    axe: { x: 0.2, y: 0.86, dir: -46 },
+    hammer: { x: 0.2, y: 0.86, dir: -50 },
+    sickle: { x: 0.2, y: 0.86, dir: -45 },
+    rod: { x: 0.18, y: 0.88, dir: -47 },
+    can: { x: 0.64, y: 0.28, dir: 180 }, // held by the top handle; dir = where the spout points
+  };
+  var TOOL_SCALE = 1.5;
+  var gripOf = function (frame) {
+    var name = (C.ICON_ORDER[frame] || '').replace(/_\d$/, '');
+    return GRIP[name] || null;
+  };
+  // Places a held tool so its grip is at (x, y) and its head points along `aim`. Mirrors the icon (around
+  // the grip) when that keeps it closer to upright.
+  var hold = function (img, g, x, y, aim) {
+    img.setPosition(x, y);
+    if (!g) {
+      img.setOrigin(0.5, 0.75).setScale(TOOL_SCALE * 0.8).setAngle(Math.max(-30, Math.min(30, aim > 90 || aim < -90 ? -20 : 20)));
+      return;
+    }
+    var rad = Phaser.Math.DegToRad;
+    var mirror = Math.cos(rad(aim)) * Math.cos(rad(g.dir)) < -0.05;
+    var dir = mirror ? 180 - g.dir : g.dir;
+    img.setOrigin(g.x, g.y).setScale(mirror ? -TOOL_SCALE : TOOL_SCALE, TOOL_SCALE).setFlipX(false)
+      .setAngle(Phaser.Math.Angle.WrapDegrees(aim - dir));
   };
 
   var M = {};
@@ -6102,23 +6152,28 @@
   // ---------- the farmer swings a tool ----------
   // kind: 'swing' (raise, then strike) or 'pour' (strike only, held out a little longer)
   M.animateUse = function (frame, kind) {
-    var self = this, u = USE[this.dir], p = this.player;
+    var self = this, u = USE[this.dir], p = this.player, g = gripOf(frame);
     var flip = !!u.flip;
-    this.acting = kind === 'pour' ? 420 : 320;
+    this.acting = kind === 'pour' ? (g === GRIP.can ? 620 : 420) : 320; // watering holds the can until the stream ends
     p.anims.stop();
-    var tool = this.add.image(0, 0, 'items', frame).setOrigin(0.18, 0.82).setScale(1.3).setFlipX(flip);
-    var place = function (pose) {
+    var tool = this.add.image(0, 0, 'items', frame);
+    var place = function (pose, aim, hand) {
       p.setFrame(u[pose]).setFlipX(flip);
-      var h = u.hand[pose];
-      tool.setPosition(p.x - 128 + h[0], p.y - 192 + h[1]).setAngle(u.angle[pose] + (flip ? 0 : 0));
+      var h = u.hand[hand || pose];
+      hold(tool, g, p.x - 128 + h[0], p.y - 192 + h[1], aim);
       tool.setDepth(self.dir === 'up' && pose === 'strike' ? p.depth - 0.001 : p.depth + 0.001);
     };
     if (kind === 'pour') {
-      place('strike');
-      this.tweens.add({ targets: tool, angle: tool.angle + (flip ? 30 : -30), duration: 300, yoyo: true });
+      place('strike', u.aim.pour, u.hand.pour ? 'pour' : null);
+      var tip = u.aim.pour > -90 && u.aim.pour < 90 ? 25 : -25; // tip the spout further down, then back
+      this.tweens.add({ targets: tool, angle: tool.angle + tip, duration: 220, yoyo: true, hold: 60 });
     } else {
-      place('raise');
-      this.time.delayedCall(110, function () { place('strike'); });
+      place('raise', u.aim.raise);
+      var from = { x: tool.x, y: tool.y, angle: tool.angle };
+      this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
+        place('strike', u.aim.strike);
+        if (self.swoosh) self.swoosh(tool, from);
+      });
     }
     this.time.delayedCall(this.acting, function () {
       tool.destroy();
@@ -6390,6 +6445,399 @@
   };
 
   Object.assign(F.WorldScene.prototype, M);
+})(window.Farm = window.Farm || {});
+
+// ---- src/19b-feel.js
+// Game feel for the farmer: what happens when a tool lands (dirt, chips, splashes, the hit thing shaking and
+// popping, a small camera bump), and how walking feels (easing in and out, steady facing on diagonals,
+// steps that match the speed, footstep dust and sounds). Mixed into WorldScene; runs after 18-polish.js.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var T = C.TILE;
+  var DEPTH = F.WorldScene.DEPTH;
+  var P = F.WorldScene.prototype;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+
+  // When the tool lands, in ms after the button: the swing's raise lasts 110 ms, poured water takes a bit longer.
+  P.IMPACT = { swing: 110, pour: 120 };
+
+  // Bits that fly off, by material: texture, tints, how they fly.
+  var BITS = {
+    dirt: { tex: 'fx-clod', tint: [0x8a5a30, 0x6e4524, 0xa0703f], speed: [500, 1100], gravity: 4200, life: [420, 620], scale: [2.0, 1.2] },
+    wood: { tex: 'fx-chip', tint: [0xc48945, 0xe0a862, 0x9a6630], speed: [600, 1250], gravity: 4200, life: [450, 650], scale: [2.0, 1.4], spin: true },
+    stone: { tex: 'fx-chip', tint: [0x9aa0a8, 0x7d838c, 0xb8bdc4], speed: [600, 1300], gravity: 4600, life: [400, 600], scale: [1.9, 1.2], spin: true },
+    leaf: { tex: 'fx-leaf', tint: [0x6cbf4a, 0x4f9a36, 0x93d66b], speed: [350, 800], gravity: 1500, life: [600, 850], scale: [2.0, 1.4], spin: true },
+    water: { tex: 'fx-drop', tint: [0xffffff], speed: [300, 750], gravity: 3600, life: [380, 560], scale: [3.0, 1.6] },
+    dust: { tex: 'fx-dust', tint: [0xe8d6b0], speed: [60, 220], gravity: -250, life: [380, 560], scale: [1.2, 3.2], alpha: [0.6, 0] },
+  };
+
+  function makeTextures(scene) {
+    var tex = scene.textures;
+    var draw = function (key, w, h, fn) {
+      if (tex.exists(key)) return;
+      var c = tex.createCanvas(key, w, h), g = c.getContext();
+      fn(g);
+      c.refresh();
+    };
+    var ink = 'rgba(70,45,25,0.9)';
+    draw('fx-clod', 48, 40, function (g) { // a lumpy blob, white so it takes a tint
+      g.beginPath();
+      g.ellipse(24, 21, 19, 15, 0.3, 0, Math.PI * 2);
+      g.fillStyle = '#ffffff';
+      g.fill();
+      g.lineWidth = 4;
+      g.strokeStyle = ink;
+      g.stroke();
+      g.beginPath();
+      g.ellipse(18, 15, 6, 4, 0.3, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.7)';
+      g.fill();
+    });
+    draw('fx-chip', 52, 28, function (g) {
+      g.beginPath();
+      g.moveTo(4, 8);
+      g.lineTo(46, 3);
+      g.lineTo(48, 20);
+      g.lineTo(8, 25);
+      g.closePath();
+      g.fillStyle = '#ffffff';
+      g.fill();
+      g.lineWidth = 4;
+      g.strokeStyle = ink;
+      g.stroke();
+    });
+    draw('fx-leaf', 48, 30, function (g) {
+      g.beginPath();
+      g.moveTo(3, 15);
+      g.quadraticCurveTo(24, -6, 45, 15);
+      g.quadraticCurveTo(24, 36, 3, 15);
+      g.fillStyle = '#ffffff';
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(40,70,25,0.9)';
+      g.stroke();
+      g.beginPath();
+      g.moveTo(6, 15);
+      g.lineTo(40, 15);
+      g.stroke();
+    });
+    draw('fx-drop', 28, 40, function (g) {
+      g.beginPath();
+      g.moveTo(14, 2);
+      g.quadraticCurveTo(27, 22, 22, 31);
+      g.arc(14, 28, 10, 0.3, Math.PI - 0.3);
+      g.quadraticCurveTo(1, 22, 14, 2);
+      g.fillStyle = '#8fd0ff';
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = '#2f7fc0';
+      g.stroke();
+      g.beginPath();
+      g.ellipse(10, 24, 3, 5, 0, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255,255,255,0.85)';
+      g.fill();
+    });
+    draw('fx-dust', 64, 64, function (g) {
+      var gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+      gr.addColorStop(0, 'rgba(255,255,255,0.95)');
+      gr.addColorStop(0.6, 'rgba(255,255,255,0.45)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, 64, 64);
+    });
+    draw('fx-ring', 160, 80, function (g) {
+      g.beginPath();
+      g.ellipse(80, 40, 72, 32, 0, 0, Math.PI * 2);
+      g.lineWidth = 9;
+      g.strokeStyle = '#ffffff';
+      g.stroke();
+    });
+    draw('fx-swoosh', 200, 200, function (g) { // a crescent of motion behind a swing
+      g.beginPath();
+      g.arc(100, 100, 88, Math.PI * 1.05, Math.PI * 1.95);
+      g.arc(100, 118, 70, Math.PI * 1.9, Math.PI * 1.1, true);
+      g.closePath();
+      var gr = g.createLinearGradient(10, 0, 190, 0);
+      gr.addColorStop(0, 'rgba(255,255,255,0)');
+      gr.addColorStop(0.6, 'rgba(255,255,255,0.75)');
+      gr.addColorStop(1, 'rgba(255,255,255,0.95)');
+      g.fillStyle = gr;
+      g.fill();
+    });
+  }
+
+  P.setupFeel = function () {
+    var self = this;
+    makeTextures(this);
+    this.bits = {};
+    Object.keys(BITS).forEach(function (k) {
+      var b = BITS[k];
+      self.bits[k] = self.add.particles(0, 0, b.tex, {
+        speed: { min: b.speed[0], max: b.speed[1] },
+        angle: k === 'dust' ? { min: 180, max: 360 } : { min: 200, max: 340 }, // upward fan
+        gravityY: b.gravity,
+        lifespan: { min: b.life[0], max: b.life[1] },
+        scale: { start: b.scale[0], end: b.scale[1] },
+        alpha: b.alpha ? { start: b.alpha[0], end: b.alpha[1] } : { start: 1, end: 0.6 },
+        rotate: b.spin ? { start: 0, end: 540 } : { min: -40, max: 40 },
+        tint: b.tint,
+        emitting: false,
+      }).setDepth(DEPTH.fx);
+    });
+    // footsteps: a puff of dust and a soft sound on each step frame
+    this.player.on('animationupdate', function (anim, frame) {
+      if (anim.key.indexOf('walk-') !== 0 || frame.index % 2 === 0) return; // frames 1 and 3 are the steps
+      self.footstep();
+    });
+    this.stepSide = 0;
+  };
+  var setupPolish = P.setupPolish;
+  P.setupPolish = function () {
+    setupPolish.call(this);
+    this.setupFeel();
+  };
+
+  // Throws n bits of a material from a world point.
+  P.burst = function (kind, x, y, n) {
+    if (this.bits && this.bits[kind] && n > 0) this.bits[kind].explode(n, x, y);
+  };
+
+  // The middle and the ground line of a tile, in world units.
+  var mid = function (t) { return { x: t.x * T + T / 2, y: t.y * T + T * 0.62 }; };
+
+  // A flat ring that spreads out on the ground (impact, splash, charged swing).
+  P.ring = function (x, y, color, scale) {
+    var r = this.add.image(x, y, 'fx-ring').setTint(color || 0xffffff).setAlpha(0.75).setScale(0.3 * (scale || 1)).setDepth(DEPTH.Soil + 0.5);
+    this.tweens.add({ targets: r, scale: 1.5 * (scale || 1), alpha: 0, duration: 380, ease: 'Quad.out', onComplete: function () { r.destroy(); } });
+  };
+
+  // ---------- the thing that was hit reacts ----------
+  // A loose copy of a map tile (debris, a mine rock, soil) that can shake, squash and pop while the real
+  // tile is hidden underneath.
+  P.tileImage = function (layerName, x, y) {
+    var layer = this.layers[layerName], tile = layer && layer.getTileAt(x, y);
+    if (!tile || !tile.tileset) return null;
+    var ts = tile.tileset, key = ts.image.key, fk = 'tile' + tile.index, texture = this.textures.get(key);
+    if (!texture.has(fk)) {
+      var c = ts.getTileTextureCoordinates(tile.index);
+      if (!c) return null;
+      texture.add(fk, 0, c.x, c.y, ts.tileWidth, ts.tileHeight);
+    }
+    var img = this.add.image(x * T + T / 2, (y + 1) * T, key, fk).setOrigin(0.5, 1).setDepth(layer.depth + 0.01);
+    img.tile = tile;
+    return img;
+  };
+
+  // A hit that doesn't break it yet: it rocks on its base.
+  P.wobble = function (layerName, t) {
+    var img = this.tileImage(layerName, t.x, t.y);
+    if (!img) return;
+    img.tile.setAlpha(0);
+    var side = Math.random() < 0.5 ? -1 : 1;
+    img.setAngle(16 * side).setScale(1.18, 0.82);
+    this.tweens.add({
+      targets: img, angle: 0, scaleX: 1, scaleY: 1, duration: 420, ease: 'Elastic.out', easeParams: [1.2, 0.35],
+      onComplete: function () { img.tile.setAlpha(1); img.destroy(); },
+    });
+  };
+
+  // Broken: it swells for a moment, then shrinks away. Call before the tile is removed.
+  P.popOut = function (layerName, t) {
+    var img = this.tileImage(layerName, t.x, t.y);
+    if (!img) return;
+    img.tile = null;
+    this.tweens.chain({
+      targets: img,
+      tweens: [
+        { scaleX: 1.18, scaleY: 1.12, duration: 70, ease: 'Quad.out' },
+        { scaleX: 0.2, scaleY: 0.1, alpha: 0, angle: Phaser.Math.Between(-25, 25), duration: 200, ease: 'Quad.in' },
+      ],
+      onComplete: function () { img.destroy(); },
+    });
+  };
+
+  // Freshly tilled soil springs out of the ground.
+  P.soilPop = function (t) {
+    var img = this.tileImage('Soil', t.x, t.y);
+    if (!img) return;
+    var tile = img.tile;
+    tile.setAlpha(0);
+    img.setOrigin(0.5, 0.5).setPosition(t.x * T + T / 2, t.y * T + T / 2).setScale(0.55, 0.35);
+    this.tweens.add({ targets: img, scaleX: 1, scaleY: 1, duration: 240, ease: 'Back.out', onComplete: function () { tile.setAlpha(1); img.destroy(); } });
+  };
+
+  // Watered soil darkens gradually: the dry tile fades away over the wet one. Call before refreshTile.
+  P.soakIn = function (t) {
+    var img = this.tileImage('Soil', t.x, t.y);
+    if (!img) return null;
+    img.tile = null;
+    var self = this;
+    return function () {
+      self.tweens.add({ targets: img, alpha: 0, duration: 520, ease: 'Sine.in', onComplete: function () { img.destroy(); } });
+    };
+  };
+
+  // ---------- effects used by the tools (replace the simple ones in 11-world.js / 18-polish.js) ----------
+  P.puff = function (t, color, n) {
+    var m = mid(t);
+    if (this.bits) this.bits.dust.setParticleTint(color);
+    this.burst('dust', m.x, m.y, n + 3);
+  };
+
+  P.chips = function (t, color, n) {
+    var m = mid(t), kind = color === 0x6cbf4a || color === 0x93d66b ? 'leaf' : color === 0x9aa0a8 || color === 0x8a7a6a ? 'stone' : 'wood';
+    this.burst(kind, m.x, m.y - 40, n);
+  };
+
+  // A stream of water from the can's spout onto the tile, then a splash.
+  P.drops = function (t) {
+    var self = this, m = mid(t), from = this.spout();
+    for (var i = 0; i < 18; i++) {
+      (function (i) {
+        var d = self.add.image(from.x + Phaser.Math.Between(-14, 14), from.y, 'fx-drop').setScale(Phaser.Math.FloatBetween(1.5, 2.2)).setDepth(DEPTH.fx);
+        var tx = m.x + Phaser.Math.Between(-80, 80), ty = m.y + Phaser.Math.Between(-40, 30);
+        d.setRotation(Math.atan2(ty - from.y, tx - from.x) - Math.PI / 2);
+        self.tweens.add({ targets: d, x: tx, duration: 200, delay: i * 16, ease: 'Linear' });
+        self.tweens.add({
+          targets: d, y: ty, duration: 200, delay: i * 16, ease: 'Quad.in',
+          onComplete: function () { d.destroy(); if (i % 4 === 0) self.burst('water', tx, ty, 2); },
+        });
+      })(i);
+    }
+    this.time.delayedCall(200, function () {
+      self.burst('water', m.x, m.y, 8);
+      self.ring(m.x, m.y, 0x9fdcff, 1.1);
+    });
+    this.time.delayedCall(380, function () { self.ring(m.x, m.y, 0x9fdcff, 0.7); });
+  };
+
+  // Where the watering can's spout is: in front of the farmer, at hand height.
+  P.spout = function () {
+    var f = this.feet(), d = this.dirVec();
+    return { x: f.x + d[0] * 150, y: f.y - 150 + (d[1] > 0 ? 90 : d[1] < 0 ? -40 : 0) };
+  };
+
+  // What the camera does on impact: heavier hits bump harder.
+  P.bump = function (strength) {
+    this.cameras.main.shake(strength > 1 ? 120 : 70, strength > 1 ? 0.0035 : 0.0016);
+  };
+
+  // Motion trail: fading copies of the tool between where it was raised and where it lands.
+  P.swoosh = function (tool, from) {
+    var self = this;
+    for (var i = 1; i <= 4; i++) {
+      var k = i / 5;
+      var g = this.add.image(from.x + (tool.x - from.x) * k, from.y + (tool.y - from.y) * k, tool.texture.key, tool.frame.name)
+        .setOrigin(tool.originX, tool.originY).setScale(tool.scaleX, tool.scaleY).setFlipX(tool.flipX)
+        .setAngle(from.angle + Phaser.Math.Angle.ShortestBetween(from.angle, tool.angle) * k)
+        .setDepth(tool.depth - 0.0005).setAlpha(0.12 + 0.3 * k).setTintFill(0xffffff);
+      self.tweens.add({ targets: g, alpha: 0, duration: 150, ease: 'Quad.out', onComplete: function (tw, targets) { targets[0].destroy(); } });
+    }
+    sfx('swoosh');
+  };
+
+  // ---------- what each kind of impact looks like ----------
+  // e = a tool effect from toolEffect(); tile = { x, y }; broke = the debris broke on this hit.
+  P.impact = function (tool, e, tile, broke) {
+    var m = mid(tile);
+    if (e.kind === 'till') {
+      this.soilPop(tile);
+      this.burst('dirt', m.x, m.y, 7);
+      this.puff(tile, 0xd9b98a, 2);
+    } else if (e.kind === 'untill') {
+      this.burst('dirt', m.x, m.y, 5);
+      this.puff(tile, 0xd9b98a, 3);
+    } else if (e.kind === 'cut') {
+      this.burst('leaf', m.x, m.y - 60, 9);
+    } else if (e.kind === 'debris') {
+      var kind = e.debris === 'weed' ? 'leaf' : e.debris === 'branch' || e.debris === 'stump' ? 'wood' : 'stone';
+      if (!broke) {
+        this.wobble('Debris', tile);
+        this.burst(kind, m.x, m.y - 50, kind === 'leaf' ? 4 : 4);
+        this.puff(tile, 0xd9c8a8, 1);
+        return;
+      }
+      this.burst(kind, m.x, m.y - 50, e.debris === 'weed' ? 9 : e.debris === 'stump' || e.debris === 'boulder' ? 14 : 9);
+      if (e.debris === 'branch') this.burst('leaf', m.x, m.y - 60, 4);
+      this.puff(tile, kind === 'stone' ? 0xc8c8c8 : 0xd9c8a8, e.debris === 'boulder' || e.debris === 'stump' ? 5 : 3);
+      if (e.debris === 'stump' || e.debris === 'boulder') this.ring(m.x, m.y, 0xffffff, 1.1);
+    } else if (e.kind === 'rock') {
+      this.burst('stone', m.x, m.y - 50, 12);
+      this.puff(tile, 0xb8b0a0, 5);
+    }
+  };
+
+  // Charged swings land with a ring across the whole area.
+  P.chargeImpact = function (tiles, level) {
+    if (!level || !tiles.length) return;
+    var x = 0, y = 0;
+    tiles.forEach(function (p) { x += p[0]; y += p[1]; });
+    var c = mid({ x: x / tiles.length, y: y / tiles.length });
+    this.ring(c.x, c.y, 0xfff2b0, 1.4 + level * 0.5);
+  };
+
+  // ---------- walking ----------
+  var ACCEL_MS = 70; // time constant to reach walking speed
+  var STOP_MS = 45; // and to stop
+  var SIDE_BIAS = 1.15; // on a diagonal, keep facing the way you were until one axis clearly wins
+
+  P.move = function (body) {
+    var vx = F.input.jx, vy = F.input.jy, k = this.keys;
+    if (k) {
+      if (k.LEFT.isDown || k.A.isDown) vx = -1;
+      else if (k.RIGHT.isDown || k.D.isDown) vx = 1;
+      if (k.UP.isDown || k.W.isDown) vy = -1;
+      else if (k.DOWN.isDown || k.S.isDown) vy = 1;
+    }
+    var len = Math.sqrt(vx * vx + vy * vy);
+    if (len < 0.2) { vx = vy = 0; len = 0; } else if (len > 1) { vx /= len; vy /= len; len = 1; }
+    var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1);
+    // ease toward the wanted velocity instead of jumping to it
+    var dt = Math.min(this.game.loop.delta, 100), going = len > 0;
+    var ease = 1 - Math.exp(-dt / (going ? ACCEL_MS : STOP_MS));
+    var nx = body.velocity.x + (vx * speed - body.velocity.x) * ease;
+    var ny = body.velocity.y + (vy * speed - body.velocity.y) * ease;
+    if (!going && Math.abs(nx) < 30 && Math.abs(ny) < 30) nx = ny = 0;
+    body.setVelocity(nx, ny);
+    if (going) this.dir = this.pickDir(vx, vy);
+    if (F.session.riding) {
+      if (vx) this.rideFlip = vx > 0;
+      this.moving = going;
+      return;
+    }
+    if (going) {
+      this.player.anims.play(F.walkAnim(this.dir === 'left' || this.dir === 'right' ? 'side' : this.dir), true);
+      this.player.setFlipX(this.dir === 'right');
+      // a gentle push of the stick walks slowly, with slower steps
+      var actual = Math.hypot(nx, ny) / speed;
+      this.player.anims.timeScale = 0.55 + 0.65 * Math.min(1, Math.max(len, actual));
+    } else if (this.player.anims.isPlaying) {
+      this.idle();
+    }
+  };
+
+  // Which way to face for a movement: no flicker between side and up/down on a diagonal.
+  P.pickDir = function (vx, vy) {
+    var ax = Math.abs(vx), ay = Math.abs(vy);
+    var h = vx < 0 ? 'left' : 'right', v = vy < 0 ? 'up' : 'down';
+    if (ax > ay * SIDE_BIAS || !vy) return h;
+    if (ay > ax * SIDE_BIAS || !vx) return v;
+    return this.dir === h || this.dir === v ? this.dir : ax >= ay ? h : v;
+  };
+
+  P.footstep = function () {
+    var f = this.feet(), sp = Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y);
+    if (sp < C.SPEED * 0.35) return;
+    this.stepSide = 1 - this.stepSide;
+    var side = (this.stepSide ? 1 : -1) * 34;
+    var indoor = this.mapKey === 'house';
+    if (!indoor && this.bits) {
+      this.bits.dust.setParticleTint(this.mapKey === 'mine' ? 0xb8a890 : 0xeadbb8);
+      this.bits.dust.explode(2, f.x + side, f.y + 20);
+    }
+    if (F.Audio) F.Audio.sfx(indoor ? 'stepWood' : 'step');
+  };
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js

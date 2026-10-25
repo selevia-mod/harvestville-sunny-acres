@@ -75,6 +75,7 @@ async function teleport(page, tx, ty, dir) {
 async function tapAction(page) {
   await page.touchscreen.tap(ACTION_BTN.x, ACTION_BTN.y);
   await frames(page);
+  await page.waitForTimeout(250); // tools land a moment after the tap; let the effects play
 }
 
 async function tapHotbar(page, i) {
@@ -179,7 +180,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   for (let i = 1; i <= 5; i++) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 90 + i * 8, y: 420, id: 1 }] });
   }
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(800); // the farmer eases up to walking speed
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await frames(page);
   const moved = await state(page);

@@ -14,14 +14,15 @@ Tested with the CPU slowed 6x (about OPPO A5 class):
 
 | Place | JS time per frame (avg / p95) |
 | --- | --- |
-| Farm | 8.6 / 12.6 ms |
-| Farm at night (glows, fireflies) | 8.7 / 13.3 ms |
-| Town plaza | 8.6 to 10.3 / 16.3 ms |
-| Town in a storm | 11.4 ms avg |
-| House, mine | 4.4 to 5.4 ms avg |
+| Farm | 9.4 / 16.3 ms |
+| Farm at night (glows, fireflies) | 11.2 ms avg |
+| Town plaza | 12.4 / 17.9 ms |
+| Town in a storm | 9.4 / 15.3 ms |
+| House, mine | 6.3 to 7.2 ms avg |
 
-- **Frame budget:** 60 fps needs under 16.7 ms, so every place fits.
-- **Startup:** cold start is about 8 s at 6x slowdown (about 2 s at full speed). A "Loading your farm…" message
+- **Frame budget:** 60 fps needs under 16.7 ms; every place fits on average.
+- **Startup:** cold start is about 13 s at 6x slowdown (about 2 to 3 s at full speed); the generated pictures
+  made the page bigger (about 11 MB). A "Loading your farm…" message
   shows meanwhile.
 - **GPU memory:** only the farm sheets are uploaded at boot. Indoor tiles, villagers and props are added the first
   time a map needs them.
@@ -229,6 +230,8 @@ src/              game code, concatenated in filename order
   16-games.js       goal banner + guide arrow, items flying into the bag, choices, fishing and dance mini-games
   16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends, collection
   17-audio.js       WebAudio music and sound effects
+  19b-feel.js       game feel: tools land with dirt, chips, splashes and a bump; walking eases in and out,
+                    with footstep dust and sounds
   18-polish.js      tool swings, night darkness with glowing windows, fireflies, name tags, emotes, goals
   19-extras.js      the horse (riding, saddlebag), the cat, the mailbox, mine chests, music box, aquarium
   20-main.js        decodes images, starts Phaser
