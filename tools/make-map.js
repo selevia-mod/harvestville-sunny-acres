@@ -340,9 +340,9 @@ function town() {
   m.prop('cabin', 19, 28);
   m.prop('mine_entrance', 26, 8);
   m.prop('fountain', 13, 15);
-  m.prop('notice', 9, 13);
+  m.prop('notice', 19, 13);
   m.prop('farm_stand', 11, 13); // the market stall
-  m.prop('order_board', 19, 13);
+  m.prop('order_board', 9, 13); // beside the market stall
   [[8, 14], [21, 14], [8, 21], [21, 21]].forEach(([x, y]) => m.prop('lamp', x, y - 1));
   m.prop('bench', 10, 22);
   m.prop('bench', 18, 22);
@@ -375,7 +375,7 @@ function town() {
     .forEach(([x, y], i) => m.point('fest_' + i, 'place', x, y));
   [[2, 27, 9, 4], [16, 2, 6, 8], [26, 25, 2, 5]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
   m.obj('farm_stand', 'stand', 11, 14, 2, 1);
-  m.obj('order_board', 'orders', 19, 13, 2, 2);
+  m.obj('order_board', 'orders', 9, 13, 2, 2);
   m.point('stall_front', 'place', 12, 15.7); // where buyers stand
   m.put('Walls', 16, 2, 'tiles', T.sign);
   m.obj('town_sign', 'sign', 16, 2, 1, 1, [prop('text', 'string', 'WILLOWBROOK\nTown Hall, Inn, Forge, Woodshop and Clinic around the plaza. The mine is east, the river south.')]);

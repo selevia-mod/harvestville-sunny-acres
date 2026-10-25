@@ -311,7 +311,8 @@
   L.till = function (s, idx) {
     if (s.debris[idx]) return 'debris';
     if (s.soil[idx]) return 'already';
-    s.soil[idx] = { w: 0, c: null, d: 0 };
+    // on a rainy day, freshly tilled soil is already wet
+    s.soil[idx] = { w: C.WEATHER[L.weather(s, s.day)].waters ? 1 : 0, c: null, d: 0 };
     return 'ok';
   };
 

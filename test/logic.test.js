@@ -378,3 +378,17 @@ test('every crop can ripen within its season', () => {
   C.CROP_KEYS.forEach((k) => assert.ok(C.CROPS[k].days < C.DAYS_PER_SEASON, k));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell || C.CROPS[k].sickle, k + ' sells'));
 });
+
+test('soil tilled on a rainy day comes out wet; on a dry day it needs watering', () => {
+  const s = L.newState(), weather = L.weather;
+  try {
+    L.weather = () => 'rain';
+    L.till(s, 5);
+    assert.strictEqual(s.soil[5].w, 1);
+    L.weather = () => 'sunny';
+    L.till(s, 6);
+    assert.strictEqual(s.soil[6].w, 0);
+  } finally {
+    L.weather = weather;
+  }
+});
