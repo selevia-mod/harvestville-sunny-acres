@@ -194,10 +194,10 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   // a patch of the field with a weed, a branch and a stone on it (and nothing else)
   await page.evaluate(() => {
     const s = Farm.session.state;
-    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 24 + x];
-    s.debris[12 * 24 + 5] = 'weed';
-    s.debris[12 * 24 + 6] = 'branch';
-    s.debris[12 * 24 + 7] = 'stone';
+    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 38 + x];
+    s.debris[12 * 38 + 5] = 'weed';
+    s.debris[12 * 38 + 6] = 'branch';
+    s.debris[12 * 38 + 7] = 'stone';
     Farm.world.refreshDebris();
   });
   await teleport(page, 5, 11, 'down');
@@ -643,11 +643,11 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 1');
-  await page.evaluate(() => { delete Farm.session.state.debris[12 * 24 + 5]; Farm.world.refreshDebris(); });
+  await page.evaluate(() => { delete Farm.session.state.debris[12 * 38 + 5]; Farm.world.refreshDebris(); });
   await teleport(page, 5, 11, 'down');
   await tapHotbar(page, 0);
   await tapAction(page);
-  assert.ok((await state(page)).soil[12 * 24 + 5], 'can till on the new farm');
+  assert.ok((await state(page)).soil[12 * 38 + 5], 'can till on the new farm');
   assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300G');
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -665,8 +665,8 @@ const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.l
 test('seasons: summer arrives, spring crops wither, the shop and the farm change', async () => {
   const save = await makeSave(`
     s.day = C.DAYS_PER_SEASON;
-    L.till(s, 12 * 24 + 5);
-    L.plant(s, 12 * 24 + 5, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
+    L.till(s, 12 * 38 + 5);
+    L.plant(s, 12 * 38 + 5, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
   `);
   const { page, problems, context } = await open(save);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 28');
@@ -677,20 +677,20 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   // summer seeds can't be planted yet
   await page.evaluate(() => {
     Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 1);
-    Farm.Logic.till(Farm.session.state, 12 * 24 + 6);
+    Farm.Logic.till(Farm.session.state, 12 * 38 + 6);
     Farm.world.refreshAllSoil();
   });
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 24 + 6].c, null, 'tomato refused in spring');
+  assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, null, 'tomato refused in spring');
 
   await sleepThroughNight(page);
   let s = await state(page);
   assert.strictEqual(s.day, 29);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Summer 1');
-  assert.strictEqual(s.soil[12 * 24 + 5].c, null, 'the spring turnip withered');
-  assert.ok(s.soil[12 * 24 + 5], 'its soil is still tilled');
+  assert.strictEqual(s.soil[12 * 38 + 5].c, null, 'the spring turnip withered');
+  assert.ok(s.soil[12 * 38 + 5], 'its soil is still tilled');
   const summerGrass = await tileGid(page, 'Ground', 2, 3);
   assert.strictEqual(summerGrass, springGrass + 12, 'grass switched to the summer art');
   await teleport(page, 6, 9, 'down');
@@ -700,7 +700,7 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 24 + 6].c, 'tomato');
+  assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, 'tomato');
 
   // the shop's seeds tab follows the season
   await page.evaluate(() => { Farm.session.state.time = 600; });
@@ -716,7 +716,7 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   await sleepThroughNight(page);
   s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Winter 1');
-  assert.strictEqual(s.soil[12 * 24 + 6].c, null, 'the summer tomato withered');
+  assert.strictEqual(s.soil[12 * 38 + 6].c, null, 'the summer tomato withered');
   assert.strictEqual(await tileGid(page, 'Ground', 2, 3), springGrass + 36, 'snow');
   assert.ok(await page.evaluate(() => Farm.ui.weather && Farm.ui.weather.getAliveParticleCount() > 0), 'snow is falling');
   // trees still block the way in winter (collision follows the swapped tiles)
