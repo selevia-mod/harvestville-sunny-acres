@@ -333,4 +333,23 @@ for (let i = 0; i < ORDER_ICONS.length; i += 16) {
   });
 }
 
-module.exports = { jobs, STYLE, CUTOUT, TEXTURE };
+// ---------- 10. effects: bits that fly when tools land (4 pieces per picture, a 2 x 2 grid) ----------
+// The order is the effects sheet's rows (see makeArt in tools/art/draw.js).
+const FX_KINDS = ['dirt', 'wood', 'stone', 'leaf', 'water', 'dust'];
+const FX = {
+  dirt: 'small clods of rich brown farm soil that fly up when the ground is dug with a hoe: soft, lumpy, rounded dirt clumps with a lighter top and a darker underside',
+  wood: 'small wood chips that fly off when a stump or branch is chopped: light tan splinters, a curled shaving, a wedge-shaped chunk and a piece of bark',
+  stone: 'small broken rock fragments that fly off when a stone is smashed: chunky, irregular grey pieces with chipped angular edges, a light top face and a darker side',
+  leaf: 'small green leaves and grass bits that fly off when weeds are cut: an oval leaf, a curled leaf, a cut blade of grass and a two-leaf sprig',
+  water: 'water for a watering can, in this order: a falling teardrop, a round droplet, a splash crown seen from the front, and a flat oval splash ring seen from above',
+  dust: 'soft cartoon dust clouds that puff up from the ground, made of a few overlapping round puffs in pale warm beige with a thin light-brown outline',
+};
+FX_KINDS.forEach((kind) => {
+  add({
+    id: `fx_${kind}`, group: 'Effects', file: `effects/fx_${kind}.png`, gen: '1024x1024', final: '4 pieces of 128x128',
+    mode: 'fx', kind, targets: [`fx:${kind}`],
+    prompt: `${STYLE} A set of 4 ${FX[kind]}, each a slightly different shape. Simple bold shapes that stay readable when shown very small. Arranged as a 2 by 2 grid of equal cells, one piece centered in each cell with lots of empty space around it. ${CUTOUT}`,
+  });
+});
+
+module.exports = { jobs, STYLE, CUTOUT, TEXTURE, FX_KINDS };

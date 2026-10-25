@@ -211,6 +211,13 @@
             O['icon:' + n] = fit(c, ic[k], 128, 128, 0.88, null);
           });
         } else if (j.mode === 'icon') O['icon:' + j.name] = fit(c, whole, 128, 128, 0.88, null);
+        else if (j.mode === 'fx') {
+          var fc = cells(c, 2, 2);
+          fc.forEach(function (b, k) {
+            if (!b) throw new Error(j.file + ': piece ' + (k + 1) + ' is missing');
+            O['fx:' + j.kind + ':' + k] = fit(c, b, 128, 128, 0.92, null);
+          });
+        }
       }).catch(function (e) { throw new Error(j.file + ': ' + e.message); });
     }
   };

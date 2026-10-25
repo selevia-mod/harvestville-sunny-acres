@@ -12,14 +12,20 @@
   // When the tool lands, in ms after the button: the swing's raise lasts 110 ms, poured water takes a bit longer.
   P.IMPACT = { swing: 110, pour: 120 };
 
-  // Bits that fly off, by material: texture, tints, how they fly.
+  // Rows of the effects sheet (assets/fx.png, 4 pieces each; the order is FX_KINDS in tools/art-manifest.js).
+  var FX_ROW = { dirt: 0, wood: 1, stone: 2, leaf: 3, water: 4, dust: 5 };
+  var fxFrames = function (kind, list) { return (list || [0, 1, 2, 3]).map(function (k) { return FX_ROW[kind] * 4 + k; }); };
+  P.fxFrame = function (kind, k) { return FX_ROW[kind] * 4 + k; };
+
+  // Bits that fly off, by material: which pieces, how they fly and how big they are (a piece is 128 px; a tile
+  // is 256 world units).
   var BITS = {
-    dirt: { tex: 'fx-clod', tint: [0x8a5a30, 0x6e4524, 0xa0703f], speed: [500, 1100], gravity: 4200, life: [420, 620], scale: [2.0, 1.2] },
-    wood: { tex: 'fx-chip', tint: [0xc48945, 0xe0a862, 0x9a6630], speed: [600, 1250], gravity: 4200, life: [450, 650], scale: [2.0, 1.4], spin: true },
-    stone: { tex: 'fx-chip', tint: [0x9aa0a8, 0x7d838c, 0xb8bdc4], speed: [600, 1300], gravity: 4600, life: [400, 600], scale: [1.9, 1.2], spin: true },
-    leaf: { tex: 'fx-leaf', tint: [0x6cbf4a, 0x4f9a36, 0x93d66b], speed: [350, 800], gravity: 1500, life: [600, 850], scale: [2.0, 1.4], spin: true },
-    water: { tex: 'fx-drop', tint: [0xffffff], speed: [300, 750], gravity: 3600, life: [380, 560], scale: [3.0, 1.6] },
-    dust: { tex: 'fx-dust', tint: [0xe8d6b0], speed: [60, 220], gravity: -250, life: [380, 560], scale: [1.2, 3.2], alpha: [0.6, 0] },
+    dirt: { speed: [450, 1000], gravity: 4200, life: [420, 620], scale: [0.42, 0.3], spin: true },
+    wood: { speed: [550, 1150], gravity: 4200, life: [450, 650], scale: [0.5, 0.36], spin: true },
+    stone: { speed: [550, 1200], gravity: 4600, life: [400, 600], scale: [0.42, 0.3], spin: true },
+    leaf: { speed: [320, 750], gravity: 1500, life: [600, 850], scale: [0.48, 0.36], spin: true },
+    water: { frames: [0, 1], speed: [280, 700], gravity: 3600, life: [380, 560], scale: [0.32, 0.18] },
+    dust: { speed: [50, 200], gravity: -250, life: [380, 560], scale: [0.35, 0.8], alpha: [0.85, 0] },
   };
 
   function makeTextures(scene) {
@@ -30,90 +36,12 @@
       fn(g);
       c.refresh();
     };
-    var ink = 'rgba(70,45,25,0.9)';
-    draw('fx-clod', 48, 40, function (g) { // a lumpy blob, white so it takes a tint
-      g.beginPath();
-      g.ellipse(24, 21, 19, 15, 0.3, 0, Math.PI * 2);
-      g.fillStyle = '#ffffff';
-      g.fill();
-      g.lineWidth = 4;
-      g.strokeStyle = ink;
-      g.stroke();
-      g.beginPath();
-      g.ellipse(18, 15, 6, 4, 0.3, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(255,255,255,0.7)';
-      g.fill();
-    });
-    draw('fx-chip', 52, 28, function (g) {
-      g.beginPath();
-      g.moveTo(4, 8);
-      g.lineTo(46, 3);
-      g.lineTo(48, 20);
-      g.lineTo(8, 25);
-      g.closePath();
-      g.fillStyle = '#ffffff';
-      g.fill();
-      g.lineWidth = 4;
-      g.strokeStyle = ink;
-      g.stroke();
-    });
-    draw('fx-leaf', 48, 30, function (g) {
-      g.beginPath();
-      g.moveTo(3, 15);
-      g.quadraticCurveTo(24, -6, 45, 15);
-      g.quadraticCurveTo(24, 36, 3, 15);
-      g.fillStyle = '#ffffff';
-      g.fill();
-      g.lineWidth = 3;
-      g.strokeStyle = 'rgba(40,70,25,0.9)';
-      g.stroke();
-      g.beginPath();
-      g.moveTo(6, 15);
-      g.lineTo(40, 15);
-      g.stroke();
-    });
-    draw('fx-drop', 28, 40, function (g) {
-      g.beginPath();
-      g.moveTo(14, 2);
-      g.quadraticCurveTo(27, 22, 22, 31);
-      g.arc(14, 28, 10, 0.3, Math.PI - 0.3);
-      g.quadraticCurveTo(1, 22, 14, 2);
-      g.fillStyle = '#8fd0ff';
-      g.fill();
-      g.lineWidth = 3;
-      g.strokeStyle = '#2f7fc0';
-      g.stroke();
-      g.beginPath();
-      g.ellipse(10, 24, 3, 5, 0, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(255,255,255,0.85)';
-      g.fill();
-    });
-    draw('fx-dust', 64, 64, function (g) {
-      var gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
-      gr.addColorStop(0, 'rgba(255,255,255,0.95)');
-      gr.addColorStop(0.6, 'rgba(255,255,255,0.45)');
-      gr.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = gr;
-      g.fillRect(0, 0, 64, 64);
-    });
     draw('fx-ring', 160, 80, function (g) {
       g.beginPath();
       g.ellipse(80, 40, 72, 32, 0, 0, Math.PI * 2);
       g.lineWidth = 9;
       g.strokeStyle = '#ffffff';
       g.stroke();
-    });
-    draw('fx-swoosh', 200, 200, function (g) { // a crescent of motion behind a swing
-      g.beginPath();
-      g.arc(100, 100, 88, Math.PI * 1.05, Math.PI * 1.95);
-      g.arc(100, 118, 70, Math.PI * 1.9, Math.PI * 1.1, true);
-      g.closePath();
-      var gr = g.createLinearGradient(10, 0, 190, 0);
-      gr.addColorStop(0, 'rgba(255,255,255,0)');
-      gr.addColorStop(0.6, 'rgba(255,255,255,0.75)');
-      gr.addColorStop(1, 'rgba(255,255,255,0.95)');
-      g.fillStyle = gr;
-      g.fill();
     });
   }
 
@@ -123,15 +51,15 @@
     this.bits = {};
     Object.keys(BITS).forEach(function (k) {
       var b = BITS[k];
-      self.bits[k] = self.add.particles(0, 0, b.tex, {
+      self.bits[k] = self.add.particles(0, 0, F.ensureTexture(self, 'fx'), {
+        frame: fxFrames(k, b.frames),
         speed: { min: b.speed[0], max: b.speed[1] },
         angle: k === 'dust' ? { min: 180, max: 360 } : { min: 200, max: 340 }, // upward fan
         gravityY: b.gravity,
         lifespan: { min: b.life[0], max: b.life[1] },
         scale: { start: b.scale[0], end: b.scale[1] },
         alpha: b.alpha ? { start: b.alpha[0], end: b.alpha[1] } : { start: 1, end: 0.6 },
-        rotate: b.spin ? { start: 0, end: 540 } : { min: -40, max: 40 },
-        tint: b.tint,
+        rotate: b.spin ? { start: Phaser.Math.Between(0, 360), end: 540 } : { min: -25, max: 25 },
         emitting: false,
       }).setDepth(DEPTH.fx);
     });
@@ -231,8 +159,7 @@
   // ---------- effects used by the tools (replace the simple ones in 11-world.js / 18-polish.js) ----------
   P.puff = function (t, color, n) {
     var m = mid(t);
-    if (this.bits) this.bits.dust.setParticleTint(color);
-    this.burst('dust', m.x, m.y, n + 3);
+    this.burst('dust', m.x, m.y, n + 1);
   };
 
   P.chips = function (t, color, n) {
@@ -245,9 +172,9 @@
     var self = this, m = mid(t), from = this.spout();
     for (var i = 0; i < 18; i++) {
       (function (i) {
-        var d = self.add.image(from.x + Phaser.Math.Between(-14, 14), from.y, 'fx-drop').setScale(Phaser.Math.FloatBetween(1.5, 2.2)).setDepth(DEPTH.fx);
+        var d = self.add.image(from.x + Phaser.Math.Between(-14, 14), from.y, 'fx', self.fxFrame('water', 0)).setScale(Phaser.Math.FloatBetween(0.26, 0.36)).setDepth(DEPTH.fx);
         var tx = m.x + Phaser.Math.Between(-80, 80), ty = m.y + Phaser.Math.Between(-40, 30);
-        d.setRotation(Math.atan2(ty - from.y, tx - from.x) - Math.PI / 2);
+        d.setRotation(Math.atan2(ty - from.y, tx - from.x) - Math.PI / 2); // the drop's point trails behind
         self.tweens.add({ targets: d, x: tx, duration: 200, delay: i * 16, ease: 'Linear' });
         self.tweens.add({
           targets: d, y: ty, duration: 200, delay: i * 16, ease: 'Quad.in',
@@ -256,10 +183,18 @@
       })(i);
     }
     this.time.delayedCall(200, function () {
-      self.burst('water', m.x, m.y, 8);
-      self.ring(m.x, m.y, 0x9fdcff, 1.1);
+      self.burst('water', m.x, m.y, 6);
+      self.splash(m.x, m.y);
     });
-    this.time.delayedCall(380, function () { self.ring(m.x, m.y, 0x9fdcff, 0.7); });
+  };
+
+  // A splash crown that pops up and a ripple ring that spreads where water lands.
+  P.splash = function (x, y) {
+    var crown = this.add.image(x, y + 20, 'fx', this.fxFrame('water', 2)).setOrigin(0.5, 0.85).setScale(0.3, 0.1).setDepth(DEPTH.fx);
+    this.tweens.add({ targets: crown, scaleX: 0.75, scaleY: 0.65, duration: 160, ease: 'Back.out' });
+    this.tweens.add({ targets: crown, alpha: 0, delay: 170, duration: 220, onComplete: function () { crown.destroy(); } });
+    var ring = this.add.image(x, y + 20, 'fx', this.fxFrame('water', 3)).setScale(0.3).setAlpha(0.9).setDepth(DEPTH.Soil + 0.5);
+    this.tweens.add({ targets: ring, scale: 1.3, alpha: 0, duration: 520, ease: 'Quad.out', onComplete: function () { ring.destroy(); } });
   };
 
   // Where the watering can's spout is: in front of the farmer, at hand height.
@@ -299,21 +234,21 @@
       this.burst('dirt', m.x, m.y, 5);
       this.puff(tile, 0xd9b98a, 3);
     } else if (e.kind === 'cut') {
-      this.burst('leaf', m.x, m.y - 60, 9);
+      this.burst('leaf', m.x, m.y - 60, 6);
     } else if (e.kind === 'debris') {
       var kind = e.debris === 'weed' ? 'leaf' : e.debris === 'branch' || e.debris === 'stump' ? 'wood' : 'stone';
       if (!broke) {
         this.wobble('Debris', tile);
-        this.burst(kind, m.x, m.y - 50, kind === 'leaf' ? 4 : 4);
+        this.burst(kind, m.x, m.y - 100, 3); // from the top of it, so the pieces don't cover it
         this.puff(tile, 0xd9c8a8, 1);
         return;
       }
-      this.burst(kind, m.x, m.y - 50, e.debris === 'weed' ? 9 : e.debris === 'stump' || e.debris === 'boulder' ? 14 : 9);
+      this.burst(kind, m.x, m.y - 80, e.debris === 'stump' || e.debris === 'boulder' ? 10 : 6);
       if (e.debris === 'branch') this.burst('leaf', m.x, m.y - 60, 4);
       this.puff(tile, kind === 'stone' ? 0xc8c8c8 : 0xd9c8a8, e.debris === 'boulder' || e.debris === 'stump' ? 5 : 3);
       if (e.debris === 'stump' || e.debris === 'boulder') this.ring(m.x, m.y, 0xffffff, 1.1);
     } else if (e.kind === 'rock') {
-      this.burst('stone', m.x, m.y - 50, 12);
+      this.burst('stone', m.x, m.y - 80, 9);
       this.puff(tile, 0xb8b0a0, 5);
     }
   };
@@ -383,8 +318,7 @@
     var side = (this.stepSide ? 1 : -1) * 34;
     var indoor = this.mapKey === 'house';
     if (!indoor && this.bits) {
-      this.bits.dust.setParticleTint(this.mapKey === 'mine' ? 0xb8a890 : 0xeadbb8);
-      this.bits.dust.explode(2, f.x + side, f.y + 20);
+      this.bits.dust.explode(1, f.x + side, f.y + 20);
     }
     if (F.Audio) F.Audio.sfx(indoor ? 'stepWood' : 'step');
   };

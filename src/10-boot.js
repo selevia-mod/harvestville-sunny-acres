@@ -12,10 +12,11 @@
     animals: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
     animals2: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
     people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 },
+    fx: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
   };
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
   // the first time a map needs them, which keeps memory down on low-end phones.
-  var EAGER = ['player', 'crops', 'items', 'animals', 'tiles', 'ranch', 'seasons'];
+  var EAGER = ['player', 'fx', 'crops', 'items', 'animals', 'tiles', 'ranch', 'seasons'];
 
   // Shared between scenes: an event bus and the current touch/keyboard input.
   F.bus = new Phaser.Events.EventEmitter();

@@ -2445,8 +2445,12 @@
       if (row === 0) window.ART.pig(g, pose);
       else window.ART.carabao(g, pose);
     }, function (pose, row) { return 'animals2:' + row + ':' + pose; });
+    // effects: one row per material (FX_KINDS), 4 pieces of 128x128 each
+    var fx = frameSheet(4, sets.FX_KINDS.length, I, I, 8 + 4 * (I + 16) - 8, 8 + sets.FX_KINDS.length * (I + 16) - 8, function (g, k, r) {
+      window.ART.FX_DRAW[sets.FX_KINDS[r]](g, k);
+    }, function (k, r) { return 'fx:' + sets.FX_KINDS[r] + ':' + k; });
     // PNG for editing (Tiled) and a WebP copy, about 6x smaller, that the build inlines.
-    var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, player_girl: playerGirl, crops: crops, items: items, animals: animals, animals2: animals2 };
+    var sheets = { tiles: main.canvas, ranch: ranch.canvas, seasons: seasons.canvas, player: player, player_girl: playerGirl, crops: crops, items: items, animals: animals, animals2: animals2, fx: fx };
     var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
     Object.keys(extra.sheets).forEach(function (k) { sheets[k] = extra.sheets[k]; });
     var out = {};

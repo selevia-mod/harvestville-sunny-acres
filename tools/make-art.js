@@ -57,6 +57,7 @@ const OUT = path.join(__dirname, '..', 'assets');
     TILES: layout.TILES, RANCH: layout.RANCH, SEASONS: layout.SEASONS, INDOOR: layout.INDOOR, PROPS: layout.PROPS,
     SEASON_NAMES: layout.SEASON_NAMES, SEASONAL: layout.SEASONAL,
     ICON_ORDER: C.ICON_ORDER, CROP_KEYS: C.CROP_KEYS, VILLAGER_ORDER: C.VILLAGER_ORDER,
+    FX_KINDS: require('./art-manifest').FX_KINDS,
   })));
   await browser.close();
   if (errors.length) throw new Error(errors.join('\n'));

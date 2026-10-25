@@ -1,7 +1,7 @@
 # Generated art goes here
 
 Put pictures made with ChatGPT (or any image tool) in this folder, using the file names from the art brief
-(`tools/art-manifest.js` lists all 135, with the size to ask for and the prompt). Then run:
+(`tools/art-manifest.js` lists all 141, with the size to ask for and the prompt). Then run:
 
 ```
 npm run art     # fits every picture found here into assets/ (the rest keep the drawn art)
