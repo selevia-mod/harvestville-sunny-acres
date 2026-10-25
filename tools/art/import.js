@@ -214,6 +214,17 @@
           j.targets.forEach(function (k) { O[k] = t; });
           return;
         }
+        if (j.mode === 'surf') { // swatches of wallpaper or floor: each becomes a seamless tile
+          var sg = cells(cutout(img), j.cols, j.rows);
+          j.styles.forEach(function (v, k) {
+            var b = sg[k];
+            if (!b) throw new Error(j.file + ': swatch ' + (k + 1) + ' is missing');
+            var inset = Math.round(Math.min(b.w, b.h) * 0.04), sw = canvas(b.w - 2 * inset, b.h - 2 * inset);
+            sw.getContext('2d').drawImage(img, b.x + inset, b.y + inset, sw.width, sw.height, 0, 0, sw.width, sw.height);
+            O['surf:' + j.kind + ':' + v] = texture(sw);
+          });
+          return;
+        }
         var c = cutout(img), whole = bbox(c, 0, 0, c.width, c.height);
         if (!whole) throw new Error(j.file + ': the picture is empty after removing its background');
         var name = j.id.replace(/^obj_/, '');
@@ -238,7 +249,15 @@
             O['icon:' + n] = fit(c, ic[k], 128, 128, 0.88, null);
           });
         } else if (j.mode === 'icon') O['icon:' + j.name] = fit(c, whole, 128, 128, 0.88, null);
-        else if (j.mode === 'fx') {
+        else if (j.mode === 'furn') { // a grid of furniture: each piece sized to its tiles (half resolution)
+          var gc = cells(c, j.cols, j.rows);
+          j.dims.forEach(function (type, k) {
+            var b = gc[k];
+            if (!b) throw new Error(j.file + ': piece ' + (k + 1) + ' (' + type.key + ') is missing');
+            var W = type.w * 128, H = type.h * 128;
+            O['furn:' + j.v + ':' + j.types[k]] = fit(c, b, W, H, 0.96, type.place === 'floor' ? H - 2 : null);
+          });
+        } else if (j.mode === 'fx') {
           var fc = cells(c, 2, 2);
           fc.forEach(function (b, k) {
             if (!b) throw new Error(j.file + ': piece ' + (k + 1) + ' is missing');

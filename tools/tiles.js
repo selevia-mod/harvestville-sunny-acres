@@ -57,10 +57,14 @@ const SEASONAL = ['grass', 'grass2', 'grass3', 'flowers', 'field', 'path', 'tree
 const SEASONS = layout('seasons', 7, 2048, {}, [].concat(...SEASON_NAMES.map((s) => SEASONAL.map((k) => s + '_' + k))));
 
 // House interior and mine cave tiles.
+// floor_k / wall_k / wall_low_k: the home's floors and wallpapers in style k (src/00-home.js; 0 is floor and wall)
+const HOME_STYLES = 10;
+const surfaces = [];
+for (let k = 1; k < HOME_STYLES; k++) surfaces.push('floor_' + k, 'wall_' + k, 'wall_low_' + k);
 const INDOOR = layout('indoor', 7, 2048, {}, [
   'floor', 'floor2', 'wall', 'wall_low', 'wall_side', 'void',
   'cave', 'cave2', 'cave_wall', 'cave_top', 'ladder_down', 'ladder_up', 'mine_rock',
-]);
+].concat(surfaces));
 
 // Props: furniture, town buildings and decorations, placed as image objects on maps.
 // w x h in tiles; foot = solid rows at the bottom; door = [first column, width] of the door in the bottom row;
@@ -82,6 +86,9 @@ const PROPS = {
   mailbox: { w: 1, h: 2, foot: 1 }, stable: { w: 3, h: 3, foot: 2 }, chest: { w: 1, h: 1, foot: 1 },
   aquarium: { w: 2, h: 2, foot: 1 }, music_box: { w: 1, h: 1, foot: 1 }, big_plant: { w: 1, h: 2, foot: 1 },
   cat_bed: { w: 1, h: 1, foot: 0, flat: true },
+  house_2: { w: 5, h: 5, foot: 0 }, house_3: { w: 5, h: 5, foot: 0 }, house_4: { w: 5, h: 5, foot: 0 },
+  house_5: { w: 5, h: 5, foot: 0 }, house_6: { w: 5, h: 5, foot: 0 }, house_7: { w: 5, h: 5, foot: 0 },
+  house_8: { w: 5, h: 5, foot: 0 }, house_9: { w: 5, h: 5, foot: 0 }, house_10: { w: 5, h: 5, foot: 0 },
 };
 
 function blockId(set, name, dx, dy) {
@@ -89,4 +96,4 @@ function blockId(set, name, dx, dy) {
   return (b.row + dy) * set.COLS + b.col + dx;
 }
 
-module.exports = { SIZE, MARGIN, SPACING, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, TILESETS: [TILES, RANCH, SEASONS, INDOOR], blockId };
+module.exports = { HOME_STYLES, SIZE, MARGIN, SPACING, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, TILESETS: [TILES, RANCH, SEASONS, INDOOR], blockId };

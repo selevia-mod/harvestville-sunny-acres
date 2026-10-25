@@ -4,6 +4,17 @@
 // A job whose file is missing keeps the built-in drawn art, so pictures can be replaced a few at a time.
 // tools/make-art-brief.js turns this list into the art brief page.
 const { PROPS } = require('./tiles');
+const vm = require('vm');
+const fsys = require('fs');
+const pth = require('path');
+
+// the home's furniture and styles come from the game's data
+const HOME = (() => {
+  const ctx = { window: {} };
+  vm.createContext(ctx);
+  ['00-config.js', '00-home.js'].forEach((f) => vm.runInContext(fsys.readFileSync(pth.join(__dirname, '..', 'src', f), 'utf8'), ctx));
+  return ctx.window.Farm.Config.HOME;
+})();
 
 // ---------- the shared style, put in front of every prompt ----------
 const STYLE = 'Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: ' +
@@ -168,6 +179,15 @@ const PROP_DESC = {
   festive_tree: 'a winter festival pine tree decorated with lights, ribbons and a star on top',
   doghouse: 'a little wooden doghouse with a red roof and a round entrance (no name sign)',
   mailbox: 'a blue country mailbox on a wooden post with a red flag',
+  house_2: "the farmer's Cottage: a cozy one-story farm cottage with cream plaster walls, a red tiled roof, a stone chimney, two windows with flower boxes",
+  house_3: "the farmer's Farmhouse: a two-story farmhouse with cream walls, a red tiled roof, a small front porch on two posts and four windows",
+  house_4: "the farmer's Big House: a big two-story house with a wide red roof, a covered front porch, a small balcony and six windows",
+  house_5: "the farmer's Country House: a large country house of stone and timber with two chimneys and flower pots along the porch",
+  house_6: "the farmer's Manor: a manor house of warm stone with a slate blue roof, tall windows and a small round tower on one side",
+  house_7: "the farmer's Grand Manor: a grand manor with two wings, a slate roof, dormer windows and a clock above the door",
+  house_8: "the farmer's Villa: an elegant villa with white walls, a terracotta roof, arched windows and balconies with plants",
+  house_9: "the farmer's Estate: a large estate house with white columns at the entrance, many windows, two chimneys and a gold weather vane",
+  house_10: "the farmer's Mansion: a magnificent mansion with white columns, a grand double door, a dome, many tall windows and gold trim",
   farm_stand: 'a cute wooden farm market stall facing straight toward the viewer: a wooden counter with two shelves of wooden crates, a red and white striped awning on two posts, and a small blank chalkboard price sign hanging from the awning (no readable text), symmetrical left to right, the crates empty',
   order_board: 'a wooden delivery order board facing straight toward the viewer, standing on two short posts, with a small shingled roof and three blank paper order cards pinned in a row, each with a small red pin (no readable text), symmetrical left to right',
   stable: 'a small red wooden horse stable with a crossed-plank door in the middle and a hay bale beside it',
@@ -182,10 +202,12 @@ Object.keys(PROPS).forEach((name) => {
   if (!PROP_DESC[name]) throw new Error('no prop description for ' + name);
   const gen = p.w > p.h * 1.2 ? '1536x1024' : p.h > p.w * 1.2 ? '1024x1536' : '1024x1024';
   const town = ['mayor', 'inn', 'forge', 'woodshop', 'clinic', 'cottage', 'cabin', 'mine_entrance', 'stable'].includes(name);
+  const home = /^house_\d+$/.test(name);
   add({
-    id: `prop_${name}`, group: town ? 'Town buildings' : 'Props and furniture', file: `props/${name}.png`, gen: gen,
+    id: `prop_${name}`, group: home ? 'House levels' : town ? 'Town buildings' : 'Props and furniture', file: `props/${name}.png`, gen: gen,
     final: `${p.w * 128}x${p.h * 128} (${p.w}x${p.h} tiles, stored at half size)`, mode: 'prop', w: p.w, h: p.h, targets: [`prop:${name}`],
-    prompt: `${STYLE} ${PROP_DESC[name]}. ` + (p.flat ? 'Lying flat on the ground. ' : 'Its base along the bottom of the picture. ') +
+    prompt: `${STYLE} ${PROP_DESC[name]}. ` + (home ? 'The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. ' : '') +
+      (p.flat ? 'Lying flat on the ground. ' : 'Its base along the bottom of the picture. ') +
       `Its shape is about ${p.w} wide by ${p.h} tall. ${CUTOUT}`,
   });
 });
@@ -352,6 +374,46 @@ FX_KINDS.forEach((kind) => {
     id: `fx_${kind}`, group: 'Effects', file: `effects/fx_${kind}.png`, gen: '1024x1024', final: '4 pieces of 128x128',
     mode: 'fx', kind, targets: [`fx:${kind}`],
     prompt: `${STYLE} A set of 4 ${FX[kind]}, each a slightly different shape. Simple bold shapes that stay readable when shown very small. Arranged as a 2 by 2 grid of equal cells, one piece centered in each cell with lots of empty space around it. ${CUTOUT}`,
+  });
+});
+
+// ---------- 11. the home: furniture (a grid of pieces per style), wallpapers and floors ----------
+// Front-facing pictures (not the three-quarter view of the map art), so furniture lines up with the walls.
+const FRONT = STYLE.replace(/Seen from a top-down[^.]*\)\. /, '') + ' For a top-down farming game like Stardew Valley or Harvest Moon.';
+const FACING = 'Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, ' +
+  'NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above.';
+const gridOf = (n) => (n > 12 ? [4, 4] : n > 10 ? [4, 3] : [5, 2]);
+const furnJob = (v, types, file) => {
+  const st = HOME.styles[v], [cols, rows] = gridOf(types.length);
+  const list = types.map((t, k) => `${k + 1}) ${HOME.types[t].what}`).join('; ');
+  const empty = cols * rows - types.length;
+  add({
+    id: 'furn_' + file, group: 'Furniture', file: `furniture/${file}.png`, gen: '1024x1024', final: types.length + ' pieces', mode: 'furn',
+    v, types, cols, rows, dims: types.map((t) => { const d = HOME.types[t]; return { key: d.key, w: d.w, h: d.h, place: d.place }; }), targets: types.map((t) => `furn:${v}:${t}`),
+    prompt: `${FRONT} A set of ${types.length} pieces of furniture for a cozy farmhouse, all in one matching ${st.name} style: ${st.look}. ${FACING} ` +
+      `Arranged as a grid of ${cols} columns by ${rows} rows of equal cells, one piece per cell, each centered in its cell with clear empty space ` +
+      `around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: ${list}.` +
+      (empty ? ` Leave the last ${empty > 1 ? empty + ' cells' : 'cell'} empty.` : '') + ` ${CUTOUT}`,
+  });
+};
+const ALL_TYPES = HOME.types.map((t, i) => i);
+furnJob(0, ALL_TYPES.filter((t) => !HOME.types[t].prop), 'classic_new'); // the classic look already has art for the rest
+HOME.styles.forEach((st, v) => {
+  if (!v) return;
+  furnJob(v, ALL_TYPES.slice(0, 16), st.key + '_a');
+  furnJob(v, ALL_TYPES.slice(16), st.key + '_b');
+});
+['wall', 'floor'].forEach((kind) => {
+  const styles = HOME.styles.map((st, v) => v).filter((v) => v);
+  const list = styles.map((v, k) => `${k + 1}) ${HOME.styles[v].name}: ${HOME.styles[v].look}`).join('; ');
+  add({
+    id: 'home_' + kind + 's', group: 'Furniture', file: `furniture/${kind}s.png`, gen: '1536x1024', final: styles.length + ' tiles of 256x256',
+    mode: 'surf', kind, styles, cols: 5, rows: 2, targets: styles.map((v) => `indoor:${kind}_${v}`),
+    prompt: `${FRONT} A set of ${styles.length} square ${kind === 'wall' ? 'wallpaper' : 'floor'} swatches for a cozy farmhouse, each one a seamless, ` +
+      `tileable pattern that fills its square edge to edge, seen straight on, with even lighting and no objects. ` +
+      `${kind === 'wall' ? 'Wallpaper patterns (stripes, flowers, motifs) with no skirting board.' : 'Floors: wooden planks, tiles or carpet, seen from directly above.'} ` +
+      `Arranged as a grid of 5 columns by 2 rows of equal squares with a little empty space between them. Row by row, left to right: ${list}. ` +
+      'Leave the last cell empty. Plain white background around the squares.',
   });
 });
 

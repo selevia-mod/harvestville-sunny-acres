@@ -4,7 +4,17 @@
 // unless you pass --force (or --force=<map> for one map).
 const fs = require('fs');
 const path = require('path');
-const { SIZE, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, blockId } = require('./tiles');
+const vm = require('vm');
+const { SIZE, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, HOME_STYLES, blockId } = require('./tiles');
+
+// the house levels come from the game's own data
+function gameConfig() {
+  const ctx = { window: {} };
+  vm.createContext(ctx);
+  ['00-config.js', '00-home.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
+  return ctx.window.Farm.Config;
+}
+const HOME = gameConfig().HOME;
 
 function rng(seed) { // deterministic, so the seeded maps are reproducible
   let a = seed >>> 0;
@@ -55,6 +65,12 @@ SEASON_NAMES.forEach((season) => {
 });
 SEASONAL.forEach((kind, k) => add('tiles', T[kind], prop('seasonal', 'int', k)));
 ['wall', 'wall_low', 'wall_side', 'void', 'cave_wall', 'cave_top', 'ladder_up', 'mine_rock'].forEach((k) => add('indoor', I[k], solid));
+// the home's floors and walls are swapped by name for the chosen style
+['floor', 'floor2', 'wall', 'wall_low'].forEach((k) => add('indoor', I[k], prop('name', 'string', k)));
+for (let k = 1; k < HOME_STYLES; k++) {
+  add('indoor', I['floor_' + k], prop('name', 'string', 'floor_' + k));
+  ['wall_', 'wall_low_'].forEach((w) => add('indoor', I[w + k], solid, prop('name', 'string', w + k)));
+}
 add('indoor', I.ladder_down, prop('name', 'string', 'ladder_down'));
 add('indoor', I.mine_rock, prop('name', 'string', 'mine_rock'));
 PROP_NAMES.forEach((name, id) => {
@@ -272,51 +288,20 @@ function farm() {
   return m.json();
 }
 
-// ---------- house ----------
-function house() {
-  const m = new MapBuilder('house', 12, 10, ['indoor', 'props'], ['Ground', 'Walls', 'Closed']);
-  m.rect('Ground', 0, 0, 11, 9, 'indoor', (x, y) => ((x + y) % 2 ? I.floor : I.floor2));
-  m.rect('Walls', 0, 0, 11, 0, 'indoor', I.wall);
-  m.rect('Walls', 0, 1, 11, 1, 'indoor', I.wall_low);
-  m.rect('Walls', 0, 0, 0, 9, 'indoor', I.wall_side);
-  m.rect('Walls', 11, 0, 11, 9, 'indoor', I.wall_side);
-  m.rect('Walls', 1, 9, 10, 9, 'indoor', I.wall_side);
-  m.put('Walls', 5, 9, null, 0); // the front door
-  m.put('Walls', 6, 9, null, 0);
-  // before the extension is built, the east wing (x 7..10) is closed off
-  m.rect('Closed', 7, 0, 10, 9, 'indoor', I.void);
-  m.layerProps.Closed = [prop('unless', 'string', 'bighouse')];
-
-  m.prop('window', 1, 0);
-  m.prop('shelf', 3, 0);
-  m.prop('fireplace', 5, 0);
-  m.prop('window', 8, 0, [prop('requires', 'string', 'bighouse')]);
-  m.prop('bed', 1, 2);
-  m.prop('tv', 4, 2);
-  m.prop('plant', 6, 2);
-  m.prop('rug', 2, 5);
-  m.prop('table', 3, 5);
-  m.prop('kitchen', 1, 7, [prop('requires', 'string', 'kitchen')]);
-  m.prop('doormat', 5, 8);
-  m.prop('bed2', 8, 2, [prop('requires', 'string', 'bighouse')]);
-  m.prop('dresser', 9, 6, [prop('requires', 'string', 'bighouse')]);
-  m.prop('wall_calendar', 10, 0, [prop('requires', 'string', 'bighouse')]);
-  // furniture bought from Mira
-  m.prop('big_plant', 3, 1, [prop('requires', 'string', 'f_plant')]);
-  m.prop('music_box', 5, 2, [prop('requires', 'string', 'f_music')]);
-  m.prop('aquarium', 1, 5, [prop('requires', 'string', 'f_aquarium')]);
-  m.prop('cat_bed', 6, 6, [prop('requires', 'string', 'f_cat')]);
-
-  m.point('door', 'spawn', 6, 8.6, [prop('dir', 'string', 'up')]);
-  m.point('bed', 'spawn', 2, 4.5, [prop('dir', 'string', 'down')]);
-  m.point('spouse', 'place', 6.5, 4.5);
-  m.obj('exit', 'warp', 5, 9, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'house_door'), prop('walk', 'bool', true)]);
-  m.obj('bed', 'sleep', 1, 2, 2, 2);
-  m.obj('tv', 'tv', 4, 2);
-  m.obj('music_box', 'musicbox', 5, 2, 1, 1, [prop('requires', 'string', 'f_music')]);
-  m.obj('aquarium', 'aquarium', 1, 5, 2, 2, [prop('requires', 'string', 'f_aquarium')]);
-  m.obj('cat_area', 'catarea', 1, 4, 6, 4);
-  m.obj('kitchen', 'kitchen', 1, 7, 3, 2, [prop('requires', 'string', 'kitchen')]);
+// ---------- house: one map per level (the furniture is the player's, placed by the game) ----------
+function house(level) {
+  const [W, Hh] = HOME.levels[level - 1].map, [d0, d1] = HOME.door;
+  const m = new MapBuilder('house_' + level, W, Hh, ['indoor', 'props'], ['Ground', 'Walls']);
+  m.rect('Ground', 0, 0, W - 1, Hh - 1, 'indoor', (x, y) => ((x + y) % 2 ? I.floor : I.floor2));
+  m.rect('Walls', 0, 0, W - 1, 0, 'indoor', I.wall);
+  m.rect('Walls', 0, 1, W - 1, 1, 'indoor', I.wall_low);
+  m.rect('Walls', 0, 0, 0, Hh - 1, 'indoor', I.wall_side);
+  m.rect('Walls', W - 1, 0, W - 1, Hh - 1, 'indoor', I.wall_side);
+  m.rect('Walls', 1, Hh - 1, W - 2, Hh - 1, 'indoor', I.wall_side);
+  m.put('Walls', d0, Hh - 1, null, 0); // the front door
+  m.put('Walls', d1, Hh - 1, null, 0);
+  m.point('door', 'spawn', d1, Hh - 1.4, [prop('dir', 'string', 'up')]);
+  m.obj('exit', 'warp', d0, Hh - 1, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'house_door'), prop('walk', 'bool', true)]);
   return m.json();
 }
 
@@ -414,7 +399,8 @@ function mine() {
   return m.json();
 }
 
-const MAPS = { farm, house, town, mine };
+const MAPS = { farm, town, mine };
+HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {
   const out = path.join(__dirname, '..', 'maps', name + '.json');

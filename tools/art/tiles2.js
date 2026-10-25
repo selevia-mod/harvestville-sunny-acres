@@ -401,6 +401,12 @@
     indoor.place(T.ladder_down, ladder(true), 0, 0);
     indoor.place(T.ladder_up, ladder(false), 0, 0);
     indoor.place(T.mine_rock, mineRock(), 0, 0);
+    // the home's floors and wallpapers in each style (tools/art/furniture.js)
+    for (var k = 1; k < sets.HOME.styles.length; k++) {
+      indoor.place(T['floor_' + k], A.homeSurface('floor', k), 0, 0);
+      indoor.place(T['wall_' + k], A.homeSurface('wall', k), 0, 0);
+      indoor.place(T['wall_low_' + k], A.homeSurface('wall_low', k), 0, 0);
+    }
     out.sheets.indoor = indoor.canvas;
     return out;
   };

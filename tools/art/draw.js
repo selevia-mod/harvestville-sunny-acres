@@ -2327,6 +2327,7 @@
     var placeBlock = function (name, pic) {
       var B = L.BLOCKS[name], O = window.ART.OVR || {};
       if (O[L.NAME + ':' + name]) pic = O[L.NAME + ':' + name];
+      if (name === 'house') window.ART.houseArt = pic; // the bigger houses start from it (tools/art/furniture.js)
       for (var dy = 0; dy < B.h; dy++) for (var dx = 0; dx < B.w; dx++) {
         place((B.row + dy) * L.COLS + B.col + dx, pic, dx * S, dy * S);
       }
