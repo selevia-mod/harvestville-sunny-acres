@@ -276,8 +276,9 @@ The generated pictures in `art-src/` so far cover:
 - the crops and the item icons
 - the other ground (tilled soil, water, dock, plaza, floors, walls, cave)
 
-The seasonal ground (grass, flowers, field, path), the cottage and the cabin, the furniture, and the truffle and
-carabao milk icons still use the drawn art. Ground textures that already repeat cleanly are kept as they are;
+- the cottage and the cabin, and the truffle and carabao milk icons
+
+The seasonal ground (grass, flowers, field, path) and the furniture still use the drawn art. Ground textures that already repeat cleanly are kept as they are;
 the rest get their edges blended.
 
 See `art-src/README.md`.
