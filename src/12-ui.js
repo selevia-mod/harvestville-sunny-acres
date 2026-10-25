@@ -21,7 +21,7 @@
     'Clear the field: Sickle for weeds, Axe for branches and stumps (lumber), Hammer for stones (stone).\n\n' +
     'Hoe the soil, plant a seed bag (it sows 3x3), water every day. Rain waters for you.',
     'SELLING AND ANIMALS\n' +
-    'Sell crops, fish, ore and more at the farm stand by your house: right away, or on a shelf for more gold when a buyer comes. The order board next to it has villagers\' requests that pay a bonus.\n\n' +
+    'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus.\n\n' +
     'Feed animals once a day for eggs and milk (a Milker is needed for cows). Pet and brush them: happy animals give large produce.',
     'TOWN\n' +
     'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +

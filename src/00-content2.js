@@ -15,8 +15,8 @@
     { event: 'feed', need: 1, text: 'Feed Clucky in the pen (hold the Chicken Feed)', target: { map: 'farm', object: 'animal_pen' }, reward: { item: 'chicken_feed', n: 3 } },
     { event: 'sleep', need: 1, text: 'Go to bed in your house to end the day', target: { map: 'house', object: 'bed' }, reward: {} },
     { event: 'collect', need: 1, text: "Collect Clucky's egg in the pen", target: { map: 'farm', object: 'animal_pen' }, reward: { gold: 50 } },
-    { event: 'ship', need: 1, text: 'Sell something at your farm stand by the house', target: { map: 'farm', object: 'farm_stand' }, reward: { gold: 100 } },
     { event: 'town', need: 1, text: 'Visit Willowbrook, down the road south', target: { map: 'town', point: 'plaza_n' }, reward: { gold: 100 } },
+    { event: 'ship', need: 1, text: 'Sell something at the market stall in the town plaza', target: { map: 'town', object: 'farm_stand' }, reward: { gold: 100 } },
     { event: 'meet', need: 3, text: 'Say hello to 3 villagers in town', target: { map: 'town', point: 'plaza_c' }, reward: { gold: 200 } },
     { event: 'harvest', need: 1, text: 'Harvest a ripe crop', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 200 } },
   ];
@@ -69,7 +69,7 @@
     f_cat: { name: 'Cat Basket', gold: 600, icon: 'cat_basket', desc: 'A cosy basket... and a cat comes to live with you!' },
   };
   C.FURNITURE_KEYS = ['f_plant', 'f_music', 'f_aquarium', 'f_cat'];
-  C.BUILDS.stable = { name: 'Stable', gold: 4000, lumber: 60, stone: 0, desc: 'A horse to ride: faster, and a saddlebag to sell from anywhere.' };
+  C.BUILDS.stable = { name: 'Stable', gold: 4000, lumber: 60, stone: 0, desc: 'A horse to ride: faster, and a saddlebag that reaches the market stall from anywhere.' };
   C.BUILD_KEYS.push('stable', 'f_plant', 'f_music', 'f_aquarium', 'f_cat'); // appended: older saves keep their order
 
   // ---------- the mine gets harder (and richer) the deeper you go ----------

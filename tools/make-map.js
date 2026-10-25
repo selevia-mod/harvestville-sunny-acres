@@ -212,7 +212,7 @@ function farm() {
   m.rect('Ground', 4, 11, 19, 24, 'tiles', T.field);
   const pathRect = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.path);
   pathRect(6, 7, 7, 10); // house door -> top field gate
-  pathRect(8, 7, 11, 7); // to the farm stand and the order board
+  pathRect(8, 7, 10, 7); // to the mailbox
   pathRect(11, 25, 12, 37); // bottom gate -> road to town
   pathRect(13, 32, 17, 33); // branch to the seed stand
 
@@ -249,12 +249,10 @@ function farm() {
   for (let x = 2; x < m.W - 2; x += 2) if (x !== 10 && x !== 12) m.tree(x, 36);
 
   m.prop('doghouse', 12, 3);
-  m.prop('mailbox', 3, 5);
-  m.prop('farm_stand', 9, 5);
-  m.prop('order_board', 9, 8);
+  m.prop('mailbox', 9, 5);
   m.prop('stable', 18, 32, [prop('requires', 'string', 'stable')]);
   const keep = (x, y) => (x >= PEN.x0 && x <= PEN.x1 && y >= PEN.y0 - 1 && y <= PEN.y1)
-    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || (x >= 8 && x <= 11 && y >= 4 && y <= 9) || (x === 3 && y >= 4 && y <= 7) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
+    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || (x >= 8 && x <= 10 && y >= 4 && y <= 6) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
   decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 6], [T.rock, 4], [T.stump, 2]]);
 
   m.point('spawn', 'spawn', 6.5, 7.6);
@@ -262,13 +260,11 @@ function farm() {
   m.point('from_town', 'spawn', 11.5, 35.6, [prop('dir', 'string', 'up')]);
   m.obj('house_door', 'warp', 6, 6, 1, 1, [prop('to', 'string', 'house'), prop('spawn', 'string', 'door'), prop('label', 'string', 'Enter')]);
   m.obj('road_south', 'warp', 10, 37, 4, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_farm'), prop('walk', 'bool', true)]);
-  m.obj('farm_stand', 'stand', 9, 6, 2, 1);
-  m.obj('order_board', 'orders', 9, 8, 2, 2);
-  m.obj('mailbox', 'mail', 3, 6);
+  m.obj('mailbox', 'mail', 9, 6);
   m.point('horse', 'place', 17.3, 35.2);
   m.obj('seed_shop', 'shop', 16, 31, 2, 1);
   m.obj('incubator', 'incubator', 7, 28, 2, 2);
-  m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Sell your crops at the farm stand by the house.')]);
+  m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Sell your crops at the market stall in town.')]);
   m.obj('road_sign', 'sign', 13, 35, 1, 1, [prop('text', 'string', 'SOUTH: Willowbrook\nThe town is just down the road. Say hello to everyone!')]);
   m.obj('animal_pen', 'pen', 3, 31, 7, 4);
   m.obj('dog_yard', 'dogarea', 11, 5, 4, 5);
@@ -360,6 +356,8 @@ function town() {
   m.prop('mine_entrance', 26, 8);
   m.prop('fountain', 13, 15);
   m.prop('notice', 9, 13);
+  m.prop('farm_stand', 11, 13); // the market stall
+  m.prop('order_board', 19, 13);
   [[8, 14], [21, 14], [8, 21], [21, 21]].forEach(([x, y]) => m.prop('lamp', x, y - 1));
   m.prop('bench', 10, 22);
   m.prop('bench', 18, 22);
@@ -391,6 +389,9 @@ function town() {
   [[11.5, 19.6], [14.5, 19.6], [17.5, 19.6], [10.2, 21.2], [18.8, 21.2], [12.2, 22.3], [16.8, 22.3]]
     .forEach(([x, y], i) => m.point('fest_' + i, 'place', x, y));
   [[2, 27, 9, 4], [16, 2, 6, 8], [26, 25, 2, 5]].forEach(([x, y, w, h], i) => m.obj('forage_' + i, 'forage', x, y, w, h));
+  m.obj('farm_stand', 'stand', 11, 14, 2, 1);
+  m.obj('order_board', 'orders', 19, 13, 2, 2);
+  m.point('stall_front', 'place', 12, 15.7); // where buyers stand
   m.put('Walls', 16, 2, 'tiles', T.sign);
   m.obj('town_sign', 'sign', 16, 2, 1, 1, [prop('text', 'string', 'WILLOWBROOK\nTown Hall, Inn, Forge, Woodshop and Clinic around the plaza. The mine is east, the river south.')]);
   return m.json();

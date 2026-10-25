@@ -287,11 +287,12 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   assert.match(await modalText(page), /Lumber 1 +Stone 1/);
   await tapButton(page, 'Close');
 
-  // sell them at the farm stand: put them on a shelf at the fair price; a buyer comes overnight
-  await teleport(page, 10, 7, 'up');
+  // sell them at the market stall in town: put them on a shelf at the fair price; a buyer comes overnight
+  await go(page, 'town', 'from_farm');
+  await teleport(page, 11, 15, 'up');
   assert.strictEqual(await actionLabel(page), 'Sell');
   await tapAction(page);
-  assert.match(await modalText(page), /Farm Stand/);
+  assert.match(await modalText(page), /Market Stall/);
   await shot(page, '07-stand');
   await tapButton(page, 'Sell from bag');
   await page.waitForTimeout(300);
@@ -306,12 +307,13 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   const goldBefore = s.gold;
   const report = await sleepThroughNight(page);
   assert.match(report, /1 lot sold\. Collect 216G/);
-  await teleport(page, 10, 7, 'up');
+  await teleport(page, 11, 15, 'up');
   assert.strictEqual(await actionLabel(page), 'Collect');
   await tapAction(page);
   s = await state(page);
-  assert.strictEqual(s.gold, goldBefore + 216, 'the stand paid 3 x 72G');
+  assert.strictEqual(s.gold, goldBefore + 216, 'the stall paid 3 x 72G');
   assert.strictEqual(s.shelves[0], null);
+  await go(page, 'farm', 'from_town');
 
   // Lily's stand is closed early in the morning, open at 10 AM
   await teleport(page, 16, 32, 'up');
@@ -417,6 +419,34 @@ test('a pig and a carabao from the shop join the pen; the carabao is milked, the
   await context.close();
 });
 
+test('in town, a villager walks up to the market stall and buys what is on a shelf', async () => {
+  const { page, problems, context } = await open(await makeSave("s.time = 600; L.addItem(s, 'potato', 4);"));
+  await go(page, 'town', 'from_farm');
+  await page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic;
+    L.listItem(s, 0, s.inv.findIndex((x) => x && x.id === 'potato'), 4, 0);
+    s.shelves[0].left = 1; // a buyer is due in a minute
+  });
+  // someone heads for the stall...
+  await page.waitForFunction(() => Farm.world.buyers && Object.keys(Farm.world.buyers).length, null, SLOW);
+  const buyer = await page.evaluate(() => Farm.world.buyers[0]);
+  assert.ok(buyer, 'a villager is on the way');
+  assert.strictEqual((await state(page)).shelves[0].coins, 0, 'not sold before they get there');
+  await shot(page, '19b-buyer');
+  // ...walks up, buys the potatoes and leaves the coins
+  await page.waitForFunction(() => Farm.session.state.shelves[0] && Farm.session.state.shelves[0].coins > 0, null, SLOW);
+  const at = await page.evaluate((k) => { const v = Farm.world.villagers.list.find((x) => x.key === k), p = Farm.world.points.stall_front; return Math.hypot(v.x - p.x, v.y - p.y); }, buyer);
+  assert.ok(at < 256, 'they stood at the stall');
+  const s = await state(page);
+  assert.strictEqual(s.shelves[0].buyer, buyer);
+  assert.strictEqual(s.shelves[0].coins, 320);
+  await page.waitForFunction(() => !Farm.world.villagers.list.some((v) => v.errand), null, SLOW); // they head off
+  await teleport(page, 11, 15, 'up');
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('passing out at 2 AM wakes you in bed with half energy', async () => {
   const { page, problems, context } = await open();
   await tapButton(page, 'Boy');
@@ -504,8 +534,9 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   assert.strictEqual(s.animals[0].ready, 0);
 
 
-  // sell the egg right away at the stand
-  await teleport(page, 10, 7, 'up');
+  // sell the egg right away at the market stall in town
+  await go(page, 'town', 'from_farm');
+  await teleport(page, 11, 15, 'up');
   await tapAction(page);
   await tapButton(page, 'Sell from bag');
   await page.waitForTimeout(300);
@@ -517,6 +548,7 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   assert.strictEqual(count(s, 'egg'), 0);
   assert.strictEqual(s.gold, goldEgg + 30, 'sold now at 75%');
   await page.evaluate(() => Farm.ui.closeAll());
+  await go(page, 'farm', 'from_town');
 
   // buy a cow from the Animals tab
   await page.evaluate(() => { Farm.session.state.gold = 2500; Farm.session.state.time = 600; });
@@ -958,7 +990,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
 
   // the welcome letter waits in the mailbox, with a gift
   assert.ok(await page.evaluate(() => Farm.world.mailFlag.visible), 'the mailbox shows a letter');
-  await teleport(page, 3, 7, 'up');
+  await teleport(page, 9, 7, 'up');
   assert.strictEqual(await actionLabel(page), 'Read');
   await tapAction(page);
   assert.match(await modalText(page), /LETTER FROM MAYOR HOLLIS/);
@@ -968,7 +1000,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   assert.strictEqual(count(s, 'sandwich'), 1);
   assert.deepStrictEqual(s.mail, []);
 
-  // the horse waits by the stable: ride it, open the farm stand from the saddlebag, and get off
+  // the horse waits by the stable: ride it, open the market stall from the saddlebag, and get off
   const horse = await page.evaluate(() => [Farm.world.horse.x / 256, Farm.world.horse.y / 256]);
   await teleport(page, Math.floor(horse[0]), Math.floor(horse[1]) - 1, 'down');
   assert.strictEqual(await actionLabel(page), 'Ride');
@@ -982,7 +1014,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await hold(page, 'turnip');
   assert.strictEqual(await actionLabel(page), 'Sell');
   await tapAction(page);
-  assert.match(await modalText(page), /Farm Stand/, 'the stand opens from the saddlebag');
+  assert.match(await modalText(page), /Market Stall/, 'the stall opens from the saddlebag');
   await page.evaluate(() => Farm.ui.closeAll());
   await hold(page, 'hoe');
   assert.strictEqual(await actionLabel(page), 'Get off');

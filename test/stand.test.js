@@ -39,8 +39,8 @@ test('a shelf sells after a while at its price, and the coins wait to be collect
   const wait = s.shelves[0].left;
   const [lo, hi] = C.STAND.prices[2].minutes;
   assert.ok(wait >= lo && wait <= hi, 'high price waits ' + wait);
-  assert.deepStrictEqual(plain(L.standTick(s, wait - 1)), []);
-  const sold = L.standTick(s, 1);
+  assert.deepStrictEqual(plain(L.standTick(s, wait - 1).sold), []);
+  const sold = L.standTick(s, 1).sold;
   assert.strictEqual(sold.length, 1);
   assert.strictEqual(sold[0].coins, Math.round(60 * 1.4) * 20);
   assert.ok(C.VILLAGER_ORDER.includes(sold[0].buyer));
@@ -50,6 +50,25 @@ test('a shelf sells after a while at its price, and the coins wait to be collect
   assert.strictEqual(s.gold - gold0, 1680);
   assert.strictEqual(s.stats.earned - earned0, 1680);
   assert.strictEqual(s.shelves[0], null);
+});
+
+test('in town, a lot whose time is up waits for a villager to walk up and buy it', () => {
+  const s = fresh();
+  L.addItem(s, 'turnip', 4);
+  L.listItem(s, 2, slotOf(s, 'turnip'), 4, 0);
+  const r = L.standTick(s, 999, true);
+  assert.deepStrictEqual(plain(r), { sold: [], due: [2] });
+  assert.strictEqual(s.shelves[2].coins, 0, 'not sold until the buyer arrives');
+  assert.deepStrictEqual(plain(L.standTick(s, 1, true).due), [2], 'still due');
+  const sale = L.sellLot(s, 2, 'rosa');
+  assert.strictEqual(sale.buyer, 'rosa');
+  assert.strictEqual(s.shelves[2].coins, 240);
+  assert.strictEqual(L.sellLot(s, 2, 'lily'), null, 'already sold');
+  // away from town, a due lot sells by itself
+  L.addItem(s, 'egg', 1);
+  L.listItem(s, 3, slotOf(s, 'egg'), 1, 0);
+  L.standTick(s, 999, true);
+  assert.strictEqual(L.standTick(s, 1).sold.length, 1);
 });
 
 test('cheap sells sooner than fair, fair sooner than high', () => {

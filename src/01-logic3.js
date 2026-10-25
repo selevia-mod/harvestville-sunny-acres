@@ -1,6 +1,6 @@
-// The farm stand (it replaces the shipping box): sell now at a lower price, or put a lot on a shelf at a price
-// you pick and a buyer comes along later; coins wait at the stand until you collect them. Next to it, an order
-// board with villagers' requests that pay a bonus.
+// The market stall in the town plaza (it replaces the shipping box): sell now at a lower price, or put a lot on
+// a shelf at a price you pick and a villager comes along to buy it later; coins wait at the stall until you
+// collect them. Next to it, an order board with villagers' requests that pay a bonus.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -102,24 +102,34 @@
     return s.shelves.reduce(function (sum, e) { return sum + (e && e.coins ? e.coins : 0); }, 0);
   };
 
-  // Time passes for the stand and the order board. Returns the lots that just sold: [{ shelf, id, n, coins, buyer }].
-  L.standTick = function (s, minutes) {
-    var sold = [];
+  // A villager buys the lot on a shelf (buyer = their key, or null for a random one). Returns the sale.
+  L.sellLot = function (s, i, buyer) {
+    var e = s.shelves[i];
+    if (!e || e.coins) return null;
+    e.left = 0;
+    e.coins = L.shelfPrice(e.id, e.n, e.price);
+    e.buyer = buyer || C.VILLAGER_ORDER[Math.floor(rand(s, 401 + i, s.time) * C.VILLAGER_ORDER.length)];
+    return { shelf: i, id: e.id, n: e.n, coins: e.coins, buyer: e.buyer };
+  };
+
+  // Time passes for the stall and the order board. Returns { sold: [sales], due: [shelf indexes] }.
+  // A lot whose time is up is sold at once, or, with defer, listed as due: the farmer is in town to watch a
+  // villager walk up and buy it (the world then calls sellLot).
+  L.standTick = function (s, minutes, defer) {
+    var sold = [], due = [];
     s.shelves.forEach(function (e, i) {
       if (!e || e.coins) return;
-      e.left -= minutes;
+      e.left = Math.max(0, e.left - minutes);
       if (e.left > 0) return;
-      e.left = 0;
-      e.coins = L.shelfPrice(e.id, e.n, e.price);
-      e.buyer = C.VILLAGER_ORDER[Math.floor(rand(s, 401 + i, s.time) * C.VILLAGER_ORDER.length)];
-      sold.push({ shelf: i, id: e.id, n: e.n, coins: e.coins, buyer: e.buyer });
+      if (defer) due.push(i);
+      else sold.push(L.sellLot(s, i, null));
     });
     s.orders.forEach(function (o, i) {
       if (o.wait == null) return;
       o.wait -= minutes;
       if (o.wait <= 0) s.orders[i] = L.makeOrder(s, i);
     });
-    return sold;
+    return { sold: sold, due: due };
   };
 
   // ---------- orders ----------
@@ -196,7 +206,7 @@
   var endDay = L.endDay;
   L.endDay = function (s, passedOut, info) {
     var r = endDay(s, passedOut, info);
-    r.standSold = L.standTick(s, C.STAND.overnight);
+    r.standSold = L.standTick(s, C.STAND.overnight).sold;
     r.standCoins = L.standCoins(s);
     return r;
   };

@@ -108,9 +108,9 @@
       row('coin', 'You shipped ' + n + (n > 1 ? ' items' : ' item') + ' and earned ' + result.earned + 'G!');
     }
     if (result.standSold && result.standSold.length) {
-      row('crate', 'Buyers came by your farm stand: ' + result.standSold.length + (result.standSold.length > 1 ? ' lots' : ' lot') + ' sold. Collect ' + result.standCoins + 'G at the stand.');
+      row('crate', 'Buyers came by your market stall: ' + result.standSold.length + (result.standSold.length > 1 ? ' lots' : ' lot') + ' sold. Collect ' + result.standCoins + 'G at the stall in town.');
     } else if (result.standCoins) {
-      row('crate', result.standCoins + 'G is waiting at your farm stand.');
+      row('crate', result.standCoins + 'G is waiting at your market stall in town.');
     }
     var made = Object.keys(result.produced || {}).map(function (id) { return result.produced[id] + ' ' + C.ITEMS[id].name; });
     if (made.length) row('egg', 'Your animals made ' + made.join(', ') + '. Collect them in the pen.');

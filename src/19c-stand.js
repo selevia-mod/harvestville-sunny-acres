@@ -1,5 +1,5 @@
-// The farm stand in the world: tap it to sell or collect, the order board next to it, coins and a "!" that
-// bob over them, and buyers that come by as the clock runs.
+// The market stall in the town plaza: tap it to sell or collect, the order board nearby, coins and a "!" that
+// bob over them, and villagers who walk up to buy what is on the shelves.
 // Mixed into WorldScene; runs after 19-extras.js.
 (function (F) {
   'use strict';
@@ -38,23 +38,54 @@
     }
   };
 
-  // Buyers come by as the clock runs.
+  // Buyers come by as the clock runs. In town, a villager walks up to the stall and buys the lot in front of
+  // you; anywhere else the sale just happens.
   var tickClock = P.tickClock;
   P.tickClock = function (dt) {
     var s = this.state, before = s.time, ended = tickClock.call(this, dt);
     if (ended || s.time <= before) return ended;
-    var sold = L.standTick(s, s.time - before);
-    var self = this;
-    sold.forEach(function (lot) {
-      var who = lot.buyer ? C.VILLAGERS[lot.buyer].name : 'A buyer';
-      F.ui.toast(who + ' bought your ' + lot.n + ' ' + C.ITEMS[lot.id].name + '! ' + lot.coins + 'G is waiting at the stand.', 2600, 0x7a4d12);
-      if (self.standObj) {
-        sfx('coin');
-        self.floatTextAt((self.standObj.x0 + 1) * T, (self.standObj.y0 - 0.5) * T, '+' + lot.coins + 'G');
-      }
-    });
-    if (sold.length) this.changed();
+    var self = this, watch = !!(this.standObj && this.villagers && this.points.stall_front);
+    var r = L.standTick(s, s.time - before, watch);
+    r.sold.forEach(function (sale) { self.announceSale(sale, false); });
+    r.due.forEach(function (shelf) { self.sendBuyer(shelf); });
+    if (r.sold.length) this.changed();
     return ended;
+  };
+
+  // Picks the nearest villager who is out in town and free, and walks them to the stall to buy a lot.
+  P.sendBuyer = function (shelf) {
+    var self = this, s = this.state;
+    this.buyers = this.buyers || {};
+    if (this.buyers[shelf]) return;
+    var spot = this.points.stall_front, best = null, bestD = Infinity;
+    this.villagers.list.forEach(function (v) {
+      if (!v.visible || v.errand || v.hideAtEnd) return;
+      var d = Math.hypot(v.x - spot.x, v.y - spot.y);
+      if (d < bestD) { best = v; bestD = d; }
+    });
+    var ok = best && this.villagers.errand(best, spot, 'up', 1800, function (v) {
+      var sale = L.sellLot(s, shelf, v.key);
+      delete self.buyers[shelf];
+      if (!sale) return;
+      self.emote(v, C.ICON.coin);
+      self.announceSale(sale, true);
+      self.changed();
+    });
+    if (ok) this.buyers[shelf] = best.key;
+    else { // nobody around to come by: someone buys it anyway
+      var sale = L.sellLot(s, shelf, null);
+      if (sale) this.announceSale(sale, false);
+      this.changed();
+    }
+  };
+
+  P.announceSale = function (sale, here) {
+    var who = sale.buyer ? C.VILLAGERS[sale.buyer].name : 'A buyer';
+    F.ui.toast(who + ' bought your ' + sale.n + ' ' + C.ITEMS[sale.id].name + '! ' + sale.coins + 'G is waiting at the market stall.', 2600, 0x7a4d12);
+    if (this.standObj) {
+      sfx('coin');
+      this.floatTextAt((this.standObj.x0 + 1) * T, (this.standObj.y0 - 0.5) * T, '+' + sale.coins + 'G');
+    } else if (here) sfx('coin');
   };
 
   var extraObjectAction = P.extraObjectAction;

@@ -67,8 +67,9 @@
     update(dt, time, frozen) {
       var self = this, sc = this.scene, f = sc.feet();
       this.list.forEach(function (v) {
+        if (v.errand && !frozen && self.updateErrand(v, dt)) return;
         var target = self.targetOf(v, sc.state.time);
-        if (target.place !== v.place) {
+        if (!v.errand && target.place !== v.place) {
           v.place = target.place;
           self.walkTo(v, target);
         }
@@ -105,6 +106,32 @@
         }
         v.sprite.setPosition(v.x, v.y).setDepth(DEPTH + v.y / 1e5);
       });
+    }
+
+    // A detour: walk to a point, wait there facing `face` for `wait` ms, call arrive(v), then go back to the
+    // day's schedule. Returns false if the villager can't go (not out in town, or already busy).
+    errand(v, point, face, wait, arrive) {
+      if (!v.visible || v.errand || v.hideAtEnd) return false;
+      v.errand = { arrive: arrive, face: face, wait: wait, at: false };
+      v.path = this.route(v.x, v.y, point.x, point.y);
+      return true;
+    }
+
+    // Moves an errand along; returns true while the villager is standing at the errand (nothing else to do).
+    updateErrand(v, dt) {
+      var e = v.errand;
+      if (!e.at) {
+        if (v.path.length) return false; // still walking there
+        e.at = true;
+        v.dir = e.face;
+        this.stand(v);
+        if (e.arrive) e.arrive(v);
+      }
+      e.wait -= dt;
+      if (e.wait > 0) return true;
+      v.errand = null;
+      v.place = null; // walk back to wherever the schedule says
+      return false;
     }
 
     // Starts a walk to a target. Someone who was indoors steps out of the door they went in by.

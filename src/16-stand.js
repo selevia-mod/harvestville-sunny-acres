@@ -1,4 +1,4 @@
-// The farm stand's panels: the shelves (put a lot up at a price, collect the coins), picking what to sell and
+// The market stall's panels: the shelves (put a lot up at a price, collect the coins), picking what to sell and
 // for how much (or selling it right away), and the order board. Mixed into UIScene.
 (function (F) {
   'use strict';
@@ -50,7 +50,7 @@
     var c = this.openModal();
     this.panelImg(c, 12, 74, W - 24, 528);
     this.ribbon(c, W / 2, 78, 190);
-    c.add(this.txt(W / 2, 78, 'Farm Stand', 17, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
+    c.add(this.txt(W / 2, 78, 'Market Stall', 17, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
     this.button(c, W - 44, 112, 40, 32, 'X', function () { self.closeModal(); }, RED);
     var reopen = function (t) { self.closeModal(); self.openStand(t || tab); };
     [['shelves', 'Shelves'], ['orders', 'Orders']].forEach(function (t, k) {
@@ -111,7 +111,7 @@
     var gold = L.collectStand(state());
     if (!gold) return;
     sfx('coin');
-    this.toast('+' + gold + 'G from the farm stand!', 1800, 0x7a4d12);
+    this.toast('+' + gold + 'G from the market stall!', 1800, 0x7a4d12);
     world().changed();
     world().save();
   };

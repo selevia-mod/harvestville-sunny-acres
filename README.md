@@ -39,7 +39,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 - **Boy or girl:** a new game starts by asking who you will play: the farmer boy or the farmer girl.
 - **Goals:** a new farm shows one goal at a time under the top bar: clear debris, till, plant, water, feed
-  Clucky, sleep, collect an egg, sell at the stand, visit town, meet villagers, harvest. Each one pays a small reward. A
+  Clucky, sleep, collect an egg, visit town, sell at the market stall, meet villagers, harvest. Each one pays a small reward. A
   yellow arrow points the way, even across maps. Tap the goal bar for details.
 - **Tips:** the first time you hold each kind of item (a tool, seeds, feed, food...), a tip explains it.
 - **Mail:** the mailbox by the house gets letters: a welcome lunch, festival invitations, birthday reminders,
@@ -61,12 +61,14 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   | Fall | Carrot 4/70G, Pumpkin 10/250G |
   | All but winter | Grass: cut it with the Sickle for Fodder, and it regrows |
 
-- **Selling at the farm stand** (by the house): crops, produce, fish, ore and forage.
+- **Selling at the market stall** (north side of the town plaza): crops, produce, fish, ore and forage.
   - **Sell now** pays 75% of the base price straight away.
   - **Shelves** (6 of them, up to 20 of one item each): pick a price and a villager comes by to buy the lot.
+    When you are in town you see them walk up to the stall, stop to buy, and go back to their day.
     Low pays 100% in about 40 minutes, Fair 120% in about 2.5 hours, High 140% in about 6 hours (game time).
-    Time also passes for the shelves overnight. Coins wait at the stand (a coin bobs over it) until you collect them.
-  - **The order board** next to the stand has 3 villagers' requests, like "5 Eggs + 3 Turnips". Delivering one
+    Time also passes for the shelves while you are away and overnight. Coins wait at the stall (a coin bobs over
+    it) until you collect them.
+  - **The order board** on the plaza has 3 villagers' requests, like "5 Eggs + 3 Turnips". Delivering one
     pays 150% of the items' price plus friendship with that villager; a new order comes about an hour later.
     Orders only ask for what you can get now: crops in season, your animals' produce, fish (with a rod) and ore
     from mine floors you have reached. A "!" over the board means you can fill one.
@@ -103,7 +105,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 - **Pets:**
   - **Biscuit the dog** lives by the house. Pet him every day.
   - **The horse:** Mira's Stable brings Chestnut the horse. Walk up to him to ride: he's 1.7× faster, he can
-    go to town, and his saddlebag opens the farm stand from anywhere. He waits outside when you go indoors or
+    go to town, and his saddlebag opens the market stall from anywhere. He waits outside when you go indoors or
     down the mine.
   - **Mochi the cat** comes with the Cat Basket from Mira's furniture tab and lives in the farmhouse.
 
@@ -232,19 +234,19 @@ src/              game code, concatenated in filename order
   00-content2.js    goals, tips, the collection list, pets, furniture, mine depth, mini-game tuning
   00-story.js       letters and heart events
   01-logic2.js      rules for goals, tips, collection, mail, heart events, pets, furniture, chests (wraps 01-logic)
-  01-logic3.js      the farm stand: selling now, shelves with prices and buyers, the order board
+  01-logic3.js      the market stall: selling now, shelves with prices and buyers, the order board
   13-animals.js     the herd in the pen, chicks and calves, and pets (the dog, the cat)
   14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
   15-villagers.js   villagers walking their schedules (path finding), talking, gifts, heart events, proposals
   16-games.js       goal banner + guide arrow, items flying into the bag, choices, fishing and dance mini-games
   16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends, collection
-  16-stand.js       the farm stand's panels: shelves, picking what to sell and for how much, orders
+  16-stand.js       the market stall's panels: shelves, picking what to sell and for how much, orders
   17-audio.js       WebAudio music and sound effects
   19b-feel.js       game feel: tools land with dirt, chips, splashes and a bump; walking eases in and out,
                     with footstep dust and sounds
   18-polish.js      tool swings, night darkness with glowing windows, fireflies, name tags, emotes, goals
   19-extras.js      the horse (riding, saddlebag), the cat, the mailbox, mine chests, music box, aquarium
-  19c-stand.js      the farm stand and order board on the farm: buyers as the clock runs, coins and "!" markers
+  19c-stand.js      the market stall and order board in town: villagers walk up to buy, coins and "!" markers
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house, town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -258,7 +260,7 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (86 tests)
+npm test           # rules + save-format unit tests (87 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (11 tests, ~13 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
@@ -333,7 +335,7 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
   - Points: `spawn` and `place` (villager destinations; `fest_0..6` are festival spots).
   - `warp`, with `to`, `spawn`, and `walk` (walk through it) or `label` (use it).
   - `door`, with `building`.
-  - `sleep`, `tv`, `kitchen`, `stand` (the farm stand), `orders` (the order board), `shop`, `incubator` and `sign`
+  - `sleep`, `tv`, `kitchen`, `stand` (the market stall), `orders` (the order board), `shop`, `incubator` and `sign`
     (with `text`).
   - Areas: `pen`, `dogarea`, `forage` and `minefloor`.
 
