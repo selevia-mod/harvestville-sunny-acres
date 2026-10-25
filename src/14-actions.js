@@ -197,9 +197,6 @@
       case 'warp':
         if (o.props.walk) return null;
         return { label: o.props.label || 'Enter', icon: -1, run: function () { self.travel(o.props.to, o.props.spawn); } };
-      case 'ship':
-        if (def && def.sell) return { label: 'Ship', icon: C.ICON.crate, run: function () { self.ship(); } };
-        return { label: 'Box', icon: C.ICON.crate, run: function () { self.showBox(); } };
       case 'incubator':
         if (held && C.FOOD_GROUPS.egg.indexOf(held.id) >= 0 && !s.inc) return { label: 'Incubate', icon: def.icon, run: function () { self.incubate(); } };
         return { label: 'Coop', icon: C.ICON.chicken, run: function () { self.coopInfo(); } };
@@ -350,7 +347,9 @@
     if (gotLumber) notes.push('+' + gotLumber + ' Lumber');
     if (gotStone) notes.push('+' + gotStone + ' Stone');
     Object.keys(items).forEach(function (id) { notes.push('+' + items[id] + ' ' + (id === 'stone' ? 'Stone' : C.ITEMS[id].name)); });
+    this.landing = (this.landing || 0) + 1; // tool swings still in the air (tests wait for them to land)
     this.time.delayedCall(this.IMPACT[kind], function () {
+      self.landing--;
       fx.forEach(function (f) { f(); });
       sfx({ hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut' }[tool]);
       if (tool !== 'can') self.bump(heavy || (level ? 1 : 0));
@@ -484,25 +483,7 @@
     this.changed();
   };
 
-  // ---------- shipping, shop, TV, coop ----------
-  M.ship = function () {
-    var r = L.ship(this.state, this.state.sel);
-    if (!r) return;
-    sfx('coin');
-    F.ui.toast('Shipped ' + r.n + ' ' + C.ITEMS[r.id].name + '. ' + r.value + 'G arrives in the morning.');
-    this.changed();
-    this.progress('ship');
-    this.save();
-  };
-
-  M.showBox = function () {
-    var s = this.state;
-    var lines = s.box.map(function (b) { return b.n + ' x ' + C.ITEMS[b.id].name; });
-    F.ui.dialog('SHIPPING BOX\n' + (lines.length
-      ? lines.join('\n') + '\nTotal: ' + L.boxValue(s) + 'G, paid while you sleep.'
-      : 'Hold a crop, fish, ore or anything else that sells, and press the action button here to ship it. You get paid while you sleep.'));
-  };
-
+  // ---------- shop, TV, coop ----------
   M.openShop = function () {
     if (!L.shopOpen(this.state)) {
       var fest = L.festivalOn(this.state.day);

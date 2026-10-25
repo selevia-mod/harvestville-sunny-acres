@@ -10,7 +10,7 @@
     fest: { from: 'hollis', text: 'Tomorrow is the {fest}! {desc} Everyone gathers in the town plaza. Shops will be closed for the day. - Mayor Hollis' },
     bday: { from: 'hollis', text: "Psst! Tomorrow is {who}'s birthday. A gift on the day counts double! - Mayor Hollis" },
     ship1: { from: 'lily', text: "Word is your crops are selling well! Here are some strawberry seeds. They keep giving after the first harvest. - Lily", gift: ['seed_strawberry', 1] },
-    ship2: { from: 'lily', text: "5,000G shipped! You're the talk of the valley. A little thank-you from my stand. - Lily", gift: ['gold', 500] },
+    ship2: { from: 'lily', text: "5,000G earned! You're the talk of the valley. A little thank-you from my stand. - Lily", gift: ['gold', 500] },
     ship3: { from: 'hollis', text: '20,000G! Sunny Acres is the finest farm in the valley again. The town is proud of you. - Mayor Hollis', gift: ['gold', 2000] },
     mine10: { from: 'bram', text: "Heard you made it to floor 10 of the mine. Not bad! Take this silver, and keep digging. - Bram", gift: ['ore_silver', 2] },
     // a letter from each villager when you reach 3 hearts with them

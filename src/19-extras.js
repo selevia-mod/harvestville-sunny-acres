@@ -142,10 +142,10 @@
     this.changed();
   };
 
-  // On horseback: no tools, but the saddlebag ships from anywhere.
+  // On horseback: no tools, but the saddlebag reaches the farm stand from anywhere.
   M.rideAction = function (held, def) {
     var self = this;
-    if (def && def.sell) return { label: 'Ship', icon: C.ICON.crate, run: function () { self.ship(); F.ui.toast('Packed in the saddlebag. It ships tonight!'); } };
+    if (def && def.sell) return { label: 'Sell', icon: C.ICON.crate, run: function () { F.ui.openStand('shelves'); } };
     return { label: 'Get off', icon: C.ICON.horse, run: function () { self.dismount(); } };
   };
 

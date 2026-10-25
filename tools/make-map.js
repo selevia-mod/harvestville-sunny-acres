@@ -212,14 +212,13 @@ function farm() {
   m.rect('Ground', 4, 11, 19, 24, 'tiles', T.field);
   const pathRect = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.path);
   pathRect(6, 7, 7, 10); // house door -> top field gate
-  pathRect(8, 7, 10, 7); // to the shipping box
+  pathRect(8, 7, 11, 7); // to the farm stand and the order board
   pathRect(11, 25, 12, 37); // bottom gate -> road to town
   pathRect(13, 32, 17, 33); // branch to the seed stand
 
   m.block('Walls', 'tiles', 'house', 4, 3); // door at (6, 6)
   m.block('Walls', 'tiles', 'pond', 15, 3); // transparent corners over the (seasonal) grass
   m.block('Walls', 'tiles', 'shop', 14, 28); // counter at (16..17, 31)
-  m.put('Walls', 10, 6, 'tiles', T.shipbox);
   m.put('Walls', 8, 9, 'tiles', T.sign);
   m.put('Walls', 13, 35, 'tiles', T.sign);
 
@@ -250,10 +249,12 @@ function farm() {
   for (let x = 2; x < m.W - 2; x += 2) if (x !== 10 && x !== 12) m.tree(x, 36);
 
   m.prop('doghouse', 12, 3);
-  m.prop('mailbox', 9, 5);
+  m.prop('mailbox', 3, 5);
+  m.prop('farm_stand', 9, 5);
+  m.prop('order_board', 9, 8);
   m.prop('stable', 18, 32, [prop('requires', 'string', 'stable')]);
   const keep = (x, y) => (x >= PEN.x0 && x <= PEN.x1 && y >= PEN.y0 - 1 && y <= PEN.y1)
-    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
+    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || (x >= 8 && x <= 11 && y >= 4 && y <= 9) || (x === 3 && y >= 4 && y <= 7) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
   decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 6], [T.rock, 4], [T.stump, 2]]);
 
   m.point('spawn', 'spawn', 6.5, 7.6);
@@ -261,12 +262,13 @@ function farm() {
   m.point('from_town', 'spawn', 11.5, 35.6, [prop('dir', 'string', 'up')]);
   m.obj('house_door', 'warp', 6, 6, 1, 1, [prop('to', 'string', 'house'), prop('spawn', 'string', 'door'), prop('label', 'string', 'Enter')]);
   m.obj('road_south', 'warp', 10, 37, 4, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_farm'), prop('walk', 'bool', true)]);
-  m.obj('shipping_box', 'ship', 10, 6);
-  m.obj('mailbox', 'mail', 9, 6);
+  m.obj('farm_stand', 'stand', 9, 6, 2, 1);
+  m.obj('order_board', 'orders', 9, 8, 2, 2);
+  m.obj('mailbox', 'mail', 3, 6);
   m.point('horse', 'place', 17.3, 35.2);
   m.obj('seed_shop', 'shop', 16, 31, 2, 1);
   m.obj('incubator', 'incubator', 7, 28, 2, 2);
-  m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Ship your crops in the box by the house.')]);
+  m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Sell your crops at the farm stand by the house.')]);
   m.obj('road_sign', 'sign', 13, 35, 1, 1, [prop('text', 'string', 'SOUTH: Willowbrook\nThe town is just down the road. Say hello to everyone!')]);
   m.obj('animal_pen', 'pen', 3, 31, 7, 4);
   m.obj('dog_yard', 'dogarea', 11, 5, 4, 5);

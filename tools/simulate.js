@@ -41,24 +41,36 @@ function bestSeed() {
   return best;
 }
 
+// Sells everything of an item at the farm stand: on a free shelf at the fair price, the rest right away.
+function sell(id) {
+  while (slot(id) >= 0) {
+    const shelf = s.shelves.indexOf(null);
+    if (shelf >= 0) L.listItem(s, shelf, slot(id), C.STAND.perShelf, 1);
+    else L.sellNow(s, slot(id));
+  }
+}
+
 function day() {
   const weather = L.weather(s, s.day);
+  // the stand: collect what sold overnight, and deliver any order that can be filled
+  L.collectStand(s);
+  s.orders.forEach((o, i) => L.deliverOrder(s, i));
   // animals: collect, feed, pet
   s.animals.forEach((a, i) => {
-    if (a.ready) { const got = L.collect(s, i); if (got[0] !== '!') L.ship(s, slot(got)); }
+    if (a.ready) { const got = L.collect(s, i); if (got[0] !== '!') sell(got); }
     const feed = C.ANIMALS[a.kind].feed;
     if (!a.young && !L.hasItem(s, feed)) L.buy(s, feed, 5);
     if (!a.young) L.feedAnimal(s, i, slot(feed));
     L.petAnimal(s, i);
     if (L.hasItem(s, 'brush')) L.brushAnimal(s, i);
   });
-  // harvest everything ripe and ship it
+  // harvest everything ripe and sell it
   Object.keys(s.soil).forEach((k) => {
     const t = s.soil[k];
     if (L.isRipe(t) && !C.CROPS[t.c].sickle) L.harvest(s, Number(k));
   });
   ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin', 'herb', 'berry', 'mushroom', 'root', 'ore_copper', 'gem', 'fish_s', 'fish_m', 'fish_l', 'fish_k']
-    .forEach((id) => { while (slot(id) >= 0) L.ship(s, slot(id)); });
+    .forEach(sell);
   // forage on the farm (3 a day)
   for (let i = 0; i < C.FORAGE_COUNT.farm; i++) L.takeForage(s, 'farm', 1000 + i);
   // water what is growing (rain does it for free)
@@ -136,8 +148,9 @@ console.log('day  date        gold   earned/day  planted  animals  tools        
 const rows = [];
 let week = 0;
 for (let d = 0; d < DAYS; d++) {
-  const r = day();
-  week += r.earned;
+  const before = s.stats.earned;
+  day();
+  week += s.stats.earned - before;
   if (s.day % 7 === 1) {
     const planted = Object.values(s.soil).filter((t) => t.c).length;
     const row = String(s.day - 1).padEnd(5) + L.formatDate(s.day - 1).padEnd(12) + String(s.gold).padStart(6) + String(Math.round(week / 7)).padStart(11) +
@@ -148,7 +161,7 @@ for (let d = 0; d < DAYS; d++) {
     week = 0;
   }
 }
-console.log('\nTotal shipped: ' + s.stats.earned + 'G, deepest mine floor ' + s.stats.deepest);
+console.log('\nTotal earned: ' + s.stats.earned + 'G, deepest mine floor ' + s.stats.deepest);
 if (!QUIET) {
   console.log('\nMilestones:');
   log.forEach((l) => console.log('  ' + l));

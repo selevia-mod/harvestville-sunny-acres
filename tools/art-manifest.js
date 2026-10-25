@@ -168,6 +168,8 @@ const PROP_DESC = {
   festive_tree: 'a winter festival pine tree decorated with lights, ribbons and a star on top',
   doghouse: 'a little wooden doghouse with a red roof and a round entrance (no name sign)',
   mailbox: 'a blue country mailbox on a wooden post with a red flag',
+  farm_stand: 'a cute wooden farm market stall facing straight toward the viewer: a wooden counter with two shelves of wooden crates, a red and white striped awning on two posts, and a small blank chalkboard price sign hanging from the awning (no readable text), symmetrical left to right, the crates empty',
+  order_board: 'a wooden delivery order board facing straight toward the viewer, standing on two short posts, with a small shingled roof and three blank paper order cards pinned in a row, each with a small red pin (no readable text), symmetrical left to right',
   stable: 'a small red wooden horse stable with a crossed-plank door in the middle and a hay bale beside it',
   chest: 'a wooden treasure chest with gold bands and a gold lock',
   aquarium: 'a glass aquarium on a wooden cabinet, with colorful little fish and water plants',

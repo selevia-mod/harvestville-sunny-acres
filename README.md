@@ -39,11 +39,11 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 - **Boy or girl:** a new game starts by asking who you will play: the farmer boy or the farmer girl.
 - **Goals:** a new farm shows one goal at a time under the top bar: clear debris, till, plant, water, feed
-  Clucky, sleep, collect an egg, ship, visit town, meet villagers, harvest. Each one pays a small reward. A
+  Clucky, sleep, collect an egg, sell at the stand, visit town, meet villagers, harvest. Each one pays a small reward. A
   yellow arrow points the way, even across maps. Tap the goal bar for details.
 - **Tips:** the first time you hold each kind of item (a tool, seeds, feed, food...), a tip explains it.
 - **Mail:** the mailbox by the house gets letters: a welcome lunch, festival invitations, birthday reminders,
-  thank-you gifts from villagers at 3 hearts, and rewards for shipping milestones and deep mine floors.
+  thank-you gifts from villagers at 3 hearts, and rewards for earning milestones and deep mine floors.
 
 ### The farm
 
@@ -61,7 +61,15 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   | Fall | Carrot 4/70G, Pumpkin 10/250G |
   | All but winter | Grass: cut it with the Sickle for Fodder, and it regrows |
 
-- **Selling:** put crops, produce, fish, ore and forage in the **shipping box** by the house. It pays out overnight.
+- **Selling at the farm stand** (by the house): crops, produce, fish, ore and forage.
+  - **Sell now** pays 75% of the base price straight away.
+  - **Shelves** (6 of them, up to 20 of one item each): pick a price and a villager comes by to buy the lot.
+    Low pays 100% in about 40 minutes, Fair 120% in about 2.5 hours, High 140% in about 6 hours (game time).
+    Time also passes for the shelves overnight. Coins wait at the stand (a coin bobs over it) until you collect them.
+  - **The order board** next to the stand has 3 villagers' requests, like "5 Eggs + 3 Turnips". Delivering one
+    pays 150% of the items' price plus friendship with that villager; a new order comes about an hour later.
+    Orders only ask for what you can get now: crops in season, your animals' produce, fish (with a rod) and ore
+    from mine floors you have reached. A "!" over the board means you can fill one.
 - **Lily's Seed Stand** (south of the field, 9 AM to 5 PM) has Seeds, Animals and Supplies (Brush, Milker,
   Fishing Rod, Miracle Potion, Blue Feather).
 - **Days:** the clock runs from 6 AM. At 2 AM you pass out (half energy next day). Sleep in the bed in your
@@ -95,7 +103,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 - **Pets:**
   - **Biscuit the dog** lives by the house. Pet him every day.
   - **The horse:** Mira's Stable brings Chestnut the horse. Walk up to him to ride: he's 1.7× faster, he can
-    go to town, and his saddlebag ships what you hold from anywhere. He waits outside when you go indoors or
+    go to town, and his saddlebag opens the farm stand from anywhere. He waits outside when you go indoors or
     down the mine.
   - **Mochi the cat** comes with the Cat Basket from Mira's furniture tab and lives in the farmhouse.
 
@@ -172,7 +180,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 ### Collection and records
 
 Pause → **Collection** shows 37 things to find: crops, produce (truffles and carabao milk too), fish, forage, ore and dishes (unknown ones are
-silhouettes). It also shows your records: total shipped, fish caught, dishes cooked, the deepest mine floor, and
+silhouettes). It also shows your records: total earned, fish caught, dishes cooked, the deepest mine floor, and
 close friends.
 
 ### Balance
@@ -183,10 +191,10 @@ become affordable. With the current numbers:
 
 | When | What |
 | --- | --- |
-| Spring | About 21,000G shipped |
+| Spring | About 21,000G earned |
 | End of spring | The kitchen |
 | Early fall | The house extension, so marriage is possible in fall of year 1 |
-| End of year 1 | About 200,000G shipped |
+| End of year 1 | About 200,000G earned |
 
 A relaxed player will be well behind that.
 
@@ -202,7 +210,7 @@ sounds can be switched off in the pause menu.
 | Hook | Behaviour |
 | --- | --- |
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
-| `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, shipping, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
+| `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
 | `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |
 | `window.__gameBack()` | Closes the top panel or dialog, otherwise opens the pause menu. Returns `true` when handled. |
 
@@ -224,16 +232,19 @@ src/              game code, concatenated in filename order
   00-content2.js    goals, tips, the collection list, pets, furniture, mine depth, mini-game tuning
   00-story.js       letters and heart events
   01-logic2.js      rules for goals, tips, collection, mail, heart events, pets, furniture, chests (wraps 01-logic)
+  01-logic3.js      the farm stand: selling now, shelves with prices and buyers, the order board
   13-animals.js     the herd in the pen, chicks and calves, and pets (the dog, the cat)
   14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
   15-villagers.js   villagers walking their schedules (path finding), talking, gifts, heart events, proposals
   16-games.js       goal banner + guide arrow, items flying into the bag, choices, fishing and dance mini-games
   16-panels.js      morning report, pause, bag, shops, town buildings, kitchen, festivals, calendar, friends, collection
+  16-stand.js       the farm stand's panels: shelves, picking what to sell and for how much, orders
   17-audio.js       WebAudio music and sound effects
   19b-feel.js       game feel: tools land with dirt, chips, splashes and a bump; walking eases in and out,
                     with footstep dust and sounds
   18-polish.js      tool swings, night darkness with glowing windows, fireflies, name tags, emotes, goals
   19-extras.js      the horse (riding, saddlebag), the cat, the mailbox, mine chests, music box, aquarium
+  19c-stand.js      the farm stand and order board on the farm: buyers as the clock runs, coins and "!" markers
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house, town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -247,7 +258,7 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (77 tests)
+npm test           # rules + save-format unit tests (86 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (11 tests, ~13 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
@@ -322,7 +333,8 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
   - Points: `spawn` and `place` (villager destinations; `fest_0..6` are festival spots).
   - `warp`, with `to`, `spawn`, and `walk` (walk through it) or `label` (use it).
   - `door`, with `building`.
-  - `sleep`, `tv`, `kitchen`, `ship`, `shop`, `incubator` and `sign` (with `text`).
+  - `sleep`, `tv`, `kitchen`, `stand` (the farm stand), `orders` (the order board), `shop`, `incubator` and `sign`
+    (with `text`).
   - Areas: `pen`, `dogarea`, `forage` and `minefloor`.
 
 Run `npm run build` after editing.

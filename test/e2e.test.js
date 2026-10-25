@@ -11,7 +11,7 @@ const SHOTS = process.env.SHOTS;
 const W = 24; // farm width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
-const SLOW = { timeout: 30000 };
+const SLOW = { timeout: 90000 }; // headless frames can be slow
 
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
@@ -75,7 +75,9 @@ async function teleport(page, tx, ty, dir) {
 async function tapAction(page) {
   await page.touchscreen.tap(ACTION_BTN.x, ACTION_BTN.y);
   await frames(page);
-  await page.waitForTimeout(250); // tools land a moment after the tap; let the effects play
+  // tools land a moment after the tap: wait for it, then let the effects play
+  await page.waitForFunction(() => !Farm.world || !Farm.world.landing, null, { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(150);
 }
 
 async function tapHotbar(page, i) {
@@ -150,7 +152,7 @@ async function sleepThroughNight(page) {
   return report;
 }
 
-test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest, ship, shop, save', async () => {
+test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest, sell at the stand, shop, save', async () => {
   const { page, problems, context, cdp } = await open();
   const idx = (x, y) => y * W + x;
 
@@ -180,7 +182,8 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   for (let i = 1; i <= 5; i++) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 90 + i * 8, y: 420, id: 1 }] });
   }
-  await page.waitForTimeout(800); // the farmer eases up to walking speed
+  // the farmer eases up to walking speed; slow headless frames can take a while to get there
+  await page.waitForFunction(() => Farm.world.feet().x > 6.5 * 256 + 200, null, { timeout: 8000 }).catch(() => {});
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await frames(page);
   const moved = await state(page);
@@ -275,7 +278,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   assert.strictEqual(s.inv[turnipSlot].n, 3, 'harvested 3 turnips');
   assert.strictEqual(s.soil[idx(5, 12)].c, null);
 
-  // ship them: pick the turnips from the bag, then use the shipping box
+  // look at the turnips in the bag
   await page.touchscreen.tap(14 + 6 * 48 + 22, 606); // bag button
   await frames(page);
   await shot(page, '06-bag');
@@ -283,16 +286,32 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await frames(page);
   assert.match(await modalText(page), /Lumber 1 +Stone 1/);
   await tapButton(page, 'Close');
+
+  // sell them at the farm stand: put them on a shelf at the fair price; a buyer comes overnight
   await teleport(page, 10, 7, 'up');
-  assert.strictEqual(await actionLabel(page), 'Ship');
+  assert.strictEqual(await actionLabel(page), 'Sell');
   await tapAction(page);
+  assert.match(await modalText(page), /Farm Stand/);
+  await shot(page, '07-stand');
+  await tapButton(page, 'Sell from bag');
+  await page.waitForTimeout(300);
+  await page.touchscreen.tap(33 + 22, 206 + 22); // the turnips, the only thing in the bag that sells
+  await page.waitForTimeout(300);
+  assert.match(await modalText(page), /Sell now: 135G/);
+  await tapButton(page, 'Fair: 216G  (about 2.5h)');
   s = await state(page);
-  assert.deepStrictEqual(s.box, [{ id: 'turnip', n: 3 }]);
+  assert.deepStrictEqual(s.shelves[0] && [s.shelves[0].id, s.shelves[0].n, s.shelves[0].price], ['turnip', 3, 1]);
+  assert.strictEqual(count(s, 'turnip'), 0);
+  await page.evaluate(() => Farm.ui.closeAll());
   const goldBefore = s.gold;
   const report = await sleepThroughNight(page);
-  assert.match(report, /earned 180G/);
+  assert.match(report, /1 lot sold\. Collect 216G/);
+  await teleport(page, 10, 7, 'up');
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
   s = await state(page);
-  assert.strictEqual(s.gold, goldBefore + 180, 'shipping paid 3 x 60G overnight');
+  assert.strictEqual(s.gold, goldBefore + 216, 'the stand paid 3 x 72G');
+  assert.strictEqual(s.shelves[0], null);
 
   // Lily's stand is closed early in the morning, open at 10 AM
   await teleport(page, 16, 32, 'up');
@@ -305,7 +324,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await tapButton(page, 'Buy 120G'); // a bag of turnip seeds
   s = await state(page);
   assert.strictEqual(count(s, 'seed_turnip'), 4);
-  assert.strictEqual(s.gold, goldBefore + 180 - 120);
+  assert.strictEqual(s.gold, goldBefore + 216 - 120);
   await tapButton(page, 'Supplies');
   assert.match(await modalText(page), /Milker/);
   assert.match(await modalText(page), /Fishing Rod/);
@@ -440,7 +459,7 @@ async function meetAnimal(page, i, tx, ty) {
   await teleport(page, tx, ty - 1, 'down');
 }
 
-test('animals: pet, feed, brush, collect an egg, ship it, buy a cow, the dog, save', async () => {
+test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, save', async () => {
   const { page, problems, context } = await open(await makeSave());
   let s = await state(page);
   assert.strictEqual(s.animals.length, 1);
@@ -484,13 +503,20 @@ test('animals: pet, feed, brush, collect an egg, ship it, buy a cow, the dog, sa
   assert.ok(count(s, 'egg') === 1, 'egg collected');
   assert.strictEqual(s.animals[0].ready, 0);
 
-  // ship the egg
-  await hold(page, 'egg');
+
+  // sell the egg right away at the stand
   await teleport(page, 10, 7, 'up');
-  assert.strictEqual(await actionLabel(page), 'Ship');
   await tapAction(page);
+  await tapButton(page, 'Sell from bag');
+  await page.waitForTimeout(300);
+  await page.touchscreen.tap(33 + 22, 206 + 22);
+  await page.waitForTimeout(300);
+  const goldEgg = (await state(page)).gold;
+  await tapButton(page, 'Sell now: 30G');
   s = await state(page);
-  assert.deepStrictEqual(s.box, [{ id: 'egg', n: 1 }]);
+  assert.strictEqual(count(s, 'egg'), 0);
+  assert.strictEqual(s.gold, goldEgg + 30, 'sold now at 75%');
+  await page.evaluate(() => Farm.ui.closeAll());
 
   // buy a cow from the Animals tab
   await page.evaluate(() => { Farm.session.state.gold = 2500; Farm.session.state.time = 600; });
@@ -717,6 +743,11 @@ test('fishing at the pond and foraging', async () => {
   await page.waitForFunction(() => Farm.world.fishing && Farm.world.fishing.state === 'bite', null, SLOW);
   assert.strictEqual(await actionLabel(page), 'Reel!');
   await shot(page, '20-bite');
+  // the green bar covers the whole track and fills fast, so slow headless frames still land the fish
+  await page.evaluate(() => {
+    const G = Farm.Config.FISH_GAME;
+    ['fish_s', 'fish_m', 'fish_l', 'fish_k'].forEach((k) => { G[k].zone = 1; });
+  });
   await tapAction(page);
   // hooked: the reel-in mini-game. Hold the screen to lift the green bar over the fish.
   await page.waitForFunction(() => Farm.ui.game2, null, SLOW);
@@ -927,7 +958,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
 
   // the welcome letter waits in the mailbox, with a gift
   assert.ok(await page.evaluate(() => Farm.world.mailFlag.visible), 'the mailbox shows a letter');
-  await teleport(page, 9, 7, 'up');
+  await teleport(page, 3, 7, 'up');
   assert.strictEqual(await actionLabel(page), 'Read');
   await tapAction(page);
   assert.match(await modalText(page), /LETTER FROM MAYOR HOLLIS/);
@@ -937,7 +968,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   assert.strictEqual(count(s, 'sandwich'), 1);
   assert.deepStrictEqual(s.mail, []);
 
-  // the horse waits by the stable: ride it, ship from the saddlebag, and get off
+  // the horse waits by the stable: ride it, open the farm stand from the saddlebag, and get off
   const horse = await page.evaluate(() => [Farm.world.horse.x / 256, Farm.world.horse.y / 256]);
   await teleport(page, Math.floor(horse[0]), Math.floor(horse[1]) - 1, 'down');
   assert.strictEqual(await actionLabel(page), 'Ride');
@@ -949,9 +980,10 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await shot(page, '30-riding');
   await page.evaluate(() => { Farm.input.jx = 0; });
   await hold(page, 'turnip');
-  assert.strictEqual(await actionLabel(page), 'Ship');
+  assert.strictEqual(await actionLabel(page), 'Sell');
   await tapAction(page);
-  assert.deepStrictEqual((await state(page)).box, [{ id: 'turnip', n: 2 }], 'shipped from the saddlebag');
+  assert.match(await modalText(page), /Farm Stand/, 'the stand opens from the saddlebag');
+  await page.evaluate(() => Farm.ui.closeAll());
   await hold(page, 'hoe');
   assert.strictEqual(await actionLabel(page), 'Get off');
   await tapAction(page);
@@ -1018,7 +1050,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   // the collection book in the pause menu
   await page.evaluate(() => window.__gameBack());
   await tapButton(page, 'Collection');
-  assert.match(await modalText(page), /Shipped: 0G/);
+  assert.match(await modalText(page), /Earned: 0G/);
   await shot(page, '33-collection');
   assert.deepStrictEqual(problems, []);
   await context.close();

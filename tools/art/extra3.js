@@ -120,6 +120,59 @@
     },
   };
 
+  // ---------- the farm stand and the order board (2 x 2 tiles, 512 x 512 here) ----------
+  var P = A.PROP_DRAW;
+  function box(g, x, y, w, h, fill, r) {
+    rrect(g, x, y, w, h, r || 8);
+    paint(g, fill, 6, OUTLINE);
+  }
+  P.farm_stand = function (p) {
+    return function (g) {
+      var W = p.W, H = p.H;
+      A.shadow(g, W / 2, H - 24, W / 2 - 30, 26);
+      // posts and awning
+      box(g, 44, 110, 26, H - 140, lin(g, 0, 110, 0, H, [[0, '#c48945'], [1, '#8a5a30']]), 6);
+      box(g, W - 70, 110, 26, H - 140, lin(g, 0, 110, 0, H, [[0, '#c48945'], [1, '#8a5a30']]), 6);
+      for (var i = 0; i < 6; i++) {
+        var x = 24 + i * (W - 48) / 6;
+        g.beginPath();
+        g.moveTo(x, 70);
+        g.lineTo(x + (W - 48) / 6, 70);
+        g.lineTo(x + (W - 48) / 6, 150);
+        g.quadraticCurveTo(x + (W - 48) / 12, 182, x, 150);
+        g.closePath();
+        paint(g, i % 2 ? '#fff6e8' : '#e5484d', 5, OUTLINE);
+      }
+      box(g, 18, 46, W - 36, 34, lin(g, 0, 46, 0, 80, [[0, '#f26b5b'], [1, '#c9362b']]), 10);
+      // counter with crates
+      box(g, 30, 270, W - 60, H - 300, lin(g, 0, 270, 0, H - 30, [[0, '#e0a862'], [1, '#9a6630']]), 10);
+      for (var k = 0; k < 3; k++) box(g, 60 + k * 136, 230, 112, 64, lin(g, 0, 230, 0, 294, [[0, '#d9a35f'], [1, '#a8703c']]), 6);
+      for (var y = 320; y < H - 50; y += 46) { g.beginPath(); g.moveTo(40, y); g.lineTo(W - 40, y); g.lineWidth = 4; g.strokeStyle = 'rgba(80,45,20,0.4)'; g.stroke(); }
+      // price sign
+      box(g, W / 2 - 60, 178, 120, 50, '#3d4a3a', 8);
+    };
+  };
+  P.order_board = function (p) {
+    return function (g) {
+      var W = p.W, H = p.H;
+      A.shadow(g, W / 2, H - 22, W / 2 - 60, 22);
+      box(g, 96, 300, 28, H - 324, '#9a6630', 6);
+      box(g, W - 124, 300, 28, H - 324, '#9a6630', 6);
+      box(g, 50, 120, W - 100, 210, lin(g, 0, 120, 0, 330, [[0, '#d9a35f'], [1, '#a8703c']]), 12);
+      g.beginPath();
+      g.moveTo(30, 130);
+      g.lineTo(W / 2, 50);
+      g.lineTo(W - 30, 130);
+      g.closePath();
+      paint(g, lin(g, 0, 50, 0, 130, [[0, '#c9473a'], [1, '#8a2c22']]), 6, OUTLINE);
+      for (var k = 0; k < 3; k++) {
+        box(g, 78 + k * 124, 150, 100, 150, '#fffaf0', 4);
+        ell(g, 128 + k * 124, 160, 9, 9);
+        paint(g, '#e5484d', 3, OUTLINE);
+      }
+    };
+  };
+
   A.girlFilter = 'hue-rotate(300deg) saturate(1.1)'; // the boy's red and blue become pink and lilac
 
   D.pig = function (g) {
