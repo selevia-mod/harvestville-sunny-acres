@@ -223,7 +223,8 @@ function decorate(m, r, keepClear, counts) {
 
 // ---------- farm ----------
 function farm() {
-  const m = new MapBuilder('farm', 24, 38, ['tiles', 'ranch', 'seasons', 'props'], ['Ground', 'Soil', 'Debris', 'Walls', 'Above']);
+  // 38 wide: x 22..35 is the yard meadow, left open for outdoor decorations (src/00-outdoor.js)
+  const m = new MapBuilder('farm', 38, 38, ['tiles', 'ranch', 'seasons', 'props'], ['Ground', 'Soil', 'Debris', 'Walls', 'Above']);
   const r = rng(42);
   grassFill(m, r);
   m.rect('Ground', 4, 11, 19, 24, 'tiles', T.field);
@@ -262,14 +263,14 @@ function farm() {
 
   // tree border, with the road south left open
   for (let x = 0; x < m.W; x += 2) m.tree(x, 0);
-  for (let y = 2; y <= 34; y += 2) { m.tree(0, y); m.tree(22, y); }
+  for (let y = 2; y <= 34; y += 2) { m.tree(0, y); m.tree(36, y); }
   for (let x = 2; x < m.W - 2; x += 2) if (x !== 10 && x !== 12) m.tree(x, 36);
 
   m.prop('doghouse', 12, 3);
   m.prop('mailbox', 9, 5);
   m.prop('stable', 18, 32, [prop('requires', 'string', 'stable')]);
   const keep = (x, y) => (x >= PEN.x0 && x <= PEN.x1 && y >= PEN.y0 - 1 && y <= PEN.y1)
-    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || (x >= 8 && x <= 10 && y >= 4 && y <= 6) || x === 2 || x === 21 || (x >= 17 && y >= 31 && y <= 35);
+    || (x >= 11 && x <= 14 && y >= 2 && y <= 9) || (x >= 8 && x <= 10 && y >= 4 && y <= 6) || x === 2 || x >= 21 || (x >= 17 && y >= 31 && y <= 35);
   decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 6], [T.rock, 4], [T.stump, 2]]);
 
   m.point('spawn', 'spawn', 6.5, 7.6);
@@ -282,6 +283,8 @@ function farm() {
   m.obj('seed_shop', 'shop', 16, 31, 2, 1);
   m.obj('incubator', 'incubator', 7, 28, 2, 2);
   m.obj('field_sign', 'sign', 8, 9, 1, 1, [prop('text', 'string', 'MY FIELD\nClear weeds, branches and stones, then till, plant and water every day. Sell your crops at the market stall in town.')]);
+  m.put('Walls', 23, 8, 'tiles', T.sign);
+  m.obj('yard_sign', 'sign', 23, 8, 1, 1, [prop('text', 'string', 'YOUR YARD\nThis meadow is yours to decorate. Buy fences, paths, gardens and more at Mira\'s Woodshop (Outdoor), then tap Decorate.')]);
   m.obj('road_sign', 'sign', 13, 35, 1, 1, [prop('text', 'string', 'SOUTH: Willowbrook\nThe town is just down the road. Say hello to everyone!')]);
   m.obj('animal_pen', 'pen', 3, 31, 7, 4);
   m.obj('dog_yard', 'dogarea', 11, 5, 4, 5);

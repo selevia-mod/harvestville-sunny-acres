@@ -36,7 +36,7 @@ const OUT = path.join(__dirname, '..', 'assets');
     return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(file) });
   });
   await page.goto(ORIGIN + 'index.html');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'import.js') });
@@ -58,7 +58,7 @@ const OUT = path.join(__dirname, '..', 'assets');
     TILES: layout.TILES, RANCH: layout.RANCH, SEASONS: layout.SEASONS, INDOOR: layout.INDOOR, PROPS: layout.PROPS,
     SEASON_NAMES: layout.SEASON_NAMES, SEASONAL: layout.SEASONAL,
     ICON_ORDER: C.ICON_ORDER, CROP_KEYS: C.CROP_KEYS, VILLAGER_ORDER: C.VILLAGER_ORDER, SHOPPER_KEYS: C.SHOPPERS.map((x) => x.key),
-    FX_KINDS: require('./art-manifest').FX_KINDS, HOME: C.HOME,
+    FX_KINDS: require('./art-manifest').FX_KINDS, HOME: C.HOME, OUTDOOR: { types: C.OUTDOOR.types },
   })));
   await browser.close();
   if (errors.length) throw new Error(errors.join('\n'));

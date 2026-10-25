@@ -471,4 +471,31 @@ HOME.styles.forEach((st, v) => {
   });
 });
 
+// ---------- 12. outdoor decorations for the farm (src/00-outdoor.js) ----------
+const OD = GAME.OUTDOOR.types.filter((t) => !t.prop);
+const fences = OD.filter((t) => t.kind === 'fence'), paths = OD.filter((t) => t.kind === 'path');
+const garden = OD.filter((t) => t.kind === 'hedge' || t.kind === 'prop');
+add({
+  id: 'yard_fences', group: 'Outdoor decorations', file: 'outdoor/fences.png', gen: '1024x1024', final: fences.length * 3 + ' pieces of 128x128',
+  mode: 'yard', cols: 3, rows: fences.length, targets: fences.map((t) => 'yard:' + t.key),
+  pieces: [].concat(...fences.map((t) => ['h', 'v', 'p'].map((sh) => ({ name: t.key + ':' + sh, w: 1, h: 1, fill: sh !== 'p' })))),
+  prompt: `${STYLE} Fence pieces for a farm, ${fences.length} kinds, one kind per row: ${fences.map((t, k) => (k + 1) + ') ' + t.what).join('; ')}. ` +
+    'In every row, left to right: a straight fence section running left to right that fills the full width of its cell (so sections join up side by side); ' +
+    'a straight fence section running away from the camera, from the top to the bottom of its cell (so sections join up end to end); and a single fence post on its own. ' +
+    `Arranged as a grid of 3 columns by ${fences.length} rows of equal square cells, with a little empty space between cells. ${CUTOUT}`,
+});
+add({
+  id: 'yard_paths', group: 'Outdoor decorations', file: 'outdoor/paths.png', gen: '1024x1024', final: paths.length + ' tiles of 256x256',
+  mode: 'yardtex', cols: 2, rows: 2, names: paths.map((t) => t.key), targets: paths.map((t) => 'yard:' + t.key),
+  prompt: `${STYLE.replace(/Seen from a top-down[^.]*\)\. /, '')} ${paths.length} square swatches of garden paving seen from directly above, each a seamless, tileable pattern ` +
+    `that fills its square edge to edge: ${paths.map((t, k) => (k + 1) + ') ' + t.what).join('; ')}. Arranged as a grid of 2 by 2 squares with a little empty space between them. Plain white background around the squares.`,
+});
+add({
+  id: 'yard_garden', group: 'Outdoor decorations', file: 'outdoor/garden.png', gen: '1024x1024', final: garden.length + ' pieces',
+  mode: 'yard', cols: 4, rows: 4, targets: garden.map((t) => 'yard:' + t.key),
+  pieces: garden.map((t) => ({ name: t.key, w: t.w, h: t.h })),
+  prompt: `${STYLE} A set of ${garden.length} garden and yard decorations for a farm, all in the same style and at the same scale (a small planter is small, a windmill is tall). ` +
+    `${GRID(4, 4)} Row by row, left to right: ${garden.map((t, k) => (k + 1) + ') ' + t.what).join('; ')}.` + (garden.length < 16 ? ' Leave the remaining cells empty.' : '') + ` ${CUTOUT}`,
+});
+
 module.exports = { jobs, STYLE, CUTOUT, TEXTURE, FX_KINDS };

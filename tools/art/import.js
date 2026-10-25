@@ -214,6 +214,17 @@
           j.targets.forEach(function (k) { O[k] = t; });
           return;
         }
+        if (j.mode === 'yardtex') { // path swatches: each becomes a seamless tile
+          var yg = cells(cutout(img), j.cols, j.rows);
+          j.names.forEach(function (name, k) {
+            var b = yg[k];
+            if (!b) throw new Error(j.file + ': swatch ' + (k + 1) + ' (' + name + ') is missing');
+            var inset = Math.round(Math.min(b.w, b.h) * 0.04), sw = canvas(b.w - 2 * inset, b.h - 2 * inset);
+            sw.getContext('2d').drawImage(img, b.x + inset, b.y + inset, sw.width, sw.height, 0, 0, sw.width, sw.height);
+            O['yard:' + name] = texture(sw);
+          });
+          return;
+        }
         if (j.mode === 'surf') { // swatches of wallpaper or floor: each becomes a seamless tile
           var sg = cells(cutout(img), j.cols, j.rows);
           j.styles.forEach(function (v, k) {
@@ -249,7 +260,15 @@
             O['icon:' + n] = fit(c, ic[k], 128, 128, 0.88, null);
           });
         } else if (j.mode === 'icon') O['icon:' + j.name] = fit(c, whole, 128, 128, 0.88, null);
-        else if (j.mode === 'furn') { // a grid of furniture: each piece sized to its tiles (half resolution)
+        else if (j.mode === 'yard') { // a grid of outdoor pieces, each sized to its tiles (half resolution)
+          var pc = cells(c, j.cols, j.rows);
+          j.pieces.forEach(function (pz, k) {
+            var b = pc[k];
+            if (!b) throw new Error(j.file + ': piece ' + (k + 1) + ' (' + pz.name + ') is missing');
+            var W = pz.w * 128, H = pz.h * 128;
+            O['yard:' + pz.name] = pz.fill ? place(c, b, W, H, Math.min(W / b.w, H / b.h), H) : fit(c, b, W, H, 0.96, H - 2);
+          });
+        } else if (j.mode === 'furn') { // a grid of furniture: each piece sized to its tiles (half resolution)
           var gc = cells(c, j.cols, j.rows);
           j.dims.forEach(function (type, k) {
             var b = gc[k];

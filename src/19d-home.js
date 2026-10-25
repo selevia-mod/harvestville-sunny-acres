@@ -342,7 +342,7 @@
     this.decorBar = null;
     var showBtn = function (key) {
       if (self.decorBtn) { self.decorBtn.destroy(); self.decorBtn = null; }
-      if (key !== 'house') return;
+      if (key !== 'house' && key !== 'farm') return; // the farm's yard: see 19f-yard.js
       self.decorBtn = self.add.container(0, 0).setDepth(40);
       self.button(self.decorBtn, W - 62, 438, 108, 34, 'Decorate', function () { self.openDecor(); }, BROWN);
     };

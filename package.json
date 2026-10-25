@@ -8,7 +8,7 @@
     "map": "node tools/make-map.js",
     "simulate": "node tools/simulate.js",
     "build": "node build.js",
-    "test": "node --test test/logic.test.js test/rules.test.js test/content.test.js test/stand.test.js test/home.test.js test/town.test.js",
+    "test": "node --test test/logic.test.js test/rules.test.js test/content.test.js test/stand.test.js test/home.test.js test/town.test.js test/yard.test.js",
     "test:e2e": "node build.js && node --test test/e2e.test.js"
   },
   "dependencies": {

@@ -228,6 +228,7 @@
         g.fill();
       });
       var t = this.txt(0, -1, label, 15, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+      if (t.width > w - 8) t.setScale((w - 8) / t.width); // long labels shrink to fit
       var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
       z.on('pointerdown', function () { c.setScale(0.93); });
       z.on('pointerout', function () { c.setScale(1); });

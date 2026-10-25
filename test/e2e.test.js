@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
-const W = 24; // farm width in tiles
+const W = 38; // farm width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
 const SLOW = { timeout: 90000 }; // headless frames can be slow
@@ -1230,6 +1230,62 @@ test('the bigger town: new villagers and visitors, the bakery, the chapel, the s
   await context.close();
 });
 
+test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira\'s', async () => {
+  const save = await makeSave('s.time = 600; s.gold = 20000;');
+  const { page, problems, context, cdp } = await open(save);
+  await teleport(page, 26, 14, 'down'); // in the meadow
+  const toScreen = (x, y) => page.evaluate(([x, y]) => {
+    const cam = Farm.world.cameras.main, T = 256;
+    return { x: ((x + 0.5) * T - cam.worldView.x) * cam.zoom / Farm.R, y: ((y + 0.5) * T - cam.worldView.y) * cam.zoom / Farm.R };
+  }, [x, y]);
+  await page.touchscreen.tap(298, 438); // Decorate
+  await page.waitForFunction(() => Farm.world.yd && Farm.ui.decorBar, null, SLOW);
+
+  // three wooden fences in a row, a tap each
+  await page.touchscreen.tap(90, 598); // Storage
+  await tapButton(page, 'Place'); // the first row: Wooden Fence
+  for (const x of [24, 25, 26]) {
+    const p = await toScreen(x, 11);
+    await page.touchscreen.tap(p.x, p.y);
+    await frames(page, 2);
+  }
+  let s = await state(page);
+  assert.deepStrictEqual(s.yard.items.map((it) => [it.x, it.y]), [[24, 11], [25, 11], [26, 11]]);
+  assert.deepStrictEqual(await page.evaluate(() => [0, 1, 2].map((i) => Farm.Logic.fenceShape(Farm.session.state, i))), ['h', 'h', 'h']);
+  assert.strictEqual(s.yard.bag[0], 5, 'three of the eight starter fences used');
+  await page.touchscreen.tap(180, 534); // Done placing
+
+  // the bench goes in, then gets dragged two tiles right
+  await page.touchscreen.tap(90, 598);
+  await tapButton(page, 'Place', 2); // Wooden Fence, Flower Bed, Bench
+  s = await state(page);
+  const bench = s.yard.items[3];
+  const IX = await page.evaluate(() => Farm.Config.OUTDOOR.index);
+  assert.strictEqual(bench.t, IX.bench);
+  const from = await toScreen(bench.x, bench.y), to = await toScreen(bench.x + 2, bench.y);
+  const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await touch('touchStart', from.x, from.y);
+  await frames(page);
+  for (let k = 1; k <= 6; k++) { await touch('touchMove', from.x + (to.x - from.x) * k / 6, from.y); await frames(page, 2); }
+  await touch('touchEnd');
+  await frames(page);
+  s = await state(page);
+  assert.strictEqual(s.yard.items[3].x, bench.x + 2, 'the bench moved');
+  await shot(page, '38-yard');
+  await page.touchscreen.tap(270, 598); // Done
+  await page.waitForFunction(() => !Farm.world.yd && !Farm.world.busy, null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.blocked[Farm.world.idx(25, 11)]), 'fences are solid');
+
+  // Mira's Outdoor tab: a flower bed from the Garden page
+  await page.evaluate(() => Farm.ui.openWoodshop('outdoor'));
+  await tapButton(page, 'See all', 2); // Fences, Paths and hedges, Garden
+  await tapButton(page, 'Buy 300G');
+  s = await state(page);
+  assert.strictEqual(s.yard.bag[IX.flower_bed], 2);
+  assert.strictEqual(s.gold, 20000 - 300);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
 // Pushes the farmer into every solid tile, building, prop and villager on every map from each open side, at
 // walking and riding speed, with the game's own physics. Nothing solid may be walked into or through.
 test('nothing solid can be walked through, on any map, on foot or on horseback', async () => {
