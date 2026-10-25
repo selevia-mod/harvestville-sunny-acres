@@ -99,6 +99,8 @@
     var w = C.WEATHER[result.weather];
     row(w.icon, 'Weather: ' + w.name + '.' + (w.waters ? ' The rain watered your crops.' : ''));
     if (result.built) row('crate', 'Mira finished your ' + C.BUILDS[result.built].name + '!');
+    if (result.homeUp) row('crate', 'Mira finished your ' + L.homeLevel(s).name + ' (Lv ' + result.homeUp + ')! More room to decorate.');
+    if (result.visitor) row('heart', C.VILLAGERS[result.visitor.who].name + ' dropped by to see your home: "' + result.visitor.line + '"');
     (result.born || []).forEach(function (i) {
       var a = s.animals[i];
       row(C.ANIMALS[a.kind].icon, a.kind === 'chicken' ? 'A chick hatched! Say hello to ' + a.name + '.' : 'A calf was born! Say hello to ' + a.name + '.');
@@ -458,10 +460,10 @@
         icon: item.icon, name: item.name, desc: item.desc + ' +' + item.energy + ' energy.',
         buttons: [{
           label: (inn ? 'Eat ' : 'Drink ') + item.price + 'G', cb: function () {
-            if (s.energy >= C.MAX_ENERGY) return self.toast("You're already full of energy.");
+            if (s.energy >= L.maxEnergy(s)) return self.toast("You're already full of energy.");
             if (s.gold < item.price) { sfx('nope'); return self.toast('Not enough gold.'); }
             s.gold -= item.price;
-            s.energy = Math.min(C.MAX_ENERGY, s.energy + item.energy);
+            s.energy = Math.min(L.maxEnergy(s), s.energy + item.energy);
             sfx('eat');
             o.refresh();
             world().changed();
@@ -472,7 +474,7 @@
     });
     o = this.listPanel({
       title: inn ? 'Sunny Inn' : "Ivy's Clinic", rows: rows, talk: inn ? 'rosa' : 'ivy', reopen: function () { self.openFoodShop(key); },
-      sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + C.MAX_ENERGY + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
+      sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s) + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
     });
   };
 

@@ -400,8 +400,8 @@
   L.eat = function (s, slotIndex) {
     var slot = s.inv[slotIndex];
     if (!slot || !L.energyOf(slot.id)) return 0;
-    if (s.energy >= C.MAX_ENERGY) return -1;
-    var gain = Math.min(L.energyOf(slot.id), C.MAX_ENERGY - s.energy);
+    if (s.energy >= L.maxEnergy(s)) return -1;
+    var gain = Math.min(L.energyOf(slot.id), L.maxEnergy(s) - s.energy);
     s.energy += gain;
     L.removeAt(s, slotIndex, 1);
     return gain;

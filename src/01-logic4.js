@@ -115,6 +115,15 @@
     return lines ? lines[Math.floor(r * lines.length)] : null;
   };
 
+  // Now and then a friend says what they've heard about your home (once you have a Cozy one).
+  var talk = L.talk;
+  L.talk = function (s, key) {
+    var r = talk(s, key);
+    if (r.first || s.spouse === key || !s.home || !L.homeTier(s)) return r;
+    if (L.rand(s.seed, s.day, 520 + C.VILLAGER_ORDER.indexOf(key)) < 0.2) r.line = L.homeComment(s, L.rand(s.seed, s.day, 540 + C.VILLAGER_ORDER.indexOf(key))) || r.line;
+    return r;
+  };
+
   // ---------- buying ----------
   // Returns 'ok', 'gold', 'season' or 'needs' (the kitchen counter needs Mira's Kitchen first).
   L.buyFurn = function (s, t, v) {
@@ -254,11 +263,18 @@
   };
 
   // The nearest free spot to (x, y) for a piece, or null.
+  // Spots where the whole picture is clear of other pieces (not just the solid feet) come first.
   L.findSpot = function (s, t, x, y, skip) {
-    var size = L.homeSize(s), best = null, bestD = Infinity;
+    var size = L.homeSize(s), best = null, bestD = Infinity, layer = H.types[t].place === 'flat' ? 'flat' : 'up';
+    var used = {};
+    s.home.items.forEach(function (it, k) {
+      if (k === skip || (H.types[it.t].place === 'flat' ? 'flat' : 'up') !== layer) return;
+      L.furnTiles(it.t, it.x, it.y).box.forEach(function (p) { used[p[0] + ',' + p[1]] = 1; });
+    });
     for (var yy = 0; yy < size.h; yy++) {
       for (var xx = 0; xx < size.w; xx++) {
-        var d = Math.abs(xx - x) + Math.abs(yy - y);
+        var overlap = L.furnTiles(t, xx, yy).box.some(function (p) { return used[p[0] + ',' + p[1]]; });
+        var d = Math.abs(xx - x) + Math.abs(yy - y) + (overlap ? 1000 : 0);
         if (d < bestD && !L.cantPlace(s, t, xx, yy, skip)) { best = { x: xx, y: yy }; bestD = d; }
       }
     }

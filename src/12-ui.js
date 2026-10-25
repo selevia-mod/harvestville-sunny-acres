@@ -366,7 +366,7 @@
       if (wkey !== this.weatherKey) this.buildWeather(date.season, weather, outdoors, wkey);
       this.timeText.setText(L.formatTime(s.time));
       this.showGold(s.gold);
-      var pct = Math.max(0, Math.min(1, s.energy / C.MAX_ENERGY));
+      var pct = Math.max(0, Math.min(1, s.energy / L.maxEnergy(s)));
       this.energyBar.setTexture(this.energyFills[pct > 0.5 ? 2 : pct > 0.2 ? 1 : 0]).setVisible(pct > 0);
       this.energyBar.setCrop(0, 0, Math.max(10, 76 * pct) * F.R, 10 * F.R);
       this.energyText.setText(String(Math.round(s.energy)));
@@ -604,7 +604,7 @@
       var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {
         if (F.Audio) F.Audio.unlock();
-        if (this.joyId !== null || this.modals.length || over.length) return;
+        if (this.joyId !== null || this.modals.length || this.decorating || over.length) return;
         var pt = cam.getWorldPoint(p.x, p.y);
         if (pt.y < 70 || pt.y > HOTBAR_Y - 34) return;
         this.joyId = p.id;

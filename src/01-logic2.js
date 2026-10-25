@@ -246,7 +246,7 @@
   L.playMusicBox = function (s) {
     if (s.musicDay === s.day) return 0;
     s.musicDay = s.day;
-    var gain = Math.min(5, C.MAX_ENERGY - s.energy);
+    var gain = Math.min(5, L.maxEnergy(s) - s.energy);
     s.energy += gain;
     return gain || -1;
   };

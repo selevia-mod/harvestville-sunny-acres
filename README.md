@@ -107,7 +107,25 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   - **The horse:** Mira's Stable brings Chestnut the horse. Walk up to him to ride: he's 1.7× faster, he can
     go to town, and his saddlebag opens the market stall from anywhere. He waits outside when you go indoors or
     down the mine.
-  - **Mochi the cat** comes with the Cat Basket from Mira's furniture tab and lives in the farmhouse.
+  - **Mochi the cat** comes with the Cat Basket from Mira's furniture catalog and lives in the farmhouse.
+
+### Your home
+
+- **House levels:** the farmhouse grows from a Cozy Cabin (Lv 1, a 6 x 7 room) to a Mansion (Lv 10, 18 x 11).
+  Mira builds each level with gold, lumber and stone, in 1 to 5 days; the house on the farm changes with it.
+  The Farmhouse (Lv 3) has room for two, which you need to marry. The levels are a table in `src/00-home.js`:
+  add a row (and run `npm run map`) for Lv 11 and up.
+- **Furniture:** 27 kinds of furniture (beds, sofas, wardrobes, lamps, paintings, a fireplace, a grandfather
+  clock...), each in 5 styles (Classic, Rustic, Cottage, Modern, Royal) plus 5 festival editions (Flower
+  Festival, Fireworks, Harvest, Cow Festival, Starry Night) sold only in their festival's season. Buy them in
+  Mira's Woodshop → Furniture; they go to your storage.
+- **Decorate** (the button in the house): tap a piece to choose it and drag it to move it (it turns red where it
+  can't go: off the floor, on another piece, in the doorway, or blocking the way to your bed, TV or kitchen).
+  Turn it, put it away, place pieces from storage, and change the wallpaper and floor (9 styles each). Drag the
+  floor to look around. Wall pieces (windows, paintings, shelves) hang on the back wall.
+- **Home Beauty:** every piece adds beauty (a second copy of the same piece counts half), and so do the house
+  level, the wallpaper and the floor. Cozy (120), Charming (250), Lovely (450) and Dreamy (750) homes give +5 to
+  +20 max energy. Villagers mention a lovely home, and once a week a friend drops by to see it.
 
 ### Willowbrook (the town)
 
@@ -134,11 +152,11 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   it.
   - Forge: tool upgrades.
   - Woodshop:
-    - Built overnight with gold, lumber and stone: Kitchen (2500G + 40 lumber), House Extension (8000G + 100 lumber
-      + 30 stone), Bigger Coop (3000G + 40 lumber), Bigger Barn (6000G + 80 lumber + 20 stone), Stable (4000G + 60
+    - The house upgrades (see Your home), and built overnight with gold, lumber and stone: Kitchen (2500G + 40
+      lumber), Bigger Coop (3000G + 40 lumber), Bigger Barn (6000G + 80 lumber + 20 stone), Stable (4000G + 60
       lumber).
-    - Furniture: Big Plant, Music Box (a tune and +5 energy once a day), Aquarium (shows the fish you have caught)
-      and the Cat Basket.
+    - The furniture catalog: pick a style, then a piece. The Music Box (a tune and +5 energy once a day), the
+      Aquarium (shows the fish you have caught) and the Cat Basket do something too.
     - Lumber 50G and stone 30G.
   - Inn: meals.
   - Clinic: tonics.
@@ -175,7 +193,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   | Starry Night | Winter 24 | Spend the evening with someone |
 
   Talk to Mayor Hollis there to take part. Shops close on festival days.
-- **Marriage:** Lily, Mira, Leo and Ivy can marry you. You need 8 hearts, the House Extension and a Blue Feather.
+- **Marriage:** Lily, Mira, Leo and Ivy can marry you. You need 8 hearts, the Farmhouse (house Lv 3) and a Blue Feather.
   Show them the feather, and the wedding is 3 days later. Your spouse then lives at the farmhouse and sometimes packs
   you lunch.
 
@@ -195,7 +213,7 @@ become affordable. With the current numbers:
 | --- | --- |
 | Spring | About 21,000G earned |
 | End of spring | The kitchen |
-| Early fall | The house extension, so marriage is possible in fall of year 1 |
+| Early fall | The Farmhouse (Lv 3), so marriage is possible in fall of year 1 |
 | End of year 1 | About 200,000G earned |
 
 A relaxed player will be well behind that.
@@ -235,6 +253,8 @@ src/              game code, concatenated in filename order
   00-story.js       letters and heart events
   01-logic2.js      rules for goals, tips, collection, mail, heart events, pets, furniture, chests (wraps 01-logic)
   01-logic3.js      the market stall: selling now, shelves with prices and buyers, the order board
+  00-home.js        the house levels, the furniture catalog (kinds and styles), Home Beauty tiers
+  01-logic4.js      home rules: upgrades, buying, placing, moving, storing, wallpaper and floor, beauty, save
   13-animals.js     the herd in the pen, chicks and calves, and pets (the dog, the cat)
   14-actions.js     what the action button does: tools, debris, crops, animals, fishing, forage, mine
   15-villagers.js   villagers walking their schedules (path finding), talking, gifts, heart events, proposals
@@ -247,8 +267,10 @@ src/              game code, concatenated in filename order
   18-polish.js      tool swings, night darkness with glowing windows, fireflies, name tags, emotes, goals
   19-extras.js      the horse (riding, saddlebag), the cat, the mailbox, mine chests, music box, aquarium
   19c-stand.js      the market stall and order board in town: villagers walk up to buy, coins and "!" markers
+  19d-home.js       the house inside (furniture, wallpaper, floor), the bigger house on the farm, Decorate mode,
+                    storage, Mira's catalog and house upgrades
   20-main.js        decodes images, starts Phaser
-maps/             Tiled maps (JSON, embedded tilesets): farm, house, town, mine
+maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
 tools/            make-art.js + art/*.js (draws all the art in headless Chromium), make-map.js (seeds the maps)
 build.js          inlines everything into dist/index.html
@@ -260,8 +282,8 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (87 tests)
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (11 tests, ~13 min)
+npm test           # rules + save-format unit tests (97 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (15 tests, ~20 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
@@ -269,7 +291,7 @@ npm run map        # seed maps/ (won't overwrite existing maps without --force)
 
 ## Replacing the art with generated pictures
 
-`tools/art-manifest.js` lists every picture the game uses (135 of them), each with:
+`tools/art-manifest.js` lists every picture the game uses (173 of them), each with:
 - a file name under `art-src/`
 - the size to ask an image generator for
 - the in-game size
@@ -328,7 +350,8 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
 - **Layers:**
   - Soil and Debris (farm): leave these empty. The game paints them.
   - Above: drawn over the player.
-  - A layer can have `requires` / `unless` = a build key (the house's closed-off wing uses `unless: bighouse`).
+  - A layer can have `requires` / `unless` = a build key.
+  - The house maps are only walls, floor and the door: the furniture is the player's and is placed by the game.
 - **Props** have `foot` (solid rows at the bottom) and `flat` (lies on the floor). On the map, a prop object can
   have `requires`, `unless`, or `festival` (a list of festival keys it shows on).
 - **Objects** use `type`:

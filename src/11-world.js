@@ -111,7 +111,9 @@
 
     // ----- map, layers and seasons
     buildMap() {
-      var self = this, s = this.state, key = this.mapKey;
+      var self = this, s = this.state;
+      // the farmhouse's map grows with its level (house_1 .. house_10)
+      var key = this.assetKey = this.mapKey === 'house' ? 'house_' + s.home.level : this.mapKey;
       var raw = F.ASSETS.maps[key];
       var map = this.map = this.make.tilemap({ key: key });
       // (Phaser lists each image of the props collection as a tileset of its own; props are drawn as images instead.)
@@ -179,7 +181,7 @@
 
     // ----- objects: spawn points, places, warps, things to use, and props (furniture, buildings)
     buildObjects() {
-      var self = this, s = this.state, raw = F.ASSETS.maps[this.mapKey];
+      var self = this, s = this.state, raw = F.ASSETS.maps[this.assetKey];
       var propSet = raw.tilesets.filter(function (ts) { return ts.name === 'props'; })[0];
       var fest = L.festivalOn(s.day);
       this.objects = [];

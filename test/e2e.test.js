@@ -905,6 +905,7 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
     s.map = 'house';
     s.builds.kitchen = 1;
     s.builds.bighouse = 1;
+    s.home.items.push({ t: C.HOME.typeIndex.kitchen, v: 0, x: 1, y: 7, f: 0 });
     L.friend(s, 'lily').pts = 75;
     L.friend(s, 'lily').met = 1;
     L.addItem(s, 'egg', 1);
@@ -1047,6 +1048,8 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await teleport(page, 25, 19, 'up');
   await tapAction(page);
   await tapButton(page, 'Furniture');
+  await tapButton(page, 'See all'); // the Classic style
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openCatalog(0, 6); }); // its last page: the cat basket
   await tapButton(page, 'Buy 600G');
   s = await state(page);
   assert.strictEqual(s.cat.name, 'Mochi');
@@ -1084,6 +1087,77 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await tapButton(page, 'Collection');
   assert.match(await modalText(page), /Earned: 0G/);
   await shot(page, '33-collection');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('home: decorate, buy furniture, upgrade the house', async () => {
+  const save = await makeSave(`
+    s.time = 600;
+    s.map = 'house';
+    s.gold = 40000;
+    s.lumber = 200;
+    s.stone = 100;
+  `);
+  const { page, problems, context, cdp } = await open(save);
+  await waitMap(page, 'house');
+  assert.strictEqual(await page.evaluate(() => Farm.world.map.width), 8, 'a Cozy Cabin to start');
+
+  // Decorate: drag the table three tiles to the right
+  await page.touchscreen.tap(298, 438);
+  await page.waitForFunction(() => Farm.world.decor && Farm.ui.decorBar, null, SLOW);
+  const at = await page.evaluate(() => {
+    const w = Farm.world, cam = w.cameras.main, T = 256, s = w.state;
+    const i = s.home.items.findIndex((it) => it.t === Farm.Config.HOME.typeIndex.table);
+    const it = s.home.items[i];
+    const screen = (x, y) => ({ x: (x - cam.worldView.x) * cam.zoom / Farm.R, y: (y - cam.worldView.y) * cam.zoom / Farm.R });
+    return { i, from: screen((it.x + 1) * T, (it.y + 1.5) * T), to: screen((it.x + 3) * T, (it.y + 1.5) * T), x: it.x };
+  });
+  const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await touch('touchStart', at.from.x, at.from.y);
+  await frames(page);
+  for (let k = 1; k <= 6; k++) {
+    await touch('touchMove', at.from.x + (at.to.x - at.from.x) * k / 6, at.from.y);
+    await frames(page, 2);
+  }
+  await touch('touchEnd');
+  await frames(page);
+  await shot(page, '34-decorate');
+  let s = await state(page);
+  assert.strictEqual(s.home.items[at.i].x, at.x + 2, 'the table moved');
+  await page.touchscreen.tap(312, 598); // Done
+  await page.waitForFunction(() => !Farm.world.decor && !Farm.world.busy, null, SLOW);
+
+  // Mira: start the Cottage and buy a Modern sofa
+  await page.evaluate(() => Farm.ui.openWoodshop('build'));
+  await tapButton(page, 'Build', 1); // (0 is the tab) the house is the first row
+  await page.evaluate(() => Farm.ui.closeAll());
+  s = await state(page);
+  assert.deepStrictEqual(s.project && s.project.id, 'house');
+  const price = await page.evaluate(() => { Farm.ui.openCatalog(3, 1); return Farm.Logic.furnPrice(4, 3); });
+  await tapButton(page, 'Buy ' + price + 'G');
+  await page.evaluate(() => Farm.ui.closeAll());
+  s = await state(page);
+  assert.strictEqual(s.home.bag['4.3'], 1);
+
+  // a night later the house is bigger, and the sofa goes in from storage
+  await sleepThroughNight(page);
+  s = await state(page);
+  assert.strictEqual(s.home.level, 2);
+  assert.strictEqual(await page.evaluate(() => Farm.world.map.width), 10);
+  await page.evaluate(() => Farm.world.startDecor());
+  await page.waitForFunction(() => Farm.ui.decorBar, null, SLOW);
+  await page.touchscreen.tap(50, 598); // Storage
+  await tapButton(page, 'Place');
+  s = await state(page);
+  assert.ok(s.home.items.some((it) => it.t === 4 && it.v === 3), 'the sofa is in the room');
+  assert.ok(!s.home.bag['4.3']);
+  await shot(page, '35-sofa');
+  await page.evaluate(() => Farm.world.endDecor());
+
+  // the bigger house on the farm
+  await go(page, 'farm', 'house_door');
+  assert.ok(await page.evaluate(() => !!Farm.world.houseImg));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
