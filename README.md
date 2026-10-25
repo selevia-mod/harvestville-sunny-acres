@@ -216,6 +216,27 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   the swings cost 1 more energy, and every 5th floor has a treasure chest (once ever). Run out of energy down
   there and you collapse, waking up at home.
 
+### Quests, requests and the trader
+
+- **Quests** (the button under the top bar; a red number shows prizes waiting). These follow the phone's calendar:
+  - **Daily:** 10 quests a day: 5 easy, 2 medium and 3 hard ones, which pay a Power-Up, a Star and a Pet Meal.
+    Finish all 10 for a bonus (1 Star + 1,000G).
+  - **Weekly:** 5 bigger goals, Monday to Sunday, and a chest when all are done.
+  - **Monthly:** finish 10 daily quests, play on 12 days, open 2 weekly chests; a chest for all three.
+  - **Badges:** 20 long-term achievements (earnings, harvests, fish, friends, your house, your yard...) that pay
+    Stars.
+  - **Daily gift:** a 7-day cycle of gifts when you open the game each day (miss a day and it starts again).
+- **Requests** follow the game's days: 3 a day on the notice board in the plaza, and one villager you know asks in
+  person (a "!" bobs over them). They pay 1.6x what the items would sell for, plus friendship. Finish at least one
+  every day for a streak: +10% gold per day in a row, up to +50%.
+- **Saffron the travelling trader** sets up her tent on Market Street on days 2, 4 and 6 of each week (9 AM to
+  5 PM). She buys ore, gems, fish and truffles (1.3x the stall price, 1.8x for the day's WANTED goods, up to 10 of
+  each), and swaps goods or Stars for rare things: a Star for 5 gems, a Power-Up, a Pet Meal, the Miracle Potion,
+  a Blue Feather, animal treats, and festival furniture and yard pieces in any season.
+- **Stars** are the rare prize currency (quests, chests, badges, the daily gift), spent at Saffron's tent.
+- **Power-Up:** drink it for full energy, and your tools cost no energy for 2 hours. **Pet Meal:** feed it to your
+  dog, cat or horse (once a day each) for much more love.
+
 ### Seasons, weather and festivals
 
 - **Seasons:** Spring, Summer, Fall and Winter, 28 days each. Crops wither when their season ends. The farm and town
@@ -317,6 +338,11 @@ src/              game code, concatenated in filename order
   00-outdoor.js     outdoor decorations: the catalog (fences, paths, hedges, garden, yard, festival)
   01-logic6.js      yard rules: the farm's free land, placing, joining fences, reachability, beauty, save
   19f-yard.js       the yard on the farm, Decorate outdoors, Mira's Outdoor tab
+  00-quests.js      Phase 3 content: daily/weekly/monthly quests, the login gift, badges, requests, the trader
+  01-logic7.js      Phase 3 rules: counting what you do, quests, requests and the streak, the trader, Stars,
+                    the Power-Up and the Pet Meal
+  19g-quests.js     the Quests button and panel, the daily gift, notice board requests, in-person requests,
+                    Saffron's tent
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -330,8 +356,8 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (117 tests)
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (17 tests, ~25 min)
+npm test           # rules + save-format unit tests (130 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (18 tests, ~30 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
@@ -339,7 +365,7 @@ npm run map        # seed maps/ (won't overwrite existing maps without --force)
 
 ## Replacing the art with generated pictures
 
-`tools/art-manifest.js` lists every picture the game uses (221 of them), each with:
+`tools/art-manifest.js` lists every picture the game uses (224 of them), each with:
 - a file name under `art-src/`
 - the size to ask an image generator for
 - the in-game size

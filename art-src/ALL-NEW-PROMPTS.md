@@ -1,6 +1,6 @@
 # All new art: prompts
 
-80 pictures are still using my drawn placeholders. Generate each one, save it under `art-src/` with the file name shown (folder included), and send them to me. Any order is fine; send them in batches.
+83 pictures are still using my drawn placeholders. Generate each one, save it under `art-src/` with the file name shown (folder included), and send them to me. Any order is fine; send them in batches.
 
 Tips:
 - Characters: 3 columns x 3 rows (row 1 facing the camera, row 2 facing away, row 3 facing left; columns: standing, left step, right step).
@@ -109,7 +109,7 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A walking sprite sheet of Jules, a cool young woman musician with short purple hair, a red beanie, a black vest over a yellow shirt and black trousers, chibi proportions with a big head, same scale as a small farmer boy. Arranged as a neat grid of 3 columns by 3 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. The same character in every cell, identical design, colors, size and proportions. Each cell shows the full body from head to feet, standing on the same invisible ground line near the bottom of the cell, nothing touching the cell edges. Rows from top to bottom: facing the camera (walking down), facing away from the camera (walking up), facing left (side view). Columns from left to right: standing still, mid-step with the left foot forward, mid-step with the right foot forward. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-## Town: visitors
+## Town: visitors and Saffron the trader
 
 ### 17. characters/visitor_farmer.png  (1024x1536)
 
@@ -147,145 +147,157 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A walking sprite sheet of a chef in a white jacket and a tall white hat, carrying a crate, chibi proportions with a big head, same scale as a small farmer boy. Arranged as a neat grid of 3 columns by 3 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. The same character in every cell, identical design, colors, size and proportions. Each cell shows the full body from head to feet, standing on the same invisible ground line near the bottom of the cell, nothing touching the cell edges. Rows from top to bottom: facing the camera (walking down), facing away from the camera (walking up), facing left (side view). Columns from left to right: standing still, mid-step with the left foot forward, mid-step with the right foot forward. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
+### 23. characters/trader.png  (1024x1536)
+
+```
+Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A walking sprite sheet of Saffron, a cheerful travelling trader woman with a big orange turban, gold hoop earrings, a purple embroidered coat and baggy brown trousers, chibi proportions with a big head, same scale as a small farmer boy. Arranged as a neat grid of 3 columns by 3 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. The same character in every cell, identical design, colors, size and proportions. Each cell shows the full body from head to feet, standing on the same invisible ground line near the bottom of the cell, nothing touching the cell edges. Rows from top to bottom: facing the camera (walking down), facing away from the camera (walking up), facing left (side view). Columns from left to right: standing still, mid-step with the left foot forward, mid-step with the right foot forward. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
+```
+
 ## Town: new buildings
 
-### 23. props/bakery.png  (1536x1024)
+### 24. props/bakery.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cozy town bakery with cream walls, a chocolate-brown roof, pink and white striped awnings over the windows, loaves of bread on display and a little chimney. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 5 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 24. props/florist.png  (1024x1024)
+### 25. props/florist.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small flower shop with mint green walls, a pink roof, an arched door and pots of colourful flowers along the front. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 25. props/post.png  (1536x1024)
+### 26. props/post.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small post office of warm brick with a blue roof, a blue door and a red post box beside the door. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 5 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 26. props/library.png  (1024x1024)
+### 27. props/library.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a town library of pale stone with a dark green roof, white columns either side of a big wooden double door, and tall warm windows. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 6 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 27. props/school.png  (1536x1024)
+### 28. props/school.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a little red country schoolhouse with a grey roof, a small white bell tower with a golden bell on top, and a white double door. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 6 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 28. props/chapel.png  (1024x1536)
+### 29. props/chapel.png  (1024x1536)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small white stone village chapel with a slate blue roof, a pointed steeple with a golden bell, a round stained-glass window and an arched wooden double door. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 29. props/vet.png  (1536x1024)
+### 30. props/vet.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a country veterinarian's clinic with white walls, a green roof with a white paw print, and a green door. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 5 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 30. props/shack.png  (1536x1024)
+### 31. props/shack.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a little seaside fish shack made of light wooden planks with a blue roof, a wide serving hatch and a fish sign by the door. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 3 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 31. props/townhouse_1.png  (1024x1024)
+### 32. props/townhouse_1.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cozy small town house with pale yellow walls, a red roof, a chimney and flowers along the front. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 32. props/townhouse_2.png  (1024x1024)
+### 33. props/townhouse_2.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cozy small town house with pale blue walls, a blue roof, an arched door and flowers along the front. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 33. props/townhouse_3.png  (1024x1024)
+### 34. props/townhouse_3.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cozy small town house with lavender walls, a purple roof, a chimney and flowers along the front. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 34. props/townhouse_4.png  (1024x1024)
+### 35. props/townhouse_4.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cozy small town house with peach walls, a green roof, an arched door and flowers along the front. Seen from the front, with its front door in the middle of the front wall at the bottom. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-## Town: decorations
+## Town: decorations (and the trader tent)
 
-### 35. props/wagon.png  (1024x1024)
+### 36. props/wagon.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a travelling merchant's wooden market wagon with big wheels, a red and gold striped canopy, and colourful goods on its counter. Its base along the bottom of the picture. Its shape is about 3 wide by 3 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 36. props/gazebo.png  (1024x1024)
+### 37. props/gazebo.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a white wooden park gazebo with a red pointed roof, open sides and a round wooden floor. Its base along the bottom of the picture. Its shape is about 4 wide by 4 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 37. props/playground.png  (1536x1024)
+### 38. props/playground.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small playground with a blue swing set with two red seats and a yellow and orange slide. Its base along the bottom of the picture. Its shape is about 4 wide by 3 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 38. props/fruit_stall.png  (1024x1024)
+### 39. props/fruit_stall.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small market stall with a green and white striped awning and baskets of colourful fruit. Its base along the bottom of the picture. Its shape is about 2 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 39. props/cloth_stall.png  (1024x1024)
+### 40. props/cloth_stall.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small market stall with a blue and white striped awning and folded colourful fabrics. Its base along the bottom of the picture. Its shape is about 2 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 40. props/statue.png  (1024x1536)
+### 41. props/statue.png  (1024x1536)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a stone statue of a farmer holding up a sheaf of golden wheat, on a square stone pedestal. Its base along the bottom of the picture. Its shape is about 2 wide by 3 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 41. props/boat.png  (1536x1024)
+### 42. props/boat.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a small white and wooden rowboat with two benches, floating, seen from above at an angle. Lying flat on the ground. Its shape is about 3 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 42. props/umbrella.png  (1024x1024)
+### 43. props/umbrella.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a pink and white beach umbrella over a blue striped beach towel. Its base along the bottom of the picture. Its shape is about 2 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 43. props/easel.png  (1024x1536)
+### 44. props/easel.png  (1024x1536)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a painter's wooden easel holding a small landscape painting. Its base along the bottom of the picture. Its shape is about 1 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
+### 45. props/trader_tent.png  (1536x1024)
+
+```
+Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a travelling trader's tent stall with a striped purple and gold roof and a wooden counter piled with colourful exotic goods and a gold star. Its base along the bottom of the picture. Its shape is about 3 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
+```
+
 ## Town: market stall and order board
 
-### 44. props/farm_stand.png  (1024x1024)
+### 46. props/farm_stand.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a cute wooden farm market stall facing straight toward the viewer: a wooden counter with two shelves of wooden crates, a red and white striped awning on two posts, and a small blank chalkboard price sign hanging from the awning (no readable text), symmetrical left to right, the crates empty. Its base along the bottom of the picture. Its shape is about 2 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 45. props/order_board.png  (1024x1024)
+### 47. props/order_board.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. a wooden delivery order board facing straight toward the viewer, standing on two short posts, with a small shingled roof and three blank paper order cards pinned in a row, each with a small red pin (no readable text), symmetrical left to right. Its base along the bottom of the picture. Its shape is about 2 wide by 2 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
@@ -293,15 +305,21 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 
 ## New item icons
 
-### 46. icons/icons_town.png  (1024x1024)
+### 48. icons/icons_town.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A set of 5 game item icons, each a single object seen from a slight angle, bold and readable at small size. Arranged as a neat grid of 4 columns by 4 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. Row by row, left to right: 1) a crusty golden loaf of bread; 2) two round butter cookies with chocolate chips; 3) a small round strawberry cream cake; 4) a bouquet of colourful flowers wrapped in pink paper; 5) a bone-shaped animal treat biscuit. Leave the remaining cells empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
+### 49. icons/icons_quests.png  (1024x1024)
+
+```
+Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A set of 2 game item icons, each a single object seen from a slight angle, bold and readable at small size. Arranged as a neat grid of 4 columns by 4 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. Row by row, left to right: 1) a glowing orange potion bottle with a yellow lightning bolt on it (a power-up); 2) a red pet food bowl heaped with kibble and a bone on top. Leave the remaining cells empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
+```
+
 ## Beach sand
 
-### 47. ground/sand.png  (1024x1024)
+### 50. ground/sand.png  (1024x1024)
 
 ```
 A seamless, tileable square texture seen from directly above that fills the whole picture edge to edge. Even lighting, no vignette, nothing cut off at the edges, no single big object, so copies can sit side by side without a visible seam. soft warm golden beach sand with a few tiny shells and pebbles.
@@ -309,19 +327,19 @@ A seamless, tileable square texture seen from directly above that fills the whol
 
 ## Yard: outdoor decorations
 
-### 48. outdoor/fences.png  (1024x1024)
+### 51. outdoor/fences.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. Fence pieces for a farm, 4 kinds, one kind per row: 1) a rustic wooden ranch fence; 2) a white picket fence; 3) a low wall of rounded grey field stones; 4) an elegant black wrought iron fence with gold tips. In every row, left to right: a straight fence section running left to right that fills the full width of its cell (so sections join up side by side); a straight fence section running away from the camera, from the top to the bottom of its cell (so sections join up end to end); and a single fence post on its own. Arranged as a grid of 3 columns by 4 rows of equal square cells, with a little empty space between cells. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 49. outdoor/paths.png  (1024x1024)
+### 52. outdoor/paths.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. 4 square swatches of garden paving seen from directly above, each a seamless, tileable pattern that fills its square edge to edge: 1) grey flagstone paving; 2) red brick paving in a herringbone pattern; 3) light beige gravel with small pebbles; 4) warm wooden deck planks. Arranged as a grid of 2 by 2 squares with a little empty space between them. Plain white background around the squares.
 ```
 
-### 50. outdoor/garden.png  (1024x1024)
+### 53. outdoor/garden.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A set of 16 garden and yard decorations for a farm, all in the same style and at the same scale (a small planter is small, a windmill is tall). Arranged as a neat grid of 4 columns by 4 rows of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. Row by row, left to right: 1) a neatly trimmed square green hedge block; 2) a square green hedge block dotted with pink flowers; 3) a terracotta planter box with red geraniums; 4) a round green rose bush covered in red roses; 5) a clump of three tall sunflowers; 6) a round leafy apple tree with red apples; 7) a cherry blossom tree in full pink bloom; 8) a small oval garden pond edged with stones, with lily pads; 9) a stone birdbath on a pedestal with a little blue bird; 10) a friendly scarecrow with a straw hat and a patched shirt; 11) a wooden picnic table with a red checked cloth and a basket; 12) a wooden A-frame garden swing seat with cushions; 13) a little wooden birdhouse on a tall post; 14) a round stone wishing well with a little wooden roof and a bucket; 15) a small wooden garden windmill with four white sails; 16) two round golden hay bales with a blue ribbon rosette. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
@@ -329,55 +347,55 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 
 ## Home: bigger houses (Lv 2-10)
 
-### 51. props/house_2.png  (1024x1024)
+### 54. props/house_2.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Cottage: a cozy one-story farm cottage with cream plaster walls, a red tiled roof, a stone chimney, two windows with flower boxes. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 52. props/house_3.png  (1024x1024)
+### 55. props/house_3.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Farmhouse: a two-story farmhouse with cream walls, a red tiled roof, a small front porch on two posts and four windows. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 53. props/house_4.png  (1024x1024)
+### 56. props/house_4.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Big House: a big two-story house with a wide red roof, a covered front porch, a small balcony and six windows. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 54. props/house_5.png  (1024x1024)
+### 57. props/house_5.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Country House: a large country house of stone and timber with two chimneys and flower pots along the porch. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 55. props/house_6.png  (1024x1024)
+### 58. props/house_6.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Manor: a manor house of warm stone with a slate blue roof, tall windows and a small round tower on one side. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 56. props/house_7.png  (1024x1024)
+### 59. props/house_7.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Grand Manor: a grand manor with two wings, a slate roof, dormer windows and a clock above the door. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 57. props/house_8.png  (1024x1024)
+### 60. props/house_8.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Villa: an elegant villa with white walls, a terracotta roof, arched windows and balconies with plants. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 58. props/house_9.png  (1024x1024)
+### 61. props/house_9.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Estate: a large estate house with white columns at the entrance, many windows, two chimneys and a gold weather vane. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 59. props/house_10.png  (1024x1024)
+### 62. props/house_10.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. the farmer's Mansion: a magnificent mansion with white columns, a grand double door, a dome, many tall windows and gold trim. The house faces straight toward the viewer, NOT turned to the side and NOT drawn at a diagonal, with its front door exactly in the middle of the front wall, symmetrical left to right. Its base along the bottom of the picture. Its shape is about 5 wide by 5 tall. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
@@ -385,127 +403,127 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 
 ## Home: furniture styles, wallpapers and floors
 
-### 60. furniture/classic_new.png  (1024x1024)
+### 63. furniture/classic_new.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 10 pieces of furniture for a cozy farmhouse, all in one matching Classic style: honey-brown wood and cream fabric (the original look). Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 5 columns by 2 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a wooden chair; 2) a two-seat sofa; 3) a cosy armchair; 4) a tall floor lamp with a glowing shade; 5) a framed landscape painting; 6) a round wall mirror; 7) a tall two-door wardrobe; 8) a small bedside table with a lamp; 9) a writing desk with a chair; 10) a tall grandfather clock. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 61. furniture/rustic_a.png  (1024x1024)
+### 64. furniture/rustic_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Rustic style: rough-hewn pine logs, wrought iron and red checkered cloth. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 62. furniture/rustic_b.png  (1024x1024)
+### 65. furniture/rustic_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Rustic style: rough-hewn pine logs, wrought iron and red checkered cloth. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 63. furniture/cottage_a.png  (1024x1024)
+### 66. furniture/cottage_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Cottage style: white-painted wood with pastel pink and mint fabric and small flower patterns. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 64. furniture/cottage_b.png  (1024x1024)
+### 67. furniture/cottage_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Cottage style: white-painted wood with pastel pink and mint fabric and small flower patterns. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 65. furniture/modern_a.png  (1024x1024)
+### 68. furniture/modern_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Modern style: clean light grey and white with light oak and soft blue accents. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 66. furniture/modern_b.png  (1024x1024)
+### 69. furniture/modern_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Modern style: clean light grey and white with light oak and soft blue accents. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 67. furniture/royal_a.png  (1024x1024)
+### 70. furniture/royal_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Royal style: dark polished mahogany, deep red velvet and gold trim. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 68. furniture/royal_b.png  (1024x1024)
+### 71. furniture/royal_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Royal style: dark polished mahogany, deep red velvet and gold trim. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 69. furniture/flower_a.png  (1024x1024)
+### 72. furniture/flower_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Flower Festival style: cream wood painted with pink cherry blossoms and spring flowers. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 70. furniture/flower_b.png  (1024x1024)
+### 73. furniture/flower_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Flower Festival style: cream wood painted with pink cherry blossoms and spring flowers. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 71. furniture/fireworks_a.png  (1024x1024)
+### 74. furniture/fireworks_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Fireworks style: navy blue with gold stars and colourful firework bursts. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 72. furniture/fireworks_b.png  (1024x1024)
+### 75. furniture/fireworks_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Fireworks style: navy blue with gold stars and colourful firework bursts. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 73. furniture/harvest_a.png  (1024x1024)
+### 76. furniture/harvest_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Harvest style: warm orange and brown with pumpkins, wheat and autumn leaves. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 74. furniture/harvest_b.png  (1024x1024)
+### 77. furniture/harvest_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Harvest style: warm orange and brown with pumpkins, wheat and autumn leaves. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 75. furniture/cowfest_a.png  (1024x1024)
+### 78. furniture/cowfest_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Cow Festival style: black and white cow spots, red gingham and little golden bells. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 76. furniture/cowfest_b.png  (1024x1024)
+### 79. furniture/cowfest_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Cow Festival style: black and white cow spots, red gingham and little golden bells. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 77. furniture/starry_a.png  (1024x1024)
+### 80. furniture/starry_a.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 16 pieces of furniture for a cozy farmhouse, all in one matching Starry Night style: deep blue with silver snowflakes and twinkling stars. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 4 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a single bed; 2) a double bed for two with two pillows; 3) a square dining table; 4) a wooden chair; 5) a two-seat sofa; 6) a cosy armchair; 7) a large oval rug lying flat on the floor, seen from above; 8) a doormat lying flat, seen from above; 9) a small potted plant; 10) a tall potted plant; 11) a tall floor lamp with a glowing shade; 12) a bookshelf full of books; 13) a fireplace with a warm fire; 14) a window with curtains; 15) a framed landscape painting; 16) a wall calendar. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 78. furniture/starry_b.png  (1024x1024)
+### 81. furniture/starry_b.png  (1024x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 11 pieces of furniture for a cozy farmhouse, all in one matching Starry Night style: deep blue with silver snowflakes and twinkling stars. Every piece faces straight toward the viewer, seen from the front and a little above: NOT turned to the side, NOT drawn at a diagonal or isometric angle, symmetrical left to right. Things that lie on the floor are seen from directly above. Arranged as a grid of 4 columns by 3 rows of equal cells, one piece per cell, each centered in its cell with clear empty space around it, all at the same scale (a chair is small, a wardrobe is tall, a bed is big). No lines between cells. Row by row, left to right: 1) a round wall mirror; 2) a chest of drawers; 3) a tall two-door wardrobe; 4) a small bedside table with a lamp; 5) a writing desk with a chair; 6) a tall grandfather clock; 7) a small television on a stand; 8) a kitchen counter with a stove and a sink; 9) a music box on a little table; 10) a fish tank on a cabinet; 11) a cat basket with a cushion. Leave the last cell empty. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it. Keep the whole object inside the picture with some empty margin.
 ```
 
-### 79. furniture/walls.png  (1536x1024)
+### 82. furniture/walls.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 9 square wallpaper swatches for a cozy farmhouse, each one a seamless, tileable pattern that fills its square edge to edge, seen straight on, with even lighting and no objects. Wallpaper patterns (stripes, flowers, motifs) with no skirting board. Arranged as a grid of 5 columns by 2 rows of equal squares with a little empty space between them. Row by row, left to right: 1) Rustic: rough-hewn pine logs, wrought iron and red checkered cloth; 2) Cottage: white-painted wood with pastel pink and mint fabric and small flower patterns; 3) Modern: clean light grey and white with light oak and soft blue accents; 4) Royal: dark polished mahogany, deep red velvet and gold trim; 5) Flower Festival: cream wood painted with pink cherry blossoms and spring flowers; 6) Fireworks: navy blue with gold stars and colourful firework bursts; 7) Harvest: warm orange and brown with pumpkins, wheat and autumn leaves; 8) Cow Festival: black and white cow spots, red gingham and little golden bells; 9) Starry Night: deep blue with silver snowflakes and twinkling stars. Leave the last cell empty. Plain white background around the squares.
 ```
 
-### 80. furniture/floors.png  (1536x1024)
+### 83. furniture/floors.png  (1536x1024)
 
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. No text, no letters, no watermark, no border, no drop shadow box. For a top-down farming game like Stardew Valley or Harvest Moon. A set of 9 square floor swatches for a cozy farmhouse, each one a seamless, tileable pattern that fills its square edge to edge, seen straight on, with even lighting and no objects. Floors: wooden planks, tiles or carpet, seen from directly above. Arranged as a grid of 5 columns by 2 rows of equal squares with a little empty space between them. Row by row, left to right: 1) Rustic: rough-hewn pine logs, wrought iron and red checkered cloth; 2) Cottage: white-painted wood with pastel pink and mint fabric and small flower patterns; 3) Modern: clean light grey and white with light oak and soft blue accents; 4) Royal: dark polished mahogany, deep red velvet and gold trim; 5) Flower Festival: cream wood painted with pink cherry blossoms and spring flowers; 6) Fireworks: navy blue with gold stars and colourful firework bursts; 7) Harvest: warm orange and brown with pumpkins, wheat and autumn leaves; 8) Cow Festival: black and white cow spots, red gingham and little golden bells; 9) Starry Night: deep blue with silver snowflakes and twinkling stars. Leave the last cell empty. Plain white background around the squares.
