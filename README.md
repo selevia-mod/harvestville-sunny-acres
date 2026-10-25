@@ -237,6 +237,29 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 - **Power-Up:** drink it for full energy, and your tools cost no energy for 2 hours. **Pet Meal:** feed it to your
   dog, cat or horse (once a day each) for much more love.
 
+### Online play
+
+Online play is built but **switched off** until the database script `supabase/farm_online.sql` is applied and
+`C.ONLINE.url` / `C.ONLINE.key` in `src/00-online.js` are filled in. Until then the Online button does not show.
+
+- **Signing in:** the Online button (under Quests) offers a guest account and/or an app account (email and
+  password), set by `C.ONLINE.auth` ('guest', 'account' or 'both'). The first time, you name your farm.
+- **Your farm online:** your house, furniture, wallpaper and floor, yard, crops, weeds and stones, animals and pets
+  are shared every minute when they change. Your bag, gold and progress stay private.
+- **Visiting:** the Visit tab lists the most beautiful farms, the ones just updated, or your friends'. On a visit
+  you walk around their farm and into their house, but nothing can be changed (tools are off, the clock stops, and
+  your own save is never touched). The bar at the top has Like (once a day), Gift (free: 100G up to 5 farms a day,
+  or 1 Star once a day), Wave and Home. The road to town also takes you home.
+- **Seeing each other:** everyone on the same farm sees each other live, with name tags: the owner (if they are
+  playing) and up to 8 visitors at a time (`C.ONLINE.maxVisitors`; the first 8 to arrive stay, a ninth is told
+  the farm is full). Moves are sent 4 times a second while walking. Tap the action button facing someone to wave.
+  The owner gets a note when someone arrives, likes the farm or leaves a gift.
+- **Friends:** add a friend with their 8-letter code; they accept in their Friends tab. Friends can always visit
+  (even hidden farms) and send each other messages (up to 50 a day, 200 letters each).
+- **Ranks:** this week's top 50 by Home Beauty, gold earned and daily quests done (Monday to Sunday).
+- **Me:** rename the farm, collect gifts (also collected when you sign in), see who came by in the last 7 days,
+  hide the farm from the lists, sign out, or leave online play (deletes the online farm, friends and messages).
+
 ### Seasons, weather and festivals
 
 - **Seasons:** Spring, Summer, Fall and Winter, 28 days each. Crops wither when their season ends. The farm and town
@@ -290,6 +313,7 @@ sounds can be switched off in the pause menu.
 
 | Hook | Behaviour |
 | --- | --- |
+| `window.gameHost.net` | Optional: the host's own online transport (`session`, `signIn`, `signOut`, `rpc`, `join`), used instead of the bundled Supabase client. See `src/02-net.js` and `test/net-mock.js`. |
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
 | `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
 | `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |
@@ -343,12 +367,20 @@ src/              game code, concatenated in filename order
                     the Power-Up and the Pet Meal
   19g-quests.js     the Quests button and panel, the daily gift, notice board requests, in-person requests,
                     Saffron's tent
+  00-online.js      online play settings (off until url and key are filled in)
+  01-logic8.js      online rules: the farm snapshot others see, rebuilding a visited farm from one (every value
+                    checked), who fits on a farm, weekly scores, save
+  02-net.js         the connection: Supabase (bundled supabase-js) or the host's own transport
+  19h-online.js     signing in, publishing, visiting (look-only), live players and name tags, likes, gifts,
+                    the Online panel (Visit, Friends and chat, Ranks, Me), the text box
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
 tools/            make-art.js + art/*.js (draws all the art in headless Chromium), make-map.js (seeds the maps)
 build.js          inlines everything into dist/index.html
-test/             logic + rules unit tests (Node), e2e.test.js (Playwright playthrough)
+supabase/         farm_online.sql: the online database (a "farm" schema and public.farm_*_v1 functions; not applied)
+test/             logic + rules unit tests (Node), e2e.test.js (Playwright playthrough), e2e-online.test.js
+                  (three phones on a stand-in server, net-mock.js)
 ```
 
 ## Commands
@@ -356,8 +388,9 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (130 tests)
+npm test           # rules + save-format unit tests (138 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (18 tests, ~30 min)
+node --test test/e2e-online.test.js   # online: an owner and two visitors (~2 min, after a build)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)

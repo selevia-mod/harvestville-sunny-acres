@@ -13,7 +13,7 @@
     s.net = L.newNet();
     return s;
   };
-  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0 }; };
+  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0 }; };
 
   // ---------- the snapshot ----------
   L.snapshot = function (s) {
@@ -22,11 +22,14 @@
       var t = s.soil[idx];
       if (soil.length < 400) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.d || 0, t.w ? 1 : 0]);
     });
+    var debris = [];
+    Object.keys(s.debris).forEach(function (idx) { if (debris.length < 800) debris.push([Number(idx), C.DEBRIS_KEYS.indexOf(s.debris[idx])]); });
     return {
       v: 1, day: s.day, look: s.look === 'girl' ? 'girl' : 'boy',
       home: { level: s.home.level, wall: s.home.wall, floor: s.home.floor, items: s.home.items.map(function (it) { return [it.t, it.v, it.x, it.y, it.f]; }) },
       yard: s.yard.items.map(function (it) { return [it.t, it.x, it.y]; }),
       soil: soil,
+      debris: debris,
       animals: s.animals.slice(0, 40).map(function (a) { return [a.kind, a.name, a.young ? 1 : 0]; }),
       builds: { coop2: s.builds.coop2 ? 1 : 0, barn2: s.builds.barn2 ? 1 : 0, stable: s.builds.stable ? 1 : 0, kitchen: s.builds.kitchen ? 1 : 0 },
       pets: { cat: s.cat ? 1 : 0, horse: s.horse ? 1 : 0, dog: s.dog ? s.dog.name : '' },
@@ -77,6 +80,11 @@
       if (idx < 0) return;
       s.soil[idx] = { w: e[3] ? 1 : 0, c: crop, d: crop ? int(e[2], 0, C.CROPS[crop].days, 0) : 0 };
     });
+    (Array.isArray(snap.debris) ? snap.debris : []).slice(0, 800).forEach(function (e) {
+      if (!Array.isArray(e)) return;
+      var idx = int(e[0], -1, 1e5, -1), kind = C.DEBRIS_KEYS[int(e[1], -1, 1e6, -1)];
+      if (idx >= 0 && kind && !s.soil[idx]) s.debris[idx] = kind;
+    });
     var b = snap.builds && typeof snap.builds === 'object' ? snap.builds : {};
     ['coop2', 'barn2', 'stable', 'kitchen'].forEach(function (k) { if (b[k]) s.builds[k] = 1; });
     s.animals = [];
@@ -106,11 +114,26 @@
     return { beauty: L.homeBeauty(s), earned: Math.max(0, s.stats.earned - s.net.e0), quests: Math.max(0, L.count(s, 'dquest') - s.net.q0) };
   };
 
+  // ---------- who fits on a farm ----------
+  // The first `max` visitors to arrive (by when they joined, then by id) may stay; the owner never counts.
+  // `others` are the other players' presence states, `me` = { id, at }.
+  L.visitorFits = function (others, me, host, max) {
+    if (me.id === host) return true;
+    var list = (others || []).filter(function (p) { return p && p.id !== host && p.id !== me.id; }).concat([me]);
+    list.sort(function (a, b) { return (Number(a.at) || 0) - (Number(b.at) || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+    return list.indexOf(me) < max;
+  };
+
+  // A name typed by a player (a farm name, a message): one line, no control characters, trimmed.
+  L.cleanText = function (v, max) {
+    return typeof v === 'string' ? str(v.replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
+  };
+
   // ---------- save ----------
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s);
-    o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0];
+    o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0, s.net.named ? 1 : 0];
     return o;
   };
   var deserialize = L.deserialize;
@@ -118,7 +141,7 @@
     var s = deserialize(o);
     if (!s) return s;
     var n = Array.isArray(o.nt) ? o.nt : [];
-    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0) };
+    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0 };
     return s;
   };
 })(window.Farm = window.Farm || {});

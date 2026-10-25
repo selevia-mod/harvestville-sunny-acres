@@ -1,0 +1,834 @@
+// Phase 4 at runtime: online play. Signing in (as a guest or with an app account), publishing your farm for
+// others to visit, visiting a farm (a look-only copy built by L.visitState: nothing there can be changed, and
+// your own save is never touched), seeing everyone on the same farm live (the owner and up to 8 visitors),
+// likes and gifts, the leaderboards, friends and messages. The transport is F.Net (02-net.js), the database
+// side supabase/farm_online.sql, the rules 01-logic8.js. With online play off (no url/key, no host transport)
+// none of this shows.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var T = C.TILE;
+  var ON = C.ONLINE;
+  var DEPTH = F.WorldScene.DEPTH;
+  var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
+  var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
+  var MAPS = { farm: 1, house: 1, town: 1, mine: 1 };
+  var DIRS = { down: 1, up: 1, left: 1, right: 1 };
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var noop = function () {};
+  var errText = function (e) {
+    var m = (e && e.message) || String(e || '');
+    if (/not signed in|JWT|auth/i.test(m)) return 'Please sign in again.';
+    if (/fetch|network|offline|timeout/i.test(m)) return 'Could not reach the online world. Check your connection.';
+    if (/no such farm/i.test(m)) return 'That farm is not online any more.';
+    return 'Something went wrong online. Please try again.';
+  };
+
+  // ---------- the online session (lives across map changes) ----------
+  var O = F.Online = {
+    on: false, // signed in and joined
+    me: null, // { id, name, code, listed }
+    chan: null, // the live channel we are on ('farm:<id>', our own or the farm we are visiting)
+    topic: '',
+    others: {}, // id -> the others on the channel: { id, name, look, map, x, y, dir, m, at, host, t }
+    seen: false, // had the first presence list on this channel
+    lastSnap: '',
+    mvMs: 0,
+    last: null, // where we last told the others we were
+  };
+
+  O.start = function () {
+    if (O.started) return;
+    O.started = true;
+    F.Net.init();
+    if (!F.Net.available()) return;
+    F.Net.session().then(function (uid) { if (uid) return O.joined(); }).catch(noop);
+    O.timer = setInterval(function () { O.publish(false); }, ON.publishEvery);
+  };
+
+  O.signIn = function (kind, email, password) {
+    return F.Net.signIn(kind, email, password).then(function () { return O.joined(); });
+  };
+
+  // After signing in: our player row (made the first time), our channel, our farm published, gifts collected.
+  O.joined = function (name) {
+    return F.Net.rpc('farm_join_v1', { p_farm_name: name || null }).then(function (r) {
+      if (!r || !r.id) throw new Error('join failed');
+      var s = F.session.state;
+      O.me = { id: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Sunny Acres', code: String(r.friend_code || ''), listed: r.listed !== false };
+      s.net.id = O.me.id;
+      s.net.name = O.me.name;
+      s.net.code = O.me.code;
+      F.Host.save(s);
+      O.on = true;
+      O.ensureChannel();
+      F.bus.emit('online');
+      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.me; });
+    });
+  };
+
+  O.signOut = function () {
+    O.leaveChannel();
+    O.on = false;
+    O.me = null;
+    O.lastSnap = '';
+    var going = F.session.visit;
+    F.session.visit = null;
+    if (going) O.restartWorld();
+    F.bus.emit('online');
+    return F.Net.signOut().catch(noop);
+  };
+
+  // Shares our farm (only when it changed; otherwise just says we are still here).
+  O.publish = function (force) {
+    if (!O.on || O.publishing) return Promise.resolve(false);
+    var s = F.session.state, snap = L.snapshot(s), sc = L.weekScores(s, F.today()), key = JSON.stringify([snap, sc]);
+    if (!force && key === O.lastSnap) return F.Net.rpc('farm_heartbeat_v1', {}).then(function () { return false; }, function () { return false; });
+    O.publishing = true;
+    return F.Net.rpc('farm_publish_v1', { p_data: snap, p_beauty: sc.beauty, p_house_level: s.home.level, p_earned_week: sc.earned, p_quests_week: sc.quests })
+      .then(function (ok) { if (ok) O.lastSnap = key; return !!ok; }, function () { return false; })
+      .then(function (ok) { O.publishing = false; return ok; });
+  };
+
+  // Gifts visitors left at our farm: 100G for each gold gift, a Star for each star gift.
+  O.collect = function (auto) {
+    return F.Net.rpc('farm_collect_v1', {}).then(function (r) {
+      var gold = Math.max(0, Math.floor(Number(r && r.gold) || 0)), stars = Math.max(0, Math.floor(Number(r && r.stars) || 0));
+      if (!gold && !stars) {
+        if (!auto && F.ui) F.ui.toast('No gifts waiting right now. Visitors can leave you one a day.');
+        return null;
+      }
+      var s = F.session.state, from = (Array.isArray(r.from) ? r.from : []).map(function (n) { return L.cleanText(n, 24); }).filter(Boolean);
+      s.gold += gold * ON.giftGold;
+      s.stars += stars;
+      F.Host.save(s);
+      F.bus.emit('hud');
+      sfx('coin');
+      var got = [gold ? '+' + gold * ON.giftGold + 'G' : '', stars ? '+' + stars + (stars > 1 ? ' Stars' : ' Star') : ''].filter(Boolean).join(' and ');
+      if (F.ui) F.ui.toast('Visitors left you gifts: ' + got + '!' + (from.length ? '\nFrom ' + from.slice(0, 4).join(', ') + (from.length > 4 ? ' and more.' : '.') : ''), 3600, 0x7a4d12);
+      return { gold: gold, stars: stars };
+    }).catch(function (e) { if (!auto && F.ui) F.ui.toast(errText(e)); return null; });
+  };
+
+  // ---------- the live channel ----------
+  O.topicNow = function () {
+    if (!O.on) return '';
+    return 'farm:' + (F.session.visit ? F.session.visit.host : O.me.id);
+  };
+
+  O.myState = function () {
+    var w = F.world, f = w && w.player ? w.feet() : { x: 0, y: 0 };
+    return {
+      id: O.me.id, name: O.me.name, look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm',
+      x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
+    };
+  };
+
+  O.ensureChannel = function () {
+    var topic = O.topicNow();
+    if (topic && topic === O.topic) {
+      if (O.chan) O.chan.track(O.myState());
+      O.syncSprites();
+      return;
+    }
+    O.leaveChannel();
+    if (!topic) return;
+    O.topic = topic;
+    O.joinedAt = Date.now();
+    O.seen = false;
+    O.chan = F.Net.join(topic, O.myState(), { presence: O.onPresence, message: O.onMessage });
+  };
+
+  O.leaveChannel = function () {
+    if (O.chan) {
+      try { O.chan.leave(); } catch (e) { /* already gone */ }
+    }
+    O.chan = null;
+    O.topic = '';
+    O.others = {};
+    O.syncSprites();
+  };
+
+  // Everything from the channel comes from other players: checked before it is used.
+  var clean = function (p) {
+    if (!p || typeof p !== 'object' || typeof p.id !== 'string' || p.id.length > 64) return null;
+    var num = function (v) { v = Number(v); return isFinite(v) ? Math.max(0, Math.min(200 * T, v)) : 0; };
+    return {
+      id: p.id, name: L.cleanText(p.name, 24) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
+      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: !!p.host, at: Number(p.at) || 0, t: Number(p.t) || 0,
+    };
+  };
+
+  O.hostId = function () { return F.session.visit ? F.session.visit.host : O.me && O.me.id; };
+
+  O.onPresence = function (list) {
+    if (!O.chan) return;
+    var before = O.others, now = {}, raw = [];
+    (Array.isArray(list) ? list : []).forEach(function (p) {
+      var q = clean(p);
+      if (!q || q.id === O.me.id) return;
+      raw.push(q);
+      var old = before[q.id];
+      if (old && old.t > q.t && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.t = old.t; }
+      now[q.id] = q;
+    });
+    var v = F.session.visit;
+    if (v && !L.visitorFits(raw, { id: O.me.id, at: O.joinedAt }, v.host, ON.maxVisitors)) {
+      O.leaveVisit('This farm is full right now (' + ON.maxVisitors + ' visitors). Try again in a little while!');
+      return;
+    }
+    // the owner sees the first 8 visitors (more cannot stay)
+    if (!v) {
+      var keep = {};
+      Object.keys(now).map(function (id) { return now[id]; }).sort(function (a, b) { return a.at - b.at || (a.id < b.id ? -1 : 1); })
+        .slice(0, ON.maxVisitors).forEach(function (q) { keep[q.id] = q; });
+      now = keep;
+    }
+    var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
+    var went = Object.keys(before).filter(function (id) { return !now[id]; }).map(function (id) { return before[id]; });
+    O.others = now;
+    var first = !O.seen;
+    O.seen = true;
+    if (F.ui && (came.length || went.length)) {
+      var names = function (l) { return l.map(function (p) { return p.name; }).slice(0, 3).join(', ') + (l.length > 3 ? ' and ' + (l.length - 3) + ' more' : ''); };
+      if (!v && came.length) { sfx('found'); F.ui.toast(names(came) + (came.length > 1 ? ' are' : ' is') + ' visiting your farm!', 3000, 0x2f5a22); }
+      else if (v && came.length) {
+        var host = came.filter(function (p) { return p.id === v.host; })[0], guests = came.filter(function (p) { return p.id !== v.host; });
+        var msg = [];
+        if (host) msg.push(host.name + ' is home! Say hi.');
+        if (guests.length) msg.push(names(guests) + (first ? (guests.length > 1 ? ' are' : ' is') + ' visiting too.' : ' came to visit too.'));
+        F.ui.toast(msg.join('\n'), 3000, 0x2f5a22);
+      } else if (went.length && !first) F.ui.toast(names(went) + ' went home.', 2000);
+    }
+    O.syncSprites();
+  };
+
+  O.onMessage = function (event, payload) {
+    var p = payload && typeof payload === 'object' ? payload : {};
+    var who = typeof p.id === 'string' ? O.others[p.id] : null;
+    if (!who) return;
+    if (event === 'mv') {
+      var q = clean(Object.assign({}, who, p, { name: who.name, look: who.look, host: who.host, at: who.at }));
+      if (!q || q.t < who.t) return;
+      var changedMap = q.map !== who.map;
+      O.others[q.id] = q;
+      if (changedMap) O.syncSprites();
+    } else if (event === 'emote') {
+      O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
+    } else if (event === 'like' && !F.session.visit) {
+      O.showEmote(who.id, 'heart');
+      if (F.ui) F.ui.toast(who.name + ' liked your farm!', 2400, 0x2f5a22);
+    } else if (event === 'gift' && !F.session.visit) {
+      if (F.ui) F.ui.toast(who.name + ' left you a gift! Open Online, then Me, to collect it.', 3200, 0x7a4d12);
+    }
+  };
+
+  O.send = function (event, payload) {
+    if (O.chan) O.chan.send(event, Object.assign({ id: O.me.id }, payload || {}));
+  };
+
+  // ---------- the others' farmers, drawn on this map ----------
+  var tagStyle = function (host) {
+    return { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '84px', fontStyle: 'bold', color: host ? '#9fe8ff' : '#fff27a', stroke: '#3d2614', strokeThickness: 15 };
+  };
+
+  O.syncSprites = function () {
+    var w = F.world;
+    if (!w || !w.remotes || !w.sys || !w.sys.isActive()) return;
+    var want = {};
+    Object.keys(O.others).forEach(function (id) {
+      var p = O.others[id];
+      if (p.map === w.mapKey && w.mapKey !== 'town' && w.mapKey !== 'mine') want[id] = p;
+    });
+    Object.keys(w.remotes).forEach(function (id) {
+      var r = w.remotes[id];
+      if (want[id] && want[id].look === r.look) return;
+      r.spr.destroy();
+      r.shadow.destroy();
+      r.tag.destroy();
+      delete w.remotes[id];
+    });
+    Object.keys(want).forEach(function (id) {
+      if (w.remotes[id]) return;
+      var p = want[id], key = F.ensureTexture(w, p.look === 'girl' ? 'player_girl' : 'player');
+      var r = { id: id, look: p.look, x: p.x, y: p.y, anim: '' };
+      r.shadow = w.add.ellipse(p.x, p.y + 16, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
+      r.spr = w.add.sprite(p.x, p.y - FEET_OFFSET, key, IDLE_FRAME[p.dir]).setFlipX(p.dir === 'right').setDepth(DEPTH.actor + p.y / 1e5);
+      r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
+      w.remotes[id] = r;
+    });
+  };
+
+  O.showEmote = function (id, kind) {
+    var w = F.world, at = null;
+    if (!w || !w.remotes) return;
+    if (id === (O.me && O.me.id)) at = w.feet();
+    else if (w.remotes[id]) at = { x: w.remotes[id].x, y: w.remotes[id].y };
+    if (!at) return;
+    if (kind === 'heart') { w.emote({ x: at.x, y: at.y }, C.ICON.heart); return; }
+    var t = w.add.text(at.x, at.y - 1.6 * T, 'Hi!', tagStyle(false)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 3).setScale(1.3);
+    w.tweens.add({ targets: t, y: t.y - 60, angle: { from: -8, to: 8 }, duration: 260, yoyo: true, repeat: 2 });
+    w.tweens.add({ targets: t, alpha: 0, delay: 1500, duration: 300, onComplete: function () { t.destroy(); } });
+  };
+
+  // Each frame: the others glide to where they last said they were, and we tell them where we are.
+  O.update = function (w, dt) {
+    if (!w.remotes) return;
+    var self = this;
+    Object.keys(w.remotes).forEach(function (id) {
+      var r = w.remotes[id], p = self.others[id];
+      if (!p) return;
+      var dx = p.x - r.x, dy = p.y - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPEED * 1.25 * dt / 1000;
+      if (d > 6 * T || d <= step) { r.x = p.x; r.y = p.y; } else { r.x += dx / d * step; r.y += dy / d * step; }
+      var moving = d > 8 || p.m, dir = p.dir;
+      if (moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+      var anim = moving ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + (r.look === 'girl' ? '-g' : '') : '';
+      if (anim !== r.anim) {
+        r.anim = anim;
+        if (anim) r.spr.anims.play(anim, true);
+        else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
+      }
+      r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET).setDepth(DEPTH.actor + r.y / 1e5);
+      r.shadow.setPosition(r.x, r.y + 16);
+      r.tag.setPosition(r.x, r.y - 1.45 * T);
+    });
+    if (!this.chan || w.busy) return;
+    var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
+    this.mvMs -= dt;
+    if (this.mvMs > 0) return;
+    if (moved) {
+      this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, m: 1 };
+      this.mvMs = ON.moveEvery;
+      this.send('mv', { map: w.mapKey, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now() });
+    } else if (last && last.m) {
+      last.m = 0; // stopped: say so, and leave our place in the presence list for anyone who joins later
+      this.send('mv', { map: w.mapKey, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now() });
+      this.chan.track(this.myState());
+    }
+  };
+
+  // ---------- visiting ----------
+  O.visit = function (host) {
+    if (!O.on || !F.world || F.world.busy) return Promise.resolve(false);
+    if (host === O.me.id) { F.ui.toast('That is your own farm!'); return Promise.resolve(false); }
+    F.ui.toast('Walking over...', 1500);
+    return F.Net.rpc('farm_visit_v1', { p_host: host }).then(function (r) {
+      if (!r || !r.data) throw new Error('no such farm');
+      var mine = F.session.state, st = L.visitState(r.data, mine);
+      st.look = mine.look; // you look like yourself on their farm
+      st.isVisit = true;
+      F.session.visit = {
+        host: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Farmer', state: st, liked: !!r.liked, gift: r.gift || null,
+        friend: !!r.friend, likes: Math.max(0, Number(r.likes) || 0), beauty: Math.max(0, Number(r.beauty) || 0),
+      };
+      F.session.riding = false;
+      F.session.horseAt = null;
+      O.restartWorld();
+      return true;
+    }).catch(function (e) { F.ui.toast(errText(e)); return false; });
+  };
+
+  O.leaveVisit = function (why) {
+    if (!F.session.visit) return;
+    F.session.visit = null;
+    if (F.ui && why) F.ui.toast(why, 3200);
+    O.restartWorld();
+  };
+
+  // Fades out and rebuilds the world: on the visited farm, or back where you were in your own game.
+  O.restartWorld = function () {
+    var w = F.world;
+    if (F.ui) F.ui.closeAll();
+    F.Host.save(F.session.state);
+    if (!w) return;
+    w.busy = true;
+    w.charge = null;
+    if (w.player && w.player.body) w.player.body.setVelocity(0, 0);
+    F.input.reset();
+    sfx('door');
+    w.cameras.main.fadeOut(250, 0, 0, 0);
+    w.cameras.main.once('camerafadeoutcomplete', function () { w.scene.restart(); });
+  };
+
+  // ---------- the world while visiting: look, walk, wave; nothing else ----------
+  var P = F.WorldScene.prototype;
+  var visiting = function (w) { return !!(w.state && w.state.isVisit); };
+
+  var create = P.create;
+  P.create = function () {
+    var v = F.session.visit;
+    if (v) {
+      var mine = F.session.state;
+      F.session.state = v.state;
+      try { create.call(this); } finally { F.session.state = mine; }
+    } else {
+      create.call(this);
+    }
+    this.remotes = {};
+    O.last = null;
+    O.mvMs = 0;
+    if (O.on) O.ensureChannel();
+    if (v && F.ui) F.ui.toast('Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+  };
+
+  var update = P.update;
+  P.update = function (time, delta) {
+    update.call(this, time, delta);
+    if (this.remotes) O.update(this, Math.min(delta, 100));
+  };
+
+  // The visited farm's clock stands still (and so does yours: you are away).
+  var tickClock = P.tickClock;
+  P.tickClock = function (dt) {
+    if (visiting(this)) return false;
+    return tickClock.call(this, dt);
+  };
+
+  // Saving while visiting saves your own game (anything you did in your bag or the menus), never the copy.
+  var save = P.save;
+  P.save = function () {
+    if (!visiting(this)) return save.call(this);
+    F.Host.save(F.session.state);
+    F.session.dirty = false;
+    this.saveMs = 0;
+  };
+
+  var endDay = P.endDay;
+  P.endDay = function (passedOut) {
+    if (visiting(this)) return;
+    return endDay.call(this, passedOut);
+  };
+
+  // Their farmhouse door works; the road to town takes you home.
+  var travel = P.travel;
+  P.travel = function (to, spawn, floor) {
+    if (visiting(this) && to !== 'farm' && to !== 'house') { O.leaveVisit(); return; }
+    return travel.call(this, to, spawn, floor);
+  };
+
+  P.remoteAt = function (x, y) {
+    var best = null, bestD = 0.9 * T, self = this;
+    Object.keys(this.remotes || {}).forEach(function (id) {
+      var r = self.remotes[id], d = Math.hypot(r.x - x, r.y - y);
+      if (d < bestD) { bestD = d; best = r; }
+    });
+    return best;
+  };
+
+  var resolve = P.resolve;
+  P.resolve = function () {
+    var pt = this.front(0.7), r = this.remoteAt(pt.x, pt.y);
+    if (r) {
+      var p = O.others[r.id];
+      return { label: 'Wave', icon: C.ICON.heart, run: function () { O.wave(); if (p) F.ui.toast('You waved at ' + p.name + '.', 1600); } };
+    }
+    var a = resolve.call(this);
+    if (!visiting(this) || !a) return a;
+    var t = this.facing(), o = this.inMap(t.x, t.y) ? this.objectAt(t.x, t.y) : null;
+    if (o && (o.type === 'warp' || o.type === 'sign')) return a;
+    return { label: a.label, icon: a.icon, disabled: true, why: 'This is ' + F.session.visit.name + "'s farm: look, but don't touch! Wave, like or leave a gift instead." };
+  };
+
+  O.wave = function () {
+    O.send('emote', { k: 'wave' });
+    O.showEmote(O.me.id, 'wave');
+    sfx('talk');
+  };
+
+  // ---------- the UI ----------
+  var K = F.UI_CONST, W = K.W, H = K.H, INK = K.INK;
+  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GOLD = 0xe9a91c, GREY = 0xa08a68, RED = 0xc0503a, PINK = 0xd0587a;
+  var U = F.UIScene.prototype;
+
+  var uiCreate = U.create;
+  U.create = function () {
+    uiCreate.call(this);
+    var self = this;
+    O.start();
+    this.onlineBtn = this.add.container(0, 0).setDepth(40).setVisible(false);
+    this.button(this.onlineBtn, W - 44, 152, 74, 30, 'Online', function () { self.openOnline('visit', 0); }, BLUE);
+    this.visitBar = null;
+    var show = function () { self.showOnline(); };
+    F.bus.on('online', show);
+    F.bus.on('map', show);
+    this.events.once('shutdown', function () { F.bus.off('online', show); F.bus.off('map', show); });
+    this.showOnline();
+  };
+
+  var checkQuests = U.checkQuests;
+  U.checkQuests = function () {
+    checkQuests.call(this);
+    this.onlineBtn.setVisible(F.Net.available() && !this.decorating && !F.session.visit);
+  };
+
+  // The Online button, or (while visiting) the bar with Like, Gift, Wave and Home.
+  U.showOnline = function () {
+    var self = this, v = F.session.visit;
+    this.onlineBtn.setVisible(F.Net.available() && !this.decorating && !v);
+    if (this.decorBtn && v) this.decorBtn.setVisible(false);
+    if (this.visitBar) { this.visitBar.destroy(); this.visitBar = null; }
+    if (!v) return;
+    var c = this.visitBar = this.add.container(0, 0).setDepth(40);
+    this.baked(c, 8, 136, 'ui-visitbar', W - 16, 58, function (g) {
+      g.fillStyle(0x3d2614, 0.82).fillRoundedRect(0, 0, W - 16, 58, 12);
+    });
+    c.add(this.txt(W / 2, 140, 'Visiting ' + v.name, 12, '#ffe9a8', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    var bw = 76;
+    [['Like', PINK, function () { self.likeFarm(); }], ['Gift', GOLD, function () { self.giftFarm(); }], ['Wave', BLUE, function () { O.wave(); }], ['Home', GREEN, function () { O.leaveVisit(); }]]
+      .forEach(function (b, i) { self.button(c, W / 2 + (i - 1.5) * (bw + 8), 174, bw, 30, b[0], b[2], b[1]); });
+  };
+
+  U.likeFarm = function () {
+    var self = this, v = F.session.visit;
+    if (!v) return;
+    if (v.liked) return this.toast('You already liked this farm today.');
+    F.Net.rpc('farm_like_v1', { p_host: v.host }).then(function (ok) {
+      v.liked = true;
+      if (!ok) return self.toast('You already liked this farm today.');
+      sfx('found');
+      O.send('like', {});
+      O.showEmote(O.me.id, 'heart');
+      self.toast('You liked ' + v.name + "'s farm!", 2200, 0x2f5a22);
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  U.giftFarm = function () {
+    var self = this, v = F.session.visit;
+    if (!v) return;
+    if (v.gift) return this.toast('You already left a gift here today.');
+    var give = function (kind) {
+      F.Net.rpc('farm_gift_v1', { p_host: v.host, p_gift: kind }).then(function (r) {
+        if (r === 'ok') {
+          v.gift = kind;
+          sfx('coin');
+          O.send('gift', { g: kind });
+          self.toast('You left ' + v.name + ' a ' + (kind === 'star' ? 'Star' : ON.giftGold + 'G') + ' gift!', 2400, 0x7a4d12);
+        } else if (r === 'limit') {
+          self.toast(kind === 'star' ? 'You can give one Star gift a day. Try a gold gift!' : 'You have given all 5 gold gifts for today.');
+        } else if (r === 'already') {
+          v.gift = kind;
+          self.toast('You already left a gift here today.');
+        } else self.toast('That gift could not be sent.');
+      }).catch(function (e) { self.toast(errText(e)); });
+    };
+    this.dialog('LEAVE A GIFT\nGifts are free to give! ' + v.name + ' collects them next time they play.', [
+      { label: ON.giftGold + 'G', color: GOLD, cb: function () { give('gold'); } },
+      { label: '1 Star', color: BLUE, cb: function () { give('star'); } },
+    ], {
+      rows: [[C.ICON.gift, 'LEAVE A GIFT'], [C.ICON.coin, 'Gold gift: they get ' + ON.giftGold + 'G. Up to 5 farms a day.'], [C.ICON.star, 'Star gift: they get 1 Star. Once a day.']],
+    });
+  };
+
+  // ---------- typing: a real text box over the game ----------
+  // opts: { password, hint, ok }. done(text) gets the text, or nothing if cancelled.
+  U.askText = function (title, value, max, done, opts) {
+    opts = opts || {};
+    var self = this, closed = false, modal;
+    var box = document.createElement('div');
+    box.id = 'farm-ask';
+    box.style.cssText = 'position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding-top:24vh;z-index:20;font-family:"Trebuchet MS",Verdana,sans-serif;';
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#f6e3b4;border:3px solid #3d2614;border-radius:14px;padding:14px;width:min(300px,86vw);box-shadow:0 6px 0 rgba(30,16,6,.35);';
+    var label = document.createElement('div');
+    label.textContent = title;
+    label.style.cssText = 'font-weight:bold;color:#3d2614;font-size:16px;margin-bottom:8px;text-align:center;';
+    var input = document.createElement('input');
+    input.type = opts.password ? 'password' : opts.email ? 'email' : 'text';
+    input.maxLength = max;
+    input.value = value || '';
+    input.autocomplete = opts.password ? 'current-password' : opts.email ? 'email' : 'off';
+    input.style.cssText = 'width:100%;box-sizing:border-box;font-size:17px;padding:9px 10px;border:2px solid #9a7a4a;border-radius:9px;background:#fffaf0;color:#3d2614;';
+    var hint = document.createElement('div');
+    hint.textContent = opts.hint || '';
+    hint.style.cssText = 'font-size:12px;color:#6a4a2a;margin-top:6px;text-align:center;';
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;margin-top:12px;';
+    var mk = function (text, bg, cb) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = text;
+      b.style.cssText = 'flex:1;font:bold 16px "Trebuchet MS",Verdana,sans-serif;color:#fff;background:' + bg + ';border:2px solid #3d2614;border-radius:10px;padding:9px 0;text-shadow:0 1px 0 #3d2614;';
+      b.addEventListener('click', cb);
+      row.appendChild(b);
+      return b;
+    };
+    var close = function (v) {
+      if (closed) return;
+      closed = true;
+      if (box.parentNode) box.parentNode.removeChild(box);
+      if (self.modals.length && self.modals[self.modals.length - 1].c === modal) self.closeModal();
+      if (v != null) done(v);
+    };
+    mk('Cancel', '#c0703a', function () { close(null); });
+    mk(opts.ok || 'OK', '#5fa84a', function () { close(input.value); });
+    // keys typed here are for the box, not the game
+    ['keydown', 'keyup', 'keypress'].forEach(function (k) { input.addEventListener(k, function (e) { e.stopPropagation(); }); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') close(input.value);
+      else if (e.key === 'Escape') close(null);
+    });
+    card.appendChild(label);
+    card.appendChild(input);
+    if (opts.hint) card.appendChild(hint);
+    card.appendChild(row);
+    box.appendChild(card);
+    modal = this.openModal(function () { close(null); });
+    document.body.appendChild(box);
+    setTimeout(function () { input.focus(); }, 0);
+    return { close: close };
+  };
+
+  // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
+  var TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']];
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
+  var nextKind = function (tab, k) {
+    var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
+    return l[(i + 1) % l.length][0];
+  };
+  var kindName = function (tab, k) { return KINDS[tab].filter(function (x) { return x[0] === k; })[0][1]; };
+  var name = function (n) { return L.cleanText(n, 24) || 'Farmer'; };
+
+  // then(): runs once the panel is up (a toast shown before it would be hidden by the panel)
+  U.openOnline = function (tab, page, then) {
+    var self = this;
+    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nComing soon: visit other farms, make friends and climb the leaderboards!');
+    if (!O.on) return this.signInPanel();
+    this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
+    var o = { title: 'Online', tab: tab, page: page, tabs: TABS, reopen: function (t, p) { self.openOnline(t, p); } };
+    var show = function (rows, sub, empty) {
+      o.rows = rows;
+      o.sub = function () { return sub; };
+      o.empty = empty;
+      self.listPanel(o);
+      if (then) then();
+    };
+    var fail = function (e) { self.toast(errText(e)); };
+    var kindRow = function (t) {
+      var k = self.onlineKind[t];
+      return {
+        icon: t === 'visit' ? C.ICON.sparkle : C.ICON.ribbon, name: 'Showing: ' + kindName(t, k), desc: 'Tap Change to see another list.',
+        buttons: [{ label: 'Change', color: GREY, cb: function () { self.onlineKind[t] = nextKind(t, k); self.closeModal(); self.openOnline(t, 0); } }],
+      };
+    };
+    if (tab === 'visit') {
+      F.Net.rpc('farm_list_v1', { p_kind: this.onlineKind.visit, p_limit: 30 }).then(function (list) {
+        var rows = [kindRow('visit')].concat((list || []).map(function (f) {
+          return {
+            icon: C.ICON.spring, name: name(f.farm_name) + (f.online ? ' (online)' : ''),
+            desc: 'Beauty ' + (Number(f.beauty) || 0) + ', house level ' + (Number(f.house_level) || 1) + ', ' + (Number(f.likes_week) || 0) + ' likes this week.',
+            buttons: [{ label: 'Visit', cb: function () { O.visit(String(f.id)); } }],
+          };
+        }));
+        show(rows, 'Walk around, wave, leave a like or a gift.', null);
+      }).catch(fail);
+    } else if (tab === 'friends') {
+      F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+        var rows = [{
+          icon: C.ICON.letter, name: 'Your code: ' + O.me.code, desc: 'Give your code to a friend, or add theirs.',
+          buttons: [{ label: 'Add', cb: function () { self.addFriend(); } }],
+        }];
+        (list || []).forEach(function (f) {
+          var id = String(f.id), n = name(f.farm_name), unread = Number(f.unread) || 0;
+          var answer = function (yes) {
+            return function () {
+              F.Net.rpc('farm_friend_answer_v1', { p_other: id, p_accept: yes }).then(function (r) {
+                self.closeModal();
+                self.openOnline('friends', 0, function () { self.toast(r === 'friends' ? 'You and ' + n + ' are friends now!' : 'Removed.', 2200, r === 'friends' ? 0x2f5a22 : undefined); });
+              }).catch(fail);
+            };
+          };
+          if (f.status === 'request') rows.push({ icon: C.ICON.heart, name: n, desc: 'Wants to be your friend.', buttons: [{ label: 'Accept', cb: answer(true) }, { label: 'No', color: RED, cb: answer(false) }] });
+          else if (f.status === 'sent') rows.push({ icon: C.ICON.heart, name: n, desc: 'Request sent. Waiting for them to accept.', buttons: [{ label: 'Cancel', color: GREY, cb: answer(false) }] });
+          else {
+            rows.push({
+              icon: C.ICON.heart, name: n + (f.online ? ' (online)' : ''), desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : 'Your friend.',
+              buttons: [{ label: unread ? 'Chat (' + unread + ')' : 'Chat', color: BLUE, cb: function () { self.closeModal(); self.openChat(id, n); } }, { label: 'Visit', cb: function () { O.visit(id); } }],
+            });
+          }
+        });
+        show(rows, 'Friends can visit and send messages.', null);
+      }).catch(fail);
+    } else if (tab === 'ranks') {
+      var k = this.onlineKind.ranks;
+      F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
+        var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
+          var mine = !!r.me;
+          return {
+            icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
+            desc: kindName('ranks', k) + ': ' + (Number(r.score) || 0) + (k === 'earned' ? 'G' : '') + ' this week.',
+            buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }],
+          };
+        }));
+        show(rows, 'This week\'s best. A new week starts Monday.', null);
+      }).catch(fail);
+    } else {
+      var me = O.me;
+      show([
+        { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
+        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gold gifts are worth ' + ON.giftGold + 'G, star gifts 1 Star.', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
+        { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
+        {
+          icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden', desc: me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.',
+          buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } }],
+        },
+        { icon: C.ICON.moon, name: 'Sign out', desc: 'Your farm stays online.', buttons: [{ label: 'Sign out', color: GREY, cb: function () { self.closeModal(); O.signOut(); self.toast('Signed out.'); } }] },
+        {
+          icon: C.ICON.exclaim, name: 'Leave online play', desc: 'Deletes your online farm, friends and messages.',
+          buttons: [{ label: 'Leave', color: RED, cb: function () { self.leaveOnline(); } }],
+        },
+      ], 'Your friend code: ' + me.code, null);
+    }
+  };
+
+  U.signInPanel = function () {
+    var self = this, auth = ON.auth;
+    var guest = function () {
+      self.toast('Signing in...', 1500);
+      O.signIn('guest').then(function () { self.firstName(); }).catch(function (e) { self.toast(errText(e)); });
+    };
+    var account = function () {
+      self.askText('Your email', '', 120, function (email) {
+        email = email.trim();
+        if (!email) return;
+        self.askText('Your password', '', 72, function (pw) {
+          if (!pw) return;
+          self.toast('Signing in...', 1500);
+          O.signIn('account', email, pw).then(function () { self.firstName(); }).catch(function () { self.toast('That email and password did not work.'); });
+        }, { password: true, ok: 'Sign in' });
+      }, { email: true, hint: 'The account you use in the app.' });
+    };
+    var text = 'PLAY ONLINE\nVisit other farms and see who is there, leave likes and gifts, make friends and climb the weekly ranks.\n\n' +
+      'Others can visit your farm: your house, furniture, yard, crops and animals. Your bag and gold stay private.';
+    var buttons = auth === 'guest' ? [{ label: 'Not now', color: GREY }, { label: 'Play', cb: guest }]
+      : auth === 'account' ? [{ label: 'Not now', color: GREY }, { label: 'Sign in', cb: account }]
+        : [{ label: 'As guest', color: BLUE, cb: guest }, { label: 'Sign in', cb: account }];
+    this.dialog(text, buttons);
+  };
+
+  // The first time online: name the farm.
+  U.firstName = function () {
+    var self = this, s = F.session.state;
+    if (s.net.named) return this.toast('Welcome back, ' + O.me.name + '!', 2200, 0x2f5a22);
+    this.askText('Name your farm', O.me.name, 24, function (n) {
+      s.net.named = 1;
+      F.Host.save(s);
+      n = L.cleanText(n, 24);
+      if (n && n !== O.me.name) self.saveName(n);
+      else self.toast('You are online as ' + O.me.name + '!', 2200, 0x2f5a22);
+    }, { hint: 'Others see this name. You can change it later.' });
+  };
+
+  U.renameFarm = function () {
+    var self = this;
+    this.askText('Rename your farm', O.me.name, 24, function (n) {
+      n = L.cleanText(n, 24);
+      if (n && n !== O.me.name) self.saveName(n);
+    });
+  };
+
+  U.saveName = function (n) {
+    var self = this;
+    F.Net.rpc('farm_join_v1', { p_farm_name: n }).then(function (r) {
+      O.me.name = L.cleanText(r && r.farm_name, 24) || n;
+      F.session.state.net.name = O.me.name;
+      F.Host.save(F.session.state);
+      if (O.chan) O.chan.track(O.myState());
+      var said = function () { self.toast('Your farm is called ' + O.me.name + '.', 2200, 0x2f5a22); };
+      if (self.modals.length) { self.closeModal(); self.openOnline('me', 0, said); } else said();
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  U.setListed = function (yes) {
+    var self = this;
+    F.Net.rpc('farm_set_listed_v1', { p_listed: yes }).then(function () {
+      O.me.listed = yes;
+      self.closeModal();
+      self.openOnline('me', 0, function () { self.toast(yes ? 'Anyone can find your farm now.' : 'Your farm is hidden. Friends can still visit.'); });
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  U.leaveOnline = function () {
+    var self = this;
+    this.confirm('LEAVE ONLINE PLAY?\nYour online farm, likes, friends and messages are deleted. Your game on this phone stays.', function () {
+      F.Net.rpc('farm_leave_v1', {}).then(function () {
+        var s = F.session.state;
+        s.net = L.newNet();
+        F.Host.save(s);
+        self.closeAll();
+        O.signOut();
+        self.toast('You left online play.');
+      }).catch(function (e) { self.toast(errText(e)); });
+    });
+  };
+
+  U.addFriend = function () {
+    var self = this;
+    this.askText("Your friend's code", '', 8, function (code) {
+      code = code.replace(/\s+/g, '').toUpperCase();
+      if (!code) return;
+      F.Net.rpc('farm_friend_add_v1', { p_code: code }).then(function (r) {
+        var say = { requested: 'Friend request sent!', friends: 'You are friends now!', already: 'You are already friends.', waiting: 'Still waiting for them to accept.', nocode: 'No farm has that code.', self: 'That is your own code!', limit: 'Your friends list is full.' }[r] || 'That did not work.';
+        self.closeAll();
+        self.openOnline('friends', 0, function () { self.toast(say, 2400, r === 'requested' || r === 'friends' ? 0x2f5a22 : undefined); });
+      }).catch(function (e) { self.toast(errText(e)); });
+    }, { hint: '8 letters and numbers, from their Online panel.' });
+  };
+
+  U.openVisitors = function () {
+    var self = this;
+    F.Net.rpc('farm_visitors_v1', {}).then(function (list) {
+      var rows = (list || []).map(function (v) {
+        var extra = [v.liked ? 'liked your farm' : '', v.gift ? 'left a ' + (v.gift === 'star' ? 'Star' : 'gold') + ' gift' : ''].filter(Boolean).join(' and ');
+        return { icon: v.gift ? C.ICON.gift : v.liked ? C.ICON.heart : C.ICON.letter, name: name(v.farm_name), desc: 'Came on ' + String(v.day || '').slice(0, 10) + (extra ? ', ' + extra : '') + '.' };
+      });
+      self.listPanel({ title: 'Who came by', rows: rows, page: 0, reopen: function () { self.closeModal(); self.openVisitors(); }, sub: function () { return 'The last 7 days.'; }, empty: 'No visitors yet.\nShare your friend code!' });
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  // A conversation with a friend: the latest messages, newest at the bottom.
+  U.openChat = function (id, who) {
+    var self = this;
+    F.Net.rpc('farm_messages_v1', { p_with: id }).then(function (list) {
+      var c = self.openModal(function () { self.closeModal(); self.openOnline('friends', 0); });
+      self.panelImg(c, 12, 66, W - 24, 540);
+      c.add(self.txt(W / 2, 82, who, 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      self.button(c, W - 48, 96, 46, 34, 'X', function () { self.closeModal(); }, RED);
+      var top = 128, bottom = 540, y = bottom, shown = 0;
+      (list || []).some(function (m) { // newest first: stack upwards until the panel is full
+        var mine = !!m.mine, t = self.txt(mine ? W - 34 : 34, 0, L.cleanText(m.body, 200), 13, mine ? '#1f4a7a' : INK, { wordWrap: { width: 220 }, align: mine ? 'right' : 'left', lineSpacing: 2 }).setOrigin(mine ? 1 : 0, 1);
+        var h = t.height + 18;
+        if (y - h < top) { t.destroy(); return true; }
+        var bg = self.add.rectangle(mine ? W - 26 : 26, y + 2, t.width + 16, t.height + 10, mine ? 0xbfdcf5 : 0xe8cf98).setOrigin(mine ? 1 : 0, 1);
+        t.setY(y - 3);
+        c.add([bg, t]);
+        y -= h;
+        shown++;
+        return false;
+      });
+      if (!shown) c.add(self.txt(W / 2, 300, 'No messages yet. Say hello!', 15, INK).setOrigin(0.5));
+      self.button(c, W / 2 - 70, 572, 120, 38, 'Back', function () { self.closeModal(); self.openOnline('friends', 0); }, GREY);
+      self.button(c, W / 2 + 70, 572, 120, 38, 'Write', function () {
+        self.askText('Message to ' + who, '', 200, function (body) {
+          body = L.cleanText(body, 200);
+          if (!body) return;
+          F.Net.rpc('farm_message_send_v1', { p_to: id, p_body: body }).then(function (r) {
+            if (r !== 'ok') return self.toast(r === 'limit' ? 'That is 50 messages today. More tomorrow!' : 'That message could not be sent.');
+            self.closeModal();
+            self.openChat(id, who);
+          }).catch(function (e) { self.toast(errText(e)); });
+        }, { ok: 'Send' });
+      }, BLUE);
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  // Decorate mode hides the Online button too
+  var openDecor = U.openDecor;
+  U.openDecor = function () {
+    if (F.session.visit) return this.toast("You can only decorate your own farm.");
+    openDecor.call(this);
+    this.onlineBtn.setVisible(false);
+  };
+
+  void H;
+})(window.Farm = window.Farm || {});

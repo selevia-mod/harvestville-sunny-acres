@@ -95,9 +95,35 @@ test('weekly scores count from the Monday of the phone\'s week', () => {
 
 test('the online player info is saved', () => {
   const s = fresh();
-  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2 };
+  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2, named: 1 };
   assert.deepStrictEqual(plain(roundTrip(s).net), plain(s.net));
   const old = L.serialize(fresh());
   delete old.nt;
   assert.strictEqual(L.deserialize(JSON.parse(JSON.stringify(old))).net.id, '', 'older saves: not online yet');
+});
+
+test('a farm holds the first 8 visitors to arrive; the owner does not count', () => {
+  const others = [{ id: 'host', at: 1 }];
+  for (let i = 0; i < 8; i++) others.push({ id: 'v' + i, at: 10 + i });
+  assert.strictEqual(L.visitorFits(others.slice(0, 8), { id: 'me', at: 50 }, 'host', 8), true, '7 others and me');
+  assert.strictEqual(L.visitorFits(others, { id: 'me', at: 50 }, 'host', 8), false, 'the ninth waits');
+  assert.strictEqual(L.visitorFits(others, { id: 'me', at: 5 }, 'host', 8), true, 'whoever came first stays');
+  assert.strictEqual(L.visitorFits(others, { id: 'host', at: 99 }, 'host', 8), true, 'the owner is always home');
+  assert.strictEqual(L.visitorFits([{ id: 'b', at: 7 }], { id: 'a', at: 7 }, 'host', 1), true, 'a tie goes by id');
+  assert.strictEqual(L.visitorFits([{ id: 'a', at: 7 }], { id: 'b', at: 7 }, 'host', 1), false);
+});
+
+test('typed names and messages are cleaned', () => {
+  assert.strictEqual(L.cleanText('  Moon\n\tMeadow \u0007 ', 24), 'Moon Meadow');
+  assert.strictEqual(L.cleanText('x'.repeat(50), 24).length, 24);
+  assert.strictEqual(L.cleanText(42, 24), '');
+});
+
+test('weeds, stones and stumps show on a visited farm too', () => {
+  const s = fresh();
+  s.debris = { 400: 'weed', 401: 'stone', 520: C.DEBRIS_KEYS[C.DEBRIS_KEYS.length - 1] };
+  const v = L.visitState(JSON.parse(JSON.stringify(L.snapshot(s))), fresh());
+  assert.deepStrictEqual(plain(v.debris), plain(s.debris));
+  const bad = L.visitState({ debris: [[5, 999], [-3, 0], ['x', 0], [7, 0], 'junk'] }, null);
+  assert.deepStrictEqual(Object.keys(bad.debris), ['7']);
 });

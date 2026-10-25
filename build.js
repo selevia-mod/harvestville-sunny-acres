@@ -44,7 +44,12 @@ const inline = (code) => code.replace(/<\/script/gi, '<\\/script');
 
 const phaser = fs.readFileSync(require.resolve('phaser/dist/phaser-arcade-physics.min.js'), 'utf8');
 // the Supabase browser client, for online play (src/02-net.js); it does nothing until online is switched on
-const supabaseJs = fs.readFileSync(require.resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8');
+// Inlined, the client cannot find its own URL (it only needs one to lazy-load Node-only chunks a browser never
+// asks for), and throws while loading; give it the page's address instead.
+const PUBLIC_PATH_THROW = 'if(!e)throw new Error("Automatic publicPath is not supported in this browser");';
+const supabaseRaw = fs.readFileSync(require.resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8');
+if (supabaseRaw.split(PUBLIC_PATH_THROW).length !== 2) throw new Error('supabase-js: publicPath code changed, check the patch in build.js');
+const supabaseJs = supabaseRaw.replace(PUBLIC_PATH_THROW, 'if(!e)e=String(o.g.location||"");');
 const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps }) + ';';
 const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
 
