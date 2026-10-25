@@ -72,6 +72,7 @@ Object.keys(GROUND2).forEach((k) => {
     targets: [GROUND2[k][0]], prompt: `${TEXTURE} ${GROUND2[k][1]}.`,
     wrap: k === 'wall_low' ? 'x' : undefined, // one row high: only its sides join up
     match: { cave2: 'indoor:cave', floor2: 'indoor:floor' }[k], // the same average colour as its pair
+    tone: { tilled: 'dry', tilled_wet: 'wet' }[k], // dry and wet soil must look clearly different
   });
 });
 

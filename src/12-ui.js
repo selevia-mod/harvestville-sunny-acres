@@ -32,6 +32,37 @@
     'With 8 hearts, the House Extension and a Blue Feather, you can propose. Go to bed in your house to end the day.',
   ];
 
+  // Canvas 2D drawing helpers for baked UI art.
+  function rrect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.roundRect(x, y, w, h, r);
+  }
+  function circle(g, x, y, r) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+  }
+  function vgrad(g, y0, y1, top, bottom) {
+    var gr = g.createLinearGradient(0, y0, 0, y1);
+    gr.addColorStop(0, top);
+    gr.addColorStop(1, bottom);
+    return gr;
+  }
+  // A colour (0xRRGGBB) made lighter (amount > 0) or darker (< 0), as a CSS string.
+  function shade(color, amount) {
+    var c = [color >> 16 & 255, color >> 8 & 255, color & 255].map(function (v) {
+      return Math.round(amount >= 0 ? v + (255 - v) * amount : v * (1 + amount));
+    });
+    return 'rgb(' + c.join(',') + ')';
+  }
+  function card(g, x, y, w, h) {
+    rrect(g, x, y, w, h, 9);
+    g.fillStyle = vgrad(g, y, y + h, '#fffbee', '#f6e6c0');
+    g.fill();
+    g.lineWidth = 1.5;
+    g.strokeStyle = '#d4b07a';
+    g.stroke();
+  }
+
   function style(size, color, extra) {
     var s = { fontFamily: FONT, fontSize: size + 'px', color: color || '#ffffff', resolution: F.R };
     if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
@@ -98,15 +129,52 @@
       return key;
     }
 
+    // Like bake(), but with a Canvas 2D context (gradients, soft shadows). Sizes are in layout px.
+    bakeCanvas(key, w, h, draw) {
+      if (!this.textures.exists(key)) {
+        var t = this.textures.createCanvas(key, Math.ceil(w * F.R), Math.ceil(h * F.R)), g = t.getContext();
+        g.scale(F.R, F.R);
+        draw(g);
+        t.refresh();
+      }
+      return key;
+    }
+
+    canvasImg(parent, x, y, key, w, h, draw) {
+      var img = this.add.image(x, y, this.bakeCanvas(key, w, h, draw)).setOrigin(0).setScale(1 / F.R);
+      if (parent) parent.add(img);
+      return img;
+    }
+
     baked(parent, x, y, key, w, h, draw) {
       var img = this.add.image(x, y, this.bake(key, w, h, draw)).setOrigin(0).setScale(1 / F.R);
       if (parent) parent.add(img);
       return img;
     }
 
+    // A wooden-framed parchment panel with a soft shadow (drawn 6px past its box at the bottom for the shadow).
     panelImg(parent, x, y, w, h) {
-      var self = this;
-      return this.baked(parent, x, y, 'ui-panel-' + w + 'x' + h, w, h, function (g) { self.panel(g, 0, 0, w, h); });
+      return this.canvasImg(parent, x - 4, y - 2, 'ui-panel2-' + w + 'x' + h, w + 8, h + 10, function (g) {
+        rrect(g, 4, 8, w, h, 16);
+        g.fillStyle = 'rgba(30,16,6,0.4)';
+        g.fill();
+        rrect(g, 4, 2, w, h, 16);
+        g.fillStyle = vgrad(g, 2, 2 + h, '#946036', '#5a3a1e');
+        g.fill();
+        rrect(g, 8, 6, w - 8, h - 8, 13);
+        g.fillStyle = vgrad(g, 6, h - 2, '#fffaea', '#f1dcae');
+        g.fill();
+        rrect(g, 13, 11, w - 18, h - 18, 9);
+        g.lineWidth = 1.5;
+        g.strokeStyle = 'rgba(176,128,70,0.55)';
+        g.stroke();
+        // corner studs
+        [[13, 10], [w - 5, 10], [13, h - 8], [w - 5, h - 8]].forEach(function (p) {
+          circle(g, p[0], p[1], 2.6);
+          g.fillStyle = '#c9963f';
+          g.fill();
+        });
+      });
     }
 
     // Slot textures are SLOT + 4 wide so the selected glow fits; draw them 2px up and left.
@@ -142,14 +210,26 @@
     button(parent, x, y, w, h, label, onTap, color) {
       var c = this.add.container(x, y);
       color = color || 0x5fa84a;
-      var bg = this.baked(null, -w / 2, -h / 2, 'ui-btn-' + w + 'x' + h + '-' + color, w, h, function (g) {
-        g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, w, h, 9);
-        g.fillStyle(color, 1).fillRoundedRect(2, 2, w - 4, h - 4, 8);
-        g.fillStyle(0xffffff, 0.22).fillRoundedRect(5, 4, w - 10, (h - 8) / 2, 6);
+      var bg = this.canvasImg(null, -w / 2, -h / 2, 'ui-btn2-' + w + 'x' + h + '-' + color, w, h + 4, function (g) {
+        rrect(g, 0, 3, w, h, 11);
+        g.fillStyle = 'rgba(30,16,6,0.35)';
+        g.fill();
+        rrect(g, 0, 0, w, h, 11);
+        g.fillStyle = '#3d2614';
+        g.fill();
+        rrect(g, 2, 2, w - 4, h - 4, 9);
+        g.fillStyle = shade(color, -0.28); // the darker bottom edge
+        g.fill();
+        rrect(g, 2, 2, w - 4, h - 7, 9);
+        g.fillStyle = vgrad(g, 2, h - 5, shade(color, 0.25), shade(color, 0));
+        g.fill();
+        rrect(g, 6, 4, w - 12, (h - 10) / 2, 7);
+        g.fillStyle = 'rgba(255,255,255,0.3)';
+        g.fill();
       });
-      var t = this.txt(0, 0, label, 15, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+      var t = this.txt(0, -1, label, 15, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
       var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-      z.on('pointerdown', function () { c.setScale(0.94); });
+      z.on('pointerdown', function () { c.setScale(0.93); });
       z.on('pointerout', function () { c.setScale(1); });
       z.on('pointerup', function () { c.setScale(1); onTap(); });
       c.add([bg, t, z]);
@@ -188,27 +268,88 @@
     }
 
     // ---------- HUD ----------
+    // A wooden frame with three cards: the date and time, the weather and energy, and the gold.
     buildHud() {
-      this.panelImg(null, 6, 6, W - 12, 58);
-      this.seasonIcon = this.add.image(26, 21, 'items', C.SEASONS[0].icon).setScale(0.13);
-      this.dayText = this.txt(36, 14, '', 13, INK, { fontStyle: 'bold' });
-      this.timeText = this.txt(22, 30, '', 19, INK, { fontStyle: 'bold' });
-      this.weatherIcon = this.add.image(143, 18, 'items', 0).setScale(0.15);
-      this.weatherText = this.txt(154, 10, '', 11, INK, { fontStyle: 'bold' });
-      this.add.image(124, 35, 'items', C.ICON.bolt).setScale(ICON * 0.8);
-      this.baked(null, 136, 28, 'ui-energy', 74, 15, function (g) { g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, 74, 15, 5); });
-      this.energyBar = this.add.rectangle(138, 30, 70, 11, 0x5fc24a).setOrigin(0);
-      this.add.image(228, 35, 'items', C.ICON.coin).setScale(ICON * 0.8);
-      this.goldText = this.txt(242, 26, '', 17, INK, { fontStyle: 'bold' });
       var self = this;
-      var menu = this.add.container(326, 35);
-      var mg = this.baked(null, -17, -17, 'ui-menu', 34, 34, function (g) {
-        g.fillStyle(COL.slotEdge, 1).fillRoundedRect(0, 0, 34, 34, 8);
-        g.fillStyle(COL.slot, 1).fillRoundedRect(3, 3, 28, 28, 6);
-        g.fillStyle(0x5a3a1e, 1).fillRect(10, 9, 5, 16).fillRect(19, 9, 5, 16);
+      this.canvasImg(null, 4, 4, 'ui-hud', W - 8, 64, function (g) {
+        rrect(g, 2, 4, W - 12, 58, 14);
+        g.fillStyle = 'rgba(40,22,8,0.35)';
+        g.fill();
+        rrect(g, 2, 2, W - 12, 58, 14);
+        g.fillStyle = vgrad(g, 2, 60, '#8a5a30', '#5a3a1e');
+        g.fill();
+        rrect(g, 5, 5, W - 18, 52, 11);
+        g.fillStyle = vgrad(g, 5, 57, '#fff6dc', '#efd7a2');
+        g.fill();
+        rrect(g, 5, 5, W - 18, 26, 11);
+        g.fillStyle = 'rgba(255,255,255,0.35)';
+        g.fill();
+        // cards
+        card(g, 10, 9, 104, 44);
+        card(g, 120, 9, 104, 44);
+      });
+      // date and time
+      this.seasonIcon = this.add.image(27, 24, 'items', C.SEASONS[0].icon).setScale(0.17);
+      this.dayText = this.txt(39, 16, '', 13, '#8a4f1c', { fontStyle: 'bold' });
+      this.timeText = this.txt(65, 39, '', 19, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+      // weather and energy
+      this.weatherIcon = this.add.image(136, 23, 'items', 0).setScale(0.16);
+      this.weatherText = this.txt(148, 15, '', 12, '#8a4f1c', { fontStyle: 'bold' });
+      this.canvasImg(null, 136, 33, 'ui-energy-trough', 82, 16, function (g) {
+        rrect(g, 0, 0, 82, 16, 8);
+        g.fillStyle = '#4a2c14';
+        g.fill();
+        rrect(g, 2, 2, 78, 12, 6);
+        g.fillStyle = vgrad(g, 2, 14, '#2a170a', '#5a3a1e');
+        g.fill();
+      });
+      var fill = function (key, top, bottom) {
+        return self.bakeCanvas(key, 76, 10, function (g) {
+          rrect(g, 0, 0, 76, 10, 5);
+          g.fillStyle = vgrad(g, 0, 10, top, bottom);
+          g.fill();
+          rrect(g, 3, 1.5, 70, 3, 1.5);
+          g.fillStyle = 'rgba(255,255,255,0.45)';
+          g.fill();
+        });
+      };
+      this.energyFills = [fill('ui-energy-red', '#ff8a7a', '#d93a3a'), fill('ui-energy-yellow', '#ffe680', '#e9a91c'), fill('ui-energy-green', '#a6ef7c', '#3fa535')];
+      this.energyBar = this.add.image(139, 36, this.energyFills[2]).setOrigin(0).setScale(1 / F.R);
+      this.add.image(134, 41, 'items', C.ICON.bolt).setScale(0.24);
+      this.energyText = this.txt(180, 41, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+      // gold
+      this.canvasImg(null, 232, 18, 'ui-gold', 82, 28, function (g) {
+        rrect(g, 0, 0, 82, 28, 14);
+        g.fillStyle = vgrad(g, 0, 28, '#7a4d26', '#4a2c14');
+        g.fill();
+        rrect(g, 3, 2, 76, 10, 6);
+        g.fillStyle = 'rgba(255,255,255,0.14)';
+        g.fill();
+      });
+      this.add.image(238, 32, 'items', C.ICON.coin).setScale(0.28);
+      this.goldText = this.txt(254, 32, '', 15, '#ffe27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0, 0.5);
+      // pause
+      var menu = this.add.container(335, 32);
+      var mg = this.canvasImg(null, -16, -16, 'ui-menu', 32, 34, function (g) {
+        rrect(g, 0, 2, 32, 32, 9);
+        g.fillStyle = 'rgba(40,22,8,0.35)';
+        g.fill();
+        rrect(g, 0, 0, 32, 32, 9);
+        g.fillStyle = vgrad(g, 0, 32, '#8a5a30', '#5a3a1e');
+        g.fill();
+        rrect(g, 3, 3, 26, 26, 7);
+        g.fillStyle = vgrad(g, 3, 29, '#fff6dc', '#e8cf98');
+        g.fill();
+        g.fillStyle = '#5a3a1e';
+        rrect(g, 10, 9, 4.5, 14, 2);
+        g.fill();
+        rrect(g, 17.5, 9, 4.5, 14, 2);
+        g.fill();
       });
       var mz = this.add.zone(0, 0, 44, 44).setInteractive({ useHandCursor: true });
-      mz.on('pointerdown', function () { if (!self.modals.length) self.openPause(); });
+      mz.on('pointerdown', function () { menu.setScale(0.9); if (!self.modals.length) self.openPause(); });
+      mz.on('pointerup', function () { menu.setScale(1); });
+      mz.on('pointerout', function () { menu.setScale(1); });
       menu.add([mg, mz]);
     }
 
@@ -225,9 +366,10 @@
       if (wkey !== this.weatherKey) this.buildWeather(date.season, weather, outdoors, wkey);
       this.timeText.setText(L.formatTime(s.time));
       this.showGold(s.gold);
-      var pct = s.energy / C.MAX_ENERGY;
-      this.energyBar.setFillStyle(pct > 0.5 ? 0x5fc24a : pct > 0.2 ? 0xf2c53d : 0xe5484d);
-      this.energyBar.setSize(Math.max(0.01, 70 * pct), 11).setVisible(pct > 0);
+      var pct = Math.max(0, Math.min(1, s.energy / C.MAX_ENERGY));
+      this.energyBar.setTexture(this.energyFills[pct > 0.5 ? 2 : pct > 0.2 ? 1 : 0]).setVisible(pct > 0);
+      this.energyBar.setCrop(0, 0, Math.max(10, 76 * pct) * F.R, 10 * F.R);
+      this.energyText.setText(String(Math.round(s.energy)));
       for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
       // the night sheet lives in the world, so windows and lamps can glow through it
       if (F.world && F.world.applyDark) F.world.applyDark(this.darkness());
@@ -348,35 +490,78 @@
     }
 
     // ---------- action button ----------
+    // A gold ring when there is something to do, a dull one when not; the action's name sits on a banner.
     buildAction() {
-      var a = this.actionBtn = this.add.container(ACTION.x, ACTION.y);
-      var r = ACTION.r;
-      var g = this.baked(null, -r, -r, 'ui-action', r * 2, r * 2 + 4, function (b) {
-        b.fillStyle(0x000000, 0.2).fillCircle(r, r + 4, r);
-        b.fillStyle(COL.edge, 1).fillCircle(r, r, r);
-        b.fillStyle(0xffd23f, 1).fillCircle(r, r, r - 4);
-        b.fillStyle(COL.panel, 1).fillCircle(r, r, r - 9);
-        b.fillStyle(0xffffff, 0.35).fillEllipse(r - 8, r - 16, 34, 16);
+      var self = this, a = this.actionBtn = this.add.container(ACTION.x, ACTION.y);
+      var r = ACTION.r, size = r * 2 + 12;
+      var ring = function (key, light, dark) {
+        return self.bakeCanvas(key, size, size, function (g) {
+          var c = size / 2;
+          g.beginPath();
+          g.ellipse(c, c + 5, r, r - 2, 0, 0, Math.PI * 2);
+          g.fillStyle = 'rgba(40,22,8,0.35)';
+          g.fill();
+          circle(g, c, c, r);
+          g.fillStyle = '#5a3a1e';
+          g.fill();
+          circle(g, c, c, r - 3);
+          g.fillStyle = vgrad(g, c - r, c + r, light, dark);
+          g.fill();
+          circle(g, c, c, r - 10);
+          g.fillStyle = '#7a4d26';
+          g.fill();
+          circle(g, c, c, r - 12);
+          var rg = g.createRadialGradient(c - 8, c - 12, 4, c, c, r - 12);
+          rg.addColorStop(0, '#fffdf4');
+          rg.addColorStop(1, '#f0d9a8');
+          g.fillStyle = rg;
+          g.fill();
+          g.beginPath();
+          g.ellipse(c - 6, c - r + 12, r - 20, 7, -0.15, 0, Math.PI * 2);
+          g.fillStyle = 'rgba(255,255,255,0.55)';
+          g.fill();
+        });
+      };
+      this.ringOn = ring('ui-action-on', '#ffe98a', '#e59a12');
+      this.ringOff = ring('ui-action-off', '#e6dcc6', '#a8977a');
+      this.actionGlow = this.add.image(0, 0, this.bakeCanvas('ui-action-glow', size + 30, size + 30, function (g) {
+        var c = (size + 30) / 2, gr = g.createRadialGradient(c, c, r - 6, c, c, c);
+        gr.addColorStop(0, 'rgba(255,226,110,0.7)');
+        gr.addColorStop(1, 'rgba(255,226,110,0)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, size + 30, size + 30);
+      })).setScale(1 / F.R).setAlpha(0);
+      this.tweens.add({ targets: this.actionGlow, scale: { from: 0.95 / F.R, to: 1.08 / F.R }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.actionRing = this.add.image(0, 0, this.ringOff).setScale(1 / F.R);
+      this.actionIcon = this.add.image(0, -6, 'items', 0).setScale(0.36);
+      this.bakeCanvas('ui-banner', 40, 22, function (g) {
+        rrect(g, 0, 0, 40, 22, 11);
+        g.fillStyle = vgrad(g, 0, 22, '#7a4d26', '#4a2c14');
+        g.fill();
+        rrect(g, 3, 2, 34, 7, 4);
+        g.fillStyle = 'rgba(255,255,255,0.18)';
+        g.fill();
       });
-      this.actionIcon = this.add.image(0, -7, 'items', 0).setScale(ICON * 1.15);
-      this.actionLabel = this.txt(0, 21, '', 13, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+      this.actionBanner = this.add.nineslice(0, r - 8, 'ui-banner', null, 60 * F.R, 22 * F.R, 11 * F.R, 11 * F.R, 0, 0).setScale(1 / F.R);
+      this.actionLabel = this.txt(0, r - 8, '', 13, '#fff3c8', { fontStyle: 'bold' }).setOrigin(0.5);
       var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
       var up = function () {
         if (F.input.holding) F.input.released = true;
         F.input.holding = false;
-        a.setScale(1);
+        self.tweens.add({ targets: a, scale: 1, duration: 160, ease: 'Back.out' });
       };
       z.on('pointerdown', function () {
         if (F.Audio) F.Audio.unlock();
         F.input.action = true;
         F.input.holding = true;
-        a.setScale(0.92);
+        self.tweens.killTweensOf(a);
+        a.setScale(0.88);
       });
       z.on('pointerup', up);
       z.on('pointerout', up);
-      a.add([g, this.actionIcon, this.actionLabel, z]);
+      a.add([this.actionGlow, this.actionRing, this.actionIcon, this.actionBanner, this.actionLabel, z]);
       // charge meter: one pip per charge level, shown while an upgraded tool is held down
-      this.chargeText = this.txt(ACTION.x, ACTION.y - ACTION.r - 14, '', 14, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 })
+      this.chargeText = this.txt(ACTION.x, ACTION.y - ACTION.r - 16, '', 14, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 })
         .setOrigin(0.5).setVisible(false);
       F.bus.on('charge', this.showCharge, this);
       this.events.once('shutdown', function () { F.bus.off('charge', this.showCharge, this); }, this);
@@ -392,17 +577,23 @@
     }
 
     setHint(a) {
-      var held = L.held(F.session.state);
-      if (!a) {
-        this.actionIcon.setVisible(!!held).setAlpha(0.5);
-        if (held) this.actionIcon.setFrame(C.ITEMS[held.id].icon);
-        this.actionLabel.setText(held ? '' : 'Action').setAlpha(0.6).setY(held ? 21 : 0);
-        return;
+      var held = L.held(F.session.state), on = !!a && !a.disabled;
+      var label = a ? a.label : held ? '' : 'Action';
+      var icon = a ? (a.icon != null && a.icon >= 0 ? a.icon : null) : held ? C.ITEMS[held.id].icon : null;
+      this.actionRing.setTexture(on ? this.ringOn : this.ringOff);
+      this.actionGlow.setAlpha(on ? 0.9 : 0);
+      this.actionIcon.setVisible(icon != null).setAlpha(on ? 1 : 0.45);
+      if (icon != null) this.actionIcon.setFrame(icon);
+      this.actionIcon.setY(label ? -6 : 0);
+      this.actionLabel.setText(label).setAlpha(on || !a ? 1 : 0.75);
+      this.actionBanner.setVisible(!!label).setTint(on ? 0xffffff : 0xb8a890);
+      if (label) this.actionBanner.setSize((this.actionLabel.width + 20) * F.R, 22 * F.R);
+      var key = on ? label + '|' + icon : '';
+      if (on && key !== this.hintKeyShown) { // a new thing to do: the icon pops
+        this.tweens.killTweensOf(this.actionIcon);
+        this.tweens.add({ targets: this.actionIcon, scale: { from: 0.46, to: 0.36 }, duration: 220, ease: 'Back.out' });
       }
-      var hasIcon = a.icon != null && a.icon >= 0;
-      this.actionIcon.setVisible(hasIcon).setAlpha(a.disabled ? 0.45 : 1);
-      if (hasIcon) this.actionIcon.setFrame(a.icon);
-      this.actionLabel.setText(a.label).setAlpha(a.disabled ? 0.5 : 1).setY(hasIcon ? 21 : 0);
+      this.hintKeyShown = key;
     }
 
     // ---------- joystick ----------
@@ -537,6 +728,7 @@
 
     // buttons: [{ label, cb, color }]; Back acts like the first button when there are two.
     // opts.portrait = villager key: their picture, name and hearts head the panel.
+    // opts.rows = [[icon frame, text], ...]: the body as a list, each line with its own icon.
     dialog(text, buttons, opts) {
       var self = this;
       opts = opts || {};
@@ -547,12 +739,26 @@
       });
       var lines = text.split('\n');
       var title = /^[A-Z0-9 !?.,:'-]+$/.test(lines[0]) && lines.length > 1 ? lines.shift() : null;
-      var titleText = title ? this.txt(W / 2, 0, title, 18, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: 270 } }).setOrigin(0.5, 0) : null;
-      var body = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 272 }, lineSpacing: 3 }).setOrigin(0.5, 0);
-      var th = titleText ? titleText.height + 10 : 0;
+      if (opts.rows && !title) title = lines.shift();
+      var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3, wordWrap: { width: 250 } }).setOrigin(0.5, 0.5) : null;
+      var body = [], bodyH = 0;
+      if (opts.rows) {
+        opts.rows.forEach(function (r, k) {
+          var t = self.txt(84, 0, r[1], 14, INK, { wordWrap: { width: 222 }, lineSpacing: 2 }).setOrigin(0, 0);
+          var rh = Math.max(34, t.height + 10);
+          body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
+          bodyH += rh + 6;
+        });
+        bodyH -= 6;
+      } else {
+        var bt = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 268 }, lineSpacing: 4 }).setOrigin(0.5, 0);
+        body.push({ t: bt, y: 0, h: bt.height });
+        bodyH = bt.height;
+      }
+      var th = titleText ? 30 : 0;
       if (opts.portrait) th = 92;
-      var h = Math.round(28 + th + body.height + 24 + 44 + 20);
-      var y0 = Math.round(Math.max(80, (H - h) / 2 - 40));
+      var h = Math.round(30 + th + bodyH + 24 + 44 + 18);
+      var y0 = Math.round(Math.max(84, (H - h) / 2 - 40));
       this.panelImg(c, 24, y0, W - 48, h);
       if (opts.portrait) {
         F.ensureTexture(this, 'people');
@@ -565,18 +771,82 @@
         c.add(this.txt(126, y0 + 26, opts.name || C.VILLAGERS[opts.portrait].name, 18, INK, { fontStyle: 'bold' }));
         c.add(this.txt(126, y0 + 50, C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
         c.add(this.heartsText(126, y0 + 66, L.friendHearts(F.session.state, opts.portrait)));
-      } else if (titleText) { titleText.y = y0 + 24; c.add(titleText); }
-      body.y = y0 + 26 + th;
-      c.add(body);
+      } else if (titleText) { // a ribbon across the top edge
+        var rw = Math.min(W - 40, Math.max(170, titleText.width + 44));
+        this.ribbon(c, W / 2, y0 + 4, rw);
+        titleText.y = y0 + 4;
+        c.add(titleText);
+      }
+      var by = y0 + 22 + th;
+      body.forEach(function (b) {
+        if (b.icon != null) {
+          if (b.line) {
+            var ln = self.add.rectangle(W / 2, by + b.y - 4, W - 96, 1, 0xc9a26b, 0.6);
+            c.add(ln);
+          }
+          self.canvasImg(c, 40, by + b.y + (b.h - 34) / 2, 'ui-row-icon', 34, 34, function (g) {
+            circle(g, 17, 17, 16);
+            g.fillStyle = vgrad(g, 1, 33, '#fff3cf', '#ead09a');
+            g.fill();
+            g.lineWidth = 1.5;
+            g.strokeStyle = '#c9a26b';
+            g.stroke();
+          });
+          c.add(self.add.image(57, by + b.y + b.h / 2, 'items', b.icon).setScale(0.2));
+          b.t.y = by + b.y + (b.h - b.t.height) / 2;
+        } else {
+          b.t.y = by;
+        }
+        c.add(b.t);
+      });
       var bw = buttons.length > 1 ? 120 : 150;
       buttons.forEach(function (b, i) {
         var bx = W / 2 + (i - (buttons.length - 1) / 2) * (bw + 14);
-        self.button(c, bx, y0 + h - 42, bw, 42, b.label, function () {
+        self.button(c, bx, y0 + h - 40, bw, 42, b.label, function () {
           self.closeModal();
           if (b.cb) b.cb();
         }, b.color);
       });
+      // everything but the dimmed backdrop pops in
+      var parts = c.list.slice(1);
+      parts.forEach(function (o) { o.setAlpha(0); o.y += 14; });
+      this.tweens.add({ targets: parts, alpha: 1, duration: 140 });
+      this.tweens.add({ targets: parts, y: '-=14', duration: 220, ease: 'Back.out' });
       return c;
+    }
+
+    // A ribbon banner centred at (x, y), w wide.
+    ribbon(parent, x, y, w) {
+      return this.canvasImg(parent, x - w / 2 - 8, y - 17, 'ui-ribbon-' + Math.round(w), w + 16, 36, function (g) {
+        var tail = function (x0, dir) { // the folded ends
+          g.beginPath();
+          g.moveTo(x0, 9);
+          g.lineTo(x0 - dir * 16, 9);
+          g.lineTo(x0 - dir * 9, 19);
+          g.lineTo(x0 - dir * 16, 29);
+          g.lineTo(x0, 29);
+          g.closePath();
+          g.fillStyle = '#7a2a1c';
+          g.fill();
+        };
+        tail(16, 1);
+        tail(w, -1);
+        rrect(g, 8, 4, w, 28, 6);
+        g.fillStyle = 'rgba(30,16,6,0.3)';
+        g.fill();
+        rrect(g, 8, 1, w, 28, 6);
+        g.fillStyle = vgrad(g, 1, 29, '#c9473a', '#962c22');
+        g.fill();
+        rrect(g, 12, 3, w - 8, 9, 4);
+        g.fillStyle = 'rgba(255,255,255,0.22)';
+        g.fill();
+        rrect(g, 11, 4, w - 6, 22, 4);
+        g.setLineDash([3, 3]);
+        g.lineWidth = 1;
+        g.strokeStyle = 'rgba(255,220,170,0.6)';
+        g.stroke();
+        g.setLineDash([]);
+      });
     }
 
     confirm(text, onYes) {

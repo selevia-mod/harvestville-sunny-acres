@@ -82,37 +82,39 @@
   // ---------- morning report ----------
   M.dayReport = function (result, s) {
     var lines = [], names = function (keys) { return keys.map(function (k) { return C.VILLAGERS[k].name; }).join(' and '); };
-    if (result.passedOut) lines.push('You stayed up too late and passed out. You only got half your energy back.');
-    if (result.wedding) lines.push('Today you married ' + C.VILLAGERS[result.wedding].name + '! The whole town came to celebrate. Your spouse now lives with you on the farm.');
+    // each line with an icon (a name from ICON_ORDER, or a frame number)
+    var row = function (icon, text) { lines.push([typeof icon === 'number' ? icon : C.ICON_ORDER.indexOf(icon), text]); };
+    if (result.passedOut) row('moon', 'You stayed up too late and passed out. You only got half your energy back.');
+    if (result.wedding) row('ring', 'Today you married ' + C.VILLAGERS[result.wedding].name + '! The whole town came to celebrate. Your spouse now lives with you on the farm.');
     if (result.newSeason) {
       var seeds = L.seedsInSeason(s.day).filter(function (id) { return id !== 'seed_grass'; });
-      lines.push(result.newSeason + ' has arrived! ' + (seeds.length
+      row(['spring', 'summer', 'fall', 'winter'][L.date(s.day).season], result.newSeason + ' has arrived! ' + (seeds.length
         ? 'Lily now sells ' + seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(' and ') + ' seeds.'
         : 'Nothing grows in winter, so look after your animals and visit the mine.') +
         (result.withered ? ' ' + result.withered + (result.withered > 1 ? ' crops' : ' crop') + ' from last season withered.' : '') +
         (result.weeds ? ' Weeds sprouted in your field.' : ''));
     }
-    if (result.festival) lines.push('Today is the ' + result.festival.name + '! ' + result.festival.desc + ' (Town plaza, ' + L.formatTime(result.festival.from) + ' to ' + L.formatTime(result.festival.to) + '.)');
-    if (result.birthdays && result.birthdays.length) lines.push("It's " + names(result.birthdays) + "'s birthday. A gift today counts double!");
+    if (result.festival) row('calendar', 'Today is the ' + result.festival.name + '! ' + result.festival.desc + ' (Town plaza, ' + L.formatTime(result.festival.from) + ' to ' + L.formatTime(result.festival.to) + '.)');
+    if (result.birthdays && result.birthdays.length) row('gift', "It's " + names(result.birthdays) + "'s birthday. A gift today counts double!");
     var w = C.WEATHER[result.weather];
-    lines.push('Weather: ' + w.name + '.' + (w.waters ? ' The rain watered your crops.' : ''));
-    if (result.built) lines.push('Mira finished your ' + C.BUILDS[result.built].name + '!');
+    row(w.icon, 'Weather: ' + w.name + '.' + (w.waters ? ' The rain watered your crops.' : ''));
+    if (result.built) row('crate', 'Mira finished your ' + C.BUILDS[result.built].name + '!');
     (result.born || []).forEach(function (i) {
       var a = s.animals[i];
-      lines.push(a.kind === 'chicken' ? 'A chick hatched! Say hello to ' + a.name + '.' : 'A calf was born! Say hello to ' + a.name + '.');
+      row(C.ANIMALS[a.kind].icon, a.kind === 'chicken' ? 'A chick hatched! Say hello to ' + a.name + '.' : 'A calf was born! Say hello to ' + a.name + '.');
     });
     if (result.shipped.length) {
       var n = result.shipped.reduce(function (sum, b) { return sum + b.n; }, 0);
-      lines.push('You shipped ' + n + (n > 1 ? ' items' : ' item') + ' and earned ' + result.earned + 'G!');
+      row('coin', 'You shipped ' + n + (n > 1 ? ' items' : ' item') + ' and earned ' + result.earned + 'G!');
     }
     var made = Object.keys(result.produced || {}).map(function (id) { return result.produced[id] + ' ' + C.ITEMS[id].name; });
-    if (made.length) lines.push('Your animals made ' + made.join(', ') + '. Collect them in the pen.');
-    if (result.hungry && result.hungry.length) lines.push(result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
-    if (result.lunch && s.spouse) lines.push(C.VILLAGERS[s.spouse].name + ' packed you a ' + C.ITEMS[result.lunch].name + ' for lunch.');
-    if (result.horse) lines.push('The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
-    if (result.mail) lines.push('You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
-    if (result.goalDone) lines.push('Goal complete! Check the next one at the top of the screen.');
-    this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.join('\n\n'));
+    if (made.length) row('egg', 'Your animals made ' + made.join(', ') + '. Collect them in the pen.');
+    if (result.hungry && result.hungry.length) row('chicken_feed', result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
+    if (result.lunch && s.spouse) row('lunch', C.VILLAGERS[s.spouse].name + ' packed you a ' + C.ITEMS[result.lunch].name + ' for lunch.');
+    if (result.horse) row('horse', 'The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
+    if (result.mail) row('letter', 'You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
+    if (result.goalDone) row('star', 'Goal complete! Check the next one at the top of the screen.');
+    this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.map(function (l) { return l[1]; }).join('\n'), null, { rows: lines });
     sfx('morning');
   };
 

@@ -159,6 +159,32 @@
     return c;
   }
 
+  // Dry and wet tilled soil must read apart at a glance: dry turns light and dusty, wet turns dark and
+  // glistens (small cool highlights on the tops of the furrows).
+  function soilTone(c, tone) {
+    var g = c.getContext('2d'), a = g.getImageData(0, 0, S, S), d = a.data, n = S * S, i, k;
+    var lum = new Float32Array(n), mean = 0;
+    for (i = 0; i < n; i++) { lum[i] = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]; mean += lum[i] / n; }
+    var sorted = Array.prototype.slice.call(lum).sort(function (x, y) { return x - y; }), top = sorted[Math.floor(n * 0.93)];
+    for (i = 0; i < n; i++) {
+      var p = i * 4, rel = lum[i] / mean; // keep the texture's own light and shade
+      if (tone === 'dry') { // light sandy brown
+        var base = [170, 118, 74];
+        for (k = 0; k < 3; k++) d[p + k] = Math.min(255, base[k] * (0.4 + 0.6 * rel));
+      } else { // dark, rich, a little cool
+        var wet = [74, 42, 30];
+        for (k = 0; k < 3; k++) d[p + k] = Math.min(255, wet[k] * (0.6 + 0.4 * rel));
+        if (lum[i] >= top) { // glints of water on the ridges
+          var t = Math.min(1, (lum[i] - top) / 25 + 0.45);
+          d[p] += (190 - d[p]) * t * 0.6;
+          d[p + 1] += (215 - d[p + 1]) * t * 0.6;
+          d[p + 2] += (235 - d[p + 2]) * t * 0.6;
+        }
+      }
+    }
+    g.putImageData(a, 0, 0);
+  }
+
   // Shifts a texture's average colour to another's, so two variants laid side by side don't make a checkerboard.
   function matchColour(c, ref) {
     var mean = function (cv) {
@@ -184,6 +210,7 @@
         if (j.mode === 'texture') {
           var t = texture(img, j.wrap);
           if (j.match && O[j.match]) matchColour(t, O[j.match]);
+          if (j.tone) soilTone(t, j.tone);
           j.targets.forEach(function (k) { O[k] = t; });
           return;
         }
