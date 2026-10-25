@@ -55,7 +55,7 @@
 
   V.shopHours = function () {
     var s = this.scene.state;
-    return s.time >= C.SHOPPER.from && s.time < C.SHOPPER.to;
+    return s.time >= C.SHOPPER.from && s.time < C.SHOPPER.to && !L.festivalOn(s.day); // no visitors on festival days
   };
 
   var targetOf = V.targetOf;

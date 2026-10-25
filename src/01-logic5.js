@@ -113,7 +113,7 @@
   var endDay = L.endDay;
   L.endDay = function (s, passedOut, info) {
     var r = endDay(s, passedOut, info);
-    s.animals.forEach(function (a) { a.treat = 0; });
+    s.animals.forEach(function (a) { delete a.treat; });
     return r;
   };
 

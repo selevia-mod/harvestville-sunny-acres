@@ -3534,7 +3534,7 @@
   var endDay = L.endDay;
   L.endDay = function (s, passedOut, info) {
     var r = endDay(s, passedOut, info);
-    s.animals.forEach(function (a) { a.treat = 0; });
+    s.animals.forEach(function (a) { delete a.treat; });
     return r;
   };
 
@@ -9440,7 +9440,7 @@
 
   V.shopHours = function () {
     var s = this.scene.state;
-    return s.time >= C.SHOPPER.from && s.time < C.SHOPPER.to;
+    return s.time >= C.SHOPPER.from && s.time < C.SHOPPER.to && !L.festivalOn(s.day); // no visitors on festival days
   };
 
   var targetOf = V.targetOf;
