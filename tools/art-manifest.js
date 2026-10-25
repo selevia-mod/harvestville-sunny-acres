@@ -45,6 +45,8 @@ Object.keys(GROUND).forEach((kind) => {
       id: `ground_${kind}_${season}`, group: 'Ground (seasons)', file: `ground/${kind}_${season}.png`, gen: '1024x1024',
       final: '256x256 tile', mode: 'texture', targets: [`season:${kind}:${season}`],
       prompt: `${TEXTURE} ${GROUND[kind]}, ${SEASON_LOOK[season]}.`,
+      // grass variants and flower patches sit next to plain grass, so they take its average colour (no checkerboard)
+      match: ['grass2', 'grass3', 'flowers'].includes(kind) ? `season:grass:${season}` : undefined,
     });
   });
 });

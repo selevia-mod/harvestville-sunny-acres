@@ -278,8 +278,11 @@ The generated pictures in `art-src/` so far cover:
 
 - the cottage and the cabin, and the truffle and carabao milk icons
 
-The seasonal ground (grass, flowers, field, path) and the furniture still use the drawn art. Ground textures that already repeat cleanly are kept as they are;
-the rest get their edges blended.
+- the seasonal ground (grass, flowers, field, path in all four seasons)
+
+The furniture and decorations still use the drawn art. Ground textures that already repeat cleanly are kept as they are;
+the rest get their edges blended. Ground pieces that sit side by side (the grass variants and flower patches,
+the two floors, the two cave floors) are given the same average colour so they don't look like a checkerboard.
 
 See `art-src/README.md`.
 
