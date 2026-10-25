@@ -127,6 +127,21 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   level, the wallpaper and the floor. Cozy (120), Charming (250), Lovely (450) and Dreamy (750) homes give +5 to
   +20 max energy. Villagers mention a lovely home, and once a week a friend drops by to see it.
 
+### Your yard
+
+- **The meadow:** the farm is 38 tiles wide; the land east of the field is yours to decorate (older saves keep
+  their crops in place).
+- **Outdoor pieces** (Mira's Woodshop → Outdoor): fences that join up as you place them (wooden, picket, stone,
+  iron), paths you can walk on, hedges, garden pieces (flower beds, planters, roses, sunflowers, apple and cherry
+  trees, a pond, a fountain, a birdbath, a scarecrow), yard furniture and lights (bench, picnic table, swing, lamp,
+  umbrella, birdhouse, wishing well, statue, windmill, gazebo) and festival editions sold in their season.
+  A new farm starts with a few fences, a flower bed and a bench in storage.
+- **Decorate** on the farm: tap a piece and drag it, or put it away; from Storage, a fence, path or hedge is placed
+  with a tap on each tile. Nothing may be built on the field, the pen or the paths to doors, and nothing may wall
+  off the house, a door, the field or the pen.
+- **Beauty:** outdoor pieces add to Home Beauty (fences, paths and hedges count every tile; other repeats count
+  half).
+
 ### Willowbrook (the town)
 
 - **Getting there:** walk down the road south of the farm.
@@ -299,6 +314,9 @@ src/              game code, concatenated in filename order
   19d-home.js       the house inside (furniture, wallpaper, floor), the bigger house on the farm, Decorate mode,
                     storage, Mira's catalog and house upgrades
   19e-town.js       visitors who walk in and shop, the new shops' panels, animal treats
+  00-outdoor.js     outdoor decorations: the catalog (fences, paths, hedges, garden, yard, festival)
+  01-logic6.js      yard rules: the farm's free land, placing, joining fences, reachability, beauty, save
+  19f-yard.js       the yard on the farm, Decorate outdoors, Mira's Outdoor tab
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
@@ -312,8 +330,8 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (108 tests)
-npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (16 tests, ~25 min)
+npm test           # rules + save-format unit tests (117 tests)
+npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (17 tests, ~25 min)
 npm run simulate   # plays a year with the real rules and prints the economy
 npm run art        # redraw assets/, using any generated pictures in art-src/ (uses Playwright's Chromium)
 npm run map        # seed maps/ (won't overwrite existing maps without --force)
@@ -321,7 +339,7 @@ npm run map        # seed maps/ (won't overwrite existing maps without --force)
 
 ## Replacing the art with generated pictures
 
-`tools/art-manifest.js` lists every picture the game uses (218 of them), each with:
+`tools/art-manifest.js` lists every picture the game uses (221 of them), each with:
 - a file name under `art-src/`
 - the size to ask an image generator for
 - the in-game size
