@@ -111,7 +111,7 @@
     var fest = O.types[t].festival;
     if (!fest) return true;
     var f = C.FESTIVALS.filter(function (e) { return e.key === fest; })[0];
-    return !!f && L.date(s.day).key === f.season;
+    return !!f && L.date(s.day).key === L.festSeason(f);
   };
 
   // Returns 'ok', 'gold' or 'season'.

@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -53,11 +54,15 @@ test('10 daily quests a day: 5 easy, 2 medium, 3 hard with a Power-Up, a Star an
   assert.notStrictEqual(JSON.stringify(s.dq.list.map((q) => q.text)), JSON.parse(again).list.map((q) => q.text).join(), 'a new list tomorrow');
 });
 
-test('in winter there are no crop quests', () => {
+test('winter has crops too, so crop quests come up all year', () => {
   const s = fresh();
-  s.day = 3 * 28 + 5;
-  L.refreshQuests(s, TODAY);
-  assert.ok(s.dq.list.every((q) => !['harvest', 'water', 'plant'].includes(q.c)));
+  s.day = L.dayOf(new Date(2027, 0, 10, 12).getTime());
+  let crop = 0;
+  for (let d = 1; d <= 28; d++) {
+    L.refreshQuests(s, '2027-01-' + String(d).padStart(2, '0'));
+    crop += s.dq.list.filter((q) => ['harvest', 'water', 'plant'].includes(q.c)).length;
+  }
+  assert.ok(crop > 0);
 });
 
 test('claiming quests: only when done, only once; all 10 give a bonus; they count for the month', () => {

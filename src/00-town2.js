@@ -31,85 +31,85 @@
   // rest = the schedule on rest days (every 6th and 7th day of the week), when there is no school.
   var V = {
     pearl: {
-      name: 'Grandma Pearl', role: 'Grandmother', home: 'lane1', birthday: ['spring', 27],
+      name: 'Grandma Pearl', role: 'Grandmother', home: 'lane1', birthday: [5, 27],
       loves: ['pumpkin_pie', 'bouquet', 'jam'], likes: ['berry', 'milk', 'cake', 'cookie'], dislikes: ['ore_copper', 'fish_s'],
       schedule: [[6 * H, 'in:lane1'], [8 * H, 'lane_garden'], [10 * H, 'park_bench'], [12 * H, 'in:lane1'], [15 * H, 'in:bakery'], [16 * H, 'plaza_s'], [18 * H, 'in:lane1']],
     },
     ewan: {
-      name: 'Grandpa Ewan', role: 'Retired fisherman', home: 'lane1', birthday: ['summer', 3],
+      name: 'Grandpa Ewan', role: 'Retired fisherman', home: 'lane1', birthday: [6, 3],
       loves: ['grilled_fish', 'fish_l', 'hot_soup'], likes: ['fish_m', 'baked_potato', 'bread', 'corn'], dislikes: ['cake', 'jam'],
       schedule: [[6 * H, 'pier'], [10 * H, 'in:shack'], [16 * H, 'park_pond'], [18 * H, 'in:inn'], [20 * H, 'in:lane1']],
     },
     pip: {
-      name: 'Pip', role: 'Schoolboy', home: 'lane1', birthday: ['fall', 8], child: true,
+      name: 'Pip', role: 'Schoolboy', home: 'lane1', birthday: [9, 8], child: true,
       loves: ['cookie', 'strawberry', 'cake'], likes: ['berry', 'jam', 'corn', 'egg'], dislikes: ['carrot', 'herb', 'mushroom_soup'],
       schedule: [[6 * H, 'in:lane1'], [8 * H, 'in:school'], [14 * H, 'playground'], [17 * H, 'plaza_n'], [18 * H, 'in:lane1']],
       rest: [[6 * H, 'in:lane1'], [9 * H, 'playground'], [12 * H, 'beach'], [15 * H, 'park_pond'], [18 * H, 'in:lane1']],
     },
     daisy: {
-      name: 'Daisy', role: 'Schoolgirl', home: 'lane1', birthday: ['winter', 19], child: true,
+      name: 'Daisy', role: 'Schoolgirl', home: 'lane1', birthday: [2, 19], child: true,
       loves: ['cookie', 'bouquet', 'strawberry'], likes: ['jam', 'berry', 'egg', 'milk'], dislikes: ['fish_s', 'mushroom', 'ore_copper'],
       schedule: [[6 * H, 'in:lane1'], [8 * H, 'in:school'], [14 * H, 'playground'], [16 * H, 'in:florist'], [17 * H, 'lane_garden'], [18 * H, 'in:lane1']],
       rest: [[6 * H, 'in:lane1'], [9 * H, 'lane_garden'], [11 * H, 'playground'], [14 * H, 'beach'], [17 * H, 'in:lane1']],
     },
     clara: {
-      name: 'Clara', role: 'Teacher', candidate: true, home: 'lane2', birthday: ['spring', 11],
+      name: 'Clara', role: 'Teacher', candidate: true, home: 'lane2', birthday: [3, 11],
       loves: ['cake', 'tomato_soup', 'bouquet'], likes: ['bread', 'carrot', 'herb', 'hot_milk'], dislikes: ['fish_s', 'ore_copper'],
       schedule: [[6 * H, 'in:lane2'], [7 * H + 30, 'in:school'], [15 * H, 'in:library'], [17 * H, 'park_bench'], [19 * H, 'in:lane2']],
       rest: [[6 * H, 'in:lane2'], [10 * H, 'in:library'], [13 * H, 'gazebo'], [16 * H, 'market_w'], [18 * H, 'in:inn'], [21 * H, 'in:lane2']],
     },
     tomas: {
-      name: 'Father Tomas', role: 'Priest', home: 'chapel', birthday: ['winter', 4],
+      name: 'Father Tomas', role: 'Priest', home: 'chapel', birthday: [12, 4],
       loves: ['bread', 'hot_soup', 'veggie_stew'], likes: ['milk', 'potato', 'egg', 'turnip'], dislikes: ['gem', 'ore_gold'],
       schedule: [[6 * H, 'in:chapel'], [11 * H, 'chapel_yard'], [13 * H, 'in:chapel'], [16 * H, 'plaza_c'], [17 * H, 'in:chapel']],
     },
     hana: {
-      name: 'Hana', role: 'Baker', candidate: true, home: 'bakery', birthday: ['summer', 15],
+      name: 'Hana', role: 'Baker', candidate: true, home: 'bakery', birthday: [7, 15],
       loves: ['strawberry', 'egg_l', 'milk_l'], likes: ['egg', 'milk', 'berry', 'pumpkin', 'jam'], dislikes: ['fish_m', 'ore_silver'],
       schedule: [[6 * H, 'in:bakery'], [15 * H, 'market_e'], [16 * H, 'beach'], [18 * H, 'in:bakery']],
     },
     marco: {
-      name: 'Marco', role: 'Travelling merchant', candidate: true, home: 'inn', birthday: ['fall', 25],
+      name: 'Marco', role: 'Travelling merchant', candidate: true, home: 'inn', birthday: [11, 25],
       loves: ['gem', 'truffle', 'ore_gold'], likes: ['carabao_milk', 'pumpkin', 'corn', 'sandwich'], dislikes: ['root', 'herb'],
       schedule: [[6 * H, 'in:inn'], [9 * H, 'wagon'], [17 * H, 'plaza_e'], [19 * H, 'in:inn']],
     },
     sora: {
-      name: 'Sora', role: 'Artist', candidate: true, home: 'lane3', birthday: ['spring', 2],
+      name: 'Sora', role: 'Artist', candidate: true, home: 'lane3', birthday: [3, 2],
       loves: ['bouquet', 'gem', 'mushroom'], likes: ['berry', 'tomato', 'root', 'cookie'], dislikes: ['ore_copper', 'fish_l'],
       schedule: [[6 * H, 'in:lane3'], [9 * H, 'park_easel'], [13 * H, 'beach'], [16 * H, 'park_easel'], [19 * H, 'in:inn'], [21 * H, 'in:lane3']],
     },
     hale: {
-      name: 'Dr. Hale', role: 'Doctor', home: 'lane4', birthday: ['fall', 22],
+      name: 'Dr. Hale', role: 'Doctor', home: 'lane4', birthday: [10, 22],
       loves: ['veggie_stew', 'tonic', 'fish_k'], likes: ['carrot', 'tomato', 'herb', 'hot_soup'], dislikes: ['cake', 'cookie'],
       schedule: [[6 * H, 'in:lane4'], [8 * H + 30, 'in:clinic'], [17 * H, 'park_pond'], [18 * H, 'in:lane4']],
     },
     nina: {
-      name: 'Nina', role: 'Nurse', candidate: true, home: 'lane2', birthday: ['summer', 27],
+      name: 'Nina', role: 'Nurse', candidate: true, home: 'lane2', birthday: [8, 27],
       loves: ['cake', 'hot_milk', 'bouquet'], likes: ['tonic', 'berry', 'cookie', 'sandwich'], dislikes: ['ore_silver', 'fish_s'],
       schedule: [[6 * H, 'in:lane2'], [8 * H + 30, 'in:clinic'], [17 * H, 'market_e'], [18 * H, 'in:inn'], [20 * H, 'in:lane2']],
     },
     owen: {
-      name: 'Owen', role: 'Veterinarian', candidate: true, home: 'vet', birthday: ['winter', 14],
+      name: 'Owen', role: 'Veterinarian', candidate: true, home: 'vet', birthday: [1, 14],
       loves: ['carabao_milk', 'milk_l', 'baked_potato'], likes: ['egg', 'milk', 'carrot', 'corn'], dislikes: ['mushroom', 'jam'],
       schedule: [[6 * H, 'park_pond'], [8 * H, 'in:vet'], [17 * H, 'plaza_e'], [19 * H, 'in:vet']],
     },
     poppy: {
-      name: 'Poppy', role: 'Florist', candidate: true, home: 'florist', birthday: ['spring', 16],
+      name: 'Poppy', role: 'Florist', candidate: true, home: 'florist', birthday: [4, 16],
       loves: ['bouquet', 'strawberry', 'herb'], likes: ['berry', 'root', 'tomato', 'cookie'], dislikes: ['ore_copper', 'ore_silver', 'fish_m'],
       schedule: [[6 * H, 'lane_garden'], [8 * H, 'in:florist'], [17 * H, 'gazebo'], [19 * H, 'in:florist']],
     },
     finn: {
-      name: 'Finn', role: 'Mail carrier', candidate: true, home: 'post', birthday: ['summer', 11],
+      name: 'Finn', role: 'Mail carrier', candidate: true, home: 'post', birthday: [8, 11],
       loves: ['sandwich', 'grilled_fish', 'corn'], likes: ['bread', 'boiled_egg', 'potato', 'turnip'], dislikes: ['mushroom_soup', 'herb'],
       schedule: [[6 * H, 'in:post'], [7 * H, 'lane'], [8 * H, 'plaza_n'], [9 * H, 'in:post'], [13 * H, 'market_w'], [14 * H, 'in:post'], [17 * H, 'beach'], [19 * H, 'in:inn'], [21 * H, 'in:post']],
     },
     elliot: {
-      name: 'Elliot', role: 'Librarian', candidate: true, home: 'library', birthday: ['fall', 6],
+      name: 'Elliot', role: 'Librarian', candidate: true, home: 'library', birthday: [10, 6],
       loves: ['mushroom_soup', 'hot_milk', 'truffle'], likes: ['bread', 'tomato_soup', 'berry', 'cake'], dislikes: ['fish_l', 'corn'],
       schedule: [[6 * H, 'in:library'], [18 * H, 'gazebo'], [20 * H, 'in:library']],
     },
     jules: {
-      name: 'Jules', role: 'Musician', candidate: true, home: 'lane3', birthday: ['winter', 27],
+      name: 'Jules', role: 'Musician', candidate: true, home: 'lane3', birthday: [2, 27],
       loves: ['pumpkin_pie', 'gem', 'berry'], likes: ['cookie', 'jam', 'sandwich', 'milk'], dislikes: ['turnip', 'root'],
       schedule: [[6 * H, 'in:lane3'], [10 * H, 'gazebo'], [13 * H, 'plaza_c'], [16 * H, 'beach'], [18 * H, 'in:inn'], [23 * H, 'in:lane3']],
     },
@@ -122,15 +122,15 @@
   // ---------- the new buildings ----------
   // offers: what the building's panel does (see 19e-town.js). days: open only on these days of the week (1..7).
   Object.assign(C.BUILDINGS, {
-    bakery: { name: "Hana's Bakery", open: [7 * H, 15 * H], owner: 'hana', offers: ['bakery'] },
-    florist: { name: "Poppy's Flowers", open: [9 * H, 17 * H], owner: 'poppy', offers: ['florist'] },
-    post: { name: 'Post Office', open: [9 * H, 17 * H], owner: 'finn', offers: ['post'] },
-    library: { name: 'Willow Library', open: [9 * H, 18 * H], owner: 'elliot', offers: ['library'] },
-    school: { name: 'Willowbrook School', open: [8 * H, 14 * H], owner: 'clara', offers: ['school'], days: [1, 2, 3, 4, 5] },
-    chapel: { name: 'Chapel', open: [7 * H, 17 * H], owner: 'tomas', offers: ['chapel'] },
-    vet: { name: "Owen's Animal Clinic", open: [8 * H, 17 * H], owner: 'owen', offers: ['vet'] },
-    shack: { name: 'Seaside Shack', open: [10 * H, 16 * H], owner: 'ewan', offers: ['shack'] },
-    wagon: { name: "Marco's Wagon", open: [9 * H, 17 * H], owner: 'marco', offers: ['wagon'] },
+    bakery: { name: "Hana's Bakery", open: [7 * H, 23 * H], owner: 'hana', offers: ['bakery'] },
+    florist: { name: "Poppy's Flowers", open: [7 * H, 23 * H], owner: 'poppy', offers: ['florist'] },
+    post: { name: 'Post Office', open: [7 * H, 23 * H], owner: 'finn', offers: ['post'] },
+    library: { name: 'Willow Library', open: [7 * H, 23 * H], owner: 'elliot', offers: ['library'] },
+    school: { name: 'Willowbrook School', open: [8 * H, 15 * H], owner: 'clara', offers: ['school'], days: [1, 2, 3, 4, 5] },
+    chapel: { name: 'Chapel', open: [6 * H, 22 * H], owner: 'tomas', offers: ['chapel'] },
+    vet: { name: "Owen's Animal Clinic", open: [7 * H, 23 * H], owner: 'owen', offers: ['vet'] },
+    shack: { name: 'Seaside Shack', open: [7 * H, 23 * H], owner: 'ewan', offers: ['shack'] },
+    wagon: { name: "Marco's Wagon", open: [7 * H, 23 * H], owner: 'marco', offers: ['wagon'] },
     lane1: { name: "Pearl and Ewan's House" },
     lane2: { name: "Clara and Nina's House" },
     lane3: { name: 'The Studio' },
@@ -167,7 +167,7 @@
     { key: 'visitor_student', name: 'Student', look: 'a young student with a backpack, glasses and a green hoodie', line: 'I heard the stall here sells the freshest strawberries.' },
     { key: 'visitor_chef', name: 'City chef', look: 'a chef in a white jacket and a tall white hat, carrying a crate', line: 'Fresh ingredients make all the difference in my kitchen.' },
   ];
-  C.SHOPPER = { max: 4, from: 8 * H, to: 19 * H, every: 70 }; // at most 4 in town; one arrives every ~70 game minutes
+  C.SHOPPER = { max: 4, from: 8 * H, to: 21 * H, every: 20 }; // at most 4 in town; one arrives every ~20 minutes
 
   // ---------- what they say ----------
   var D = C.DIALOGUE;

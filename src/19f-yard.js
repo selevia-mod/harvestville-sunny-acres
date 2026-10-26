@@ -372,7 +372,7 @@
         var fest = type.festival && C.FESTIVALS.filter(function (f) { return f.key === type.festival; })[0];
         return {
           img: self.yardImg(i), name: type.name,
-          desc: type.price + 'G' + (tile ? ' each' : '') + '. +' + type.beauty + ' beauty.' + (onSale ? '' : ' Sold in ' + fest.season + '.') + (s.yard.bag[i] ? ' You have ' + s.yard.bag[i] + '.' : ''),
+          desc: type.price + 'G' + (tile ? ' each' : '') + '. +' + type.beauty + ' beauty.' + (onSale ? '' : ' Sold in ' + L.festSeason(fest) + '.') + (s.yard.bag[i] ? ' You have ' + s.yard.bag[i] + '.' : ''),
           buttons: !onSale ? [] : (tile ? [1, 10] : [1]).map(function (n, k) {
             return {
               label: 'Buy ' + (n > 1 ? n + ' ' : '') + type.price * n + 'G', color: k ? BLUE : GREEN, cb: function () {

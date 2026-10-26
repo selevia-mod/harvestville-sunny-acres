@@ -11,14 +11,13 @@
     { event: 'clear', need: 3, text: 'Clear 3 weeds, branches or stones in your field', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 100 } },
     { event: 'till', need: 3, text: 'Till 3 tiles of cleared soil with the Hoe', target: { map: 'farm', x: 8, y: 13 }, reward: { item: 'seed_turnip', n: 1 } },
     { event: 'plant', need: 1, text: 'Plant a seed bag on your tilled soil', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
-    { event: 'water', need: 3, text: 'Water your seeds with the Watering Can', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
+    { event: 'water', need: 3, text: 'Water your seeds: they grow faster', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
     { event: 'feed', need: 1, text: 'Feed Clucky in the pen (hold the Chicken Feed)', target: { map: 'farm', object: 'animal_pen' }, reward: { item: 'chicken_feed', n: 3 } },
-    { event: 'sleep', need: 1, text: 'Go to bed in your house to end the day', target: { map: 'house', object: 'bed' }, reward: {} },
-    { event: 'collect', need: 1, text: "Collect Clucky's egg in the pen", target: { map: 'farm', object: 'animal_pen' }, reward: { gold: 50 } },
+    { event: 'harvest', need: 1, text: 'Harvest your turnips when they are ripe (about 15 minutes)', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 200 } },
     { event: 'town', need: 1, text: 'Visit Willowbrook, down the road south', target: { map: 'town', point: 'plaza_n' }, reward: { gold: 100 } },
     { event: 'ship', need: 1, text: 'Sell something at the market stall in the town plaza', target: { map: 'town', object: 'farm_stand' }, reward: { gold: 100 } },
     { event: 'meet', need: 3, text: 'Say hello to 3 villagers in town', target: { map: 'town', point: 'plaza_c' }, reward: { gold: 200 } },
-    { event: 'harvest', need: 1, text: 'Harvest a ripe crop', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 200 } },
+    { event: 'collect', need: 1, text: "Tomorrow: collect Clucky's egg in the pen", target: { map: 'farm', object: 'animal_pen' }, reward: { gold: 50 } },
   ];
   // How to get from one map toward another: the warp object to head for.
   C.ROUTES = {
@@ -31,11 +30,11 @@
   // ---------- tips: shown once, the first time you hold something ----------
   C.TIPS = [
     { key: 'hoe', text: 'HOE: tills cleared field soil. Seeds need tilled soil.' },
-    { key: 'can', text: 'WATERING CAN: water tilled soil once a day. Refill it at the pond.' },
+    { key: 'can', text: 'WATERING CAN: watered crops grow 25% faster. Refill it at the pond.' },
     { key: 'axe', text: 'AXE: chops branches (1 lumber) and stumps (4 lumber, several swings).' },
     { key: 'hammer', text: 'HAMMER: breaks stones and boulders for stone, and rocks in the mine.' },
     { key: 'sickle', text: 'SICKLE: cuts weeds, and cuts ripe grass into Fodder for cows.' },
-    { key: 'seed', text: 'SEED BAG: one bag plants the 3x3 tilled patch around the highlighted tile.' },
+    { key: 'seed', text: 'SEED BAG: plants the 3x3 tilled patch around the highlighted tile. Crops grow in real time; pick them before they wither!' },
     { key: 'feed', text: 'FEED: face an animal in the pen and tap to feed it. Once a day each.' },
     { key: 'rod', text: 'FISHING ROD: face water and tap. When the "!" pops up, keep the fish in the green bar.' },
     { key: 'brush', text: 'BRUSH: brush each animal once a day for extra hearts.' },
@@ -55,6 +54,10 @@
     'boiled_egg', 'hot_milk', 'baked_potato', 'jam', 'tomato_soup', 'grilled_fish', 'veggie_stew', 'pumpkin_pie',
     'mushroom_soup', 'sandwich', 'hot_soup', 'tonic',
     'truffle', 'carabao_milk', // appended: saved as a bitset in this order
+    // the crops added with real-time farming
+    'radish', 'lettuce', 'peas', 'cabbage', 'cauliflower', 'onion', 'tulip', 'okra', 'chili', 'cucumber', 'bell_pepper',
+    'eggplant', 'sunflower', 'melon', 'watermelon', 'spinach', 'bok_choy', 'beet', 'garlic', 'sweet_potato', 'cranberry',
+    'rice', 'grapes', 'kale', 'celery', 'broccoli', 'leek', 'parsnip', 'red_cabbage', 'brussels', 'ginger', 'winter_squash', 'coffee',
   ];
 
   // ---------- pets ----------

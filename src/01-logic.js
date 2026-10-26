@@ -38,9 +38,12 @@
 
   // info.fieldTiles: farm tile indexes of tillable field (used for debris and weeds).
   L.newState = function (info) {
+    var now = info && info.now != null ? info.now : L.clock();
     var s = {
-      day: 1,
-      time: C.DAY_START,
+      day: L.dayOf(now), // today, as a day number (see the calendar below)
+      start: L.dayOf(now), // the day the farm started
+      time: L.minuteOf(now), // the phone's clock, minutes after midnight
+      regen: Math.floor(now / 60000), // when energy last came back (minutes)
       gold: C.START_GOLD,
       energy: C.MAX_ENERGY,
       water: C.TOOLS.can.capacity[0],
@@ -49,7 +52,7 @@
       sel: 0,
       inv: [],
       box: [], // items in the shipping box, paid out overnight: [{ id, n }]
-      soil: {}, // farm tile index -> { w: watered 0|1, c: crop key or null, d: days grown }
+      soil: {}, // farm tile index -> { w: watered 0|1 (grows faster), c: crop key or null, p: planted (minutes), r: regrowing }
       animals: [], // see L.addAnimal
       seed: Math.floor(Math.random() * 1e9),
       tools: { hoe: 0, can: 0, axe: 0, hammer: 0, sickle: 0 },
@@ -151,23 +154,46 @@
     return lvl ? C.TOOL_LEVELS[lvl] + ' ' + item.name : item.name;
   };
 
-  // ---------- calendar ----------
-  // state.day counts days since the farm started (1 = Spring 1 of year 1).
+  // ---------- real time and the calendar ----------
+  // The game runs on the phone's clock, or the app's if it offers one (window.gameHost.now(), e.g. server time).
+  L.clock = function () {
+    var h = typeof window !== 'undefined' && window.gameHost;
+    var t = h && typeof h.now === 'function' ? Number(h.now()) : NaN;
+    return isFinite(t) && t > 0 ? t : Date.now();
+  };
+  L.nowMin = function () { return Math.floor(L.clock() / 60000); };
+
+  // A day is a day number: the phone's local date counted from 1 Jan 1970.
+  L.dayOf = function (ms) {
+    var d = new Date(ms);
+    return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+  };
+  L.minuteOf = function (ms) {
+    var d = new Date(ms);
+    return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+  };
+
+  // Seasons follow the real months: Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb.
   L.date = function (day) {
-    var n = C.DAYS_PER_SEASON, i = day - 1;
-    var season = Math.floor(i / n) % C.SEASONS.length;
+    var d = new Date(day * 864e5), month = d.getUTCMonth() + 1, season = C.SEASON_OF_MONTH[month - 1];
     return {
       season: season,
       key: C.SEASONS[season].key,
       name: C.SEASONS[season].name,
-      day: (i % n) + 1,
-      year: Math.floor(i / (n * C.SEASONS.length)) + 1,
+      day: d.getUTCDate(),
+      month: month,
+      monthName: C.MONTHS[month - 1],
+      year: d.getUTCFullYear(),
+      weekday: d.getUTCDay(), // 0 Sunday .. 6 Saturday
     };
   };
 
+  // The season a festival falls in (by its month).
+  L.festSeason = function (f) { return C.SEASONS[C.SEASON_OF_MONTH[f.date[0] - 1]].key; };
+
   L.formatDate = function (day) {
     var d = L.date(day);
-    return d.name + ' ' + d.day;
+    return d.monthName.slice(0, 3) + ' ' + d.day;
   };
 
   L.cropInSeason = function (crop, day) {
@@ -187,9 +213,10 @@
     return C.SHOP_STOCK.filter(function (id) { return L.cropInSeason(C.ITEMS[id].crop, day); });
   };
 
+  // Festivals and birthdays are on fixed real dates, the same day for every player.
   L.festivalOn = function (day) {
     var d = L.date(day);
-    return C.FESTIVALS.filter(function (f) { return f.season === d.key && f.day === d.day; })[0] || null;
+    return C.FESTIVALS.filter(function (f) { return f.date[0] === d.month && f.date[1] === d.day; })[0] || null;
   };
 
   // The festival happening right now (today, within its hours), if any.
@@ -202,14 +229,15 @@
     var d = L.date(day);
     return C.VILLAGER_ORDER.filter(function (k) {
       var b = C.VILLAGERS[k].birthday;
-      return b[0] === d.key && b[1] === d.day;
+      return b[0] === d.month && b[1] === d.day;
     });
   };
 
   // ---------- weather ----------
+  // The same weather for every player on a given day (and always sunny on a new farm's first day).
   L.weather = function (s, day) {
-    if (day === 1 || L.festivalOn(day)) return 'sunny';
-    var odds = C.WEATHER_ODDS[L.date(day).key], r = L.rand(s.seed, day, 77), acc = 0;
+    if ((s && day === s.start) || L.festivalOn(day)) return 'sunny';
+    var odds = C.WEATHER_ODDS[L.date(day).key], r = L.rand(20261026, day, 77), acc = 0;
     var keys = Object.keys(odds);
     for (var i = 0; i < keys.length; i++) {
       acc += odds[keys[i]];
@@ -296,30 +324,62 @@
   };
 
   // ---------- soil & crops ----------
-  L.cropStage = function (tile) {
+  // FarmVille style: a crop grows in real time from the minute it is planted (t.p, in minutes); watered soil
+  // (t.w) grows it C.GROW.boost faster. Ripe, it waits as long again as it grew (at least C.GROW.witherMin
+  // minutes), then withers: clear it with the Hoe. Stages: 0 seeds, 1 sprout, 2 growing, 3 ripe, 4 withered.
+  L.growMins = function (t) {
+    var crop = C.CROPS[t.c], mins = t.r && crop.regrow ? crop.regrow : crop.mins;
+    return mins * (t.w ? 1 - C.GROW.boost : 1);
+  };
+  L.witherMins = function (t) {
+    return Math.max(C.CROPS[t.c].mins * C.GROW.wither, C.GROW.witherMin);
+  };
+
+  L.cropStage = function (tile, now) {
     if (!tile || !tile.c) return -1;
-    var days = C.CROPS[tile.c].days;
-    if (tile.d >= days) return 3;
-    if (tile.d === 0) return 0;
-    return tile.d < days / 2 ? 1 : 2;
+    if (now == null) now = L.nowMin();
+    var grow = L.growMins(tile), el = now - tile.p;
+    if (el >= grow) return el >= grow + L.witherMins(tile) && !C.CROPS[tile.c].sickle ? 4 : 3;
+    if (el < grow * 0.25) return 0;
+    return el < grow * 0.5 ? 1 : 2;
   };
 
-  L.isRipe = function (tile) {
-    return L.cropStage(tile) === 3;
+  // Minutes until a growing crop is ripe (0 when ripe), or until a ripe one withers.
+  L.cropLeft = function (tile, now) {
+    if (!tile || !tile.c) return 0;
+    if (now == null) now = L.nowMin();
+    var grow = L.growMins(tile), el = now - tile.p;
+    return el < grow ? Math.ceil(grow - el) : Math.max(0, Math.ceil(grow + L.witherMins(tile) - el));
   };
 
+  L.isRipe = function (tile, now) {
+    return L.cropStage(tile, now) === 3;
+  };
+  L.isWithered = function (tile, now) {
+    return L.cropStage(tile, now) === 4;
+  };
+
+  // Tills a tile, or clears a withered crop off one.
   L.till = function (s, idx) {
     if (s.debris[idx]) return 'debris';
-    if (s.soil[idx]) return 'already';
+    var t = s.soil[idx];
+    if (t && L.isWithered(t)) {
+      t.c = null;
+      t.p = 0;
+      t.r = 0;
+      return 'cleared';
+    }
+    if (t) return 'already';
     // on a rainy day, freshly tilled soil is already wet
-    s.soil[idx] = { w: C.WEATHER[L.weather(s, s.day)].waters ? 1 : 0, c: null, d: 0 };
+    s.soil[idx] = { w: C.WEATHER[L.weather(s, s.day)].waters ? 1 : 0, c: null, p: 0, r: 0 };
     return 'ok';
   };
 
+  // Watering: the crop on it (or the next one planted) grows faster.
   L.water = function (s, idx) {
     var t = s.soil[idx];
     if (!t) return 'nosoil';
-    if (t.w) return 'already';
+    if (t.w || L.cropStage(t) >= 3) return 'already';
     if (s.water <= 0) return 'empty';
     t.w = 1;
     s.water -= 1;
@@ -337,12 +397,13 @@
     if (!slot || C.ITEMS[slot.id].kind !== 'seed') return 'noseed';
     var crop = C.ITEMS[slot.id].crop;
     if (!L.cropInSeason(crop, s.day)) return 'season';
-    var n = 0;
+    var n = 0, now = L.nowMin();
     idxs.forEach(function (idx) {
       var t = s.soil[idx];
       if (t && !t.c) {
         t.c = crop;
-        t.d = 0;
+        t.p = now;
+        t.r = 0;
         n++;
       }
     });
@@ -360,7 +421,6 @@
   };
 
   // Picks a ripe crop by hand. Returns the item id, or an error string starting with '!'.
-  // Regrowing crops stay in the ground and ripen again.
   L.harvest = function (s, idx) {
     var t = s.soil[idx];
     if (!L.isRipe(t)) return '!notripe';
@@ -376,16 +436,34 @@
     return pick(s, t, C.CROPS[t.c]);
   };
 
+  // A picked crop leaves the soil as it was (watering lasts for one crop); grass grows back.
   function pick(s, t, crop) {
     if (L.addItem(s, crop.item, 1) > 0) return '!full';
+    t.w = 0;
     if (crop.regrow) {
-      t.d = crop.days - crop.regrow;
+      t.p = L.nowMin();
+      t.r = 1;
     } else {
       t.c = null;
-      t.d = 0;
+      t.p = 0;
+      t.r = 0;
     }
     return crop.item;
   }
+
+  // ---------- energy ----------
+  // It comes back by itself, a point every C.ENERGY_EVERY minutes (also while the game is closed).
+  L.regen = function (s, now) {
+    if (now == null) now = L.nowMin();
+    var max = L.maxEnergy ? L.maxEnergy(s) : C.MAX_ENERGY;
+    if (!s.regen || s.regen > now || s.energy >= max) { s.regen = now; return 0; }
+    var n = Math.floor((now - s.regen) / C.ENERGY_EVERY);
+    if (n <= 0) return 0;
+    var add = Math.min(n, max - s.energy);
+    s.energy += add;
+    s.regen = s.energy >= max ? now : s.regen + n * C.ENERGY_EVERY;
+    return add;
+  };
 
   L.spendEnergy = function (s, amount) {
     if (s.energy < amount) return false;
@@ -707,8 +785,9 @@
   };
 
   // Lily runs the seed stand on the farm during the day.
+  // (The stand keeps shop hours, early to late; when Lily is in town, her helper minds it.)
   L.lilyAtStand = function (s) {
-    return L.villagerAt(s, 'lily', s.time) === 'away' && L.shopOpen(s);
+    return L.shopOpen(s);
   };
 
   // ---------- town services ----------
@@ -763,7 +842,7 @@
     } else if (fest.kind === 'harvest') {
       var slot = s.inv[choice];
       if (!slot || C.ITEMS[slot.id].kind !== 'crop') return { error: 'nocrop' };
-      var value = C.ITEMS[slot.id].sell, place = value >= 200 ? 1 : value >= 80 ? 2 : 3;
+      var value = C.ITEMS[slot.id].sell, place = value >= 130 ? 1 : value >= 60 ? 2 : 3; // a day's crop or more wins; half a day's places
       out.gold = [0, 1000, 500, 200][place];
       out.place = place;
       out.text = 'The judges taste your ' + C.ITEMS[slot.id].name + '... ' + ['', '1st place', '2nd place', '3rd place'][place] + '! You win ' + out.gold + 'G.';
@@ -848,12 +927,9 @@
   // Ends the day: crops grow, animals produce and grow up, the shipping box pays out, projects finish,
   // weeds sprout at a new season, the weather waters the field, weddings happen.
   // info.fieldTiles (optional): tillable farm tiles, for new weeds.
+  // A new day, at the phone's midnight (see L.catchUp, which runs this once for each day that went by).
+  // Crops are not touched: they grow by the clock.
   L.endDay = function (s, passedOut, info) {
-    Object.keys(s.soil).forEach(function (idx) {
-      var t = s.soil[idx];
-      if (t.c && t.w && !L.isRipe(t)) t.d += 1;
-      t.w = 0;
-    });
 
     var hungry = [], produced = {}, born = [];
     s.animals.forEach(function (a) {
@@ -900,14 +976,6 @@
     var now = L.date(s.day);
     var withered = 0, weeds = 0;
     if (now.season !== before.season) {
-      Object.keys(s.soil).forEach(function (idx) {
-        var t = s.soil[idx];
-        if (t.c && !L.cropInSeason(t.c, s.day)) {
-          t.c = null;
-          t.d = 0;
-          withered++;
-        }
-      });
       Object.keys(s.debris).forEach(function (idx) { if (s.debris[idx] === 'weed' && now.key === 'winter') delete s.debris[idx]; });
       if (now.key !== 'winter' && info && info.fieldTiles) {
         L.shuffle(info.fieldTiles, s.seed, s.day, 3).forEach(function (idx) {
@@ -926,8 +994,9 @@
       s.project = null;
     }
 
+    // rain waters the whole field (growing crops speed up)
     var weather = L.weather(s, s.day);
-    if (C.WEATHER[weather].waters) Object.keys(s.soil).forEach(function (idx) { s.soil[idx].w = 1; });
+    if (C.WEATHER[weather].waters) Object.keys(s.soil).forEach(function (idx) { if (L.cropStage(s.soil[idx]) < 3) s.soil[idx].w = 1; });
 
     var wedding = null, lunch = null;
     if (s.engaged && s.day >= s.engaged.day) {
@@ -941,10 +1010,6 @@
       if (L.addItem(s, lunch, 1) > 0) lunch = null;
     }
 
-    s.time = C.DAY_START;
-    s.energy = passedOut ? Math.floor(C.MAX_ENERGY / 2) : C.MAX_ENERGY;
-    s.map = 'house';
-    s.player = { x: null, y: null, dir: 'down' };
     return {
       earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced, born: born,
       newSeason: now.season !== before.season ? now.name : null, withered: withered, weeds: weeds,
@@ -957,6 +1022,19 @@
   // Compact on purpose: the save must stay well under 16 KB of JSON.
   var DIRS = ['down', 'up', 'left', 'right'];
   var MAPS = ['farm', 'house', 'town', 'mine'];
+
+  // Soil is saved in groups of tiles that are alike: [crop + 1 (0 = none), planted minute (relative to today),
+  // watered + 2 x regrowing, tile, tile, ...]. A seed bag plants 9 tiles at the same minute, so they share one.
+  function soilGroups(s) {
+    var groups = {}, base = s.day * 1440;
+    Object.keys(s.soil).forEach(function (idx) {
+      var t = s.soil[idx], c = t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0;
+      var p = c ? Math.max(t.p - base, -L.growMins(t) - L.witherMins(t) - 1440) : 0; // withered long ago: kept short
+      var key = c + ',' + Math.round(p) + ',' + ((t.w ? 1 : 0) + (t.r ? 2 : 0));
+      (groups[key] = groups[key] || key.split(',').map(Number)).push(Number(idx));
+    });
+    return Object.keys(groups).map(function (k) { return groups[k]; });
+  }
 
   L.serialize = function (s) {
     var debris = [];
@@ -971,7 +1049,10 @@
     var out = {
       v: C.SAVE_VERSION,
       mg: 2, // migration level: saves without it get the new starter tools and a dog
+      rt: 1, // real time: crops grow by the clock (older saves are converted on load)
       d: s.day,
+      s0: s.start,
+      rg: s.regen - s.day * 1440,
       t: Math.floor(s.time),
       g: s.gold,
       e: s.energy,
@@ -980,10 +1061,7 @@
       m: MAPS.indexOf(s.map),
       i: s.inv.map(function (slot) { return slot ? [slot.id, slot.n] : 0; }),
       b: s.box.map(function (b) { return [b.id, b.n]; }),
-      f: Object.keys(s.soil).map(function (idx) {
-        var t = s.soil[idx];
-        return [Number(idx), t.w, t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.d];
-      }),
+      f: soilGroups(s),
       a: s.animals.map(function (a) {
         return [C.ANIMAL_KEYS.indexOf(a.kind), a.love, a.fed, a.pet, a.ready, a.name, a.brushed, a.young, a.preg];
       }),
@@ -1015,9 +1093,21 @@
   // Returns a full state, or null if the data is not a usable save.
   L.deserialize = function (o) {
     if (!o || typeof o !== 'object' || o.v !== C.SAVE_VERSION) return null;
-    var s = L.newState();
-    s.day = int(o.d, 1, 1e6, 1);
-    s.time = int(o.t, C.DAY_START, C.PASS_OUT - 1, C.DAY_START);
+    var now = L.clock(), nowMin = Math.floor(now / 60000), today = L.dayOf(now);
+    var s = L.newState({ now: now });
+    // A save from before real time counted its own days from 1: it carries on from today.
+    var shift = 0;
+    if (o.rt) {
+      s.day = int(o.d, 0, 1e6, today);
+      s.start = int(o.s0, 0, s.day, s.day);
+      s.regen = s.day * 1440 + int(o.rg, -1e7, 1e7, nowMin - s.day * 1440);
+    } else {
+      var old = int(o.d, 1, 1e6, 1);
+      s.day = today;
+      s.start = today - (old - 1);
+      shift = today - old;
+    }
+    s.time = L.minuteOf(now);
     s.gold = int(o.g, 0, 1e9, C.START_GOLD);
     s.energy = int(o.e, 0, C.MAX_ENERGY, C.MAX_ENERGY);
     s.sel = int(o.s, 0, C.INV_SIZE - 1, 0);
@@ -1044,10 +1134,22 @@
     s.soil = {};
     (Array.isArray(o.f) ? o.f : []).forEach(function (e) {
       if (!Array.isArray(e)) return;
+      if (o.rt) { // groups (see soilGroups)
+        var c = C.CROP_KEYS[int(e[0], 0, 1e6, 0) - 1] || null, p = s.day * 1440 + int(e[1], -1e7, 1e7, 0), fl = int(e[2], 0, 3, 0);
+        e.slice(3, 3 + 2000).forEach(function (x) {
+          var i = int(x, 0, 1e6, -1);
+          if (i >= 0) s.soil[i] = { w: fl & 1, c: c, p: c ? p : 0, r: c && fl & 2 && C.CROPS[c].regrow ? 1 : 0 };
+        });
+        return;
+      }
       var idx = int(e[0], 0, 1e6, -1);
       if (idx < 0) return;
-      var crop = C.CROP_KEYS[int(e[2], 0, 1e6, 0) - 1] || null;
-      s.soil[idx] = { w: e[1] ? 1 : 0, c: crop, d: crop ? int(e[3], 0, C.CROPS[crop].days, 0) : 0 };
+      var crop = C.CROP_KEYS[int(e[2], 0, 1e6, 0) - 1] || null, t = { w: e[1] ? 1 : 0, c: crop, p: 0, r: 0 };
+      if (crop) { // days grown (of the old growing days) becomes the same share of the new growing time
+        var oldDays = { turnip: 3, potato: 5, strawberry: 7, tomato: 6, corn: 9, carrot: 4, pumpkin: 10, grass: 4 }[crop] || 1;
+        t.p = Math.round(nowMin - Math.min(1, int(e[3], 0, 99, 0) / oldDays) * C.CROPS[crop].mins);
+      }
+      s.soil[idx] = t;
     });
     // saves from before animals existed simply have none
     s.animals = (Array.isArray(o.a) ? o.a : []).filter(function (e) {
@@ -1077,7 +1179,7 @@
     s.builds = {};
     if (Array.isArray(o.bd)) C.BUILD_KEYS.forEach(function (k, i) { if (o.bd[i]) s.builds[k] = 1; });
     if (Array.isArray(o.pj) && C.BUILD_KEYS[o.pj[0]] && !s.builds[C.BUILD_KEYS[o.pj[0]]]) {
-      s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) };
+      s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) + shift };
     }
     C.ANIMAL_KEYS.forEach(function (kind) { // never more than a building holds
       var seen = 0;
@@ -1097,7 +1199,7 @@
       C.FESTIVALS.forEach(function (f) { if (o.fe[f.key]) s.fest[f.key] = int(o.fe[f.key], 0, 1e5, 0); });
     }
     s.spouse = C.VILLAGERS[o.sp] && C.VILLAGERS[o.sp].candidate ? o.sp : null;
-    if (Array.isArray(o.en) && C.VILLAGERS[o.en[0]] && !s.spouse) s.engaged = { who: o.en[0], day: int(o.en[1], 1, 1e6, s.day) };
+    if (Array.isArray(o.en) && C.VILLAGERS[o.en[0]] && !s.spouse) s.engaged = { who: o.en[0], day: int(o.en[1], 1, 1e6, s.day) + shift };
     if (Array.isArray(o.op)) s.opts = { music: o.op[0] ? 1 : 0, sfx: o.op[1] ? 1 : 0 };
     if (Array.isArray(o.p) && o.p.length === 3) {
       s.player = { x: int(o.p[0], 0, 1e5, 0), y: int(o.p[1], 0, 1e5, 0), dir: DIRS[int(o.p[2], 0, 3, 0)] };

@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -39,7 +40,7 @@ test('every villager has a home building, real places, a birthday in range, and 
       if (at.startsWith('in:')) assert.ok(C.BUILDINGS[at.slice(3)], k + ': ' + at);
       else assert.ok(places.has(at), k + ': ' + at);
     });
-    assert.ok(v.birthday[1] >= 1 && v.birthday[1] <= C.DAYS_PER_SEASON, k);
+    assert.ok(v.birthday[0] >= 1 && v.birthday[0] <= 12 && v.birthday[1] >= 1 && v.birthday[1] <= 28, k);
     assert.ok(C.HEART_EVENTS[k] && C.HEART_EVENTS[k].length >= (v.candidate ? 3 : 1), k + ' heart events');
   });
 });
@@ -50,20 +51,21 @@ test('no two villagers share a birthday, and none falls on a festival', () => {
     const b = C.VILLAGERS[k].birthday.join(' ');
     assert.ok(!seen[b], k + ' and ' + seen[b] + ' share ' + b);
     seen[b] = k;
-    assert.ok(!C.FESTIVALS.some((f) => f.season === C.VILLAGERS[k].birthday[0] && f.day === C.VILLAGERS[k].birthday[1]), k);
+    assert.ok(!C.FESTIVALS.some((f) => f.date[0] === C.VILLAGERS[k].birthday[0] && f.date[1] === C.VILLAGERS[k].birthday[1]), k);
   });
 });
 
 test('the children go to school on weekdays and play on rest days; the school is shut on rest days', () => {
   const s = fresh();
-  s.day = 1; // weekday 1
-  assert.strictEqual(L.weekday(1), 1);
-  assert.ok(!L.restDay(1));
+  const mon = L.dayOf(new Date(2026, 3, 6, 12).getTime()), sat = mon + 5; // Monday April 6th, Saturday the 11th
+  s.day = mon;
+  assert.strictEqual(L.weekday(mon), 1);
+  assert.ok(!L.restDay(mon));
   assert.strictEqual(L.villagerAt(s, 'pip', 10 * 60), 'in:school');
   s.time = 10 * 60;
   assert.ok(L.buildingOpen(s, 'school'));
-  s.day = 6;
-  assert.ok(L.restDay(6));
+  s.day = sat;
+  assert.ok(L.restDay(sat));
   assert.strictEqual(L.villagerAt(s, 'pip', 10 * 60), 'playground');
   assert.ok(!L.buildingOpen(s, 'school'));
   assert.ok(L.buildingOpen(s, 'bakery'), 'the bakery opens every day');
@@ -113,15 +115,14 @@ test('the chapel restores a little energy once a day; helping at school befriend
   s.time = 10 * 60;
   assert.strictEqual(L.chapelRest(s), C.CHAPEL_REST.energy);
   assert.strictEqual(s.energy, 50 + C.CHAPEL_REST.energy);
-  assert.strictEqual(s.time, 10 * 60 + C.CHAPEL_REST.minutes);
   assert.strictEqual(L.chapelRest(s), 0);
   assert.strictEqual(roundTrip(s).chapelDay, s.day);
-  s.day = 2;
+  s.day = L.dayOf(new Date(2026, 3, 7, 12).getTime()); // a Tuesday
   s.time = 9 * 60;
   assert.strictEqual(L.helpSchool(s), 'ok');
   ['clara', 'pip', 'daisy'].forEach((k) => assert.strictEqual(L.friend(s, k).pts, C.SCHOOL_HELP.pts, k));
   assert.strictEqual(L.helpSchool(s), 'already');
-  s.day = 7;
+  s.day = L.dayOf(new Date(2026, 3, 12, 12).getTime()); // a Sunday
   assert.strictEqual(L.helpSchool(s), 'closed');
 });
 
@@ -136,13 +137,13 @@ test("Marco's wagon: 4 discounted pieces a day, different each day, into storage
     assert.ok(!C.HOME.types[d.t].needs);
   });
   assert.deepStrictEqual(plain(L.wagonDeals(s)), plain(deals), 'the same all day');
-  s.day = 2;
+  s.day += 1;
   assert.notDeepStrictEqual(plain(L.wagonDeals(s)), plain(deals), 'new ones tomorrow');
   const d = L.wagonDeals(s)[0];
   assert.strictEqual(L.buyDeal(s, 0), 'ok');
   assert.strictEqual(s.home.bag[L.furnKey(d.t, d.v)], 1);
   assert.strictEqual(s.gold, 1e6 - d.price);
-  s.time = 20 * 60;
+  s.time = 23 * 60 + 30;
   assert.strictEqual(L.buyDeal(s, 0), 'closed');
 });
 

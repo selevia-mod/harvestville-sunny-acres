@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 // Weather would water test crops on random rainy mornings; keep it sunny unless a test asks for it.
 const realWeather = L.weather;
 L.weather = () => 'sunny';
@@ -19,12 +20,10 @@ L.weather = () => 'sunny';
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const same = (a, b, msg) => assert.deepStrictEqual(plain(a), plain(b), msg);
 const slotOf = (s, id) => s.inv.findIndex((x) => x && x.id === id);
+// crops grow by the clock: move time on until it is ripe
 const growToRipe = (s, idx) => {
-  for (let i = 0; i < 20 && !L.isRipe(s.soil[idx]); i++) {
-    L.water(s, idx);
-    L.refill(s);
-    L.endDay(s);
-  }
+  clock.advance(Math.ceil(L.growMins(s.soil[idx])));
+  assert.ok(L.isRipe(s.soil[idx]));
 };
 
 test('new game starts with tools, seeds and gold', () => {
@@ -48,7 +47,7 @@ test('inventory stacks, respects limits and reports overflow', () => {
   assert.strictEqual(L.canAdd(s, 'turnip', 49), false);
 });
 
-test('till, plant, water and grow a turnip to harvest', () => {
+test('till, plant and grow a turnip to harvest in real time; a ripe crop withers if left too long', () => {
   const s = L.newState();
   const seeds = slotOf(s, 'seed_turnip');
   assert.strictEqual(L.plant(s, 5, seeds), 'nosoil');
@@ -58,33 +57,52 @@ test('till, plant, water and grow a turnip to harvest', () => {
   assert.strictEqual(L.countItem(s, 'seed_turnip'), 2);
   assert.strictEqual(L.plant(s, 5, seeds), 'occupied');
   assert.strictEqual(L.cropStage(s.soil[5]), 0);
-
-  // an unwatered day does not grow
-  L.endDay(s);
-  assert.strictEqual(s.soil[5].d, 0);
-
-  for (let day = 1; day <= C.CROPS.turnip.days; day++) {
-    assert.strictEqual(L.harvest(s, 5), '!notripe');
-    assert.strictEqual(L.water(s, 5), 'ok');
-    assert.strictEqual(L.water(s, 5), 'already');
-    L.endDay(s);
-    assert.strictEqual(s.soil[5].w, 0, 'watering resets overnight');
-  }
+  assert.strictEqual(C.CROPS.turnip.mins, 15);
+  // no watering needed: it grows by the clock
+  clock.advance(8);
+  assert.strictEqual(L.cropStage(s.soil[5]), 2);
+  assert.strictEqual(L.harvest(s, 5), '!notripe');
+  assert.strictEqual(L.cropLeft(s.soil[5]), 7);
+  clock.advance(7);
   assert.ok(L.isRipe(s.soil[5]));
   assert.strictEqual(L.harvest(s, 5), 'turnip');
   assert.strictEqual(L.countItem(s, 'turnip'), 1);
-  same(s.soil[5], { w: 0, c: null, d: 0 }, 'soil stays tilled after harvest');
+  same(s.soil[5], { w: 0, c: null, p: 0, r: 0 }, 'soil stays tilled after harvest');
+
+  // ripe for as long as it grew (at least 4 hours), then withered: the Hoe clears it
+  L.plant(s, 5, seeds);
+  clock.advance(15 + C.GROW.witherMin - 1);
+  assert.ok(L.isRipe(s.soil[5]));
+  clock.advance(1);
+  assert.ok(L.isWithered(s.soil[5]));
+  assert.strictEqual(L.harvest(s, 5), '!notripe');
+  assert.strictEqual(L.till(s, 5), 'cleared');
+  same(s.soil[5], { w: 0, c: null, p: 0, r: 0 });
+});
+
+test('watering makes a crop grow a quarter faster', () => {
+  const s = L.newState();
+  L.till(s, 5);
+  L.till(s, 6);
+  L.plantBag(s, [5, 6], slotOf(s, 'seed_turnip'));
+  assert.strictEqual(L.water(s, 5), 'ok');
+  assert.strictEqual(L.water(s, 5), 'already');
+  assert.strictEqual(L.growMins(s.soil[5]), 15 * 0.75);
+  clock.advance(12);
+  assert.ok(L.isRipe(s.soil[5]), 'watered: ripe after 11 1/4 minutes');
+  assert.ok(!L.isRipe(s.soil[6]), 'dry: still growing');
+  assert.strictEqual(L.water(s, 5), 'already', 'nothing to gain on a ripe crop');
 });
 
 test('growth stages progress for every crop', () => {
   C.CROP_KEYS.forEach((crop) => {
-    const days = C.CROPS[crop].days;
+    const mins = C.CROPS[crop].mins, t = { c: crop, p: 1000, w: 0, r: 0 };
     const stages = [];
-    for (let d = 0; d <= days; d++) stages.push(L.cropStage({ c: crop, d, w: 0 }));
-    assert.strictEqual(stages[0], 0);
-    assert.strictEqual(stages[days], 3);
-    stages.slice(1, -1).forEach((st) => assert.ok(st === 1 || st === 2));
-    for (let i = 1; i < stages.length; i++) assert.ok(stages[i] >= stages[i - 1]);
+    for (let k = 0; k <= 8; k++) stages.push(L.cropStage(t, 1000 + Math.round((mins * k) / 8)));
+    assert.strictEqual(stages[0], 0, crop);
+    assert.strictEqual(stages[8], 3, crop);
+    stages.slice(1, -1).forEach((st) => assert.ok(st >= 0 && st <= 2, crop));
+    for (let i = 1; i < stages.length; i++) assert.ok(stages[i] >= stages[i - 1], crop);
   });
 });
 
@@ -100,32 +118,37 @@ test('watering can runs dry and refills', () => {
   assert.strictEqual(L.water(s, 999), 'ok');
 });
 
-test('energy is spent and restored by sleeping', () => {
+test('energy is spent, and comes back by itself over time (not by sleeping)', () => {
   const s = L.newState();
   assert.ok(L.spendEnergy(s, 99));
   assert.strictEqual(L.spendEnergy(s, 2), false);
   L.endDay(s);
-  assert.strictEqual(s.energy, C.MAX_ENERGY);
-  L.endDay(s, true);
-  assert.strictEqual(s.energy, C.MAX_ENERGY / 2, 'passing out restores only half');
+  assert.strictEqual(s.energy, 1, 'a new day does not refill it');
+  clock.advance(C.ENERGY_EVERY * 10 + 1);
+  assert.strictEqual(L.regen(s), 10);
+  assert.strictEqual(s.energy, 11);
+  clock.advance(24 * 60); // a day away: full, never more
+  L.regen(s);
+  assert.strictEqual(s.energy, L.maxEnergy(s));
 });
 
-test('shipping pays out overnight', () => {
+test('shipping pays out at midnight', () => {
   const s = L.newState();
   L.addItem(s, 'turnip', 3);
   L.addItem(s, 'strawberry', 2);
   assert.strictEqual(L.ship(s, slotOf(s, 'hoe')), null, 'tools cannot be shipped');
-  assert.strictEqual(L.ship(s, slotOf(s, 'turnip')).value, 180);
+  assert.strictEqual(L.ship(s, slotOf(s, 'turnip')).value, 3 * C.ITEMS.turnip.sell);
   L.ship(s, slotOf(s, 'strawberry'));
   assert.strictEqual(L.countItem(s, 'turnip'), 0);
-  assert.strictEqual(L.boxValue(s), 180 + 2 * C.ITEMS.strawberry.sell);
-  const gold = s.gold;
-  const r = L.endDay(s);
-  assert.strictEqual(r.earned, 180 + 2 * C.ITEMS.strawberry.sell);
+  const value = 3 * C.ITEMS.turnip.sell + 2 * C.ITEMS.strawberry.sell;
+  assert.strictEqual(L.boxValue(s), value);
+  const gold = s.gold, day = s.day;
+  const r = clock.nextDay(L, s);
+  assert.strictEqual(r.earned, value);
   assert.strictEqual(s.gold, gold + r.earned);
   assert.strictEqual(s.box.length, 0);
-  assert.strictEqual(s.day, 2);
-  assert.strictEqual(s.time, C.DAY_START);
+  assert.strictEqual(s.day, day + 1);
+  assert.strictEqual(s.time, 8 * 60, 'the clock is the phone\'s');
 });
 
 test('shop checks gold and bag space', () => {
@@ -163,30 +186,41 @@ test('save round-trips through JSON', () => {
   L.plant(s, 300, slotOf(s, 'seed_turnip'));
   L.water(s, 300);
   L.till(s, 301);
-  growToRipe(s, 300);
+  clock.advance(5);
   L.addItem(s, 'potato', 4);
   L.ship(s, slotOf(s, 'potato'));
   s.player = { x: 100.4, y: 200.6, dir: 'left' };
-  s.time = 800;
   s.sel = 2;
+  s.energy = 40;
   const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
   same(back.soil, s.soil);
   same(back.inv, s.inv);
   same(back.box, s.box);
   same(back.player, { x: 100, y: 201, dir: 'left' });
-  ['day', 'time', 'gold', 'energy', 'water', 'sel'].forEach((k) => assert.strictEqual(back[k], s[k], k));
+  ['day', 'start', 'gold', 'energy', 'water', 'sel', 'regen'].forEach((k) => assert.strictEqual(back[k], s[k], k));
+  assert.strictEqual(L.cropStage(back.soil[300]), L.cropStage(s.soil[300]));
+});
+
+test('a save from before real time carries on from today', () => {
+  const back = L.deserialize({ v: 1, mg: 2, d: 30, t: 900, f: [[10, 1, 1, 3], [11, 0, 0, 0]], pj: [0, 32], g: 500 });
+  const today = L.dayOf(clock.ms);
+  assert.strictEqual(back.day, today);
+  assert.strictEqual(back.start, today - 29, 'it started 29 days ago');
+  assert.strictEqual(back.project.done, today + 2, 'a building still has the days it had left');
+  assert.strictEqual(back.soil[10].c, 'turnip');
+  assert.ok(L.isRipe(back.soil[10]), 'a turnip grown 3 of 3 days is ripe');
+  same(back.soil[11], { w: 0, c: null, p: 0, r: 0 });
 });
 
 test('worst-case save stays under 16 KB', () => {
   const s = L.newState();
-  for (let idx = 0; idx < 38 * 24; idx++) { // every tile on the map planted
+  for (let idx = 0; idx < 224; idx++) { // the whole field (224 tillable tiles) planted, every tile different
     L.till(s, idx);
-    s.soil[idx] = { w: 1, c: 'strawberry', d: 6 };
+    s.soil[idx] = { w: idx % 2, c: C.CROP_KEYS[idx % 40], p: clock.min() - 2000 - idx * 7, r: 0 };
   }
   s.inv = s.inv.map(() => ({ id: 'seed_strawberry', n: 99 }));
-  C.CROP_KEYS.forEach((c) => s.box.push({ id: c, n: 9999 }));
+  C.CROP_KEYS.forEach((c) => s.box.push({ id: C.CROPS[c].item, n: 9999 }));
   s.gold = 999999999;
-  s.day = 999999;
   s.player = { x: 12345, y: 12345, dir: 'right' };
   s.animals = [];
   C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < C.ANIMALS[k].max; i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 1 }); });
@@ -196,23 +230,25 @@ test('worst-case save stays under 16 KB', () => {
 
 test('bad or foreign save data is rejected or sanitised', () => {
   [null, undefined, 'x', 42, [], {}, { v: 99 }].forEach((bad) => assert.strictEqual(L.deserialize(bad), null));
+  const today = L.dayOf(clock.ms);
   const s = L.deserialize({
-    v: 1, mg: 2, d: -5, t: 'noon', g: 1e20, e: 500, w: -1, s: 77,
+    v: 1, mg: 2, rt: 1, d: -5, t: 'noon', g: 1e20, e: 500, w: -1, s: 77,
     i: [['hoe', 1], ['rocket', 3], ['turnip', 1000], 'junk'],
     b: [['hoe', 1], ['turnip', 2]],
-    f: [[10, 1, 9, 3], [11, 0, 1, 99], 'junk', [-1, 0, 0, 0]],
+    f: [[999, 5, 1, 10], [1, 'x', 0, 11, 'y'], 'junk', [0, 0, 0, -1]],
     p: [1, 2],
   });
-  assert.strictEqual(s.day, 1);
-  assert.strictEqual(s.time, C.DAY_START);
+  assert.strictEqual(s.day, 0);
   assert.strictEqual(s.energy, C.MAX_ENERGY);
   assert.strictEqual(s.water, 0);
   assert.strictEqual(s.sel, C.INV_SIZE - 1);
   same(s.inv.slice(0, 4), [{ id: 'hoe', n: 1 }, null, { id: 'turnip', n: 99 }, null]);
   same(s.box, [{ id: 'turnip', n: 2 }]);
-  same(s.soil[10], { w: 1, c: null, d: 0 });
-  same(s.soil[11], { w: 0, c: 'turnip', d: C.CROPS.turnip.days });
+  same(s.soil[10], { w: 1, c: null, p: 0, r: 0 });
+  assert.strictEqual(s.soil[11].c, 'turnip');
   assert.strictEqual(s.player.x, null);
+  assert.ok(L.catchUp(s, clock.ms).days > 0, 'a nonsense day just catches up');
+  assert.strictEqual(s.day, today);
 });
 
 test('a new game starts with one chicken and some feed', () => {
@@ -328,55 +364,64 @@ test('bad animal save data is sanitised', () => {
   assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
 });
 
-test('calendar: 4 seasons of 28 days, then a new year', () => {
-  const N = C.DAYS_PER_SEASON;
-  same(L.date(1), { season: 0, key: 'spring', name: 'Spring', day: 1, year: 1 });
-  assert.strictEqual(L.formatDate(N), 'Spring 28');
-  assert.strictEqual(L.formatDate(N + 1), 'Summer 1');
-  assert.strictEqual(L.formatDate(2 * N + 5), 'Fall 5');
-  assert.strictEqual(L.formatDate(3 * N + 1), 'Winter 1');
-  same(L.date(4 * N + 1), { season: 0, key: 'spring', name: 'Spring', day: 1, year: 2 });
+test('calendar: the real date; seasons by month', () => {
+  const day = (y, m, d) => L.dayOf(new Date(y, m - 1, d, 12).getTime());
+  same(L.date(day(2026, 10, 27)), { season: 2, key: 'fall', name: 'Fall', day: 27, month: 10, monthName: 'October', year: 2026, weekday: 2 });
+  assert.strictEqual(L.formatDate(day(2026, 10, 27)), 'Oct 27');
+  const season = (m) => L.date(day(2026, m, 15)).key;
+  same([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(season),
+    ['winter', 'winter', 'spring', 'spring', 'spring', 'summer', 'summer', 'summer', 'fall', 'fall', 'fall', 'winter']);
+  assert.strictEqual(day(2026, 3, 1) - day(2026, 2, 28), 1);
+  assert.strictEqual(L.minuteOf(new Date(2026, 0, 1, 13, 45).getTime()), 13 * 60 + 45);
 });
 
-test('the shop sells only this season\'s seeds, and none in winter', () => {
-  const N = C.DAYS_PER_SEASON;
-  same(L.seedsInSeason(1), ['seed_turnip', 'seed_potato', 'seed_strawberry', 'seed_grass']);
-  same(L.seedsInSeason(N + 1), ['seed_tomato', 'seed_corn', 'seed_grass']);
-  same(L.seedsInSeason(2 * N + 1), ['seed_carrot', 'seed_pumpkin', 'seed_grass']);
-  same(L.seedsInSeason(3 * N + 1), []);
+test('the shop sells this season\'s 10 seeds (and grass, but not in winter)', () => {
+  const day = (m) => L.dayOf(new Date(2026, m - 1, 10, 12).getTime());
+  const seeds = (m) => L.seedsInSeason(day(m));
+  assert.strictEqual(seeds(4).length, 11);
+  assert.ok(seeds(4).includes('seed_turnip') && seeds(4).includes('seed_tulip') && seeds(4).includes('seed_grass'));
+  assert.ok(seeds(7).includes('seed_watermelon') && !seeds(7).includes('seed_turnip'));
+  assert.ok(seeds(10).includes('seed_pumpkin') && seeds(10).includes('seed_rice'));
+  assert.strictEqual(seeds(1).length, 10, 'winter has its own 10');
+  assert.ok(seeds(1).includes('seed_coffee') && !seeds(1).includes('seed_grass'));
   assert.strictEqual(L.seasonsOf('tomato'), 'Summer');
 });
 
 test('seeds only go in the ground in their season', () => {
-  const s = L.newState();
+  const s = L.newState(); // April: spring
   L.addItem(s, 'seed_tomato', 2);
   L.till(s, 1);
   assert.strictEqual(L.plant(s, 1, slotOf(s, 'seed_tomato')), 'season');
   assert.strictEqual(L.countItem(s, 'seed_tomato'), 2, 'seeds are kept');
-  s.day = C.DAYS_PER_SEASON + 1;
+  s.day = L.dayOf(new Date(2026, 6, 1, 12).getTime()); // July
   assert.strictEqual(L.plant(s, 1, slotOf(s, 'seed_tomato')), 'ok');
 });
 
-test('crops wither when the season changes, but tilled soil stays', () => {
+test('a crop planted at the end of a season grows on into the next', () => {
+  clock.set(2026, 5, 31, 23, 0); // the last hour of spring
   const s = L.newState();
-  s.day = C.DAYS_PER_SEASON - 1; // Spring 27
   L.till(s, 1);
-  L.plant(s, 1, slotOf(s, 'seed_turnip'));
-  L.till(s, 2);
-  L.water(s, 1);
-  let r = L.endDay(s); // -> Spring 28: still growing
-  assert.strictEqual(r.newSeason, null);
-  assert.strictEqual(s.soil[1].d, 1);
-  r = L.endDay(s); // -> Summer 1
+  L.addItem(s, 'seed_onion', 1);
+  L.plant(s, 1, slotOf(s, 'seed_onion'));
+  const r = clock.nextDay(L, s); // June 1st: summer
   assert.strictEqual(r.newSeason, 'Summer');
-  assert.strictEqual(r.withered, 1);
-  same(s.soil[1], { w: 0, c: null, d: 0 });
-  assert.ok(s.soil[2], 'tilled soil is still there');
+  assert.strictEqual(s.soil[1].c, 'onion');
+  clock.advance(24 * 60);
+  assert.ok(L.isRipe(s.soil[1]));
+  clock.set(2026, 4, 1, 10, 0);
 });
 
-test('every crop can ripen within its season', () => {
-  C.CROP_KEYS.forEach((k) => assert.ok(C.CROPS[k].days < C.DAYS_PER_SEASON, k));
+test('10 crops in every season, all sellable, from 15 minutes to 2 days', () => {
+  C.SEASONS.forEach((se) => assert.strictEqual(C.CROP_KEYS.filter((k) => !C.CROPS[k].sickle && C.CROPS[k].seasons[0] === se.key).length, 10, se.key));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell || C.CROPS[k].sickle, k + ' sells'));
+  C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS['seed_' + k] && C.ITEMS['seed_' + k].crop === k, k + ' has seeds'));
+  const mins = C.CROP_KEYS.map((k) => C.CROPS[k].mins);
+  assert.strictEqual(Math.min(...mins), 15);
+  assert.strictEqual(Math.max(...mins), 2880);
+  // longer crops pay more per harvest, quicker ones more per hour
+  const per = (k) => C.ITEMS[k].sell - C.ITEMS['seed_' + k].price / 9;
+  assert.ok(per('watermelon') > per('turnip'));
+  assert.ok(per('turnip') / 15 > per('watermelon') / 2880);
 });
 
 test('soil tilled on a rainy day comes out wet; on a dry day it needs watering', () => {
@@ -391,4 +436,27 @@ test('soil tilled on a rainy day comes out wet; on a dry day it needs watering',
   } finally {
     L.weather = weather;
   }
+});
+
+test('coming back after days away: each midnight is counted once, in one report', () => {
+  const s = L.newState();
+  const day0 = s.day;
+  L.addItem(s, 'turnip', 2);
+  L.ship(s, slotOf(s, 'turnip'));
+  s.animals[0].fed = 1;
+  s.energy = 10;
+  assert.strictEqual(L.catchUp(s, clock.ms), null, 'still the same day');
+  clock.advance(3 * 24 * 60 + 5); // 3 days later
+  const r = L.catchUp(s, clock.ms);
+  assert.strictEqual(r.days, 3);
+  assert.strictEqual(s.day, day0 + 3);
+  assert.strictEqual(r.earned, 2 * C.ITEMS.turnip.sell, 'the box paid once');
+  assert.strictEqual(r.produced.egg, 1, 'the hen was fed the first day only');
+  assert.deepStrictEqual(plain(r.hungry), [s.animals[0].name]);
+  assert.strictEqual(s.energy, L.maxEnergy(s), 'energy came back while away');
+  assert.strictEqual(L.catchUp(s, clock.ms), null);
+  clock.advance(-2 * 24 * 60); // the phone's clock set back: the farm does not go back
+  assert.strictEqual(L.catchUp(s, clock.ms), null);
+  assert.strictEqual(s.day, day0 + 3);
+  clock.set(2026, 4, 1, 10, 0);
 });

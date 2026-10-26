@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));

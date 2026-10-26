@@ -8,7 +8,7 @@
   var H = C.HOME;
 
   // ---------- the week ----------
-  L.weekday = function (day) { return ((day - 1) % 7) + 1; }; // 1..7
+  L.weekday = function (day) { var wd = L.date(day).weekday; return wd === 0 ? 7 : wd; }; // 1 Monday .. 7 Sunday (the real week)
   L.restDay = function (day) { return C.REST_DAYS.indexOf(L.weekday(day)) >= 0; };
 
   // On rest days the children have no school (and Clara no class): they follow their `rest` schedule.
@@ -67,7 +67,6 @@
     s.chapelDay = s.day;
     var gain = Math.max(0, Math.min(C.CHAPEL_REST.energy, L.maxEnergy(s) - s.energy));
     s.energy += gain;
-    s.time = Math.min(C.PASS_OUT - 1, s.time + C.CHAPEL_REST.minutes);
     return gain || -1;
   };
 

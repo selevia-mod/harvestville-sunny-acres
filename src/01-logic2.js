@@ -319,7 +319,6 @@
     var mailBefore = s.mail.length;
     L.checkMail(s);
     r.mail = s.mail.length > mailBefore ? s.mail.length - mailBefore : 0;
-    if (L.progress(s, 'sleep')) r.goalDone = true;
     return r;
   };
 
@@ -365,7 +364,7 @@
       s.goal = int(o.gl[0], 0, C.GOALS.length, 0);
       s.gp = int(o.gl[1], 0, 1000, 0);
     } else {
-      s.goal = s.day > 1 ? C.GOALS.length : 0; // older farms already know the ropes
+      s.goal = s.day > s.start ? C.GOALS.length : 0; // older farms already know the ropes
     }
     s.tips = int(o.tp, 0, 2147483647, 0);
     s.col = (Array.isArray(o.cl) ? o.cl : []).slice(0, 4).map(function (v) { return int(v, 0, (1 << BITS) - 1, 0); });

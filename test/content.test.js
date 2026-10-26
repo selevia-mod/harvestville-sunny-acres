@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -49,12 +50,11 @@ test('every goal has a target the pointer can find and a reward', () => {
   maps.forEach((a) => maps.forEach((b) => { if (a !== b) assert.ok(C.ROUTES[a][b], a + ' -> ' + b); }));
 });
 
-test('sleeping counts for the sleep goal', () => {
-  const s = fresh();
-  s.goal = C.GOALS.findIndex((g) => g.event === 'sleep');
-  const r = L.endDay(s, false);
-  assert.strictEqual(r.goalDone, true);
-  assert.strictEqual(L.goal(s).event, 'collect');
+test('the first goals fit real time: a quick turnip harvest, and the egg comes tomorrow', () => {
+  assert.ok(!C.GOALS.some((g) => g.event === 'sleep'), 'no going to bed');
+  const at = (e) => C.GOALS.findIndex((g) => g.event === e);
+  assert.ok(at('plant') < at('harvest') && at('harvest') < at('collect'));
+  assert.strictEqual(at('collect'), C.GOALS.length - 1, 'the egg is last: it needs a new day');
 });
 
 test('tips show once per kind of item', () => {
@@ -73,7 +73,7 @@ test('tips show once per kind of item', () => {
 test('the collection book fills as you harvest, ship, catch, forage and cook', () => {
   const s = fresh();
   assert.strictEqual(L.collectionCount(s), 0);
-  s.soil[5] = { w: 0, c: 'turnip', d: 3 };
+  s.soil[5] = { w: 0, c: 'turnip', p: clock.min() - 15, r: 0 };
   assert.strictEqual(L.harvest(s, 5), 'turnip');
   assert.ok(L.discovered(s, 'turnip'));
   assert.strictEqual(L.discover(s, 'turnip'), false, 'only new the first time');
@@ -110,12 +110,12 @@ test('shipping earnings are recorded and unlock letters', () => {
 
 test('letters: festival invitations and birthday notes the day before; gifts are taken when read', () => {
   const s = fresh();
-  s.day = 13; // Spring 13: the Flower Festival is tomorrow
+  s.day = L.dayOf(new Date(2026, 3, 13, 12).getTime()); // April 13th: the Flower Festival is tomorrow
   L.checkMail(s);
   assert.ok(s.mail.includes('fest:flower'));
   assert.match(L.letter('fest:flower').text, /Flower Festival/);
   s.mail = [];
-  s.day = 19; // Lily's birthday is Spring 20
+  s.day = L.dayOf(new Date(2026, 9, 26, 12).getTime()); // Lily's birthday is October 27th
   L.checkMail(s);
   assert.ok(s.mail.includes('bday:lily'));
   assert.match(L.letter('bday:lily').text, /Lily/);
@@ -249,7 +249,7 @@ test('a good dance earns extra friendship at the Flower Festival', () => {
 
 test('older saves skip the starter goals; new farms start them', () => {
   const s = fresh();
-  s.day = 20;
+  s.day = s.start + 20;
   const o = plain(L.serialize(s));
   delete o.gl;
   assert.strictEqual(L.deserialize(o).goal, C.GOALS.length);

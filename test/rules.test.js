@@ -11,13 +11,14 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 const realWeather = L.weather;
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const same = (a, b, msg) => assert.deepStrictEqual(plain(a), plain(b), msg);
 const slotOf = (s, id) => s.inv.findIndex((x) => x && x.id === id);
-const N = C.DAYS_PER_SEASON;
+const dayOn = (m, d, y = 2026) => L.dayOf(new Date(y, m - 1, d, 12).getTime()); // a real date's day number
 const FIELD = Array.from({ length: 224 }, (_, i) => 1000 + i);
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 const fresh = () => {
@@ -27,21 +28,22 @@ const fresh = () => {
 };
 
 // ---------- weather ----------
-test('weather: day 1 and festival days are sunny; the rest follows the season odds', () => {
+test('weather: a farm\'s first day and festival days are sunny; the rest follows the season odds, the same for everyone', () => {
   const s = fresh();
-  assert.strictEqual(realWeather(s, 1), 'sunny');
-  const fest = C.FESTIVALS[0];
-  const festDay = ['spring', 'summer', 'fall', 'winter'].indexOf(fest.season) * N + fest.day;
-  assert.strictEqual(realWeather(s, festDay), 'sunny');
-  const count = (from, to, kind) => {
-    let n = 0;
-    for (let y = 0; y < 40; y++) for (let d = from; d <= to; d++) if (realWeather(s, d + y * 4 * N) === kind) n++;
-    return n / (40 * (to - from + 1));
+  assert.strictEqual(realWeather(s, s.start), 'sunny');
+  C.FESTIVALS.forEach((f) => assert.strictEqual(realWeather(s, dayOn(f.date[0], f.date[1])), 'sunny', f.key));
+  const count = (m0, m1, kind) => {
+    let n = 0, all = 0;
+    for (let y = 2026; y < 2046; y++) for (let d = dayOn(m0, 1, y); d < dayOn(m1, 1, y); d++) { all++; if (realWeather(s, d) === kind) n++; }
+    return n / all;
   };
-  assert.ok(Math.abs(count(2, N, 'rain') - 0.25) < 0.05, 'spring rain about 25%');
-  assert.strictEqual(count(3 * N + 1, 4 * N, 'rain'), 0, 'no rain in winter');
-  assert.ok(count(3 * N + 1, 4 * N, 'snow') > 0.25, 'snow in winter');
-  assert.strictEqual(realWeather(s, 50), realWeather(s, 50), 'the forecast is fixed');
+  assert.ok(Math.abs(count(3, 6, 'rain') - 0.25) < 0.05, 'spring rain about 25%');
+  assert.strictEqual(count(1, 3, 'rain'), 0, 'no rain in winter');
+  assert.ok(count(1, 3, 'snow') > 0.25, 'snow in winter');
+  const other = fresh();
+  other.seed = 999;
+  const d = dayOn(5, 20);
+  assert.strictEqual(realWeather(s, d), realWeather(other, d), 'every player has the same weather');
 });
 
 test('rain waters every tilled tile for the new day', () => {
@@ -113,11 +115,12 @@ test('debris needs the right tool, and pays out materials', () => {
 
 test('weeds sprout on empty field at a new season and vanish in winter', () => {
   const s = fresh();
-  s.day = N;
+  s.day = dayOn(5, 31); // the last day of spring
   const r = L.endDay(s, false, { fieldTiles: FIELD });
+  assert.strictEqual(r.newSeason, 'Summer');
   assert.strictEqual(r.weeds, C.WEEDS_PER_SEASON);
   assert.strictEqual(Object.values(s.debris).filter((k) => k === 'weed').length, C.WEEDS_PER_SEASON);
-  s.day = 3 * N;
+  s.day = dayOn(11, 30);
   L.endDay(s, false, { fieldTiles: FIELD });
   assert.strictEqual(Object.values(s.debris).filter((k) => k === 'weed').length, 0);
 });
@@ -135,27 +138,27 @@ test('a seed bag plants the tilled tiles of a 3x3 patch', () => {
   assert.strictEqual(L.countItem(s, 'seed_turnip'), 2, 'no bag used when nothing was planted');
 });
 
-test('strawberries, tomatoes and corn regrow; turnips do not', () => {
+test('a picked crop leaves the tile empty and dry (only grass grows back)', () => {
   const s = fresh();
   L.till(s, 1);
-  L.till(s, 2);
-  s.soil[1] = { w: 0, c: 'strawberry', d: 7 };
-  s.soil[2] = { w: 0, c: 'turnip', d: 3 };
+  s.soil[1] = { w: 1, c: 'strawberry', p: clock.min() - 200, r: 0 };
   assert.strictEqual(L.harvest(s, 1), 'strawberry');
-  same(s.soil[1], { w: 0, c: 'strawberry', d: 4 });
-  assert.strictEqual(L.harvest(s, 2), 'turnip');
-  assert.strictEqual(s.soil[2].c, null);
+  same(s.soil[1], { w: 0, c: null, p: 0, r: 0 });
 });
 
 test('grass is cut with the sickle into fodder and regrows', () => {
   const s = fresh();
   L.till(s, 1);
-  s.soil[1] = { w: 0, c: 'grass', d: 4 };
+  s.soil[1] = { w: 0, c: 'grass', p: clock.min() - 120, r: 0 };
   assert.strictEqual(L.harvest(s, 1), '!sickle');
   assert.strictEqual(L.cut(s, 1), 'fodder');
   assert.strictEqual(L.countItem(s, 'fodder'), 1);
   assert.strictEqual(s.soil[1].c, 'grass');
   assert.strictEqual(L.isRipe(s.soil[1]), false);
+  clock.advance(C.CROPS.grass.regrow);
+  assert.ok(L.isRipe(s.soil[1]));
+  clock.advance(5000);
+  assert.ok(L.isRipe(s.soil[1]), 'grass never withers');
 });
 
 // ---------- animals ----------
@@ -294,7 +297,7 @@ test('forage spots are fixed for the day and can be picked once', () => {
   same(roundTrip(s).forage.town.taken, [a[0]]);
   L.endDay(s);
   same(L.forageTaken(s, 'town'), [], 'new day, new forage');
-  s.day = 2 * N + 1;
+  s.day = dayOn(9, 1);
   assert.strictEqual(L.forageItem(s.day), 'mushroom');
 });
 
@@ -343,8 +346,9 @@ test('gifts: loved, liked, neutral and disliked; once a day; double on birthdays
   r = L.giveGift(s, 'bram', slotOf(s, 'strawberry'));
   assert.strictEqual(r.reaction, 'dislike');
   assert.strictEqual(L.friend(s, 'bram').pts, 0, 'never below zero');
-  s.day = N + 21; // Summer 21: Rosa's birthday
+  s.day = dayOn(7, 21); // July 21st: Rosa's birthday
   assert.deepStrictEqual([...L.birthdaysOn(s.day)], ['rosa']);
+  assert.deepStrictEqual([...L.birthdaysOn(dayOn(10, 27, 2031))], ['lily'], 'Lily: October 27th, every year');
   r = L.giveGift(s, 'rosa', slotOf(s, 'strawberry'));
   assert.strictEqual(r.pts, C.FRIEND.neutral * C.FRIEND.birthday);
   assert.strictEqual(r.line, C.DIALOGUE.rosa.birthday);
@@ -366,10 +370,10 @@ test('villagers follow their schedule, gather at festivals, and come home once m
   assert.strictEqual(L.villagerAt(s, 'lily', 10 * 60), 'away');
   s.time = 10 * 60;
   assert.ok(L.lilyAtStand(s));
-  s.day = 14; // Spring 14: Flower Festival
+  s.day = dayOn(4, 14); // April 14th: Flower Festival
   assert.strictEqual(L.villagerAt(s, 'bram', 12 * 60), 'fest_' + C.VILLAGER_ORDER.indexOf('bram'));
   assert.strictEqual(L.buildingOpen(s, 'forge'), false, 'shops close for festivals');
-  s.day = 15;
+  s.day = dayOn(4, 15);
   s.spouse = 'mira';
   assert.strictEqual(L.villagerAt(s, 'mira', 7 * 60), 'home');
   assert.strictEqual(L.villagerAt(s, 'mira', 11 * 60), 'in:woodshop');
@@ -396,7 +400,7 @@ test('the carpenter builds overnight with gold, lumber and stone', () => {
 test('festivals: dance, judged harvest, cow contest; once a year', () => {
   const s = fresh();
   const flower = C.FESTIVALS.find((f) => f.key === 'flower');
-  s.day = 14;
+  s.day = dayOn(4, 14);
   s.time = 11 * 60;
   assert.strictEqual(L.festivalNow(s).key, 'flower');
   let r = L.joinFestival(s, flower, 'ivy');
@@ -423,12 +427,16 @@ test('festivals: dance, judged harvest, cow contest; once a year', () => {
   assert.ok(r.text.includes('Daisy'));
 });
 
-test('the calendar has every festival on a real date', () => {
+test('the calendar has every festival and birthday on a real date', () => {
   C.FESTIVALS.forEach((f) => {
-    assert.ok(f.day >= 1 && f.day <= N, f.key);
-    assert.ok(['spring', 'summer', 'fall', 'winter'].includes(f.season));
-    const day = ['spring', 'summer', 'fall', 'winter'].indexOf(f.season) * N + f.day;
-    assert.strictEqual(L.festivalOn(day).key, f.key);
+    assert.ok(f.date[0] >= 1 && f.date[0] <= 12 && f.date[1] >= 1 && f.date[1] <= 28, f.key);
+    assert.strictEqual(L.festivalOn(dayOn(f.date[0], f.date[1], 2030)).key, f.key);
+    assert.ok(f.from < f.to && f.to <= 24 * 60, f.key);
+  });
+  C.VILLAGER_ORDER.forEach((k) => {
+    const b = C.VILLAGERS[k].birthday;
+    assert.ok(b[0] >= 1 && b[0] <= 12 && b[1] >= 1 && b[1] <= 28, k);
+    assert.ok(!L.festivalOn(dayOn(b[0], b[1])), k + ': not on a festival day');
   });
 });
 

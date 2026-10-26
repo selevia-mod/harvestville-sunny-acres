@@ -35,7 +35,7 @@
     var st = H.styles[v];
     if (!st.festival) return true;
     var fest = C.FESTIVALS.filter(function (f) { return f.key === st.festival; })[0];
-    return !!fest && L.date(s.day).key === fest.season;
+    return !!fest && L.date(s.day).key === L.festSeason(fest);
   };
 
   // ---------- the house upgrade ----------
@@ -73,9 +73,6 @@
       if (spot) s.home.items.push({ t: kt, v: 0, x: spot.x, y: spot.y, f: 0 });
       else s.home.bag[L.furnKey(kt, 0)] = (s.home.bag[L.furnKey(kt, 0)] || 0) + 1;
     }
-    // a nicer home: more energy to start the day with
-    var extra = L.homeBonus(s);
-    if (extra && !passedOut) s.energy = L.maxEnergy(s);
     r.beauty = L.homeBeauty(s);
     // once a week a friend drops by and says what they think of the place
     if (s.day % 7 === 0) {

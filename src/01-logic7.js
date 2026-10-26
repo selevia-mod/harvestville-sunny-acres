@@ -96,8 +96,8 @@
   };
 
   // ---------- daily quests, weekly goals, monthly goals ----------
-  var winter = function (s) { return L.date(s.day).key === 'winter'; };
-  var fits = function (s, q) { return q.season !== false || !winter(s); };
+  // (every season has crops now, so every quest fits any day)
+  var fits = function () { return true; };
   var pick = function (s, list, n, seed) {
     var out = [], pool = list.filter(function (q) { return fits(s, q); });
     for (var k = 0; out.length < n && k < 60; k++) {

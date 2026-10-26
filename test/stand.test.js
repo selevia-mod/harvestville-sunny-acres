@@ -10,19 +10,21 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 const slotOf = (s, id) => s.inv.findIndex((x) => x && x.id === id);
+const TP = C.ITEMS.turnip.sell; // a turnip's price
 const fresh = () => { const s = L.newState(); s.seed = 11; s.inv = s.inv.map(() => null); return s; };
 
 test('selling now pays less than the base price, right away', () => {
   const s = fresh();
   L.addItem(s, 'turnip', 4);
   const gold0 = s.gold;
-  assert.strictEqual(L.sellNow(s, slotOf(s, 'turnip'), 3), 3 * Math.floor(60 * C.STAND.instant));
-  assert.strictEqual(s.gold - gold0, 135);
+  assert.strictEqual(L.sellNow(s, slotOf(s, 'turnip'), 3), 3 * Math.floor(TP * C.STAND.instant));
+  assert.strictEqual(s.gold - gold0, 3 * Math.floor(TP * C.STAND.instant));
   assert.strictEqual(L.countItem(s, 'turnip'), 1);
   assert.ok(L.discovered(s, 'turnip'));
   L.addItem(s, 'hoe', 1);
@@ -42,13 +44,13 @@ test('a shelf sells after a while at its price, and the coins wait to be collect
   assert.deepStrictEqual(plain(L.standTick(s, wait - 1).sold), []);
   const sold = L.standTick(s, 1).sold;
   assert.strictEqual(sold.length, 1);
-  assert.strictEqual(sold[0].coins, Math.round(60 * 1.4) * 20);
+  assert.strictEqual(sold[0].coins, Math.round(TP * 1.4) * 20);
   assert.ok(C.VILLAGER_ORDER.includes(sold[0].buyer));
   assert.strictEqual(L.unlist(s, 0), 'sold', 'a sold lot cannot be taken back');
   const gold0 = s.gold, earned0 = s.stats.earned;
-  assert.strictEqual(L.collectStand(s), 1680);
-  assert.strictEqual(s.gold - gold0, 1680);
-  assert.strictEqual(s.stats.earned - earned0, 1680);
+  assert.strictEqual(L.collectStand(s), Math.round(TP * 1.4) * 20);
+  assert.strictEqual(s.gold - gold0, Math.round(TP * 1.4) * 20);
+  assert.strictEqual(s.stats.earned - earned0, Math.round(TP * 1.4) * 20);
   assert.strictEqual(s.shelves[0], null);
 });
 
@@ -62,7 +64,7 @@ test('in town, a lot whose time is up waits for a villager to walk up and buy it
   assert.deepStrictEqual(plain(L.standTick(s, 1, true).due), [2], 'still due');
   const sale = L.sellLot(s, 2, 'rosa');
   assert.strictEqual(sale.buyer, 'rosa');
-  assert.strictEqual(s.shelves[2].coins, 240);
+  assert.strictEqual(s.shelves[2].coins, 4 * TP);
   assert.strictEqual(L.sellLot(s, 2, 'lily'), null, 'already sold');
   // away from town, a due lot sells by itself
   L.addItem(s, 'egg', 1);

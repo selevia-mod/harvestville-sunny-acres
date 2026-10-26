@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
 
 const MAP = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8'));
@@ -37,7 +38,7 @@ test('a new farm starts with a few pieces in storage; buying adds more, festival
   assert.strictEqual(L.buyYard(s, ix.stone_path, 10), 'ok');
   assert.strictEqual(s.yard.bag[ix.stone_path], 10);
   assert.strictEqual(s.gold, 1e6 - 300);
-  s.day = 1; // spring: the flower festival's arch is on sale, the harvest pumpkins are not
+  // April (spring): the flower festival's arch is on sale, the harvest pumpkins are not
   assert.strictEqual(L.buyYard(s, ix.flower_arch, 1), 'ok');
   assert.strictEqual(L.buyYard(s, ix.pumpkin_pile, 1), 'season');
   s.gold = 10;
@@ -111,6 +112,7 @@ test('an older save (24 tiles wide) keeps its crops and debris in the same place
   const o = L.serialize(s);
   delete o.fw;
   delete o.yd;
+  delete o.rt; // (from before real time too)
   o.f = [[3 * 24 + 5, 1, 1, 2], [12 * 24 + 10, 0, 0, 0]]; // tilled tiles at (5, 3) and (10, 12)
   const back = L.deserialize(JSON.parse(JSON.stringify(o)));
   assert.ok(back.soil[3 * 38 + 5] && back.soil[12 * 38 + 10]);

@@ -11,6 +11,7 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f)).sort()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx));
 const { Config: C, Logic: L } = ctx.window.Farm;
+const clock = require('./clock')(ctx);
 const H = C.HOME;
 L.weather = () => 'sunny';
 
@@ -154,8 +155,11 @@ test('Home Beauty: furniture, styles, a second copy counts half, walls and floor
       if (spot) L.placeFurn(s, T(k), v, spot.x, spot.y, 0);
     }));
   assert.ok(L.homeTier(s) >= 3, 'tier ' + L.homeTier(s));
-  sleep(s);
-  assert.strictEqual(s.energy, C.MAX_ENERGY + L.homeBonus(s));
+  assert.strictEqual(L.maxEnergy(s), C.MAX_ENERGY + L.homeBonus(s));
+  s.energy = 0;
+  clock.advance(24 * 60);
+  L.regen(s);
+  assert.strictEqual(s.energy, C.MAX_ENERGY + L.homeBonus(s), 'energy comes back up to the higher maximum');
   assert.strictEqual(roundTrip(s).energy, s.energy, 'the extra energy survives a reload');
   assert.ok(L.homeComment(s, 0.3), 'villagers have something nice to say');
 });
