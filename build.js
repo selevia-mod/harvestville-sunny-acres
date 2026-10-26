@@ -50,7 +50,11 @@ const PUBLIC_PATH_THROW = 'if(!e)throw new Error("Automatic publicPath is not su
 const supabaseRaw = fs.readFileSync(require.resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8');
 if (supabaseRaw.split(PUBLIC_PATH_THROW).length !== 2) throw new Error('supabase-js: publicPath code changed, check the patch in build.js');
 const supabaseJs = supabaseRaw.replace(PUBLIC_PATH_THROW, 'if(!e)e=String(o.g.location||"");');
-const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps }) + ';';
+// WebP copies stored below full size (world art), with the size the game scales each back up to
+const sizesFile = path.join(ROOT, 'assets', 'sizes.json');
+const sizes = fs.existsSync(sizesFile) ? JSON.parse(read('assets/sizes.json')) : {};
+Object.keys(sizes).forEach((k) => { if (!images[k] || !images[k].startsWith('data:image/webp')) delete sizes[k]; });
+const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes }) + ';';
 const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
 
 const html = `<!DOCTYPE html>

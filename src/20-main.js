@@ -14,10 +14,23 @@
     });
   }
 
-  var keys = Object.keys(F.ASSETS.images);
+  // World art is stored at half size (tools/art/draw.js): scaled back up here, so every frame keeps its size.
+  function fullSize(img, size) {
+    if (!size) return img;
+    var c = document.createElement('canvas');
+    c.width = size[0];
+    c.height = size[1];
+    var g = c.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, size[0], size[1]);
+    return c;
+  }
+
+  var keys = Object.keys(F.ASSETS.images), sizes = F.ASSETS.sizes || {};
   Promise.all(keys.map(function (k) { return decode(F.ASSETS.images[k]); })).then(function (imgs) {
     F.images = {};
-    keys.forEach(function (k, i) { F.images[k] = imgs[i]; });
+    keys.forEach(function (k, i) { F.images[k] = fullSize(imgs[i], sizes[k]); });
     F.game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: 'game',

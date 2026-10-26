@@ -63,6 +63,10 @@ const OUT = path.join(__dirname, '..', 'assets');
   await browser.close();
   if (errors.length) throw new Error(errors.join('\n'));
   fs.mkdirSync(path.join(OUT, 'props'), { recursive: true });
+  // the full size of each WebP copy stored smaller (the game scales it back up)
+  const sizes = {};
+  Object.keys(sheets).forEach((name) => { if (sheets[name].size) sizes[name] = sheets[name].size; });
+  fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes, null, 1) + '\n');
   Object.keys(sheets).forEach((name) => {
     ['png', 'webp'].forEach((ext) => {
       const url = sheets[name][ext];

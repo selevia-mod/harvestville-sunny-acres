@@ -1,0 +1,362 @@
+{
+ "tiles": [
+  2048,
+  4096
+ ],
+ "ranch": [
+  1024,
+  2048
+ ],
+ "seasons": [
+  2048,
+  2048
+ ],
+ "crops": [
+  1024,
+  2048
+ ],
+ "animals": [
+  2048,
+  2048
+ ],
+ "animals2": [
+  1600,
+  672
+ ],
+ "fx": [
+  576,
+  864
+ ],
+ "indoor": [
+  2048,
+  2048
+ ],
+ "furn_0": [
+  1600,
+  2800
+ ],
+ "furn_1": [
+  1600,
+  2800
+ ],
+ "furn_2": [
+  1600,
+  2800
+ ],
+ "furn_3": [
+  1600,
+  2800
+ ],
+ "furn_4": [
+  1600,
+  2800
+ ],
+ "furn_5": [
+  1600,
+  2800
+ ],
+ "furn_6": [
+  1600,
+  2800
+ ],
+ "furn_7": [
+  1600,
+  2800
+ ],
+ "furn_8": [
+  1600,
+  2800
+ ],
+ "furn_9": [
+  1600,
+  2800
+ ],
+ "yard": [
+  2400,
+  2400
+ ],
+ "props/bed": [
+  256,
+  256
+ ],
+ "props/bed2": [
+  384,
+  256
+ ],
+ "props/tv": [
+  128,
+  128
+ ],
+ "props/table": [
+  256,
+  256
+ ],
+ "props/fireplace": [
+  256,
+  256
+ ],
+ "props/kitchen": [
+  384,
+  256
+ ],
+ "props/shelf": [
+  256,
+  256
+ ],
+ "props/rug": [
+  384,
+  256
+ ],
+ "props/plant": [
+  128,
+  128
+ ],
+ "props/window": [
+  256,
+  128
+ ],
+ "props/wall_calendar": [
+  128,
+  128
+ ],
+ "props/doormat": [
+  256,
+  128
+ ],
+ "props/dresser": [
+  256,
+  256
+ ],
+ "props/mayor": [
+  768,
+  640
+ ],
+ "props/inn": [
+  768,
+  640
+ ],
+ "props/forge": [
+  640,
+  512
+ ],
+ "props/woodshop": [
+  640,
+  512
+ ],
+ "props/clinic": [
+  512,
+  512
+ ],
+ "props/cottage": [
+  512,
+  512
+ ],
+ "props/cabin": [
+  512,
+  384
+ ],
+ "props/mine_entrance": [
+  512,
+  384
+ ],
+ "props/fountain": [
+  384,
+  384
+ ],
+ "props/notice": [
+  256,
+  256
+ ],
+ "props/bench": [
+  256,
+  128
+ ],
+ "props/lamp": [
+  128,
+  256
+ ],
+ "props/flowerbed": [
+  256,
+  128
+ ],
+ "props/flower_arch": [
+  384,
+  256
+ ],
+ "props/lantern": [
+  128,
+  256
+ ],
+ "props/pumpkin_pile": [
+  256,
+  128
+ ],
+ "props/festive_tree": [
+  256,
+  384
+ ],
+ "props/doghouse": [
+  256,
+  256
+ ],
+ "props/farm_stand": [
+  256,
+  256
+ ],
+ "props/order_board": [
+  256,
+  256
+ ],
+ "props/mailbox": [
+  128,
+  256
+ ],
+ "props/stable": [
+  384,
+  384
+ ],
+ "props/chest": [
+  128,
+  128
+ ],
+ "props/aquarium": [
+  256,
+  256
+ ],
+ "props/music_box": [
+  128,
+  128
+ ],
+ "props/big_plant": [
+  128,
+  256
+ ],
+ "props/cat_bed": [
+  128,
+  128
+ ],
+ "props/house_2": [
+  640,
+  640
+ ],
+ "props/house_3": [
+  640,
+  640
+ ],
+ "props/house_4": [
+  640,
+  640
+ ],
+ "props/house_5": [
+  640,
+  640
+ ],
+ "props/house_6": [
+  640,
+  640
+ ],
+ "props/house_7": [
+  640,
+  640
+ ],
+ "props/house_8": [
+  640,
+  640
+ ],
+ "props/house_9": [
+  640,
+  640
+ ],
+ "props/house_10": [
+  640,
+  640
+ ],
+ "props/bakery": [
+  640,
+  512
+ ],
+ "props/florist": [
+  512,
+  512
+ ],
+ "props/post": [
+  640,
+  512
+ ],
+ "props/library": [
+  768,
+  640
+ ],
+ "props/school": [
+  768,
+  512
+ ],
+ "props/chapel": [
+  512,
+  640
+ ],
+ "props/vet": [
+  640,
+  512
+ ],
+ "props/shack": [
+  512,
+  384
+ ],
+ "props/townhouse_1": [
+  512,
+  512
+ ],
+ "props/townhouse_2": [
+  512,
+  512
+ ],
+ "props/townhouse_3": [
+  512,
+  512
+ ],
+ "props/townhouse_4": [
+  512,
+  512
+ ],
+ "props/wagon": [
+  384,
+  384
+ ],
+ "props/gazebo": [
+  512,
+  512
+ ],
+ "props/playground": [
+  512,
+  384
+ ],
+ "props/fruit_stall": [
+  256,
+  256
+ ],
+ "props/cloth_stall": [
+  256,
+  256
+ ],
+ "props/statue": [
+  256,
+  384
+ ],
+ "props/boat": [
+  384,
+  256
+ ],
+ "props/umbrella": [
+  256,
+  256
+ ],
+ "props/easel": [
+  128,
+  256
+ ],
+ "props/trader_tent": [
+  384,
+  256
+ ]
+}

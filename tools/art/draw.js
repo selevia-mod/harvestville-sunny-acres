@@ -2455,9 +2455,29 @@
     var extra = window.ART.extra(sets); // indoor tiles, villagers, and the prop images (furniture, town buildings)
     Object.keys(extra.sheets).forEach(function (k) { sheets[k] = extra.sheets[k]; });
     var out = {};
-    var encode = function (c) { return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.86) }; };
-    Object.keys(sheets).forEach(function (k) { out[k] = encode(sheets[k]); });
-    Object.keys(extra.props).forEach(function (k) { out['props/' + k] = encode(extra.props[k]); });
+    // The game draws a tile 256 units wide at 32 layout px, so at most 96 screen px (3x screens): world art
+    // keeps all its detail at half size. Its WebP copy is stored smaller and the game scales it back up as it
+    // loads (src/20-main.js). Icons, villagers' portraits and the farmer, also shown big in panels, stay full size.
+    var scaleOf = function (k) {
+      if (k === 'items' || k === 'people' || k === 'player' || k === 'player_girl') return 1;
+      if (/^furn_/.test(k)) return 0.75; // furniture sheets are drawn at 128 px a tile already
+      return 0.5;
+    };
+    var encode = function (c, k) {
+      var s = scaleOf(k), small = c;
+      if (s < 1) {
+        small = document.createElement('canvas');
+        small.width = Math.round(c.width * s);
+        small.height = Math.round(c.height * s);
+        var g = small.getContext('2d');
+        g.imageSmoothingEnabled = true;
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(c, 0, 0, small.width, small.height);
+      }
+      return { png: c.toDataURL('image/png'), webp: small.toDataURL('image/webp', 0.86), size: s < 1 ? [c.width, c.height] : null };
+    };
+    Object.keys(sheets).forEach(function (k) { out[k] = encode(sheets[k], k); });
+    Object.keys(extra.props).forEach(function (k) { out['props/' + k] = encode(extra.props[k], 'props/' + k); });
     return out;
   };
 })();
