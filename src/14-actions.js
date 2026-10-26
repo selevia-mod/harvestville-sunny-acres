@@ -171,7 +171,7 @@
     var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
     // (holding a tool that can't work a growing crop says how it is doing too: the can still waters it, the hoe
     // still clears a withered one)
-    var toolOnCrop = def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
+    var toolOnCrop = soil && soil.c && def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
     if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
       if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
@@ -295,7 +295,7 @@
     var kind = tool === 'can' ? 'pour' : 'swing';
     this.animateUse(L.iconOf(s, tool), kind);
     // The rules happen now; what you see and hear waits until the tool lands (fx runs at impact).
-    var fx = [], heavy = 0;
+    var fx = [], heavy = 0, wet = effects.filter(function (e) { return e.kind === 'water'; }).length;
     effects.forEach(function (e) {
       var x = e.idx % self.map.width, y = Math.floor(e.idx / self.map.width), tile = { x: x, y: y };
       if (e.kind === 'till') {
@@ -310,7 +310,7 @@
           self.refreshTile(e.idx);
           if (soak) soak();
           self.wiggle(e.idx);
-          self.drops(tile);
+          self.drops(tile, wet);
         });
       } else if (e.kind === 'cut') {
         var got = L.cut(s, e.idx);
@@ -500,6 +500,7 @@
     if (got === '!full') return F.ui.toast('Your bag is full!');
     var img = this.forage[idx];
     delete this.forage[idx];
+    this.tweens.killTweensOf(img); // its endless pulse would keep running on a destroyed image
     img.destroy();
     this.flyItem(img.x, img.y, C.ITEMS[got].icon);
     sfx('pick');
@@ -668,7 +669,7 @@
         // hooked! now reel it in with the mini-game
         var self = this, fish = L.rollFish(this.mapKey === 'town' ? 'river' : 'pond', Math.random());
         f.state = 'game';
-        if (f.mark) f.mark.destroy();
+        if (f.mark) { this.tweens.killTweensOf(f.mark); f.mark.destroy(); }
         f.mark = null;
         F.ui.startFishGame(fish, function (ok) {
           var bx = f.bob.x, by = f.bob.y;
@@ -702,8 +703,9 @@
   M.endFishing = function () {
     var f = this.fishing;
     if (!f) return;
+    this.tweens.killTweensOf(f.bob);
     f.bob.destroy();
-    if (f.mark) f.mark.destroy();
+    if (f.mark) { this.tweens.killTweensOf(f.mark); f.mark.destroy(); }
     this.fishing = null;
     this.hintKey = null;
   };
@@ -717,7 +719,7 @@
 
     var stage = L.cropStage(tile), spr = this.crops[idx];
     if (stage < 0) {
-      if (spr) { spr.destroy(); delete this.crops[idx]; }
+      if (spr) { this.tweens.killTweensOf(spr); spr.destroy(); delete this.crops[idx]; } // (and its endless sway)
       return;
     }
     if (!spr) {
@@ -740,6 +742,7 @@
     soil.forEachTile(function (t) { if (t.index !== -1) soil.removeTileAt(t.x, t.y); });
     Object.keys(this.crops).forEach(function (idx) {
       if (!self.state.soil[idx]) {
+        self.tweens.killTweensOf(self.crops[idx]);
         self.crops[idx].destroy();
         delete self.crops[idx];
       }

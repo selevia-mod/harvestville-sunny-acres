@@ -154,7 +154,8 @@
     this.yardChanged();
   };
 
-  P.yardChanged = function (bad) {
+  // dragging (quiet): only the outline moves; the bar is redrawn when the drag ends
+  P.yardChanged = function (bad, quiet) {
     var d = this.yd, g = this.ydBox;
     g.clear();
     if (d.sel != null) {
@@ -162,7 +163,7 @@
       var x = (d.drag && d.drag.at ? d.drag.at.x : it.x) * T, y = (d.drag && d.drag.at ? d.drag.at.y : it.y) * T;
       g.lineStyle(16, bad ? 0xff5a4a : 0xffe27a, 1).strokeRoundedRect(x + 8, y + 8, type.w * T - 16, type.h * T - 16, 24);
     }
-    F.bus.emit('yard', { sel: d.sel, brush: d.brush });
+    if (!quiet) F.bus.emit('yard', { sel: d.sel, brush: d.brush });
   };
 
   P.yardDown = function (p, over) {
@@ -194,7 +195,7 @@
       d.drag.at = { x: x, y: y };
       var img = this.yardSprites[d.drag.i], why = this.yardWhy(it.t, x, y, d.drag.i);
       img.setPosition(x * T, (y + type.h) * T).setAlpha(0.85).setDepth(DEPTH.fx).setTint(why ? 0xff8a80 : 0xffffff);
-      this.yardChanged(!!why);
+      this.yardChanged(!!why, true);
     } else if (pan && p.id === pan.id) {
       if (Math.abs(p.x - pan.x) + Math.abs(p.y - pan.y) > 8) pan.moved = true;
       if (pan.moved) cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom);
@@ -276,7 +277,9 @@
   UI.create = function () {
     create.call(this);
     var self = this;
-    F.bus.on('yard', function (info) { if (info) self.drawYardBar(info); else self.closeDecorBar(); });
+    var onYard = function (info) { if (info) self.drawYardBar(info); else self.closeDecorBar(); };
+    F.bus.on('yard', onYard);
+    this.events.once('shutdown', function () { F.bus.off('yard', onYard); }); // (New game restarts this scene)
   };
 
   var openDecor = UI.openDecor;

@@ -7,6 +7,7 @@
   var T = C.TILE;
   var SPEED = 600; // world units per second (about 2.3 tiles/s)
   var DEPTH = 10;
+  var STEP_X = [1, -1, 0, 0], STEP_Y = [0, 0, 1, -1];
 
   F.Villagers = class {
     constructor(scene) {
@@ -66,10 +67,11 @@
 
     update(dt, time, frozen) {
       var self = this, sc = this.scene, f = sc.feet();
+      var budget = 3; // new routes this frame: at the hour a dozen villagers set off; the rest go a frame or two later
       this.list.forEach(function (v) {
         if (v.errand && !frozen && self.updateErrand(v, dt)) return;
         var target = self.targetOf(v, sc.state.time);
-        if (!v.errand && target.place !== v.place) {
+        if (!v.errand && target.place !== v.place && budget-- > 0) {
           v.place = target.place;
           self.walkTo(v, target);
         }
@@ -104,7 +106,7 @@
             v.sprite.setFlipX(dir === 'right');
           }
         }
-        v.sprite.setPosition(v.x, v.y).setDepth(DEPTH + v.y / 1e5);
+        F.depthTo(v.sprite.setPosition(v.x, v.y), DEPTH + v.y / 1e5);
       });
     }
 
@@ -149,22 +151,37 @@
       v.path = this.route(v.x, v.y, target.point.x, target.point.y);
     }
 
-    // A path of tile centres from one world point to another, found with a breadth-first search.
+    // A path of tile centres from one world point to another, found with a breadth-first search. The walkable
+    // tiles are looked up once and kept for a few seconds (the villagers setting off together share them), and
+    // the search allocates nothing per step.
     route(x0, y0, x1, y1) {
-      var sc = this.scene, W = sc.map.width, H = sc.map.height;
+      var sc = this.scene, W = sc.map.width, H = sc.map.height, now = Date.now();
+      if (!this.walk || this.walk.length !== W * H || now - this.walkAt > 3000) {
+        this.walk = new Uint8Array(W * H); // 0 = not looked up yet, 1 = walkable, 2 = blocked
+        this.walkAt = now;
+        this.prev = new Int32Array(W * H);
+        this.queue = new Int32Array(W * H);
+      }
+      var walk = this.walk, prev = this.prev, queue = this.queue, head = 0, tail = 0;
       var sx = Math.floor(x0 / T), sy = Math.floor(y0 / T), ex = Math.floor(x1 / T), ey = Math.floor(y1 / T);
-      var start = sy * W + sx, end = ey * W + ex, prev = new Int32Array(W * H).fill(-1), queue = [start];
+      var start = sy * W + sx, end = ey * W + ex;
+      if (sx < 0 || sy < 0 || sx >= W || sy >= H || ex < 0 || ey < 0 || ex >= W || ey >= H) return [{ x: x1, y: y1 }];
+      prev.fill(-1);
       prev[start] = start;
-      while (queue.length) {
-        var cur = queue.shift();
+      queue[tail++] = start;
+      while (head < tail) {
+        var cur = queue[head++];
         if (cur === end) break;
         var cx = cur % W, cy = (cur - cx) / W;
         for (var k = 0; k < 4; k++) {
-          var nx = cx + [1, -1, 0, 0][k], ny = cy + [0, 0, 1, -1][k], n = ny * W + nx;
+          var nx = cx + STEP_X[k], ny = cy + STEP_Y[k], n = ny * W + nx;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H || prev[n] >= 0) continue;
-          if (n !== end && !sc.walkable(nx, ny)) continue;
+          if (n !== end) {
+            if (!walk[n]) walk[n] = sc.walkable(nx, ny) ? 1 : 2;
+            if (walk[n] === 2) continue;
+          }
           prev[n] = cur;
-          queue.push(n);
+          queue[tail++] = n;
         }
       }
       if (prev[end] < 0) return [{ x: x1, y: y1 }]; // no path: walk straight there

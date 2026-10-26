@@ -24,7 +24,8 @@
     s.sent = []; // one-time letters already sent
     s.horse = null; // { name, love, pet } once the stable is built
     s.cat = null; // { name, love, pet } once the cat basket is bought
-    s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ...)
+    s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ... up to the 30th chest)
+    s.chHi = 0; // past the 30th chest (floor 150): the deepest chest opened (the mine is walked down floor by floor)
     s.musicDay = 0; // last day the music box was played
     s.look = 'boy'; // the farmer: 'boy' or 'girl', picked at the start
     return s;
@@ -163,8 +164,13 @@
     return L.toolEnergy(s, 'hammer', 1) + Math.floor(floor / 5) * C.MINE.energyPer5;
   };
 
+  // Returns true for a floor not yet reached today (so walking in and out of the mine is not "going down").
   L.reachFloor = function (s, floor) {
     s.stats.deepest = Math.max(s.stats.deepest, floor);
+    if (!s.floorDay || s.floorDay.day !== s.day) s.floorDay = { day: s.day, max: 0 };
+    if (floor <= s.floorDay.max) return false;
+    s.floorDay.max = floor;
+    return true;
   };
 
   L.hasChest = function (floor) {
@@ -172,7 +178,8 @@
   };
 
   L.chestOpened = function (s, floor) {
-    return !!((s.chests >> (floor / C.MINE.chestEvery - 1)) & 1);
+    var k = floor / C.MINE.chestEvery;
+    return k > 30 ? k <= (s.chHi || 0) : !!((s.chests >> (k - 1)) & 1);
   };
 
   // Opens the treasure chest on a floor (once ever). Returns { gold, items: [[id, n]] } or { error }.
@@ -189,7 +196,8 @@
     });
     var gold = C.MINE.chestGold * k;
     s.gold += gold;
-    s.chests |= 1 << (k - 1);
+    if (k > 30) s.chHi = Math.max(s.chHi || 0, k);
+    else s.chests |= 1 << (k - 1);
     return { gold: gold, items: items };
   };
 
@@ -254,7 +262,7 @@
   L.playMusicBox = function (s) {
     if (s.musicDay === s.day) return 0;
     s.musicDay = s.day;
-    var gain = Math.min(5, L.maxEnergy(s) - s.energy);
+    var gain = Math.max(0, Math.min(5, L.maxEnergy(s) - s.energy)); // never takes energy away (above the max after storing furniture)
     s.energy += gain;
     return gain || -1;
   };
@@ -277,7 +285,17 @@
       s.sent.push(key);
     }
     s.mail.push(key);
-    if (s.mail.length > 8) s.mail.shift();
+    trimMail(s);
+  }
+
+  // A full mailbox (8) lets the oldest plain letter go, never one with a gift in it (those are sent only once).
+  function trimMail(s) {
+    while (s.mail.length > 8) {
+      var i = -1;
+      for (var k = 0; k < s.mail.length; k++) { if (!L.letter(s.mail[k]).gift) { i = k; break; } }
+      if (i < 0) return;
+      s.mail.splice(i, 1);
+    }
   }
 
   // Puts today's letters in the mailbox (called each morning). Returns how many arrived.
@@ -343,6 +361,7 @@
     o.hs = s.horse ? [s.horse.love, s.horse.pet] : 0;
     o.ct = s.cat ? [s.cat.love, s.cat.pet] : 0;
     o.ch = s.chests;
+    if (s.chHi) o.chh = s.chHi;
     o.mb = s.musicDay;
     o.lk = s.look === 'girl' ? 1 : 0;
     Object.keys(s.friends).forEach(function (k) { if (o.fr[k]) o.fr[k][4] = s.friends[k].ev || 0; });
@@ -379,12 +398,14 @@
     if (Array.isArray(o.st)) {
       s.stats = { earned: int(o.st[0], 0, 1e9, 0), fish: int(o.st[1], 0, 1e7, 0), cooked: int(o.st[2], 0, 1e7, 0), deepest: int(o.st[3], 0, 1e4, 0) };
     }
-    s.mail = (Array.isArray(o.ml) ? o.ml : []).filter(letterOk).slice(-8);
+    s.mail = (Array.isArray(o.ml) ? o.ml : []).filter(letterOk).slice(-20);
+    trimMail(s);
     s.sent = (Array.isArray(o.sn) ? o.sn : []).filter(letterOk).slice(0, 40);
     if (Array.isArray(o.hs)) s.horse = { name: C.HORSE.name, love: int(o.hs[0], 0, C.LOVE.max, 0), pet: o.hs[1] ? 1 : 0 };
     if (Array.isArray(o.ct)) s.cat = { name: C.CAT.name, love: int(o.ct[0], 0, C.LOVE.max, 0), pet: o.ct[1] ? 1 : 0 };
     if (s.builds.f_cat && !s.cat) s.cat = { name: C.CAT.name, love: 0, pet: 0 };
-    s.chests = int(o.ch, 0, 1 << 20, 0);
+    s.chests = int(o.ch, 0, 1073741823, 0); // 30 chests (it was cut at 20, forgetting chests past floor 100)
+    s.chHi = int(o.chh, 0, 1e6, 0);
     s.musicDay = int(o.mb, 0, 1e6, 0);
     s.look = o.lk === 1 ? 'girl' : 'boy';
     if (o.fr && typeof o.fr === 'object') {

@@ -3000,7 +3000,8 @@
     s.sent = []; // one-time letters already sent
     s.horse = null; // { name, love, pet } once the stable is built
     s.cat = null; // { name, love, pet } once the cat basket is bought
-    s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ...)
+    s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ... up to the 30th chest)
+    s.chHi = 0; // past the 30th chest (floor 150): the deepest chest opened (the mine is walked down floor by floor)
     s.musicDay = 0; // last day the music box was played
     s.look = 'boy'; // the farmer: 'boy' or 'girl', picked at the start
     return s;
@@ -3139,8 +3140,13 @@
     return L.toolEnergy(s, 'hammer', 1) + Math.floor(floor / 5) * C.MINE.energyPer5;
   };
 
+  // Returns true for a floor not yet reached today (so walking in and out of the mine is not "going down").
   L.reachFloor = function (s, floor) {
     s.stats.deepest = Math.max(s.stats.deepest, floor);
+    if (!s.floorDay || s.floorDay.day !== s.day) s.floorDay = { day: s.day, max: 0 };
+    if (floor <= s.floorDay.max) return false;
+    s.floorDay.max = floor;
+    return true;
   };
 
   L.hasChest = function (floor) {
@@ -3148,7 +3154,8 @@
   };
 
   L.chestOpened = function (s, floor) {
-    return !!((s.chests >> (floor / C.MINE.chestEvery - 1)) & 1);
+    var k = floor / C.MINE.chestEvery;
+    return k > 30 ? k <= (s.chHi || 0) : !!((s.chests >> (k - 1)) & 1);
   };
 
   // Opens the treasure chest on a floor (once ever). Returns { gold, items: [[id, n]] } or { error }.
@@ -3165,7 +3172,8 @@
     });
     var gold = C.MINE.chestGold * k;
     s.gold += gold;
-    s.chests |= 1 << (k - 1);
+    if (k > 30) s.chHi = Math.max(s.chHi || 0, k);
+    else s.chests |= 1 << (k - 1);
     return { gold: gold, items: items };
   };
 
@@ -3230,7 +3238,7 @@
   L.playMusicBox = function (s) {
     if (s.musicDay === s.day) return 0;
     s.musicDay = s.day;
-    var gain = Math.min(5, L.maxEnergy(s) - s.energy);
+    var gain = Math.max(0, Math.min(5, L.maxEnergy(s) - s.energy)); // never takes energy away (above the max after storing furniture)
     s.energy += gain;
     return gain || -1;
   };
@@ -3253,7 +3261,17 @@
       s.sent.push(key);
     }
     s.mail.push(key);
-    if (s.mail.length > 8) s.mail.shift();
+    trimMail(s);
+  }
+
+  // A full mailbox (8) lets the oldest plain letter go, never one with a gift in it (those are sent only once).
+  function trimMail(s) {
+    while (s.mail.length > 8) {
+      var i = -1;
+      for (var k = 0; k < s.mail.length; k++) { if (!L.letter(s.mail[k]).gift) { i = k; break; } }
+      if (i < 0) return;
+      s.mail.splice(i, 1);
+    }
   }
 
   // Puts today's letters in the mailbox (called each morning). Returns how many arrived.
@@ -3319,6 +3337,7 @@
     o.hs = s.horse ? [s.horse.love, s.horse.pet] : 0;
     o.ct = s.cat ? [s.cat.love, s.cat.pet] : 0;
     o.ch = s.chests;
+    if (s.chHi) o.chh = s.chHi;
     o.mb = s.musicDay;
     o.lk = s.look === 'girl' ? 1 : 0;
     Object.keys(s.friends).forEach(function (k) { if (o.fr[k]) o.fr[k][4] = s.friends[k].ev || 0; });
@@ -3355,12 +3374,14 @@
     if (Array.isArray(o.st)) {
       s.stats = { earned: int(o.st[0], 0, 1e9, 0), fish: int(o.st[1], 0, 1e7, 0), cooked: int(o.st[2], 0, 1e7, 0), deepest: int(o.st[3], 0, 1e4, 0) };
     }
-    s.mail = (Array.isArray(o.ml) ? o.ml : []).filter(letterOk).slice(-8);
+    s.mail = (Array.isArray(o.ml) ? o.ml : []).filter(letterOk).slice(-20);
+    trimMail(s);
     s.sent = (Array.isArray(o.sn) ? o.sn : []).filter(letterOk).slice(0, 40);
     if (Array.isArray(o.hs)) s.horse = { name: C.HORSE.name, love: int(o.hs[0], 0, C.LOVE.max, 0), pet: o.hs[1] ? 1 : 0 };
     if (Array.isArray(o.ct)) s.cat = { name: C.CAT.name, love: int(o.ct[0], 0, C.LOVE.max, 0), pet: o.ct[1] ? 1 : 0 };
     if (s.builds.f_cat && !s.cat) s.cat = { name: C.CAT.name, love: 0, pet: 0 };
-    s.chests = int(o.ch, 0, 1 << 20, 0);
+    s.chests = int(o.ch, 0, 1073741823, 0); // 30 chests (it was cut at 20, forgetting chests past floor 100)
+    s.chHi = int(o.chh, 0, 1e6, 0);
     s.musicDay = int(o.mb, 0, 1e6, 0);
     s.look = o.lk === 1 ? 'girl' : 'boy';
     if (o.fr && typeof o.fr === 'object') {
@@ -3968,7 +3989,7 @@
       s.home = L.oldHome(s);
     }
     L.syncHome(s);
-    s.energy = int(o.e, 0, L.maxEnergy(s), L.maxEnergy(s)); // a beautiful home's extra energy survives a reload
+    s.energy = int(o.e, 0, 1000, L.maxEnergy(s)); // capped to the max at the end of loading (01-logic8.js), once the yard is back
     return s;
   };
 
@@ -4460,7 +4481,7 @@
   ['petAnimal', 'brushAnimal', 'feedAnimal'].forEach(function (n) { countOn(n, 'care', ok); });
   countOn('clearDebris', 'clear', function (r) { return !!r; });
   countOn('deliverOrder', 'order', function (r) { return r > 0; });
-  countOn('reachFloor', 'floor', function () { return true; });
+  countOn('reachFloor', 'floor', function (r) { return r === true; });
   countOn('takeForage', 'forage', got);
   ['petDog', 'petCat', 'petHorse'].forEach(function (n) { countOn(n, 'pet', ok); });
   countOn('placeYard', 'decor', function (r) { return typeof r === 'number'; });
@@ -4666,7 +4687,8 @@
     if (s.builds.kitchen) DISHES.forEach(function (d) { pool.push([d, 1, 1]); });
     if ((s.stats.deepest || 0) >= 1) pool.push(['ore_copper', 3, 5]);
     if ((s.stats.deepest || 0) >= 10) pool.push(['ore_silver', 2, 4]);
-    return pool;
+    // never something a shop sells (buying it and handing it in would pay more than it cost)
+    return pool.filter(function (e) { return !C.ITEMS[e[0]].price; });
   };
   var valueOf = function (id) { var it = C.ITEMS[id]; return it.sell || (it.energy || 10) * 4; };
 
@@ -4810,7 +4832,8 @@
     s.pwr = { day: s.day, until: s.time + C.POWER_UP.minutes };
     return 'ok';
   };
-  L.powered = function (s) { return s.pwr.day === s.day && s.time < s.pwr.until; };
+  // the 2 hours run on past midnight (until counts minutes from the start of the day it was drunk)
+  L.powered = function (s) { return s.day * 1440 + s.time < s.pwr.day * 1440 + s.pwr.until; };
   var spendEnergy = L.spendEnergy;
   L.spendEnergy = function (s, amount) {
     if (L.powered(s)) return true;
@@ -4909,7 +4932,15 @@
     s.net = L.newNet();
     return s;
   };
-  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0, off: 0 }; };
+  // pb: refills sent to the server whose answer never came (request id, currency, price, version, ms sent), so a lost
+  // answer can be settled later: the energy is given if the server took the payment, or the entry is dropped.
+  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0, off: 0, pb: [] }; };
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  L.cleanBuys = function (list) {
+    return (Array.isArray(list) ? list : []).filter(function (b) {
+      return Array.isArray(b) && UUID.test(String(b[0])) && (b[1] === 'coins' || b[1] === 'stars');
+    }).slice(-3).map(function (b) { return [String(b[0]), b[1], int(b[2], 0, 1e5, 0), int(b[3], 0, 1e6, 0), int(b[4], 0, 1e14, 0)]; });
+  };
 
   // ---------- the snapshot ----------
   L.snapshot = function (s) {
@@ -4992,7 +5023,7 @@
     ['coop2', 'barn2', 'stable', 'kitchen'].forEach(function (k) { if (b[k]) s.builds[k] = 1; });
     s.animals = [];
     (Array.isArray(snap.animals) ? snap.animals : []).forEach(function (e) {
-      if (!Array.isArray(e) || !C.ANIMALS[e[0]] || L.space(s, e[0]) <= 0) return;
+      if (!Array.isArray(e) || C.ANIMAL_KEYS.indexOf(e[0]) < 0 || L.space(s, e[0]) <= 0) return; // (never 'constructor' and co.)
       s.animals.push({ kind: e[0], name: str(e[1], 16) || C.ANIMALS[e[0]].names[0], love: 50, fed: 1, pet: 1, ready: 0, brushed: 1, young: e[2] ? 3 : 0, preg: 0 });
     });
     var pets = snap.pets && typeof snap.pets === 'object' ? snap.pets : {};
@@ -5037,6 +5068,7 @@
   L.serialize = function (s) {
     var o = serialize(s);
     o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0, s.net.named ? 1 : 0, s.net.off ? 1 : 0];
+    if (s.net.pb && s.net.pb.length) o.pb = L.cleanBuys(s.net.pb);
     return o;
   };
   var deserialize = L.deserialize;
@@ -5044,7 +5076,9 @@
     var s = deserialize(o);
     if (!s) return s;
     var n = Array.isArray(o.nt) ? o.nt : [];
-    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0, off: n[7] ? 1 : 0 };
+    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0, off: n[7] ? 1 : 0, pb: L.cleanBuys(o.pb) };
+    // energy up to the max a beautiful home AND yard give (the yard is only back now): a paid refill survives a reload
+    s.energy = int(o.e, 0, L.maxEnergy(s), L.maxEnergy(s));
     return s;
   };
 })(window.Farm = window.Farm || {});
@@ -5377,6 +5411,8 @@
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // body centre sits this far below the sprite centre (see body offset below)
   var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance' };
+  // Sets a depth only when it changes: Phaser re-sorts the whole map on every depth set, even to the same value.
+  F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
   var OUTDOORS = { farm: true, town: true };
 
   function propsOf(list) {
@@ -5400,6 +5436,7 @@
       this.clockMs = 0;
       this.saveMs = 0;
       this.hintKey = '';
+      if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
       this.charge = null;
       this.fishing = null;
       this.hits = {}; // tile index -> swings so far on a stump or boulder
@@ -5445,6 +5482,7 @@
       // ----- what lives on this map
       if (this.mapKey === 'farm') this.setupFarm();
       if (this.mapKey === 'mine') this.setupMine();
+      if (this.mapKey === 'mine' || this.mapKey === 'farm') this.unstick(); // again, now the day's rocks and debris are down
       this.setupForage();
       if (this.mapKey === 'town' || this.mapKey === 'house') this.villagers = new F.Villagers(this);
       this.setupExtras();
@@ -5720,6 +5758,7 @@
         if (this.player.anims.isPlaying) this.idle();
         if (this.busy || F.ui.blocking()) {
           F.input.action = false;
+          if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
           this.charge = null;
           this.showArea(null);
           if (this.villagers) this.villagers.update(dt, time, true);
@@ -5733,7 +5772,7 @@
       s.player.x = f.x;
       s.player.y = f.y;
       s.player.dir = this.dir;
-      this.player.setDepth(DEPTH.actor + f.y / 1e5);
+      F.depthTo(this.player, DEPTH.actor + f.y / 1e5);
 
       if (this.tickClock(dt)) return;
       this.updatePolish(dt, time);
@@ -5856,6 +5895,7 @@
       var self = this, s = this.state;
       this.beforeTravel(to);
       this.busy = true;
+      if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
       this.charge = null;
       this.player.body.setVelocity(0, 0);
       F.input.reset();
@@ -5947,7 +5987,22 @@
   // the hotbar and the controls sit at the bottom of the screen, however tall (C.EXTRA)
   var HOTBAR_Y = 606 + C.EXTRA;
   var ACTION = { x: 294, y: 512 + C.EXTRA, r: 42 };
+  // A button acts when the finger lifts on it only if the press also started on it: a finger that pressed something
+  // else (the action button that opened this panel) and lifts here does nothing.
+  var PANEL_BASE = 96; // the panel texture's own size, stretched to fit (panelImg)
+  F.tapOn = function (z, fn) {
+    z.on('pointerdown', function (p) { z.pressedBy = p.id; });
+    z.on('pointerout', function () { z.pressedBy = null; });
+    z.on('pointerup', function (p) {
+      var mine = z.pressedBy === p.id;
+      z.pressedBy = null;
+      if (mine) fn.apply(this, arguments);
+    });
+    return z;
+  };
   var JOY = { x: 86, y: 512 + C.EXTRA, r: 46, knob: 22 };
+  // owner, 26 Oct: lighter, and fainter still while dragging, so the farm shows through it
+  var JOY_ALPHA = { idle: 0.55, drag: 0.4 };
   var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
 
   var HELP = [
@@ -6090,9 +6145,10 @@
       return img;
     }
 
-    // A wooden-framed parchment panel with a soft shadow (drawn 6px past its box at the bottom for the shadow).
+    // A cream panel with a wooden frame. Drawn once and stretched (nine-slice: the corners keep their shape), so
+    // panels of every size share one small texture instead of each new height baking (and keeping) its own.
     panelImg(parent, x, y, w, h) {
-      return this.canvasImg(parent, x - 4, y - 2, 'ui-panel2-' + w + 'x' + h, w + 8, h + 10, function (g) {
+      var draw = function (g, w, h) {
         rrect(g, 4, 8, w, h, 16);
         g.fillStyle = 'rgba(30,16,6,0.4)';
         g.fill();
@@ -6112,7 +6168,14 @@
           g.fillStyle = '#c9963f';
           g.fill();
         });
-      });
+      };
+      if (this.game.renderer.type !== Phaser.WEBGL || w < 60 || h < 60) {
+        return this.canvasImg(parent, x - 4, y - 2, 'ui-panel2-' + w + 'x' + h, w + 8, h + 10, function (g) { draw(g, w, h); });
+      }
+      var key = this.bakeCanvas('ui-panel2-ns', PANEL_BASE + 8, PANEL_BASE + 10, function (g) { draw(g, PANEL_BASE, PANEL_BASE); });
+      var R = F.R, img = this.add.nineslice(x - 4, y - 2, key, null, (w + 8) * R, (h + 10) * R, 24 * R, 24 * R, 22 * R, 26 * R).setOrigin(0).setScale(1 / R);
+      if (parent) parent.add(img);
+      return img;
     }
 
     // Slot textures are SLOT + 4 wide so the selected glow fits; draw them 2px up and left.
@@ -6170,7 +6233,7 @@
       var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
       z.on('pointerdown', function () { c.setScale(0.93); });
       z.on('pointerout', function () { c.setScale(1); });
-      z.on('pointerup', function () { c.setScale(1); onTap(); });
+      F.tapOn(z, function () { c.setScale(1); onTap(); });
       c.add([bg, t, z]);
       if (parent) parent.add(c);
       return c;
@@ -6537,8 +6600,8 @@
 
     // ---------- joystick ----------
     buildJoystick() {
-      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.16).setStrokeStyle(3, 0xffffff, 0.45);
-      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.5).setStrokeStyle(2, 0x5a3a1e, 0.5);
+      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.06).setStrokeStyle(2, 0xffffff, 0.5).setAlpha(JOY_ALPHA.idle);
+      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.35).setStrokeStyle(1.5, 0xffffff, 0.6).setAlpha(JOY_ALPHA.idle);
       this.joyId = null;
       var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {
@@ -6548,8 +6611,8 @@
         if (pt.y < 70 || pt.y > HOTBAR_Y - 34) return;
         this.joyId = p.id;
         this.joyOrigin = { x: pt.x, y: pt.y };
-        this.joyBase.setPosition(pt.x, pt.y).setAlpha(1);
-        this.joyKnob.setPosition(pt.x, pt.y).setAlpha(1);
+        this.joyBase.setPosition(pt.x, pt.y).setAlpha(JOY_ALPHA.drag);
+        this.joyKnob.setPosition(pt.x, pt.y).setAlpha(JOY_ALPHA.drag);
       }, this);
       this.input.on('pointermove', function (p) {
         if (p.id !== this.joyId) return;
@@ -6570,8 +6633,8 @@
       this.joyId = null;
       F.input.jx = F.input.jy = 0;
       if (!this.joyBase) return;
-      this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(0.7);
-      this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(0.7);
+      this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(JOY_ALPHA.idle);
+      this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(JOY_ALPHA.idle);
     }
 
     // ---------- frame-rate meter (toggled from the pause menu) ----------
@@ -6680,7 +6743,9 @@
       var lines = text.split('\n');
       var title = /^[A-Z0-9 !?.,:'-]+$/.test(lines[0]) && lines.length > 1 ? lines.shift() : null;
       if (opts.rows && !title) title = lines.shift();
-      var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3, wordWrap: { width: 250 } }).setOrigin(0.5, 0.5) : null;
+      // one line on the ribbon: a long title shrinks instead of wrapping below it
+      var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5, 0.5) : null;
+      if (titleText && titleText.width > W - 90) titleText.setScale((W - 90) / titleText.width);
       var body = [], bodyH = 0;
       if (opts.rows) {
         opts.rows.forEach(function (r, k) {
@@ -6690,6 +6755,18 @@
           bodyH += rh + 6;
         });
         bodyH -= 6;
+        // never taller than the screen (the OK button must stay reachable): rows that don't fit become one line
+        var room = H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18), hidden = 0;
+        while (body.length > 1 && bodyH + (hidden ? 40 : 0) > room) {
+          body.pop().t.destroy();
+          hidden++;
+          bodyH = body[body.length - 1].y + body[body.length - 1].h;
+        }
+        if (hidden) {
+          var more = self.txt(84, 0, '... and ' + hidden + ' more.', 14, INK, { wordWrap: { width: 222 } }).setOrigin(0, 0);
+          body.push({ t: more, icon: C.ICON.letter, y: bodyH + 6, h: 34, line: true });
+          bodyH += 40;
+        }
       } else {
         var bt = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 268 }, lineSpacing: 4 }).setOrigin(0.5, 0);
         body.push({ t: bt, y: 0, h: bt.height });
@@ -6757,7 +6834,8 @@
 
     // A ribbon banner centred at (x, y), w wide.
     ribbon(parent, x, y, w) {
-      return this.canvasImg(parent, x - w / 2 - 8, y - 17, 'ui-ribbon-' + Math.round(w), w + 16, 36, function (g) {
+      w = Math.ceil(w / 20) * 20; // a few widths, not one texture per title
+      return this.canvasImg(parent, x - w / 2 - 8, y - 17, 'ui-ribbon-' + w, w + 16, 36, function (g) {
         var tail = function (x0, dir) { // the folded ends
           g.beginPath();
           g.moveTo(x0, 9);
@@ -6923,7 +7001,7 @@
 
     place(m, time) {
       var a = this.scene.state.animals[m.i];
-      m.sprite.setPosition(m.x, m.y).setFrame(m.def.frame0 + POSE[m.pose]).setFlipX(m.flip).setDepth(DEPTH + m.y / 1e5).setScale(m.scale);
+      F.depthTo(m.sprite.setPosition(m.x, m.y).setFrame(m.def.frame0 + POSE[m.pose]).setFlipX(m.flip).setScale(m.scale), DEPTH + m.y / 1e5);
       var by = m.y - m.def.height * T * m.scale - 80 + Math.sin(time / 300) * 10;
       m.bubble.setVisible(!!a.ready).setPosition(m.x, by);
       m.icon.setVisible(!!a.ready).setPosition(m.x, by - 6);
@@ -7010,7 +7088,7 @@
           pose = Math.floor(time / 120) % 2;
         }
       }
-      this.sprite.setPosition(this.x, this.y).setFrame(this.def.frame0 + pose).setFlipX(this.flip).setDepth(DEPTH + this.y / 1e5);
+      F.depthTo(this.sprite.setPosition(this.x, this.y).setFrame(this.def.frame0 + pose).setFlipX(this.flip), DEPTH + this.y / 1e5);
     }
 
     near(x, y) {
@@ -7204,7 +7282,7 @@
     var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
     // (holding a tool that can't work a growing crop says how it is doing too: the can still waters it, the hoe
     // still clears a withered one)
-    var toolOnCrop = def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
+    var toolOnCrop = soil && soil.c && def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
     if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
       if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
@@ -7328,7 +7406,7 @@
     var kind = tool === 'can' ? 'pour' : 'swing';
     this.animateUse(L.iconOf(s, tool), kind);
     // The rules happen now; what you see and hear waits until the tool lands (fx runs at impact).
-    var fx = [], heavy = 0;
+    var fx = [], heavy = 0, wet = effects.filter(function (e) { return e.kind === 'water'; }).length;
     effects.forEach(function (e) {
       var x = e.idx % self.map.width, y = Math.floor(e.idx / self.map.width), tile = { x: x, y: y };
       if (e.kind === 'till') {
@@ -7343,7 +7421,7 @@
           self.refreshTile(e.idx);
           if (soak) soak();
           self.wiggle(e.idx);
-          self.drops(tile);
+          self.drops(tile, wet);
         });
       } else if (e.kind === 'cut') {
         var got = L.cut(s, e.idx);
@@ -7533,6 +7611,7 @@
     if (got === '!full') return F.ui.toast('Your bag is full!');
     var img = this.forage[idx];
     delete this.forage[idx];
+    this.tweens.killTweensOf(img); // its endless pulse would keep running on a destroyed image
     img.destroy();
     this.flyItem(img.x, img.y, C.ITEMS[got].icon);
     sfx('pick');
@@ -7701,7 +7780,7 @@
         // hooked! now reel it in with the mini-game
         var self = this, fish = L.rollFish(this.mapKey === 'town' ? 'river' : 'pond', Math.random());
         f.state = 'game';
-        if (f.mark) f.mark.destroy();
+        if (f.mark) { this.tweens.killTweensOf(f.mark); f.mark.destroy(); }
         f.mark = null;
         F.ui.startFishGame(fish, function (ok) {
           var bx = f.bob.x, by = f.bob.y;
@@ -7735,8 +7814,9 @@
   M.endFishing = function () {
     var f = this.fishing;
     if (!f) return;
+    this.tweens.killTweensOf(f.bob);
     f.bob.destroy();
-    if (f.mark) f.mark.destroy();
+    if (f.mark) { this.tweens.killTweensOf(f.mark); f.mark.destroy(); }
     this.fishing = null;
     this.hintKey = null;
   };
@@ -7750,7 +7830,7 @@
 
     var stage = L.cropStage(tile), spr = this.crops[idx];
     if (stage < 0) {
-      if (spr) { spr.destroy(); delete this.crops[idx]; }
+      if (spr) { this.tweens.killTweensOf(spr); spr.destroy(); delete this.crops[idx]; } // (and its endless sway)
       return;
     }
     if (!spr) {
@@ -7773,6 +7853,7 @@
     soil.forEachTile(function (t) { if (t.index !== -1) soil.removeTileAt(t.x, t.y); });
     Object.keys(this.crops).forEach(function (idx) {
       if (!self.state.soil[idx]) {
+        self.tweens.killTweensOf(self.crops[idx]);
         self.crops[idx].destroy();
         delete self.crops[idx];
       }
@@ -7793,6 +7874,7 @@
   var T = C.TILE;
   var SPEED = 600; // world units per second (about 2.3 tiles/s)
   var DEPTH = 10;
+  var STEP_X = [1, -1, 0, 0], STEP_Y = [0, 0, 1, -1];
 
   F.Villagers = class {
     constructor(scene) {
@@ -7852,10 +7934,11 @@
 
     update(dt, time, frozen) {
       var self = this, sc = this.scene, f = sc.feet();
+      var budget = 3; // new routes this frame: at the hour a dozen villagers set off; the rest go a frame or two later
       this.list.forEach(function (v) {
         if (v.errand && !frozen && self.updateErrand(v, dt)) return;
         var target = self.targetOf(v, sc.state.time);
-        if (!v.errand && target.place !== v.place) {
+        if (!v.errand && target.place !== v.place && budget-- > 0) {
           v.place = target.place;
           self.walkTo(v, target);
         }
@@ -7890,7 +7973,7 @@
             v.sprite.setFlipX(dir === 'right');
           }
         }
-        v.sprite.setPosition(v.x, v.y).setDepth(DEPTH + v.y / 1e5);
+        F.depthTo(v.sprite.setPosition(v.x, v.y), DEPTH + v.y / 1e5);
       });
     }
 
@@ -7935,22 +8018,37 @@
       v.path = this.route(v.x, v.y, target.point.x, target.point.y);
     }
 
-    // A path of tile centres from one world point to another, found with a breadth-first search.
+    // A path of tile centres from one world point to another, found with a breadth-first search. The walkable
+    // tiles are looked up once and kept for a few seconds (the villagers setting off together share them), and
+    // the search allocates nothing per step.
     route(x0, y0, x1, y1) {
-      var sc = this.scene, W = sc.map.width, H = sc.map.height;
+      var sc = this.scene, W = sc.map.width, H = sc.map.height, now = Date.now();
+      if (!this.walk || this.walk.length !== W * H || now - this.walkAt > 3000) {
+        this.walk = new Uint8Array(W * H); // 0 = not looked up yet, 1 = walkable, 2 = blocked
+        this.walkAt = now;
+        this.prev = new Int32Array(W * H);
+        this.queue = new Int32Array(W * H);
+      }
+      var walk = this.walk, prev = this.prev, queue = this.queue, head = 0, tail = 0;
       var sx = Math.floor(x0 / T), sy = Math.floor(y0 / T), ex = Math.floor(x1 / T), ey = Math.floor(y1 / T);
-      var start = sy * W + sx, end = ey * W + ex, prev = new Int32Array(W * H).fill(-1), queue = [start];
+      var start = sy * W + sx, end = ey * W + ex;
+      if (sx < 0 || sy < 0 || sx >= W || sy >= H || ex < 0 || ey < 0 || ex >= W || ey >= H) return [{ x: x1, y: y1 }];
+      prev.fill(-1);
       prev[start] = start;
-      while (queue.length) {
-        var cur = queue.shift();
+      queue[tail++] = start;
+      while (head < tail) {
+        var cur = queue[head++];
         if (cur === end) break;
         var cx = cur % W, cy = (cur - cx) / W;
         for (var k = 0; k < 4; k++) {
-          var nx = cx + [1, -1, 0, 0][k], ny = cy + [0, 0, 1, -1][k], n = ny * W + nx;
+          var nx = cx + STEP_X[k], ny = cy + STEP_Y[k], n = ny * W + nx;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H || prev[n] >= 0) continue;
-          if (n !== end && !sc.walkable(nx, ny)) continue;
+          if (n !== end) {
+            if (!walk[n]) walk[n] = sc.walkable(nx, ny) ? 1 : 2;
+            if (walk[n] === 2) continue;
+          }
           prev[n] = cur;
-          queue.push(n);
+          queue[tail++] = n;
         }
       }
       if (prev[end] < 0) return [{ x: x1, y: y1 }]; // no path: walk straight there
@@ -8593,7 +8691,7 @@
       });
       c.add(self.add.image(x, 398, F.ensureTexture(self, o[1]), 0).setOrigin(0.5, 1).setScale(0.48));
       var z = self.add.zone(x, 305, 124, 210).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () { pick(o[0]); });
+      F.tapOn(z, function () { pick(o[0]); });
       c.add(z);
       self.button(c, x, 456, 112, 44, o[2], function () { pick(o[0]); }, o[3]);
     });
@@ -9085,36 +9183,40 @@
     c.add(this.txt(W / 2, 88, 'Collection', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
     c.add(this.txt(W / 2, 116, L.collectionCount(s) + ' of ' + C.COLLECTION.length + ' found', 13, '#7a5a3a').setOrigin(0.5, 0));
-    var cols = 7, cell = 44, x0 = (W - cols * cell) / 2, y0 = 140;
+    // the records sit beside the bottom of the grid, so the panel always holds them (70 items = 10 rows)
+    var cols = 7, cell = 40, x0 = (W - cols * cell) / 2, y0 = 136;
     C.COLLECTION.forEach(function (id, i) {
       var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, got = L.discovered(s, id);
       self.baked(c, x + 2, y + 2, 'ui-colcell', cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });
-      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.26);
+      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.24);
       if (!got) icon.setTint(0x000000).setAlpha(0.22);
       c.add(icon);
     });
     var st = s.stats;
-    c.add(this.txt(W / 2, y0 + Math.ceil(C.COLLECTION.length / cols) * cell + 12, 'RECORDS\nEarned: ' + st.earned + 'G\nFish caught: ' + st.fish + '\nDishes cooked: ' + st.cooked +
-      '\nDeepest mine floor: ' + (st.deepest || '-') + '\nFriends with 5+ hearts: ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
-    14, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
+    var ry = y0 + Math.ceil(C.COLLECTION.length / cols) * cell + 8;
+    var rec = this.txt(W / 2, ry, 'RECORDS   Earned ' + st.earned + 'G   Fish ' + st.fish + '   Dishes ' + st.cooked +
+      '\nDeepest mine floor ' + (st.deepest || '-') + '   Friends with 5+ hearts ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
+    12, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
+    if (rec.width > W - 50) rec.setScale((W - 50) / rec.width);
+    if (ry + rec.displayHeight > 592) rec.setY(592 - rec.displayHeight);
+    c.add(rec);
   };
 
-  M.openFriends = function () {
+  // All 23 villagers, a page at a time (the list panel's pager): face, name, hearts, what you did today.
+  M.openFriends = function (page) {
     var self = this, s = F.session.state;
-    var c = this.openModal();
-    this.panelImg(c, 12, 70, W - 24, 530);
-    c.add(this.txt(W / 2, 88, 'Friends', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
-    F.ensureTexture(this, 'people');
-    C.VILLAGER_ORDER.forEach(function (k, i) {
-      var y = 124 + i * 64, f = L.friend(s, k), v = C.VILLAGERS[k];
-      self.baked(c, 26, y, 'ui-friend-row', W - 52, 58, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 52, 58, 9); });
-      var face = self.add.image(56, y + 56, 'people', i * 9).setOrigin(0.5, 1).setScale(0.32).setCrop(0, 0, 128, 150);
-      if (!f.met) face.setTint(0x333333);
-      c.add(face);
-      c.add(self.txt(86, y + 6, f.met ? v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : '') : '???', 14, INK, { fontStyle: 'bold' }));
-      c.add(self.txt(86, y + 24, f.met ? v.role + (f.talked ? '  ✓ talked' : '') + (f.gifted ? '  ✓ gift' : '') : 'Not met yet', 11, '#7a5a3a'));
-      if (f.met) c.add(self.heartsText(86, y + 38, L.friendHearts(s, k)));
+    var rows = C.VILLAGER_ORDER.map(function (k) {
+      var f = L.friend(s, k), v = C.VILLAGERS[k], n = L.friendHearts(s, k);
+      if (!f.met) return { icon: C.ICON.exclaim, name: '???', desc: 'Not met yet.' };
+      return {
+        people: k, name: v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : ''),
+        desc: new Array(n + 1).join('\u2665') + new Array(10 - n + 1).join('\u2661') + '\n' + v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
+      };
+    });
+    this.listPanel({
+      title: 'Friends', rows: rows, page: page || 0,
+      reopen: function (t, p) { self.closeModal(); self.openFriends(p); },
+      sub: function () { return C.VILLAGER_ORDER.filter(function (k) { return L.friend(s, k).met; }).length + ' of ' + C.VILLAGER_ORDER.length + ' met. Talk every day, give gifts they like.'; },
     });
   };
 
@@ -9217,7 +9319,7 @@
         }
       }
       var z = self.add.zone(x + cw / 2, y + ch / 2, cw, ch).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () {
+      F.tapOn(z, function () {
         if (!e) return self.openSellPicker(i);
         if (e.coins) { self.collectStand(); return reopen(); }
         self.confirm('TAKE IT BACK?\nPut the ' + e.n + ' ' + C.ITEMS[e.id].name + ' back in your bag?', function () {
@@ -9262,7 +9364,7 @@
       self.drawSlot(w, s.inv[inv], false);
       // act when the finger lifts (like the shelves underneath), or the lift would land on a shelf
       var z = self.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () { self.closeModal(); self.openSellOptions(shelf, inv); });
+      F.tapOn(z, function () { self.closeModal(); self.openSellOptions(shelf, inv); });
       c.add(z);
     });
     c.add(this.txt(W / 2, 478, 'Tap an item to pick a price.', 12, '#7a5a3a').setOrigin(0.5));
@@ -9340,7 +9442,7 @@
       c.add(self.add.image(x + 30, y + 58, 'people', vi * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
       c.add(self.txt(x + 30, y + 72, C.VILLAGERS[o.from].name, 11, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
       o.items.forEach(function (it, k) {
-        var ix = x + 84 + k * 70, have = L.countItem(s, it[0]);
+        var ix = x + 84 + k * (o.items.length > 2 ? 52 : 70), have = L.countItem(s, it[0]); // 3 items fit before Deliver
         c.add(self.add.image(ix, y + 34, 'items', C.ITEMS[it[0]].icon).setScale(0.3));
         c.add(self.txt(ix, y + 62, Math.min(have, it[1]) + '/' + it[1], 13, have >= it[1] ? '#3f7d22' : '#b04a3a', { fontStyle: 'bold' }).setOrigin(0.5));
       });
@@ -9405,7 +9507,8 @@
 
   A.unlock = function () {
     if (A.ctx) {
-      if (A.ctx.state === 'suspended' && !(F.Host && F.Host.sleeping)) A.ctx.resume();
+      // (iOS says 'interrupted' after a call or Siri: it needs a resume too)
+      if ((A.ctx.state === 'suspended' || A.ctx.state === 'interrupted') && !(F.Host && F.Host.sleeping)) A.ctx.resume();
       return;
     }
     var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -9561,6 +9664,7 @@
   function schedule() {
     var ctx = A.ctx, tune = TUNES[A.mood];
     if (!ctx || !tune || ctx.state !== 'running') return;
+    if (!A.opts.music) { A.nextAt = ctx.currentTime + 0.05; return; } // music off: no notes built just to be silent
     var stepLen = 60 / tune.bpm / 2;
     if (A.nextAt < ctx.currentTime - 1) A.nextAt = ctx.currentTime + 0.05; // after a pause, don't catch up
     while (A.nextAt < ctx.currentTime + 0.25) {
@@ -9949,7 +10053,7 @@
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
-      this.rider.setVisible(true).setFrame(6).setFlipX(flip).setPosition(f.x + (flip ? -30 : 30), f.y - 350).setDepth(DEPTH.actor + f.y / 1e5 + 0.0002);
+      F.depthTo(this.rider.setVisible(true).setFrame(6).setFlipX(flip).setPosition(f.x + (flip ? -30 : 30), f.y - 350), DEPTH.actor + f.y / 1e5 + 0.0002);
       h.sprite.setFrame(C.HORSE.frame0 + (this.moving ? Math.floor(time / 140) % 2 : 2)).setFlipX(flip);
       this.shadow.setScale(1.6, 1.3);
     } else {
@@ -9958,7 +10062,7 @@
       this.shadow.setScale(1);
       h.sprite.setFrame(C.HORSE.frame0 + (Math.floor(time / 2600) % 3 === 0 ? 3 : 2));
     }
-    h.sprite.setPosition(h.x, h.y).setDepth(DEPTH.actor + h.y / 1e5);
+    F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
   };
 
   // Indoors and down the mine, the horse waits outside.
@@ -10250,10 +10354,11 @@
     this.burst(kind, m.x, m.y - 40, n);
   };
 
-  // A stream of water from the can's spout onto the tile, then a splash.
-  P.drops = function (t) {
-    var self = this, m = mid(t), from = this.spout();
-    for (var i = 0; i < 18; i++) {
+  // A stream of water from the can's spout onto the tile, then a splash. Watering many tiles at once (an upgraded
+  // can) shares the drops out: 18 for one tile, a few each for 15, so a big swing doesn't spawn hundreds at once.
+  P.drops = function (t, tiles) {
+    var self = this, m = mid(t), from = this.spout(), n = Math.max(3, Math.round(18 / Math.max(1, tiles || 1))), many = (tiles || 1) > 3;
+    for (var i = 0; i < n; i++) {
       (function (i) {
         var d = self.add.image(from.x + Phaser.Math.Between(-14, 14), from.y, 'fx', self.fxFrame('water', 0)).setScale(Phaser.Math.FloatBetween(0.26, 0.36)).setDepth(DEPTH.fx);
         var tx = m.x + Phaser.Math.Between(-80, 80), ty = m.y + Phaser.Math.Between(-40, 30);
@@ -10261,12 +10366,12 @@
         self.tweens.add({ targets: d, x: tx, duration: 200, delay: i * 16, ease: 'Linear' });
         self.tweens.add({
           targets: d, y: ty, duration: 200, delay: i * 16, ease: 'Quad.in',
-          onComplete: function () { d.destroy(); if (i % 4 === 0) self.burst('water', tx, ty, 2); },
+          onComplete: function () { d.destroy(); if (!many && i % 4 === 0) self.burst('water', tx, ty, 2); },
         });
       })(i);
     }
     this.time.delayedCall(200, function () {
-      self.burst('water', m.x, m.y, 6);
+      self.burst('water', m.x, m.y, many ? 2 : 6);
       self.splash(m.x, m.y);
     });
   };
@@ -10741,7 +10846,8 @@
   };
 
   // Redraws the outline around the chosen piece and tells the decorate bar.
-  P.decorChanged = function (bad) {
+  // dragging (quiet): only the outline moves; the bar (which piece is picked) is redrawn when the drag ends
+  P.decorChanged = function (bad, quiet) {
     var d = this.decor, g = this.decorBox;
     g.clear();
     if (d.sel != null) {
@@ -10752,7 +10858,7 @@
         g.fillStyle(bad ? 0xff5a4a : 0xffffff, 0.22).fillRect(x, y + (type.h - type.foot) * T, type.w * T, type.foot * T);
       }
     }
-    F.bus.emit('decor', { sel: d.sel });
+    if (!quiet) F.bus.emit('decor', { sel: d.sel });
   };
 
   P.decorDown = function (p, over) {
@@ -10782,7 +10888,7 @@
       img.setDepth(DEPTH.fx);
       var why = L.cantPlace(this.state, it.t, x, y, d.drag.i);
       img.setTint(why ? 0xff8a80 : 0xffffff);
-      this.decorChanged(!!why);
+      this.decorChanged(!!why, true);
     } else if (d.pan && p.id === d.pan.id && p.isDown) {
       var dx = (p.x - d.pan.x) / cam.zoom, dy = (p.y - d.pan.y) / cam.zoom;
       if (Math.abs(p.x - d.pan.x) + Math.abs(p.y - d.pan.y) > 8) d.pan.moved = true;
@@ -10869,8 +10975,9 @@
       self.button(self.decorBtn, W - 62, 438, 108, 34, 'Decorate', function () { self.openDecor(); }, BROWN);
     };
     F.bus.on('map', showBtn);
-    F.bus.on('decor', function (info) { if (info) self.drawDecorBar(info); else self.closeDecorBar(); });
-    this.events.once('shutdown', function () { F.bus.off('map', showBtn); });
+    var onDecor = function (info) { if (info) self.drawDecorBar(info); else self.closeDecorBar(); };
+    F.bus.on('decor', onDecor);
+    this.events.once('shutdown', function () { F.bus.off('map', showBtn); F.bus.off('decor', onDecor); }); // (New game restarts this scene)
     if (F.world) showBtn(F.world.mapKey);
   };
 
@@ -11667,7 +11774,8 @@
     this.yardChanged();
   };
 
-  P.yardChanged = function (bad) {
+  // dragging (quiet): only the outline moves; the bar is redrawn when the drag ends
+  P.yardChanged = function (bad, quiet) {
     var d = this.yd, g = this.ydBox;
     g.clear();
     if (d.sel != null) {
@@ -11675,7 +11783,7 @@
       var x = (d.drag && d.drag.at ? d.drag.at.x : it.x) * T, y = (d.drag && d.drag.at ? d.drag.at.y : it.y) * T;
       g.lineStyle(16, bad ? 0xff5a4a : 0xffe27a, 1).strokeRoundedRect(x + 8, y + 8, type.w * T - 16, type.h * T - 16, 24);
     }
-    F.bus.emit('yard', { sel: d.sel, brush: d.brush });
+    if (!quiet) F.bus.emit('yard', { sel: d.sel, brush: d.brush });
   };
 
   P.yardDown = function (p, over) {
@@ -11707,7 +11815,7 @@
       d.drag.at = { x: x, y: y };
       var img = this.yardSprites[d.drag.i], why = this.yardWhy(it.t, x, y, d.drag.i);
       img.setPosition(x * T, (y + type.h) * T).setAlpha(0.85).setDepth(DEPTH.fx).setTint(why ? 0xff8a80 : 0xffffff);
-      this.yardChanged(!!why);
+      this.yardChanged(!!why, true);
     } else if (pan && p.id === pan.id) {
       if (Math.abs(p.x - pan.x) + Math.abs(p.y - pan.y) > 8) pan.moved = true;
       if (pan.moved) cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom);
@@ -11789,7 +11897,9 @@
   UI.create = function () {
     create.call(this);
     var self = this;
-    F.bus.on('yard', function (info) { if (info) self.drawYardBar(info); else self.closeDecorBar(); });
+    var onYard = function (info) { if (info) self.drawYardBar(info); else self.closeDecorBar(); };
+    F.bus.on('yard', onYard);
+    this.events.once('shutdown', function () { F.bus.off('yard', onYard); }); // (New game restarts this scene)
   };
 
   var openDecor = UI.openDecor;
@@ -12356,7 +12466,7 @@
     F.Net.init();
     if (!F.Net.available()) return;
     O.connect().catch(noop);
-    O.timer = setInterval(function () { O.publish(false); }, ON.publishEvery);
+    O.timer = setInterval(function () { if (!F.Host.sleeping) O.publish(false); }, ON.publishEvery);
   };
 
   // Joins online play with the app's signed-in account (unless the player left it).
@@ -12390,7 +12500,8 @@
         O.blocked = {};
         (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
       }, noop);
-      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); }).then(function () { return O.me; });
+      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); })
+        .then(function () { return L.settleRefills ? L.settleRefills().catch(noop) : null; }).then(function () { return O.me; });
     });
   };
 
@@ -12509,7 +12620,8 @@
     var num = function (v) { v = Number(v); return isFinite(v) ? Math.max(0, Math.min(200 * T, v)) : 0; };
     return {
       id: p.id, name: L.cleanText(p.name, 24) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
-      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: !!p.host, at: Number(p.at) || 0, t: Number(p.t) || 0,
+      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
+      rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
     };
   };
 
@@ -12524,11 +12636,12 @@
       raw.push(q);
       if (O.blocked[q.id]) return;
       var old = before[q.id];
-      if (old && old.t > q.t && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.t = old.t; }
+      // a presence list can carry an older stop than the moves heard since: keep the fresher position
+      if (old && old.rt && Date.now() - old.rt < 3000 && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.rt = old.rt; }
       now[q.id] = q;
     });
     var v = F.session.visit;
-    if (v && !L.visitorFits(raw, { id: O.me.id, at: O.joinedAt }, v.host, ON.maxVisitors)) {
+    if (v && !O.seen && !L.visitorFits(raw, { id: O.me.id, at: Infinity }, v.host, ON.maxVisitors)) {
       O.leaveVisit('This farm is full right now (' + ON.maxVisitors + ' visitors). Try again in a little while!');
       return;
     }
@@ -12542,6 +12655,7 @@
     var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
     var went = Object.keys(before).filter(function (id) { return !now[id]; }).map(function (id) { return before[id]; });
     O.others = now;
+    if (came.length && O.chan) O.chan.track(O.myState()); // newcomers see where we are now, not where we last stopped
     var first = !O.seen;
     O.seen = true;
     if (F.ui && (came.length || went.length)) {
@@ -12558,22 +12672,32 @@
     O.syncSprites();
   };
 
+  // A like or gift note from the same farmer at most once a minute (the server allows one a day anyway).
+  var noted = {};
+  var once = function (id, kind) {
+    var k = id + ':' + kind, now = Date.now();
+    if (noted[k] && now - noted[k] < 60000) return false;
+    noted[k] = now;
+    return true;
+  };
+
   O.onMessage = function (event, payload) {
     var p = payload && typeof payload === 'object' ? payload : {};
     var who = typeof p.id === 'string' ? O.others[p.id] : null;
     if (!who) return;
     if (event === 'mv') {
-      var q = clean(Object.assign({}, who, p, { name: who.name, look: who.look, host: who.host, at: who.at }));
-      if (!q || q.t < who.t) return;
+      var q = clean(Object.assign({}, who, p, { id: who.id, name: who.name, look: who.look, at: who.at }));
+      if (!q) return;
+      q.rt = Date.now();
       var changedMap = q.map !== who.map;
       O.others[q.id] = q;
       if (changedMap) O.syncSprites();
     } else if (event === 'emote') {
       O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
-    } else if (event === 'like' && !F.session.visit) {
+    } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
       O.showEmote(who.id, 'heart');
       if (F.ui) F.ui.toast(who.name + ' liked your farm!', 2400, 0x2f5a22);
-    } else if (event === 'gift' && !F.session.visit) {
+    } else if (event === 'gift' && !F.session.visit && once(who.id, 'gift')) {
       if (F.ui) F.ui.toast(who.name + ' left you a gift! Open Online, then Me, to collect it.', 3200, 0x7a4d12);
     }
   };
@@ -12643,11 +12767,15 @@
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
       }
-      r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET).setDepth(DEPTH.actor + r.y / 1e5);
+      F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       r.shadow.setPosition(r.x, r.y + 16);
       r.tag.setPosition(r.x, r.y - 1.45 * T);
     });
     if (!this.chan || w.busy) return;
+    // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
+    var alone = true;
+    for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
+    if (alone && !(Object.keys(this.others).length && this.last && this.last.map !== w.mapKey)) return;
     var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
@@ -12664,10 +12792,13 @@
 
   // ---------- visiting ----------
   O.visit = function (host) {
-    if (!O.on || !F.world || F.world.busy) return Promise.resolve(false);
+    if (!O.on || !F.world || F.world.busy || O.visiting) return Promise.resolve(false);
     if (host === O.me.id) { F.ui.toast('That is your own farm!'); return Promise.resolve(false); }
     F.ui.toast('Walking over...', 1500);
+    O.visiting = true;
+    var done = function (v) { O.visiting = false; return v; };
     return F.Net.rpc('farm_visit_v1', { p_host: host }).then(function (r) {
+      if (!O.on || !F.world || F.world.busy) return false; // left online play (or the map is changing) meanwhile
       if (!r || !r.data) throw new Error('no such farm');
       var mine = F.session.state, st = L.visitState(r.data, mine);
       st.look = mine.look; // you look like yourself on their farm
@@ -12678,14 +12809,16 @@
       };
       F.session.riding = false;
       F.session.horseAt = null;
+      O.leaveChannel(); // our own farm's news must not read as news about the farm we are walking to
       O.restartWorld();
       return true;
-    }).catch(function (e) { F.ui.toast(errText(e)); return false; });
+    }).catch(function (e) { F.ui.toast(errText(e)); return false; }).then(done);
   };
 
   O.leaveVisit = function (why) {
     if (!F.session.visit) return;
     F.session.visit = null;
+    O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);
     O.restartWorld();
   };
@@ -12786,6 +12919,7 @@
   };
 
   O.wave = function () {
+    if (!O.me) return;
     O.send('emote', { k: 'wave' });
     O.showEmote(O.me.id, 'wave');
     sfx('talk');
@@ -13281,6 +13415,17 @@
     }).catch(function (e) { self.toast(errText(e)); });
   };
 
+  // The app going to the background puts the game to sleep: leave the live channel (visitors would see a frozen
+  // farmer holding a place), and join again on waking.
+  var sleep = window.__gameSleep;
+  window.__gameSleep = function (sleeping) {
+    var was = F.Host.sleeping;
+    sleep(sleeping);
+    if (!O.on || !!sleeping === was) return;
+    if (sleeping) O.leaveChannel();
+    else O.ensureChannel();
+  };
+
   // Decorate mode hides the Online button too
   var openDecor = U.openDecor;
   U.openDecor = function () {
@@ -13453,7 +13598,7 @@
     var z = this.add.zone(0, label ? 5 : 0, r * 2 + 10, r * 2 + (label ? 22 : 8)).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { c.setScale(0.9); });
     z.on('pointerout', function () { c.setScale(1); });
-    z.on('pointerup', function () { c.setScale(1); onTap(); });
+    F.tapOn(z, function () { c.setScale(1); onTap(); });
     c.add(z);
     if (parent) parent.add(c);
     return c;
@@ -13505,7 +13650,7 @@
     this.energyText = this.txt(BAR.x + BAR.w / 2, cy, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
     // tap the energy chip: when it is full, and where to get more
     var ez = this.add.zone(150 + 38, cy, 96, h + 8).setInteractive({ useHandCursor: true });
-    ez.on('pointerup', function () { if (!self.modals.length) self.openEnergy(); });
+    F.tapOn(ez, function () { if (!self.modals.length) self.openEnergy(); });
     // gold: the coin on the chip's edge, the amount right-aligned
     this.add.image(250, cy, 'items', C.ICON.coin).setScale(0.32);
     this.goldText = this.txt(313, cy, '', 15, '#7a4d12', { fontStyle: 'bold' }).setOrigin(1, 0.5);
@@ -13679,7 +13824,7 @@
         c.add(d);
         if (!on) {
           var z = self.add.zone(x, y - 1, dot, 28).setInteractive({ useHandCursor: true });
-          z.on('pointerup', function () { go(k); });
+          F.tapOn(z, function () { go(k); });
           c.add(z);
         }
       })(k);
@@ -13715,7 +13860,7 @@
       var tt = self.txt(0, -1, t[1], 13, on ? '#ffffff' : '#5a3a1e', on ? { fontStyle: 'bold', stroke: '#2f5a22', strokeThickness: 3 } : { fontStyle: 'bold' }).setOrigin(0.5);
       fit(tt, tw - 10);
       var z = self.add.zone(0, 0, tw, 32).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () {
+      F.tapOn(z, function () {
         if (on) return;
         sfx('pick');
         onPick(t[0]);
@@ -13748,7 +13893,7 @@
     var z = this.add.zone(0, 0, w, h + 6).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { c.setScale(0.93); });
     z.on('pointerout', function () { c.setScale(1); });
-    z.on('pointerup', function () { c.setScale(1); onTap(); });
+    F.tapOn(z, function () { c.setScale(1); onTap(); });
     c.add([t, z]);
     if (parent) parent.add(c);
     return c;
@@ -14215,7 +14360,6 @@
       return (c === 'x' ? r : (r & 3) | 8).toString(16);
     });
   };
-  var pending = null; // { id, currency, price, version } of a tap whose answer never came
 
   U.openRefill = function (then) {
     var self = this, s = F.session.state;
@@ -14252,32 +14396,75 @@
     'wallet-unavailable': 'Your Selebox wallet is not ready. Please try again later.',
   };
 
+  // A refill: asked once (real Coins or Stars), then sent with a request id that is saved first, so an answer lost
+  // to a bad connection, a closed app or a crash is settled later instead of being lost (L.cleanBuys, 01-logic8.js).
+  var SETTLE_AFTER = 30000; // ms: an unanswered refill older than this is checked with the server
+  var save = function (s) { if (F.world && F.world.save) F.world.save(); else F.Host.save(s); };
+  var spent = function () { if (typeof host().spent === 'function') { try { host().spent(); } catch (e) { /* optional */ } } };
+
+  // Asks the server about one unanswered refill without paying (price 0 is never a real price: a known request gets
+  // its receipt back, an unknown one is refused before any payment). Resolves 'given' | 'none' | 'offline'.
+  var settleOne = function (b) {
+    var s = F.session.state;
+    return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: 0, p_version: b[3], p_request_id: b[0] }).then(function (r) {
+      s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; });
+      var gain = r && r.ok ? L.refill(s, Number(r.amount) || 0) : null;
+      save(s);
+      if (gain === null) return 'none';
+      spent();
+      if (F.ui) F.ui.toast('Your last refill arrived: +' + gain + ' energy.', 2600, 0x2f5a22);
+      return 'given';
+    }, function () { return 'offline'; });
+  };
+
+  // Settles every unanswered refill old enough (at the start, and before a new one). Resolves 'clear' (none left),
+  // 'given' (an earlier refill's energy just arrived) or 'waiting' (one is too recent to check, or no connection).
+  L.settleRefills = function () {
+    var s = F.session.state, now = Date.now(), list = (s.net && s.net.pb) || [], given = false;
+    var old = list.filter(function (b) { return now - b[4] >= SETTLE_AFTER || b[4] > now; });
+    if (!old.length || !L.canRefill()) return Promise.resolve(list.length ? 'waiting' : 'clear');
+    return old.reduce(function (p, b) {
+      return p.then(function () { return settleOne(b).then(function (r) { if (r === 'given') given = true; }); });
+    }, Promise.resolve()).then(function () { return given ? 'given' : s.net.pb.length ? 'waiting' : 'clear'; });
+  };
+
   U.buyRefill = function (o) {
-    var self = this, s = F.session.state;
-    if (s.energy >= L.maxEnergy(s)) return this.toast("You're already full of energy.");
-    var same = pending && pending.currency === o.currency && pending.price === o.price && pending.version === o.version;
-    var req = same ? pending : (pending = { id: requestId(), currency: o.currency, price: o.price, version: o.version });
+    var self = this, s = F.session.state, max = L.maxEnergy(s), e = Math.floor(s.energy);
+    if (e >= max) return this.toast("You're already full of energy.");
     if (this.buying) return;
-    this.buying = true;
-    F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: req.currency, p_price: req.price, p_version: req.version, p_request_id: req.id })
-      .then(function (r) {
-        self.buying = false;
-        pending = null; // answered: a new tap is a new purchase
-        if (!r || !r.ok) {
-          self.closeModal();
-          return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
+    var gain = Math.min(max, e + (Number(o.amount) || 0)) - e;
+    this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
+      self.buying = true;
+      L.settleRefills().then(function (state) {
+        if (state !== 'clear') {
+          self.buying = false;
+          if (state === 'given') { self.closeAll(); self.refresh(); return; } // that one is what they were paying for
+          return self.toast('Still checking your last refill. Try again in a moment.', 2600);
         }
-        var gain = L.refill(s, Number(r.amount) || 0);
-        if (F.world && F.world.save) F.world.save(); else F.Host.save(s);
-        if (typeof host().spent === 'function') { try { host().spent(); } catch (e) { /* the app's balance refresh is optional */ } }
-        self.closeAll();
-        self.refresh();
-        self.toast('+' + gain + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
-        sfx('coin');
-      }, function () {
-        self.buying = false; // the answer was lost: the next tap sends the same request, never a second payment
-        self.toast('Could not reach Selebox. Tap Buy again: you will not pay twice.', 2800);
+        var b = [requestId(), o.currency, o.price, o.version, Date.now()];
+        s.net.pb = (s.net.pb || []).concat([b]);
+        save(s); // before sending: an answer lost from here on is settled later
+        return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: b[2], p_version: b[3], p_request_id: b[0] }).then(function (r) {
+          self.buying = false;
+          s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; }); // answered: nothing left to settle
+          if (!r || !r.ok) {
+            save(s);
+            self.closeAll();
+            return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
+          }
+          var got = L.refill(s, Number(r.amount) || 0);
+          save(s);
+          spent();
+          self.closeAll();
+          self.refresh();
+          self.toast('+' + got + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
+          sfx('coin');
+        }, function () {
+          self.buying = false; // kept in s.net.pb: settled on the next tap or the next start, never paid twice
+          self.toast('Could not reach Selebox. If it was paid, the energy comes the next time you play.', 3200);
+        });
       });
+    });
   };
 
   void W;
@@ -14288,8 +14475,11 @@
 (function (F) {
   'use strict';
   var C = F.Config;
-  // Render at the screen's pixel density so the 256px art stays sharp. Layout stays 360x640.
-  F.R = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+  // Render at the screen's pixel density so the 256px art stays sharp. Layout stays 360x640. Android phones at 3x
+  // draw at 2x (owner, 26 Oct: smoother first): less than half the pixels each frame, the biggest GPU saving on
+  // budget phones, and the screen scales it up. iPhones keep their full density.
+  var android = /Android/i.test((window.navigator && navigator.userAgent) || '');
+  F.R = Math.max(1, Math.min(android ? 2 : 3, Math.round(window.devicePixelRatio || 1)));
 
   function decode(src) {
     return new Promise(function (resolve, reject) {

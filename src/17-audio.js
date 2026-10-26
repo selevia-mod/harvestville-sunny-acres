@@ -33,7 +33,8 @@
 
   A.unlock = function () {
     if (A.ctx) {
-      if (A.ctx.state === 'suspended' && !(F.Host && F.Host.sleeping)) A.ctx.resume();
+      // (iOS says 'interrupted' after a call or Siri: it needs a resume too)
+      if ((A.ctx.state === 'suspended' || A.ctx.state === 'interrupted') && !(F.Host && F.Host.sleeping)) A.ctx.resume();
       return;
     }
     var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -189,6 +190,7 @@
   function schedule() {
     var ctx = A.ctx, tune = TUNES[A.mood];
     if (!ctx || !tune || ctx.state !== 'running') return;
+    if (!A.opts.music) { A.nextAt = ctx.currentTime + 0.05; return; } // music off: no notes built just to be silent
     var stepLen = 60 / tune.bpm / 2;
     if (A.nextAt < ctx.currentTime - 1) A.nextAt = ctx.currentTime + 0.05; // after a pause, don't catch up
     while (A.nextAt < ctx.currentTime + 0.25) {

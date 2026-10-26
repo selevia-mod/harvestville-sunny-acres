@@ -164,7 +164,6 @@
       return (c === 'x' ? r : (r & 3) | 8).toString(16);
     });
   };
-  var pending = null; // { id, currency, price, version } of a tap whose answer never came
 
   U.openRefill = function (then) {
     var self = this, s = F.session.state;
@@ -201,32 +200,75 @@
     'wallet-unavailable': 'Your Selebox wallet is not ready. Please try again later.',
   };
 
+  // A refill: asked once (real Coins or Stars), then sent with a request id that is saved first, so an answer lost
+  // to a bad connection, a closed app or a crash is settled later instead of being lost (L.cleanBuys, 01-logic8.js).
+  var SETTLE_AFTER = 30000; // ms: an unanswered refill older than this is checked with the server
+  var save = function (s) { if (F.world && F.world.save) F.world.save(); else F.Host.save(s); };
+  var spent = function () { if (typeof host().spent === 'function') { try { host().spent(); } catch (e) { /* optional */ } } };
+
+  // Asks the server about one unanswered refill without paying (price 0 is never a real price: a known request gets
+  // its receipt back, an unknown one is refused before any payment). Resolves 'given' | 'none' | 'offline'.
+  var settleOne = function (b) {
+    var s = F.session.state;
+    return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: 0, p_version: b[3], p_request_id: b[0] }).then(function (r) {
+      s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; });
+      var gain = r && r.ok ? L.refill(s, Number(r.amount) || 0) : null;
+      save(s);
+      if (gain === null) return 'none';
+      spent();
+      if (F.ui) F.ui.toast('Your last refill arrived: +' + gain + ' energy.', 2600, 0x2f5a22);
+      return 'given';
+    }, function () { return 'offline'; });
+  };
+
+  // Settles every unanswered refill old enough (at the start, and before a new one). Resolves 'clear' (none left),
+  // 'given' (an earlier refill's energy just arrived) or 'waiting' (one is too recent to check, or no connection).
+  L.settleRefills = function () {
+    var s = F.session.state, now = Date.now(), list = (s.net && s.net.pb) || [], given = false;
+    var old = list.filter(function (b) { return now - b[4] >= SETTLE_AFTER || b[4] > now; });
+    if (!old.length || !L.canRefill()) return Promise.resolve(list.length ? 'waiting' : 'clear');
+    return old.reduce(function (p, b) {
+      return p.then(function () { return settleOne(b).then(function (r) { if (r === 'given') given = true; }); });
+    }, Promise.resolve()).then(function () { return given ? 'given' : s.net.pb.length ? 'waiting' : 'clear'; });
+  };
+
   U.buyRefill = function (o) {
-    var self = this, s = F.session.state;
-    if (s.energy >= L.maxEnergy(s)) return this.toast("You're already full of energy.");
-    var same = pending && pending.currency === o.currency && pending.price === o.price && pending.version === o.version;
-    var req = same ? pending : (pending = { id: requestId(), currency: o.currency, price: o.price, version: o.version });
+    var self = this, s = F.session.state, max = L.maxEnergy(s), e = Math.floor(s.energy);
+    if (e >= max) return this.toast("You're already full of energy.");
     if (this.buying) return;
-    this.buying = true;
-    F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: req.currency, p_price: req.price, p_version: req.version, p_request_id: req.id })
-      .then(function (r) {
-        self.buying = false;
-        pending = null; // answered: a new tap is a new purchase
-        if (!r || !r.ok) {
-          self.closeModal();
-          return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
+    var gain = Math.min(max, e + (Number(o.amount) || 0)) - e;
+    this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
+      self.buying = true;
+      L.settleRefills().then(function (state) {
+        if (state !== 'clear') {
+          self.buying = false;
+          if (state === 'given') { self.closeAll(); self.refresh(); return; } // that one is what they were paying for
+          return self.toast('Still checking your last refill. Try again in a moment.', 2600);
         }
-        var gain = L.refill(s, Number(r.amount) || 0);
-        if (F.world && F.world.save) F.world.save(); else F.Host.save(s);
-        if (typeof host().spent === 'function') { try { host().spent(); } catch (e) { /* the app's balance refresh is optional */ } }
-        self.closeAll();
-        self.refresh();
-        self.toast('+' + gain + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
-        sfx('coin');
-      }, function () {
-        self.buying = false; // the answer was lost: the next tap sends the same request, never a second payment
-        self.toast('Could not reach Selebox. Tap Buy again: you will not pay twice.', 2800);
+        var b = [requestId(), o.currency, o.price, o.version, Date.now()];
+        s.net.pb = (s.net.pb || []).concat([b]);
+        save(s); // before sending: an answer lost from here on is settled later
+        return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: b[2], p_version: b[3], p_request_id: b[0] }).then(function (r) {
+          self.buying = false;
+          s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; }); // answered: nothing left to settle
+          if (!r || !r.ok) {
+            save(s);
+            self.closeAll();
+            return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
+          }
+          var got = L.refill(s, Number(r.amount) || 0);
+          save(s);
+          spent();
+          self.closeAll();
+          self.refresh();
+          self.toast('+' + got + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
+          sfx('coin');
+        }, function () {
+          self.buying = false; // kept in s.net.pb: settled on the next tap or the next start, never paid twice
+          self.toast('Could not reach Selebox. If it was paid, the energy comes the next time you play.', 3200);
+        });
       });
+    });
   };
 
   void W;

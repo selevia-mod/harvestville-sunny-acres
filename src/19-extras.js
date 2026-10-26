@@ -74,7 +74,7 @@
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
-      this.rider.setVisible(true).setFrame(6).setFlipX(flip).setPosition(f.x + (flip ? -30 : 30), f.y - 350).setDepth(DEPTH.actor + f.y / 1e5 + 0.0002);
+      F.depthTo(this.rider.setVisible(true).setFrame(6).setFlipX(flip).setPosition(f.x + (flip ? -30 : 30), f.y - 350), DEPTH.actor + f.y / 1e5 + 0.0002);
       h.sprite.setFrame(C.HORSE.frame0 + (this.moving ? Math.floor(time / 140) % 2 : 2)).setFlipX(flip);
       this.shadow.setScale(1.6, 1.3);
     } else {
@@ -83,7 +83,7 @@
       this.shadow.setScale(1);
       h.sprite.setFrame(C.HORSE.frame0 + (Math.floor(time / 2600) % 3 === 0 ? 3 : 2));
     }
-    h.sprite.setPosition(h.x, h.y).setDepth(DEPTH.actor + h.y / 1e5);
+    F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
   };
 
   // Indoors and down the mine, the horse waits outside.

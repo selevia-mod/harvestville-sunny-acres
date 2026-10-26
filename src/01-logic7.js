@@ -33,7 +33,7 @@
   ['petAnimal', 'brushAnimal', 'feedAnimal'].forEach(function (n) { countOn(n, 'care', ok); });
   countOn('clearDebris', 'clear', function (r) { return !!r; });
   countOn('deliverOrder', 'order', function (r) { return r > 0; });
-  countOn('reachFloor', 'floor', function () { return true; });
+  countOn('reachFloor', 'floor', function (r) { return r === true; });
   countOn('takeForage', 'forage', got);
   ['petDog', 'petCat', 'petHorse'].forEach(function (n) { countOn(n, 'pet', ok); });
   countOn('placeYard', 'decor', function (r) { return typeof r === 'number'; });
@@ -239,7 +239,8 @@
     if (s.builds.kitchen) DISHES.forEach(function (d) { pool.push([d, 1, 1]); });
     if ((s.stats.deepest || 0) >= 1) pool.push(['ore_copper', 3, 5]);
     if ((s.stats.deepest || 0) >= 10) pool.push(['ore_silver', 2, 4]);
-    return pool;
+    // never something a shop sells (buying it and handing it in would pay more than it cost)
+    return pool.filter(function (e) { return !C.ITEMS[e[0]].price; });
   };
   var valueOf = function (id) { var it = C.ITEMS[id]; return it.sell || (it.energy || 10) * 4; };
 
@@ -383,7 +384,8 @@
     s.pwr = { day: s.day, until: s.time + C.POWER_UP.minutes };
     return 'ok';
   };
-  L.powered = function (s) { return s.pwr.day === s.day && s.time < s.pwr.until; };
+  // the 2 hours run on past midnight (until counts minutes from the start of the day it was drunk)
+  L.powered = function (s) { return s.day * 1440 + s.time < s.pwr.day * 1440 + s.pwr.until; };
   var spendEnergy = L.spendEnergy;
   L.spendEnergy = function (s, amount) {
     if (L.powered(s)) return true;

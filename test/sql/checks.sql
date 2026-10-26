@@ -239,3 +239,58 @@ do $$ begin
 end $$;
 set role anon;
 do $$ begin perform farm_buy_v1('energy', 'coins', 5, 1, gen_random_uuid()); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'signed-out users cannot buy'); end $$;
+-- part 5: review fixes
+reset role;
+insert into auth.users select ('00000000-0000-4000-8000-00000000000' || n)::uuid from generate_series(6, 9) n;
+insert into public.profiles (auth_user_id, is_banned, suspended_until, display_name, username)
+select ('00000000-0000-4000-8000-00000000000' || n)::uuid, false, null, 'P' || n, 'p' || n from generate_series(6, 9) n;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(6); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0);
+  perform pg_temp.as_(7); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0);
+  perform farm_block_v1(pg_temp.id(6), true);
+end $$;
+reset role; update farm.players set hidden = true where user_id = pg_temp.id(6); set role authenticated;
+do $$ begin
+  perform pg_temp.as_(6); perform farm_leave_v1(); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0);
+  perform pg_temp.as_(7);
+  perform pg_temp.ok((select count(*) from farm_blocked_v1() where id = pg_temp.id(6)) = 1, 'leaving and joining again does not undo a block');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select hidden from farm.players where user_id = pg_temp.id(6)), 'nor a moderator''s hide');
+end $$;
+-- friend request, cancel, request again: one push
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(9); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0); perform farm_set_listed_v1(false);
+  perform pg_temp.as_(8); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0);
+end $$;
+reset role; create temp table codes5 as select user_id, friend_code from farm.players; grant select on codes5 to authenticated;
+set role authenticated;
+do $$ declare c9 text; begin
+  perform pg_temp.as_(8);
+  select friend_code into c9 from codes5 where user_id = pg_temp.id(9);
+  for i in 1..4 loop perform farm_friend_add_v1(c9); perform farm_friend_answer_v1(pg_temp.id(9), false); end loop;
+  perform farm_friend_add_v1(c9);
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select count(*) from public.notifications n join public.profiles p on p.id = n.recipient_id
+    where p.auth_user_id = pg_temp.id(9) and n.metadata->>'kind' = 'friend') = 1, 'asking again and again pushes once a day (' || (select count(*) from public.notifications n join public.profiles p on p.id = n.recipient_id where p.auth_user_id = pg_temp.id(9) and n.metadata->>'kind' = 'friend') || ')');
+end $$;
+set role authenticated;
+-- a hidden farm: friends only
+do $$ declare c8 text; begin
+  perform pg_temp.as_(7);
+  begin perform farm_visit_v1(pg_temp.id(9)); perform pg_temp.ok(false, 'x'); exception when others then perform pg_temp.ok(sqlerrm = 'no such farm', 'a hidden farm turns strangers away'); end;
+  perform pg_temp.as_(9); select friend_code into c8 from codes5 where user_id = pg_temp.id(8); perform farm_friend_add_v1(c8);
+  perform pg_temp.as_(8);
+  perform pg_temp.ok((farm_visit_v1(pg_temp.id(9)) ->> 'friend')::boolean, 'friends can still visit it');
+end $$;
+-- guests can't report
+reset role; update public.profiles set is_guest = true where auth_user_id = pg_temp.id(7); set role authenticated;
+do $$ begin
+  perform pg_temp.as_(7);
+  perform pg_temp.ok(farm_report_v1(pg_temp.id(8), 'name') = 'guest', 'guest accounts cannot report');
+end $$;

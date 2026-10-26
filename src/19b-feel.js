@@ -167,10 +167,11 @@
     this.burst(kind, m.x, m.y - 40, n);
   };
 
-  // A stream of water from the can's spout onto the tile, then a splash.
-  P.drops = function (t) {
-    var self = this, m = mid(t), from = this.spout();
-    for (var i = 0; i < 18; i++) {
+  // A stream of water from the can's spout onto the tile, then a splash. Watering many tiles at once (an upgraded
+  // can) shares the drops out: 18 for one tile, a few each for 15, so a big swing doesn't spawn hundreds at once.
+  P.drops = function (t, tiles) {
+    var self = this, m = mid(t), from = this.spout(), n = Math.max(3, Math.round(18 / Math.max(1, tiles || 1))), many = (tiles || 1) > 3;
+    for (var i = 0; i < n; i++) {
       (function (i) {
         var d = self.add.image(from.x + Phaser.Math.Between(-14, 14), from.y, 'fx', self.fxFrame('water', 0)).setScale(Phaser.Math.FloatBetween(0.26, 0.36)).setDepth(DEPTH.fx);
         var tx = m.x + Phaser.Math.Between(-80, 80), ty = m.y + Phaser.Math.Between(-40, 30);
@@ -178,12 +179,12 @@
         self.tweens.add({ targets: d, x: tx, duration: 200, delay: i * 16, ease: 'Linear' });
         self.tweens.add({
           targets: d, y: ty, duration: 200, delay: i * 16, ease: 'Quad.in',
-          onComplete: function () { d.destroy(); if (i % 4 === 0) self.burst('water', tx, ty, 2); },
+          onComplete: function () { d.destroy(); if (!many && i % 4 === 0) self.burst('water', tx, ty, 2); },
         });
       })(i);
     }
     this.time.delayedCall(200, function () {
-      self.burst('water', m.x, m.y, 6);
+      self.burst('water', m.x, m.y, many ? 2 : 6);
       self.splash(m.x, m.y);
     });
   };

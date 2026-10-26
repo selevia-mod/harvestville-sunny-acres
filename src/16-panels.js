@@ -234,7 +234,7 @@
       });
       c.add(self.add.image(x, 398, F.ensureTexture(self, o[1]), 0).setOrigin(0.5, 1).setScale(0.48));
       var z = self.add.zone(x, 305, 124, 210).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () { pick(o[0]); });
+      F.tapOn(z, function () { pick(o[0]); });
       c.add(z);
       self.button(c, x, 456, 112, 44, o[2], function () { pick(o[0]); }, o[3]);
     });
@@ -726,36 +726,40 @@
     c.add(this.txt(W / 2, 88, 'Collection', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
     c.add(this.txt(W / 2, 116, L.collectionCount(s) + ' of ' + C.COLLECTION.length + ' found', 13, '#7a5a3a').setOrigin(0.5, 0));
-    var cols = 7, cell = 44, x0 = (W - cols * cell) / 2, y0 = 140;
+    // the records sit beside the bottom of the grid, so the panel always holds them (70 items = 10 rows)
+    var cols = 7, cell = 40, x0 = (W - cols * cell) / 2, y0 = 136;
     C.COLLECTION.forEach(function (id, i) {
       var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, got = L.discovered(s, id);
       self.baked(c, x + 2, y + 2, 'ui-colcell', cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });
-      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.26);
+      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.24);
       if (!got) icon.setTint(0x000000).setAlpha(0.22);
       c.add(icon);
     });
     var st = s.stats;
-    c.add(this.txt(W / 2, y0 + Math.ceil(C.COLLECTION.length / cols) * cell + 12, 'RECORDS\nEarned: ' + st.earned + 'G\nFish caught: ' + st.fish + '\nDishes cooked: ' + st.cooked +
-      '\nDeepest mine floor: ' + (st.deepest || '-') + '\nFriends with 5+ hearts: ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
-    14, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0));
+    var ry = y0 + Math.ceil(C.COLLECTION.length / cols) * cell + 8;
+    var rec = this.txt(W / 2, ry, 'RECORDS   Earned ' + st.earned + 'G   Fish ' + st.fish + '   Dishes ' + st.cooked +
+      '\nDeepest mine floor ' + (st.deepest || '-') + '   Friends with 5+ hearts ' + C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length,
+    12, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0);
+    if (rec.width > W - 50) rec.setScale((W - 50) / rec.width);
+    if (ry + rec.displayHeight > 592) rec.setY(592 - rec.displayHeight);
+    c.add(rec);
   };
 
-  M.openFriends = function () {
+  // All 23 villagers, a page at a time (the list panel's pager): face, name, hearts, what you did today.
+  M.openFriends = function (page) {
     var self = this, s = F.session.state;
-    var c = this.openModal();
-    this.panelImg(c, 12, 70, W - 24, 530);
-    c.add(this.txt(W / 2, 88, 'Friends', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
-    F.ensureTexture(this, 'people');
-    C.VILLAGER_ORDER.forEach(function (k, i) {
-      var y = 124 + i * 64, f = L.friend(s, k), v = C.VILLAGERS[k];
-      self.baked(c, 26, y, 'ui-friend-row', W - 52, 58, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 52, 58, 9); });
-      var face = self.add.image(56, y + 56, 'people', i * 9).setOrigin(0.5, 1).setScale(0.32).setCrop(0, 0, 128, 150);
-      if (!f.met) face.setTint(0x333333);
-      c.add(face);
-      c.add(self.txt(86, y + 6, f.met ? v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : '') : '???', 14, INK, { fontStyle: 'bold' }));
-      c.add(self.txt(86, y + 24, f.met ? v.role + (f.talked ? '  ✓ talked' : '') + (f.gifted ? '  ✓ gift' : '') : 'Not met yet', 11, '#7a5a3a'));
-      if (f.met) c.add(self.heartsText(86, y + 38, L.friendHearts(s, k)));
+    var rows = C.VILLAGER_ORDER.map(function (k) {
+      var f = L.friend(s, k), v = C.VILLAGERS[k], n = L.friendHearts(s, k);
+      if (!f.met) return { icon: C.ICON.exclaim, name: '???', desc: 'Not met yet.' };
+      return {
+        people: k, name: v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : ''),
+        desc: new Array(n + 1).join('\u2665') + new Array(10 - n + 1).join('\u2661') + '\n' + v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
+      };
+    });
+    this.listPanel({
+      title: 'Friends', rows: rows, page: page || 0,
+      reopen: function (t, p) { self.closeModal(); self.openFriends(p); },
+      sub: function () { return C.VILLAGER_ORDER.filter(function (k) { return L.friend(s, k).met; }).length + ' of ' + C.VILLAGER_ORDER.length + ' met. Talk every day, give gifts they like.'; },
     });
   };
 

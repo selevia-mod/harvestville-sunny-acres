@@ -1219,7 +1219,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   // the collection book in the pause menu
   await page.evaluate(() => window.__gameBack());
   await tapButton(page, 'Collection');
-  assert.match(await modalText(page), /Earned: 0G/);
+  assert.match(await modalText(page), /RECORDS   Earned 0G   Fish 0.*Deepest mine floor 5/s);
   await shot(page, '33-collection');
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -1532,6 +1532,22 @@ test('nothing solid can be walked through, on any map, on foot or on horseback',
     assert.ok(r.tries > 50, `${map}: tested ${r.tries} pushes`);
     assert.deepStrictEqual(r.fails, [], `${map}: walked into something solid`);
   }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('holding the watering can off the soil (grass, in town) never stops the game', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await hold(page, 'can');
+  const frame0 = await page.evaluate(() => Farm.game.loop.frame);
+  await teleport(page, 3, 3, 'down'); // grass by the house
+  await frames(page, 10);
+  await go(page, 'town', null);
+  await hold(page, 'can');
+  await frames(page, 10);
+  const frame1 = await page.evaluate(() => Farm.game.loop.frame);
+  assert.ok(frame1 > frame0 + 15, 'the game keeps running (' + frame0 + ' -> ' + frame1 + ')');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

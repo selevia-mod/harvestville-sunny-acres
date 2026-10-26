@@ -2,8 +2,11 @@
 (function (F) {
   'use strict';
   var C = F.Config;
-  // Render at the screen's pixel density so the 256px art stays sharp. Layout stays 360x640.
-  F.R = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+  // Render at the screen's pixel density so the 256px art stays sharp. Layout stays 360x640. Android phones at 3x
+  // draw at 2x (owner, 26 Oct: smoother first): less than half the pixels each frame, the biggest GPU saving on
+  // budget phones, and the screen scales it up. iPhones keep their full density.
+  var android = /Android/i.test((window.navigator && navigator.userAgent) || '');
+  F.R = Math.max(1, Math.min(android ? 2 : 3, Math.round(window.devicePixelRatio || 1)));
 
   function decode(src) {
     return new Promise(function (resolve, reject) {

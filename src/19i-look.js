@@ -158,7 +158,7 @@
     var z = this.add.zone(0, label ? 5 : 0, r * 2 + 10, r * 2 + (label ? 22 : 8)).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { c.setScale(0.9); });
     z.on('pointerout', function () { c.setScale(1); });
-    z.on('pointerup', function () { c.setScale(1); onTap(); });
+    F.tapOn(z, function () { c.setScale(1); onTap(); });
     c.add(z);
     if (parent) parent.add(c);
     return c;
@@ -210,7 +210,7 @@
     this.energyText = this.txt(BAR.x + BAR.w / 2, cy, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
     // tap the energy chip: when it is full, and where to get more
     var ez = this.add.zone(150 + 38, cy, 96, h + 8).setInteractive({ useHandCursor: true });
-    ez.on('pointerup', function () { if (!self.modals.length) self.openEnergy(); });
+    F.tapOn(ez, function () { if (!self.modals.length) self.openEnergy(); });
     // gold: the coin on the chip's edge, the amount right-aligned
     this.add.image(250, cy, 'items', C.ICON.coin).setScale(0.32);
     this.goldText = this.txt(313, cy, '', 15, '#7a4d12', { fontStyle: 'bold' }).setOrigin(1, 0.5);
@@ -384,7 +384,7 @@
         c.add(d);
         if (!on) {
           var z = self.add.zone(x, y - 1, dot, 28).setInteractive({ useHandCursor: true });
-          z.on('pointerup', function () { go(k); });
+          F.tapOn(z, function () { go(k); });
           c.add(z);
         }
       })(k);
@@ -420,7 +420,7 @@
       var tt = self.txt(0, -1, t[1], 13, on ? '#ffffff' : '#5a3a1e', on ? { fontStyle: 'bold', stroke: '#2f5a22', strokeThickness: 3 } : { fontStyle: 'bold' }).setOrigin(0.5);
       fit(tt, tw - 10);
       var z = self.add.zone(0, 0, tw, 32).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () {
+      F.tapOn(z, function () {
         if (on) return;
         sfx('pick');
         onPick(t[0]);
@@ -453,7 +453,7 @@
     var z = this.add.zone(0, 0, w, h + 6).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { c.setScale(0.93); });
     z.on('pointerout', function () { c.setScale(1); });
-    z.on('pointerup', function () { c.setScale(1); onTap(); });
+    F.tapOn(z, function () { c.setScale(1); onTap(); });
     c.add([t, z]);
     if (parent) parent.add(c);
     return c;

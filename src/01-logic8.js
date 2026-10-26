@@ -13,7 +13,15 @@
     s.net = L.newNet();
     return s;
   };
-  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0, off: 0 }; };
+  // pb: refills sent to the server whose answer never came (request id, currency, price, version, ms sent), so a lost
+  // answer can be settled later: the energy is given if the server took the payment, or the entry is dropped.
+  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0, off: 0, pb: [] }; };
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  L.cleanBuys = function (list) {
+    return (Array.isArray(list) ? list : []).filter(function (b) {
+      return Array.isArray(b) && UUID.test(String(b[0])) && (b[1] === 'coins' || b[1] === 'stars');
+    }).slice(-3).map(function (b) { return [String(b[0]), b[1], int(b[2], 0, 1e5, 0), int(b[3], 0, 1e6, 0), int(b[4], 0, 1e14, 0)]; });
+  };
 
   // ---------- the snapshot ----------
   L.snapshot = function (s) {
@@ -96,7 +104,7 @@
     ['coop2', 'barn2', 'stable', 'kitchen'].forEach(function (k) { if (b[k]) s.builds[k] = 1; });
     s.animals = [];
     (Array.isArray(snap.animals) ? snap.animals : []).forEach(function (e) {
-      if (!Array.isArray(e) || !C.ANIMALS[e[0]] || L.space(s, e[0]) <= 0) return;
+      if (!Array.isArray(e) || C.ANIMAL_KEYS.indexOf(e[0]) < 0 || L.space(s, e[0]) <= 0) return; // (never 'constructor' and co.)
       s.animals.push({ kind: e[0], name: str(e[1], 16) || C.ANIMALS[e[0]].names[0], love: 50, fed: 1, pet: 1, ready: 0, brushed: 1, young: e[2] ? 3 : 0, preg: 0 });
     });
     var pets = snap.pets && typeof snap.pets === 'object' ? snap.pets : {};
@@ -141,6 +149,7 @@
   L.serialize = function (s) {
     var o = serialize(s);
     o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0, s.net.named ? 1 : 0, s.net.off ? 1 : 0];
+    if (s.net.pb && s.net.pb.length) o.pb = L.cleanBuys(s.net.pb);
     return o;
   };
   var deserialize = L.deserialize;
@@ -148,7 +157,9 @@
     var s = deserialize(o);
     if (!s) return s;
     var n = Array.isArray(o.nt) ? o.nt : [];
-    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0, off: n[7] ? 1 : 0 };
+    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0, off: n[7] ? 1 : 0, pb: L.cleanBuys(o.pb) };
+    // energy up to the max a beautiful home AND yard give (the yard is only back now): a paid refill survives a reload
+    s.energy = int(o.e, 0, L.maxEnergy(s), L.maxEnergy(s));
     return s;
   };
 })(window.Farm = window.Farm || {});

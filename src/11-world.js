@@ -10,6 +10,8 @@
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // body centre sits this far below the sprite centre (see body offset below)
   var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance' };
+  // Sets a depth only when it changes: Phaser re-sorts the whole map on every depth set, even to the same value.
+  F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
   var OUTDOORS = { farm: true, town: true };
 
   function propsOf(list) {
@@ -33,6 +35,7 @@
       this.clockMs = 0;
       this.saveMs = 0;
       this.hintKey = '';
+      if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
       this.charge = null;
       this.fishing = null;
       this.hits = {}; // tile index -> swings so far on a stump or boulder
@@ -78,6 +81,7 @@
       // ----- what lives on this map
       if (this.mapKey === 'farm') this.setupFarm();
       if (this.mapKey === 'mine') this.setupMine();
+      if (this.mapKey === 'mine' || this.mapKey === 'farm') this.unstick(); // again, now the day's rocks and debris are down
       this.setupForage();
       if (this.mapKey === 'town' || this.mapKey === 'house') this.villagers = new F.Villagers(this);
       this.setupExtras();
@@ -353,6 +357,7 @@
         if (this.player.anims.isPlaying) this.idle();
         if (this.busy || F.ui.blocking()) {
           F.input.action = false;
+          if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
           this.charge = null;
           this.showArea(null);
           if (this.villagers) this.villagers.update(dt, time, true);
@@ -366,7 +371,7 @@
       s.player.x = f.x;
       s.player.y = f.y;
       s.player.dir = this.dir;
-      this.player.setDepth(DEPTH.actor + f.y / 1e5);
+      F.depthTo(this.player, DEPTH.actor + f.y / 1e5);
 
       if (this.tickClock(dt)) return;
       this.updatePolish(dt, time);
@@ -489,6 +494,7 @@
       var self = this, s = this.state;
       this.beforeTravel(to);
       this.busy = true;
+      if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
       this.charge = null;
       this.player.body.setVelocity(0, 0);
       F.input.reset();

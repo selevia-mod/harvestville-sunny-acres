@@ -16,6 +16,7 @@ const RPC_NAME = /^farm_[a-z_]{1,40}_v1$/;
 const TOPIC = /^farm:[0-9a-f-]{36}$/;
 const EVENT = /^[a-z]{1,16}$/;
 const MAX_JSON = 256 * 1024; // the biggest call is publishing a farm (tens of KB)
+const TIMEOUT_MS = 15000; // a call with no answer by then fails, so the game never waits forever on a bad network
 
 // Runs inside the WebView before the game loads (ES5: works in old Android WebViews too).
 const GAME_NET_SCRIPT = `(function () {
@@ -91,18 +92,20 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
 
     async join(ch, topic, me) {
       if (!TOPIC.test(String(topic)) || channels.has(ch)) throw new Error('not allowed');
-      const uid = await userId();
-      if (!uid) throw new Error('not signed in');
+      // kept from the start, so a leave (or the screen closing) while signing in cancels the join
       const entry = { channel: null, state: me, subscribed: false };
+      channels.set(ch, entry);
+      const uid = await userId();
+      if (channels.get(ch) !== entry || disposed) return false;
+      if (!uid) { channels.delete(ch); throw new Error('not signed in'); }
       const channel = supabase.channel(topic, { config: { private: true, broadcast: { self: false }, presence: { key: uid } } });
       entry.channel = channel;
-      channels.set(ch, entry);
       channel.on('presence', { event: 'sync' }, () => {
         const all = channel.presenceState(), others = [];
         Object.keys(all).forEach((key) => {
           if (key === uid || !all[key] || !all[key][0]) return;
           const { presence_ref, ...state } = all[key][0]; // eslint-disable-line no-unused-vars
-          others.push(state);
+          others.push({ ...state, id: key }); // who they are is the server-checked key, never what they say
         });
         emit(ch, 'presence', others);
       });
@@ -125,7 +128,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
 
     async send(ch, event, payload) {
       const entry = channels.get(ch);
-      if (!entry || !EVENT.test(String(event))) return false;
+      if (!entry || !entry.channel || !EVENT.test(String(event))) return false;
       await entry.channel.send({ type: 'broadcast', event, payload });
       return true;
     },
@@ -134,7 +137,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const entry = channels.get(ch);
       if (!entry) return false;
       channels.delete(ch);
-      await supabase.removeChannel(entry.channel);
+      if (entry.channel) await supabase.removeChannel(entry.channel);
       return true;
     },
   };
@@ -147,8 +150,10 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     try { msg = JSON.parse(raw); } catch (e) { return false; }
     if (!msg || msg.__sunnyNet !== 1 || !ops[msg.op] || !Array.isArray(msg.args)) return false;
     if (raw.length > MAX_JSON) { reply(msg.id, false, 'too big'); return true; }
-    Promise.resolve()
-      .then(() => ops[msg.op](...msg.args))
+    let timer;
+    const timeout = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS); });
+    Promise.race([Promise.resolve().then(() => ops[msg.op](...msg.args)), timeout])
+      .finally(() => clearTimeout(timer))
       .then((value) => reply(msg.id, true, value), (e) => reply(msg.id, false, (e && e.message) || 'failed'));
     return true;
   };
@@ -156,7 +161,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
   // Call when the game screen closes: leaves every live channel.
   const dispose = () => {
     disposed = true;
-    channels.forEach((entry) => { supabase.removeChannel(entry.channel); });
+    channels.forEach((entry) => { if (entry.channel) supabase.removeChannel(entry.channel); });
     channels.clear();
   };
 

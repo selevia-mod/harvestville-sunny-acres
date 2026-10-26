@@ -13,7 +13,22 @@
   // the hotbar and the controls sit at the bottom of the screen, however tall (C.EXTRA)
   var HOTBAR_Y = 606 + C.EXTRA;
   var ACTION = { x: 294, y: 512 + C.EXTRA, r: 42 };
+  // A button acts when the finger lifts on it only if the press also started on it: a finger that pressed something
+  // else (the action button that opened this panel) and lifts here does nothing.
+  var PANEL_BASE = 96; // the panel texture's own size, stretched to fit (panelImg)
+  F.tapOn = function (z, fn) {
+    z.on('pointerdown', function (p) { z.pressedBy = p.id; });
+    z.on('pointerout', function () { z.pressedBy = null; });
+    z.on('pointerup', function (p) {
+      var mine = z.pressedBy === p.id;
+      z.pressedBy = null;
+      if (mine) fn.apply(this, arguments);
+    });
+    return z;
+  };
   var JOY = { x: 86, y: 512 + C.EXTRA, r: 46, knob: 22 };
+  // owner, 26 Oct: lighter, and fainter still while dragging, so the farm shows through it
+  var JOY_ALPHA = { idle: 0.55, drag: 0.4 };
   var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
 
   var HELP = [
@@ -156,9 +171,10 @@
       return img;
     }
 
-    // A wooden-framed parchment panel with a soft shadow (drawn 6px past its box at the bottom for the shadow).
+    // A cream panel with a wooden frame. Drawn once and stretched (nine-slice: the corners keep their shape), so
+    // panels of every size share one small texture instead of each new height baking (and keeping) its own.
     panelImg(parent, x, y, w, h) {
-      return this.canvasImg(parent, x - 4, y - 2, 'ui-panel2-' + w + 'x' + h, w + 8, h + 10, function (g) {
+      var draw = function (g, w, h) {
         rrect(g, 4, 8, w, h, 16);
         g.fillStyle = 'rgba(30,16,6,0.4)';
         g.fill();
@@ -178,7 +194,14 @@
           g.fillStyle = '#c9963f';
           g.fill();
         });
-      });
+      };
+      if (this.game.renderer.type !== Phaser.WEBGL || w < 60 || h < 60) {
+        return this.canvasImg(parent, x - 4, y - 2, 'ui-panel2-' + w + 'x' + h, w + 8, h + 10, function (g) { draw(g, w, h); });
+      }
+      var key = this.bakeCanvas('ui-panel2-ns', PANEL_BASE + 8, PANEL_BASE + 10, function (g) { draw(g, PANEL_BASE, PANEL_BASE); });
+      var R = F.R, img = this.add.nineslice(x - 4, y - 2, key, null, (w + 8) * R, (h + 10) * R, 24 * R, 24 * R, 22 * R, 26 * R).setOrigin(0).setScale(1 / R);
+      if (parent) parent.add(img);
+      return img;
     }
 
     // Slot textures are SLOT + 4 wide so the selected glow fits; draw them 2px up and left.
@@ -236,7 +259,7 @@
       var z = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
       z.on('pointerdown', function () { c.setScale(0.93); });
       z.on('pointerout', function () { c.setScale(1); });
-      z.on('pointerup', function () { c.setScale(1); onTap(); });
+      F.tapOn(z, function () { c.setScale(1); onTap(); });
       c.add([bg, t, z]);
       if (parent) parent.add(c);
       return c;
@@ -603,8 +626,8 @@
 
     // ---------- joystick ----------
     buildJoystick() {
-      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.16).setStrokeStyle(3, 0xffffff, 0.45);
-      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.5).setStrokeStyle(2, 0x5a3a1e, 0.5);
+      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.06).setStrokeStyle(2, 0xffffff, 0.5).setAlpha(JOY_ALPHA.idle);
+      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.35).setStrokeStyle(1.5, 0xffffff, 0.6).setAlpha(JOY_ALPHA.idle);
       this.joyId = null;
       var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {
@@ -614,8 +637,8 @@
         if (pt.y < 70 || pt.y > HOTBAR_Y - 34) return;
         this.joyId = p.id;
         this.joyOrigin = { x: pt.x, y: pt.y };
-        this.joyBase.setPosition(pt.x, pt.y).setAlpha(1);
-        this.joyKnob.setPosition(pt.x, pt.y).setAlpha(1);
+        this.joyBase.setPosition(pt.x, pt.y).setAlpha(JOY_ALPHA.drag);
+        this.joyKnob.setPosition(pt.x, pt.y).setAlpha(JOY_ALPHA.drag);
       }, this);
       this.input.on('pointermove', function (p) {
         if (p.id !== this.joyId) return;
@@ -636,8 +659,8 @@
       this.joyId = null;
       F.input.jx = F.input.jy = 0;
       if (!this.joyBase) return;
-      this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(0.7);
-      this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(0.7);
+      this.joyBase.setPosition(JOY.x, JOY.y).setAlpha(JOY_ALPHA.idle);
+      this.joyKnob.setPosition(JOY.x, JOY.y).setAlpha(JOY_ALPHA.idle);
     }
 
     // ---------- frame-rate meter (toggled from the pause menu) ----------
@@ -746,7 +769,9 @@
       var lines = text.split('\n');
       var title = /^[A-Z0-9 !?.,:'-]+$/.test(lines[0]) && lines.length > 1 ? lines.shift() : null;
       if (opts.rows && !title) title = lines.shift();
-      var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3, wordWrap: { width: 250 } }).setOrigin(0.5, 0.5) : null;
+      // one line on the ribbon: a long title shrinks instead of wrapping below it
+      var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5, 0.5) : null;
+      if (titleText && titleText.width > W - 90) titleText.setScale((W - 90) / titleText.width);
       var body = [], bodyH = 0;
       if (opts.rows) {
         opts.rows.forEach(function (r, k) {
@@ -756,6 +781,18 @@
           bodyH += rh + 6;
         });
         bodyH -= 6;
+        // never taller than the screen (the OK button must stay reachable): rows that don't fit become one line
+        var room = H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18), hidden = 0;
+        while (body.length > 1 && bodyH + (hidden ? 40 : 0) > room) {
+          body.pop().t.destroy();
+          hidden++;
+          bodyH = body[body.length - 1].y + body[body.length - 1].h;
+        }
+        if (hidden) {
+          var more = self.txt(84, 0, '... and ' + hidden + ' more.', 14, INK, { wordWrap: { width: 222 } }).setOrigin(0, 0);
+          body.push({ t: more, icon: C.ICON.letter, y: bodyH + 6, h: 34, line: true });
+          bodyH += 40;
+        }
       } else {
         var bt = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 268 }, lineSpacing: 4 }).setOrigin(0.5, 0);
         body.push({ t: bt, y: 0, h: bt.height });
@@ -823,7 +860,8 @@
 
     // A ribbon banner centred at (x, y), w wide.
     ribbon(parent, x, y, w) {
-      return this.canvasImg(parent, x - w / 2 - 8, y - 17, 'ui-ribbon-' + Math.round(w), w + 16, 36, function (g) {
+      w = Math.ceil(w / 20) * 20; // a few widths, not one texture per title
+      return this.canvasImg(parent, x - w / 2 - 8, y - 17, 'ui-ribbon-' + w, w + 16, 36, function (g) {
         var tail = function (x0, dir) { // the folded ends
           g.beginPath();
           g.moveTo(x0, 9);

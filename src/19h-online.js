@@ -46,7 +46,7 @@
     F.Net.init();
     if (!F.Net.available()) return;
     O.connect().catch(noop);
-    O.timer = setInterval(function () { O.publish(false); }, ON.publishEvery);
+    O.timer = setInterval(function () { if (!F.Host.sleeping) O.publish(false); }, ON.publishEvery);
   };
 
   // Joins online play with the app's signed-in account (unless the player left it).
@@ -80,7 +80,8 @@
         O.blocked = {};
         (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
       }, noop);
-      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); }).then(function () { return O.me; });
+      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); })
+        .then(function () { return L.settleRefills ? L.settleRefills().catch(noop) : null; }).then(function () { return O.me; });
     });
   };
 
@@ -199,7 +200,8 @@
     var num = function (v) { v = Number(v); return isFinite(v) ? Math.max(0, Math.min(200 * T, v)) : 0; };
     return {
       id: p.id, name: L.cleanText(p.name, 24) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
-      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: !!p.host, at: Number(p.at) || 0, t: Number(p.t) || 0,
+      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
+      rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
     };
   };
 
@@ -214,11 +216,12 @@
       raw.push(q);
       if (O.blocked[q.id]) return;
       var old = before[q.id];
-      if (old && old.t > q.t && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.t = old.t; }
+      // a presence list can carry an older stop than the moves heard since: keep the fresher position
+      if (old && old.rt && Date.now() - old.rt < 3000 && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.rt = old.rt; }
       now[q.id] = q;
     });
     var v = F.session.visit;
-    if (v && !L.visitorFits(raw, { id: O.me.id, at: O.joinedAt }, v.host, ON.maxVisitors)) {
+    if (v && !O.seen && !L.visitorFits(raw, { id: O.me.id, at: Infinity }, v.host, ON.maxVisitors)) {
       O.leaveVisit('This farm is full right now (' + ON.maxVisitors + ' visitors). Try again in a little while!');
       return;
     }
@@ -232,6 +235,7 @@
     var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
     var went = Object.keys(before).filter(function (id) { return !now[id]; }).map(function (id) { return before[id]; });
     O.others = now;
+    if (came.length && O.chan) O.chan.track(O.myState()); // newcomers see where we are now, not where we last stopped
     var first = !O.seen;
     O.seen = true;
     if (F.ui && (came.length || went.length)) {
@@ -248,22 +252,32 @@
     O.syncSprites();
   };
 
+  // A like or gift note from the same farmer at most once a minute (the server allows one a day anyway).
+  var noted = {};
+  var once = function (id, kind) {
+    var k = id + ':' + kind, now = Date.now();
+    if (noted[k] && now - noted[k] < 60000) return false;
+    noted[k] = now;
+    return true;
+  };
+
   O.onMessage = function (event, payload) {
     var p = payload && typeof payload === 'object' ? payload : {};
     var who = typeof p.id === 'string' ? O.others[p.id] : null;
     if (!who) return;
     if (event === 'mv') {
-      var q = clean(Object.assign({}, who, p, { name: who.name, look: who.look, host: who.host, at: who.at }));
-      if (!q || q.t < who.t) return;
+      var q = clean(Object.assign({}, who, p, { id: who.id, name: who.name, look: who.look, at: who.at }));
+      if (!q) return;
+      q.rt = Date.now();
       var changedMap = q.map !== who.map;
       O.others[q.id] = q;
       if (changedMap) O.syncSprites();
     } else if (event === 'emote') {
       O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
-    } else if (event === 'like' && !F.session.visit) {
+    } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
       O.showEmote(who.id, 'heart');
       if (F.ui) F.ui.toast(who.name + ' liked your farm!', 2400, 0x2f5a22);
-    } else if (event === 'gift' && !F.session.visit) {
+    } else if (event === 'gift' && !F.session.visit && once(who.id, 'gift')) {
       if (F.ui) F.ui.toast(who.name + ' left you a gift! Open Online, then Me, to collect it.', 3200, 0x7a4d12);
     }
   };
@@ -333,11 +347,15 @@
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
       }
-      r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET).setDepth(DEPTH.actor + r.y / 1e5);
+      F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       r.shadow.setPosition(r.x, r.y + 16);
       r.tag.setPosition(r.x, r.y - 1.45 * T);
     });
     if (!this.chan || w.busy) return;
+    // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
+    var alone = true;
+    for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
+    if (alone && !(Object.keys(this.others).length && this.last && this.last.map !== w.mapKey)) return;
     var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
@@ -354,10 +372,13 @@
 
   // ---------- visiting ----------
   O.visit = function (host) {
-    if (!O.on || !F.world || F.world.busy) return Promise.resolve(false);
+    if (!O.on || !F.world || F.world.busy || O.visiting) return Promise.resolve(false);
     if (host === O.me.id) { F.ui.toast('That is your own farm!'); return Promise.resolve(false); }
     F.ui.toast('Walking over...', 1500);
+    O.visiting = true;
+    var done = function (v) { O.visiting = false; return v; };
     return F.Net.rpc('farm_visit_v1', { p_host: host }).then(function (r) {
+      if (!O.on || !F.world || F.world.busy) return false; // left online play (or the map is changing) meanwhile
       if (!r || !r.data) throw new Error('no such farm');
       var mine = F.session.state, st = L.visitState(r.data, mine);
       st.look = mine.look; // you look like yourself on their farm
@@ -368,14 +389,16 @@
       };
       F.session.riding = false;
       F.session.horseAt = null;
+      O.leaveChannel(); // our own farm's news must not read as news about the farm we are walking to
       O.restartWorld();
       return true;
-    }).catch(function (e) { F.ui.toast(errText(e)); return false; });
+    }).catch(function (e) { F.ui.toast(errText(e)); return false; }).then(done);
   };
 
   O.leaveVisit = function (why) {
     if (!F.session.visit) return;
     F.session.visit = null;
+    O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);
     O.restartWorld();
   };
@@ -476,6 +499,7 @@
   };
 
   O.wave = function () {
+    if (!O.me) return;
     O.send('emote', { k: 'wave' });
     O.showEmote(O.me.id, 'wave');
     sfx('talk');
@@ -969,6 +993,17 @@
       self.listPanel({ title: 'Blocked farms', rows: rows, page: 0, reopen: function () { self.closeModal(); self.openBlocked(); }, sub: function () { return 'They cannot reach you.'; }, empty: 'Nobody is blocked.' });
       if (then) then();
     }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  // The app going to the background puts the game to sleep: leave the live channel (visitors would see a frozen
+  // farmer holding a place), and join again on waking.
+  var sleep = window.__gameSleep;
+  window.__gameSleep = function (sleeping) {
+    var was = F.Host.sleeping;
+    sleep(sleeping);
+    if (!O.on || !!sleeping === was) return;
+    if (sleeping) O.leaveChannel();
+    else O.ensureChannel();
   };
 
   // Decorate mode hides the Online button too

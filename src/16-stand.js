@@ -93,7 +93,7 @@
         }
       }
       var z = self.add.zone(x + cw / 2, y + ch / 2, cw, ch).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () {
+      F.tapOn(z, function () {
         if (!e) return self.openSellPicker(i);
         if (e.coins) { self.collectStand(); return reopen(); }
         self.confirm('TAKE IT BACK?\nPut the ' + e.n + ' ' + C.ITEMS[e.id].name + ' back in your bag?', function () {
@@ -138,7 +138,7 @@
       self.drawSlot(w, s.inv[inv], false);
       // act when the finger lifts (like the shelves underneath), or the lift would land on a shelf
       var z = self.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
-      z.on('pointerup', function () { self.closeModal(); self.openSellOptions(shelf, inv); });
+      F.tapOn(z, function () { self.closeModal(); self.openSellOptions(shelf, inv); });
       c.add(z);
     });
     c.add(this.txt(W / 2, 478, 'Tap an item to pick a price.', 12, '#7a5a3a').setOrigin(0.5));
@@ -216,7 +216,7 @@
       c.add(self.add.image(x + 30, y + 58, 'people', vi * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
       c.add(self.txt(x + 30, y + 72, C.VILLAGERS[o.from].name, 11, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
       o.items.forEach(function (it, k) {
-        var ix = x + 84 + k * 70, have = L.countItem(s, it[0]);
+        var ix = x + 84 + k * (o.items.length > 2 ? 52 : 70), have = L.countItem(s, it[0]); // 3 items fit before Deliver
         c.add(self.add.image(ix, y + 34, 'items', C.ITEMS[it[0]].icon).setScale(0.3));
         c.add(self.txt(ix, y + 62, Math.min(have, it[1]) + '/' + it[1], 13, have >= it[1] ? '#3f7d22' : '#b04a3a', { fontStyle: 'bold' }).setOrigin(0.5));
       });

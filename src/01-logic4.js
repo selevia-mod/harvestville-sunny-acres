@@ -330,7 +330,7 @@
       s.home = L.oldHome(s);
     }
     L.syncHome(s);
-    s.energy = int(o.e, 0, L.maxEnergy(s), L.maxEnergy(s)); // a beautiful home's extra energy survives a reload
+    s.energy = int(o.e, 0, 1000, L.maxEnergy(s)); // capped to the max at the end of loading (01-logic8.js), once the yard is back
     return s;
   };
 

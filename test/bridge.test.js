@@ -95,3 +95,54 @@ test('the injected script is plain ES5 and leaves the app\'s own gameHost in pla
   assert.strictEqual(typeof ctx.gameHost.save, 'function');
   assert.strictEqual(typeof ctx.gameHost.net.rpc, 'function');
 });
+
+test('a farmer is who the server says: a state naming someone else gets the real id', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  const A = webview(server, a), B = webview(server, b);
+  await A.net.rpc('farm_join_v1', {});
+  await B.net.rpc('farm_join_v1', {});
+  const seen = [];
+  A.net.join('farm:' + a, { id: a, name: 'Owner' }, { presence: (l) => seen.push(plain(l)), message: () => {} });
+  await tick();
+  B.net.join('farm:' + a, { id: a, name: 'Fake owner', host: true }, { presence: () => {}, message: () => {} });
+  await tick(60);
+  assert.strictEqual(seen.at(-1)[0].id, b, 'the visitor cannot pass for the owner');
+});
+
+test('leaving while still joining (a slow sign-in) never leaves a ghost on the farm', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  const A = webview(server, a);
+  await A.net.rpc('farm_join_v1', {});
+  const seen = [];
+  A.net.join('farm:' + a, { id: a }, { presence: (l) => seen.push(plain(l)), message: () => {} });
+  const supabase = server.supabaseFor(b), getSession = supabase.auth.getSession;
+  supabase.auth.getSession = () => tick(200).then(getSession); // the token is refreshing
+  const ctx = { console };
+  ctx.window = ctx;
+  const bridge = createSunnyAcresBridge({ supabase, webViewRef: { current: { injectJavaScript: (code) => vm.runInContext(code, ctx) } } });
+  ctx.ReactNativeWebView = { postMessage: (data) => setTimeout(() => bridge.onMessage({ nativeEvent: { data } }), 0) };
+  vm.createContext(ctx);
+  vm.runInContext(bridge.injectedJavaScriptBeforeContentLoaded, ctx);
+  const c = ctx.gameHost.net.join('farm:' + a, { id: b }, { presence: () => {}, message: () => {} });
+  await tick(20);
+  c.leave();
+  await tick(400);
+  assert.ok(seen.every((l) => l.length === 0), 'the owner never sees the visitor who left');
+  assert.strictEqual(server.topics.get('farm:' + a).size, 1, 'only the owner is on the channel');
+});
+
+test('a call with no answer fails after a while instead of waiting forever', async () => {
+  const server = createServer(), uid = server.newUser();
+  const supabase = server.supabaseFor(uid);
+  supabase.rpc = () => new Promise(() => {}); // a hung request
+  const replies = [];
+  const ref = { current: { injectJavaScript: (code) => replies.push(code) } };
+  const bridge = createSunnyAcresBridge({ supabase, webViewRef: ref });
+  const real = global.setTimeout;
+  global.setTimeout = (fn, ms) => real(fn, ms >= 15000 ? 10 : ms); // the 15 s limit, sped up
+  try {
+    bridge.onMessage({ nativeEvent: { data: JSON.stringify({ __sunnyNet: 1, op: 'rpc', id: 7, args: ['farm_buy_v1', {}] }) } });
+    await tick(60);
+  } finally { global.setTimeout = real; }
+  assert.ok(replies.some((r) => /reply\(7, false, "timeout"\)/.test(r)), replies.join('\n'));
+});

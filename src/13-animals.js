@@ -81,7 +81,7 @@
 
     place(m, time) {
       var a = this.scene.state.animals[m.i];
-      m.sprite.setPosition(m.x, m.y).setFrame(m.def.frame0 + POSE[m.pose]).setFlipX(m.flip).setDepth(DEPTH + m.y / 1e5).setScale(m.scale);
+      F.depthTo(m.sprite.setPosition(m.x, m.y).setFrame(m.def.frame0 + POSE[m.pose]).setFlipX(m.flip).setScale(m.scale), DEPTH + m.y / 1e5);
       var by = m.y - m.def.height * T * m.scale - 80 + Math.sin(time / 300) * 10;
       m.bubble.setVisible(!!a.ready).setPosition(m.x, by);
       m.icon.setVisible(!!a.ready).setPosition(m.x, by - 6);
@@ -168,7 +168,7 @@
           pose = Math.floor(time / 120) % 2;
         }
       }
-      this.sprite.setPosition(this.x, this.y).setFrame(this.def.frame0 + pose).setFlipX(this.flip).setDepth(DEPTH + this.y / 1e5);
+      F.depthTo(this.sprite.setPosition(this.x, this.y).setFrame(this.def.frame0 + pose).setFlipX(this.flip), DEPTH + this.y / 1e5);
     }
 
     near(x, y) {

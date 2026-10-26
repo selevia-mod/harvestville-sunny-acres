@@ -219,7 +219,8 @@
   };
 
   // Redraws the outline around the chosen piece and tells the decorate bar.
-  P.decorChanged = function (bad) {
+  // dragging (quiet): only the outline moves; the bar (which piece is picked) is redrawn when the drag ends
+  P.decorChanged = function (bad, quiet) {
     var d = this.decor, g = this.decorBox;
     g.clear();
     if (d.sel != null) {
@@ -230,7 +231,7 @@
         g.fillStyle(bad ? 0xff5a4a : 0xffffff, 0.22).fillRect(x, y + (type.h - type.foot) * T, type.w * T, type.foot * T);
       }
     }
-    F.bus.emit('decor', { sel: d.sel });
+    if (!quiet) F.bus.emit('decor', { sel: d.sel });
   };
 
   P.decorDown = function (p, over) {
@@ -260,7 +261,7 @@
       img.setDepth(DEPTH.fx);
       var why = L.cantPlace(this.state, it.t, x, y, d.drag.i);
       img.setTint(why ? 0xff8a80 : 0xffffff);
-      this.decorChanged(!!why);
+      this.decorChanged(!!why, true);
     } else if (d.pan && p.id === d.pan.id && p.isDown) {
       var dx = (p.x - d.pan.x) / cam.zoom, dy = (p.y - d.pan.y) / cam.zoom;
       if (Math.abs(p.x - d.pan.x) + Math.abs(p.y - d.pan.y) > 8) d.pan.moved = true;
@@ -347,8 +348,9 @@
       self.button(self.decorBtn, W - 62, 438, 108, 34, 'Decorate', function () { self.openDecor(); }, BROWN);
     };
     F.bus.on('map', showBtn);
-    F.bus.on('decor', function (info) { if (info) self.drawDecorBar(info); else self.closeDecorBar(); });
-    this.events.once('shutdown', function () { F.bus.off('map', showBtn); });
+    var onDecor = function (info) { if (info) self.drawDecorBar(info); else self.closeDecorBar(); };
+    F.bus.on('decor', onDecor);
+    this.events.once('shutdown', function () { F.bus.off('map', showBtn); F.bus.off('decor', onDecor); }); // (New game restarts this scene)
     if (F.world) showBtn(F.world.mapKey);
   };
 

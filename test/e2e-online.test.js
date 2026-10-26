@@ -475,17 +475,36 @@ test('online: energy refills for Selebox Coins or Stars, never paid twice', asyn
   await tapButton(me.page, 'Refill');
   await waitModal(me.page, /Refill energy.*Energy 40 \/ 100\.  20 refills left today\..*\+100 energy for 5 Selebox Coins \| You have 12 Selebox Coins\..*\+100 energy for 10 Selebox Stars \| You have 5 Selebox Stars: not enough yet\./);
   await shot(me.page, 'online-15-refill');
-  // the answer to the first tap is lost: the second tap sends the same request, and is not charged again
+  // it asks first, saying exactly what you get
+  await tapButton(me.page, 'Buy');
+  await waitModal(me.page, /REFILL ENERGY\?.*\+60 energy \(40 to 100\) for 5 Selebox Coins\./);
+  // the server takes the payment but the answer is lost: no energy yet, and the request is kept in the save
   server.db.loseNextBuyAnswer = true;
-  await tapButton(me.page, 'Buy');
-  await me.page.waitForFunction(() => /you will not pay twice/.test(Farm.ui.toastText ? Farm.ui.toastText.text : ''), null, SLOW);
+  await tapButton(me.page, 'Yes');
+  await me.page.waitForFunction(() => /If it was paid, the energy comes/.test(Farm.ui.toastText ? Farm.ui.toastText.text : ''), null, SLOW);
   assert.strictEqual(await me.page.evaluate(() => Farm.session.state.energy), 40, 'no energy without an answer');
-  await tapButton(me.page, 'Buy');
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.serialize(Farm.session.state).pb.length), 1, 'kept in the save');
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 7, stars: 5 }, 'it was paid');
+  // a while later (the game reopened, or a new tap): the server says it was paid, so the energy arrives, once
+  await me.page.evaluate(() => { Farm.session.state.net.pb[0][4] -= 60000; return Farm.Logic.settleRefills(); });
   await me.page.waitForFunction(() => Farm.session.state.energy === 100, null, SLOW);
+  assert.match(await me.page.evaluate(() => Farm.ui.toastText.text), /Your last refill arrived: \+60 energy\./);
+  assert.strictEqual(await me.page.evaluate(() => Farm.session.state.net.pb.length), 0);
   assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 7, stars: 5 }, 'charged once: 5 Coins');
   assert.strictEqual(server.db.purchases.size, 1);
   assert.strictEqual(await me.page.evaluate(() => window.__spent), 1, 'the app is told to refresh the balance');
-  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 0);
+  // a request the server never got is dropped without paying
+  await me.page.evaluate(() => { Farm.session.state.net.pb = [['0b6c1c52-6a4e-4c1f-9f0e-2d3c4b5a6978', 'coins', 5, 1, Date.now() - 60000]]; return Farm.Logic.settleRefills(); });
+  assert.strictEqual(await me.page.evaluate(() => Farm.session.state.net.pb.length), 0);
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 7, stars: 5 });
+  // a normal refill
+  await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.session.state.energy = 70; Farm.ui.openRefill(); });
+  await waitModal(me.page, /You have 7 Selebox Coins\./);
+  await tapButton(me.page, 'Buy');
+  await tapButton(me.page, 'Yes');
+  await me.page.waitForFunction(() => Farm.session.state.energy === 100 && Farm.ui.modals.length === 0, null, SLOW);
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 2, stars: 5 });
+  assert.strictEqual(await me.page.evaluate(() => window.__spent), 2);
   // full: no Refill button
   await me.page.evaluate(() => Farm.ui.openEnergy());
   await waitModal(me.page, /Your energy is full!/);

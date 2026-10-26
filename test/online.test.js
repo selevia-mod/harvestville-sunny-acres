@@ -106,8 +106,11 @@ test('weekly scores count from the Monday of the phone\'s week', () => {
 
 test('the online player info is saved', () => {
   const s = fresh();
-  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2, named: 1, off: 1 };
+  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2, named: 1, off: 1, pb: [] };
   assert.deepStrictEqual(plain(roundTrip(s).net), plain(s.net));
+  // an unanswered refill survives a reload, so it can be settled later; junk is dropped
+  s.net.pb = [['0b6c1c52-6a4e-4c1f-9f0e-2d3c4b5a6978', 'coins', 5, 1, 1790000000000], ['nope', 'coins', 5, 1, 1], ['0b6c1c52-6a4e-4c1f-9f0e-2d3c4b5a6979', 'gold', 5, 1, 1]];
+  assert.deepStrictEqual(plain(roundTrip(s).net.pb), [['0b6c1c52-6a4e-4c1f-9f0e-2d3c4b5a6978', 'coins', 5, 1, 1790000000000]]);
   const old = L.serialize(fresh());
   delete old.nt;
   assert.strictEqual(L.deserialize(JSON.parse(JSON.stringify(old))).net.id, '', 'older saves: not online yet');

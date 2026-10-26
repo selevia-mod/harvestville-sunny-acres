@@ -588,3 +588,62 @@ test('the Weekend Market: Saturdays and Sundays the stall pays full price and se
   assert.strictEqual(L.priceOf('brush', 0), C.ITEMS.brush.price, 'only seeds are on sale');
   clock.set(2026, 4, 1, 10, 0);
 });
+
+test('review fixes (26 Oct): energy above 100 from a lovely yard survives a reload', () => {
+  const s = L.newState();
+  const t = C.OUTDOOR.types.map((x, i) => [x.kind !== 'prop' ? x.beauty : 0, i]).sort((a, b) => b[0] - a[0])[0][1];
+  for (let i = 0; i < 300 && L.maxEnergy(s) <= C.MAX_ENERGY; i++) s.yard.items.push({ t, x: i % 20, y: Math.floor(i / 20) });
+  assert.ok(L.maxEnergy(s) > C.MAX_ENERGY, 'the yard raised the max (' + L.maxEnergy(s) + ')');
+  s.energy = L.maxEnergy(s);
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.strictEqual(back.energy, s.energy);
+});
+
+test('review fixes: a farm snapshot naming a strange animal kind is ignored, not a crash', () => {
+  const mine = L.newState();
+  const snap = L.snapshot(L.newState());
+  snap.animals = [['constructor', '', 0], ['toString', 'Bob', 0], ['chicken', 'Hen', 0]];
+  const st = L.visitState(JSON.parse(JSON.stringify(snap)), mine);
+  same(st.animals.map((a) => a.kind), ['chicken']);
+});
+
+test('review fixes: a full mailbox never drops a letter with a gift', () => {
+  const s = L.newState();
+  const gifted = Object.keys(C.LETTERS).filter((k) => C.LETTERS[k].gift && !/fest|bday/.test(k));
+  const plainKey = 'bday:' + C.VILLAGER_ORDER[0]; // birthday and festival letters carry no gift
+  assert.ok(gifted.length && plainKey);
+  s.mail = [gifted[0]];
+  for (let i = 0; i < 12; i++) s.mail.push(plainKey);
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.ok(back.mail.indexOf(gifted[0]) >= 0, 'the gift letter is still there');
+  assert.ok(back.mail.length <= 8);
+});
+
+test('review fixes: the music box never takes energy; a Power-Up runs past midnight; deep chests stay opened', () => {
+  const s = L.newState();
+  s.energy = L.maxEnergy(s) + 10;
+  const e = s.energy;
+  L.playMusicBox(s);
+  assert.ok(s.energy >= e);
+  s.day = 100; s.time = 23 * 60 + 30;
+  s.pwr = { day: s.day, until: s.time + C.POWER_UP.minutes };
+  s.day = 101; s.time = 30;
+  assert.strictEqual(L.powered(s), true, '00:30 is inside a Power-Up drunk at 23:30');
+  s.time = 120;
+  assert.strictEqual(L.powered(s), false);
+  const floor = (n) => n * C.MINE.chestEvery;
+  s.chests = 0; s.chHi = 0;
+  s.chests |= 1;
+  s.chHi = 31;
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.strictEqual(L.chestOpened(back, floor(1)), true, 'the first chest');
+  assert.strictEqual(L.chestOpened(back, floor(31)), true, 'a chest past floor 150');
+  assert.strictEqual(L.chestOpened(back, floor(32)), false);
+});
+
+test('review fixes: walking in and out of the mine is not "going down" a floor', () => {
+  const s = L.newState();
+  const before = L.count(s, 'floor');
+  L.reachFloor(s, 1); L.reachFloor(s, 1); L.reachFloor(s, 1); L.reachFloor(s, 2);
+  assert.strictEqual(L.count(s, 'floor') - before, 2);
+});
