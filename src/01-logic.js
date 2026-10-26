@@ -278,6 +278,24 @@
     return lvl >= C.TOOL_LEVELS.length - 1 ? null : C.UPGRADES[lvl];
   };
 
+  // What the next forge upgrade gives, in words: 'Copper Can: holds 30 water (now 20) and waters 3 tiles in a line;
+  // uses 20% less energy.' Null when the tool is fully upgraded.
+  L.upgradeText = function (s, tool) {
+    var lvl = L.toolLevel(s, tool), next = lvl + 1;
+    if (next >= C.TOOL_LEVELS.length) return null;
+    var area = ['', '3 tiles in a line', 'a 3 x 3 patch', 'a 3 x 5 patch'][next];
+    var verb = { hoe: 'tills', can: 'waters', axe: 'chops', hammer: 'breaks', sickle: 'cuts' }[tool];
+    var less = Math.round((1 - C.TOOL_ENERGY_SCALE[next]) * 100);
+    var name = C.TOOL_LEVELS[next] + ' ' + (tool === 'can' ? 'Can' : C.ITEMS[tool].name);
+    var parts = [verb + ' ' + area + ' at once'];
+    if (tool === 'can') parts = ['holds ' + C.TOOLS.can.capacity[next] + ' water (now ' + C.TOOLS.can.capacity[lvl] + ')', 'waters ' + area];
+    var stump = C.DEBRIS.stump.hits, boulder = C.DEBRIS.boulder.hits;
+    if (tool === 'axe' && stump[next] < stump[lvl]) parts.push('stumps in ' + stump[next] + (stump[next] > 1 ? ' swings' : ' swing'));
+    if (tool === 'hammer' && boulder[next] && !boulder[lvl]) parts.push('can break boulders');
+    else if (tool === 'hammer' && boulder[next] < boulder[lvl]) parts.push('boulders in ' + boulder[next] + (boulder[next] > 1 ? ' hits' : ' hit'));
+    return name + ': ' + parts.join(' and ') + '; uses ' + less + '% less energy.';
+  };
+
   L.upgradeTool = function (s, tool) {
     var cost = L.upgradeCost(s, tool);
     if (!cost) return 'max';

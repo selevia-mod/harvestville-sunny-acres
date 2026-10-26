@@ -83,7 +83,7 @@
 
   var extraObjectAction = P.extraObjectAction;
   P.extraObjectAction = function (o, held, def) {
-    if (o.type === 'trader') return { label: 'Trade', icon: C.ICON.star, run: function () { F.ui.openTrader('sell'); } };
+    if (o.type === 'trader') return { label: 'Trade', icon: C.ICON.gift, run: function () { F.ui.openTrader('sell'); } };
     return extraObjectAction.call(this, o, held, def);
   };
 

@@ -304,7 +304,7 @@
     var rows = o.rows, page = o.page || 0, per = rows.length > 5 ? 4 : 5;
     var pages = Math.max(1, Math.ceil(rows.length / per)), shown = rows.slice(page * per, page * per + per);
     var y0 = o.tabs ? 178 : 140;
-    var bottom = pages > 1 ? 606 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
+    var bottom = pages > 1 ? y0 + per * ROW_STEP + 48 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
     this.panelImg(c, 12, 76, W - 24, Math.max(220, Math.min(530, bottom - 76)));
     var title = this.txt(W / 2, 79, o.title, 17, '#fff6d8', { fontStyle: 'bold', stroke: '#5a1a12', strokeThickness: 3 }).setOrigin(0.5);
     fit(title, W - 150);
@@ -334,15 +334,41 @@
     if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.closeModal(); o.reopen(key, 0); });
     shown.forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
     if (!rows.length && o.empty) c.add(this.txt(W / 2, y0 + 50, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
-    if (pages > 1) {
-      var ny = y0 + per * ROW_STEP + 20;
-      c.add(this.txt(W / 2, ny, (page + 1) + ' / ' + pages, 15, INK, { fontStyle: 'bold' }).setOrigin(0.5));
-      if (page > 0) this.roundButton(c, W / 2 - 64, ny, 16, GREY_BTN, 'left', null, function () { self.closeModal(); o.reopen(o.tab, page - 1); });
-      if (page < pages - 1) this.roundButton(c, W / 2 + 64, ny, 16, BLUE, 'right', null, function () { self.closeModal(); o.reopen(o.tab, page + 1); });
-    }
+    if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.closeModal(); o.reopen(o.tab, p); });
     return o;
   };
   var GREY_BTN = 0xa08a68;
+
+  // Pages: one centred bar, the arrows on both ends (the one that can't go further fades), a dot per page between
+  // them, the current one lit. Tapping a dot jumps to that page.
+  U.pager = function (c, y, page, pages, go) {
+    var self = this, dot = 14, inner = pages * dot + 12, w = inner + 2 * 40;
+    this.canvasImg(c, W / 2 - w / 2, y - 17, 'ui-pager-' + pages, w, 36, function (g) {
+      rrect(g, 0, 2, w, 32, 16);
+      g.fillStyle = 'rgba(122,77,38,0.18)';
+      g.fill();
+      rrect(g, 0, 0, w, 32, 16);
+      g.fillStyle = vgrad(g, 0, 32, '#ead2a0', '#dcbd87');
+      g.fill();
+    });
+    [[-1, 'left'], [1, 'right']].forEach(function (d) {
+      var to = page + d[0], ok = to >= 0 && to < pages;
+      var b = self.roundButton(c, W / 2 + d[0] * (w / 2 - 17), y - 1, 15, ok ? BLUE : GREY_BTN, d[1], null, function () { if (ok) go(to); });
+      if (!ok) b.setAlpha(0.4);
+    });
+    for (var k = 0; k < pages; k++) {
+      (function (k) {
+        var x = W / 2 - (pages - 1) * dot / 2 + k * dot, on = k === page;
+        var d = self.add.circle(x, y - 1, on ? 5 : 3.5, on ? 0x3fa535 : 0x9a7a52).setStrokeStyle(on ? 2 : 0, 0xffffff);
+        c.add(d);
+        if (!on) {
+          var z = self.add.zone(x, y - 1, dot, 28).setInteractive({ useHandCursor: true });
+          z.on('pointerup', function () { go(k); });
+          c.add(z);
+        }
+      })(k);
+    }
+  };
 
   // Tabs as one sliding switch: a track, the chosen tab lit green.
   U.tabSwitch = function (c, y, tabs, current, onPick) {
@@ -450,7 +476,9 @@
   // progress [have, need], reward { gold, stars, item, n } (+ rewardPrefix), done, tag, online. A description that
   // starts with "n/m" still gets a bar (older rows).
   U.lookListRow = function (c, y, row) {
-    var self = this, b = row.buttons || [], right = b.length || row.done ? 96 : 0;
+    // row.buttonsBelow: the text takes the full width and the button sits at the bottom right, by the chips
+    var self = this, b = row.buttons || [], below = !!row.buttonsBelow && b.length === 1;
+    var right = (b.length && !below) || (row.done && !below) ? 96 : 0;
     var textW = W - 52 - 64 - right - 8;
     this.canvasImg(c, 26, y, 'ui-row3', W - 52, ROW_H + 4, function (g) {
       rrect(g, 1, 3, W - 54, ROW_H, 12);
@@ -550,7 +578,7 @@
       mid.add(d);
       my += d.height + 3;
     }
-    if (row.reward) my += this.rewardChips(mid, 90, my, textW, row.reward, row.rewardPrefix);
+    if (row.reward) my += this.rewardChips(mid, 90, my, below ? textW - 96 : textW, row.reward, row.rewardPrefix);
     var top = Math.max(y + 6, Math.round(cy - my / 2));
     mid.y = top;
     if (my > ROW_H - 8) mid.setScale(Math.max(0.8, (ROW_H - 8) / my)).setPosition(90 * (1 - mid.scaleX), y + 4);
@@ -565,7 +593,9 @@
     mid.destroy();
     // the right column: the buttons, or a Done stamp
     var rx = W - 30 - right / 2;
-    if (b.length) {
+    if (below) {
+      this.pillButton(c, W - 30 - 46, y + ROW_H - 17, 88, 26, b[0].label, b[0].cb, b[0].color || GREEN);
+    } else if (b.length) {
       var bh = b.length > 1 ? 28 : 32, gap = 5, total = b.length * bh + (b.length - 1) * gap;
       b.forEach(function (btn, k) {
         self.pillButton(c, rx, cy - total / 2 + bh / 2 + k * (bh + gap), right - 8, bh, btn.label, btn.cb, btn.color || GREEN);
@@ -613,5 +643,91 @@
       g.fill();
     });
     c.add(this.txt(W - 26, top + 30, next ? next[1] + ' at ' + next[0] : 'Top level!', 11, '#8a4f1c', { fontStyle: 'bold' }).setOrigin(1, 0.5));
+  };
+})(window.Farm = window.Farm || {});
+
+// ---------- the action button: a picture for every action ----------
+// Enter, Go down, Read (a sign) and Withered had no icon (an empty ring). They get drawn ones: a door, stairs
+// down, a signpost and a wilted sprout.
+(function (F) {
+  'use strict';
+  var D = F.UI_DRAW, rrect = D.rrect, circle = D.circle, vgrad = D.vgrad;
+  var U = F.UIScene.prototype;
+  var S = 46; // drawn at the size the item icons show on the button
+  var EDGE = '#5a3a1e';
+  var stroke = function (g, w) { g.lineWidth = w || 2; g.strokeStyle = EDGE; g.stroke(); };
+  var DRAW = {
+    Enter: function (g) { // a wooden door with a round top and a knob
+      g.beginPath();
+      g.moveTo(11, 42); g.lineTo(11, 18); g.arc(23, 18, 12, Math.PI, 0); g.lineTo(35, 42); g.closePath();
+      g.fillStyle = vgrad(g, 6, 42, '#c98a4a', '#8a5a2a');
+      g.fill();
+      stroke(g, 2.2);
+      [17, 23, 29].forEach(function (x) { g.beginPath(); g.moveTo(x, 12 + (x === 23 ? -4 : 0)); g.lineTo(x, 40); g.lineWidth = 1.2; g.strokeStyle = 'rgba(90,58,30,0.55)'; g.stroke(); });
+      circle(g, 30, 28, 2.4);
+      g.fillStyle = '#ffd23f';
+      g.fill();
+      stroke(g, 1.2);
+      rrect(g, 7, 41, 32, 4, 2);
+      g.fillStyle = '#9a9a9a';
+      g.fill();
+      stroke(g, 1.2);
+    },
+    'Go down': function (g) { // stone steps going down, with an arrow
+      [[8, 14, 30], [14, 22, 24], [20, 30, 18], [26, 38, 12]].forEach(function (st) {
+        rrect(g, st[0], st[1], st[2], 8, 2);
+        g.fillStyle = vgrad(g, st[1], st[1] + 8, '#c8c2b8', '#8f877c');
+        g.fill();
+        stroke(g, 1.6);
+      });
+      g.beginPath();
+      g.moveTo(36, 6); g.lineTo(36, 22); g.lineTo(31, 17); g.moveTo(36, 22); g.lineTo(41, 17);
+      g.lineCap = g.lineJoin = 'round';
+      g.lineWidth = 5; g.strokeStyle = EDGE; g.stroke();
+      g.lineWidth = 2.6; g.strokeStyle = '#ffd23f'; g.stroke();
+    },
+    Read: function (g) { // a signpost
+      rrect(g, 20, 20, 6, 24, 2);
+      g.fillStyle = '#8a5a2a';
+      g.fill();
+      stroke(g, 1.6);
+      rrect(g, 5, 8, 36, 18, 3);
+      g.fillStyle = vgrad(g, 8, 26, '#e0b070', '#b8834a');
+      g.fill();
+      stroke(g, 2);
+      [13, 18].forEach(function (y, k) { g.beginPath(); g.moveTo(11, y); g.lineTo(k ? 28 : 35, y); g.lineWidth = 2; g.strokeStyle = 'rgba(90,58,30,0.7)'; g.stroke(); });
+    },
+    Withered: function (g) { // a brown, drooping sprout on soil
+      g.beginPath();
+      g.ellipse(23, 40, 16, 5, 0, 0, Math.PI * 2);
+      g.fillStyle = '#6a4a2a';
+      g.fill();
+      g.beginPath();
+      g.moveTo(23, 39); g.quadraticCurveTo(22, 24, 30, 18);
+      g.lineWidth = 3; g.strokeStyle = '#8a6a3a'; g.stroke();
+      [[30, 18, 38, 26], [25, 27, 14, 31]].forEach(function (l) {
+        g.beginPath();
+        g.moveTo(l[0], l[1]); g.quadraticCurveTo((l[0] + l[2]) / 2, l[1] - 6, l[2], l[3]);
+        g.quadraticCurveTo((l[0] + l[2]) / 2 + 2, l[3] - 1, l[0], l[1]);
+        g.fillStyle = '#a07a3a';
+        g.fill();
+        stroke(g, 1.4);
+      });
+    },
+  };
+
+  var setHint = U.setHint;
+  U.setHint = function (a) {
+    setHint.call(this, a);
+    var draw = a && (a.icon == null || a.icon < 0) ? DRAW[a.label] : null;
+    if (!this.actionGlyph) {
+      this.actionGlyph = this.add.image(0, -6, '__DEFAULT').setVisible(false);
+      this.actionBtn.addAt(this.actionGlyph, this.actionBtn.getIndex(this.actionIcon) + 1);
+    }
+    if (!draw) return this.actionGlyph.setVisible(false);
+    var key = 'ui-act-' + a.label.replace(/\W/g, '');
+    this.bakeCanvas(key, S, S, draw);
+    this.actionGlyph.setTexture(key).setScale(1 / F.R).setVisible(true).setAlpha(a.disabled ? 0.45 : 1).setY(-6);
+    this.actionLabel.setY(42 - 8);
   };
 })(window.Farm = window.Farm || {});

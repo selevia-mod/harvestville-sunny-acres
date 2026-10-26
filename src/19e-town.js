@@ -195,9 +195,9 @@
     var self = this;
     if (!v.shopper) return villagerAction.call(this, v);
     return {
-      label: 'Talk', icon: C.ICON.note, run: function () {
+      label: 'Talk', icon: C.ICON.bubble, run: function () {
         self.villagers.greet(v, self.dir);
-        self.emote(v, C.ICON.note);
+        self.emote(v, 'talk');
         sfx('talk');
         F.ui.dialog(v.def.name.toUpperCase() + '\n"' + v.def.line + '"');
       },

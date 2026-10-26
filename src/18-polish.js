@@ -170,7 +170,10 @@
   // A little speech bubble over a villager (or any world point).
   M.emote = function (v, frame) {
     var b = this.add.image(v.x, v.y - 1.6 * T, 'items', C.ICON.bubble).setDepth(DEPTH.Above + 1).setScale(0.8);
-    var i = this.add.image(v.x, v.y - 1.66 * T, 'items', frame).setDepth(DEPTH.Above + 1).setScale(0.5);
+    // 'talk': three dots, someone speaking; otherwise an icon (a note for humming, a heart...)
+    var i = frame === 'talk'
+      ? this.add.text(v.x, v.y - 1.68 * T, '• • •', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '78px', fontStyle: 'bold', color: '#5a3a1e' }).setOrigin(0.5).setDepth(DEPTH.Above + 1)
+      : this.add.image(v.x, v.y - 1.66 * T, 'items', frame).setDepth(DEPTH.Above + 1).setScale(0.5);
     this.tweens.add({ targets: [b, i], y: '-=40', duration: 220, ease: 'Back.out' });
     this.tweens.add({ targets: [b, i], alpha: 0, delay: 1500, duration: 300, onComplete: function () { b.destroy(); i.destroy(); } });
   };

@@ -215,7 +215,7 @@
     if (fest && v.key === 'hollis') return { label: 'Festival', icon: C.ICON.ribbon, run: function () { self.villagers.greet(v, self.dir); F.ui.openFestival(fest); } };
     if (held && held.id === 'blue_feather' && v.def.candidate) return { label: 'Propose', icon: C.ICON.blue_feather, run: function () { self.propose(v); } };
     if (held && L.giftable(held.id) && !f.gifted) return { label: 'Gift', icon: C.ICON.gift, run: function () { self.gift(v); } };
-    return { label: 'Talk', icon: C.ICON.note, run: function () { self.talkTo(v); } };
+    return { label: 'Talk', icon: C.ICON.bubble, run: function () { self.talkTo(v); } };
   };
 
   M.talkTo = function (v) {
@@ -225,7 +225,7 @@
     if (ev) return this.playHeartEvent(v, ev);
     var r = L.talk(s, v.key);
     sfx('talk');
-    this.emote(v, C.ICON.note);
+    this.emote(v, 'talk'); // talking: dots in the bubble (the music note is for villagers humming)
     var name = v.def.name + (s.spouse === v.key ? ' (your spouse)' : '');
     F.ui.say(v.key, name, r.line);
     this.changed();

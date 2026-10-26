@@ -520,3 +520,14 @@ test("a new farm's starter seeds are the season's 15-minute crop, so they can be
   }
   clock.set(2026, 4, 1, 10, 0);
 });
+
+test('the forge says what each upgrade gives', () => {
+  const s = L.newState();
+  assert.strictEqual(L.upgradeText(s, 'can'), 'Copper Can: holds 30 water (now 20) and waters 3 tiles in a line; uses 20% less energy.');
+  s.tools.hammer = 0;
+  assert.match(L.upgradeText(s, 'hammer'), /can break boulders/);
+  s.tools.axe = 1;
+  assert.match(L.upgradeText(s, 'axe'), /^Silver Axe: chops a 3 x 3 patch at once and stumps in 1 swing; uses 35% less energy\.$/);
+  s.tools.hoe = 3;
+  assert.strictEqual(L.upgradeText(s, 'hoe'), null);
+});

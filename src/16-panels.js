@@ -389,7 +389,9 @@
       var cost = L.upgradeCost(s, tool), next = L.toolLevel(s, tool) + 1;
       return {
         icon: L.iconOf(s, tool), name: L.itemName(s, tool),
-        desc: cost ? 'To ' + C.TOOL_LEVELS[next] + ': ' + cost.gold + 'G and ' + cost.n + ' ' + C.ITEMS[cost.ore].name + '.' : 'Fully upgraded!',
+        // what the upgrade does, then its price as chips (gold and ore)
+        desc: cost ? L.upgradeText(s, tool) : 'Fully upgraded! The best ' + C.ITEMS[tool].name.toLowerCase() + ' in the valley.',
+        reward: cost ? { gold: cost.gold, item: cost.ore, n: cost.n } : null, rewardPrefix: 'Cost', buttonsBelow: true,
         buttons: cost ? [{
           label: 'Upgrade', cb: function () {
             var r = L.upgradeTool(s, tool);
@@ -400,7 +402,7 @@
             world().save();
             self.closeModal();
             self.openForge();
-            self.toast('Clang! Bram made you a ' + L.itemName(s, tool) + '. Hold the action button to charge it.');
+            self.toast('Clang! Bram made you a ' + L.itemName(s, tool) + '. Hold the action button to use it on more tiles at once.');
           },
         }] : [],
       };

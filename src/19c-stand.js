@@ -103,7 +103,7 @@
       }
       return { label: 'Sell', icon: C.ICON.crate, run: function () { F.ui.openStand('shelves'); } };
     }
-    if (o.type === 'orders') return { label: 'Orders', icon: C.ICON.note, run: function () { F.ui.openStand('orders'); } };
+    if (o.type === 'orders') return { label: 'Orders', icon: C.ICON.book, run: function () { F.ui.openStand('orders'); } };
     return extraObjectAction.call(this, o, held, def);
   };
 

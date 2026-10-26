@@ -166,7 +166,7 @@
       return { label: 'Go down', icon: -1, run: function () { self.travel('mine', 'entrance', F.session.mineFloor + 1); } };
     }
     var soil = this.mapKey === 'farm' ? s.soil[idx] : null;
-    if (L.isRipe(soil) && !C.CROPS[soil.c].sickle) return { label: 'Harvest', icon: C.ICON.sparkle, run: function () { self.harvest(t, idx); } };
+    if (L.isRipe(soil) && !C.CROPS[soil.c].sickle) return { label: 'Harvest', icon: C.ICON.rice, /* owner: rice for every harvest */ run: function () { self.harvest(t, idx); } };
     // a crop you face says how it is doing (unless you are about to use a tool or seeds on it)
     var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
     if (soil && soil.c && (!def || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
