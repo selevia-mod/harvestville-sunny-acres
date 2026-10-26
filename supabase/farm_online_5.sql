@@ -8,6 +8,9 @@
 --   5. Faster lists at scale: farm_list_v1 without a function call per player row; indexes for the likes count,
 --      unread messages and the staff play numbers.
 --   6. farm_buy_v1: one purchase at a time per player (a double tap gets the first one's receipt; the daily cap holds).
+--   7. Weekly ranks that can't be gamed: beauty within what the game allows and how fast it can grow; prizes only for
+--      farms that really played that week, never guests; gold earned counts up to 100G a minute played; one winner
+--      per place (ties go to whoever got there first).
 set lock_timeout = '5s';
 
 -- ---------- 1. leaving online play ----------
@@ -189,9 +192,66 @@ begin
   return jsonb_build_object('ok', true, 'item', o.item, 'amount', o.amount, 'currency', o.currency, 'price', o.price, 'balance', balance_after);
 end $$;
 
+-- ---------- 7. weekly ranks that can't be gamed (owner, 27 Oct) ----------
+-- Beauty: never above what the game can reach (every piece placed in the biggest house: about 15,000), at most 1,500
+-- more than the farm's best earlier week, and 1,000 in a farm's first ranked week. (A modified game could send any
+-- number before; every such farm tied for first and took the top prize.)
+create or replace function public.farm_publish_v1(p_data jsonb, p_beauty int, p_house_level int, p_earned_week bigint, p_quests_week int)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  uid uuid := farm.me();
+  hrs numeric := extract(epoch from (now() - (farm.week_of(now())::timestamp at time zone 'utc'))) / 3600;
+  best int := (select max(sc.beauty) from farm.scores sc where sc.user_id = uid and sc.week < farm.week_of(now()));
+  b int;
+begin
+  p_earned_week := least(p_earned_week, (10000 + 2500 * hrs)::bigint);
+  p_quests_week := least(p_quests_week, (10 * ceil(greatest(hrs, 1) / 24))::int);
+  b := greatest(0, least(p_beauty, 15000, coalesce(best + 1500, 1000)));
+  if exists (select 1 from farm.snapshots where user_id = uid and updated_at > now() - interval '30 seconds') then return false; end if;
+  insert into farm.snapshots (user_id, data, beauty, house_level, updated_at)
+  values (uid, p_data, b, greatest(1, least(p_house_level, 50)), now())
+  on conflict (user_id) do update set data = excluded.data, beauty = excluded.beauty, house_level = excluded.house_level, updated_at = now();
+  insert into farm.scores (user_id, week, beauty, earned, quests)
+  values (uid, farm.week_of(now()), b, greatest(0, least(p_earned_week, 100000000)), greatest(0, least(p_quests_week, 10000)))
+  on conflict (user_id, week) do update set
+    beauty = excluded.beauty, earned = greatest(farm.scores.earned, excluded.earned), quests = greatest(farm.scores.quests, excluded.quests), updated_at = now();
+  update farm.players set last_seen_at = now() where user_id = uid;
+  return true;
+end $$;
+
+-- Prizes: only farms that really played that week (2+ days in Selebox), never guest accounts; gold earned counts up to
+-- 100G per minute played; a tie goes to whoever got there first, so each board has exactly 10 winners.
+create or replace function public.farm_prizes_v1()
+returns table (kind text, rank int, gold int, stars int, week date)
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := farm.me(); wk date := farm.week_of(now()) - 7;
+begin
+  return query
+  with played as (
+    select pd.user_id, sum(pd.minutes) as mins from farm.play_days pd
+    where pd.day >= wk and pd.day < wk + 7 group by pd.user_id having count(*) >= 2),
+  ranked as (
+    select s.user_id, k.kind, s.updated_at,
+      case k.kind when 'beauty' then s.beauty::bigint when 'earned' then least(s.earned, pl2.mins * 100) else s.quests::bigint end as score
+    from farm.scores s join farm.players pl on pl.user_id = s.user_id
+    join played pl2 on pl2.user_id = s.user_id
+    cross join (values ('beauty'), ('earned'), ('quests')) k(kind)
+    where s.week = wk and not pl.hidden
+      and not exists (select 1 from public.profiles p where p.auth_user_id = s.user_id and coalesce(p.is_guest, false))),
+  numbered as (select r.*, row_number() over (partition by r.kind order by r.score desc, r.updated_at, r.user_id) as rk from ranked r where r.score > 0),
+  mine as (select n.kind, n.rk::int as rk from numbered n where n.user_id = uid and n.rk <= 10),
+  won as (
+    insert into farm.prizes (user_id, week, kind, rank, gold, stars)
+    select uid, wk, m.kind, m.rk, p.gold, p.stars from mine m cross join lateral farm.prize_for(m.rk) p
+    on conflict do nothing
+    returning farm.prizes.kind, farm.prizes.rank, farm.prizes.gold, farm.prizes.stars, farm.prizes.week)
+  select w.kind, w.rank, w.gold, w.stars, w.week from won w;
+end $$;
+
 reset lock_timeout;
 
 -- ---------- to undo part 5 ----------
 -- Re-run the earlier definitions: farm_leave_v1, farm_visit_v1, farm_report_v1 from farm_online.sql; farm.alert from
--- farm_online_2.sql; farm_list_v1 from farm_online_3.sql; farm_buy_v1 from farm_online_4.sql. Then:
+-- farm_online_2.sql; farm_list_v1 from farm_online_3.sql; farm_buy_v1 from farm_online_4.sql; farm_publish_v1 from
+-- farm_online.sql; farm_prizes_v1 from farm_online_2.sql. Then:
 -- drop index if exists farm.visits_liked, farm.messages_unread, farm.play_days_day;

@@ -647,3 +647,19 @@ test('review fixes: walking in and out of the mine is not "going down" a floor',
   L.reachFloor(s, 1); L.reachFloor(s, 1); L.reachFloor(s, 1); L.reachFloor(s, 2);
   assert.strictEqual(L.count(s, 'floor') - before, 2);
 });
+
+test('review fixes 2: setting the date back gives no extra login gift; Landscaper counts pieces in the yard', () => {
+  const s = L.newState();
+  const day = (n) => '2026-10-' + n; // F.today()'s format
+  assert.ok(typeof L.claimLogin(s, day(10)) === 'object', 'day 10');
+  assert.ok(typeof L.claimLogin(s, day(11)) === 'object', 'day 11');
+  assert.strictEqual(L.loginGift(s, day(10)), null, 'back to day 10: nothing');
+  assert.strictEqual(L.loginGift(s, day(11)), null, 'and day 11 again: nothing');
+  assert.ok(L.loginGift(s, day(12)), 'day 12: the next gift');
+  const i = C.ACHIEVEMENTS.findIndex((a) => a.key === 'landscaper');
+  s.cnt.decor = 500; // placed and stored the same piece hundreds of times
+  s.yard.items = [];
+  assert.strictEqual(L.achReady(s, i), false);
+  for (let k = 0; k < 100; k++) s.yard.items.push({ t: 0, x: k % 20, y: Math.floor(k / 20) });
+  assert.strictEqual(L.achReady(s, i), true);
+});

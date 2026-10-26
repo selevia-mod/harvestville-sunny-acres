@@ -102,8 +102,13 @@ do $$ begin perform farm_clock_v1(); perform pg_temp.ok(false, 'x'); exception w
 reset role;
 insert into farm.scores (user_id, week, beauty, earned, quests)
 select p.user_id, farm.week_of(now()) - 7, k, k * 100, 0 from farm.players p, (select row_number() over () as k, user_id from farm.players) r where r.user_id = p.user_id;
+-- (they played on 2 days last week; player 2 did not play at all)
+insert into farm.play_days (user_id, day, opens, minutes)
+select p.user_id, farm.week_of(now()) - 7 + d, 1, 30 from farm.players p, generate_series(0, 1) d where p.user_id <> pg_temp.id(2);
 set role authenticated;
 do $$ declare n int; g int; begin
+  perform pg_temp.as_(2);
+  perform pg_temp.ok((select count(*) from farm_prizes_v1()) = 0, 'no prizes for a farm that did not play that week');
   perform pg_temp.as_(1);
   select count(*), coalesce(sum(gold), 0) into n, g from farm_prizes_v1();
   perform pg_temp.ok(n = 2 and g > 0, 'last week''s prizes on 2 boards (quests were 0)');
@@ -180,8 +185,8 @@ do $$ begin
   perform pg_temp.ok((select farm_name like 'Farm %' and not hidden from farm.players where user_id = pg_temp.id(2)), 'renamed and shown again');
   perform pg_temp.ok((select bool_and(status = 'actioned') from farm.reports where target = pg_temp.id(2)), 'reports marked actioned');
 end $$;
--- part 3: play tracking
-set role authenticated;
+-- part 3: play tracking (the prize checks' play days from last week are cleared first)
+reset role; delete from farm.play_days; set role authenticated;
 do $$ declare s record; begin
   perform pg_temp.as_(1); perform farm_track_v1(1, 0); perform farm_track_v1(0, 5); perform farm_track_v1(9, 9999);
   perform pg_temp.as_(3); perform farm_track_v1(1, 3);
@@ -293,4 +298,49 @@ reset role; update public.profiles set is_guest = true where auth_user_id = pg_t
 do $$ begin
   perform pg_temp.as_(7);
   perform pg_temp.ok(farm_report_v1(pg_temp.id(8), 'name') = 'guest', 'guest accounts cannot report');
+end $$;
+-- part 5: weekly ranks
+reset role; update farm.snapshots set updated_at = now() - interval '1 minute'; set role authenticated;
+do $$ declare b int; begin
+  perform pg_temp.as_(8);
+  perform pg_temp.ok(farm_publish_v1('{}'::jsonb, 100000, 1, 0, 0), 'publish');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select beauty from farm.scores where user_id = pg_temp.id(8) and week = farm.week_of(now())) = 1000, 'a first ranked week counts 1,000 beauty at most');
+  perform pg_temp.ok((select beauty from farm.snapshots where user_id = pg_temp.id(8)) = 1000, 'and the Visit list shows the same');
+end $$;
+insert into farm.scores (user_id, week, beauty, earned, quests) values (pg_temp.id(9), farm.week_of(now()) - 7, 2000, 0, 0);
+update farm.snapshots set updated_at = now() - interval '1 minute' where user_id = pg_temp.id(9);
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(9); perform farm_publish_v1('{}'::jsonb, 99999, 1, 0, 0);
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select beauty from farm.scores where user_id = pg_temp.id(9) and week = farm.week_of(now())) = 3500, 'then at most 1,500 more than the best earlier week');
+end $$;
+-- ties: one winner per place
+reset role;
+delete from farm.prizes;
+insert into farm.scores (user_id, week, beauty, earned, quests)
+select ('00000000-0000-4000-8000-00000000000' || n)::uuid, farm.week_of(now()) - 7, 0, 0, 5 from generate_series(6, 9) n
+on conflict (user_id, week) do update set quests = 5;
+update farm.scores set quests = 5 where week = farm.week_of(now()) - 7;
+insert into farm.play_days (user_id, day, opens, minutes)
+select ('00000000-0000-4000-8000-00000000000' || n)::uuid, farm.week_of(now()) - 7 + d, 1, 30 from generate_series(6, 9) n, generate_series(0, 1) d
+on conflict do nothing;
+update public.profiles set is_guest = false;
+create temp table ranks5 (n int, rk int); grant all on ranks5 to authenticated;
+set role authenticated;
+do $$ declare r record; begin
+  for i in 1..9 loop
+    if i = 4 then continue; end if;
+    perform pg_temp.as_(i);
+    for r in select * from farm_prizes_v1() where kind = 'quests' loop insert into ranks5 values (i, r.rank); end loop;
+  end loop;
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select count(distinct rk) = count(*) from ranks5), 'tied scores get different places (' || (select string_agg(n || ':' || rk, ' ') from ranks5) || ')');
 end $$;

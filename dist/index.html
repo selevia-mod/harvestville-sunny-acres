@@ -4636,7 +4636,7 @@
   // The gift waiting today ({ day: 1..7, reward }), or null once claimed.
   L.loginGift = function (s, today) {
     var dn = L.dayNum(today);
-    if (s.lg.claimed === dn) return null;
+    if (dn <= s.lg.claimed) return null; // only a day after the last claim (setting the date back gives nothing)
     var day = s.lg.last === dn - 1 ? s.lg.streak % C.LOGIN.length + 1 : 1;
     return { day: day, reward: C.LOGIN[day - 1] };
   };
@@ -4656,6 +4656,8 @@
     if (what === 'friends5') return C.VILLAGER_ORDER.filter(function (k) { return L.friendHearts(s, k) >= 5; }).length;
     if (what === 'married') return s.spouse ? 1 : 0;
     if (what === 'animals') return s.animals.length;
+    // pieces standing in the yard now (placing and storing the same piece again and again doesn't add up)
+    if (what === 'decor') return s.yard && s.yard.items ? s.yard.items.length : 0;
     if (what === 'home') return s.home.level;
     if (what === 'beauty') return L.homeBeauty(s);
     return L.count(s, what);
