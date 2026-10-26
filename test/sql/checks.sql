@@ -195,3 +195,47 @@ reset role;
 do $$ begin perform pg_temp.ok((select opens from farm.play_days where user_id = pg_temp.id(1)) = 2, 'an open counts once per call'); end $$;
 set role anon;
 do $$ begin perform farm_track_v1(1, 1); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'signed-out users cannot track'); end $$;
+-- part 4: energy refills for Selebox Coins or Stars
+reset role;
+insert into public.wallets (user_id, coin_balance, star_balance) select id, 12, 15 from public.profiles where auth_user_id = pg_temp.id(1);
+insert into public.wallets (user_id, coin_balance, star_balance) select id, 0, 0 from public.profiles where auth_user_id = pg_temp.id(2);
+set role authenticated;
+do $$ declare shop jsonb; r jsonb; rid uuid := gen_random_uuid(); begin
+  perform pg_temp.as_(1);
+  shop := farm_shop_v1();
+  perform pg_temp.ok(shop -> 'wallet' = '{"coins": 12, "stars": 15}'::jsonb and (shop ->> 'left')::int = 20, 'the shop shows my own Coins and Stars');
+  perform pg_temp.ok(shop -> 'offers' @> '[{"currency": "coins", "price": 5, "amount": 100}, {"currency": "stars", "price": 10, "amount": 100}]'::jsonb, 'refill: 5 Coins or 10 Stars for 100 energy');
+  r := farm_buy_v1('energy', 'coins', 5, 1, rid);
+  perform pg_temp.ok((r ->> 'ok')::boolean and (r ->> 'amount')::int = 100 and (r ->> 'balance')::int = 7, 'paid 5 Coins (' || r::text || ')');
+  r := farm_buy_v1('energy', 'coins', 5, 1, rid);
+  perform pg_temp.ok((r ->> 'duplicate')::boolean and (r ->> 'amount')::int = 100, 'the same tap again is not charged again');
+  r := farm_buy_v1('energy', 'stars', 10, 1, gen_random_uuid());
+  perform pg_temp.ok((r ->> 'balance')::int = 5, 'paid 10 Stars');
+  r := farm_buy_v1('energy', 'stars', 10, 1, gen_random_uuid());
+  perform pg_temp.ok(r ->> 'code' = 'insufficient-stars', 'not enough Stars: nothing taken');
+  r := farm_buy_v1('energy', 'coins', 1, 1, gen_random_uuid());
+  perform pg_temp.ok(r ->> 'code' = 'offer-changed', 'a price the server does not have is refused');
+  perform pg_temp.ok(farm_buy_v1('gold', 'coins', 5, 1, gen_random_uuid()) ->> 'code' = 'offer-unavailable', 'only what is on sale');
+  perform pg_temp.as_(2);
+  perform pg_temp.ok(farm_buy_v1('energy', 'coins', 5, 1, gen_random_uuid()) ->> 'code' = 'insufficient-coins', 'an empty wallet');
+  perform pg_temp.as_(4);
+  perform pg_temp.ok(farm_buy_v1('energy', 'coins', 5, 1, gen_random_uuid()) ->> 'code' = 'account-unavailable', 'banned accounts cannot buy');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select coin_balance = 7 and star_balance = 5 from public.wallets w join public.profiles p on p.id = w.user_id where p.auth_user_id = pg_temp.id(1)), 'the wallet lost exactly 5 Coins and 10 Stars');
+  perform pg_temp.ok((select count(*) from public.coin_transactions where type = 'farm_energy' and delta = -5 and balance_after = 7) = 1
+    and (select count(*) from public.star_transactions where type = 'farm_energy' and delta = -10 and balance_after = 5) = 1, 'each payment is in Selebox''s coin / star history');
+  perform pg_temp.ok((select count(*) from farm.purchases) = 2, 'two receipts');
+  perform pg_temp.ok((select pg_get_constraintdef(oid) like '%pet_meals%farm_energy%' from pg_constraint where conname = 'coin_transactions_type_check'), 'the ledgers keep their old types');
+end $$;
+update public.wallets set coin_balance = 500;
+insert into farm.purchases (user_id, request_id, item, currency, price, amount) select pg_temp.id(1), gen_random_uuid(), 'energy', 'coins', 5, 100 from generate_series(1, 18);
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(1);
+  perform pg_temp.ok((farm_shop_v1() ->> 'left')::int = 0, '20 refills a day');
+  perform pg_temp.ok(farm_buy_v1('energy', 'coins', 5, 1, gen_random_uuid()) ->> 'code' = 'limit', 'the 21st is refused');
+end $$;
+set role anon;
+do $$ begin perform farm_buy_v1('energy', 'coins', 5, 1, gen_random_uuid()); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'signed-out users cannot buy'); end $$;

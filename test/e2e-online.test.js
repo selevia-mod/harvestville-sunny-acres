@@ -456,3 +456,46 @@ test('online: Selebox follows count as friends; staff review a report; share my 
   await a.context.close();
   await b.context.close();
 });
+
+test('online: energy refills for Selebox Coins or Stars, never paid twice', async () => {
+  const server = createServer();
+  const me = await open(server);
+  server.db.wallets.set(me.uid, { coins: 12, stars: 5 });
+  await me.page.evaluate(() => {
+    window.__spent = 0;
+    window.__store = 0;
+    window.gameHost.shop = true;
+    window.gameHost.spent = () => { window.__spent++; };
+    window.gameHost.store = () => { window.__store++; };
+    Farm.session.state.energy = 40;
+    Farm.ui.closeAll();
+    Farm.ui.openEnergy();
+  });
+  await waitModal(me.page, /Energy 40 \/ 100.*Refill with Selebox Coins or Stars.*Refill/);
+  await tapButton(me.page, 'Refill');
+  await waitModal(me.page, /Refill energy.*Energy 40 \/ 100\.  20 refills left today\..*\+100 energy for 5 Selebox Coins \| You have 12 Selebox Coins\..*\+100 energy for 10 Selebox Stars \| You have 5 Selebox Stars: not enough yet\./);
+  await shot(me.page, 'online-15-refill');
+  // the answer to the first tap is lost: the second tap sends the same request, and is not charged again
+  server.db.loseNextBuyAnswer = true;
+  await tapButton(me.page, 'Buy');
+  await me.page.waitForFunction(() => /you will not pay twice/.test(Farm.ui.toastText ? Farm.ui.toastText.text : ''), null, SLOW);
+  assert.strictEqual(await me.page.evaluate(() => Farm.session.state.energy), 40, 'no energy without an answer');
+  await tapButton(me.page, 'Buy');
+  await me.page.waitForFunction(() => Farm.session.state.energy === 100, null, SLOW);
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 7, stars: 5 }, 'charged once: 5 Coins');
+  assert.strictEqual(server.db.purchases.size, 1);
+  assert.strictEqual(await me.page.evaluate(() => window.__spent), 1, 'the app is told to refresh the balance');
+  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 0);
+  // full: no Refill button
+  await me.page.evaluate(() => Farm.ui.openEnergy());
+  await waitModal(me.page, /Your energy is full!/);
+  assert.ok(!/\| Refill$|\| Refill \|/.test(await modalText(me.page)), 'no Refill when full');
+  // not enough Coins: Get Coins opens the Selebox store
+  server.db.wallets.set(me.uid, { coins: 2, stars: 0 });
+  await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.session.state.energy = 10; Farm.ui.openRefill(); });
+  await waitModal(me.page, /You have 2 Selebox Coins: not enough yet\./);
+  await tapButton(me.page, 'Get Coins');
+  assert.strictEqual(await me.page.evaluate(() => window.__store), 1);
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});

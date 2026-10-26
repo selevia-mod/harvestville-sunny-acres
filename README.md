@@ -256,8 +256,8 @@ Players are online with their **Selebox account**: there is no sign-in in the ga
 calls itself. It asks the Selebox app through `window.gameHost.net`, and the app answers with its own signed-in
 Supabase client (`bridge/sunnyAcresBridge.js`, guide in `bridge/README.md`). Opened on its own, without the app,
 the game plays offline and the Online button does not show. The database side is `supabase/farm_online.sql`,
-`farm_online_2.sql` (weekly prizes, Selebox alerts) and `farm_online_3.sql` (Selebox follows, staff tools, play
-tracking), applied in that order.
+`farm_online_2.sql` (weekly prizes, Selebox alerts), `farm_online_3.sql` (Selebox follows, staff tools, play
+tracking) and `farm_online_4.sql` (energy refills for Selebox Coins or Stars), applied in that order.
 
 - **Joining:** online play starts by itself when the game opens. The first time you open the Online panel (the
   button under Quests) you name your farm (it starts as your Selebox name). You can leave online play from the
@@ -279,6 +279,10 @@ tracking), applied in that order.
 - **Ranks:** this week's top 50 by Home Beauty, gold earned and daily quests done (Monday to Sunday).
 - **Me:** rename the farm, share a picture of it to the Selebox feed, collect gifts (also collected when the game
   opens), see who came by in the last 7 days, hide the farm from the lists, or leave online play.
+- **Energy refills:** with the app's shop on (`gameHost.shop`), the energy panel has Refill: +100 energy (up to your
+  max) for 5 Selebox Coins or 10 Selebox Stars, 20 a day. The server holds the prices (`farm.offers`) and takes the
+  payment from the Selebox wallet; the game adds the energy only after the server says it is paid, and a retried tap
+  is never charged twice. Not enough Coins: Get Coins opens the Selebox store.
 - **Staff (Selebox moderators):** two more rows on the Me tab. Reported farms lists the farms with open reports,
   what the reporters saw, and three decisions: clear (show it again), reset the name, or keep it hidden. Play
   numbers shows the last 14 days: players, new players, minutes and who came back. The server checks the role.
@@ -345,6 +349,7 @@ sounds can be switched off in the pause menu.
 | `window.gameHost.exit()` | Optional: the pause menu shows Leave game, which saves and calls it. |
 | `window.gameHost.remind(r)` | Optional: called after a save when the next ripe crop changes: `{ at: ms, title, body }`, or `null` (nothing growing, or Alerts off). |
 | `window.gameHost.share(p)` | Optional: the pause menu and the Me tab show Share. `p` is `{ text, image: JPEG data URL (at most 720 wide), width, height }`. |
+| `window.gameHost.shop` | Optional: `true` shows energy refills (needs `net`). With it, `spent()` (a refill was paid: refresh the wallet) and `store()` (open the Coin store). |
 | `window.gameHost.staff` | Optional: `true` shows the staff rows on the Me tab (the server still checks). |
 | `window.gameHost.now()` | Optional: the clock the game runs on (e.g. the server's); the phone's otherwise. |
 | `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |

@@ -9,6 +9,7 @@
   var U = F.UIScene.prototype;
   var SHARE_W = 720;
   var BLUE = 0x4a90c9, GREY = 0xa08a68, RED = 0xc0503a, GREEN = 0x5fa84a;
+  var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
   var host = function () { return window.gameHost || {}; };
   var name = function (n) { return L.cleanText(n, 24) || 'Farmer'; };
   var oops = function (self) { return function () { self.toast('That did not work. Please try again.'); }; };
@@ -137,6 +138,95 @@
         sub: function () { return 'Players who opened Harvest Ville in Selebox (Manila days).'; }, empty: 'No plays yet.',
       });
     }).catch(oops(self));
+  };
+
+  // ---------- energy refills for Selebox Coins or Stars (owner, 26 Oct: 5 Coins or 10 Stars, 100 energy) ----------
+  // In the app with gameHost.shop: the server holds the prices and takes the payment (farm_buy_v1); the game adds the
+  // energy once the server says it is paid. Each tap has its own request id; after a lost answer the same tap is
+  // sent again and the server answers "already paid" instead of charging twice.
+  var CUR = { coins: 'Selebox Coins', stars: 'Selebox Stars' };
+  var one = { coins: 'Selebox Coin', stars: 'Selebox Star' };
+  var curName = function (cur, n) { return n + ' ' + (n === 1 ? one[cur] : CUR[cur]); };
+  L.canRefill = function () { return !!(host().shop && F.Net.available()); };
+
+  // Energy after a refill of `amount`: never above the max (a refill tops it up).
+  L.refill = function (s, amount) {
+    var before = s.energy, max = L.maxEnergy(s);
+    s.energy = Math.min(max, s.energy + Math.max(0, Math.floor(amount) || 0));
+    if (s.energy >= max) s.regen = L.nowMin();
+    return s.energy - before;
+  };
+
+  var requestId = function () {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.floor(Math.random() * 16);
+      return (c === 'x' ? r : (r & 3) | 8).toString(16);
+    });
+  };
+  var pending = null; // { id, currency, price, version } of a tap whose answer never came
+
+  U.openRefill = function (then) {
+    var self = this, s = F.session.state;
+    if (!L.canRefill()) return;
+    F.Net.rpc('farm_shop_v1', {}).then(function (shop) {
+      var wallet = (shop && shop.wallet) || {}, left = Number(shop && shop.left) || 0, max = L.maxEnergy(s);
+      var rows = ((shop && shop.offers) || []).filter(function (o) { return o.item === 'energy'; }).map(function (o) {
+        var have = Number(wallet[o.currency]) || 0, price = Number(o.price) || 0, short = have < price;
+        var buttons = short
+          ? (typeof host().store === 'function' && o.currency === 'coins' ? [{ label: 'Get Coins', color: BLUE, cb: function () { self.closeAll(); host().store(); } }] : [])
+          : [{ label: 'Buy', color: GREEN, cb: function () { self.buyRefill(o); } }];
+        return {
+          icon: C.ICON.bolt, name: '+' + o.amount + ' energy for ' + curName(o.currency, price),
+          desc: 'You have ' + curName(o.currency, have) + (short ? ': not enough yet.' : '.'), buttons: buttons,
+        };
+      });
+      self.listPanel({
+        title: 'Refill energy', rows: rows, page: 0,
+        reopen: function () { self.closeModal(); self.openRefill(); },
+        sub: function () { return 'Energy ' + Math.floor(s.energy) + ' / ' + max + '.  ' + (left ? left + ' refill' + (left === 1 ? '' : 's') + ' left today.' : 'No refills left today.'); },
+        empty: 'Refills are not on sale right now.',
+      });
+      if (then) then();
+    }).catch(function () { self.toast('Could not reach Selebox. Check your connection.'); });
+  };
+
+  var SAY = {
+    'insufficient-coins': 'Not enough Selebox Coins. Nothing was taken.',
+    'insufficient-stars': 'Not enough Selebox Stars. Nothing was taken.',
+    'offer-changed': 'The price just changed. Please look again.',
+    'offer-unavailable': 'Refills are not on sale right now.',
+    limit: 'That is 20 refills today. More tomorrow!',
+    'account-unavailable': 'Your Selebox account cannot buy right now.',
+    'wallet-unavailable': 'Your Selebox wallet is not ready. Please try again later.',
+  };
+
+  U.buyRefill = function (o) {
+    var self = this, s = F.session.state;
+    if (s.energy >= L.maxEnergy(s)) return this.toast("You're already full of energy.");
+    var same = pending && pending.currency === o.currency && pending.price === o.price && pending.version === o.version;
+    var req = same ? pending : (pending = { id: requestId(), currency: o.currency, price: o.price, version: o.version });
+    if (this.buying) return;
+    this.buying = true;
+    F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: req.currency, p_price: req.price, p_version: req.version, p_request_id: req.id })
+      .then(function (r) {
+        self.buying = false;
+        pending = null; // answered: a new tap is a new purchase
+        if (!r || !r.ok) {
+          self.closeModal();
+          return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
+        }
+        var gain = L.refill(s, Number(r.amount) || 0);
+        if (F.world && F.world.save) F.world.save(); else F.Host.save(s);
+        if (typeof host().spent === 'function') { try { host().spent(); } catch (e) { /* the app's balance refresh is optional */ } }
+        self.closeAll();
+        self.refresh();
+        self.toast('+' + gain + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
+        sfx('coin');
+      }, function () {
+        self.buying = false; // the answer was lost: the next tap sends the same request, never a second payment
+        self.toast('Could not reach Selebox. Tap Buy again: you will not pay twice.', 2800);
+      });
   };
 
   void W;

@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [] };
+  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
@@ -190,6 +190,26 @@ function createServer() {
         out.push({ day: d, players: who.length, new_players: who.length, minutes: mins, avg_minutes: who.length ? Math.round((mins / who.length) * 10) / 10 : null, back_next_day: 0, back_in_7_days: 0 });
       }
       return out;
+    },
+    farm_shop_v1(uid) {
+      if (!uid) throw new Error('not signed in');
+      const w = db.wallets.get(uid);
+      return { wallet: w ? { coins: w.coins, stars: w.stars } : null, offers: [{ item: 'energy', currency: 'coins', price: 5, amount: 100, version: 1 }, { item: 'energy', currency: 'stars', price: 10, amount: 100, version: 1 }], left: 20 };
+    },
+    farm_buy_v1(uid, a) {
+      if (!uid) throw new Error('not signed in');
+      const key = uid + ':' + a.p_request_id, done = db.purchases.get(key);
+      if (done) return Object.assign({ ok: true, duplicate: true }, done);
+      const price = { coins: 5, stars: 10 }[a.p_currency];
+      if (a.p_item !== 'energy' || !price) return { ok: false, code: 'offer-unavailable' };
+      if (a.p_price !== price || a.p_version !== 1) return { ok: false, code: 'offer-changed' };
+      const w = db.wallets.get(uid);
+      if (!w) return { ok: false, code: 'wallet-unavailable' };
+      if (w[a.p_currency] < price) return { ok: false, code: 'insufficient-' + a.p_currency };
+      w[a.p_currency] -= price;
+      db.purchases.set(key, { item: 'energy', amount: 100, currency: a.p_currency, price });
+      if (db.loseNextBuyAnswer) { db.loseNextBuyAnswer = false; throw new Error('network timeout'); }
+      return { ok: true, item: 'energy', amount: 100, currency: a.p_currency, price, balance: w[a.p_currency] };
     },
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },

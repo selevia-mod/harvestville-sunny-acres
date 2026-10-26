@@ -32,3 +32,17 @@ alter table public.profiles add column role text not null default 'user';
 create function public.is_moderator() returns boolean language sql stable security definer set search_path = 'public' as $$
   select exists (select 1 from public.profiles p where p.auth_user_id = auth.uid() and p.role in ('moderator', 'admin') and not p.is_banned);
 $$;
+-- Selebox wallets and ledgers (only what farm_online_4.sql touches), with type lists like live's
+alter table public.profiles add column is_guest boolean default false, add column deleted_at timestamptz;
+create function public.current_profile_id() returns uuid language sql stable security definer set search_path = 'public' as $$
+  select id from public.profiles where auth_user_id = auth.uid() limit 1;
+$$;
+grant execute on function public.current_profile_id() to authenticated;
+create table public.wallets (user_id uuid primary key, coin_balance int not null default 0 check (coin_balance >= 0),
+  star_balance int not null default 0 check (star_balance >= 0), updated_at timestamptz);
+create table public.coin_transactions (id uuid primary key default gen_random_uuid(), user_id uuid not null, delta int not null,
+  balance_after int not null check (balance_after >= 0), type text not null, reference_type text, reference_id text, metadata jsonb,
+  created_at timestamptz not null default now(), constraint coin_transactions_type_check check (type = any (array['purchase', 'unlock_chapter']) or type = 'pet_meals'));
+create table public.star_transactions (id uuid primary key default gen_random_uuid(), user_id uuid not null, delta int not null,
+  balance_after int not null check (balance_after >= 0), type text not null, reference_type text, reference_id text, metadata jsonb,
+  created_at timestamptz not null default now(), constraint star_transactions_type_check check (type = any (array['ad_watch', 'unlock_chapter']) or type = 'pet_meals'));

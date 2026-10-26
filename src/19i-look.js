@@ -223,7 +223,8 @@
     var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
     var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
     var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * C.ENERGY_EVERY + (C.ENERGY_EVERY - (now - s.regen))) + '.';
-    this.dialog('Energy ' + e + ' / ' + max, null, {
+    var self = this, buy = L.canRefill && L.canRefill() && e < max;
+    this.dialog('Energy ' + e + ' / ' + max, buy ? [{ label: 'OK', color: 0xa08a68 }, { label: 'Refill', cb: function () { self.openRefill(); } }] : null, {
       rows: [
         [C.ICON.bolt, head],
         [C.ICON.moon, 'It comes back by itself: 1 point every ' + C.ENERGY_EVERY + ' minutes, even while the game is closed.'],
@@ -231,7 +232,7 @@
         [C.ICON.lunch, 'Rosa\'s Inn and Ivy\'s Clinic in town sell food and tonics. A kitchen lets you cook big meals.'],
         [C.ICON.sparkle, 'A lovelier home raises your max energy (Home Beauty).'],
         [C.ICON.heart, 'Planting, harvesting, selling, talking and visiting farms cost no energy.'],
-      ],
+      ].concat(L.canRefill && L.canRefill() ? [[C.ICON.power_up, 'In a hurry? Refill with Selebox Coins or Stars.']] : []),
     });
   };
 
