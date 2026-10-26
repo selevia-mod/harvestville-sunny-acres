@@ -1,6 +1,8 @@
 # The new crops: prompts (39 pictures)
 
-The 33 crops added with real-time farming use drawn stand-ins for now. Generate each picture below, save it under `art-src/` with the path shown (folder included) at the size shown, and send them (any order, in batches).
+**Done:** all 39 pictures were received and imported. Kept for reference (to redo a picture).
+
+The 33 crops added with real-time farming. Generate each picture below, save it under `art-src/` with the path shown (folder included) at the size shown, and send them (any order, in batches).
 
 - Crops: 2 frames side by side (left: still growing, right: ripe), each growing out of a small mound of soil.
 - Icons: a 4 x 4 grid, in the order listed; leave the remaining cells empty.

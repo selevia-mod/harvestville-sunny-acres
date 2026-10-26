@@ -71,14 +71,14 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
   signs show (19e-town.js) and shops say "<owner> is sleeping. Come back at 6:00 AM." (`closedText`,
   16-panels.js; `L.sleepTime`).
 - **Old saves** (no `rt` key) carry on from today (`L.deserialize` shifts building/wedding days, converts crops).
-- **Art:** the 33 new crops have drawn stand-ins (`tools/art/crops2.js`); the crops sheet is 7 frames wide
-  (2048x4096) with a withered frame (`C.CROP_WITHERED`). The art manifest has jobs + prompts for real
-  pictures: `crops/<crop>.png` (33), `crops/withered.png`, `icons/icons_crops_1..5.png`, written out in
-  `art-src/NEW-CROPS-PROMPTS.md` (sent to the owner).
+- **Art:** all 41 crops, the withered plant and the crop/seed icons are real pictures in `art-src/` (the 39
+  from `art-src/NEW-CROPS-PROMPTS.md` were imported). The crops sheet is 7 frames wide (2048x4096) with a
+  withered frame (`C.CROP_WITHERED`). The drawn stand-ins in `tools/art/crops2.js` are only used if a
+  picture is removed. Every job in `tools/art-manifest.js` now has its picture.
 
 ## Real-time status
 
-Done and tested: rules (145 unit tests), game side, art stand-ins, browser tests rewritten for the real clock
+Done and tested: rules (145 unit tests), game side, all crop art, browser tests rewritten for the real clock
 (`test/e2e.test.js`: `open(save, when)`, `makeSave(edit, when)` with a date `[y, m, d, h, min]`, default
 `START` = Wed 1 Apr 2026 10 AM; helpers `setClock`, `advance(minutes)`, `nextMorning()`), README, and a
 real-time economy simulator (`npm run simulate`: 4 visits a day). Crop prices were rescaled for harvests
@@ -95,9 +95,7 @@ several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
    The game talks only to `window.gameHost.net`; the bridge answers with the app's signed-in supabase-js client,
    and allows only `farm_*_v1` functions and `farm:<uuid>` channels.
 3. **Device test** with 2-3 real Selebox accounts once 1 and 2 are done.
-4. **Art:** the 33 new crops, the withered plant and their icons are drawn stand-ins. Their prompts were sent to
-   the owner: `art-src/NEW-CROPS-PROMPTS.md` (39 pictures). Import them like any batch.
-5. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
+4. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
    `notification_push_policy` have row-level security off. The owner decides.
 
 ## How to work on it

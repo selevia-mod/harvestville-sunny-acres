@@ -346,8 +346,8 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
   assert.match(await modalText(page), /Lily is sleeping\.\s+Come back at 6:00 AM/);
-  assert.ok(await page.evaluate(() => Farm.world.nightSigns && Farm.world.nightSigns.length > 0), 'a CLOSED sign on the stand');
   await tapButton(page, 'OK');
+  await page.waitForFunction(() => Farm.world.nightSigns && Farm.world.nightSigns.length > 0, null, { timeout: 5000 }); // a CLOSED sign on the stand (checked every 2 s)
   await setClock(page, [2026, 4, 2, 10, 0]);
   await tapAction(page);
   await shot(page, '07-shop');
