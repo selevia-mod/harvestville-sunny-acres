@@ -4,13 +4,14 @@
 const crypto = require('crypto');
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0 };
+  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [] };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
   const pair = (a, b) => (a < b ? [a, b] : [b, a]);
   const friendRow = (a, b) => { const [x, y] = pair(a, b); return db.friends.find((f) => f.a === x && f.b === y); };
   const areFriends = (a, b) => { const f = friendRow(a, b); return !!(f && f.accepted); };
+  const blocked = (a, b) => db.blocks.some((x) => (x.by === a && x.who === b) || (x.by === b && x.who === a));
   const visitOf = (host, visitor) => db.visits.find((v) => v.host === host && v.visitor === visitor && v.day === today());
   const need = (uid) => {
     if (!uid) throw new Error('not signed in');
@@ -44,7 +45,7 @@ function createServer() {
     farm_list_v1(uid, a) {
       need(uid);
       const kind = a.p_kind || 'popular';
-      return [...db.players.values()].filter((p) => p.id !== uid && db.snaps.has(p.id) && (kind === 'friends' ? areFriends(uid, p.id) : p.listed))
+      return [...db.players.values()].filter((p) => p.id !== uid && db.snaps.has(p.id) && !blocked(uid, p.id) && (kind === 'friends' ? areFriends(uid, p.id) : p.listed))
         .map((p) => { const s = db.snaps.get(p.id); return { id: p.id, farm_name: p.farm_name, beauty: s.beauty, house_level: s.house_level, online: online(p), likes_week: db.visits.filter((v) => v.host === p.id && v.liked).length, updated: s.updated }; })
         .sort((x, y) => (kind === 'recent' ? y.updated - x.updated : y.beauty - x.beauty)).slice(0, a.p_limit || 30);
     },
@@ -52,7 +53,7 @@ function createServer() {
       need(uid);
       if (a.p_host === uid) throw new Error('that is your own farm');
       const s = db.snaps.get(a.p_host), p = db.players.get(a.p_host);
-      if (!s || !p) throw new Error('no such farm');
+      if (!s || !p || blocked(uid, a.p_host)) throw new Error('no such farm');
       let v = visitOf(a.p_host, uid);
       if (!v) db.visits.push(v = { host: a.p_host, visitor: uid, day: today(), liked: false, gift: null, collected: false });
       return { id: p.id, farm_name: p.farm_name, online: online(p), data: s.data, beauty: s.beauty, house_level: s.house_level, likes: db.visits.filter((x) => x.host === p.id && x.liked).length, friend: areFriends(uid, p.id), liked: v.liked, gift: v.gift };
@@ -123,7 +124,8 @@ function createServer() {
       need(uid);
       const body = String(a.p_body || '').trim().slice(0, 200);
       if (!body) return 'empty';
-      if (!areFriends(uid, a.p_to)) return 'notfriends';
+      if (!areFriends(uid, a.p_to) || blocked(uid, a.p_to)) return 'notfriends';
+      if (/\bgago\b|fuck/i.test(body)) return 'word';
       db.messages.push({ id: ++db.msgId, sender: uid, recipient: a.p_to, body, read: false, at: Date.now() });
       return 'ok';
     },
@@ -134,6 +136,28 @@ function createServer() {
       return list.slice().reverse().slice(0, 50).map((m) => ({ id: m.id, mine: m.sender === uid, body: m.body, created_at: new Date(m.at).toISOString() }));
     },
     farm_set_listed_v1(uid, a) { db.players.get(need(uid)).listed = !!a.p_listed; return null; },
+    farm_block_v1(uid, a) {
+      need(uid);
+      if (a.p_other === uid) return 'self';
+      if (!a.p_block) { db.blocks = db.blocks.filter((x) => !(x.by === uid && x.who === a.p_other)); return 'unblocked'; }
+      if (!db.players.has(a.p_other)) return 'none';
+      if (!db.blocks.some((x) => x.by === uid && x.who === a.p_other)) db.blocks.push({ by: uid, who: a.p_other });
+      const f = friendRow(uid, a.p_other);
+      if (f) db.friends.splice(db.friends.indexOf(f), 1);
+      return 'blocked';
+    },
+    farm_blocked_v1(uid) {
+      need(uid);
+      return db.blocks.filter((x) => x.by === uid).map((x) => ({ id: x.who, farm_name: db.players.get(x.who).farm_name, created_at: new Date().toISOString() }));
+    },
+    farm_report_v1(uid, a) {
+      need(uid);
+      if (a.p_target === uid) return 'self';
+      if (!['name', 'messages', 'other'].includes(a.p_reason)) return 'bad';
+      if (db.reports.some((r) => r.by === uid && r.target === a.p_target)) return 'already';
+      db.reports.push({ by: uid, target: a.p_target, reason: a.p_reason, note: a.p_note || null });
+      return 'ok';
+    },
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
   };
 
@@ -168,7 +192,7 @@ function createServer() {
           subscribe(cb) {
             later(() => {
               // private channels: only farm:<id> topics, for signed-in players (farm_topic_ok_v1)
-              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid)) return cb && cb('CHANNEL_ERROR');
+              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid) || blocked(uid, topic.slice(5))) return cb && cb('CHANNEL_ERROR');
               if (!topics.has(topic)) topics.set(topic, new Set());
               topics.get(topic).add(this);
               this.joined = true;

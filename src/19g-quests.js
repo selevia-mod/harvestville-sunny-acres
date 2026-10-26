@@ -217,7 +217,7 @@
     if (!g) return;
     var row = function (k) {
       var r = C.LOGIN[k];
-      return [r.stars ? C.ICON.star : r.item ? C.ITEMS[r.item].icon : C.ICON.coin, 'Day ' + (k + 1) + ': ' + L.rewardLabel(r) + (k + 1 === g.day ? '   <- today' : k + 1 < g.day ? '   (got it)' : '')];
+      return [r.stars ? C.ICON.sunbeam : r.item ? C.ITEMS[r.item].icon : C.ICON.coin, 'Day ' + (k + 1) + ': ' + L.rewardLabel(r) + (k + 1 === g.day ? '   <- today' : k + 1 < g.day ? '   (got it)' : '')];
     };
     var rows = C.LOGIN.map(function (r, k) { return row(k); });
     this.dialog('DAILY GIFT\nCome back every day! Miss a day and it starts again at Day 1.\n' + rows.map(function (x) { return x[1]; }).join('\n'), [{
@@ -232,7 +232,7 @@
     }], { rows: rows });
   };
 
-  var iconOf = function (r) { return r.stars ? C.ICON.star : r.item ? C.ITEMS[r.item].icon : C.ICON.coin; };
+  var iconOf = function (r) { return r.stars ? C.ICON.sunbeam : r.item ? C.ITEMS[r.item].icon : C.ICON.coin; };
   var TABS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['badges', 'Badges']];
 
   U.openQuests = function (tab, page) {
@@ -255,8 +255,8 @@
       rows = C.ACHIEVEMENTS.map(function (a, i) {
         var done = L.achDone(s, i), ready = L.achReady(s, i), v = Math.min(L.achValue(s, a), a.test[1]);
         return {
-          icon: C.ICON.star, name: a.name + (done ? '  (earned)' : ''), desc: a.desc + ' ' + (done ? '' : v + '/' + a.test[1] + '. ') + a.stars + (a.stars > 1 ? ' Stars.' : ' Star.'),
-          buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimAch(s, i); }, function () { return 'Badge earned: ' + a.name + '! +' + a.stars + ' Stars'; }) }] : [],
+          icon: C.ICON.star, name: a.name + (done ? '  (earned)' : ''), desc: a.desc + ' ' + (done ? '' : v + '/' + a.test[1] + '. ') + a.stars + (a.stars > 1 ? ' Sunbeams.' : ' Sunbeam.'),
+          buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimAch(s, i); }, function () { return 'Badge earned: ' + a.name + '! +' + a.stars + (a.stars > 1 ? ' Sunbeams' : ' Sunbeam'); }) }] : [],
         };
       });
     } else {
@@ -281,7 +281,7 @@
       title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); },
       sub: function () {
         var when = { daily: 'New quests every day at midnight.', weekly: 'New goals every Monday.', monthly: month + ' goals. New ones on the 1st.', badges: 'Badges for big milestones.' }[tab];
-        return 'Stars: ' + s.stars + '   ' + when;
+        return 'Sunbeams: ' + s.stars + '   ' + when;
       },
     });
   };
@@ -352,10 +352,10 @@
       });
     } else {
       rows = C.TRADER.swaps.map(function (sw, i) {
-        var give = sw.give.map(function (g) { return g[1] + ' ' + (g[0] === 'stars' ? (g[1] > 1 ? 'Stars' : 'Star') : C.ITEMS[g[0]].name); }).join(' + ');
+        var give = sw.give.map(function (g) { return g[1] + ' ' + (g[0] === 'stars' ? (g[1] > 1 ? 'Sunbeams' : 'Sunbeam') : C.ITEMS[g[0]].name); }).join(' + ');
         var row = { icon: C.ICON.star, name: '', desc: 'For ' + give + '.' };
         if (sw.get.item) { row.icon = C.ITEMS[sw.get.item].icon; row.name = (sw.get.n > 1 ? sw.get.n + ' ' : '') + C.ITEMS[sw.get.item].name; }
-        else if (sw.get.stars) row.name = sw.get.stars + ' Star';
+        else if (sw.get.stars) { row.name = sw.get.stars + (sw.get.stars > 1 ? ' Sunbeams' : ' Sunbeam'); row.icon = C.ICON.sunbeam; }
         else if (sw.get.furniture) { var f = L.swapPiece(s, 'furniture'); row.img = self.furnImg(f.t, f.v); row.name = L.furnName(f.t, f.v); row.desc += ' Any season!'; }
         else if (sw.get.yard) { var y = L.swapPiece(s, 'yard'); row.img = self.yardImg(y.t); row.name = C.OUTDOOR.types[y.t].name; row.desc += ' Any season!'; }
         row.buttons = L.canSwap(s, i) ? [{
@@ -376,7 +376,7 @@
     o = this.listPanel({
       title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap']],
       reopen: function (t, p) { self.openTrader(t, p); },
-      sub: function () { return s.gold + 'G   Stars: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : '   Rare things for goods or Stars.'); },
+      sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : '   Rare things for goods or Sunbeams.'); },
     });
     return o;
   };

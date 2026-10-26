@@ -233,20 +233,20 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 - **Quests** (the button under the top bar; a red number shows prizes waiting). These follow the phone's calendar:
   - **Daily:** 10 quests a day: 5 easy, 2 medium and 3 hard ones, which pay a Power-Up, a Star and a Pet Meal.
-    Finish all 10 for a bonus (1 Star + 1,000G).
+    Finish all 10 for a bonus (1 Sunbeam + 1,000G).
   - **Weekly:** 5 bigger goals, Monday to Sunday, and a chest when all are done.
   - **Monthly:** finish 10 daily quests, play on 12 days, open 2 weekly chests; a chest for all three.
   - **Badges:** 20 long-term achievements (earnings, harvests, fish, friends, your house, your yard...) that pay
-    Stars.
+    Sunbeams.
   - **Daily gift:** a 7-day cycle of gifts when you open the game each day (miss a day and it starts again).
 - **Requests** follow the game's days: 3 a day on the notice board in the plaza, and one villager you know asks in
   person (a "!" bobs over them). They pay 1.6x what the items would sell for, plus friendship. Finish at least one
   every day for a streak: +10% gold per day in a row, up to +50%.
 - **Saffron the travelling trader** sets up her tent on Market Street on days 2, 4 and 6 of each week (9 AM to
   5 PM). She buys ore, gems, fish and truffles (1.3x the stall price, 1.8x for the day's WANTED goods, up to 10 of
-  each), and swaps goods or Stars for rare things: a Star for 5 gems, a Power-Up, a Pet Meal, the Miracle Potion,
+  each), and swaps goods or Sunbeams for rare things: a Sunbeam for 5 gems, a Power-Up, a Pet Meal, the Miracle Potion,
   a Blue Feather, animal treats, and festival furniture and yard pieces in any season.
-- **Stars** are the rare prize currency (quests, chests, badges, the daily gift), spent at Saffron's tent.
+- **Sunbeams** (saved as `stars`; renamed so they are not mistaken for the Selebox app's Stars) are the rare prize currency (quests, chests, badges, the daily gift), spent at Saffron's tent.
 - **Power-Up:** drink it for full energy, and your tools cost no energy for 2 hours. **Pet Meal:** feed it to your
   dog, cat or horse (once a day each) for much more love.
 
@@ -266,7 +266,7 @@ the game plays offline and the Online button does not show. The database side is
 - **Visiting:** the Visit tab lists the most beautiful farms, the ones just updated, or your friends'. On a visit
   you walk around their farm and into their house, but nothing can be changed (tools are off, the clock stops, and
   your own save is never touched). The bar at the top has Like (once a day), Gift (free: 100G up to 5 farms a day,
-  or 1 Star once a day), Wave and Home. The road to town also takes you home.
+  or 1 Sunbeam once a day), Wave and Home. The road to town also takes you home.
 - **Seeing each other:** everyone on the same farm sees each other live, with name tags: the owner (if they are
   playing) and up to 8 visitors at a time (`C.ONLINE.maxVisitors`; the first 8 to arrive stay, a ninth is told
   the farm is full). Moves are sent 4 times a second while walking. Tap the action button facing someone to wave.

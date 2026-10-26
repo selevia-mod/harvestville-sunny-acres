@@ -302,7 +302,7 @@
     this.decorating = true;
     if (this.decorBtn) this.decorBtn.setVisible(false);
     F.input.reset();
-    var c = this.decorBar = this.add.container(0, 0).setDepth(90), top = 440;
+    var c = this.decorBar = this.add.container(0, C.EXTRA).setDepth(90), top = 440; // at the bottom however tall
     c.add(this.add.rectangle(0, top, W, HGT - top, 0x000000, 0.001).setOrigin(0).setInteractive());
     this.panelImg(c, 6, top, W - 12, HGT - top - 6);
     c.add(this.txt(W / 2, top + 14, this.beautyLine(s), 13, INK, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5, 0));

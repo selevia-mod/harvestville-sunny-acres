@@ -9,6 +9,16 @@
 --   * 2 policies on realtime.messages   for private channels named 'farm:<farm id>' only. Policies add access,
 --                             they can't take any away, so the existing chat channels are not affected.
 --
+-- Safety and fairness (added 26 Oct 2026, before the first apply):
+--   * Block (farm.blocks): a blocked player can't see, visit, message or friend you, or join your farm's channel.
+--   * Report (farm.reports): a farm name or messages, with the evidence copied on the server. A farm reported by 3
+--     different players in 7 days is hidden from the lists and ranks (farm.players.hidden) until a moderator clears it.
+--   * Words (farm.words): farm names and messages are checked against this list (edit it with plain SQL).
+--   * Ranks: the weekly gold earned and daily quests a player can post are capped by the real time since Monday.
+--   * Cloud saves (farm.saves, farm_save_put_v1 / farm_save_get_v1): the app keeps a copy of each player's save, so a
+--     farm survives a new phone. They need only a sign-in, not online play.
+--   * farm_clock_v1: the server's time, so the app can run the game on it instead of the phone's clock.
+--
 -- Undo everything:  drop schema farm cascade;  drop function public.farm_...;  drop policy farm_topic_recv / farm_topic_send
 --                   on realtime.messages;  (see the bottom of this file)
 
@@ -25,6 +35,7 @@ create table farm.players (
   farm_name text not null check (char_length(btrim(farm_name)) between 1 and 24),
   friend_code text not null unique check (friend_code ~ '^[A-HJ-NP-Z2-9]{8}$'),
   listed boolean not null default true, -- shows up in "Visit a farm"
+  hidden boolean not null default false, -- hidden from lists and ranks after reports, until a moderator clears it
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now()
 );
@@ -96,12 +107,66 @@ create table farm.messages (
 create index messages_inbox on farm.messages (recipient, created_at desc);
 create index messages_sent on farm.messages (sender, created_at desc);
 
+-- Blocks: blocker no longer sees blocked, and blocked can't reach blocker (both ways in practice).
+create table farm.blocks (
+  blocker uuid not null references farm.players (user_id) on delete cascade,
+  blocked uuid not null references farm.players (user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker, blocked),
+  check (blocker <> blocked)
+);
+create index blocks_blocked on farm.blocks (blocked);
+
+-- Reports for moderators. evidence = what the server saw at report time (the farm name, the target's last messages
+-- to the reporter), so a report can't be faked by the reporter and survives the target deleting things.
+create table farm.reports (
+  id bigint generated always as identity primary key,
+  reporter uuid not null references auth.users (id) on delete cascade,
+  target uuid not null references auth.users (id) on delete cascade,
+  reason text not null check (reason in ('name', 'messages', 'other')),
+  note text check (char_length(note) <= 200),
+  evidence jsonb not null default '{}'::jsonb,
+  status text not null default 'open' check (status in ('open', 'cleared', 'actioned')),
+  created_at timestamptz not null default now(),
+  check (reporter <> target)
+);
+create index reports_target on farm.reports (target, created_at desc);
+create index reports_open on farm.reports (created_at desc) where status = 'open';
+
+-- Words not allowed in farm names and messages. whole = match only as a whole word (short words that hide inside
+-- ordinary ones); otherwise anywhere in the text. Letters are compared after simple look-alike folding (0->o, 1->i...).
+create table farm.words (
+  word text primary key check (word ~ '^[a-z ]{3,24}$'),
+  whole boolean not null default true
+);
+insert into farm.words (word, whole) values
+  ('fuck', false), ('shit', false), ('bitch', false), ('cunt', false), ('nigger', false), ('nigga', false),
+  ('faggot', false), ('whore', false), ('slut', false), ('pussy', false), ('porn', false), ('asshole', false),
+  ('motherfucker', false), ('dick', true), ('rape', true), ('rapist', true), ('penis', true),
+  ('vagina', true), ('sex', true), ('nude', true), ('nudes', true), ('boobs', true),
+  ('tangina', false), ('tang ina', false), ('putangina', false), ('putang', false), ('kantot', false),
+  ('kantutan', false), ('hindot', false), ('jakol', false), ('pakyu', false), ('pakshet', false), ('tarantado', false),
+  ('puta', true), ('gago', true), ('ulol', true), ('ulul', true), ('bobo', true), ('tanga', true),
+  ('pokpok', true), ('puke', true), ('titi', true), ('burat', true), ('kupal', true), ('punyeta', true);
+
+-- A copy of each player's game save, for a new phone (the app writes it; newest wins by the time it was saved).
+create table farm.saves (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  data jsonb not null check (octet_length(data::text) <= 20000),
+  saved_at timestamptz not null,
+  updated_at timestamptz not null default now()
+);
+
 alter table farm.players enable row level security;
 alter table farm.snapshots enable row level security;
 alter table farm.visits enable row level security;
 alter table farm.scores enable row level security;
 alter table farm.friends enable row level security;
 alter table farm.messages enable row level security;
+alter table farm.blocks enable row level security;
+alter table farm.reports enable row level security;
+alter table farm.words enable row level security;
+alter table farm.saves enable row level security;
 revoke all on all tables in schema farm from public, anon, authenticated;
 revoke all on all sequences in schema farm from public, anon, authenticated;
 
@@ -132,7 +197,23 @@ language sql stable security definer set search_path = '' as $$
   select exists (select 1 from farm.friends where user_a = least(a, b) and user_b = greatest(a, b) and accepted_at is not null);
 $$;
 
-revoke all on function farm.me(), farm.week_of(timestamptz), farm.are_friends(uuid, uuid) from public, anon, authenticated;
+-- Either of the two blocked the other.
+create function farm.blocked(a uuid, b uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from farm.blocks where (blocker = a and blocked = b) or (blocker = b and blocked = a));
+$$;
+
+-- Text a player may show to others: no word from farm.words (after folding look-alike characters and spacing).
+create function farm.clean_ok(t text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  with f as (select translate(lower(coalesce(t, '')), '0134578@$!|', 'oieastbasii') as x)
+  select not exists (
+    select 1 from farm.words w, f
+    where case when w.whole then f.x ~ ('(^|[^a-z])' || w.word || '([^a-z]|$)') else f.x like '%' || w.word || '%' end);
+$$;
+
+revoke all on function farm.me(), farm.week_of(timestamptz), farm.are_friends(uuid, uuid), farm.blocked(uuid, uuid), farm.clean_ok(text)
+  from public, anon, authenticated;
 
 -- ---------- the functions the game calls ----------
 
@@ -150,9 +231,13 @@ begin
   if exists (select 1 from public.profiles p where p.auth_user_id = uid and (p.is_banned or p.suspended_until > now())) then
     raise exception 'account suspended' using errcode = '42501';
   end if;
+  if p_farm_name is not null and not farm.clean_ok(p_farm_name) then
+    raise exception 'name not allowed' using errcode = '22023';
+  end if;
   nm := left(btrim(coalesce(nullif(btrim(p_farm_name), ''),
     (select coalesce(nullif(btrim(p.display_name), ''), p.username) from public.profiles p where p.auth_user_id = uid limit 1),
     'Sunny Acres')), 24);
+  if not farm.clean_ok(nm) then nm := 'Sunny Acres'; end if;
   if exists (select 1 from farm.players where user_id = uid) then
     if p_farm_name is not null then update farm.players set farm_name = nm, last_seen_at = now() where user_id = uid; end if;
   else
@@ -173,10 +258,16 @@ begin
 end $$;
 
 -- Publish my farm (house, furniture, yard) and this week's scores. At most once every 30 seconds.
+-- The week's scores are capped by the real time since Monday (UTC): at most 10,000G + 2,500G an hour earned (an
+-- active player earns about 5,000G a day) and 10 daily quests a day, so a changed clock or game can't top the ranks.
 create function public.farm_publish_v1(p_data jsonb, p_beauty int, p_house_level int, p_earned_week bigint, p_quests_week int)
 returns boolean language plpgsql security definer set search_path = '' as $$
-declare uid uuid := farm.me();
+declare
+  uid uuid := farm.me();
+  hrs numeric := extract(epoch from (now() - (farm.week_of(now())::timestamp at time zone 'utc'))) / 3600;
 begin
+  p_earned_week := least(p_earned_week, (10000 + 2500 * hrs)::bigint);
+  p_quests_week := least(p_quests_week, (10 * ceil(greatest(hrs, 1) / 24))::int);
   if exists (select 1 from farm.snapshots where user_id = uid and updated_at > now() - interval '30 seconds') then return false; end if;
   insert into farm.snapshots (user_id, data, beauty, house_level, updated_at)
   values (uid, p_data, greatest(0, least(p_beauty, 100000)), greatest(1, least(p_house_level, 50)), now())
@@ -205,8 +296,8 @@ begin
   select pl.user_id, pl.farm_name, sn.beauty, sn.house_level, pl.last_seen_at > now() - interval '2 minutes',
     (select count(*) from farm.visits v where v.host = pl.user_id and v.liked and v.day >= farm.week_of(now()))
   from farm.players pl join farm.snapshots sn on sn.user_id = pl.user_id
-  where pl.user_id <> uid
-    and (case when p_kind = 'friends' then farm.are_friends(uid, pl.user_id) else pl.listed end)
+  where pl.user_id <> uid and not farm.blocked(uid, pl.user_id)
+    and (case when p_kind = 'friends' then farm.are_friends(uid, pl.user_id) else pl.listed and not pl.hidden end)
   order by case when p_kind = 'recent' then extract(epoch from sn.updated_at) else sn.beauty end desc
   limit greatest(1, least(p_limit, 50));
 end $$;
@@ -217,7 +308,9 @@ returns json language plpgsql security definer set search_path = '' as $$
 declare uid uuid := farm.me(); out json;
 begin
   if p_host = uid then raise exception 'that is your own farm' using errcode = '22023'; end if;
-  if not exists (select 1 from farm.snapshots where user_id = p_host) then raise exception 'no such farm' using errcode = 'P0002'; end if;
+  if not exists (select 1 from farm.snapshots where user_id = p_host) or farm.blocked(uid, p_host) then
+    raise exception 'no such farm' using errcode = 'P0002';
+  end if;
   insert into farm.visits (host, visitor) values (p_host, uid) on conflict do nothing;
   select json_build_object(
     'id', pl.user_id, 'farm_name', pl.farm_name, 'online', pl.last_seen_at > now() - interval '2 minutes',
@@ -276,7 +369,7 @@ returns table (id uuid, farm_name text, day date, liked boolean, gift text)
 language sql stable security definer set search_path = '' as $$
   select pl.user_id, pl.farm_name, v.day, v.liked, v.gift
   from farm.visits v join farm.players pl on pl.user_id = v.visitor
-  where v.host = farm.me() and v.day > (now() at time zone 'utc')::date - 7
+  where v.host = farm.me() and v.day > (now() at time zone 'utc')::date - 7 and not farm.blocked(v.host, v.visitor)
   order by v.created_at desc limit 50;
 $$;
 
@@ -292,7 +385,7 @@ begin
     select s.user_id, pl.farm_name,
       (case p_kind when 'beauty' then s.beauty::bigint when 'earned' then s.earned else s.quests::bigint end) as score
     from farm.scores s join farm.players pl on pl.user_id = s.user_id
-    where s.week = wk),
+    where s.week = wk and (not pl.hidden or pl.user_id = uid) and not farm.blocked(uid, pl.user_id)),
   numbered as (select r.*, rank() over (order by r.score desc) as rk from ranked r)
   select n.rk, n.user_id, n.farm_name, n.score, n.user_id = uid
   from numbered n where n.rk <= 50 or n.user_id = uid
@@ -305,7 +398,7 @@ returns text language plpgsql security definer set search_path = '' as $$
 declare uid uuid := farm.me(); other uuid; fr farm.friends;
 begin
   select user_id into other from farm.players where friend_code = upper(btrim(p_code));
-  if other is null then return 'nocode'; end if;
+  if other is null or farm.blocked(uid, other) then return 'nocode'; end if;
   if other = uid then return 'self'; end if;
   if (select count(*) from farm.friends where (user_a = uid or user_b = uid)) >= 200 then return 'limit'; end if;
   select * into fr from farm.friends where user_a = least(uid, other) and user_b = greatest(uid, other);
@@ -353,7 +446,8 @@ returns text language plpgsql security definer set search_path = '' as $$
 declare uid uuid := farm.me(); msg text := left(btrim(p_body), 200);
 begin
   if msg = '' then return 'empty'; end if;
-  if not farm.are_friends(uid, p_to) then return 'notfriends'; end if;
+  if not farm.are_friends(uid, p_to) or farm.blocked(uid, p_to) then return 'notfriends'; end if;
+  if not farm.clean_ok(msg) then return 'word'; end if;
   if (select count(*) from farm.messages m where m.sender = uid and m.created_at > now() - interval '1 day') >= 50 then return 'limit'; end if;
   insert into farm.messages (sender, recipient, body) values (uid, p_to, msg);
   return 'ok';
@@ -391,8 +485,85 @@ begin
   if uid is null or p_topic is null or p_topic !~ '^farm:[0-9a-f-]{36}$' then return false; end if;
   if not exists (select 1 from farm.players where user_id = uid) then return false; end if;
   host := substr(p_topic, 6)::uuid;
+  if host <> uid and farm.blocked(uid, host) then return false; end if;
   return exists (select 1 from farm.players where user_id = host and (listed or user_id = uid or farm.are_friends(uid, host)));
 end $$;
+
+-- Block or unblock a player. Blocking also ends a friendship (and any request) between you.
+create function public.farm_block_v1(p_other uuid, p_block boolean)
+returns text language plpgsql security definer set search_path = '' as $$
+declare uid uuid := farm.me();
+begin
+  if p_other = uid then return 'self'; end if;
+  if not p_block then
+    delete from farm.blocks where blocker = uid and blocked = p_other;
+    return 'unblocked';
+  end if;
+  if not exists (select 1 from farm.players where user_id = p_other) then return 'none'; end if;
+  if (select count(*) from farm.blocks where blocker = uid) >= 500 then return 'limit'; end if;
+  insert into farm.blocks (blocker, blocked) values (uid, p_other) on conflict do nothing;
+  delete from farm.friends where user_a = least(uid, p_other) and user_b = greatest(uid, p_other);
+  return 'blocked';
+end $$;
+
+-- The players I blocked (for the Me tab, and so the game hides them on a farm).
+create function public.farm_blocked_v1()
+returns table (id uuid, farm_name text, created_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select pl.user_id, pl.farm_name, b.created_at from farm.blocks b join farm.players pl on pl.user_id = b.blocked
+  where b.blocker = farm.me() order by b.created_at desc limit 500;
+$$;
+
+-- Report a player's farm name, messages, or something else. One report per player per day; 20 a day in all.
+-- 3 different reporters in 7 days hide the farm from lists and ranks until a moderator clears it.
+create function public.farm_report_v1(p_target uuid, p_reason text, p_note text default null)
+returns text language plpgsql security definer set search_path = '' as $$
+declare uid uuid := farm.me(); ev jsonb;
+begin
+  if p_target = uid then return 'self'; end if;
+  if p_reason not in ('name', 'messages', 'other') then return 'bad'; end if;
+  if not exists (select 1 from farm.players where user_id = p_target) then return 'none'; end if;
+  if exists (select 1 from farm.reports where reporter = uid and target = p_target and created_at > now() - interval '1 day') then return 'already'; end if;
+  if (select count(*) from farm.reports where reporter = uid and created_at > now() - interval '1 day') >= 20 then return 'limit'; end if;
+  select jsonb_build_object(
+    'farm_name', (select farm_name from farm.players where user_id = p_target),
+    'messages', coalesce((select jsonb_agg(jsonb_build_object('body', m.body, 'at', m.created_at) order by m.created_at desc)
+      from (select body, created_at from farm.messages where sender = p_target and recipient = uid order by created_at desc limit 10) m), '[]'::jsonb))
+  into ev;
+  insert into farm.reports (reporter, target, reason, note, evidence) values (uid, p_target, p_reason, left(btrim(p_note), 200), ev);
+  if (select count(distinct reporter) from farm.reports where target = p_target and status = 'open' and created_at > now() - interval '7 days') >= 3 then
+    update farm.players set hidden = true where user_id = p_target;
+  end if;
+  return 'ok';
+end $$;
+
+-- Cloud saves: keep the newest copy (by when the game saved it, on the server's clock as the app sees it).
+create function public.farm_save_put_v1(p_data jsonb, p_saved_at timestamptz)
+returns text language plpgsql security definer set search_path = '' as $$
+declare uid uuid := auth.uid(); at timestamptz := least(p_saved_at, now() + interval '5 minutes');
+begin
+  if uid is null then raise exception 'not signed in' using errcode = '28000'; end if;
+  if p_data is null or jsonb_typeof(p_data) <> 'object' then return 'bad'; end if;
+  if octet_length(p_data::text) > 20000 then return 'big'; end if;
+  if exists (select 1 from farm.saves where user_id = uid and saved_at > at) then return 'older'; end if;
+  insert into farm.saves (user_id, data, saved_at, updated_at) values (uid, p_data, at, now())
+  on conflict (user_id) do update set data = excluded.data, saved_at = excluded.saved_at, updated_at = now();
+  return 'ok';
+end $$;
+
+create function public.farm_save_get_v1()
+returns json language plpgsql stable security definer set search_path = '' as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not signed in' using errcode = '28000'; end if;
+  return (select json_build_object('data', data, 'saved_at', saved_at) from farm.saves where user_id = uid);
+end $$;
+
+-- The server's clock in milliseconds: the app runs the game on it, so changing the phone's clock changes nothing.
+create function public.farm_clock_v1()
+returns bigint language sql stable security definer set search_path = '' as $$
+  select (extract(epoch from clock_timestamp()) * 1000)::bigint;
+$$;
 
 -- Only signed-in users can call these (not anon, not public).
 do $$
@@ -403,7 +574,8 @@ begin
     'farm_visit_v1(uuid)', 'farm_like_v1(uuid)', 'farm_gift_v1(uuid, text)', 'farm_collect_v1()', 'farm_visitors_v1()',
     'farm_leaderboard_v1(text)', 'farm_friend_add_v1(text)', 'farm_friend_answer_v1(uuid, boolean)', 'farm_friends_v1()',
     'farm_message_send_v1(uuid, text)', 'farm_messages_v1(uuid)', 'farm_set_listed_v1(boolean)', 'farm_leave_v1()',
-    'farm_topic_ok_v1(text)']
+    'farm_topic_ok_v1(text)', 'farm_block_v1(uuid, boolean)', 'farm_blocked_v1()', 'farm_report_v1(uuid, text, text)',
+    'farm_save_put_v1(jsonb, timestamptz)', 'farm_save_get_v1()', 'farm_clock_v1()']
   loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);
@@ -425,6 +597,8 @@ create policy farm_topic_send on realtime.messages for insert to authenticated
 --   public.farm_list_v1(text, int), public.farm_visit_v1(uuid), public.farm_like_v1(uuid), public.farm_gift_v1(uuid, text),
 --   public.farm_collect_v1(), public.farm_visitors_v1(), public.farm_leaderboard_v1(text), public.farm_friend_add_v1(text),
 --   public.farm_friend_answer_v1(uuid, boolean), public.farm_friends_v1(), public.farm_message_send_v1(uuid, text),
---   public.farm_messages_v1(uuid), public.farm_set_listed_v1(boolean), public.farm_leave_v1(), public.farm_topic_ok_v1(text);
+--   public.farm_messages_v1(uuid), public.farm_set_listed_v1(boolean), public.farm_leave_v1(), public.farm_topic_ok_v1(text),
+--   public.farm_block_v1(uuid, boolean), public.farm_blocked_v1(), public.farm_report_v1(uuid, text, text),
+--   public.farm_save_put_v1(jsonb, timestamptz), public.farm_save_get_v1(), public.farm_clock_v1();
 -- drop schema if exists farm cascade;
 -- commit;

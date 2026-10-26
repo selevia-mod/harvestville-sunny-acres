@@ -22,6 +22,7 @@
     if (/not signed in|JWT|auth/i.test(m)) return 'Sign in to Selebox to play online.';
     if (/fetch|network|offline|timeout/i.test(m)) return 'Could not reach the online world. Check your connection.';
     if (/no such farm/i.test(m)) return 'That farm is not online any more.';
+    if (/name not allowed/i.test(m)) return 'That name is not allowed. Please pick a kinder one.';
     return 'Something went wrong online. Please try again.';
   };
 
@@ -36,6 +37,7 @@
     lastSnap: '',
     mvMs: 0,
     last: null, // where we last told the others we were
+    blocked: {}, // id -> farm name: the players we blocked (the server keeps them away; this hides any still on a farm)
   };
 
   O.start = function () {
@@ -74,6 +76,10 @@
       O.on = true;
       O.ensureChannel();
       F.bus.emit('online');
+      F.Net.rpc('farm_blocked_v1', {}).then(function (list) {
+        O.blocked = {};
+        (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
+      }, noop);
       return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.me; });
     });
   };
@@ -83,6 +89,7 @@
     O.leaveChannel();
     O.on = false;
     O.me = null;
+    O.blocked = {};
     O.lastSnap = '';
     var going = F.session.visit;
     F.session.visit = null;
@@ -115,7 +122,7 @@
       F.Host.save(s);
       F.bus.emit('hud');
       sfx('coin');
-      var got = [gold ? '+' + gold * ON.giftGold + 'G' : '', stars ? '+' + stars + (stars > 1 ? ' Stars' : ' Star') : ''].filter(Boolean).join(' and ');
+      var got = [gold ? '+' + gold * ON.giftGold + 'G' : '', stars ? '+' + stars + (stars > 1 ? ' Sunbeams' : ' Sunbeam') : ''].filter(Boolean).join(' and ');
       if (F.ui) F.ui.toast('Visitors left you gifts: ' + got + '!' + (from.length ? '\nFrom ' + from.slice(0, 4).join(', ') + (from.length > 4 ? ' and more.' : '.') : ''), 3600, 0x7a4d12);
       return { gold: gold, stars: stars };
     }).catch(function (e) { if (!auto && F.ui) F.ui.toast(errText(e)); return null; });
@@ -179,6 +186,7 @@
       var q = clean(p);
       if (!q || q.id === O.me.id) return;
       raw.push(q);
+      if (O.blocked[q.id]) return;
       var old = before[q.id];
       if (old && old.t > q.t && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.t = old.t; }
       now[q.id] = q;
@@ -485,9 +493,9 @@
       g.fillStyle(0x3d2614, 0.82).fillRoundedRect(0, 0, W - 16, 58, 12);
     });
     c.add(this.txt(W / 2, 140, 'Visiting ' + v.name, 12, '#ffe9a8', { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    var bw = 76;
-    [['Like', PINK, function () { self.likeFarm(); }], ['Gift', GOLD, function () { self.giftFarm(); }], ['Wave', BLUE, function () { O.wave(); }], ['Home', GREEN, function () { O.leaveVisit(); }]]
-      .forEach(function (b, i) { self.button(c, W / 2 + (i - 1.5) * (bw + 8), 174, bw, 30, b[0], b[2], b[1]); });
+    var bw = 62, list = [['Like', PINK, function () { self.likeFarm(); }], ['Gift', GOLD, function () { self.giftFarm(); }], ['Wave', BLUE, function () { O.wave(); }],
+      ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]];
+    list.forEach(function (b, i) { self.button(c, W / 2 + (i - (list.length - 1) / 2) * (bw + 5), 174, bw, 30, b[0], b[2], b[1]); });
   };
 
   U.likeFarm = function () {
@@ -514,9 +522,9 @@
           v.gift = kind;
           sfx('coin');
           O.send('gift', { g: kind });
-          self.toast('You left ' + v.name + ' a ' + (kind === 'star' ? 'Star' : ON.giftGold + 'G') + ' gift!', 2400, 0x7a4d12);
+          self.toast('You left ' + v.name + ' a ' + (kind === 'star' ? 'Sunbeam' : ON.giftGold + 'G') + ' gift!', 2400, 0x7a4d12);
         } else if (r === 'limit') {
-          self.toast(kind === 'star' ? 'You can give one Star gift a day. Try a gold gift!' : 'You have given all 5 gold gifts for today.');
+          self.toast(kind === 'star' ? 'You can give one Sunbeam gift a day. Try a gold gift!' : 'You have given all 5 gold gifts for today.');
         } else if (r === 'already') {
           v.gift = kind;
           self.toast('You already left a gift here today.');
@@ -525,9 +533,9 @@
     };
     this.dialog('LEAVE A GIFT\nGifts are free to give! ' + v.name + ' collects them next time they play.', [
       { label: ON.giftGold + 'G', color: GOLD, cb: function () { give('gold'); } },
-      { label: '1 Star', color: BLUE, cb: function () { give('star'); } },
+      { label: '1 Sunbeam', color: BLUE, cb: function () { give('star'); } },
     ], {
-      rows: [[C.ICON.gift, 'LEAVE A GIFT'], [C.ICON.coin, 'Gold gift: they get ' + ON.giftGold + 'G. Up to 5 farms a day.'], [C.ICON.star, 'Star gift: they get 1 Star. Once a day.']],
+      rows: [[C.ICON.gift, 'LEAVE A GIFT'], [C.ICON.coin, 'Gold gift: they get ' + ON.giftGold + 'G. Up to 5 farms a day.'], [C.ICON.sunbeam, 'Sunbeam gift: they get 1 Sunbeam. Once a day.']],
     });
   };
 
@@ -616,6 +624,10 @@
       if (then) then();
     };
     var fail = function (e) { self.toast(errText(e)); };
+    // Report or block a player, then come back to this tab.
+    var more = function (id, n, back) {
+      return { label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, function (then) { self.openOnline(back, 0, then); }); } };
+    };
     var kindRow = function (t) {
       var k = self.onlineKind[t];
       return {
@@ -629,7 +641,7 @@
           return {
             icon: C.ICON.spring, name: name(f.farm_name) + (f.online ? ' (online)' : ''),
             desc: 'Beauty ' + (Number(f.beauty) || 0) + ', house level ' + (Number(f.house_level) || 1) + ', ' + (Number(f.likes_week) || 0) + ' likes this week.',
-            buttons: [{ label: 'Visit', cb: function () { O.visit(String(f.id)); } }],
+            buttons: [{ label: 'Visit', cb: function () { O.visit(String(f.id)); } }, more(String(f.id), name(f.farm_name), 'visit')],
           };
         }));
         show(rows, 'Walk around, wave, leave a like or a gift.', null);
@@ -669,7 +681,7 @@
           return {
             icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
             desc: kindName('ranks', k) + ': ' + (Number(r.score) || 0) + (k === 'earned' ? 'G' : '') + ' this week.',
-            buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }],
+            buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }, more(String(r.id), name(r.farm_name), 'ranks')],
           };
         }));
         show(rows, 'This week\'s best. A new week starts Monday.', null);
@@ -678,11 +690,13 @@
       var me = O.me;
       show([
         { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
-        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gold gifts are worth ' + ON.giftGold + 'G, star gifts 1 Star.', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
+        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gold gifts are worth ' + ON.giftGold + 'G, Sunbeam gifts 1 Sunbeam.', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
         { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
         {
-          icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden', desc: me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.',
-          buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } }],
+          icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden',
+          desc: (me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.') + ' Blocked: who you blocked.',
+          buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } },
+            { label: 'Blocked', color: GREY, cb: function () { self.closeModal(); self.openBlocked(); } }],
         },
         {
           icon: C.ICON.exclaim, name: 'Leave online play', desc: 'Deletes your online farm, friends and messages.',
@@ -784,25 +798,34 @@
     }, { hint: '8 letters and numbers, from their Online panel.' });
   };
 
-  U.openVisitors = function () {
+  U.openVisitors = function (then) {
     var self = this;
     F.Net.rpc('farm_visitors_v1', {}).then(function (list) {
       var rows = (list || []).map(function (v) {
-        var extra = [v.liked ? 'liked your farm' : '', v.gift ? 'left a ' + (v.gift === 'star' ? 'Star' : 'gold') + ' gift' : ''].filter(Boolean).join(' and ');
-        return { icon: v.gift ? C.ICON.gift : v.liked ? C.ICON.heart : C.ICON.letter, name: name(v.farm_name), desc: 'Came on ' + String(v.day || '').slice(0, 10) + (extra ? ', ' + extra : '') + '.' };
+        var extra = [v.liked ? 'liked your farm' : '', v.gift ? 'left a ' + (v.gift === 'star' ? 'Sunbeam' : 'gold') + ' gift' : ''].filter(Boolean).join(' and ');
+        var id = String(v.id), n = name(v.farm_name);
+        return {
+          icon: v.gift ? C.ICON.gift : v.liked ? C.ICON.heart : C.ICON.letter, name: n, desc: 'Came on ' + String(v.day || '').slice(0, 10) + (extra ? ', ' + extra : '') + '.',
+          buttons: [{ label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, function (then) { self.openVisitors(then); }); } }],
+        };
       });
       self.listPanel({ title: 'Who came by', rows: rows, page: 0, reopen: function () { self.closeModal(); self.openVisitors(); }, sub: function () { return 'The last 7 days.'; }, empty: 'No visitors yet.\nShare your friend code!' });
+      if (then) then();
     }).catch(function (e) { self.toast(errText(e)); });
   };
 
   // A conversation with a friend: the latest messages, newest at the bottom.
-  U.openChat = function (id, who) {
+  U.openChat = function (id, who, then) {
     var self = this;
     F.Net.rpc('farm_messages_v1', { p_with: id }).then(function (list) {
       var c = self.openModal(function () { self.closeModal(); self.openOnline('friends', 0); });
       self.panelImg(c, 12, 66, W - 24, 540);
       c.add(self.txt(W / 2, 82, who, 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
       self.button(c, W - 48, 96, 46, 34, 'X', function () { self.closeModal(); }, RED);
+      self.button(c, 52, 96, 62, 34, 'More', function () {
+        self.closeModal();
+        self.playerMenu(id, who, function (then) { if (O.blocked[id]) self.openOnline('friends', 0, then); else self.openChat(id, who, then); });
+      }, GREY);
       var top = 128, bottom = 540, y = bottom, shown = 0;
       (list || []).some(function (m) { // newest first: stack upwards until the panel is full
         var mine = !!m.mine, t = self.txt(mine ? W - 34 : 34, 0, L.cleanText(m.body, 200), 13, mine ? '#1f4a7a' : INK, { wordWrap: { width: 220 }, align: mine ? 'right' : 'left', lineSpacing: 2 }).setOrigin(mine ? 1 : 0, 1);
@@ -816,18 +839,103 @@
         return false;
       });
       if (!shown) c.add(self.txt(W / 2, 300, 'No messages yet. Say hello!', 15, INK).setOrigin(0.5));
+      if (then) then();
       self.button(c, W / 2 - 70, 572, 120, 38, 'Back', function () { self.closeModal(); self.openOnline('friends', 0); }, GREY);
       self.button(c, W / 2 + 70, 572, 120, 38, 'Write', function () {
         self.askText('Message to ' + who, '', 200, function (body) {
           body = L.cleanText(body, 200);
           if (!body) return;
           F.Net.rpc('farm_message_send_v1', { p_to: id, p_body: body }).then(function (r) {
-            if (r !== 'ok') return self.toast(r === 'limit' ? 'That is 50 messages today. More tomorrow!' : 'That message could not be sent.');
+            if (r !== 'ok') return self.toast(r === 'limit' ? 'That is 50 messages today. More tomorrow!' : r === 'word' ? 'Please keep it kind: that message has a word that is not allowed.' : 'That message could not be sent.');
             self.closeModal();
             self.openChat(id, who);
           }).catch(function (e) { self.toast(errText(e)); });
         }, { ok: 'Send' });
       }, BLUE);
+    }).catch(function (e) { self.toast(errText(e)); });
+  };
+
+  // ---------- keeping it friendly: report and block ----------
+  // A player's options, from the lists, a chat or a visit. back(): where to go after an action (optional).
+  U.playerMenu = function (id, who, back) {
+    var self = this, blocked = !!O.blocked[id];
+    this.listPanel({
+      title: who, page: 0, sub: function () { return 'Keep Sunny Acres friendly.'; },
+      reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
+      rows: [
+        {
+          icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
+          buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
+        },
+        {
+          icon: C.ICON.exclaim, name: blocked ? 'Unblock' : 'Block',
+          desc: blocked ? 'Let them find, visit and message you again.' : "They can't visit, find or message you, and you won't see them.",
+          buttons: [{ label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } }],
+        },
+      ],
+    });
+  };
+
+  U.reportPlayer = function (id, who, back) {
+    var self = this;
+    var send = function (reason, note) {
+      F.Net.rpc('farm_report_v1', { p_target: id, p_reason: reason, p_note: note || null }).then(function (r) {
+        var say = function (text, color) { var show = function () { self.toast(text, 2600, color); }; if (back) back(show); else show(); };
+        if (r !== 'ok') return say({ already: 'You already reported ' + who + ' today.', limit: 'That is a lot of reports today. Try again tomorrow.' }[r] || 'That report could not be sent.');
+        if (O.blocked[id]) return say('Thank you. Selebox will take a look.', 0x2f5a22);
+        self.dialog('REPORT SENT\nThank you. Selebox will take a look.\n\nDo you also want to block ' + who + '?', [
+          { label: 'Not now', color: GREY, cb: function () { if (back) back(); } },
+          { label: 'Block', color: RED, cb: function () { self.blockPlayer(id, who, true, back); } },
+        ]);
+      }).catch(function (e) { self.toast(errText(e)); });
+    };
+    var pick = function (reason) { return function () { self.closeModal(); send(reason); }; };
+    this.listPanel({
+      title: 'Report ' + who, page: 0, sub: function () { return 'What is wrong?'; },
+      reopen: function () { self.closeModal(); self.reportPlayer(id, who, back); },
+      rows: [
+        { icon: C.ICON.tag, name: 'Rude farm name', desc: 'The name others see is not okay.', buttons: [{ label: 'Report', color: RED, cb: pick('name') }] },
+        { icon: C.ICON.letter, name: 'Rude messages', desc: 'Their messages to you are not okay. Selebox sees the last ones.', buttons: [{ label: 'Report', color: RED, cb: pick('messages') }] },
+        {
+          icon: C.ICON.exclaim, name: 'Something else', desc: 'Tell Selebox in a few words.',
+          buttons: [{ label: 'Write', color: RED, cb: function () {
+            self.closeModal();
+            self.askText('What happened?', '', 200, function (t) { send('other', L.cleanText(t, 200)); }, { ok: 'Send' });
+          } }],
+        },
+      ],
+    });
+  };
+
+  U.blockPlayer = function (id, who, yes, back) {
+    var self = this;
+    var go = function () {
+      F.Net.rpc('farm_block_v1', { p_other: id, p_block: yes }).then(function (r) {
+        if (r === 'blocked') {
+          O.blocked[id] = who;
+          delete O.others[id];
+          O.syncSprites();
+        } else if (r === 'unblocked') delete O.blocked[id];
+        var show = function () { self.toast({ blocked: who + ' is blocked.', unblocked: who + ' is unblocked.', limit: 'Your blocked list is full.' }[r] || 'That did not work.', 2400); };
+        if (r === 'blocked' && F.session.visit && F.session.visit.host === id) return O.leaveVisit(who + ' is blocked.');
+        if (back) back(show); else show();
+      }).catch(function (e) { self.toast(errText(e)); });
+    };
+    if (!yes) return go();
+    this.confirm('BLOCK THIS FARMER?\n' + who + " won't be able to visit or find your farm, message you or add you as a friend, and you won't see them on farms. If you are friends, that ends too.", go);
+  };
+
+  U.openBlocked = function (then) {
+    var self = this;
+    F.Net.rpc('farm_blocked_v1', {}).then(function (list) {
+      O.blocked = {};
+      var rows = (list || []).map(function (b) {
+        var id = String(b.id), n = name(b.farm_name);
+        O.blocked[id] = n;
+        return { icon: C.ICON.exclaim, name: n, desc: 'Blocked.', buttons: [{ label: 'Unblock', color: GREY, cb: function () { self.closeModal(); self.blockPlayer(id, n, false, function (then) { self.openBlocked(then); }); } }] };
+      });
+      self.listPanel({ title: 'Blocked farms', rows: rows, page: 0, reopen: function () { self.closeModal(); self.openBlocked(); }, sub: function () { return 'They cannot reach you.'; }, empty: 'Nobody is blocked.' });
+      if (then) then();
     }).catch(function (e) { self.toast(errText(e)); });
   };
 

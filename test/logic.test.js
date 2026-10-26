@@ -175,8 +175,9 @@ test('shop hours', () => {
 
 test('time formatting', () => {
   assert.strictEqual(L.formatTime(360), '6:00 AM');
-  assert.strictEqual(L.formatTime(725), '12:00 PM');
-  assert.strictEqual(L.formatTime(1439), '11:50 PM');
+  assert.strictEqual(L.formatTime(725), '12:05 PM');
+  assert.strictEqual(L.formatTime(1439), '11:59 PM');
+  assert.strictEqual(L.formatTime(889.7), '2:49 PM');
   assert.strictEqual(L.formatTime(1500), '1:00 AM');
 });
 
@@ -459,4 +460,46 @@ test('coming back after days away: each midnight is counted once, in one report'
   assert.strictEqual(L.catchUp(s, clock.ms), null);
   assert.strictEqual(s.day, day0 + 3);
   clock.set(2026, 4, 1, 10, 0);
+});
+
+test('the next crop to ripen, for the phone reminder (grass is left out; Alerts off sends nothing)', () => {
+  clock.set(2026, 4, 1, 10, 0);
+  const s = L.newState();
+  s.debris = {};
+  const seeds = slotOf(s, 'seed_turnip');
+  assert.strictEqual(L.nextHarvest(s), null, 'nothing growing');
+  L.till(s, 5); L.plant(s, 5, seeds);
+  L.till(s, 6); L.plant(s, 6, seeds);
+  const at = L.nowMin() + Math.ceil(L.growMins(s.soil[5]));
+  same(L.nextHarvest(s), { at, item: 'turnip', n: 2 });
+  s.soil[7] = { c: 'grass', p: L.nowMin(), w: 0 };
+  assert.strictEqual(L.nextHarvest(s).item, 'turnip', 'grass is not a harvest to remind about');
+  clock.advance(Math.ceil(L.growMins(s.soil[5])) + 1);
+  assert.strictEqual(L.nextHarvest(s), null, 'already ripe: nothing to wait for');
+
+  // the host sends it to the app only when it changes, and null when Alerts is off
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', '02-host.js'), 'utf8'), ctx);
+  const H = ctx.window.Farm.Host, sent = [];
+  ctx.window.gameHost.remind = (r) => sent.push(r && JSON.parse(JSON.stringify(r)));
+  const t = L.newState();
+  t.debris = {};
+  L.till(t, 5); L.plant(t, 5, slotOf(t, 'seed_turnip'));
+  H.remind(t);
+  H.remind(t);
+  assert.strictEqual(sent.length, 1, 'once per change');
+  assert.strictEqual(sent[0].at, L.nextHarvest(t).at * 60000);
+  assert.match(sent[0].body, /Your turnip crop is ripe!/);
+  t.opts.alerts = 0;
+  H.remind(t);
+  same(sent, [sent[0], null], 'Alerts off clears the reminder');
+  delete ctx.window.gameHost.remind;
+});
+
+test('Alerts is saved, and older saves have it on', () => {
+  const s = L.newState();
+  s.opts.alerts = 0;
+  assert.strictEqual(L.deserialize(plain(L.serialize(s))).opts.alerts, 0);
+  const old = plain(L.serialize(L.newState()));
+  old.op = [1, 0];
+  same(L.deserialize(old).opts, { music: 1, sfx: 0, alerts: 1 });
 });

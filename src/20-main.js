@@ -35,7 +35,7 @@
       type: Phaser.AUTO,
       parent: 'game',
       width: C.WIDTH * F.R,
-      height: C.HEIGHT * F.R,
+      height: C.VIEW_H * F.R, // taller phones get a taller view (00-config.js)
       backgroundColor: '#2d4a22',
       antialias: true,
       roundPixels: false,

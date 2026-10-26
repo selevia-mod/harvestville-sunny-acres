@@ -37,11 +37,28 @@
     }
     try {
       window.gameHost.save(data);
+      Host.remind(state);
       return true;
     } catch (e) {
       console.warn('gameHost.save failed', e);
       return false;
     }
+  };
+
+  // In the app (gameHost.remind): the next crop to ripen, so the phone can remind the player while the game is closed.
+  // Sent only when it changes; null when there is nothing growing or Crop alerts is off (pause menu).
+  Host.reminded = null;
+  Host.remind = function (state) {
+    var h = window.gameHost;
+    if (!h || typeof h.remind !== 'function') return;
+    var next = state.opts && state.opts.alerts === 0 ? null : F.Logic.nextHarvest(state);
+    var key = next ? next.at + '|' + next.item : '';
+    if (key === Host.reminded) return;
+    Host.reminded = key;
+    var item = next && C.ITEMS[next.item], what = item ? item.name.toLowerCase() : 'crop';
+    try {
+      h.remind(next ? { at: next.at * 60000, title: 'Sunny Acres', body: 'Your ' + what + ' crop is ripe! Come and harvest it before it withers.' } : null);
+    } catch (e) { /* the app's reminder is optional */ }
   };
 
   // Called once the Phaser game exists, so a sleep request made during boot still applies.

@@ -343,7 +343,7 @@
     var showBtn = function (key) {
       if (self.decorBtn) { self.decorBtn.destroy(); self.decorBtn = null; }
       if (key !== 'house' && key !== 'farm') return; // the farm's yard: see 19f-yard.js
-      self.decorBtn = self.add.container(0, 0).setDepth(40);
+      self.decorBtn = self.add.container(0, C.EXTRA).setDepth(40); // by the action button, at the bottom
       self.button(self.decorBtn, W - 62, 438, 108, 34, 'Decorate', function () { self.openDecor(); }, BROWN);
     };
     F.bus.on('map', showBtn);
@@ -388,7 +388,7 @@
     this.decorating = true;
     if (this.decorBtn) this.decorBtn.setVisible(false);
     F.input.reset();
-    var c = this.decorBar = this.add.container(0, 0).setDepth(90);
+    var c = this.decorBar = this.add.container(0, C.EXTRA).setDepth(90); // a bottom panel, at the bottom however tall
     var top = 440;
     c.add(this.add.rectangle(0, top, W, HGT - top, 0x000000, 0.001).setOrigin(0).setInteractive()); // keeps taps off the room
     this.panelImg(c, 6, top, W - 12, HGT - top - 6);

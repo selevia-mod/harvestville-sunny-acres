@@ -90,7 +90,7 @@
   L.rewardLabel = function (r) {
     var out = [];
     if (r.gold) out.push(r.gold + 'G');
-    if (r.stars) out.push(r.stars + (r.stars > 1 ? ' Stars' : ' Star'));
+    if (r.stars) out.push(r.stars + (r.stars > 1 ? ' Sunbeams' : ' Sunbeam'));
     if (r.item) out.push((r.n > 1 ? r.n + ' ' : '') + C.ITEMS[r.item].name);
     return out.join(' + ');
   };

@@ -36,7 +36,7 @@
 
   var C = F.Config = {
     WIDTH: 360,
-    HEIGHT: 640,
+    HEIGHT: 640, // the layout panels and dialogs are drawn in (centred on a taller screen)
     TILE: 256, // world units per tile = pixels per tile in the art
     VIEW_TILE: 32, // on-screen size of one tile, in layout px (WIDTH x HEIGHT space)
     SPEED: 1152, // world units per second (4.5 tiles/s)
@@ -465,6 +465,17 @@
     START_ITEMS: [['hoe', 1], ['can', 1], ['seed_turnip', 3], ['chicken_feed', 5], ['axe', 1], ['hammer', 1], ['sickle', 1]],
   };
 
+  // ---------- taller phones ----------
+  // The screen is 360 layout px wide; a phone taller than 9:16 gets a taller view (up to 820) instead of empty bands:
+  // the top bar stays at the top, the hotbar and the controls at the bottom, panels are centred, and the world shows
+  // more rows of tiles. EXTRA = how much taller than the 640 layout.
+  (function () {
+    var w = typeof window !== 'undefined' && Number(window.innerWidth), h = typeof window !== 'undefined' && Number(window.innerHeight);
+    var tall = w > 0 && h > 0 ? Math.round(C.WIDTH * h / w) : C.HEIGHT;
+    C.VIEW_H = Math.max(C.HEIGHT, Math.min(820, tall));
+    C.EXTRA = C.VIEW_H - C.HEIGHT;
+  })();
+
   // ---------- resolve icon names to sprite frames ----------
   var frame = function (name) {
     var i = ICON_ORDER.indexOf(name);
@@ -472,6 +483,8 @@
     return i;
   };
   ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
+  // Sunbeams, the game's reward points (saved as `stars`), show the sun: not to be confused with the Selebox app's Stars.
+  C.ICON.sunbeam = C.ICON.summer;
   C.CROP_WITHERED = 2 + C.CROP_KEYS.length * 2;
   Object.keys(C.ITEMS).forEach(function (id) { C.ITEMS[id].icon = frame(C.ITEMS[id].icon); });
   Object.keys(C.ANIMALS).forEach(function (k) { C.ANIMALS[k].icon = frame(C.ANIMALS[k].icon); });

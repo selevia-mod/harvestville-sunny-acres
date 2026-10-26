@@ -7,7 +7,7 @@
     lily: {
       intro: "Oh! You're the new farmer at Sunny Acres? I'm Lily. I run the seed stand by your field, so we'll see a lot of each other!",
       tiers: [
-        ['Turnips are the easiest crop to start with. Water them every day!', 'I open my stand at nine. Come by for seeds anytime.', 'Grandpa used to farm your land. He would be happy to see it green again.'],
+        ['Turnips are the easiest crop to start with: ready in 15 minutes. Water them and they grow even faster!', 'I open my stand at six in the morning. Come by for seeds anytime.', 'Grandpa used to farm your land. He would be happy to see it green again.'],
         ['Your field is looking better every day. I peek at it on my way to the stand!', 'I love the smell of the soil after it rains.', 'Have you tried strawberries? They keep giving after the first harvest.'],
         ['I saved you the best seeds this morning. Just kidding... or am I?', 'Walking home past your farm is the best part of my day.', 'You work so hard. Promise you will rest sometimes?'],
         ['I feel like I can tell you anything.', 'When I see your lights on at night, I feel safe somehow.', 'Hey... I really like spending time with you.'],
@@ -108,7 +108,7 @@
     'NEWS: The mine below town is said to have gold on its deeper floors.',
     'FARM TIP: Happy animals give large eggs and milk. Pet and brush them every day!',
     'TOWN TALK: Festivals are held in the plaza. Check your calendar so you never miss one.',
-    'FARM TIP: Strawberries, tomatoes and corn keep producing after the first harvest.',
+    'FARM TIP: Pick your crops when they are ripe. A crop left as long again withers!',
     'FISHING REPORT: The river holds bigger fish than the farm pond.',
   ];
 })(window.Farm = window.Farm || {});

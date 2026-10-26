@@ -169,11 +169,22 @@
       self.closeModal();
       self.openPause();
     }, BROWN);
-    this.button(c, col(0), 418, 128, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
-      F.showFps = !self.fpsText.visible;
-      self.fpsText.setVisible(F.showFps);
-      self.closeModal();
-    }, BROWN);
+    if (window.gameHost && typeof window.gameHost.remind === 'function') {
+      // In the app: the phone reminds you when a crop is ripe (the FPS meter stays in the page on its own)
+      this.button(c, col(0), 418, 128, 40, toggle('alerts', 'Alerts'), function () {
+        s.opts.alerts = s.opts.alerts === 0 ? 1 : 0;
+        F.session.dirty = true;
+        world().save();
+        self.closeModal();
+        self.openPause();
+      }, BROWN);
+    } else {
+      this.button(c, col(0), 418, 128, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
+        F.showFps = !self.fpsText.visible;
+        self.fpsText.setVisible(F.showFps);
+        self.closeModal();
+      }, BROWN);
+    }
     this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
     // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
     if (window.gameHost && typeof window.gameHost.exit === 'function') {

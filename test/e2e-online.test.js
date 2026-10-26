@@ -11,7 +11,7 @@ const { createSunnyAcresBridge } = require('../bridge/sunnyAcresBridge');
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
 const SLOW = { timeout: 90000 };
-const VISIT_BAR = { Like: 54, Gift: 138, Wave: 222, Home: 306, y: 174 };
+const VISIT_BAR = { Like: 46, Gift: 113, Wave: 180, More: 247, Home: 314, y: 174 };
 
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
@@ -319,6 +319,67 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
 
   for (const p of pages) assert.deepStrictEqual(p.problems, []);
   for (const p of pages) await p.context.close();
+});
+
+test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
+  const server = createServer();
+  const owner = await open(server), troll = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(troll.page, 'Troll Farm');
+  for (const p of [owner, troll]) await p.page.evaluate(() => { Farm.session.state.net.named = 1; });
+  // friends (by code, through the real functions)
+  const code = await owner.page.evaluate(() => Farm.Online.me.code);
+  await troll.page.evaluate((c) => Farm.Net.rpc('farm_friend_add_v1', { p_code: c }), code);
+  await owner.page.evaluate((id) => Farm.Net.rpc('farm_friend_answer_v1', { p_other: id, p_accept: true }), troll.uid);
+
+  // a rude message is refused, with a kind word
+  await troll.page.evaluate(([id]) => Farm.ui.openChat(id, 'Moon Meadow'), [owner.uid]);
+  await waitModal(troll.page, /No messages yet/);
+  await tapButton(troll.page, 'Write');
+  await type(troll.page, 'you are a gago');
+  await waitToast(troll.page, /Please keep it kind/);
+  await troll.page.evaluate((id) => Farm.Net.rpc('farm_message_send_v1', { p_to: id, p_body: 'not nice at all' }), owner.uid);
+  await troll.page.evaluate(() => Farm.ui.closeAll());
+
+  // the owner reports the messages from the chat, then blocks
+  await owner.page.evaluate(([id]) => Farm.ui.openChat(id, 'Troll Farm'), [troll.uid]);
+  await waitModal(owner.page, /not nice at all/);
+  await tapButton(owner.page, 'More');
+  await waitModal(owner.page, /Keep Sunny Acres friendly/);
+  await shot(owner.page, 'online-9-player-menu');
+  await tapButton(owner.page, 'Report');
+  await waitModal(owner.page, /Rude messages/);
+  await tapButton(owner.page, 'Report', 1);
+  await waitModal(owner.page, /REPORT SENT/);
+  assert.deepStrictEqual(server.db.reports.map((r) => [r.by, r.target, r.reason]), [[owner.uid, troll.uid, 'messages']]);
+  await tapButton(owner.page, 'Block');
+  await waitModal(owner.page, /BLOCK THIS FARMER/);
+  await tapButton(owner.page, 'Yes');
+  await waitToast(owner.page, /Troll Farm is blocked/);
+  assert.ok(server.db.blocks.some((b) => b.by === owner.uid && b.who === troll.uid));
+  assert.strictEqual(await owner.page.evaluate((id) => !!Farm.Online.blocked[id], troll.uid), true);
+  await owner.page.evaluate(() => Farm.ui.closeAll());
+
+  // blocked: the farm is gone for them, and so is the friendship
+  await troll.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitToast(troll.page, /not online any more/);
+  assert.strictEqual(await troll.page.evaluate(() => Farm.Net.rpc('farm_friends_v1', {}).then((l) => l.length)), 0);
+
+  // the owner unblocks from Me > Blocked farms; then the troll can visit, and More works from the visit bar
+  await owner.page.evaluate(() => Farm.ui.openOnline('me', 0));
+  await waitModal(owner.page, /Blocked: who you blocked/);
+  await tapButton(owner.page, 'Blocked');
+  await waitModal(owner.page, /Troll Farm/);
+  await tapButton(owner.page, 'Unblock');
+  await waitToast(owner.page, /Troll Farm is unblocked/);
+  await troll.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(troll.page, true);
+  await troll.page.touchscreen.tap(VISIT_BAR.More, VISIT_BAR.y);
+  await waitModal(troll.page, /Moon Meadow.*Report.*Block/);
+  await shot(troll.page, 'online-10-visit-more');
+
+  for (const p of [owner, troll]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [owner, troll]) await p.context.close();
 });
 
 // the name box comes up after signing in

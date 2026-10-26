@@ -68,7 +68,7 @@
       fest: {}, // festival key -> last year joined
       spouse: null,
       engaged: null, // { who, day: wedding day }
-      opts: { music: 1, sfx: 1 },
+      opts: { music: 1, sfx: 1, alerts: 1 }, // alerts: the phone reminds you when crops are ripe (in the app)
     };
     for (var i = 0; i < C.INV_SIZE; i++) s.inv.push(null);
     C.START_ITEMS.forEach(function (it) { L.addItem(s, it[0], it[1]); });
@@ -350,6 +350,21 @@
     if (now == null) now = L.nowMin();
     var grow = L.growMins(tile), el = now - tile.p;
     return el < grow ? Math.ceil(grow - el) : Math.max(0, Math.ceil(grow + L.witherMins(tile) - el));
+  };
+
+  // The next crop to ripen on the farm, for a reminder on the phone: { at: minute, item, n } or null. Grass is left out.
+  L.nextHarvest = function (s, now) {
+    if (now == null) now = L.nowMin();
+    var best = null;
+    Object.keys(s.soil || {}).forEach(function (k) {
+      var t = s.soil[k];
+      if (!t || !t.c || C.CROPS[t.c].sickle) return;
+      var at = Math.ceil(t.p + L.growMins(t));
+      if (at <= now) return;
+      if (!best || at < best.at - 1) best = { at: at, item: C.CROPS[t.c].item, n: 1 };
+      else if (at <= best.at + 1) best.n++;
+    });
+    return best;
   };
 
   L.isRipe = function (tile, now) {
@@ -932,7 +947,7 @@
 
   L.formatTime = function (minutes) {
     var m = Math.floor(minutes) % (24 * 60);
-    var h = Math.floor(m / 60), mm = Math.floor((m % 60) / 10) * 10;
+    var h = Math.floor(m / 60), mm = m % 60; // real minutes: the game runs on the phone's clock
     var ampm = h < 12 ? 'AM' : 'PM';
     var h12 = h % 12 === 0 ? 12 : h % 12;
     return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ampm;
@@ -1092,7 +1107,7 @@
       fe: s.fest,
       sp: s.spouse || 0,
       en: s.engaged ? [s.engaged.who, s.engaged.day] : 0,
-      op: [s.opts.music, s.opts.sfx],
+      op: [s.opts.music, s.opts.sfx, s.opts.alerts === 0 ? 0 : 1],
     };
     if (s.player.x != null) out.p = [Math.round(s.player.x), Math.round(s.player.y), DIRS.indexOf(s.player.dir)];
     return out;
@@ -1214,7 +1229,7 @@
     }
     s.spouse = C.VILLAGERS[o.sp] && C.VILLAGERS[o.sp].candidate ? o.sp : null;
     if (Array.isArray(o.en) && C.VILLAGERS[o.en[0]] && !s.spouse) s.engaged = { who: o.en[0], day: int(o.en[1], 1, 1e6, s.day) + shift };
-    if (Array.isArray(o.op)) s.opts = { music: o.op[0] ? 1 : 0, sfx: o.op[1] ? 1 : 0 };
+    if (Array.isArray(o.op)) s.opts = { music: o.op[0] ? 1 : 0, sfx: o.op[1] ? 1 : 0, alerts: o.op[2] === 0 ? 0 : 1 };
     if (Array.isArray(o.p) && o.p.length === 3) {
       s.player = { x: int(o.p[0], 0, 1e5, 0), y: int(o.p[1], 0, 1e5, 0), dir: DIRS[int(o.p[2], 0, 3, 0)] };
     }

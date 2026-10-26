@@ -160,7 +160,7 @@
     this.baked(c, TX - 30, TY - 4, 'ui-fishmeter', 14, TH + 8, function (g) { g.fillStyle(0x3d2614, 1).fillRoundedRect(0, 0, 14, TH + 8, 6); });
     var meter = this.add.rectangle(TX - 27, TY + TH, 8, 1, 0xffd23f).setOrigin(0, 1);
     c.add([zone, fish, meter]);
-    var hold = this.add.zone(W / 2, H / 2, W, H).setInteractive();
+    var hold = this.add.zone(W / 2, H / 2, W, C.VIEW_H).setInteractive();
     c.addAt(hold, 1); // over the dim background, under the panel bits
     var st = { zy: 0, zv: 0, fy: 0.5, target: 0.5, timer: 0, meter: G.start, held: false };
     hold.on('pointerdown', function () { st.held = true; });
@@ -239,7 +239,7 @@
         show('Miss', '#7a5a3a');
       }
     };
-    var zone = this.add.zone(W / 2, H / 2, W, H).setInteractive();
+    var zone = this.add.zone(W / 2, H / 2, W, C.VIEW_H).setInteractive();
     c.addAt(zone, 1);
     zone.on('pointerdown', tap);
     var ended = false;

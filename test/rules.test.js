@@ -481,7 +481,7 @@ test('everything new survives a save, and the save stays under 16 KB in the wors
   s.forage = { farm: { day: s.day, taken: [1, 2, 3] }, town: { day: s.day, taken: [4, 5, 6, 7, 8, 9] } };
   C.FESTIVALS.forEach((f) => { s.fest[f.key] = 99; });
   s.spouse = 'ivy';
-  s.opts = { music: 0, sfx: 1 };
+  s.opts = { music: 0, sfx: 1, alerts: 0 };
   s.map = 'town';
   s.animals = [];
   C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < L.capacity(s, k); i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 2, brushed: 1, young: 3, preg: 5 }); });

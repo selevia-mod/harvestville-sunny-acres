@@ -10,9 +10,10 @@
   var COL = { panel: 0xf3e2b8, edge: 0x5a3a1e, inner: 0xc9a26b, slot: 0xe8cf98, slotEdge: 0x8a5a32, sel: 0xffd23f };
   var SLOT = 44;
   var GAP = 4;
-  var HOTBAR_Y = 606;
-  var ACTION = { x: 294, y: 512, r: 42 };
-  var JOY = { x: 86, y: 512, r: 46, knob: 22 };
+  // the hotbar and the controls sit at the bottom of the screen, however tall (C.EXTRA)
+  var HOTBAR_Y = 606 + C.EXTRA;
+  var ACTION = { x: 294, y: 512 + C.EXTRA, r: 42 };
+  var JOY = { x: 86, y: 512 + C.EXTRA, r: 46, knob: 22 };
   var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
 
   var HELP = [
@@ -82,8 +83,8 @@
       F.ui = this;
       this.modals = [];
       this.input.addPointer(2);
-      // The canvas is WIDTH*R x HEIGHT*R; zoom so all UI code works in WIDTH x HEIGHT layout px.
-      this.cameras.main.setZoom(F.R).centerOn(W / 2, H / 2);
+      // The canvas is WIDTH*R x VIEW_H*R; zoom so all UI code works in layout px (y = 0 at the top of the screen).
+      this.cameras.main.setZoom(F.R).centerOn(W / 2, C.VIEW_H / 2);
       this.weatherKey = ''; // petals / leaves / snow / rain, rebuilt when the season or weather changes
       this.buildHud();
       this.buildHotbar();
@@ -107,7 +108,7 @@
         var self = this;
         this.chooseLook(function () {
           self.dialog('WELCOME TO SUNNY ACRES!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
-            'then hoe it, plant your turnip seeds and water them every day.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
+            'then hoe it and plant your turnip seeds. Crops grow by the real clock; watering makes them faster.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
         });
       }
     }
@@ -403,7 +404,7 @@
           this.flashTimer = this.time.addEvent({
             delay: 6000, loop: true, callback: function () {
               if (Math.random() < 0.55) return;
-              var flash = self.add.rectangle(0, 0, W, H, 0xffffff, 0.55).setOrigin(0).setDepth(-1);
+              var flash = self.add.rectangle(0, 0, W, C.VIEW_H, 0xffffff, 0.55).setOrigin(0).setDepth(-1);
               self.tweens.add({ targets: flash, alpha: 0, duration: 380, onComplete: function () { flash.destroy(); } });
               if (F.Audio) F.Audio.sfx('thunder');
             },
@@ -698,8 +699,9 @@
 
     openModal(onBack) {
       this.hideToast(); // don't cover the panel's title
-      var c = this.add.container(0, 0).setDepth(100 + this.modals.length);
-      var dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.45).setOrigin(0).setInteractive();
+      // panels are drawn in the 640 layout, centred on a taller screen; the dim covers all of it
+      var c = this.add.container(0, C.EXTRA / 2).setDepth(100 + this.modals.length);
+      var dim = this.add.rectangle(0, -C.EXTRA / 2, W, C.VIEW_H, 0x000000, 0.45).setOrigin(0).setInteractive();
       c.add(dim);
       this.modals.push({ c: c, onBack: onBack });
       F.input.reset();
