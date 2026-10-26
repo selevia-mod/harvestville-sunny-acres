@@ -167,6 +167,12 @@
     }
     var soil = this.mapKey === 'farm' ? s.soil[idx] : null;
     if (L.isRipe(soil) && !C.CROPS[soil.c].sickle) return { label: 'Harvest', icon: C.ICON.sparkle, run: function () { self.harvest(t, idx); } };
+    // a crop you face says how it is doing (unless you are about to use a tool or seeds on it)
+    var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
+    if (soil && soil.c && (!def || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
+      if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
+      if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
+    }
     if (!def) return null;
     if (def.tool && C.TOOLS[def.tool]) return this.toolAction(def.tool, t);
     if (held.id === 'rod') {
@@ -187,7 +193,7 @@
   M.objectAction = function (o, held, def) {
     var self = this, s = this.state;
     switch (o.type) {
-      case 'sleep': return { label: 'Sleep', icon: C.ICON.moon, run: function () { self.askSleep(); } };
+      case 'sleep': return { label: 'Bed', icon: C.ICON.moon, run: function () { self.askSleep(); } };
       case 'tv': return { label: 'Watch', icon: C.WEATHER[L.weather(s, s.day + 1)].icon, run: function () { self.watchTv(); } };
       case 'kitchen': return { label: 'Cook', icon: C.ICON.lunch, run: function () { F.ui.openKitchen(); } };
       case 'shop': return { label: 'Shop', icon: C.ICON.tag, run: function () { self.openShop(); } };
@@ -222,8 +228,8 @@
       if (hits === 0) return { kind: 'hard', idx: idx, debris: debris };
       return null;
     }
-    if (tool === 'hoe') return this.isTillable(x, y) && !soil && !this.forage[idx] ? { kind: 'till', idx: idx } : null;
-    if (tool === 'can') return soil && !soil.w ? { kind: 'water', idx: idx } : null;
+    if (tool === 'hoe') return this.isTillable(x, y) && (!soil || L.isWithered(soil)) && !this.forage[idx] ? { kind: 'till', idx: idx } : null;
+    if (tool === 'can') return soil && !soil.w && L.cropStage(soil) < 3 ? { kind: 'water', idx: idx } : null;
     if (tool === 'sickle') return soil && L.isRipe(soil) && C.CROPS[soil.c].sickle ? { kind: 'cut', idx: idx } : null;
     if (tool === 'hammer') {
       var wt = this.tileAt('Walls', x, y);
@@ -367,8 +373,8 @@
 
   // Out of energy deep in the mine: everything goes dark, and you wake up at home.
   M.faint = function () {
-    F.ui.toast('You collapsed from exhaustion...', 2500);
-    this.endDay(true);
+    F.ui.toast('You collapsed from exhaustion... Rest a while: energy comes back by itself.', 3500);
+    this.travel('house', 'bed');
   };
 
   // Breaks a mine rock now and returns what to show when the hammer lands (or nothing if the bag is full).
@@ -403,7 +409,7 @@
   };
 
   M.tired = function () {
-    F.ui.toast("You're too tired. Eat something, or go to bed to recover.");
+    F.ui.toast("You're too tired. Eat something, or take a break: energy comes back by itself (1 every 3 minutes).");
     sfx('nope');
   };
 
@@ -701,7 +707,9 @@
     if (!spr) {
       spr = this.crops[idx] = this.add.image(x * T + T / 2, y * T + T - 12, 'crops').setOrigin(0.5, 1).setDepth(DEPTH.crops);
     }
-    spr.setFrame(stage < 2 ? stage : 2 + C.CROPS[tile.c].art * 2 + (stage - 2)); // seeds, sprout, then per-crop frames
+    spr.stage = stage;
+    // seeds, sprout, then each crop's growing and ripe frames; a withered crop has one frame for all
+    spr.setFrame(stage === 4 ? C.CROP_WITHERED : stage < 2 ? stage : 2 + C.CROPS[tile.c].art * 2 + (stage - 2));
     if (stage === 3 && !spr.sway) {
       spr.sway = this.tweens.add({ targets: spr, angle: { from: -4, to: 4 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: (idx * 37) % 500 });
     } else if (stage !== 3 && spr.sway) {

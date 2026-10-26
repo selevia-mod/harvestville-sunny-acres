@@ -388,11 +388,18 @@
     if (this.remotes) O.update(this, Math.min(delta, 100));
   };
 
-  // The visited farm's clock stands still (and so does yours: you are away).
+  // On a visit only the clock runs (yours, for the time and your energy); your farm catches up when you get home.
   var tickClock = P.tickClock;
   P.tickClock = function (dt) {
-    if (visiting(this)) return false;
-    return tickClock.call(this, dt);
+    if (!visiting(this)) return tickClock.call(this, dt);
+    this.clockMs += dt;
+    if (this.clockMs < 1000) return false;
+    this.clockMs = 0;
+    var own = F.session.state, before = Math.floor(own.time);
+    own.time = this.state.time = L.minuteOf(L.clock());
+    L.regen(own);
+    if (Math.floor(own.time) !== before) F.bus.emit('hud');
+    return false;
   };
 
   // Saving while visiting saves your own game (anything you did in your bag or the menus), never the copy.
@@ -402,12 +409,6 @@
     F.Host.save(F.session.state);
     F.session.dirty = false;
     this.saveMs = 0;
-  };
-
-  var endDay = P.endDay;
-  P.endDay = function (passedOut) {
-    if (visiting(this)) return;
-    return endDay.call(this, passedOut);
   };
 
   // Their farmhouse door works; the road to town takes you home.

@@ -14,7 +14,7 @@
   var HOUSE_BLOCK = { x: 4, y: 3, w: 5, h: 4 }; // the farmhouse on the farm map (tiles)
   var WHY = {
     outside: "It doesn't fit there.", wall: 'That one hangs on the back wall.', taken: "Something's already there.",
-    door: 'Keep the doorway clear!', blocks: "That would block the way to something you use.", lastbed: 'You need a bed to sleep in!',
+    door: 'Keep the doorway clear!', blocks: "That would block the way to something you use.", lastbed: 'Every home needs a bed!',
   };
 
   // The texture for a style's furniture, with a frame per kind of furniture (frame = its index in HOME.types).

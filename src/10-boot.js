@@ -113,6 +113,8 @@
 
       var saved = F.Host.load();
       F.session = F.newSession(saved);
+      // back after a while: the farm catches up with the clock (energy, and any midnights that went by)
+      if (saved) F.session.report = F.Logic.catchUp(F.session.state, F.Logic.clock(), { fieldTiles: F.fieldTiles() });
       this.scene.start('World');
       this.scene.launch('UI');
     }

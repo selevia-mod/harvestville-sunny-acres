@@ -19,7 +19,8 @@
     'HOW TO PLAY\n' +
     'Drag anywhere to walk. Tap the big button to act on the highlighted tile. Hold it with an upgraded tool to work a whole patch.\n\n' +
     'Clear the field: Sickle for weeds, Axe for branches and stumps (lumber), Hammer for stones (stone).\n\n' +
-    'Hoe the soil, plant a seed bag (it sows 3x3), water every day. Rain waters for you.',
+    'Hoe the soil and plant a seed bag (it sows 3x3). Crops grow in real time, from 15 minutes to 2 days; watering makes them grow faster. ' +
+    'Pick them when ripe: a crop left too long withers (clear it with the Hoe).',
     'SELLING AND ANIMALS\n' +
     'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus.\n\n' +
     'Feed animals once a day for eggs and milk (a Milker is needed for cows). Pet and brush them: happy animals give large produce.',
@@ -27,9 +28,10 @@
     'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
     'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn), Rosa feeds you, Ivy sells tonics. ' +
     'The mine east of town has ore. Fish at the river or the pond.',
-    'SEASONS AND FESTIVALS\n' +
-    'Seasons last 28 days and crops wither when theirs ends. Check the calendar for festivals and birthdays.\n\n' +
-    'With 8 hearts, the House Extension and a Blue Feather, you can propose. Go to bed in your house to end the day.',
+    'TIME, SEASONS AND FESTIVALS\n' +
+    'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every 3 minutes.\n\n' +
+    'Seasons follow the months (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb), each with 10 crops. ' +
+    'Festivals and birthdays are on the same dates for every player: check the calendar. With 8 hearts, the House Extension and a Blue Feather, you can propose.',
   ];
 
   // Canvas 2D drawing helpers for baked UI art.

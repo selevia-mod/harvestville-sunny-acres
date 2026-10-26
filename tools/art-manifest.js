@@ -339,6 +339,40 @@ const CROPS = {
   carrot: ['young carrot tops', 'ripe orange carrots peeking out of the soil with feathery tops'],
   pumpkin: ['a pumpkin vine with a small green pumpkin', 'a vine with a big ripe orange pumpkin'],
   grass: ['short green fodder grass sprouting', 'a tall thick clump of green fodder grass ready to cut'],
+  // added with real-time farming (in C.CROP_KEYS order: the crops sheet frames follow it)
+  radish: ['young radish leaves', 'round bright red radishes peeking out of the soil with green leaves'],
+  lettuce: ['a small lettuce seedling', 'a big round head of fresh green lettuce'],
+  peas: ['a young pea vine climbing a stake', 'a pea vine on a stake hung with plump green pea pods'],
+  cabbage: ['a young cabbage with open leaves', 'a big firm green cabbage head'],
+  cauliflower: ['a young cauliflower plant', 'a cauliflower plant with a big snowy white head'],
+  onion: ['green onion shoots', 'golden onion bulbs peeking out of the soil with tall green shoots'],
+  tulip: ['a tulip stem with a closed green bud', 'a tall bright pink-red tulip in full bloom'],
+  okra: ['a young okra plant', 'an okra plant with several long green okra pods'],
+  chili: ['a young chili pepper plant', 'a small bushy chili plant covered in shiny red chilies'],
+  cucumber: ['a young cucumber vine on a stake', 'a cucumber vine on a stake with long green cucumbers'],
+  bell_pepper: ['a young pepper plant', 'a pepper plant with big shiny yellow and red bell peppers'],
+  eggplant: ['a young eggplant plant', 'an eggplant plant with long shiny purple eggplants'],
+  sunflower: ['a young sunflower stalk with a green bud', 'a tall sunflower with a huge yellow flower head'],
+  melon: ['a young melon vine', 'a vine with a big round pale green honeydew melon'],
+  watermelon: ['a young watermelon vine', 'a vine with a huge striped green watermelon'],
+  spinach: ['a small spinach seedling', 'a full bunch of dark green spinach leaves'],
+  bok_choy: ['a young bok choy (pechay)', 'a big bok choy with white stalks and dark green leaves'],
+  beet: ['young beet leaves', 'round deep red beets peeking out of the soil with red-veined leaves'],
+  garlic: ['green garlic shoots', 'white garlic bulbs peeking out of the soil with long green shoots'],
+  sweet_potato: ['a young sweet potato vine', 'a leafy sweet potato vine with purple-red sweet potatoes at the base'],
+  cranberry: ['a young cranberry bush', 'a low bush covered in shiny red cranberries'],
+  rice: ['young green rice stalks', 'golden rice stalks heavy with ripe grain'],
+  grapes: ['a young grape vine on a stake', 'a grape vine on a stake hung with bunches of purple grapes'],
+  kale: ['a small kale seedling', 'a big curly dark green kale plant with frost on its leaves'],
+  celery: ['a young celery plant', 'a tall bunch of pale green celery'],
+  broccoli: ['a young broccoli plant', 'a broccoli plant with a big green broccoli head'],
+  leek: ['young leek shoots', 'tall white and green leeks'],
+  parsnip: ['young parsnip tops', 'pale cream parsnips peeking out of the soil with green tops'],
+  red_cabbage: ['a young red cabbage', 'a big purple-red cabbage head'],
+  brussels: ['a young brussels sprouts stalk', 'a tall stalk covered in little green brussels sprouts'],
+  ginger: ['young ginger shoots', 'a leafy ginger plant with knobbly ginger roots showing at the base'],
+  winter_squash: ['a young squash vine', 'a vine with a big dark green winter squash'],
+  coffee: ['a young coffee shrub', 'a coffee shrub with clusters of ripe red coffee cherries'],
 };
 const MOUND = 'Growing out of a small mound of tilled brown soil at the bottom center of the cell.';
 add({
@@ -352,6 +386,12 @@ Object.keys(CROPS).forEach((crop, i) => {
     cols: 2, rows: 1, frames: [2 + i * 2, 3 + i * 2], fw: 256, fh: 256, base: 236, size: 0.92, targets: ['crops:' + crop],
     prompt: `${STYLE} ${GRID(2, 1)} Left: ${CROPS[crop][0]}, still growing. Right: ${CROPS[crop][1]}. ${MOUND} ${CUTOUT}`,
   });
+});
+
+add({
+  id: 'crop_withered', group: 'Crops', file: 'crops/withered.png', gen: '1024x1024', final: '1 frame of 256x256', mode: 'frames', sheet: 'crops',
+  cols: 1, rows: 1, frames: [2 + Object.keys(CROPS).length * 2], fw: 256, fh: 256, base: 236, size: 0.8, targets: ['crops:withered'],
+  prompt: `${STYLE} One withered crop plant: brown, dry, drooping leaves and a bent stalk, left too long in the field. ${MOUND} ${CUTOUT}`,
 });
 
 // ---------- 9. item icons (16 per picture) ----------
@@ -419,6 +459,39 @@ add({
   mode: 'icons', cols: 4, rows: 4, names: ['power_up', 'pet_meal'], targets: ['icon:power_up', 'icon:pet_meal'],
   prompt: `${STYLE} A set of 2 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
     'Row by row, left to right: 1) a glowing orange potion bottle with a yellow lightning bolt on it (a power-up); 2) a red pet food bowl heaped with kibble and a bone on top. Leave the remaining cells empty. ' + CUTOUT,
+});
+
+
+// the crops added with real-time farming: each crop and its seed packet, 16 to a picture
+add({
+  id: 'icons_crops_1', group: 'Item icons', file: 'icons/icons_crops_1.png', gen: '1024x1024', final: '16 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['radish', 'seed_radish', 'lettuce', 'seed_lettuce', 'peas', 'seed_peas', 'cabbage', 'seed_cabbage', 'cauliflower', 'seed_cauliflower', 'onion', 'seed_onion', 'tulip', 'seed_tulip', 'okra', 'seed_okra'], targets: ['radish', 'seed_radish', 'lettuce', 'seed_lettuce', 'peas', 'seed_peas', 'cabbage', 'seed_cabbage', 'cauliflower', 'seed_cauliflower', 'onion', 'seed_onion', 'tulip', 'seed_tulip', 'okra', 'seed_okra'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 16 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) radishes; 2) a seed packet with a picture of radishes; 3) a head of lettuce; 4) a seed packet with a picture of a head of lettuce; 5) a green pea pod; 6) a seed packet with a picture of a green pea pod; 7) a green cabbage; 8) a seed packet with a picture of a green cabbage; 9) a white cauliflower; 10) a seed packet with a picture of a white cauliflower; 11) a golden onion; 12) a seed packet with a picture of a golden onion; 13) a pink-red tulip; 14) a seed packet with a picture of a pink-red tulip; 15) green okra pods; 16) a seed packet with a picture of green okra pods. ' + CUTOUT,
+});
+add({
+  id: 'icons_crops_2', group: 'Item icons', file: 'icons/icons_crops_2.png', gen: '1024x1024', final: '16 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['chili', 'seed_chili', 'cucumber', 'seed_cucumber', 'bell_pepper', 'seed_bell_pepper', 'eggplant', 'seed_eggplant', 'sunflower', 'seed_sunflower', 'melon', 'seed_melon', 'watermelon', 'seed_watermelon', 'spinach', 'seed_spinach'], targets: ['chili', 'seed_chili', 'cucumber', 'seed_cucumber', 'bell_pepper', 'seed_bell_pepper', 'eggplant', 'seed_eggplant', 'sunflower', 'seed_sunflower', 'melon', 'seed_melon', 'watermelon', 'seed_watermelon', 'spinach', 'seed_spinach'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 16 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) red chili peppers; 2) a seed packet with a picture of red chili peppers; 3) a cucumber; 4) a seed packet with a picture of a cucumber; 5) a yellow bell pepper; 6) a seed packet with a picture of a yellow bell pepper; 7) a purple eggplant; 8) a seed packet with a picture of a purple eggplant; 9) a sunflower head; 10) a seed packet with a picture of a sunflower head; 11) a pale green honeydew melon; 12) a seed packet with a picture of a pale green honeydew melon; 13) a striped watermelon; 14) a seed packet with a picture of a striped watermelon; 15) a bunch of spinach; 16) a seed packet with a picture of a bunch of spinach. ' + CUTOUT,
+});
+add({
+  id: 'icons_crops_3', group: 'Item icons', file: 'icons/icons_crops_3.png', gen: '1024x1024', final: '16 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['bok_choy', 'seed_bok_choy', 'beet', 'seed_beet', 'garlic', 'seed_garlic', 'sweet_potato', 'seed_sweet_potato', 'cranberry', 'seed_cranberry', 'rice', 'seed_rice', 'grapes', 'seed_grapes', 'kale', 'seed_kale'], targets: ['bok_choy', 'seed_bok_choy', 'beet', 'seed_beet', 'garlic', 'seed_garlic', 'sweet_potato', 'seed_sweet_potato', 'cranberry', 'seed_cranberry', 'rice', 'seed_rice', 'grapes', 'seed_grapes', 'kale', 'seed_kale'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 16 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) a bok choy; 2) a seed packet with a picture of a bok choy; 3) a red beet; 4) a seed packet with a picture of a red beet; 5) a bulb of garlic; 6) a seed packet with a picture of a bulb of garlic; 7) a sweet potato; 8) a seed packet with a picture of a sweet potato; 9) a handful of cranberries; 10) a seed packet with a picture of a handful of cranberries; 11) a sheaf of rice; 12) a seed packet with a picture of a sheaf of rice; 13) a bunch of purple grapes; 14) a seed packet with a picture of a bunch of purple grapes; 15) curly kale; 16) a seed packet with a picture of curly kale. ' + CUTOUT,
+});
+add({
+  id: 'icons_crops_4', group: 'Item icons', file: 'icons/icons_crops_4.png', gen: '1024x1024', final: '16 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['celery', 'seed_celery', 'broccoli', 'seed_broccoli', 'leek', 'seed_leek', 'parsnip', 'seed_parsnip', 'red_cabbage', 'seed_red_cabbage', 'brussels', 'seed_brussels', 'ginger', 'seed_ginger', 'winter_squash', 'seed_winter_squash'], targets: ['celery', 'seed_celery', 'broccoli', 'seed_broccoli', 'leek', 'seed_leek', 'parsnip', 'seed_parsnip', 'red_cabbage', 'seed_red_cabbage', 'brussels', 'seed_brussels', 'ginger', 'seed_ginger', 'winter_squash', 'seed_winter_squash'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 16 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) celery stalks; 2) a seed packet with a picture of celery stalks; 3) a head of broccoli; 4) a seed packet with a picture of a head of broccoli; 5) a leek; 6) a seed packet with a picture of a leek; 7) a parsnip; 8) a seed packet with a picture of a parsnip; 9) a red cabbage; 10) a seed packet with a picture of a red cabbage; 11) brussels sprouts; 12) a seed packet with a picture of brussels sprouts; 13) a ginger root; 14) a seed packet with a picture of a ginger root; 15) a dark green winter squash; 16) a seed packet with a picture of a dark green winter squash. ' + CUTOUT,
+});
+add({
+  id: 'icons_crops_5', group: 'Item icons', file: 'icons/icons_crops_5.png', gen: '1024x1024', final: '2 icons of 128x128',
+  mode: 'icons', cols: 4, rows: 4, names: ['coffee', 'seed_coffee'], targets: ['coffee', 'seed_coffee'].map((x) => 'icon:' + x),
+  prompt: `${STYLE} A set of 2 game item icons, each a single object seen from a slight angle, bold and readable at small size. ${GRID(4, 4)} ` +
+    'Row by row, left to right: 1) red coffee cherries; 2) a seed packet with a picture of red coffee cherries. Leave the remaining cells empty. ' + CUTOUT,
 });
 
 // ---------- 10. effects: bits that fly when tools land (4 pieces per picture, a 2 x 2 grid) ----------

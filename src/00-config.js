@@ -326,6 +326,7 @@
       coffee: { mins: 2880, item: 'coffee', art: 40, seasons: ['winter'], plant: 'bush', shape: 'berry', color: '#8a3a2a', color2: '#3a2a1a' },
       grass: { mins: 120, item: 'fodder', art: 7, seasons: ['spring', 'summer', 'fall'], regrow: 120, sickle: true, plant: 'grass', shape: 'leaf', color: '#7fc04a', color2: '#5fa84a' },
     },
+    CROP_WITHERED: 0, // the withered frame in the crops sheet (set below: after every crop's frames)
     CROP_KEYS: ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin', 'grass', 'radish', 'lettuce', 'peas', 'cabbage', 'cauliflower', 'onion', 'tulip', 'okra', 'chili', 'cucumber', 'bell_pepper', 'eggplant', 'sunflower', 'melon', 'watermelon', 'spinach', 'bok_choy', 'beet', 'garlic', 'sweet_potato', 'cranberry', 'rice', 'grapes', 'kale', 'celery', 'broccoli', 'leek', 'parsnip', 'red_cabbage', 'brussels', 'ginger', 'winter_squash', 'coffee'], // save-format order (new crops at the end)
 
     SHOP_STOCK: ['seed_turnip', 'seed_radish', 'seed_lettuce', 'seed_strawberry', 'seed_peas', 'seed_potato', 'seed_cabbage', 'seed_cauliflower', 'seed_onion', 'seed_tulip', 'seed_okra', 'seed_chili', 'seed_cucumber', 'seed_bell_pepper', 'seed_tomato', 'seed_eggplant', 'seed_sunflower', 'seed_corn', 'seed_melon', 'seed_watermelon', 'seed_carrot', 'seed_spinach', 'seed_bok_choy', 'seed_beet', 'seed_garlic', 'seed_sweet_potato', 'seed_cranberry', 'seed_rice', 'seed_pumpkin', 'seed_grapes', 'seed_kale', 'seed_celery', 'seed_broccoli', 'seed_leek', 'seed_parsnip', 'seed_red_cabbage', 'seed_brussels', 'seed_ginger', 'seed_winter_squash', 'seed_coffee', 'seed_grass'],
@@ -469,6 +470,7 @@
     return i;
   };
   ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
+  C.CROP_WITHERED = 2 + C.CROP_KEYS.length * 2;
   Object.keys(C.ITEMS).forEach(function (id) { C.ITEMS[id].icon = frame(C.ITEMS[id].icon); });
   Object.keys(C.ANIMALS).forEach(function (k) { C.ANIMALS[k].icon = frame(C.ANIMALS[k].icon); });
   C.SEASONS.forEach(function (s) { s.icon = frame(s.icon); });

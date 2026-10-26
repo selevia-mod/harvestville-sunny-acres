@@ -916,6 +916,16 @@
     return s.time >= C.SHOP_OPEN && s.time < C.SHOP_CLOSE && !L.festivalOn(s.day);
   };
 
+  // How long until something, in words: '7 min', '2 h 5 min', '1 day 3 h'.
+  L.formatLeft = function (mins) {
+    mins = Math.max(1, Math.ceil(mins));
+    if (mins < 60) return mins + ' min';
+    var h = Math.floor(mins / 60), m = mins % 60;
+    if (h < 24) return h + ' h' + (m ? ' ' + m + ' min' : '');
+    var d = Math.floor(h / 24), hh = h % 24;
+    return d + (d > 1 ? ' days' : ' day') + (hh ? ' ' + hh + ' h' : '');
+  };
+
   L.formatTime = function (minutes) {
     var m = Math.floor(minutes) % (24 * 60);
     var h = Math.floor(m / 60), mm = Math.floor((m % 60) / 10) * 10;

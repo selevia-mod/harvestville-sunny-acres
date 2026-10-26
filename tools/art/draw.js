@@ -2411,15 +2411,18 @@
       var k = (row - 3) * 3 + col;
       farmer(g, ['down', 'down', 'up', 'up', 'side', 'side'][k], 0, k % 2 ? 'strike' : 'raise');
     }, function (col, row) { return 'player:' + (row * 3 + col); });
-    // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame
-    var cropKeys = sets.CROP_KEYS;
-    var crops = frameSheet(3, 6, 256, 256, 1024, 2048, function (g, col, row) {
-      var f = row * 3 + col;
+    // crops: frame 0 seeds and 1 sprout are shared; then each crop has a growing and a ripe frame; then the
+    // withered plant. 7 frames a row (2048 wide), as many rows as it takes (4096 high holds 105).
+    var cropKeys = sets.CROP_KEYS, CC = 7;
+    if (window.ART.prepareCrops) window.ART.prepareCrops(sets);
+    var crops = frameSheet(CC, 15, 256, 256, 2048, 4096, function (g, col, row) {
+      var f = row * CC + col;
       if (f < 2) return CROP_DRAW.turnip[f](g);
+      if (f === 2 + cropKeys.length * 2) return window.ART.CROP_WITHERED(g);
       var crop = cropKeys[Math.floor((f - 2) / 2)];
       if (!crop) return false;
       CROP_DRAW[crop][2 + (f - 2) % 2](g);
-    }, function (col, row) { return 'crops:' + (row * 3 + col); });
+    }, function (col, row) { return 'crops:' + (row * CC + col); });
     var iconNames = sets.ICON_ORDER;
     var iconRows = Math.ceil(iconNames.length / 8);
     var items = frameSheet(8, iconRows, I, I, 8 + 8 * (I + 16) - 8, 8 + iconRows * (I + 16) - 8, function (g, k, r) {

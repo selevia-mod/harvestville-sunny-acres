@@ -24,7 +24,7 @@
     var z = this.add.zone(W / 2, 83, W - 16, 32).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () {
       var g = L.goal(F.session.state);
-      if (g && !self.modals.length) self.dialog('GOAL\n' + g.text + '.\n\nReward: ' + (L.rewardText(g.reward) || 'a good night\'s sleep') + '\n\nFollow the yellow arrow.');
+      if (g && !self.modals.length) self.dialog('GOAL\n' + g.text + '.\n\nReward: ' + (L.rewardText(g.reward) || 'a job well done') + '\n\nFollow the yellow arrow.');
     });
     this.goalBar.add([bg, this.goalStar, this.goalText, z]);
     this.arrow = this.add.image(0, 0, this.bake('ui-arrow', 30, 34, function (g) {

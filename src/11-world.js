@@ -415,23 +415,52 @@
       }
     }
 
-    // Advances the clock; returns true if the day just ended.
+    // Follows the phone's clock, once a second: the time, energy coming back, crops growing, and a new day at
+    // midnight (or on coming back after days away). Returns true when a new day just started.
     tickClock(dt) {
       var s = this.state;
       this.clockMs += dt;
-      while (this.clockMs >= C.MS_PER_MINUTE) {
-        this.clockMs -= C.MS_PER_MINUTE;
-        s.time += 1;
-        if (s.time % 10 === 0) {
-          F.bus.emit('hud');
-          if (F.Audio && s.time % 30 === 0) F.Audio.music(this.musicMood());
-        }
-      }
-      if (s.time >= C.PASS_OUT) {
-        this.endDay(true);
+      if (this.clockMs < 1000) return false;
+      this.clockMs = 0;
+      var now = L.clock(), before = Math.floor(s.time), energy = s.energy;
+      var r = L.catchUp(s, now, L.dayOf(now) > s.day ? { fieldTiles: F.fieldTiles() } : null);
+      if (r) {
+        this.newDay(r);
         return true;
       }
+      var minute = Math.floor(s.time);
+      if (minute !== before || s.energy !== energy) {
+        F.bus.emit('hud');
+        if (F.Audio && minute !== before && minute % 30 === 0) F.Audio.music(this.musicMood());
+      }
+      if (this.mapKey === 'farm') this.growCrops();
       return false;
+    }
+
+    // Crops show their stage as they grow (and wither) by the clock.
+    growCrops() {
+      var self = this;
+      Object.keys(this.crops).forEach(function (idx) {
+        var spr = self.crops[idx], t = self.state.soil[idx];
+        if (spr && t && spr.stage !== L.cropStage(t)) self.refreshTile(Number(idx));
+      });
+    }
+
+    // Midnight went by: the morning report, where you are (the scene restarts to show the new day).
+    newDay(report) {
+      var self = this;
+      if (this.busy) return;
+      this.busy = true;
+      this.player.body.setVelocity(0, 0);
+      F.input.reset();
+      if (F.ui) F.ui.closeAll();
+      this.cameras.main.fadeOut(600, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', function () {
+        F.session.report = report;
+        F.session.mineBroken = {};
+        self.save();
+        self.scene.restart();
+      });
     }
 
     updateCamera(lerp) {
@@ -486,31 +515,11 @@
       F.bus.emit('hud');
     }
 
+    // The bed: time runs on the real clock, so there is no sleeping through the night.
     askSleep() {
-      var self = this, s = this.state;
-      var w = L.weather(s, s.day + 1);
-      F.ui.confirm('Go to bed and end ' + L.formatDate(s.day) + '?\nTomorrow: ' + C.WEATHER[w].name + '.', function () { self.endDay(false); });
-    }
-
-    // Ends the day (going to bed, or passing out at 2 AM) and wakes up at home.
-    endDay(passedOut) {
-      var self = this, cam = this.cameras.main;
-      if (this.busy) return;
-      this.busy = true;
-      this.player.body.setVelocity(0, 0);
-      F.input.reset();
-      if (F.ui) F.ui.closeAll();
-      cam.fadeOut(passedOut ? 1200 : 700, 0, 0, 0);
-      cam.once('camerafadeoutcomplete', function () {
-        var result = L.endDay(self.state, passedOut, { fieldTiles: F.fieldTiles() });
-        F.session.report = result;
-        F.session.spawn = 'bed';
-        F.session.mineBroken = {};
-        F.session.riding = false;
-        F.session.horseAt = null;
-        self.save();
-        self.scene.restart();
-      });
+      var s = this.state, w = L.weather(s, s.day + 1);
+      F.ui.dialog('YOUR BED\nA new day starts at midnight, while you play or not. Your energy comes back by itself: ' +
+        '1 point every ' + C.ENERGY_EVERY + ' minutes (food and a Power-Up help too).\n\nTomorrow: ' + C.WEATHER[w].name + '.');
     }
 
     // ----- little effects

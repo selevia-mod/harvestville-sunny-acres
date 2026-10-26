@@ -87,14 +87,11 @@
     var lines = [], names = function (keys) { return keys.map(function (k) { return C.VILLAGERS[k].name; }).join(' and '); };
     // each line with an icon (a name from ICON_ORDER, or a frame number)
     var row = function (icon, text) { lines.push([typeof icon === 'number' ? icon : C.ICON_ORDER.indexOf(icon), text]); };
-    if (result.passedOut) row('moon', 'You stayed up too late and passed out. You only got half your energy back.');
     if (result.wedding) row('ring', 'Today you married ' + C.VILLAGERS[result.wedding].name + '! The whole town came to celebrate. Your spouse now lives with you on the farm.');
     if (result.newSeason) {
       var seeds = L.seedsInSeason(s.day).filter(function (id) { return id !== 'seed_grass'; });
-      row(['spring', 'summer', 'fall', 'winter'][L.date(s.day).season], result.newSeason + ' has arrived! ' + (seeds.length
-        ? 'Lily now sells ' + seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(' and ') + ' seeds.'
-        : 'Nothing grows in winter, so look after your animals and visit the mine.') +
-        (result.withered ? ' ' + result.withered + (result.withered > 1 ? ' crops' : ' crop') + ' from last season withered.' : '') +
+      row(['spring', 'summer', 'fall', 'winter'][L.date(s.day).season], result.newSeason + ' has arrived! Lily now sells ' + seeds.length + ' new kinds of seeds: ' +
+        seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(', ') + '.' +
         (result.weeds ? ' Weeds sprouted in your field.' : ''));
     }
     if (result.festival) row('calendar', 'Today is the ' + result.festival.name + '! ' + result.festival.desc + ' (Town plaza, ' + L.formatTime(result.festival.from) + ' to ' + L.formatTime(result.festival.to) + '.)');
@@ -119,12 +116,13 @@
     }
     var made = Object.keys(result.produced || {}).map(function (id) { return result.produced[id] + ' ' + C.ITEMS[id].name; });
     if (made.length) row('egg', 'Your animals made ' + made.join(', ') + '. Collect them in the pen.');
-    if (result.hungry && result.hungry.length) row('chicken_feed', result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry yesterday.');
+    if (result.hungry && result.hungry.length) row('chicken_feed', result.hungry.join(', ') + (result.hungry.length > 1 ? ' were' : ' was') + ' hungry. Feed your animals every day.');
     if (result.lunch && s.spouse) row('lunch', C.VILLAGERS[s.spouse].name + ' packed you a ' + C.ITEMS[result.lunch].name + ' for lunch.');
     if (result.horse) row('horse', 'The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
     if (result.mail) row('letter', 'You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
     if (result.goalDone) row('star', 'Goal complete! Check the next one at the top of the screen.');
-    this.dialog('GOOD MORNING! ' + L.formatDate(s.day).toUpperCase() + '\n' + lines.map(function (l) { return l[1]; }).join('\n'), null, { rows: lines });
+    var title = result.days > 1 ? 'WELCOME BACK! ' + result.days + ' DAYS WENT BY' : 'A NEW DAY! ' + L.formatDate(s.day).toUpperCase();
+    this.dialog(title + '\n' + lines.map(function (l) { return l[1]; }).join('\n'), null, { rows: lines });
     sfx('morning');
   };
 
@@ -134,7 +132,7 @@
     var c = this.openModal();
     this.panelImg(c, 30, 96, W - 60, 470);
     c.add(this.txt(W / 2, 118, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    c.add(this.txt(W / 2, 150, L.formatDate(s.day) + ', Year ' + L.date(s.day).year + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, 150, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
     var col = function (k) { return W / 2 + (k ? 68 : -68); };
     this.button(c, W / 2, 222, 266, 44, 'Resume', function () { self.closeModal(); });
     this.button(c, col(0), 274, 128, 40, 'Calendar', function () { self.openCalendar(0); }, BLUE);
@@ -624,37 +622,44 @@
     this.dialog('TOWN NOTICE BOARD\n' + (lines.length ? lines.join('\n') : 'Nothing planned in the next two weeks.') + '\n\nThe calendar in the pause menu shows the whole season.');
   };
 
+  // The real month, Monday first: today, festivals, birthdays, and the weather for today and tomorrow.
   M.openCalendar = function (offset) {
-    var self = this, s = F.session.state, n = C.DAYS_PER_SEASON;
-    var first = Math.floor((s.day - 1) / n) * n + 1 + offset * n, d0 = L.date(first);
+    var self = this, s = F.session.state, d = L.date(s.day);
+    var m = d.month - 1 + offset, y = d.year + Math.floor(m / 12);
+    m = ((m % 12) + 12) % 12;
+    var first = L.dayOf(new Date(y, m, 1, 12).getTime()), n = L.dayOf(new Date(y, m + 1, 1, 12).getTime()) - first;
+    var lead = (L.date(first).weekday + 6) % 7; // empty cells before the 1st (Monday first)
     var c = this.openModal();
     this.panelImg(c, 12, 70, W - 24, 520);
-    c.add(this.txt(W / 2, 88, d0.name + ', Year ' + d0.year, 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, 88, C.MONTHS[m] + ' ' + y + '  (' + L.date(first).name + ')', 18, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
-    var cw = 44, ch = 50, x0 = (W - 7 * cw) / 2, y0 = 126;
+    var cw = 44, ch = 44, x0 = (W - 7 * cw) / 2, y0 = 120;
     ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (name, k) {
       c.add(self.txt(x0 + k * cw + cw / 2, y0, name, 11, '#7a5a3a', { fontStyle: 'bold' }).setOrigin(0.5, 0));
     });
     var events = [];
     for (var i = 0; i < n; i++) {
-      var day = first + i, x = x0 + (i % 7) * cw, y = y0 + 18 + Math.floor(i / 7) * ch;
+      var day = first + i, cell = lead + i, x = x0 + (cell % 7) * cw, y = y0 + 18 + Math.floor(cell / 7) * ch;
       var fest = L.festivalOn(day), bdays = L.birthdaysOn(day), today = day === s.day;
-      this.baked(c, x + 2, y, today ? 'ui-cal-today' : day < s.day ? 'ui-cal-past' : 'ui-cal-day', cw - 4, ch - 4, (function (kind) {
+      var kind = today ? 'today' : day < s.day ? 'past' : 'day';
+      this.baked(c, x + 2, y, 'ui-cal2-' + kind, cw - 4, ch - 4, (function (kind) {
         return function (g) {
           g.fillStyle(kind === 'today' ? 0xffd23f : kind === 'past' ? 0xd8bf8a : 0xe8cf98, 1).fillRoundedRect(0, 0, cw - 4, ch - 4, 6);
           if (kind === 'today') g.lineStyle(2, 0x5a3a1e, 1).strokeRoundedRect(1, 1, cw - 6, ch - 6, 6);
         };
-      })(today ? 'today' : day < s.day ? 'past' : 'day'));
-      c.add(this.txt(x + 7, y + 3, String(i + 1), 12, INK, { fontStyle: 'bold' }));
-      if (fest) c.add(this.add.image(x + cw / 2 + 4, y + 30, 'items', C.ICON.ribbon).setScale(0.17));
-      else if (bdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 30, 'items', C.ICON.gift).setScale(0.17));
-      else c.add(this.add.image(x + cw / 2 + 4, y + 30, 'items', C.WEATHER[day >= s.day && day <= s.day + 1 ? L.weather(s, day) : 'sunny'].icon).setScale(0.12).setAlpha(day >= s.day && day <= s.day + 1 ? 0.9 : 0));
-      if (fest) events.push((i + 1) + '  ' + fest.name);
-      bdays.forEach(function (k) { events.push((i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
+      })(kind));
+      c.add(this.txt(x + 6, y + 2, String(i + 1), 11, INK, { fontStyle: 'bold' }));
+      var soon = day >= s.day && day <= s.day + 1;
+      if (fest) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.ribbon).setScale(0.15));
+      else if (bdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.gift).setScale(0.15));
+      else if (soon) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.WEATHER[L.weather(s, day)].icon).setScale(0.11).setAlpha(0.9));
+      if (fest) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + fest.name);
+      bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
     }
-    c.add(this.txt(W / 2, y0 + 18 + 4 * ch + 10, events.join('\n') || 'No events this season.', 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
-    if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'This season', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
-    if (offset < 3) this.button(c, W / 2 + 80, 556, 130, 38, 'Next season', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
+    var rows = Math.ceil((lead + n) / 7);
+    c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n') || 'No events this month.', 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
+    if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'Back', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
+    if (offset < 11) this.button(c, W / 2 + 80, 556, 130, 38, 'Next month', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
   };
 
   M.openCollection = function () {
