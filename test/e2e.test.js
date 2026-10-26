@@ -21,8 +21,8 @@ test.after(async () => { await browser.close(); });
 const START = [2026, 4, 1, 10, 0];
 const at = (when) => new Date(when[0], when[1] - 1, when[2], when[3] || 0, when[4] || 0).getTime();
 
-async function open(savedState, when = START) {
-  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+async function open(savedState, when = START, viewport = { width: 360, height: 640 }) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const problems = [];
   page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
@@ -642,6 +642,33 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   assert.strictEqual(await again.page.evaluate(() => Farm.world.herd.members.length), 2);
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
+});
+
+test('a taller phone gets a taller view: top bar at the top, controls at the bottom, panels centred', async () => {
+  const { page, problems, context } = await open(await makeSave(), START, { width: 360, height: 780 });
+  const at = await page.evaluate(() => ({
+    view: Farm.Config.VIEW_H, extra: Farm.Config.EXTRA, canvas: Math.round(document.querySelector('canvas').getBoundingClientRect().height),
+    time: Math.round(Farm.ui.timeText.getBounds().centerY), action: Math.round(Farm.ui.actionBtn.y), bag: Math.round(Farm.ui.bagWidget.bg.getBounds().centerY),
+    rows: Math.round(Farm.world.cameras.main.height / Farm.world.cameras.main.zoom / Farm.Config.TILE),
+  }));
+  assert.deepStrictEqual({ view: at.view, extra: at.extra, canvas: at.canvas }, { view: 780, extra: 140, canvas: 780 });
+  assert.ok(at.time < 50, 'the clock stays at the top (' + at.time + ')');
+  assert.strictEqual(at.action, 512 + 140, 'the action button moves to the bottom');
+  assert.ok(at.bag > 720, 'the hotbar sits at the bottom (' + at.bag + ')');
+  assert.ok(at.rows >= 24, 'the world shows more rows (' + at.rows + ')');
+  await page.evaluate(() => window.__gameBack());
+  const pause = await page.evaluate(() => { const m = Farm.ui.modals[0].c; const b = m.list[1].getBounds(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; });
+  assert.ok(Math.abs(pause.top - (780 - pause.bottom)) < 40, 'the pause menu is centred (' + JSON.stringify(pause) + ')');
+  await shot(page, '15-tall-pause');
+  await tapButton(page, 'Resume');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'buttons still land on a tall screen');
+  // the joystick, dragged at its new place, walks the farmer
+  const y0 = await page.evaluate(() => Farm.world.feet().y);
+  await page.mouse.move(86, 652); await page.mouse.down(); await page.mouse.move(86, 700, { steps: 5 });
+  await page.waitForTimeout(700); await page.mouse.up();
+  assert.ok((await page.evaluate(() => Farm.world.feet().y)) > y0 + 100, 'the joystick works at the bottom');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
 });
 
 test('Leave game shows only when the app offers gameHost.exit, and saves before leaving', async () => {

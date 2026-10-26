@@ -1,7 +1,7 @@
 # Sunny Acres
 
 A Harvest Moon style farming game: portrait (9:16), touch-first, built with Phaser 3 in plain JavaScript.
-It ships as **one offline HTML file** (`dist/index.html`, about 4.4 MB) with Phaser, the code, the Tiled maps, all
+It ships as **one offline HTML file** (`dist/index.html`, about 14 MB) with Phaser, the code, the Tiled maps, all
 art (as WebP data URLs) and synthesized music. It makes no network requests and uses no CDNs.
 
 The art is drawn at **256×256 per tile** in a smooth cartoon style and scaled down on screen. A tile is shown at
@@ -336,6 +336,9 @@ sounds can be switched off in the pause menu.
 | --- | --- |
 | `window.gameHost.net` | Optional: online play through the app (`session`, `rpc`, `join`). Set up by `bridge/sunnyAcresBridge.js`; see `bridge/README.md`. Without it the game stays offline. |
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
+| `window.gameHost.exit()` | Optional: the pause menu shows Leave game, which saves and calls it. |
+| `window.gameHost.remind(r)` | Optional: called after a save when the next ripe crop changes: `{ at: ms, title, body }`, or `null` (nothing growing, or Alerts off). |
+| `window.gameHost.now()` | Optional: the clock the game runs on (e.g. the server's); the phone's otherwise. |
 | `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
 | `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |
 | `window.__gameBack()` | Closes the top panel or dialog, otherwise opens the pause menu. Returns `true` when handled. |
@@ -494,7 +497,23 @@ scales them down. The sheets are power-of-two sized so they get mipmaps. If you 
 
 Run `npm run build` after editing.
 
-## Next up
+## In the Selebox app
 
-Wrap it as an Android/iOS app with Capacitor; play-test on real phones. The save format has a version field (`v`)
+The game runs inside the Selebox app (React Native), from the Games drawer (staff first). The app's side lives in the
+Selebox repo (`lib/sunny-acres/`, `components/sunny-acres/`, `app/(games)/sunny-acres.jsx`): the page ships as its own
+asset file, saves stay on the phone (and, with app_config `sunny_acres_cloud`, a copy on the server: new phone,
+same farm), the game runs on the server's clock (`gameHost.now`), the next ripe crop becomes a phone reminder
+(`gameHost.remind`, Alerts in the pause menu), and Leave game closes the screen (`gameHost.exit`).
+
+Taller phones get a taller view (`C.VIEW_H`, up to 820 layout px): the top bar stays at the top, the hotbar and the
+controls at the bottom, panels are centred, and the world shows more rows. The save format has a version field (`v`)
 and a migration level (`mg`).
+
+## Online safety
+
+Report (a rude farm name, messages, or something else: the server copies the evidence) and Block (a blocked player
+can't find, visit, message or friend you) from any list, a chat or a visit (More); Blocked farms under Me. Farm names
+and messages are checked against `farm.words` (edit it with SQL). A farm reported by 3 different players in 7 days
+is hidden from lists and ranks until a moderator clears it (`update farm.players set hidden = false ...`, and the
+reports' `status`). Weekly ranks are capped by the real time since Monday. `test/sql/run.sh` plays the whole SQL on a
+local Postgres (Homebrew postgresql@16).
