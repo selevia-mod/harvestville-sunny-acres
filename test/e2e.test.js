@@ -644,6 +644,31 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   await again.context.close();
 });
 
+test('Leave game shows only when the app offers gameHost.exit, and saves before leaving', async () => {
+  const { page, problems, context } = await open(await makeSave());
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'a saved farm opens with nothing in the way');
+  const labels = () => page.evaluate(() => {
+    const out = [];
+    const walk = (list) => list.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list);
+    return out;
+  });
+  await page.evaluate(() => window.__gameBack());
+  assert.ok(!(await labels()).includes('Leave game'), 'no Leave button without the app');
+  await page.evaluate(() => window.__gameBack()); // closes the pause menu
+
+  await page.evaluate(() => { window.__left = 0; window.gameHost.exit = () => { window.__left++; }; });
+  await page.evaluate(() => window.__gameBack());
+  await shot(page, '14-pause-leave');
+  const before = await page.evaluate(() => window.gameHost.saves.length);
+  await tapButton(page, 'Leave game');
+  assert.strictEqual(await page.evaluate(() => window.__left), 1);
+  assert.ok((await page.evaluate(() => window.gameHost.saves.length)) > before, 'saved before leaving');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'the pause menu closed');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('New game in the pause menu replaces a progressed farm with a fresh one', async () => {
   const progressed = await makeSave(`
     s.start = s.day - 8;

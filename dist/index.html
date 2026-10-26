@@ -8402,7 +8402,15 @@
       self.closeModal();
     }, BROWN);
     this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
-    this.button(c, W / 2, 510, 200, 42, 'New game', function () {
+    // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
+    if (window.gameHost && typeof window.gameHost.exit === 'function') {
+      this.button(c, W / 2, 466, 266, 40, 'Leave game', function () {
+        world().save();
+        self.closeModal();
+        window.gameHost.exit();
+      }, GREEN);
+    }
+    this.button(c, W / 2, 516, 200, 40, 'New game', function () {
       self.confirm('START A NEW FARM?\nYour current farm, gold, crops, animals and friendships will be gone for good.', function () {
         self.newGame();
       });
