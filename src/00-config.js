@@ -46,7 +46,7 @@
     NIGHT_START: 17 * 60,
     NIGHT_FULL: 20 * 60,
     MS_PER_MINUTE: 500, // (old game clock; time now follows the phone's clock)
-    ENERGY_EVERY: 3, // real minutes per energy point coming back by itself
+    ENERGY_EVERY: 2, // real minutes per energy point coming back by itself (owner, 26 Oct: more play per visit; was 3)
     GROW: { boost: 0.25, wither: 1, witherMin: 240 }, // watering takes 25% off the growing time; a ripe crop withers after as long again as it grew (at least 4 hours)
     MONTHS: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     SEASON_OF_MONTH: [3, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3], // Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb
@@ -79,6 +79,9 @@
     MAX_ENERGY: 100,
     START_GOLD: 300,
     INV_SIZE: 18,
+    // owner, 26 Oct: a bigger bag at Lily's (Supplies). Slots per level, and the price of the next level.
+    BAG_SIZES: [18, 24, 30],
+    BAG_PRICES: [2000, 6000],
     HOTBAR: 6,
     MAX_STACK: 99,
 

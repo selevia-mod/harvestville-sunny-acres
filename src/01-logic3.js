@@ -42,7 +42,8 @@
 
   // What one sells for: base price, the stand's instant price, or a shelf price level.
   L.basePrice = function (id) { return (C.ITEMS[id] && C.ITEMS[id].sell) || 0; };
-  L.instantPrice = function (id, n) { return Math.max(1, Math.floor(L.basePrice(id) * C.STAND.instant)) * n; };
+  L.instantShare = function () { return L.weekendMarket() ? C.WEEKEND.instant : C.STAND.instant; }; // full price on Weekend Market days
+  L.instantPrice = function (id, n) { return Math.max(1, Math.floor(L.basePrice(id) * L.instantShare())) * n; };
   L.shelfPrice = function (id, n, level) { return Math.round(L.basePrice(id) * C.STAND.prices[level].mult) * n; };
 
   // Sells n of the item in a bag slot right away. Returns the gold, or 0.

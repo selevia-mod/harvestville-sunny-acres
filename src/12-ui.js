@@ -30,7 +30,7 @@
     'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn), Rosa feeds you, Ivy sells tonics. ' +
     'The mine east of town has ore. Fish at the river or the pond.',
     'TIME, SEASONS AND FESTIVALS\n' +
-    'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every 3 minutes.\n\n' +
+    'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every ' + C.ENERGY_EVERY + ' minutes: tap the energy bar to see when it is full.\n\n' +
     'Seasons follow the months (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb), each with 10 crops. ' +
     'Festivals and birthdays are on the same dates for every player: check the calendar. With 8 hearts, the House Extension and a Blue Feather, you can propose.',
   ];

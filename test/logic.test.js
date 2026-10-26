@@ -219,6 +219,7 @@ test('worst-case save stays under 16 KB', () => {
     L.till(s, idx);
     s.soil[idx] = { w: idx % 2, c: C.CROP_KEYS[idx % 40], p: clock.min() - 2000 - idx * 7, r: 0 };
   }
+  L.resizeBag(s, 2); // the biggest bag
   s.inv = s.inv.map(() => ({ id: 'seed_strawberry', n: 99 }));
   C.CROP_KEYS.forEach((c) => s.box.push({ id: C.CROPS[c].item, n: 9999 }));
   s.gold = 999999999;
@@ -543,4 +544,47 @@ test("the first-days goals name this season's starter crop and give its seeds", 
   const t = L.newState();
   t.goal = 5;
   assert.match(L.goal(t).text, /^Harvest your turnips/);
+});
+
+test('a bigger bag: 18 -> 24 -> 30 slots at Lily\'s, kept in the save, items stay put', () => {
+  const s = L.newState();
+  assert.strictEqual(s.inv.length, 18);
+  same(L.nextBag(s), { size: 24, price: 2000 });
+  s.gold = 1000;
+  assert.strictEqual(L.upgradeBag(s), 'gold');
+  s.gold = 9000;
+  L.addItem(s, 'carrot', 7);
+  assert.strictEqual(L.upgradeBag(s), 'ok');
+  assert.strictEqual(s.inv.length, 24);
+  assert.strictEqual(s.gold, 7000);
+  assert.strictEqual(L.upgradeBag(s), 'ok');
+  assert.strictEqual(s.inv.length, 30);
+  assert.strictEqual(L.upgradeBag(s), 'max');
+  s.inv[29] = { id: 'fish_s', n: 2 };
+  s.sel = 29;
+  const back = L.deserialize(plain(L.serialize(s)));
+  assert.strictEqual(back.inv.length, 30);
+  same(back.inv[29], { id: 'fish_s', n: 2 });
+  assert.strictEqual(back.sel, 29);
+  assert.strictEqual(L.countItem(back, 'carrot'), 7);
+  const old = plain(L.serialize(L.newState()));
+  assert.strictEqual(L.deserialize(old).inv.length, 18, 'older saves keep 18');
+});
+
+test('the Weekend Market: Saturdays and Sundays the stall pays full price and seeds are 20% off', () => {
+  clock.set(2026, 10, 31, 10, 0); // a Saturday
+  const s = L.newState();
+  assert.strictEqual(L.weekendMarket(s.day), true);
+  assert.strictEqual(L.priceOf('seed_carrot', s.day), 16);
+  assert.strictEqual(L.instantPrice('carrot', 10), 50);
+  s.gold = 100;
+  assert.strictEqual(L.buy(s, 'seed_carrot', 5), 'ok');
+  assert.strictEqual(s.gold, 20);
+  clock.set(2026, 10, 28, 10, 0); // a Wednesday
+  const t = L.newState();
+  assert.strictEqual(L.weekendMarket(t.day), false);
+  assert.strictEqual(L.priceOf('seed_carrot', t.day), 20);
+  assert.strictEqual(L.instantPrice('carrot', 10), 30);
+  assert.strictEqual(L.priceOf('brush', 0), C.ITEMS.brush.price, 'only seeds are on sale');
+  clock.set(2026, 4, 1, 10, 0);
 });

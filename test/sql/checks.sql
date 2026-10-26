@@ -98,3 +98,14 @@ do $$ begin
 end $$;
 reset role; set role anon;
 do $$ begin perform farm_clock_v1(); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'signed-out users are refused'); end $$;
+-- weekly prizes: last week's top 10 per board, once
+reset role;
+insert into farm.scores (user_id, week, beauty, earned, quests)
+select p.user_id, farm.week_of(now()) - 7, k, k * 100, 0 from farm.players p, (select row_number() over () as k, user_id from farm.players) r where r.user_id = p.user_id;
+set role authenticated;
+do $$ declare n int; g int; begin
+  perform pg_temp.as_(1);
+  select count(*), coalesce(sum(gold), 0) into n, g from farm_prizes_v1();
+  perform pg_temp.ok(n = 2 and g > 0, 'last week''s prizes on 2 boards (quests were 0)');
+  perform pg_temp.ok((select count(*) from farm_prizes_v1()) = 0, 'prizes only once');
+end $$;

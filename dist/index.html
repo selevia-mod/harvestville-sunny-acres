@@ -67,7 +67,7 @@
     NIGHT_START: 17 * 60,
     NIGHT_FULL: 20 * 60,
     MS_PER_MINUTE: 500, // (old game clock; time now follows the phone's clock)
-    ENERGY_EVERY: 3, // real minutes per energy point coming back by itself
+    ENERGY_EVERY: 2, // real minutes per energy point coming back by itself (owner, 26 Oct: more play per visit; was 3)
     GROW: { boost: 0.25, wither: 1, witherMin: 240 }, // watering takes 25% off the growing time; a ripe crop withers after as long again as it grew (at least 4 hours)
     MONTHS: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     SEASON_OF_MONTH: [3, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3], // Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb
@@ -100,6 +100,9 @@
     MAX_ENERGY: 100,
     START_GOLD: 300,
     INV_SIZE: 18,
+    // owner, 26 Oct: a bigger bag at Lily's (Supplies). Slots per level, and the price of the next level.
+    BAG_SIZES: [18, 24, 30],
+    BAG_PRICES: [2000, 6000],
     HOTBAR: 6,
     MAX_STACK: 99,
 
@@ -1963,11 +1966,32 @@
     var name = C.TOOL_LEVELS[next] + ' ' + (tool === 'can' ? 'Can' : C.ITEMS[tool].name);
     var parts = [verb + ' ' + area + ' at once'];
     if (tool === 'can') parts = ['holds ' + C.TOOLS.can.capacity[next] + ' water (now ' + C.TOOLS.can.capacity[lvl] + ')', 'waters ' + area];
+    if (tool === 'sickle') parts = ['harvests ' + area + ' with one tap', 'cuts ' + area + ' when held'];
     var stump = C.DEBRIS.stump.hits, boulder = C.DEBRIS.boulder.hits;
     if (tool === 'axe' && stump[next] < stump[lvl]) parts.push('stumps in ' + stump[next] + (stump[next] > 1 ? ' swings' : ' swing'));
     if (tool === 'hammer' && boulder[next] && !boulder[lvl]) parts.push('can break boulders');
     else if (tool === 'hammer' && boulder[next] < boulder[lvl]) parts.push('boulders in ' + boulder[next] + (boulder[next] > 1 ? ' hits' : ' hit'));
     return name + ': ' + parts.join(' and ') + '; uses ' + less + '% less energy.';
+  };
+
+  // ---------- the bag ----------
+  L.bagLevel = function (s) { return Math.max(0, C.BAG_SIZES.indexOf(s.inv.length)); };
+  L.resizeBag = function (s, level) {
+    var size = C.BAG_SIZES[level] || C.INV_SIZE;
+    while (s.inv.length < size) s.inv.push(null);
+  };
+  // The next bag: { size, price }, or null at the biggest.
+  L.nextBag = function (s) {
+    var lv = L.bagLevel(s) + 1;
+    return lv < C.BAG_SIZES.length ? { size: C.BAG_SIZES[lv], price: C.BAG_PRICES[lv - 1] } : null;
+  };
+  L.upgradeBag = function (s) {
+    var next = L.nextBag(s);
+    if (!next) return 'max';
+    if (s.gold < next.price) return 'gold';
+    s.gold -= next.price;
+    L.resizeBag(s, L.bagLevel(s) + 1);
+    return 'ok';
   };
 
   L.upgradeTool = function (s, tool) {
@@ -2610,8 +2634,18 @@
     return { id: slot.id, n: slot.n, value: C.ITEMS[slot.id].sell * slot.n };
   };
 
+  // ---------- the Weekend Market (owner, 26 Oct): every Saturday and Sunday, the same for every player ----------
+  // The stall's Sell now pays the full price (not 75%) and Lily's seeds are 20% off.
+  C.WEEKEND = { instant: 1, seedOff: 0.2 };
+  L.weekendMarket = function (day) { var wd = L.date(day == null ? L.dayOf(L.clock()) : day).weekday; return wd === 6 || wd === 0; };
+  // What something costs at a shop today (seeds are cheaper on a Weekend Market day).
+  L.priceOf = function (id, day) {
+    var item = C.ITEMS[id], p = item.price;
+    return item.kind === 'seed' && L.weekendMarket(day) ? Math.max(1, Math.round(p * (1 - C.WEEKEND.seedOff))) : p;
+  };
+
   L.buy = function (s, id, qty) {
-    var cost = C.ITEMS[id].price * qty;
+    var cost = L.priceOf(id, s.day) * qty;
     if (s.gold < cost) return 'gold';
     if (!L.canAdd(s, id, qty)) return 'full';
     s.gold -= cost;
@@ -2736,7 +2770,7 @@
       earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced, born: born,
       newSeason: now.season !== before.season ? now.name : null, withered: withered, weeds: weeds,
       built: built, weather: weather, wedding: wedding, lunch: lunch,
-      festival: L.festivalOn(s.day), birthdays: L.birthdaysOn(s.day),
+      festival: L.festivalOn(s.day), birthdays: L.birthdaysOn(s.day), weekend: L.weekendMarket(s.day),
     };
   };
 
@@ -2782,6 +2816,7 @@
       s: s.sel,
       m: MAPS.indexOf(s.map),
       i: s.inv.map(function (slot) { return slot ? [slot.id, slot.n] : 0; }),
+      bg: L.bagLevel(s) || undefined,
       b: s.box.map(function (b) { return [b.id, b.n]; }),
       f: soilGroups(s),
       a: s.animals.map(function (a) {
@@ -2832,7 +2867,8 @@
     s.time = L.minuteOf(now);
     s.gold = int(o.g, 0, 1e9, C.START_GOLD);
     s.energy = int(o.e, 0, C.MAX_ENERGY, C.MAX_ENERGY);
-    s.sel = int(o.s, 0, C.INV_SIZE - 1, 0);
+    L.resizeBag(s, int(o.bg, 0, C.BAG_SIZES.length - 1, 0));
+    s.sel = int(o.s, 0, s.inv.length - 1, 0);
     s.map = MAPS[int(o.m, 0, MAPS.length - 1, 0)];
     if (s.map === 'mine') s.map = 'town'; // mine floors aren't saved; come back out at the entrance
     s.seed = int(o.sd, 0, 2e9, 1);
@@ -3382,7 +3418,8 @@
 
   // What one sells for: base price, the stand's instant price, or a shelf price level.
   L.basePrice = function (id) { return (C.ITEMS[id] && C.ITEMS[id].sell) || 0; };
-  L.instantPrice = function (id, n) { return Math.max(1, Math.floor(L.basePrice(id) * C.STAND.instant)) * n; };
+  L.instantShare = function () { return L.weekendMarket() ? C.WEEKEND.instant : C.STAND.instant; }; // full price on Weekend Market days
+  L.instantPrice = function (id, n) { return Math.max(1, Math.floor(L.basePrice(id) * L.instantShare())) * n; };
   L.shelfPrice = function (id, n, level) { return Math.round(L.basePrice(id) * C.STAND.prices[level].mult) * n; };
 
   // Sells n of the item in a bag slot right away. Returns the gold, or 0.
@@ -5927,7 +5964,7 @@
     'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn), Rosa feeds you, Ivy sells tonics. ' +
     'The mine east of town has ore. Fish at the river or the pond.',
     'TIME, SEASONS AND FESTIVALS\n' +
-    'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every 3 minutes.\n\n' +
+    'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every ' + C.ENERGY_EVERY + ' minutes: tap the energy bar to see when it is full.\n\n' +
     'Seasons follow the months (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb), each with 10 crops. ' +
     'Festivals and birthdays are on the same dates for every player: check the calendar. With 8 hearts, the House Extension and a Blue Feather, you can propose.',
   ];
@@ -7165,7 +7202,10 @@
     if (L.isRipe(soil) && !C.CROPS[soil.c].sickle) return { label: 'Harvest', icon: C.ICON.rice, /* owner: rice for every harvest */ run: function () { self.harvest(t, idx); } };
     // a crop you face says how it is doing (unless you are about to use a tool or seeds on it)
     var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
-    if (soil && soil.c && (!def || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
+    // (holding a tool that can't work a growing crop says how it is doing too: the can still waters it, the hoe
+    // still clears a withered one)
+    var toolOnCrop = def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
+    if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
       if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
     }
@@ -7405,7 +7445,7 @@
   };
 
   M.tired = function () {
-    F.ui.toast("You're too tired. Eat something, or take a break: energy comes back by itself (1 every 3 minutes).");
+    F.ui.toast("You're too tired. Eat something, or take a break: energy comes back by itself (1 every " + C.ENERGY_EVERY + ' minutes). Tap the energy bar for more.');
     sfx('nope');
   };
 
@@ -7450,16 +7490,30 @@
     this.progress('plant');
   };
 
+  // Picks the ripe crops in the Sickle's reach in one tap (owner, 26 Oct): Basic 1 tile, Copper 3 in a line, Silver a
+  // 3x3 patch, Gold 3x5, as the tools reach when charged.
   M.harvest = function (t, idx) {
-    var got = L.harvest(this.state, idx);
-    if (got === '!full') return F.ui.toast('Your bag is full!');
-    if (got[0] === '!') return;
-    this.refreshTile(idx);
-    this.puff(t, 0x93d66b, 6);
-    this.flyTile(t, C.ITEMS[got].icon);
+    var self = this, s = this.state, d = this.dirVec(), n = 0, full = false;
+    L.chargeTiles(t.x, t.y, d[0], d[1], L.toolLevel(s, 'sickle')).forEach(function (p) {
+      if (full || !self.inMap(p[0], p[1])) return;
+      var i = self.idx(p[0], p[1]), soil = s.soil[i];
+      if (!L.isRipe(soil) || C.CROPS[soil.c].sickle) return;
+      var got = L.harvest(s, i);
+      if (got === '!full') { full = true; return; }
+      if (got[0] === '!') return;
+      var at = { x: p[0], y: p[1] };
+      self.refreshTile(i);
+      self.puff(at, 0x93d66b, 6);
+      if (n < 4) self.flyTile(at, C.ITEMS[got].icon);
+      n++;
+      self.progress('harvest');
+    });
+    if (full && !n) return F.ui.toast('Your bag is full!');
+    if (!n) return;
     sfx('harvest');
+    if (n > 1) this.floatTextAt((t.x + 0.5) * T, t.y * T, '+' + n);
+    if (full) F.ui.toast('Your bag is full! Some crops are still in the field.');
     this.changed();
-    this.progress('harvest');
   };
 
   M.eat = function () {
@@ -8414,6 +8468,7 @@
         seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(', ') + '.' +
         (result.weeds ? ' Weeds sprouted in your field.' : ''));
     }
+    if (result.weekend) row('crate', 'Weekend Market! The stall pays the full price for Sell now, and Lily\'s seeds are ' + Math.round(C.WEEKEND.seedOff * 100) + '% off.');
     if (result.festival) row('calendar', 'Today is the ' + result.festival.name + '! ' + result.festival.desc + ' (Town plaza, ' + L.formatTime(result.festival.from) + ' to ' + L.formatTime(result.festival.to) + '.)');
     if (result.birthdays && result.birthdays.length) row('gift', "It's " + names(result.birthdays) + "'s birthday. A gift today counts double!");
     var w = C.WEATHER[result.weather];
@@ -8555,16 +8610,18 @@
   M.openInventory = function () {
     var self = this, s = F.session.state;
     var c = this.openModal();
-    this.panelImg(c, 14, 104, W - 28, 430);
-    c.add(this.txt(W / 2, 122, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 160;
+    // a bigger bag (Lily's Supplies) adds rows: everything below the slots moves down with them
+    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(s.inv.length / cols);
+    var extra = (rowsN - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 56, dy = y0 - 160 + extra;
+    this.panelImg(c, 14, top, W - 28, 430 + extra);
+    c.add(this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     var widgets = [];
-    var name = this.txt(W / 2, 318, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var desc = this.txt(W / 2, 342, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
-    var mats = this.txt(W / 2, 404, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var note = this.txt(W / 2, 428, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+    var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+    var mats = this.txt(W / 2, 404 + dy, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
+    var note = this.txt(W / 2, 428 + dy, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
-    for (var i = 0; i < C.INV_SIZE; i++) {
+    for (var i = 0; i < s.inv.length; i++) {
       (function (i) {
         var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
@@ -8576,11 +8633,11 @@
         }));
       })(i);
     }
-    var eatBtn = this.button(c, W / 2 - 64, 488, 110, 42, 'Eat', function () {
+    var eatBtn = this.button(c, W / 2 - 64, 488 + dy, 110, 42, 'Eat', function () {
       world().eat();
       self.refresh();
     }, BLUE);
-    this.button(c, W / 2 + 64, 488, 110, 42, 'Close', function () { self.closeModal(); });
+    this.button(c, W / 2 + 64, 488 + dy, 110, 42, 'Close', function () { self.closeModal(); });
     this.invRefresh = function () {
       widgets.forEach(function (w, i) { self.drawSlot(w, s.inv[i], s.sel === i); });
       var held = L.held(s);
@@ -8600,7 +8657,7 @@
     var self = this, s = F.session.state, item = C.ITEMS[id];
     return qtys.map(function (qty, k) {
       return {
-        label: (qty > 1 ? 'Buy ' + qty : 'Buy') + ' ' + item.price * qty + 'G', color: k ? BLUE : GREEN,
+        label: (qty > 1 ? 'Buy ' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
         cb: function () {
           if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
           var r = L.buy(s, id, qty);
@@ -8649,12 +8706,30 @@
       });
       C.SHOP_FEED.forEach(function (id) { rows.push(itemRow(id, [1, 5])); });
     } else {
+      var bag = L.nextBag(s);
+      if (bag) {
+        rows.push({
+          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.',
+          buttons: [{
+            label: 'Buy ' + bag.price + 'G', cb: function () {
+              var r = L.upgradeBag(s);
+              if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+              sfx('coin');
+              world().changed();
+              world().save();
+              self.closeModal();
+              self.openShop('supplies');
+              self.toast('Your bag holds ' + s.inv.length + ' things now!', 2400, 0x2f5a22);
+            },
+          }],
+        });
+      }
       C.SHOP_SUPPLIES.forEach(function (id) { rows.push(itemRow(id, [1])); });
     }
     o = this.listPanel({
       title: "Lily's Seed Stand", tab: tab, page: page,
       tabs: [['seeds', 'Seeds'], ['animals', 'Animals'], ['supplies', 'Supplies']],
-      sub: function () { return 'You have ' + s.gold + 'G'; },
+      sub: function () { return 'You have ' + s.gold + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
       rows: rows, reopen: this.openShop.bind(this), talk: 'lily',
       empty: 'LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, see the Animals tab for feed.',
     });
@@ -8994,7 +9069,8 @@
       bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
     }
     var rows = Math.ceil((lead + n) / 7);
-    c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n') || 'No events this month.', 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
+    events.push('Every Sat & Sun  Weekend Market');
+    c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n'), 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
     if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'Back', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
     if (offset < 11) this.button(c, W / 2 + 80, 556, 130, 38, 'Next month', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
   };
@@ -9150,7 +9226,7 @@
       });
       c.add(z);
     });
-    c.add(this.txt(W / 2, top + 3 * (ch + 10) + 2, 'Sell now pays ' + Math.round(C.STAND.instant * 100) + '%.  Shelves pay up to ' + Math.round(C.STAND.prices[2].mult * 100) + '%, but take time.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, top + 3 * (ch + 10) + 2, (L.weekendMarket() ? 'WEEKEND MARKET: Sell now pays the full price!  Shelves up to ' : 'Sell now pays ' + Math.round(C.STAND.instant * 100) + '%.  Shelves pay up to ') + '' + Math.round(C.STAND.prices[2].mult * 100) + '%, but take time.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0));
   };
 
   M.collectStand = function () {
@@ -12045,7 +12121,9 @@
     this.questBadge.setVisible(n > 0);
     this.questBadgeText.setVisible(n > 0).setText(n > 9 ? '9+' : String(n));
     this.questBtn.setVisible(!this.decorating);
-    if (!quiet() && !this.loginShown && !this.blocking() && !(F.world && F.world.busy) && L.loginGift(s, today)) {
+    // a brand-new farmer gets the daily gift after their first goal, not over the welcome
+    var settled = s.goal >= 1 || !L.goal(s);
+    if (!quiet() && settled && !this.loginShown && !this.blocking() && !(F.world && F.world.busy) && L.loginGift(s, today)) {
       this.loginShown = true;
       this.showLoginGift();
     }
@@ -12309,7 +12387,7 @@
         O.blocked = {};
         (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
       }, noop);
-      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.me; });
+      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); }).then(function () { return O.me; });
     });
   };
 
@@ -12355,6 +12433,32 @@
       if (F.ui) F.ui.toast('Visitors left you gifts: ' + got + '!' + (from.length ? '\nFrom ' + from.slice(0, 4).join(', ') + (from.length > 4 ? ' and more.' : '.') : ''), 3600, 0x7a4d12);
       return { gold: gold, stars: stars };
     }).catch(function (e) { if (!auto && F.ui) F.ui.toast(errText(e)); return null; });
+  };
+
+  // Last week's rank prizes (top 10 on each board), claimed once when the game opens: a panel says what was won.
+  var BOARD = { beauty: 'Home Beauty', earned: 'Gold earned', quests: 'Daily quests done' };
+  O.prizes = function () {
+    return F.Net.rpc('farm_prizes_v1', {}).then(function (list) {
+      var won = (Array.isArray(list) ? list : []).filter(function (p) { return p && BOARD[p.kind]; });
+      if (!won.length) return null;
+      var s = F.session.state, gold = 0, stars = 0;
+      won.forEach(function (p) { gold += Math.max(0, Math.min(10000, Number(p.gold) || 0)); stars += Math.max(0, Math.min(10, Number(p.stars) || 0)); });
+      s.gold += gold;
+      s.stars += stars;
+      F.Host.save(s);
+      F.bus.emit('hud');
+      sfx('coin');
+      var show = function () {
+        if (!F.ui || F.ui.modals.length) return setTimeout(show, 1500);
+        F.ui.dialog('LAST WEEK\'S PRIZES', null, {
+          rows: won.map(function (p) {
+            return [C.ICON.ribbon, '#' + p.rank + ' in ' + BOARD[p.kind] + ': +' + String(p.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G and ' + p.stars + (p.stars > 1 ? ' Sunbeams' : ' Sunbeam')];
+          }),
+        });
+      };
+      show();
+      return won;
+    }).catch(function () { return null; });
   };
 
   // ---------- the live channel ----------
@@ -12906,14 +13010,16 @@
       var k = this.onlineKind.ranks;
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
-          var mine = !!r.me;
+          var mine = !!r.me, rk = Number(r.rank) || 0;
+          var prize = rk >= 1 && rk <= 10 ? { gold: [5000, 3000, 2000][rk - 1] || 1000, stars: [5, 3, 2][rk - 1] || 1 } : null;
           return {
+            reward: prize, rewardPrefix: prize ? 'Prize' : null,
             icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
             desc: kindName('ranks', k) + ': ' + (Number(r.score) || 0) + (k === 'earned' ? 'G' : '') + ' this week.',
             buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }, more(String(r.id), name(r.farm_name), 'ranks')],
           };
         }));
-        show(rows, 'This week\'s best. A new week starts Monday.', null);
+        show(rows, 'Top 10 win prizes every Monday!', null);
       }).catch(fail);
     } else {
       var me = O.me;
@@ -13390,11 +13496,31 @@
     this.energyBar = this.add.image(BAR.x, cy - BAR.h / 2, this.energyFills[2]).setOrigin(0).setScale(1 / F.R);
     this.add.image(150, cy, 'items', C.ICON.bolt).setScale(0.25);
     this.energyText = this.txt(BAR.x + BAR.w / 2, cy, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+    // tap the energy chip: when it is full, and where to get more
+    var ez = this.add.zone(150 + 38, cy, 96, h + 8).setInteractive({ useHandCursor: true });
+    ez.on('pointerup', function () { if (!self.modals.length) self.openEnergy(); });
     // gold: the coin on the chip's edge, the amount right-aligned
     this.add.image(250, cy, 'items', C.ICON.coin).setScale(0.32);
     this.goldText = this.txt(313, cy, '', 15, '#7a4d12', { fontStyle: 'bold' }).setOrigin(1, 0.5);
     // pause: a round wooden button
     this.pauseBtn = this.roundButton(null, 340, cy, 17, WOOD, 'pause', null, function () { if (!self.modals.length) self.openPause(); });
+  };
+
+  // Energy: now, when the next point comes, when it is full, and the ways to get more.
+  U.openEnergy = function () {
+    var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
+    var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
+    var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * C.ENERGY_EVERY + (C.ENERGY_EVERY - (now - s.regen))) + '.';
+    this.dialog('Energy ' + e + ' / ' + max, null, {
+      rows: [
+        [C.ICON.bolt, head],
+        [C.ICON.moon, 'It comes back by itself: 1 point every ' + C.ENERGY_EVERY + ' minutes, even while the game is closed.'],
+        [C.ICON.carrot, 'Eat crops, eggs, fish or dishes from your bag: tap the button with nothing in front of you.'],
+        [C.ICON.lunch, 'Rosa\'s Inn and Ivy\'s Clinic in town sell food and tonics. A kitchen lets you cook big meals.'],
+        [C.ICON.sparkle, 'A lovelier home raises your max energy (Home Beauty).'],
+        [C.ICON.heart, 'Planting, harvesting, selling, talking and visiting farms cost no energy.'],
+      ],
+    });
   };
 
   // Fits a text into a width (shrinks it, never grows it).

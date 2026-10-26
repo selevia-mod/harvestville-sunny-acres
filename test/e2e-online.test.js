@@ -382,5 +382,24 @@ test('online: keeping it friendly: rude words refused, report and block, unblock
   for (const p of [owner, troll]) await p.context.close();
 });
 
+test('online: last week\'s rank prizes are claimed once, and the Ranks tab shows the prizes', async () => {
+  const server = createServer();
+  const me = await open(server);
+  await nameFarm(me.page, 'Prize Farm');
+  const before = await me.page.evaluate(() => ({ g: Farm.session.state.gold, st: Farm.session.state.stars }));
+  server.db.prizes = { [me.uid]: [{ kind: 'beauty', rank: 1, gold: 5000, stars: 5, week: '2026-10-19' }, { kind: 'quests', rank: 7, gold: 1000, stars: 1, week: '2026-10-19' }] };
+  await me.page.evaluate(() => Farm.Online.prizes());
+  await waitModal(me.page, /LAST WEEK'S PRIZES.*#1 in Home Beauty: \+5,000G and 5 Sunbeams.*#7 in Daily quests done/);
+  await shot(me.page, 'online-11-prizes');
+  const after = await me.page.evaluate(() => ({ g: Farm.session.state.gold, st: Farm.session.state.stars }));
+  assert.deepStrictEqual(after, { g: before.g + 6000, st: before.st + 6 });
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  assert.strictEqual(await me.page.evaluate(() => Farm.Online.prizes().then((w) => w)), null, 'only once');
+  await me.page.evaluate(() => Farm.ui.openOnline('ranks', 0));
+  await waitModal(me.page, /Top 10 win prizes every Monday!.*Prize/);
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
 // the name box comes up after signing in
 async function page_waitAsk(page) { await page.waitForSelector('#farm-ask input', SLOW); }

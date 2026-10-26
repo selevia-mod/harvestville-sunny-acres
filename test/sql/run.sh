@@ -14,4 +14,5 @@ P="$PG/psql -h 127.0.0.1 -p $PORT -U postgres -v ON_ERROR_STOP=1 -q"
 $P -c "create database t"
 $P -d t -f "$ROOT/test/sql/stubs.sql"
 $P -d t -1 -f "$ROOT/supabase/farm_online.sql"
+$P -d t -1 -f "$ROOT/supabase/farm_online_2.sql"
 $P -d t -f "$ROOT/test/sql/checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'

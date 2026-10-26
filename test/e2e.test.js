@@ -1387,6 +1387,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
 test('phase 3: the daily gift, claiming a quest, a request on the board, the trader, a Power-Up', async () => {
   const TUE = [2026, 4, 7, 10, 0]; // a Tuesday: a trader day
   const save = await makeSave(`
+    s.goal = 1; // past the first goal: a brand-new farmer gets the gift after it
     s.gold = 1000;
     s.energy = 30;
     L.addItem(s, 'gem', 5);

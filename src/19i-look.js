@@ -208,11 +208,31 @@
     this.energyBar = this.add.image(BAR.x, cy - BAR.h / 2, this.energyFills[2]).setOrigin(0).setScale(1 / F.R);
     this.add.image(150, cy, 'items', C.ICON.bolt).setScale(0.25);
     this.energyText = this.txt(BAR.x + BAR.w / 2, cy, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+    // tap the energy chip: when it is full, and where to get more
+    var ez = this.add.zone(150 + 38, cy, 96, h + 8).setInteractive({ useHandCursor: true });
+    ez.on('pointerup', function () { if (!self.modals.length) self.openEnergy(); });
     // gold: the coin on the chip's edge, the amount right-aligned
     this.add.image(250, cy, 'items', C.ICON.coin).setScale(0.32);
     this.goldText = this.txt(313, cy, '', 15, '#7a4d12', { fontStyle: 'bold' }).setOrigin(1, 0.5);
     // pause: a round wooden button
     this.pauseBtn = this.roundButton(null, 340, cy, 17, WOOD, 'pause', null, function () { if (!self.modals.length) self.openPause(); });
+  };
+
+  // Energy: now, when the next point comes, when it is full, and the ways to get more.
+  U.openEnergy = function () {
+    var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
+    var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
+    var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * C.ENERGY_EVERY + (C.ENERGY_EVERY - (now - s.regen))) + '.';
+    this.dialog('Energy ' + e + ' / ' + max, null, {
+      rows: [
+        [C.ICON.bolt, head],
+        [C.ICON.moon, 'It comes back by itself: 1 point every ' + C.ENERGY_EVERY + ' minutes, even while the game is closed.'],
+        [C.ICON.carrot, 'Eat crops, eggs, fish or dishes from your bag: tap the button with nothing in front of you.'],
+        [C.ICON.lunch, 'Rosa\'s Inn and Ivy\'s Clinic in town sell food and tonics. A kitchen lets you cook big meals.'],
+        [C.ICON.sparkle, 'A lovelier home raises your max energy (Home Beauty).'],
+        [C.ICON.heart, 'Planting, harvesting, selling, talking and visiting farms cost no energy.'],
+      ],
+    });
   };
 
   // Fits a text into a width (shrinks it, never grows it).

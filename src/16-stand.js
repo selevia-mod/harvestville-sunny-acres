@@ -105,7 +105,7 @@
       });
       c.add(z);
     });
-    c.add(this.txt(W / 2, top + 3 * (ch + 10) + 2, 'Sell now pays ' + Math.round(C.STAND.instant * 100) + '%.  Shelves pay up to ' + Math.round(C.STAND.prices[2].mult * 100) + '%, but take time.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, top + 3 * (ch + 10) + 2, (L.weekendMarket() ? 'WEEKEND MARKET: Sell now pays the full price!  Shelves up to ' : 'Sell now pays ' + Math.round(C.STAND.instant * 100) + '%.  Shelves pay up to ') + '' + Math.round(C.STAND.prices[2].mult * 100) + '%, but take time.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0));
   };
 
   M.collectStand = function () {

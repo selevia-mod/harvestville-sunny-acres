@@ -169,7 +169,10 @@
     if (L.isRipe(soil) && !C.CROPS[soil.c].sickle) return { label: 'Harvest', icon: C.ICON.rice, /* owner: rice for every harvest */ run: function () { self.harvest(t, idx); } };
     // a crop you face says how it is doing (unless you are about to use a tool or seeds on it)
     var cropName = soil && soil.c ? C.ITEMS[C.CROPS[soil.c].item].name : '';
-    if (soil && soil.c && (!def || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
+    // (holding a tool that can't work a growing crop says how it is doing too: the can still waters it, the hoe
+    // still clears a withered one)
+    var toolOnCrop = def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
+    if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
       if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
     }
@@ -409,7 +412,7 @@
   };
 
   M.tired = function () {
-    F.ui.toast("You're too tired. Eat something, or take a break: energy comes back by itself (1 every 3 minutes).");
+    F.ui.toast("You're too tired. Eat something, or take a break: energy comes back by itself (1 every " + C.ENERGY_EVERY + ' minutes). Tap the energy bar for more.');
     sfx('nope');
   };
 
@@ -454,16 +457,30 @@
     this.progress('plant');
   };
 
+  // Picks the ripe crops in the Sickle's reach in one tap (owner, 26 Oct): Basic 1 tile, Copper 3 in a line, Silver a
+  // 3x3 patch, Gold 3x5, as the tools reach when charged.
   M.harvest = function (t, idx) {
-    var got = L.harvest(this.state, idx);
-    if (got === '!full') return F.ui.toast('Your bag is full!');
-    if (got[0] === '!') return;
-    this.refreshTile(idx);
-    this.puff(t, 0x93d66b, 6);
-    this.flyTile(t, C.ITEMS[got].icon);
+    var self = this, s = this.state, d = this.dirVec(), n = 0, full = false;
+    L.chargeTiles(t.x, t.y, d[0], d[1], L.toolLevel(s, 'sickle')).forEach(function (p) {
+      if (full || !self.inMap(p[0], p[1])) return;
+      var i = self.idx(p[0], p[1]), soil = s.soil[i];
+      if (!L.isRipe(soil) || C.CROPS[soil.c].sickle) return;
+      var got = L.harvest(s, i);
+      if (got === '!full') { full = true; return; }
+      if (got[0] === '!') return;
+      var at = { x: p[0], y: p[1] };
+      self.refreshTile(i);
+      self.puff(at, 0x93d66b, 6);
+      if (n < 4) self.flyTile(at, C.ITEMS[got].icon);
+      n++;
+      self.progress('harvest');
+    });
+    if (full && !n) return F.ui.toast('Your bag is full!');
+    if (!n) return;
     sfx('harvest');
+    if (n > 1) this.floatTextAt((t.x + 0.5) * T, t.y * T, '+' + n);
+    if (full) F.ui.toast('Your bag is full! Some crops are still in the field.');
     this.changed();
-    this.progress('harvest');
   };
 
   M.eat = function () {

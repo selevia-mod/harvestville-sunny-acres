@@ -206,7 +206,9 @@
     this.questBadge.setVisible(n > 0);
     this.questBadgeText.setVisible(n > 0).setText(n > 9 ? '9+' : String(n));
     this.questBtn.setVisible(!this.decorating);
-    if (!quiet() && !this.loginShown && !this.blocking() && !(F.world && F.world.busy) && L.loginGift(s, today)) {
+    // a brand-new farmer gets the daily gift after their first goal, not over the welcome
+    var settled = s.goal >= 1 || !L.goal(s);
+    if (!quiet() && settled && !this.loginShown && !this.blocking() && !(F.world && F.world.busy) && L.loginGift(s, today)) {
       this.loginShown = true;
       this.showLoginGift();
     }

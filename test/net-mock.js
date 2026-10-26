@@ -158,6 +158,7 @@ function createServer() {
       db.reports.push({ by: uid, target: a.p_target, reason: a.p_reason, note: a.p_note || null });
       return 'ok';
     },
+    farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
   };
 

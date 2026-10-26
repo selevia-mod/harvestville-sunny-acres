@@ -98,7 +98,7 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   3×3, then 3×5.
 - **Watering can:** it holds 20 waters, up to 60 at Gold. Each tile costs 2 energy with the basic can, less with
   upgrades.
-- **Energy** comes back by itself: 1 point every 3 minutes (full in about 5 hours), also while the game is
+- **Energy** comes back by itself: 1 point every 2 minutes (full in about 3 hours; tap the energy bar to see when), also while the game is
   closed. Sleeping does not refill it. A nicer home raises the maximum.
 - **Food:** eat food to restore energy (tap Eat with it in hand, or from the bag). With a **kitchen** you cook 9
   recipes from your crops, eggs, milk, fish and mushrooms. Rosa's inn and Ivy's clinic sell meals and tonics.

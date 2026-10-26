@@ -80,7 +80,7 @@
         O.blocked = {};
         (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
       }, noop);
-      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.me; });
+      return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); }).then(function () { return O.me; });
     });
   };
 
@@ -126,6 +126,32 @@
       if (F.ui) F.ui.toast('Visitors left you gifts: ' + got + '!' + (from.length ? '\nFrom ' + from.slice(0, 4).join(', ') + (from.length > 4 ? ' and more.' : '.') : ''), 3600, 0x7a4d12);
       return { gold: gold, stars: stars };
     }).catch(function (e) { if (!auto && F.ui) F.ui.toast(errText(e)); return null; });
+  };
+
+  // Last week's rank prizes (top 10 on each board), claimed once when the game opens: a panel says what was won.
+  var BOARD = { beauty: 'Home Beauty', earned: 'Gold earned', quests: 'Daily quests done' };
+  O.prizes = function () {
+    return F.Net.rpc('farm_prizes_v1', {}).then(function (list) {
+      var won = (Array.isArray(list) ? list : []).filter(function (p) { return p && BOARD[p.kind]; });
+      if (!won.length) return null;
+      var s = F.session.state, gold = 0, stars = 0;
+      won.forEach(function (p) { gold += Math.max(0, Math.min(10000, Number(p.gold) || 0)); stars += Math.max(0, Math.min(10, Number(p.stars) || 0)); });
+      s.gold += gold;
+      s.stars += stars;
+      F.Host.save(s);
+      F.bus.emit('hud');
+      sfx('coin');
+      var show = function () {
+        if (!F.ui || F.ui.modals.length) return setTimeout(show, 1500);
+        F.ui.dialog('LAST WEEK\'S PRIZES', null, {
+          rows: won.map(function (p) {
+            return [C.ICON.ribbon, '#' + p.rank + ' in ' + BOARD[p.kind] + ': +' + String(p.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G and ' + p.stars + (p.stars > 1 ? ' Sunbeams' : ' Sunbeam')];
+          }),
+        });
+      };
+      show();
+      return won;
+    }).catch(function () { return null; });
   };
 
   // ---------- the live channel ----------
@@ -677,14 +703,16 @@
       var k = this.onlineKind.ranks;
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
-          var mine = !!r.me;
+          var mine = !!r.me, rk = Number(r.rank) || 0;
+          var prize = rk >= 1 && rk <= 10 ? { gold: [5000, 3000, 2000][rk - 1] || 1000, stars: [5, 3, 2][rk - 1] || 1 } : null;
           return {
+            reward: prize, rewardPrefix: prize ? 'Prize' : null,
             icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
             desc: kindName('ranks', k) + ': ' + (Number(r.score) || 0) + (k === 'earned' ? 'G' : '') + ' this week.',
             buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }, more(String(r.id), name(r.farm_name), 'ranks')],
           };
         }));
-        show(rows, 'This week\'s best. A new week starts Monday.', null);
+        show(rows, 'Top 10 win prizes every Monday!', null);
       }).catch(fail);
     } else {
       var me = O.me;

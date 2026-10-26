@@ -109,6 +109,7 @@
         seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(', ') + '.' +
         (result.weeds ? ' Weeds sprouted in your field.' : ''));
     }
+    if (result.weekend) row('crate', 'Weekend Market! The stall pays the full price for Sell now, and Lily\'s seeds are ' + Math.round(C.WEEKEND.seedOff * 100) + '% off.');
     if (result.festival) row('calendar', 'Today is the ' + result.festival.name + '! ' + result.festival.desc + ' (Town plaza, ' + L.formatTime(result.festival.from) + ' to ' + L.formatTime(result.festival.to) + '.)');
     if (result.birthdays && result.birthdays.length) row('gift', "It's " + names(result.birthdays) + "'s birthday. A gift today counts double!");
     var w = C.WEATHER[result.weather];
@@ -250,16 +251,18 @@
   M.openInventory = function () {
     var self = this, s = F.session.state;
     var c = this.openModal();
-    this.panelImg(c, 14, 104, W - 28, 430);
-    c.add(this.txt(W / 2, 122, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 160;
+    // a bigger bag (Lily's Supplies) adds rows: everything below the slots moves down with them
+    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(s.inv.length / cols);
+    var extra = (rowsN - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 56, dy = y0 - 160 + extra;
+    this.panelImg(c, 14, top, W - 28, 430 + extra);
+    c.add(this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     var widgets = [];
-    var name = this.txt(W / 2, 318, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var desc = this.txt(W / 2, 342, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
-    var mats = this.txt(W / 2, 404, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var note = this.txt(W / 2, 428, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+    var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+    var mats = this.txt(W / 2, 404 + dy, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
+    var note = this.txt(W / 2, 428 + dy, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
-    for (var i = 0; i < C.INV_SIZE; i++) {
+    for (var i = 0; i < s.inv.length; i++) {
       (function (i) {
         var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
@@ -271,11 +274,11 @@
         }));
       })(i);
     }
-    var eatBtn = this.button(c, W / 2 - 64, 488, 110, 42, 'Eat', function () {
+    var eatBtn = this.button(c, W / 2 - 64, 488 + dy, 110, 42, 'Eat', function () {
       world().eat();
       self.refresh();
     }, BLUE);
-    this.button(c, W / 2 + 64, 488, 110, 42, 'Close', function () { self.closeModal(); });
+    this.button(c, W / 2 + 64, 488 + dy, 110, 42, 'Close', function () { self.closeModal(); });
     this.invRefresh = function () {
       widgets.forEach(function (w, i) { self.drawSlot(w, s.inv[i], s.sel === i); });
       var held = L.held(s);
@@ -295,7 +298,7 @@
     var self = this, s = F.session.state, item = C.ITEMS[id];
     return qtys.map(function (qty, k) {
       return {
-        label: (qty > 1 ? 'Buy ' + qty : 'Buy') + ' ' + item.price * qty + 'G', color: k ? BLUE : GREEN,
+        label: (qty > 1 ? 'Buy ' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
         cb: function () {
           if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
           var r = L.buy(s, id, qty);
@@ -344,12 +347,30 @@
       });
       C.SHOP_FEED.forEach(function (id) { rows.push(itemRow(id, [1, 5])); });
     } else {
+      var bag = L.nextBag(s);
+      if (bag) {
+        rows.push({
+          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.',
+          buttons: [{
+            label: 'Buy ' + bag.price + 'G', cb: function () {
+              var r = L.upgradeBag(s);
+              if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+              sfx('coin');
+              world().changed();
+              world().save();
+              self.closeModal();
+              self.openShop('supplies');
+              self.toast('Your bag holds ' + s.inv.length + ' things now!', 2400, 0x2f5a22);
+            },
+          }],
+        });
+      }
       C.SHOP_SUPPLIES.forEach(function (id) { rows.push(itemRow(id, [1])); });
     }
     o = this.listPanel({
       title: "Lily's Seed Stand", tab: tab, page: page,
       tabs: [['seeds', 'Seeds'], ['animals', 'Animals'], ['supplies', 'Supplies']],
-      sub: function () { return 'You have ' + s.gold + 'G'; },
+      sub: function () { return 'You have ' + s.gold + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
       rows: rows, reopen: this.openShop.bind(this), talk: 'lily',
       empty: 'LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, see the Animals tab for feed.',
     });
@@ -689,7 +710,8 @@
       bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
     }
     var rows = Math.ceil((lead + n) / 7);
-    c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n') || 'No events this month.', 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
+    events.push('Every Sat & Sun  Weekend Market');
+    c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n'), 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
     if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'Back', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
     if (offset < 11) this.button(c, W / 2 + 80, 556, 130, 38, 'Next month', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
   };

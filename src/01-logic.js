@@ -289,11 +289,32 @@
     var name = C.TOOL_LEVELS[next] + ' ' + (tool === 'can' ? 'Can' : C.ITEMS[tool].name);
     var parts = [verb + ' ' + area + ' at once'];
     if (tool === 'can') parts = ['holds ' + C.TOOLS.can.capacity[next] + ' water (now ' + C.TOOLS.can.capacity[lvl] + ')', 'waters ' + area];
+    if (tool === 'sickle') parts = ['harvests ' + area + ' with one tap', 'cuts ' + area + ' when held'];
     var stump = C.DEBRIS.stump.hits, boulder = C.DEBRIS.boulder.hits;
     if (tool === 'axe' && stump[next] < stump[lvl]) parts.push('stumps in ' + stump[next] + (stump[next] > 1 ? ' swings' : ' swing'));
     if (tool === 'hammer' && boulder[next] && !boulder[lvl]) parts.push('can break boulders');
     else if (tool === 'hammer' && boulder[next] < boulder[lvl]) parts.push('boulders in ' + boulder[next] + (boulder[next] > 1 ? ' hits' : ' hit'));
     return name + ': ' + parts.join(' and ') + '; uses ' + less + '% less energy.';
+  };
+
+  // ---------- the bag ----------
+  L.bagLevel = function (s) { return Math.max(0, C.BAG_SIZES.indexOf(s.inv.length)); };
+  L.resizeBag = function (s, level) {
+    var size = C.BAG_SIZES[level] || C.INV_SIZE;
+    while (s.inv.length < size) s.inv.push(null);
+  };
+  // The next bag: { size, price }, or null at the biggest.
+  L.nextBag = function (s) {
+    var lv = L.bagLevel(s) + 1;
+    return lv < C.BAG_SIZES.length ? { size: C.BAG_SIZES[lv], price: C.BAG_PRICES[lv - 1] } : null;
+  };
+  L.upgradeBag = function (s) {
+    var next = L.nextBag(s);
+    if (!next) return 'max';
+    if (s.gold < next.price) return 'gold';
+    s.gold -= next.price;
+    L.resizeBag(s, L.bagLevel(s) + 1);
+    return 'ok';
   };
 
   L.upgradeTool = function (s, tool) {
@@ -936,8 +957,18 @@
     return { id: slot.id, n: slot.n, value: C.ITEMS[slot.id].sell * slot.n };
   };
 
+  // ---------- the Weekend Market (owner, 26 Oct): every Saturday and Sunday, the same for every player ----------
+  // The stall's Sell now pays the full price (not 75%) and Lily's seeds are 20% off.
+  C.WEEKEND = { instant: 1, seedOff: 0.2 };
+  L.weekendMarket = function (day) { var wd = L.date(day == null ? L.dayOf(L.clock()) : day).weekday; return wd === 6 || wd === 0; };
+  // What something costs at a shop today (seeds are cheaper on a Weekend Market day).
+  L.priceOf = function (id, day) {
+    var item = C.ITEMS[id], p = item.price;
+    return item.kind === 'seed' && L.weekendMarket(day) ? Math.max(1, Math.round(p * (1 - C.WEEKEND.seedOff))) : p;
+  };
+
   L.buy = function (s, id, qty) {
-    var cost = C.ITEMS[id].price * qty;
+    var cost = L.priceOf(id, s.day) * qty;
     if (s.gold < cost) return 'gold';
     if (!L.canAdd(s, id, qty)) return 'full';
     s.gold -= cost;
@@ -1062,7 +1093,7 @@
       earned: earned, shipped: shipped, passedOut: !!passedOut, hungry: hungry, produced: produced, born: born,
       newSeason: now.season !== before.season ? now.name : null, withered: withered, weeds: weeds,
       built: built, weather: weather, wedding: wedding, lunch: lunch,
-      festival: L.festivalOn(s.day), birthdays: L.birthdaysOn(s.day),
+      festival: L.festivalOn(s.day), birthdays: L.birthdaysOn(s.day), weekend: L.weekendMarket(s.day),
     };
   };
 
@@ -1108,6 +1139,7 @@
       s: s.sel,
       m: MAPS.indexOf(s.map),
       i: s.inv.map(function (slot) { return slot ? [slot.id, slot.n] : 0; }),
+      bg: L.bagLevel(s) || undefined,
       b: s.box.map(function (b) { return [b.id, b.n]; }),
       f: soilGroups(s),
       a: s.animals.map(function (a) {
@@ -1158,7 +1190,8 @@
     s.time = L.minuteOf(now);
     s.gold = int(o.g, 0, 1e9, C.START_GOLD);
     s.energy = int(o.e, 0, C.MAX_ENERGY, C.MAX_ENERGY);
-    s.sel = int(o.s, 0, C.INV_SIZE - 1, 0);
+    L.resizeBag(s, int(o.bg, 0, C.BAG_SIZES.length - 1, 0));
+    s.sel = int(o.s, 0, s.inv.length - 1, 0);
     s.map = MAPS[int(o.m, 0, MAPS.length - 1, 0)];
     if (s.map === 'mine') s.map = 'town'; // mine floors aren't saved; come back out at the entrance
     s.seed = int(o.sd, 0, 2e9, 1);
