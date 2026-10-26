@@ -1,6 +1,6 @@
 # All new art: prompts
 
-Batches 01-07 are in (77 pictures). 6 still use my drawn placeholders: characters/trader.png, props/trader_tent.png, icons/icons_quests.png, outdoor/fences.png, outdoor/paths.png and outdoor/garden.png. Generate each one, save it under `art-src/` with the file name shown (folder included), and send them to me. Any order is fine; send them in batches.
+All 83 pictures are in (batches 01-07 and the last 6). These prompts stay here for reference and for redoing a picture.
 
 Tips:
 - Characters: 3 columns x 3 rows (row 1 facing the camera, row 2 facing away, row 3 facing left; columns: standing, left step, right step).
