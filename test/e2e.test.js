@@ -993,7 +993,7 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   assert.match(await modalText(page), /toes/);
   await tapButton(page, 'OK');
   s = await state(page);
-  assert.strictEqual(s.fest.flower, 1);
+  assert.strictEqual(s.fest.flower, 2026, 'joined this year');
   assert.strictEqual(s.friends.lily.pts, 85);
 
   // propose to Lily with the Blue Feather
