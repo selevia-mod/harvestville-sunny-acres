@@ -39,8 +39,16 @@
   };
 
   // ---------- goals ----------
+  // The season's starter seeds and their crop (a farm started in the fall plants carrots, not spring turnips).
+  L.starterSeed = function (s) { return C.STARTER_SEEDS[L.date(s.day).season] || 'seed_turnip'; };
   L.goal = function (s) {
-    return C.GOALS[s.goal] || null;
+    var g = C.GOALS[s.goal];
+    if (!g) return null;
+    var seed = L.starterSeed(s), crop = C.CROPS[C.ITEMS[seed].crop].item;
+    return Object.assign({}, g, {
+      text: g.text.replace('{crop}', C.ITEMS[crop].name.toLowerCase()),
+      reward: g.reward.item === 'starter' ? Object.assign({}, g.reward, { item: seed }) : g.reward,
+    });
   };
 
   // Counts an event toward the current goal. Returns { goal, reward } when that finishes it, else null.

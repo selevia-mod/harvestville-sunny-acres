@@ -531,3 +531,16 @@ test('the forge says what each upgrade gives', () => {
   s.tools.hoe = 3;
   assert.strictEqual(L.upgradeText(s, 'hoe'), null);
 });
+
+test("the first-days goals name this season's starter crop and give its seeds", () => {
+  clock.set(2026, 10, 26, 10, 0);
+  const s = L.newState();
+  s.goal = 1;
+  assert.strictEqual(L.goal(s).reward.item, 'seed_carrot');
+  s.goal = 5;
+  assert.match(L.goal(s).text, /^Harvest your carrots when they are ripe/);
+  clock.set(2026, 4, 1, 10, 0);
+  const t = L.newState();
+  t.goal = 5;
+  assert.match(L.goal(t).text, /^Harvest your turnips/);
+});

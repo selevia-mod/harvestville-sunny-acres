@@ -166,7 +166,7 @@
 
   // ---------- the top bar ----------
   var HUD = { y: 9, h: 40 };
-  var BAR = { x: 173, w: 60, h: 12 }; // the energy bar inside its chip
+  var BAR = { x: 168, w: 54, h: 12 }; // the energy bar inside its chip
   var WEATHER_X = 98, CHIP_END = 132; // the clock chip's second line: the date, then the weather
 
   U.buildHud = function () {
@@ -175,10 +175,10 @@
       g.fillStyle = vgrad(g, 0, 64, 'rgba(24,14,6,0.55)', 'rgba(24,14,6,0)');
       g.fillRect(0, 0, W, 64);
       chip(g, 24, y, 112, h); // clock
-      chip(g, 156, y, 86, h); // energy
-      chip(g, 262, y, 58, h); // gold
+      chip(g, 150, y, 80, h); // energy
+      chip(g, 248, y, 72, h); // gold: room for 99,999 next to the coin
       badge(g, 26, cy, 20, '#fffaea', '#e8cf98'); // the season, its icon on top
-      badge(g, 156, cy, 17, '#ffe680', '#e9a91c'); // energy
+      badge(g, 150, cy, 17, '#ffe680', '#e9a91c'); // energy
       rrect(g, BAR.x - 2, cy - BAR.h / 2 - 2, BAR.w + 4, BAR.h + 4, (BAR.h + 4) / 2);
       g.fillStyle = '#4a2c14';
       g.fill();
@@ -206,10 +206,10 @@
     };
     this.energyFills = [fill('ui-energy3-red', '#ff8a7a', '#d93a3a'), fill('ui-energy3-yellow', '#ffe680', '#e9a91c'), fill('ui-energy3-green', '#a6ef7c', '#3fa535')];
     this.energyBar = this.add.image(BAR.x, cy - BAR.h / 2, this.energyFills[2]).setOrigin(0).setScale(1 / F.R);
-    this.add.image(156, cy, 'items', C.ICON.bolt).setScale(0.25);
+    this.add.image(150, cy, 'items', C.ICON.bolt).setScale(0.25);
     this.energyText = this.txt(BAR.x + BAR.w / 2, cy, '', 10, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
     // gold: the coin on the chip's edge, the amount right-aligned
-    this.add.image(263, cy, 'items', C.ICON.coin).setScale(0.32);
+    this.add.image(250, cy, 'items', C.ICON.coin).setScale(0.32);
     this.goldText = this.txt(313, cy, '', 15, '#7a4d12', { fontStyle: 'bold' }).setOrigin(1, 0.5);
     // pause: a round wooden button
     this.pauseBtn = this.roundButton(null, 340, cy, 17, WOOD, 'pause', null, function () { if (!self.modals.length) self.openPause(); });
@@ -234,7 +234,7 @@
   // Gold as a plain number with thousands commas (the coin says what it is); 100,000 and up as "123k".
   var money = function (n) { return n < 100000 ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : Math.floor(n / 1000) + 'k'; };
   U.showGold = function (gold) {
-    var self = this, set = function (n) { self.goldText.setText(money(n)); fit(self.goldText, 44); };
+    var self = this, set = function (n) { self.goldText.setText(money(n)); fit(self.goldText, 313 - 272); };
     if (this.goldShown == null || gold <= this.goldShown) {
       if (this.goldTween) this.goldTween.remove();
       this.goldShown = gold;
