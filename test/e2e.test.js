@@ -129,6 +129,7 @@ const modalText = (page) => page.evaluate(() => {
 const state = (page) => page.evaluate(() => JSON.parse(JSON.stringify(Farm.session.state)));
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, name + '.png') }); };
 const actionLabel = (page) => page.evaluate(() => Farm.ui.actionLabel.text);
+const closeAll = async (page) => { await page.evaluate(() => Farm.ui.closeAll()); await frames(page, 2); };
 const count = (s, id) => s.inv.filter((x) => x && x.id === id).reduce((a, b) => a + b.n, 0);
 
 async function waitMap(page, key) {
@@ -485,13 +486,13 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await teleport(page, 10, 20, 'down');
   const day = (await state(page)).day;
   await page.evaluate(() => { Farm.session.state.energy = 10; });
-  await advance(page, 30); // 00:20: a new day, and 10 more energy
+  await advance(page, 30); // 00:20: a new day, and 30 minutes' worth of energy (1 every C.ENERGY_EVERY minutes)
   await page.waitForFunction((d) => Farm.session.state.day === d + 1 && !Farm.world.busy && Farm.world.player.active, day, SLOW);
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
   assert.match(await modalText(page), /A NEW DAY! APR 2/);
   await tapButton(page, 'OK');
   const s = await state(page);
-  assert.strictEqual(s.energy, 20);
+  assert.strictEqual(s.energy, 10 + Math.floor(30 / (await page.evaluate(() => Farm.Config.ENERGY_EVERY))));
   assert.strictEqual(Math.floor(s.time), 20);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'farm', 'still on the farm');
   assert.ok(Math.abs(s.player.x / 256 - 10.5) < 0.5 && Math.abs(s.player.y / 256 - 20.5) < 0.5, 'where you stood');
@@ -667,6 +668,41 @@ test('a taller phone gets a taller view: top bar at the top, controls at the bot
   await page.mouse.move(86, 652); await page.mouse.down(); await page.mouse.move(86, 700, { steps: 5 });
   await page.waitForTimeout(700); await page.mouse.up();
   assert.ok((await page.evaluate(() => Farm.world.feet().y)) > y0 + 100, 'the joystick works at the bottom');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('owner batch: one tap harvests the Sickle\'s reach; a bigger bag; the energy panel; a Weekend Market day', async () => {
+  const SAT = [2026, 10, 31, 10, 0];
+  const save = await makeSave(`
+    s.goal = 1;
+    s.gold = 9000;
+    s.tools.sickle = 2; // Silver: a 3x3 patch
+    for (let y = 13; y <= 15; y++) for (let x = 9; x <= 11; x++) s.soil[y * 38 + x] = { c: 'carrot', p: L.nowMin() - 60, w: 0, r: 0 };
+  `, SAT);
+  const { page, problems, context } = await open(save, SAT);
+  await closeAll(page);
+  await teleport(page, 10, 12, 'down');
+  assert.strictEqual(await actionLabel(page), 'Harvest');
+  await tapAction(page);
+  assert.strictEqual(count(await state(page), 'carrot'), 9, 'a Silver Sickle harvests the 3x3 patch in one tap');
+  // the energy panel
+  await page.touchscreen.tap(188, 29);
+  await frames(page, 4);
+  assert.match(await modalText(page), /Energy \d+ \/ \d+.*1 point every 2 minutes/);
+  await shot(page, '35-energy');
+  await closeAll(page);
+  // Weekend Market: Lily's seeds 20% off; a bigger bag in Supplies
+  await page.evaluate(() => Farm.ui.openShop('seeds'));
+  assert.match(await modalText(page), /Weekend Market: seeds 20% off!.*Buy 16G/);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openShop('supplies'));
+  await tapButton(page, 'Buy 2000G');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.inv.length), 24);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openInventory());
+  await shot(page, '36-bag-24');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

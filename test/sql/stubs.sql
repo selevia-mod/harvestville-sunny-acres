@@ -7,3 +7,22 @@ grant select, insert on realtime.messages to authenticated; grant usage on schem
 create function realtime.topic() returns text language sql stable as $$ select current_setting('realtime.topic', true) $$;
 grant execute on function realtime.topic() to authenticated;
 create table public.profiles (auth_user_id uuid, is_banned boolean, suspended_until timestamptz, display_name text, username text);
+-- Selebox's notifications, push policy and push text (only what farm_online_2.sql touches)
+create table public.app_config (key text primary key, value text, description text, updated_at timestamptz not null default now());
+create table public.notifications (id uuid primary key default gen_random_uuid(), recipient_id uuid not null, actor_id uuid, type text not null,
+  target_type text, message text, metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default now());
+create table public.notification_push_policy (type text primary key, push_enabled boolean, note text, updated_at timestamptz not null default now());
+alter table public.profiles add column id uuid default gen_random_uuid();
+create function public.notification_push_copy_v1(p_ids uuid[]) returns table (notification_id uuid, title text, body text)
+language plpgsql stable as $$
+begin
+  return query with t as (select n.id, n.type, n.metadata as m from public.notifications n where n.id = any (p_ids))
+  select t.id,
+    case t.type
+        when 'book_suggestion' then t.m->>'push_title'
+    end,
+    case t.type
+        when 'book_suggestion' then t.m->>'push_body'
+    end
+  from t;
+end $$;

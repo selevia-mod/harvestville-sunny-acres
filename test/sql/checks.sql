@@ -109,3 +109,37 @@ do $$ declare n int; g int; begin
   perform pg_temp.ok(n = 2 and g > 0, 'last week''s prizes on 2 boards (quests were 0)');
   perform pg_temp.ok((select count(*) from farm_prizes_v1()) = 0, 'prizes only once');
 end $$;
+-- Selebox alerts for farm friends
+reset role;
+delete from public.notifications;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(1); perform farm_block_v1(pg_temp.id(5), false);
+  perform pg_temp.as_(5); perform farm_visit_v1(pg_temp.id(1)); perform farm_visit_v1(pg_temp.id(1)); perform farm_gift_v1(pg_temp.id(1), 'gold');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata->>'kind' = 'visit') = 1, 'a visit alerts the host once a day');
+  perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata->>'kind' = 'gift') = 1, 'a gift alerts the host');
+  perform pg_temp.ok((select metadata->>'push_body' from public.notifications where metadata->>'kind' = 'visit') = 'Eve visited your farm in Harvest Ville', 'the push says who and what');
+  perform pg_temp.ok((select count(*) from public.notification_push_copy_v1(array(select id from public.notifications)) c where c.title = 'Harvest Ville') = 2, 'the push text function knows farm alerts');
+  perform pg_temp.ok((select push_enabled from public.notification_push_policy where type = 'farm_alert'), 'farm alerts may push');
+end $$;
+insert into public.app_config values ('sunny_acres_alerts', 'off');
+set role authenticated;
+do $$ begin perform pg_temp.as_(3); perform farm_join_v1(); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0); perform pg_temp.as_(5); perform farm_visit_v1(pg_temp.id(3)); end $$;
+reset role;
+do $$ begin perform pg_temp.ok((select count(*) from public.notifications where metadata->>'kind' = 'visit') = 1, 'switched off: no alert'); end $$;
+delete from public.app_config where key = 'sunny_acres_alerts';
+set role authenticated;
+do $$ declare code text; begin
+  perform pg_temp.as_(5); select friend_code into code from codes where user_id = pg_temp.id(3); perform farm_friend_add_v1(code);
+  perform pg_temp.as_(3); select friend_code into code from codes where user_id = pg_temp.id(5); perform farm_friend_add_v1(code);
+  perform farm_message_send_v1(pg_temp.id(5), 'hi'); perform farm_message_send_v1(pg_temp.id(5), 'hi again');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select count(*) from public.notifications where metadata->>'kind' = 'friend') = 2, 'a friend request and its acceptance alert');
+  perform pg_temp.ok((select count(*) from public.notifications where metadata->>'kind' = 'message') = 1, 'messages alert once per 30 minutes');
+  perform pg_temp.ok((select count(*) from public.notifications where message ilike '%hi%') = 0, 'message text never goes into an alert');
+end $$;
