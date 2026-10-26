@@ -169,7 +169,11 @@
     var self = this;
     this.questBtn = this.add.container(0, 0).setDepth(40);
     this.button(this.questBtn, W - 44, 116, 74, 30, 'Quests', function () { self.openQuests('daily', 0); }, GOLD);
-    this.questBadge = this.add.circle(W - 12, 104, 10, 0xe5304d).setStrokeStyle(2, 0xffffff).setDepth(41).setVisible(false);
+    // drawn once into a texture (a live stroked circle is ~200 shapes redrawn every frame)
+    this.questBadge = this.add.image(W - 12, 104, this.bake('ui-quest-badge', 24, 24, function (g) {
+      g.fillStyle(0xe5304d, 1).fillCircle(12, 12, 10);
+      g.lineStyle(2, 0xffffff, 1).strokeCircle(12, 12, 10);
+    })).setScale(1 / F.R).setDepth(41).setVisible(false);
     this.questBadgeText = this.txt(W - 12, 104, '', 11, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5).setDepth(42).setVisible(false);
     this.p3ms = 0;
     this.readySeen = null;

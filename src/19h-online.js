@@ -311,7 +311,7 @@
       if (w.remotes[id]) return;
       var p = want[id], key = F.ensureTexture(w, p.look === 'girl' ? 'player_girl' : 'player');
       var r = { id: id, look: p.look, x: p.x, y: p.y, anim: '' };
-      r.shadow = w.add.ellipse(p.x, p.y + 16, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
+      r.shadow = w.add.image(p.x, p.y + 16, 'fx-shadow').setDepth(DEPTH.shadow); // (made by the world scene)
       r.spr = w.add.sprite(p.x, p.y - FEET_OFFSET, key, IDLE_FRAME[p.dir]).setFlipX(p.dir === 'right').setDepth(DEPTH.actor + p.y / 1e5);
       r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
       w.remotes[id] = r;

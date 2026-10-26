@@ -148,6 +148,20 @@
       return key;
     }
 
+    // A short text drawn once per (style, string) into its own texture, then shown as an Image. Re-rendering a Text
+    // (canvas draw + measure + upload) on every change is what made labels and the bag hitch on slow phones.
+    textTex(str, size, color, extra) {
+      var sk = size + '|' + color + '|' + JSON.stringify(extra || {}), key = 'tt|' + sk + '|' + str;
+      if (this.textures.exists(key)) return key;
+      this.ttScratch = this.ttScratch || {};
+      var t = this.ttScratch[sk] || (this.ttScratch[sk] = this.make.text({ x: 0, y: 0, text: '', style: style(size, color, extra) }, false));
+      t.setText(str);
+      var ct = this.textures.createCanvas(key, Math.max(1, t.canvas.width), Math.max(1, t.canvas.height));
+      ct.context.drawImage(t.canvas, 0, 0);
+      ct.refresh();
+      return key;
+    }
+
     // Like bake(), but with a Canvas 2D context (gradients, soft shadows). Sizes are in layout px.
     bakeCanvas(key, w, h, draw) {
       if (!this.textures.exists(key)) {
@@ -270,7 +284,7 @@
       var w = { x: x, y: y };
       w.bg = this.add.image(x - 2, y - 2, this.slotTex('plain')).setOrigin(0).setScale(1 / F.R);
       w.icon = this.add.image(x + SLOT / 2, y + SLOT / 2 - 1, 'items', 0).setScale(ICON);
-      w.count = this.txt(x + SLOT - 5, y + SLOT - 4, '', 12, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(1, 1);
+      w.count = this.add.image(x + SLOT - 5, y + SLOT - 4, '__DEFAULT').setOrigin(1, 1).setScale(1 / F.R).setVisible(false);
       w.barBg = this.add.rectangle(x + 7, y + SLOT - 9, SLOT - 14, 5, 0x3d2614).setOrigin(0).setVisible(false);
       w.bar = this.add.rectangle(x + 8, y + SLOT - 8, SLOT - 16, 3, 0x4aa3e8).setOrigin(0).setVisible(false);
       w.zone = this.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
@@ -287,11 +301,14 @@
       w.bar.setVisible(can);
       if (!slot) {
         w.icon.setVisible(false);
-        w.count.setText('');
+        w.count.setVisible(false);
+        w.count.text = '';
         return;
       }
       w.icon.setVisible(true).setFrame(L.iconOf(s, slot.id));
-      w.count.setText(slot.n > 1 ? String(slot.n) : '');
+      w.count.text = slot.n > 1 ? String(slot.n) : '';
+      if (w.count.text) w.count.setTexture(this.textTex(w.count.text, 12, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 })).setVisible(true);
+      else w.count.setVisible(false);
       if (can) w.bar.setSize(Math.max(0.01, (SLOT - 16) * s.water / L.canCapacity(s)), 3);
     }
 
@@ -571,7 +588,14 @@
         g.fill();
       });
       this.actionBanner = this.add.nineslice(0, r - 8, 'ui-banner', null, 60 * F.R, 22 * F.R, 11 * F.R, 11 * F.R, 0, 0).setScale(1 / F.R);
-      this.actionLabel = this.txt(0, r - 8, '', 13, '#fff3c8', { fontStyle: 'bold' }).setOrigin(0.5);
+      this.actionLabel = this.add.image(0, r - 8, '__DEFAULT').setOrigin(0.5).setScale(1 / F.R).setVisible(false);
+      this.actionLabel.text = '';
+      // the everyday labels are drawn ahead, one every 100 ms after the start, so none hitches the first time it shows
+      var self2 = this, ahead = ['Harvest', 'Water', 'Till', 'Plant', 'Chop', 'Smash', 'Cut', 'Talk', 'Enter', 'Go down', 'Read',
+        'Sell', 'Collect', 'Feed', 'Pet', 'Brush', 'Milk', 'Fish', 'Refill', 'Growing', 'Withered', 'Bed', 'Shop', 'Orders', 'Ride', 'Eat', 'Action'];
+      this.time.delayedCall(1500, function () {
+        self2.time.addEvent({ delay: 100, repeat: ahead.length - 1, callback: function () { self2.textTex(ahead.shift(), 13, '#fff3c8', { fontStyle: 'bold' }); } });
+      });
       var z = this.add.zone(0, 0, ACTION.r * 2 + 20, ACTION.r * 2 + 20).setInteractive();
       var up = function () {
         if (F.input.holding) F.input.released = true;
@@ -613,9 +637,11 @@
       this.actionIcon.setVisible(icon != null).setAlpha(on ? 1 : 0.45);
       if (icon != null) this.actionIcon.setFrame(icon);
       this.actionIcon.setY(label ? -6 : 0);
-      this.actionLabel.setText(label).setAlpha(on || !a ? 1 : 0.75);
+      if (label) this.actionLabel.setTexture(this.textTex(label, 13, '#fff3c8', { fontStyle: 'bold' }));
+      this.actionLabel.text = label || '';
+      this.actionLabel.setVisible(!!label).setAlpha(on || !a ? 1 : 0.75);
       this.actionBanner.setVisible(!!label).setTint(on ? 0xffffff : 0xb8a890);
-      if (label) this.actionBanner.setSize((this.actionLabel.width + 20) * F.R, 22 * F.R);
+      if (label) this.actionBanner.setSize((this.actionLabel.displayWidth + 20) * F.R, 22 * F.R);
       var key = on ? label + '|' + icon : '';
       if (on && key !== this.hintKeyShown) { // a new thing to do: the icon pops
         this.tweens.killTweensOf(this.actionIcon);
@@ -626,8 +652,16 @@
 
     // ---------- joystick ----------
     buildJoystick() {
-      this.joyBase = this.add.circle(JOY.x, JOY.y, JOY.r, 0xffffff, 0.06).setStrokeStyle(2, 0xffffff, 0.5).setAlpha(JOY_ALPHA.idle);
-      this.joyKnob = this.add.circle(JOY.x, JOY.y, JOY.knob, 0xffffff, 0.35).setStrokeStyle(1.5, 0xffffff, 0.6).setAlpha(JOY_ALPHA.idle);
+      // drawn once into small textures (two vector circles were re-shaped into ~900 triangles every frame)
+      var ring = function (r, fill, line, lineA) {
+        return function (g) {
+          g.fillStyle(0xffffff, fill).fillCircle(r + 2, r + 2, r);
+          g.lineStyle(line, 0xffffff, lineA).strokeCircle(r + 2, r + 2, r);
+        };
+      };
+      var R = F.R;
+      this.joyBase = this.add.image(JOY.x, JOY.y, this.bake('ui-joy-base', JOY.r * 2 + 4, JOY.r * 2 + 4, ring(JOY.r, 0.06, 2, 0.5))).setScale(1 / R).setAlpha(JOY_ALPHA.idle);
+      this.joyKnob = this.add.image(JOY.x, JOY.y, this.bake('ui-joy-knob', JOY.knob * 2 + 4, JOY.knob * 2 + 4, ring(JOY.knob, 0.35, 1.5, 0.6))).setScale(1 / R).setAlpha(JOY_ALPHA.idle);
       this.joyId = null;
       var cam = this.cameras.main;
       this.input.on('pointerdown', function (p, over) {

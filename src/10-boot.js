@@ -33,16 +33,51 @@
     },
   };
 
-  // Adds an inlined image as a texture the first time it is needed.
+  // Adds an inlined image as a texture the first time it is needed. World art is stored at half size: it goes to the
+  // GPU as it is (a quarter of the memory of scaling it back up) and Phaser is told the full size, so every frame,
+  // tile and UV stays in full-size pixels (UVs are fractions of the source size). On a phone screen a tile is 64-96
+  // pixels, so the 128-pixel half-size art is still drawn smaller than it is.
   F.ensureTexture = function (scene, key) {
     var tex = scene.textures;
     if (tex.exists(key)) return key;
     if (!F.images[key]) throw new Error('No image "' + key + '"');
-    if (SHEETS[key]) tex.addSpriteSheet(key, F.images[key], SHEETS[key]);
-    else tex.addImage(key, F.images[key]);
+    var full = F.sizes && F.sizes[key], bmp = F.bitmaps && F.bitmaps[key];
+    if (full) {
+      var t = tex.create(key, bmp || F.images[key], full[0], full[1]), gt = t.source[0].glTexture;
+      if (gt) { gt.width = full[0]; gt.height = full[1]; } // tilemap layers divide by the GL texture's size
+      if (SHEETS[key]) Phaser.Textures.Parsers.SpriteSheet(t, 0, 0, 0, full[0], full[1], SHEETS[key]);
+      else Phaser.Textures.Parsers.Image(t, 0);
+      tex.emit(Phaser.Textures.Events.ADD, key, t);
+      tex.emit(Phaser.Textures.Events.ADD_KEY + key, t);
+    } else if (SHEETS[key]) tex.addSpriteSheet(key, bmp || F.images[key], SHEETS[key]);
+    else tex.addImage(key, bmp || F.images[key]);
+    if (bmp) { // uploaded from the bitmap decoded off the main thread; keep the <img> for a GPU context restore
+      var src = tex.get(key).source[0];
+      src.image = F.images[key];
+      if (src.glTexture) src.glTexture.pixels = F.images[key];
+      bmp.close();
+      delete F.bitmaps[key];
+    }
     if (key === 'people') F.makePeopleAnims(scene);
     if (SHEETS[key] && key.indexOf('player') === 0) F.makeWalkAnims(scene, key);
     return key;
+  };
+
+  // Decodes the big sheets the next map needs off the main thread while the screen fades out (travel), so their first
+  // upload is fast; ensureTexture uses the bitmap and closes it.
+  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'] };
+  F.prewarm = function (map, scene) {
+    if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function' || !F.bitmaps) return;
+    (NEXT_MAP[map] || []).forEach(function (k) {
+      if (F.bitmaps[k] || F.bitmaps[k] === null || !F.ASSETS.images[k] || (scene && scene.textures.exists(k))) return;
+      F.bitmaps[k] = null; // decoding
+      fetch(F.ASSETS.images[k]).then(function (r) { return r.blob(); })
+        .then(function (b) { return createImageBitmap(b, { premultiplyAlpha: 'premultiply' }); })
+        .then(function (b) {
+          if (scene && scene.textures.exists(k)) b.close(); // it was needed before the bitmap was ready
+          else F.bitmaps[k] = b;
+        }, function () { delete F.bitmaps[k]; });
+    });
   };
 
   // The farmer's walk cycle: frame = dir * 3 + step (stand, step A, step B).

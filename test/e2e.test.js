@@ -483,6 +483,8 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   const { page, problems, context } = await open(null, [2026, 4, 1, 23, 50]);
   await tapButton(page, 'Boy');
   await page.evaluate(() => window.__gameBack());
+  // (the farm's debris is random: clear that tile, or the farmer would be standing inside a rock and moved off it)
+  await page.evaluate(() => { delete Farm.session.state.debris[20 * Farm.Config.FARM_W + 10]; Farm.world.changed && Farm.world.changed(); });
   await teleport(page, 10, 20, 'down');
   const day = (await state(page)).day;
   await page.evaluate(() => { Farm.session.state.energy = 10; });

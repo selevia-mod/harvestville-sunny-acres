@@ -54,7 +54,14 @@
       // were walked straight through. Allow for a few steps' worth.
       this.physics.world.TILE_BIAS = 128;
       this.physics.world.OVERLAP_BIAS = 48;
-      this.shadow = this.add.ellipse(0, 0, 176, 64, 0x000000, 0.25).setDepth(DEPTH.shadow);
+      // drawn once into a texture (a live ellipse is re-shaped into triangles every frame)
+      if (!this.textures.exists('fx-shadow')) {
+        var sg = this.make.graphics({ x: 0, y: 0 }, false);
+        sg.fillStyle(0x000000, 0.25).fillEllipse(88, 32, 176, 64);
+        sg.generateTexture('fx-shadow', 176, 64);
+        sg.destroy();
+      }
+      this.shadow = this.add.image(0, 0, 'fx-shadow').setDepth(DEPTH.shadow);
       this.player = this.physics.add.sprite(0, 0, F.playerKey(this), 0).setDepth(DEPTH.actor);
       this.player.body.setSize(160, 96).setOffset(48, 272); // feet area of the 256x384 frame
       this.player.setCollideWorldBounds(true);
@@ -92,9 +99,13 @@
       // ----- camera: follows the player, and centres maps smaller than the screen
       var cam = this.cameras.main;
       cam.setZoom(F.R * C.VIEW_TILE / T);
-      cam.setBackgroundColor(this.mapKey === 'mine' ? '#1a1410' : this.mapKey === 'house' ? '#2a1a10' : '#3a7a2f');
+      // The map's backdrop is the canvas clear colour, not a camera fill: a camera background is one more full-screen
+      // blended quad every frame (the GPU's biggest cost on a phone is pixels drawn, not draw calls).
+      this.game.renderer.config.backgroundColor = Phaser.Display.Color.HexStringToColor(this.mapKey === 'mine' ? '#1a1410' : this.mapKey === 'house' ? '#2a1a10' : '#3a7a2f');
       this.updateCamera(1);
       cam.fadeIn(350);
+      // a finished fade-in keeps drawing an invisible full-screen quad every frame: drop it once done
+      cam.once('camerafadeincomplete', function () { cam.fadeEffect.reset(); });
 
       this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
       F.bus.emit('map', this.mapKey);
@@ -500,6 +511,7 @@
       F.input.reset();
       if (to === 'mine') F.session.mineFloor = floor || 1;
       if (F.Audio) F.Audio.sfx(to === this.mapKey ? 'ladder' : 'door');
+      if (F.prewarm) F.prewarm(to, this);
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', function () {
         s.map = to;

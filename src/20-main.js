@@ -17,23 +17,21 @@
     });
   }
 
-  // World art is stored at half size (tools/art/draw.js): scaled back up here, so every frame keeps its size.
-  function fullSize(img, size) {
-    if (!size) return img;
-    var c = document.createElement('canvas');
-    c.width = size[0];
-    c.height = size[1];
-    var g = c.getContext('2d');
-    g.imageSmoothingEnabled = true;
-    g.imageSmoothingQuality = 'high';
-    g.drawImage(img, 0, 0, size[0], size[1]);
-    return c;
-  }
-
-  var keys = Object.keys(F.ASSETS.images), sizes = F.ASSETS.sizes || {};
-  Promise.all(keys.map(function (k) { return decode(F.ASSETS.images[k]); })).then(function (imgs) {
+  // World art is stored at half size (tools/art/draw.js) and goes to the GPU as it is (F.ensureTexture says its full
+  // size). It used to be scaled back up on canvases here: ~370 MB of pixels kept for the whole session.
+  // The first map's sheets are also decoded off the main thread (ImageBitmap), which makes their upload ~10x faster.
+  var EAGER = ['player', 'fx', 'crops', 'items', 'animals', 'tiles', 'ranch', 'seasons'];
+  F.bitmaps = {};
+  var bitmaps = typeof createImageBitmap === 'function' && typeof fetch === 'function' ? EAGER.filter(function (k) { return F.ASSETS.images[k]; }).map(function (k) {
+    return fetch(F.ASSETS.images[k]).then(function (r) { return r.blob(); })
+      .then(function (b) { return createImageBitmap(b, { premultiplyAlpha: 'premultiply' }); })
+      .then(function (b) { F.bitmaps[k] = b; }, function () { /* the <img> is used instead */ });
+  }) : [];
+  var keys = Object.keys(F.ASSETS.images);
+  F.sizes = F.ASSETS.sizes || {};
+  Promise.all(keys.map(function (k) { return decode(F.ASSETS.images[k]); }).concat(bitmaps)).then(function (imgs) {
     F.images = {};
-    keys.forEach(function (k, i) { F.images[k] = fullSize(imgs[i], sizes[k]); });
+    keys.forEach(function (k, i) { F.images[k] = imgs[i]; });
     F.game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: 'game',
@@ -41,6 +39,7 @@
       height: C.VIEW_H * F.R, // taller phones get a taller view (00-config.js)
       backgroundColor: '#2d4a22',
       antialias: true,
+      antialiasGL: false, // no 4x MSAA on the canvas: flat 2D sprites gain nothing from it, the GPU pays every frame
       roundPixels: false,
       banner: false,
       render: { mipmapFilter: 'LINEAR_MIPMAP_LINEAR' }, // smooth downscaling of power-of-two sheets

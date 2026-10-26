@@ -41,7 +41,15 @@
     }
 
     // Where a villager should be right now: { place, point, hide } (hide = goes indoors / out of town there).
+    // Schedules are in whole game minutes: worked out once a minute, not every frame.
     targetOf(v, time) {
+      var st = this.scene.state, m = Math.floor(time), c = v.tc;
+      if (c && c.m === m && c.day === st.day && c.spouse === st.spouse) return c.r;
+      c = v.tc = { m: m, day: st.day, spouse: st.spouse, r: this.targetNow(v, time) };
+      return c.r;
+    }
+
+    targetNow(v, time) {
       var sc = this.scene, place = L.villagerAt(sc.state, v.key, time), pts = sc.points;
       if (this.map === 'house') return place === 'home' ? { place: place, point: pts.spouse } : { place: place, point: null, hide: true };
       if (place.indexOf('in:') === 0) return { place: place, point: pts['door_' + place.slice(3)], hide: true };

@@ -50,6 +50,8 @@ Object.keys(sizes).forEach((k) => { if (!images[k] || !images[k].startsWith('dat
 const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes }) + ';';
 const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
 
+// Characters outside ASCII in scripts become \uXXXX escapes (the same string at run time).
+const ascii = (js) => js.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -67,13 +69,18 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 <div id="game"></div>
-<div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm…</div>
-<script>${inline(phaser)}</script>
-<script>${inline(assets)}</script>
-<script>${inline(game)}</script>
+<div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm&hellip;</div>
+<script>${inline(ascii(phaser))}</script>
+<script>${inline(ascii(assets))}</script>
+<script>${inline(ascii(game))}</script>
 </body>
 </html>
 `;
+
+// The page is pure ASCII: the app holds it as a string (React Native, Java, Objective-C), where a single character
+// outside ASCII makes the whole 14 MB string take 2 bytes per character.
+const odd = html.search(/[^\x00-\x7f]/);
+if (odd >= 0) throw new Error('dist/index.html has a non-ASCII character at ' + odd + ': ' + JSON.stringify(html.slice(odd - 30, odd + 10)));
 
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'dist', 'index.html'), html);
