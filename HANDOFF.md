@@ -1,8 +1,8 @@
 # Handoff: Sunny Acres (for the next Claude)
 
 You are picking up **Sunny Acres**, a Harvest Moon style farming game. It runs as a mini game inside the
-**Selebox** app (React Native). This file is the state of things at the handoff (26 Oct 2026, updated after the
-real-time redesign). The README has the full game description and file layout. Read both before changing
+**Selebox** app (React Native). This file is the state of things at the handoff (26 Oct 2026, written for a local
+Claude Code taking over from the cloud session; last commit before this file: `46da024`). The README has the full game description and file layout. Read both before changing
 anything.
 
 Repo: `selevia-mod/harvestville-sunny-acres`, branch `main`. Commit and push to `main` when the owner asks to
@@ -36,12 +36,14 @@ Everything below is built, tested and pushed:
 - Phase 4 game side: online play (visiting farms look-only, the owner plus up to 8 visitors see each other live,
   likes, gifts, friends, chat, weekly ranks). Players are online with their **Selebox account**: no sign-in in
   the game, no guests.
-- Art: all 83 of the owner's generated pictures imported (batches 01-07 and the last 6).
+- Art: all of the owner's generated pictures imported: batches 01-07, the last 6, and the 39 new-crop
+  pictures (New-Crops-Batch-01..04). Every job in `tools/art-manifest.js` has its picture; nothing is
+  waiting on art.
 - **Real time, FarmVille style** (the owner's latest request, rules and game side done, see below).
 
 Published preview (offline, no Online button there): https://claude.ai/artifact/4Nz2b6Q7q1tuA2AW2L9CnP
-(version 32: real time and 40 crops). The artifact limit is 16 MB per page; the game is about 13.4 MB.
-All tests pass: 145 unit, 18 browser playthroughs, the 3-phone online test.
+(version 33: real time, 40 crops with their real pictures, shops 6 AM-11 PM). The artifact limit is 16 MB per
+page; the game is about 13.9 MB. All tests pass: 146 unit, 18 browser playthroughs, the 3-phone online test.
 
 ## The real-time redesign (what the owner asked for, and what was decided)
 
@@ -64,7 +66,7 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
   fodder. Soil tile = `{ w, c, p, r }`: p = planted minute, w = watered (25% faster, rain waters too), r =
   grass regrowing. No watering needed. A ripe crop withers after as long again as it grew (min 4 h): stage 4,
   cleared with the Hoe. Seeds sold in season; a planted crop grows on into the next season. Prices come from the
-  growing time (`6 + 14 * sqrt(hours)` profit per tile). Saves store soil in groups (`soilGroups`).
+  growing time (profit per tile = `1.5 + 2.5 * sqrt(hours)`, see the comment in `src/00-config.js`). Saves store soil in groups (`soilGroups`).
 - **Energy:** comes back by itself, 1 point every 3 minutes (`C.ENERGY_EVERY`, `L.regen`), also while the
   game is closed. The bed only explains this. Fainting in the mine sends you home.
 - **Shops and the market stall:** open 6 AM-11 PM real time (school 8-3 on weekdays). At night "Zzz CLOSED"
@@ -78,7 +80,7 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
 
 ## Real-time status
 
-Done and tested: rules (145 unit tests), game side, all crop art, browser tests rewritten for the real clock
+Done and tested: rules (146 unit tests), game side, all crop art, browser tests rewritten for the real clock
 (`test/e2e.test.js`: `open(save, when)`, `makeSave(edit, when)` with a date `[y, m, d, h, min]`, default
 `START` = Wed 1 Apr 2026 10 AM; helpers `setClock`, `advance(minutes)`, `nextMorning()`), README, and a
 real-time economy simulator (`npm run simulate`: 4 visits a day). Crop prices were rescaled for harvests
@@ -98,13 +100,38 @@ several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
 4. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
    `notification_push_policy` have row-level security off. The owner decides.
 
+## Last session (26 Oct 2026), in short
+
+1. Shops, Lily's stand and the town market stall open 6 AM-11 PM real time; at night they say
+   "<owner> is sleeping. Come back at 6:00 AM." and show "Zzz CLOSED" signs (commit `985b5ac`).
+2. The 39 new-crop pictures imported and checked in the field (growing, ripe, withered) and in the shop
+   (commit `46da024`). Published as artifact version 33.
+3. Lesson: the world (and so `updateExtras`, which puts up the night signs every 2 s) does not update while a
+   dialog is open. Browser tests that look for something the world draws must close the dialog first.
+
+Nothing is half-done. The next work is the "What is left" list above, which waits on the owner and their app
+developer, or whatever new request the owner brings.
+
+## Moving from the cloud to a local machine
+
+- Clone: `git clone https://github.com/selevia-mod/harvestville-sunny-acres.git` (branch `main`), then
+  `npm install` and `npx playwright install chromium`. Node 18+ (the cloud used Node 22).
+- `dist/index.html` is committed, so the built game is already in the repo. Rebuild after any change to
+  `src/`, `assets/` or `maps/`.
+- Python 3 with Pillow is handy for checking art (sizes, transparent corners), not required to build.
+- The published preview was made from the cloud's scratch folder. To update the same link from a new
+  conversation, publish `dist/index.html` with the artifact URL above (read the artifact first, as the tool
+  asks). If your setup has no artifact tool, open `dist/index.html` in a phone-sized browser window instead,
+  and tell the owner the online link was not updated.
+- `shot.png` in the repo root is an old screenshot; harmless.
+
 ## How to work on it
 
 ```
 npm install
 npx playwright install chromium   # locally (the cloud had it preinstalled)
 npm run build                     # -> dist/index.html
-npm test                          # 145 rule/save/bridge unit tests, seconds (they control time with test/clock.js)
+npm test                          # 146 rule/save/bridge unit tests, seconds (they control time with test/clock.js)
 node --test test/e2e.test.js      # 18 browser playthroughs, ~30 min: run it ALONE, nothing else heavy
 node --test test/e2e-online.test.js   # 3 phones online through the real bridge, ~2 min (build first)
 npm run art                       # regenerate assets/ from tools/art + art-src/ pictures (~5 min)

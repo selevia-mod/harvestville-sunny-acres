@@ -411,7 +411,7 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (145 tests)
+npm test           # rules + save-format unit tests (146 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (18 tests, ~30 min)
 node --test test/e2e-online.test.js   # online: an owner and two visitors (~2 min, after a build)
 npm run simulate   # plays a year with the real rules and prints the economy
