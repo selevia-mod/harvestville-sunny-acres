@@ -403,3 +403,56 @@ test('online: last week\'s rank prizes are claimed once, and the Ranks tab shows
 
 // the name box comes up after signing in
 async function page_waitAsk(page) { await page.waitForSelector('#farm-ask input', SLOW); }
+
+test('online: Selebox follows count as friends; staff review a report; share my farm', async () => {
+  const server = createServer();
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Follow Farm');
+  await nameFarm(b.page, 'Back Farm');
+  await a.page.evaluate(() => Farm.ui.closeAll());
+  await b.page.evaluate(() => Farm.ui.closeAll());
+  // a follows b on Selebox: b's farm is under "People you follow"; following back makes them friends
+  server.db.follows.push({ by: a.uid, who: b.uid });
+  await a.page.evaluate(() => { Farm.ui.onlineKind = { visit: 'following', ranks: 'beauty' }; Farm.ui.openOnline('visit', 0); });
+  await waitModal(a.page, /Showing: People you follow.*Back Farm/);
+  await a.page.evaluate(() => Farm.ui.closeAll());
+  server.db.follows.push({ by: b.uid, who: a.uid });
+  await a.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(a.page, /Back Farm \|( online \|)? You follow each other on Selebox\./);
+  await shot(a.page, 'online-12-selebox-friends');
+  await a.page.evaluate(() => { Farm.ui.closeAll(); window.__shared = null; window.gameHost.share = (p) => { window.__shared = p; }; });
+  // b reports a; a staff member (a, here) reviews it and resets the name
+  await b.page.evaluate((id) => Farm.Net.rpc('farm_report_v1', { p_target: id, p_reason: 'name' }), a.uid);
+  await a.page.evaluate(() => Farm.ui.openOnline('me', 0));
+  await waitModal(a.page, /Farm: Follow Farm \| The name others see\. \| Rename \| Share/);
+  assert.ok(!/Staff/.test(await modalText(a.page)), 'no staff rows for players');
+  await a.page.evaluate(() => Farm.ui.closeAll());
+  server.db.staff.add(a.uid);
+  await a.page.evaluate(() => { window.gameHost.staff = true; Farm.ui.openOnline('me', 1); });
+  await waitModal(a.page, /Staff: reported farms/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openReports(); });
+  await waitModal(a.page, /Reported farms.*Follow Farm.*1 report: rude name/);
+  await tapButton(a.page, 'Review');
+  await waitModal(a.page, /Reported as "Follow Farm"/);
+  await shot(a.page, 'online-13-staff-review');
+  await tapButton(a.page, 'Rename');
+  await waitModal(a.page, /No open reports/);
+  assert.match(server.db.players.get(a.uid).farm_name, /^Farm [A-Z0-9]{4}$/);
+  // play numbers
+  await a.page.evaluate(() => Farm.Net.rpc('farm_track_v1', { p_opens: 1, p_minutes: 12 }));
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openStats(); });
+  await waitModal(a.page, /Play numbers.*Last 7 days.*1 new player, 12 minutes played, busiest day 1 player\./);
+  await shot(a.page, 'online-14-staff-stats');
+  // share: a picture of the farm and the words go to the app
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openPause(); });
+  await tapButton(a.page, 'Share farm');
+  await a.page.waitForFunction(() => window.__shared, null, SLOW);
+  const shared = await a.page.evaluate(() => ({ text: window.__shared.text, image: String(window.__shared.image).slice(0, 23), modals: Farm.ui.modals.length }));
+  assert.match(shared.text, /^My farm in Harvest Ville! Home Beauty \d+, house level 1\. Visit me with my friend code [A-Z0-9]{8}\.$/);
+  assert.strictEqual(shared.image, 'data:image/jpeg;base64,');
+  assert.strictEqual(shared.modals, 0, 'the pause menu is not in the picture');
+  assert.deepStrictEqual(a.problems, []);
+  assert.deepStrictEqual(b.problems, []);
+  await a.context.close();
+  await b.context.close();
+});

@@ -255,15 +255,17 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 Players are online with their **Selebox account**: there is no sign-in in the game. The game makes no network
 calls itself. It asks the Selebox app through `window.gameHost.net`, and the app answers with its own signed-in
 Supabase client (`bridge/sunnyAcresBridge.js`, guide in `bridge/README.md`). Opened on its own, without the app,
-the game plays offline and the Online button does not show. The database side is `supabase/farm_online.sql`
-(not applied yet).
+the game plays offline and the Online button does not show. The database side is `supabase/farm_online.sql`,
+`farm_online_2.sql` (weekly prizes, Selebox alerts) and `farm_online_3.sql` (Selebox follows, staff tools, play
+tracking), applied in that order.
 
 - **Joining:** online play starts by itself when the game opens. The first time you open the Online panel (the
   button under Quests) you name your farm (it starts as your Selebox name). You can leave online play from the
   Me tab (your online farm, friends and messages are deleted) and join again from the Online button.
 - **Your farm online:** your house, furniture, wallpaper and floor, yard, crops, weeds and stones, animals and pets
   are shared every minute when they change. Your bag, gold and progress stay private.
-- **Visiting:** the Visit tab lists the most beautiful farms, the ones just updated, or your friends'. On a visit
+- **Visiting:** the Visit tab lists the most beautiful farms, the ones just updated, your friends', or the farms of
+  people you follow on Selebox. On a visit
   you walk around their farm and into their house, but nothing can be changed (tools are off, the clock stops, and
   your own save is never touched). The bar at the top has Like (once a day), Gift (free: 100G up to 5 farms a day,
   or 1 Sunbeam once a day), Wave and Home. The road to town also takes you home.
@@ -272,10 +274,14 @@ the game plays offline and the Online button does not show. The database side is
   the farm is full). Moves are sent 4 times a second while walking. Tap the action button facing someone to wave.
   The owner gets a note when someone arrives, likes the farm or leaves a gift.
 - **Friends:** add a friend with their 8-letter code; they accept in their Friends tab. Friends can always visit
-  (even hidden farms) and send each other messages (up to 50 a day, 200 letters each).
+  (even hidden farms) and send each other messages (up to 50 a day, 200 letters each). People who follow each other
+  on Selebox are farm friends too, with no code needed.
 - **Ranks:** this week's top 50 by Home Beauty, gold earned and daily quests done (Monday to Sunday).
-- **Me:** rename the farm, collect gifts (also collected when the game opens), see who came by in the last 7 days,
-  hide the farm from the lists, or leave online play.
+- **Me:** rename the farm, share a picture of it to the Selebox feed, collect gifts (also collected when the game
+  opens), see who came by in the last 7 days, hide the farm from the lists, or leave online play.
+- **Staff (Selebox moderators):** two more rows on the Me tab. Reported farms lists the farms with open reports,
+  what the reporters saw, and three decisions: clear (show it again), reset the name, or keep it hidden. Play
+  numbers shows the last 14 days: players, new players, minutes and who came back. The server checks the role.
 
 ### Seasons, weather and festivals
 
@@ -338,6 +344,8 @@ sounds can be switched off in the pause menu.
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
 | `window.gameHost.exit()` | Optional: the pause menu shows Leave game, which saves and calls it. |
 | `window.gameHost.remind(r)` | Optional: called after a save when the next ripe crop changes: `{ at: ms, title, body }`, or `null` (nothing growing, or Alerts off). |
+| `window.gameHost.share(p)` | Optional: the pause menu and the Me tab show Share. `p` is `{ text, image: JPEG data URL (at most 720 wide), width, height }`. |
+| `window.gameHost.staff` | Optional: `true` shows the staff rows on the Me tab (the server still checks). |
 | `window.gameHost.now()` | Optional: the clock the game runs on (e.g. the server's); the phone's otherwise. |
 | `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
 | `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |

@@ -26,3 +26,9 @@ begin
     end
   from t;
 end $$;
+-- Selebox follows and moderators (only what farm_online_3.sql touches)
+create table public.follows (follower_id uuid not null, following_id uuid not null, created_at timestamptz not null default now(), primary key (follower_id, following_id));
+alter table public.profiles add column role text not null default 'user';
+create function public.is_moderator() returns boolean language sql stable security definer set search_path = 'public' as $$
+  select exists (select 1 from public.profiles p where p.auth_user_id = auth.uid() and p.role in ('moderator', 'admin') and not p.is_banned);
+$$;

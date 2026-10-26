@@ -8549,8 +8549,11 @@
     }
     this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
     // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
+    // gameHost.share: post a picture of the farm to the Selebox feed.
+    var canShare = !!(window.gameHost && typeof window.gameHost.share === 'function');
+    if (canShare) this.button(c, col(0), 466, 128, 40, 'Share farm', function () { self.shareFarm(); }, BLUE);
     if (window.gameHost && typeof window.gameHost.exit === 'function') {
-      this.button(c, W / 2, 466, 266, 40, 'Leave game', function () {
+      this.button(c, canShare ? col(1) : W / 2, 466, canShare ? 128 : 266, 40, 'Leave game', function () {
         world().save();
         self.closeModal();
         window.gameHost.exit();
@@ -12933,7 +12936,7 @@
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']];
-  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -12999,12 +13002,13 @@
           else if (f.status === 'sent') rows.push({ icon: C.ICON.heart, name: n, desc: 'Request sent. Waiting for them to accept.', buttons: [{ label: 'Cancel', color: GREY, cb: answer(false) }] });
           else {
             rows.push({
-              icon: C.ICON.heart, name: n, online: !!f.online, desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : 'Your friend.',
+              icon: C.ICON.heart, name: n, online: !!f.online,
+              desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : f.via === 'selebox' ? 'You follow each other on Selebox.' : 'Your friend.',
               buttons: [{ label: unread ? 'Chat (' + unread + ')' : 'Chat', color: BLUE, cb: function () { self.closeModal(); self.openChat(id, n); } }, { label: 'Visit', cb: function () { O.visit(id); } }],
             });
           }
         });
-        show(rows, 'Friends can visit and send messages.', null);
+        show(rows, 'Friends visit and write. So do people you follow back on Selebox.', null);
       }).catch(fail);
     } else if (tab === 'ranks') {
       var k = this.onlineKind.ranks;
@@ -13024,7 +13028,10 @@
     } else {
       var me = O.me;
       show([
-        { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
+        {
+          icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.',
+          buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }].concat(self.shareButtons ? self.shareButtons() : []),
+        },
         { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gifts your visitors left you.', reward: { gold: ON.giftGold, stars: 1 }, rewardPrefix: 'Each gift', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
         { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
         {
@@ -13037,7 +13044,7 @@
           icon: C.ICON.exclaim, name: 'Leave online play', desc: 'Deletes your online farm, friends and messages.',
           buttons: [{ label: 'Leave', color: RED, cb: function () { self.leaveOnline(); } }],
         },
-      ], 'Your friend code: ' + me.code, null);
+      ].concat(self.meExtras ? self.meExtras() : []), 'Your friend code: ' + me.code, null);
     }
   };
 
@@ -14038,6 +14045,151 @@
     this.actionGlyph.setTexture(key).setScale(1 / F.R).setVisible(true).setAlpha(a.disabled ? 0.45 : 1).setY(-6);
     this.actionLabel.setY(42 - 8);
   };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19j-social.js
+// Selebox around the farm (owner, 26 Oct 2026, items 11, 13, 14): share a picture of your farm to the Selebox feed
+// (gameHost.share), and, for Selebox moderators (gameHost.staff), the reported farms and the play numbers. The
+// database side is supabase/farm_online_3.sql; the server checks staff itself, gameHost.staff only shows the rows.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var W = F.UI_CONST.W;
+  var U = F.UIScene.prototype;
+  var SHARE_W = 720;
+  var BLUE = 0x4a90c9, GREY = 0xa08a68, RED = 0xc0503a, GREEN = 0x5fa84a;
+  var host = function () { return window.gameHost || {}; };
+  var name = function (n) { return L.cleanText(n, 24) || 'Farmer'; };
+  var oops = function (self) { return function () { self.toast('That did not work. Please try again.'); }; };
+
+  // ---------- share my farm ----------
+  // The words that go with the picture: plain and fixed, plus the friend code when online.
+  L.shareText = function (s, code) {
+    var beauty = L.homeBeauty(s);
+    return 'My farm in Harvest Ville! Home Beauty ' + beauty + ', house level ' + s.home.level + '.' +
+      (code ? ' Visit me with my friend code ' + code + '.' : ' Come and play with me on Selebox.');
+  };
+
+  U.shareFarm = function () {
+    var self = this, h = host();
+    if (typeof h.share !== 'function') return;
+    if (F.session.visit) return this.toast('Go home to share your own farm.');
+    this.closeAll();
+    // two frames so the panel is gone from the picture, then the whole screen as a JPEG
+    this.time.delayedCall(80, function () {
+      self.game.renderer.snapshot(function (img) {
+        var text = L.shareText(F.session.state, F.Online && F.Online.on && F.Online.me ? F.Online.me.code : null);
+        try {
+          // at most 720 wide, so the picture stays small on its way to the app (a few hundred KB)
+          var k = Math.min(1, SHARE_W / (img.width || SHARE_W)), cv = document.createElement('canvas');
+          cv.width = Math.round(img.width * k);
+          cv.height = Math.round(img.height * k);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          h.share({ text: text, image: cv.toDataURL('image/jpeg', 0.82), width: cv.width, height: cv.height });
+        } catch (e) { self.toast('Sharing is not available right now.'); }
+      }, 'image/png');
+    });
+  };
+
+  // Share, next to Rename on the Online › Me tab (also in the pause menu).
+  U.shareButtons = function () {
+    var self = this;
+    return typeof host().share === 'function' ? [{ label: 'Share', color: BLUE, cb: function () { self.shareFarm(); } }] : [];
+  };
+
+  // Rows the Online › Me tab adds for Selebox moderators.
+  U.meExtras = function () {
+    var self = this, h = host(), rows = [];
+    if (h.staff) {
+      rows.push({ icon: C.ICON.exclaim, name: 'Staff: reported farms', desc: 'Check reports, then clear, hide or rename.', buttons: [{ label: 'Open', color: RED, cb: function () { self.closeModal(); self.openReports(); } }] });
+      rows.push({ icon: C.ICON.ribbon, name: 'Staff: play numbers', desc: 'Players, minutes and who comes back.', buttons: [{ label: 'Open', color: GREY, cb: function () { self.closeModal(); self.openStats(); } }] });
+    }
+    return rows;
+  };
+
+  // ---------- staff: reported farms ----------
+  var back = function (self) { return function () { self.closeModal(); self.openOnline('me', 0); }; };
+
+  U.openReports = function (then) {
+    var self = this;
+    F.Net.rpc('farm_reports_v1', {}).then(function (list) {
+      var rows = (list || []).map(function (r) {
+        var n = name(r.farm_name), k = Number(r.reporters) || 0;
+        return {
+          icon: C.ICON.exclaim, name: n, tag: r.hidden ? 'HIDDEN' : null,
+          desc: k + ' report' + (k === 1 ? '' : 's') + ': ' + String(r.reasons || '').replace(/messages/, 'rude messages').replace(/name/, 'rude name') + '.',
+          buttons: [{ label: 'Review', color: RED, cb: function () { self.closeModal(); self.reviewReport(r); } }],
+        };
+      });
+      self.listPanel({
+        title: 'Reported farms', rows: rows, page: 0, corner: { label: 'Back', color: GREY, cb: back(self) },
+        reopen: function () { self.closeModal(); self.openReports(); },
+        sub: function () { return 'Three reports hide a farm until you decide.'; }, empty: 'No open reports. All quiet!',
+      });
+      if (then) then();
+    }).catch(oops(self));
+  };
+
+  // One reported farm: what the reporters saw (the name and the last messages, kept by the server), and the decision.
+  U.reviewReport = function (r) {
+    var self = this, id = String(r.id), n = name(r.farm_name), ev = r.evidence || {};
+    var said = (ev.messages || []).slice(0, 3).map(function (m) { return '"' + L.cleanText(m && m.body, 60) + '"'; }).join(' ');
+    var decide = function (action, done) {
+      return function () {
+        F.Net.rpc('farm_moderate_v1', { p_target: id, p_action: action }).then(function (res) {
+          self.closeModal();
+          self.openReports(function () { self.toast(res === 'ok' ? done : 'That farm is gone already.', 2400, res === 'ok' ? 0x2f5a22 : undefined); });
+        }).catch(oops(self));
+      };
+    };
+    this.listPanel({
+      title: n, page: 0, corner: { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openReports(); } },
+      reopen: function () { self.closeModal(); self.reviewReport(r); },
+      sub: function () { return 'Reported as "' + name(ev.farm_name || n) + '".'; },
+      rows: [
+        { icon: C.ICON.letter, name: said ? 'Their last messages' : 'No messages kept', desc: said || (r.notes ? 'Note: ' + L.cleanText(r.notes, 80) : 'Only the farm name was reported.') },
+        { icon: C.ICON.sparkle, name: 'Nothing wrong', desc: 'Show the farm again and close the reports.', buttons: [{ label: 'Clear', color: GREEN, cb: decide('clear', n + ' is shown again.') }] },
+        { icon: C.ICON.tag, name: 'Rude name', desc: 'Give it a plain name and show it again.', buttons: [{ label: 'Rename', color: BLUE, cb: decide('rename', n + ' has a plain name now.') }] },
+        { icon: C.ICON.exclaim, name: 'Keep it hidden', desc: 'Out of lists and ranks. Friends can still visit.', buttons: [{ label: 'Hide', color: RED, cb: decide('keep', n + ' stays hidden.') }] },
+      ],
+    });
+  };
+
+  // ---------- staff: play numbers ----------
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  L.statDay = function (iso) {
+    var d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z');
+    return isNaN(d) ? String(iso) : DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()];
+  };
+
+  U.openStats = function () {
+    var self = this;
+    F.Net.rpc('farm_stats_v1', { p_days: 14 }).then(function (list) {
+      list = list || [];
+      var num = function (v) { return Number(v) || 0; };
+      var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
+      var week = list.slice(0, 7), sum = function (k) { return week.reduce(function (a, d) { return a + num(d[k]); }, 0); };
+      var rows = [{
+        icon: C.ICON.ribbon, name: 'Last 7 days',
+        desc: plural(sum('new_players'), 'new player') + ', ' + plural(sum('minutes'), 'minute') + ' played, busiest day ' + plural(Math.max.apply(null, week.map(function (d) { return num(d.players); }).concat(0)), 'player') + '.',
+      }].concat(list.map(function (d) {
+        var nw = num(d.new_players);
+        return {
+          icon: C.ICON.spring, name: L.statDay(d.day) + ': ' + num(d.players) + ' playing',
+          desc: nw + ' new, ' + (Number(d.avg_minutes) || 0) + ' min each' + (nw ? '. Back next day ' + num(d.back_next_day) + ', in 7 days ' + num(d.back_in_7_days) : '') + '.',
+        };
+      }));
+      self.listPanel({
+        title: 'Play numbers', rows: rows, page: 0, corner: { label: 'Back', color: GREY, cb: back(self) },
+        reopen: function () { self.closeModal(); self.openStats(); },
+        sub: function () { return 'Players who opened Harvest Ville in Selebox (Manila days).'; }, empty: 'No plays yet.',
+      });
+    }).catch(oops(self));
+  };
+
+  void W;
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js

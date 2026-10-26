@@ -190,8 +190,11 @@
     }
     this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
     // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
+    // gameHost.share: post a picture of the farm to the Selebox feed.
+    var canShare = !!(window.gameHost && typeof window.gameHost.share === 'function');
+    if (canShare) this.button(c, col(0), 466, 128, 40, 'Share farm', function () { self.shareFarm(); }, BLUE);
     if (window.gameHost && typeof window.gameHost.exit === 'function') {
-      this.button(c, W / 2, 466, 266, 40, 'Leave game', function () {
+      this.button(c, canShare ? col(1) : W / 2, 466, canShare ? 128 : 266, 40, 'Leave game', function () {
         world().save();
         self.closeModal();
         window.gameHost.exit();

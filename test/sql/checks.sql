@@ -143,3 +143,55 @@ do $$ begin
   perform pg_temp.ok((select count(*) from public.notifications where metadata->>'kind' = 'message') = 1, 'messages alert once per 30 minutes');
   perform pg_temp.ok((select count(*) from public.notifications where message ilike '%hi%') = 0, 'message text never goes into an alert');
 end $$;
+-- part 3: Selebox follows count as farm friends
+reset role;
+insert into public.follows (follower_id, following_id)
+select a.id, b.id from public.profiles a, public.profiles b, (values (1, 5), (5, 1), (3, 1), (1, 2), (2, 1)) f(x, y)
+where a.auth_user_id = pg_temp.id(f.x) and b.auth_user_id = pg_temp.id(f.y);
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(1);
+  perform pg_temp.ok((select via from farm_friends_v1() where id = pg_temp.id(5)) = 'selebox', 'following each other on Selebox = farm friends');
+  perform pg_temp.ok((select count(*) from farm_friends_v1() where id = pg_temp.id(2)) = 0, 'a blocked follow is not a friend');
+  perform pg_temp.as_(5); perform pg_temp.ok(farm_message_send_v1(pg_temp.id(1), 'hello from Selebox') = 'ok', 'Selebox friends can write');
+  perform pg_temp.ok((select via from farm_friends_v1() where id = pg_temp.id(3)) = 'code', 'friend-code friends stay');
+  perform pg_temp.as_(3);
+  perform pg_temp.ok((select count(*) from farm_list_v1('following') where id = pg_temp.id(1)) = 1, 'farms of people I follow');
+  perform pg_temp.ok((select count(*) from farm_friends_v1() where id = pg_temp.id(1)) = 0, 'a one-way follow is not a friend');
+  perform pg_temp.ok(farm_message_send_v1(pg_temp.id(1), 'hi') = 'notfriends', 'a one-way follow cannot write');
+end $$;
+-- part 3: staff tools
+do $$ begin
+  perform pg_temp.as_(1);
+  begin perform farm_reports_v1(); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'reports are staff only'); end;
+  begin perform farm_moderate_v1(pg_temp.id(2), 'clear'); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'decisions are staff only'); end;
+end $$;
+reset role; update public.profiles set role = 'moderator' where auth_user_id = pg_temp.id(5); set role authenticated;
+do $$ declare r record; begin
+  perform pg_temp.as_(5);
+  select * into r from farm_reports_v1() where id = pg_temp.id(2);
+  perform pg_temp.ok(r.reporters = 3 and r.hidden and r.reasons like '%messages%' and r.evidence ->> 'farm_name' is not null, 'staff see the reported farm with reasons and evidence');
+  perform pg_temp.ok(farm_moderate_v1(pg_temp.id(2), 'nuke') = 'bad', 'unknown decision refused');
+  perform pg_temp.ok(farm_moderate_v1(pg_temp.id(2), 'rename') = 'ok', 'reset a rude name');
+  perform pg_temp.ok((select count(*) from farm_reports_v1()) = 0, 'its reports are closed');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok((select farm_name like 'Farm %' and not hidden from farm.players where user_id = pg_temp.id(2)), 'renamed and shown again');
+  perform pg_temp.ok((select bool_and(status = 'actioned') from farm.reports where target = pg_temp.id(2)), 'reports marked actioned');
+end $$;
+-- part 3: play tracking
+set role authenticated;
+do $$ declare s record; begin
+  perform pg_temp.as_(1); perform farm_track_v1(1, 0); perform farm_track_v1(0, 5); perform farm_track_v1(9, 9999);
+  perform pg_temp.as_(3); perform farm_track_v1(1, 3);
+  begin perform farm_stats_v1(); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'stats are staff only'); end;
+  perform pg_temp.as_(5);
+  select * into s from farm_stats_v1(7) order by day desc limit 1;
+  perform pg_temp.ok(s.players = 2 and s.new_players = 2 and s.minutes = 248, 'today: 2 players, 2 new, minutes capped per call (' || s.minutes || ')');
+  perform pg_temp.ok((select count(*) from farm_stats_v1(7)) = 7, 'one row a day');
+end $$;
+reset role;
+do $$ begin perform pg_temp.ok((select opens from farm.play_days where user_id = pg_temp.id(1)) = 2, 'an open counts once per call'); end $$;
+set role anon;
+do $$ begin perform farm_track_v1(1, 1); perform pg_temp.ok(false, 'x'); exception when insufficient_privilege then perform pg_temp.ok(true, 'signed-out users cannot track'); end $$;

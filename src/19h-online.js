@@ -626,7 +626,7 @@
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']];
-  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -692,12 +692,13 @@
           else if (f.status === 'sent') rows.push({ icon: C.ICON.heart, name: n, desc: 'Request sent. Waiting for them to accept.', buttons: [{ label: 'Cancel', color: GREY, cb: answer(false) }] });
           else {
             rows.push({
-              icon: C.ICON.heart, name: n, online: !!f.online, desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : 'Your friend.',
+              icon: C.ICON.heart, name: n, online: !!f.online,
+              desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : f.via === 'selebox' ? 'You follow each other on Selebox.' : 'Your friend.',
               buttons: [{ label: unread ? 'Chat (' + unread + ')' : 'Chat', color: BLUE, cb: function () { self.closeModal(); self.openChat(id, n); } }, { label: 'Visit', cb: function () { O.visit(id); } }],
             });
           }
         });
-        show(rows, 'Friends can visit and send messages.', null);
+        show(rows, 'Friends visit and write. So do people you follow back on Selebox.', null);
       }).catch(fail);
     } else if (tab === 'ranks') {
       var k = this.onlineKind.ranks;
@@ -717,7 +718,10 @@
     } else {
       var me = O.me;
       show([
-        { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
+        {
+          icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.',
+          buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }].concat(self.shareButtons ? self.shareButtons() : []),
+        },
         { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gifts your visitors left you.', reward: { gold: ON.giftGold, stars: 1 }, rewardPrefix: 'Each gift', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
         { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
         {
@@ -730,7 +734,7 @@
           icon: C.ICON.exclaim, name: 'Leave online play', desc: 'Deletes your online farm, friends and messages.',
           buttons: [{ label: 'Leave', color: RED, cb: function () { self.leaveOnline(); } }],
         },
-      ], 'Your friend code: ' + me.code, null);
+      ].concat(self.meExtras ? self.meExtras() : []), 'Your friend code: ' + me.code, null);
     }
   };
 
