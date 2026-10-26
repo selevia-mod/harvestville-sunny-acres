@@ -565,7 +565,7 @@
       var best = cows.reduce(function (a, b) { return b.love > a.love ? b : a; });
       return this.dialog('THE COW FESTIVAL\nYour happiest cow, ' + best.name + ', will compete for the blue ribbon. Ready?', [{ label: 'Not yet', color: GREY }, {
         label: 'Enter', cb: function () {
-          judged('Here comes ' + best.name + ' from Sunny Acres! What a shiny coat. The judges are taking notes...', function () { return L.joinFestival(s, fest); });
+          judged('Here comes ' + best.name + ' from Harvest Ville! What a shiny coat. The judges are taking notes...', function () { return L.joinFestival(s, fest); });
         },
       }]);
     }
@@ -591,7 +591,7 @@
         seen[slot.id] = 1;
         rows.push({ icon: C.ITEMS[slot.id].icon, name: C.ITEMS[slot.id].name, desc: 'Sells for ' + C.ITEMS[slot.id].sell + 'G.', buttons: [{
           label: 'Enter', cb: function () {
-            judged('Our next entry: a ' + C.ITEMS[slot.id].name + ' from Sunny Acres! The judges take a bite...', function () { return L.joinFestival(s, fest, i); });
+            judged('Our next entry: a ' + C.ITEMS[slot.id].name + ' from Harvest Ville! The judges take a bite...', function () { return L.joinFestival(s, fest, i); });
           },
         }] });
       });

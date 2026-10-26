@@ -6,12 +6,12 @@
   // ---------- letters ----------
   // gift: [item id | 'gold' | 'lumber' | 'stone', amount]
   C.LETTERS = {
-    welcome: { from: 'hollis', text: "Welcome to Sunny Acres! The whole town is glad you've come. Here's lunch from Rosa's inn, to keep your strength up. Do visit us in Willowbrook, just down the road south. - Mayor Hollis", gift: ['sandwich', 1] },
+    welcome: { from: 'hollis', text: "Welcome to Harvest Ville! The whole town is glad you've come. Here's lunch from Rosa's inn, to keep your strength up. Do visit us in Willowbrook, just down the road south. - Mayor Hollis", gift: ['sandwich', 1] },
     fest: { from: 'hollis', text: 'Tomorrow is the {fest}! {desc} Everyone gathers in the town plaza. Shops will be closed for the day. - Mayor Hollis' },
     bday: { from: 'hollis', text: "Psst! Tomorrow is {who}'s birthday. A gift on the day counts double! - Mayor Hollis" },
     ship1: { from: 'lily', text: "Word is your crops are selling well! Here are some strawberry seeds. They keep giving after the first harvest. - Lily", gift: ['seed_strawberry', 1] },
     ship2: { from: 'lily', text: "5,000G earned! You're the talk of the valley. A little thank-you from my stand. - Lily", gift: ['gold', 500] },
-    ship3: { from: 'hollis', text: '20,000G! Sunny Acres is the finest farm in the valley again. The town is proud of you. - Mayor Hollis', gift: ['gold', 2000] },
+    ship3: { from: 'hollis', text: '20,000G! Harvest Ville is the finest farm in the valley again. The town is proud of you. - Mayor Hollis', gift: ['gold', 2000] },
     mine10: { from: 'bram', text: "Heard you made it to floor 10 of the mine. Not bad! Take this silver, and keep digging. - Bram", gift: ['ore_silver', 2] },
     // a letter from each villager when you reach 3 hearts with them
     h_lily: { from: 'lily', text: "I just wanted to say... I'm really glad you moved here. Here's a bag of my best seeds! - Lily", gift: ['seed_potato', 1] },
@@ -56,7 +56,7 @@
       choice: { q: 'What do you say?', a: [["Thanks, I'll remember.", 6, 'Good. I would hate for you to end up in my clinic.'], ['I eat whatever I find.', -4, 'Please do not do that.']] } },
     { hearts: 4, lines: [['ivy', "I came to Willowbrook to study the herbs in the forest. I was only going to stay a season."], ['ivy', 'That was three years ago. The people here grew on me. Like moss.']],
       choice: { q: 'What do you say?', a: [['Moss is cute.', 8, '...You are strange. I like it.'], ['Will you leave someday?', 2, 'Not anytime soon. Not now.']] } },
-    { hearts: 6, lines: [['ivy', 'I wrote down every plant in the valley in this notebook. Look, I added a page about your farm.'], ['ivy', "\"Sunny Acres: home of the most stubborn farmer I know.\" ...And the kindest."]],
+    { hearts: 6, lines: [['ivy', 'I wrote down every plant in the valley in this notebook. Look, I added a page about your farm.'], ['ivy', "\"Harvest Ville: home of the most stubborn farmer I know.\" ...And the kindest."]],
       choice: { q: 'What do you say?', a: [['Can I read the rest?', 10, 'Maybe... someday. When you are family.'], ['Stubborn?!', 4, 'See? Stubborn.']] } },
   ];
   E.hollis = [

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Sunny Acres</title>
+<title>Harvest Ville</title>
 <style>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1f3518; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
@@ -631,7 +631,7 @@
 
   F.Config.DIALOGUE = {
     lily: {
-      intro: "Oh! You're the new farmer at Sunny Acres? I'm Lily. I run the seed stand by your field, so we'll see a lot of each other!",
+      intro: "Oh! You're the new farmer at Harvest Ville? I'm Lily. I run the seed stand by your field, so we'll see a lot of each other!",
       tiers: [
         ['Turnips are the easiest crop to start with: ready in 15 minutes. Water them and they grow even faster!', 'I open my stand at six in the morning. Come by for seeds anytime.', 'Grandpa used to farm your land. He would be happy to see it green again.'],
         ['Your field is looking better every day. I peek at it on my way to the stand!', 'I love the smell of the soil after it rains.', 'Have you tried strawberries? They keep giving after the first harvest.'],
@@ -1087,12 +1087,12 @@
   // ---------- letters ----------
   // gift: [item id | 'gold' | 'lumber' | 'stone', amount]
   C.LETTERS = {
-    welcome: { from: 'hollis', text: "Welcome to Sunny Acres! The whole town is glad you've come. Here's lunch from Rosa's inn, to keep your strength up. Do visit us in Willowbrook, just down the road south. - Mayor Hollis", gift: ['sandwich', 1] },
+    welcome: { from: 'hollis', text: "Welcome to Harvest Ville! The whole town is glad you've come. Here's lunch from Rosa's inn, to keep your strength up. Do visit us in Willowbrook, just down the road south. - Mayor Hollis", gift: ['sandwich', 1] },
     fest: { from: 'hollis', text: 'Tomorrow is the {fest}! {desc} Everyone gathers in the town plaza. Shops will be closed for the day. - Mayor Hollis' },
     bday: { from: 'hollis', text: "Psst! Tomorrow is {who}'s birthday. A gift on the day counts double! - Mayor Hollis" },
     ship1: { from: 'lily', text: "Word is your crops are selling well! Here are some strawberry seeds. They keep giving after the first harvest. - Lily", gift: ['seed_strawberry', 1] },
     ship2: { from: 'lily', text: "5,000G earned! You're the talk of the valley. A little thank-you from my stand. - Lily", gift: ['gold', 500] },
-    ship3: { from: 'hollis', text: '20,000G! Sunny Acres is the finest farm in the valley again. The town is proud of you. - Mayor Hollis', gift: ['gold', 2000] },
+    ship3: { from: 'hollis', text: '20,000G! Harvest Ville is the finest farm in the valley again. The town is proud of you. - Mayor Hollis', gift: ['gold', 2000] },
     mine10: { from: 'bram', text: "Heard you made it to floor 10 of the mine. Not bad! Take this silver, and keep digging. - Bram", gift: ['ore_silver', 2] },
     // a letter from each villager when you reach 3 hearts with them
     h_lily: { from: 'lily', text: "I just wanted to say... I'm really glad you moved here. Here's a bag of my best seeds! - Lily", gift: ['seed_potato', 1] },
@@ -1137,7 +1137,7 @@
       choice: { q: 'What do you say?', a: [["Thanks, I'll remember.", 6, 'Good. I would hate for you to end up in my clinic.'], ['I eat whatever I find.', -4, 'Please do not do that.']] } },
     { hearts: 4, lines: [['ivy', "I came to Willowbrook to study the herbs in the forest. I was only going to stay a season."], ['ivy', 'That was three years ago. The people here grew on me. Like moss.']],
       choice: { q: 'What do you say?', a: [['Moss is cute.', 8, '...You are strange. I like it.'], ['Will you leave someday?', 2, 'Not anytime soon. Not now.']] } },
-    { hearts: 6, lines: [['ivy', 'I wrote down every plant in the valley in this notebook. Look, I added a page about your farm.'], ['ivy', "\"Sunny Acres: home of the most stubborn farmer I know.\" ...And the kindest."]],
+    { hearts: 6, lines: [['ivy', 'I wrote down every plant in the valley in this notebook. Look, I added a page about your farm.'], ['ivy', "\"Harvest Ville: home of the most stubborn farmer I know.\" ...And the kindest."]],
       choice: { q: 'What do you say?', a: [['Can I read the rest?', 10, 'Maybe... someday. When you are family.'], ['Stubborn?!', 4, 'See? Stubborn.']] } },
   ];
   E.hollis = [
@@ -5090,7 +5090,7 @@
     Host.reminded = key;
     var item = next && C.ITEMS[next.item], what = item ? item.name.toLowerCase() : 'crop';
     try {
-      h.remind(next ? { at: next.at * 60000, title: 'Sunny Acres', body: 'Your ' + what + ' crop is ripe! Come and harvest it before it withers.' } : null);
+      h.remind(next ? { at: next.at * 60000, title: 'Harvest Ville', body: 'Your ' + what + ' crop is ripe! Come and harvest it before it withers.' } : null);
     } catch (e) { /* the app's reminder is optional */ }
   };
 
@@ -5974,7 +5974,7 @@
       if (F.session.isNew) {
         var self = this;
         this.chooseLook(function () {
-          self.dialog('WELCOME TO SUNNY ACRES!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
+          self.dialog('WELCOME TO HARVEST VILLE!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
             'then hoe it and plant your turnip seeds. Crops grow by the real clock; watering makes them faster.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
         });
       }
@@ -8839,7 +8839,7 @@
       var best = cows.reduce(function (a, b) { return b.love > a.love ? b : a; });
       return this.dialog('THE COW FESTIVAL\nYour happiest cow, ' + best.name + ', will compete for the blue ribbon. Ready?', [{ label: 'Not yet', color: GREY }, {
         label: 'Enter', cb: function () {
-          judged('Here comes ' + best.name + ' from Sunny Acres! What a shiny coat. The judges are taking notes...', function () { return L.joinFestival(s, fest); });
+          judged('Here comes ' + best.name + ' from Harvest Ville! What a shiny coat. The judges are taking notes...', function () { return L.joinFestival(s, fest); });
         },
       }]);
     }
@@ -8865,7 +8865,7 @@
         seen[slot.id] = 1;
         rows.push({ icon: C.ITEMS[slot.id].icon, name: C.ITEMS[slot.id].name, desc: 'Sells for ' + C.ITEMS[slot.id].sell + 'G.', buttons: [{
           label: 'Enter', cb: function () {
-            judged('Our next entry: a ' + C.ITEMS[slot.id].name + ' from Sunny Acres! The judges take a bite...', function () { return L.joinFestival(s, fest, i); });
+            judged('Our next entry: a ' + C.ITEMS[slot.id].name + ' from Harvest Ville! The judges take a bite...', function () { return L.joinFestival(s, fest, i); });
           },
         }] });
       });
@@ -12255,7 +12255,7 @@
     return F.Net.rpc('farm_join_v1', { p_farm_name: name || null }).then(function (r) {
       if (!r || !r.id) throw new Error('join failed');
       var s = F.session.state;
-      O.me = { id: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Sunny Acres', code: String(r.friend_code || ''), listed: r.listed !== false };
+      O.me = { id: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Harvest Ville', code: String(r.friend_code || ''), listed: r.listed !== false };
       s.net.id = O.me.id;
       s.net.name = O.me.name;
       s.net.code = O.me.code;
@@ -12798,7 +12798,7 @@
   // then(): runs once the panel is up (a toast shown before it would be hidden by the panel)
   U.openOnline = function (tab, page, then) {
     var self = this;
-    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nOpen Sunny Acres from the Selebox app to visit other farms, make friends and climb the leaderboards!');
+    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nOpen Harvest Ville from the Selebox app to visit other farms, make friends and climb the leaderboards!');
     if (!O.on) return this.joinPanel(tab, page, then);
     if (!F.session.state.net.named) return this.firstName(function () { self.openOnline(tab, page, then); });
     this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
@@ -13047,7 +13047,7 @@
   U.playerMenu = function (id, who, back) {
     var self = this, blocked = !!O.blocked[id];
     this.listPanel({
-      title: who, page: 0, sub: function () { return 'Keep Sunny Acres friendly.'; },
+      title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
       rows: [
         {

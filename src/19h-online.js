@@ -68,7 +68,7 @@
     return F.Net.rpc('farm_join_v1', { p_farm_name: name || null }).then(function (r) {
       if (!r || !r.id) throw new Error('join failed');
       var s = F.session.state;
-      O.me = { id: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Sunny Acres', code: String(r.friend_code || ''), listed: r.listed !== false };
+      O.me = { id: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Harvest Ville', code: String(r.friend_code || ''), listed: r.listed !== false };
       s.net.id = O.me.id;
       s.net.name = O.me.name;
       s.net.code = O.me.code;
@@ -611,7 +611,7 @@
   // then(): runs once the panel is up (a toast shown before it would be hidden by the panel)
   U.openOnline = function (tab, page, then) {
     var self = this;
-    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nOpen Sunny Acres from the Selebox app to visit other farms, make friends and climb the leaderboards!');
+    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nOpen Harvest Ville from the Selebox app to visit other farms, make friends and climb the leaderboards!');
     if (!O.on) return this.joinPanel(tab, page, then);
     if (!F.session.state.net.named) return this.firstName(function () { self.openOnline(tab, page, then); });
     this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
@@ -860,7 +860,7 @@
   U.playerMenu = function (id, who, back) {
     var self = this, blocked = !!O.blocked[id];
     this.listPanel({
-      title: who, page: 0, sub: function () { return 'Keep Sunny Acres friendly.'; },
+      title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
       rows: [
         {

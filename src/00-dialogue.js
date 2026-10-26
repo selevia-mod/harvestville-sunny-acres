@@ -5,7 +5,7 @@
 
   F.Config.DIALOGUE = {
     lily: {
-      intro: "Oh! You're the new farmer at Sunny Acres? I'm Lily. I run the seed stand by your field, so we'll see a lot of each other!",
+      intro: "Oh! You're the new farmer at Harvest Ville? I'm Lily. I run the seed stand by your field, so we'll see a lot of each other!",
       tiers: [
         ['Turnips are the easiest crop to start with: ready in 15 minutes. Water them and they grow even faster!', 'I open my stand at six in the morning. Come by for seeds anytime.', 'Grandpa used to farm your land. He would be happy to see it green again.'],
         ['Your field is looking better every day. I peek at it on my way to the stand!', 'I love the smell of the soil after it rains.', 'Have you tried strawberries? They keep giving after the first harvest.'],

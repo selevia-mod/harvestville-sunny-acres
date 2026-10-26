@@ -345,7 +345,7 @@ test('online: keeping it friendly: rude words refused, report and block, unblock
   await owner.page.evaluate(([id]) => Farm.ui.openChat(id, 'Troll Farm'), [troll.uid]);
   await waitModal(owner.page, /not nice at all/);
   await tapButton(owner.page, 'More');
-  await waitModal(owner.page, /Keep Sunny Acres friendly/);
+  await waitModal(owner.page, /Keep Harvest Ville friendly/);
   await shot(owner.page, 'online-9-player-menu');
   await tapButton(owner.page, 'Report');
   await waitModal(owner.page, /Rude messages/);

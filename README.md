@@ -1,4 +1,4 @@
-# Sunny Acres
+# Harvest Ville (formerly Sunny Acres)
 
 A Harvest Moon style farming game: portrait (9:16), touch-first, built with Phaser 3 in plain JavaScript.
 It ships as **one offline HTML file** (`dist/index.html`, about 14 MB) with Phaser, the code, the Tiled maps, all
