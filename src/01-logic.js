@@ -71,7 +71,8 @@
       opts: { music: 1, sfx: 1, alerts: 1 }, // alerts: the phone reminds you when crops are ripe (in the app)
     };
     for (var i = 0; i < C.INV_SIZE; i++) s.inv.push(null);
-    C.START_ITEMS.forEach(function (it) { L.addItem(s, it[0], it[1]); });
+    var starter = C.STARTER_SEEDS[L.date(s.day).season] || 'seed_turnip';
+    C.START_ITEMS.forEach(function (it) { L.addItem(s, it[0] === 'seed_turnip' ? starter : it[0], it[1]); });
     C.START_ANIMALS.forEach(function (kind) { L.addAnimal(s, kind); });
     if (info && info.fieldTiles) s.debris = L.makeDebris(s.seed, info.fieldTiles);
     return s;

@@ -108,7 +108,7 @@
         var self = this;
         this.chooseLook(function () {
           self.dialog('WELCOME TO HARVEST VILLE!\nGrandpa\'s old field is overgrown. Clear a patch with the Sickle, Axe and Hammer, ' +
-            'then hoe it and plant your turnip seeds. Crops grow by the real clock; watering makes them faster.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
+            'then hoe it and plant your ' + C.CROPS[C.ITEMS[C.STARTER_SEEDS[L.date(F.session.state.day).season] || 'seed_turnip'].crop].item + ' seeds. Crops grow by the real clock; watering makes them faster.\n\nClucky the chicken is in the pen, and the town of Willowbrook is down the road south.', [{ label: 'How to play', color: 0x4a90c9, cb: self.help.bind(self) }, { label: "Let's go!" }]);
         });
       }
     }

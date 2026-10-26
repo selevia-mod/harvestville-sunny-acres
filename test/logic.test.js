@@ -503,3 +503,20 @@ test('Alerts is saved, and older saves have it on', () => {
   old.op = [1, 0];
   same(L.deserialize(old).opts, { music: 1, sfx: 0, alerts: 1 });
 });
+
+test("a new farm's starter seeds are the season's 15-minute crop, so they can be planted straight away", () => {
+  const seeds = (y, m, d) => { clock.set(y, m, d, 10, 0); const s = L.newState(); return s.inv.filter((x) => x && /^seed_/.test(x.id)).map((x) => x.id + ' x' + x.n); };
+  same(seeds(2026, 4, 1), ['seed_turnip x3']);
+  same(seeds(2026, 7, 10), ['seed_okra x3']);
+  same(seeds(2026, 10, 26), ['seed_carrot x3']);
+  same(seeds(2026, 12, 30), ['seed_kale x3']);
+  // and each one really can be planted that day
+  for (const [m, id] of [[4, 'seed_turnip'], [7, 'seed_okra'], [10, 'seed_carrot'], [1, 'seed_kale']]) {
+    clock.set(2026, m, 10, 10, 0);
+    const s = L.newState();
+    s.debris = {};
+    L.till(s, 5);
+    assert.strictEqual(L.plant(s, 5, slotOf(s, id)), 'ok', id + ' plants in month ' + m);
+  }
+  clock.set(2026, 4, 1, 10, 0);
+});

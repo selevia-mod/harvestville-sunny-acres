@@ -463,6 +463,9 @@
     ICON: {},
 
     START_ITEMS: [['hoe', 1], ['can', 1], ['seed_turnip', 3], ['chicken_feed', 5], ['axe', 1], ['hammer', 1], ['sickle', 1]],
+    // The starter seeds are the season's 15-minute crop (the game follows the real months): a farm started in the fall
+    // gets carrots, not turnips it could not plant until spring. By season index (C.SEASONS).
+    STARTER_SEEDS: ['seed_turnip', 'seed_okra', 'seed_carrot', 'seed_kale'],
   };
 
   // ---------- taller phones ----------
