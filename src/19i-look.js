@@ -574,7 +574,7 @@
         g.fill();
       }));
       if (have > 0) {
-        var fw = Math.max(9, (bw - 3) * have / need), gold = have >= need;
+        var fw = Math.max(9, Math.min(bw - 3, Math.round((bw - 3) * have / need / 4) * 4)), gold = have >= need; // 4px steps: a few textures, not one per width
         mid.add(this.canvasImg(null, 91.5, my + 2.5, 'ui-rowbarfill-' + Math.round(fw) + (gold ? 'g' : ''), fw, 8, function (g) {
           rrect(g, 0, 0, fw, 8, 4);
           g.fillStyle = vgrad(g, 0, 8, gold ? '#ffe680' : '#a6ef7c', gold ? '#e9a91c' : '#3fa535');
@@ -657,7 +657,7 @@
       g.fillStyle = '#7a5a3a';
       g.fill();
     });
-    var fw = Math.max(10, (bw - 4) * pct);
+    var fw = Math.max(10, Math.min(bw - 4, Math.round((bw - 4) * pct / 4) * 4)); // 4px steps: a few textures, not one per width
     this.canvasImg(c, 28, top + 42, 'ui-beautyfill-' + Math.round(fw), fw, 8, function (g) {
       rrect(g, 0, 0, fw, 8, 4);
       g.fillStyle = vgrad(g, 0, 8, '#ffb3d1', '#d0587a');

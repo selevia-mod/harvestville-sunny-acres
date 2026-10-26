@@ -34,6 +34,7 @@
       this.busy = false;
       this.clockMs = 0;
       this.saveMs = 0;
+      this.buyers = {}; // stall buyers walking up belong to this visit (Phaser reuses the scene object on restart)
       this.hintKey = '';
       if (this.charge) F.bus.emit('charge', -1); // a cancelled charge takes its meter with it
       this.charge = null;

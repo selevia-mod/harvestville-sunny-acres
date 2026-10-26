@@ -643,6 +643,8 @@
     card.appendChild(row);
     box.appendChild(card);
     modal = this.openModal(function () { close(null); });
+    // closed some other way (closeAll on a world restart): the box goes with its panel
+    modal.once('destroy', function () { if (box.parentNode) box.parentNode.removeChild(box); });
     document.body.appendChild(box);
     setTimeout(function () { input.focus(); }, 0);
     return { close: close };
