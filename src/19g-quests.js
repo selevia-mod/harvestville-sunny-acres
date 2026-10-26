@@ -254,8 +254,9 @@
     if (tab === 'badges') {
       rows = C.ACHIEVEMENTS.map(function (a, i) {
         var done = L.achDone(s, i), ready = L.achReady(s, i), v = Math.min(L.achValue(s, a), a.test[1]);
+        // progress, reward and done are drawn by the row (19i-look.js): a bar, prize chips, a Done stamp
         return {
-          icon: C.ICON.star, name: a.name + (done ? '  (earned)' : ''), desc: a.desc + ' ' + (done ? '' : v + '/' + a.test[1] + '. ') + a.stars + (a.stars > 1 ? ' Sunbeams.' : ' Sunbeam.'),
+          icon: C.ICON.star, name: a.name, desc: a.desc, progress: done ? null : [v, a.test[1]], reward: { stars: a.stars }, done: done,
           buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimAch(s, i); }, function () { return 'Badge earned: ' + a.name + '! +' + a.stars + (a.stars > 1 ? ' Sunbeams' : ' Sunbeam'); }) }] : [],
         };
       });
@@ -264,14 +265,14 @@
       var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all 3' }[tab];
       var chestDone = tab === 'daily' ? set.all : set.chest;
       rows.push({
-        icon: C.ICON.chest, name: chestName + (chestDone ? '  (opened)' : ''), desc: 'Prize: ' + L.rewardLabel(chest) + '.',
+        icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,
         buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
       });
       set.list.forEach(function (q, i) {
         var p = L.questProgress(s, q);
         rows.push({
-          icon: iconOf(q.reward), name: (q.tier === 'hard' ? 'HARD: ' : '') + q.text,
-          desc: (q.done ? 'Done! ' : p + '/' + q.n + '. ') + 'Prize: ' + L.rewardLabel(q.reward) + '.',
+          icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null,
+          progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
           buttons: L.questReady(s, q) ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }] : [],
         });
       });
@@ -316,10 +317,13 @@
     });
     var o = this.listPanel({
       title: 'Notice Board', rows: rows, page: page, reopen: function (t, p) { self.openBoard(p); },
-      sub: function () { return 'Requests for today. Streak: ' + (s.rq.last >= s.day - 1 ? s.rq.streak : 0) + (bonus ? ' days (+' + Math.round(bonus * 100) + '% gold)' : ' (finish one every day for bonus gold)'); },
+      sub: function () {
+        var n = s.rq.last >= s.day - 1 ? s.rq.streak : 0;
+        return "Today's requests  ·  Streak " + n + (bonus ? ' (+' + Math.round(bonus * 100) + '% gold)' : '\nOne a day builds bonus gold');
+      },
       empty: 'No requests today.',
+      corner: { label: 'Events', color: BLUE, cb: function () { self.closeModal(); noticeBoard.call(self); } },
     });
-    this.button(this.modals[this.modals.length - 1].c, 50, 96, 66, 34, 'Events', function () { self.closeModal(); noticeBoard.call(self); }, BLUE);
     return o;
   };
 

@@ -544,8 +544,8 @@
       tabs: v == null ? TABS : null,
       reopen: function (tab, p) { if (v != null && tab === 'furniture') self.openCatalog(v, p); else self.openWoodshop(tab, p); },
       sub: function () { return s.gold + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
+      corner: v != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openCatalog(null, 0); } } : null,
     });
-    if (v != null) this.button(o.container || this.modals[this.modals.length - 1].c, 50, 96, 56, 34, 'Back', function () { self.closeModal(); self.openCatalog(null, 0); }, GREY);
     return o;
   };
 

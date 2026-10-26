@@ -10956,8 +10956,8 @@
       tabs: v == null ? TABS : null,
       reopen: function (tab, p) { if (v != null && tab === 'furniture') self.openCatalog(v, p); else self.openWoodshop(tab, p); },
       sub: function () { return s.gold + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
+      corner: v != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openCatalog(null, 0); } } : null,
     });
-    if (v != null) this.button(o.container || this.modals[this.modals.length - 1].c, 50, 96, 56, 34, 'Back', function () { self.closeModal(); self.openCatalog(null, 0); }, GREY);
     return o;
   };
 
@@ -11799,8 +11799,8 @@
       title: title, tab: 'outdoor', page: page, rows: rows, talk: cat == null ? 'mira' : null, tabs: cat == null ? TABS : null,
       reopen: function (tab, p) { if (cat != null && tab === 'outdoor') self.openOutdoor(cat, p); else self.openWoodshop(tab, p); },
       sub: function () { return s.gold + 'G   ' + (cat == null ? 'Fences, paths, gardens and more for your yard.' : 'Bought pieces go to your yard storage.'); },
+      corner: cat != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openOutdoor(null, 0); } } : null,
     });
-    if (cat != null) this.button(this.modals[this.modals.length - 1].c, 50, 96, 56, 34, 'Back', function () { self.closeModal(); self.openOutdoor(null, 0); }, GREY);
     return o;
   };
 })(window.Farm = window.Farm || {});
@@ -12062,8 +12062,9 @@
     if (tab === 'badges') {
       rows = C.ACHIEVEMENTS.map(function (a, i) {
         var done = L.achDone(s, i), ready = L.achReady(s, i), v = Math.min(L.achValue(s, a), a.test[1]);
+        // progress, reward and done are drawn by the row (19i-look.js): a bar, prize chips, a Done stamp
         return {
-          icon: C.ICON.star, name: a.name + (done ? '  (earned)' : ''), desc: a.desc + ' ' + (done ? '' : v + '/' + a.test[1] + '. ') + a.stars + (a.stars > 1 ? ' Sunbeams.' : ' Sunbeam.'),
+          icon: C.ICON.star, name: a.name, desc: a.desc, progress: done ? null : [v, a.test[1]], reward: { stars: a.stars }, done: done,
           buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimAch(s, i); }, function () { return 'Badge earned: ' + a.name + '! +' + a.stars + (a.stars > 1 ? ' Sunbeams' : ' Sunbeam'); }) }] : [],
         };
       });
@@ -12072,14 +12073,14 @@
       var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all 3' }[tab];
       var chestDone = tab === 'daily' ? set.all : set.chest;
       rows.push({
-        icon: C.ICON.chest, name: chestName + (chestDone ? '  (opened)' : ''), desc: 'Prize: ' + L.rewardLabel(chest) + '.',
+        icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,
         buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
       });
       set.list.forEach(function (q, i) {
         var p = L.questProgress(s, q);
         rows.push({
-          icon: iconOf(q.reward), name: (q.tier === 'hard' ? 'HARD: ' : '') + q.text,
-          desc: (q.done ? 'Done! ' : p + '/' + q.n + '. ') + 'Prize: ' + L.rewardLabel(q.reward) + '.',
+          icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null,
+          progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
           buttons: L.questReady(s, q) ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }] : [],
         });
       });
@@ -12124,10 +12125,13 @@
     });
     var o = this.listPanel({
       title: 'Notice Board', rows: rows, page: page, reopen: function (t, p) { self.openBoard(p); },
-      sub: function () { return 'Requests for today. Streak: ' + (s.rq.last >= s.day - 1 ? s.rq.streak : 0) + (bonus ? ' days (+' + Math.round(bonus * 100) + '% gold)' : ' (finish one every day for bonus gold)'); },
+      sub: function () {
+        var n = s.rq.last >= s.day - 1 ? s.rq.streak : 0;
+        return "Today's requests  ·  Streak " + n + (bonus ? ' (+' + Math.round(bonus * 100) + '% gold)' : '\nOne a day builds bonus gold');
+      },
       empty: 'No requests today.',
+      corner: { label: 'Events', color: BLUE, cb: function () { self.closeModal(); noticeBoard.call(self); } },
     });
-    this.button(this.modals[this.modals.length - 1].c, 50, 96, 66, 34, 'Events', function () { self.closeModal(); noticeBoard.call(self); }, BLUE);
     return o;
   };
 
@@ -12884,11 +12888,11 @@
       var me = O.me;
       show([
         { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
-        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gold gifts are worth ' + ON.giftGold + 'G, Sunbeam gifts 1 Sunbeam.', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
+        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gifts your visitors left you.', reward: { gold: ON.giftGold, stars: 1 }, rewardPrefix: 'Each gift', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
         { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
         {
           icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden',
-          desc: (me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.') + ' Blocked: who you blocked.',
+          desc: me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.',
           buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } },
             { label: 'Blocked', color: GREY, cb: function () { self.closeModal(); self.openBlocked(); } }],
         },
@@ -13401,7 +13405,8 @@
   };
 
   // ---------- the side buttons ----------
-  var SIDE = { x: W - 30, r: 22, quests: 134, online: 196, decorate: 420 };
+  // owner, 26 Oct: Decorate sits right under Online (one column at the top right)
+  var SIDE = { x: W - 30, r: 22, quests: 134, online: 196, decorate: 258 };
   U.SIDE = SIDE;
 
   var create = U.create;
@@ -13417,6 +13422,7 @@
     var decor = function () {
       if (!self.decorBtn) return;
       self.decorBtn.removeAll(true);
+      self.decorBtn.setY(0); // (19d-home.js put it near the bottom, by the action button)
       self.roundButton(self.decorBtn, SIDE.x, SIDE.decorate, SIDE.r, WOOD, 'decorate', 'Decorate', function () { self.openDecor(); });
     };
     F.bus.on('map', decor);
@@ -13445,39 +13451,39 @@
   // Outdoor tab) still run first.
   U.lookListPanel = function (o) {
     var self = this, c = this.openModal();
-    this.panelImg(c, 12, 76, W - 24, 530);
+    // the list's layout first, so a short list gets a shorter panel (a paged one keeps the full height)
+    var rows = o.rows, page = o.page || 0, per = rows.length > 5 ? 4 : 5;
+    var pages = Math.max(1, Math.ceil(rows.length / per)), shown = rows.slice(page * per, page * per + per);
+    var y0 = o.tabs ? 178 : 140;
+    var bottom = pages > 1 ? 606 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
+    this.panelImg(c, 12, 76, W - 24, Math.max(220, Math.min(530, bottom - 76)));
     var title = this.txt(W / 2, 79, o.title, 17, '#fff6d8', { fontStyle: 'bold', stroke: '#5a1a12', strokeThickness: 3 }).setOrigin(0.5);
     fit(title, W - 150);
     this.ribbon(c, W / 2, 79, Math.min(W - 110, Math.max(150, title.displayWidth + 54)));
     c.add(title);
-    this.closeButton(c, W - 34, 96, function () { self.closeModal(); });
-    if (o.talk) {
-      this.button(c, 50, 104, 60, 28, 'Talk', function () {
-        var r = L.talk(F.session.state, o.talk);
-        if (r.first) F.world.progress('meet');
-        sfx('talk');
-        F.world.changed();
-        self.say(o.talk, C.VILLAGERS[o.talk].name, r.line);
-      }, BLUE);
-    }
+    this.closeButton(c, W - 26, 84, function () { self.closeModal(); });
+    // a small pill at the top left: Talk to the shop's keeper, or the panel's own (Back, Events: o.corner)
+    var corner = o.corner || (o.talk ? { label: 'Talk', color: BLUE, cb: function () {
+      var r = L.talk(F.session.state, o.talk);
+      if (r.first) F.world.progress('meet');
+      sfx('talk');
+      F.world.changed();
+      self.say(o.talk, C.VILLAGERS[o.talk].name, r.line);
+    } } : null);
+    if (corner) this.pillButton(c, 58, 113, 64, 26, corner.label, corner.cb, corner.color || GREY_BTN);
     // one line under the ribbon (two when there are no tabs), shrunk to fit rather than cut off
-    var subW = o.talk ? 220 : 290;
-    var sub = this.txt(o.talk ? W / 2 + 26 : W / 2, 104, '', 13, '#6a4a2a', { align: 'center', wordWrap: o.tabs ? null : { width: subW } }).setOrigin(0.5, 0);
+    var subW = corner ? 200 : W - 110;
+    var sub = this.txt(corner ? W / 2 + 30 : W / 2, 104, '', 13, '#6a4a2a', { align: 'center', wordWrap: o.tabs ? null : { width: subW } }).setOrigin(0.5, 0);
     c.add(sub);
     var showSub = function () {
       sub.setText(o.sub ? o.sub() : '').setScale(1);
       if (o.tabs && sub.width > subW) sub.setScale(subW / sub.width);
+      if (!o.tabs && sub.height > 34) sub.setScale(34 / sub.height); // two lines at most, above the first row
     };
     showSub();
     o.refresh = showSub;
-    var y0 = 140;
-    if (o.tabs) {
-      this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.closeModal(); o.reopen(key, 0); });
-      y0 = 178;
-    }
-    var rows = o.rows, page = o.page || 0, per = rows.length > 5 ? 4 : 5;
-    var pages = Math.max(1, Math.ceil(rows.length / per));
-    rows.slice(page * per, page * per + per).forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
+    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.closeModal(); o.reopen(key, 0); });
+    shown.forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
     if (!rows.length && o.empty) c.add(this.txt(W / 2, y0 + 50, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
     if (pages > 1) {
       var ny = y0 + per * ROW_STEP + 20;
@@ -13528,10 +13534,75 @@
     });
   };
 
-  // A list row: a card, the icon on a round badge, the name, a progress bar when the description starts with
-  // "n/m" (quests and goals), the rest of the description, and up to two buttons.
+  // A pill button for rows: fully rounded, a coloured gradient with a gloss, a dark edge, white bold label.
+  U.pillButton = function (parent, x, y, w, h, label, onTap, color) {
+    var c = this.add.container(x, y);
+    color = color || GREEN;
+    c.add(this.canvasImg(null, -w / 2, -h / 2, 'ui-pill-' + w + 'x' + h + '-' + color, w, h + 3, function (g) {
+      rrect(g, 0, 3, w, h, h / 2);
+      g.fillStyle = 'rgba(30,16,6,0.3)';
+      g.fill();
+      rrect(g, 0, 0, w, h, h / 2);
+      g.fillStyle = shade(color, -0.45);
+      g.fill();
+      rrect(g, 1.5, 1.5, w - 3, h - 3, h / 2 - 1.5);
+      g.fillStyle = vgrad(g, 1.5, h - 1.5, shade(color, 0.22), shade(color, -0.08));
+      g.fill();
+      rrect(g, 7, 3.5, w - 14, (h - 7) / 2, (h - 7) / 4);
+      g.fillStyle = 'rgba(255,255,255,0.32)';
+      g.fill();
+    }));
+    var t = this.txt(0, -1, label, 13, '#ffffff', { fontStyle: 'bold', stroke: shade(color, -0.55), strokeThickness: 3 }).setOrigin(0.5);
+    fit(t, w - 14);
+    var z = this.add.zone(0, 0, w, h + 6).setInteractive({ useHandCursor: true });
+    z.on('pointerdown', function () { c.setScale(0.93); });
+    z.on('pointerout', function () { c.setScale(1); });
+    z.on('pointerup', function () { c.setScale(1); onTap(); });
+    c.add([t, z]);
+    if (parent) parent.add(c);
+    return c;
+  };
+
+  // Prize chips: a small cream pill per part of a reward, its icon and amount (150G, 2 Sunbeams, 3 Pet Meals).
+  U.rewardChips = function (c, x, y, maxW, reward, prefix) {
+    var self = this, parts = [];
+    if (reward.gold) parts.push([C.ICON.coin, money(reward.gold)]);
+    if (reward.stars) parts.push([C.ICON.sunbeam, String(reward.stars)]);
+    if (reward.item) parts.push([C.ITEMS[reward.item].icon, (reward.n > 1 ? reward.n + ' ' : '') + C.ITEMS[reward.item].name]);
+    var cx = x, cy = y, rowH = 20;
+    if (prefix) {
+      var p = this.txt(cx, cy + 8, prefix + ':', 10, '#8a6a42', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      c.add(p);
+      cx += p.width + 5;
+    }
+    parts.forEach(function (part) {
+      var t = self.txt(0, 0, part[1], 10, '#6a3f12', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      if (t.width > maxW - 30) t.setScale((maxW - 30) / t.width);
+      var w = Math.round(t.displayWidth + 26);
+      if (cx + w > x + maxW && cx > x) { cx = x; cy += rowH; }
+      c.add(self.canvasImg(null, cx, cy, 'ui-rchip-' + w, w, 17, function (g) {
+        rrect(g, 0.5, 0.5, w - 1, 16, 8);
+        g.fillStyle = '#fff4d6';
+        g.fill();
+        g.lineWidth = 1;
+        g.strokeStyle = '#d9b77f';
+        g.stroke();
+      }));
+      c.add(self.add.image(cx + 9, cy + 8.5, 'items', part[0]).setScale(0.12));
+      t.setPosition(cx + 18, cy + 8.5);
+      c.add(t);
+      cx += w + 4;
+    });
+    return cy + rowH - y;
+  };
+
+  // A list row: a card; the icon on a round badge; the name (with a HARD tag), a progress bar, prize chips or the
+  // description; on the right the row's buttons as pills, or a Done stamp. Rows may give structured fields:
+  // progress [have, need], reward { gold, stars, item, n } (+ rewardPrefix), done, tag, online. A description that
+  // starts with "n/m" still gets a bar (older rows).
   U.lookListRow = function (c, y, row) {
-    var self = this;
+    var self = this, b = row.buttons || [], right = b.length || row.done ? 96 : 0;
+    var textW = W - 52 - 64 - right - 8;
     this.canvasImg(c, 26, y, 'ui-row3', W - 52, ROW_H + 4, function (g) {
       rrect(g, 1, 3, W - 54, ROW_H, 12);
       g.fillStyle = 'rgba(122,77,38,0.2)';
@@ -13543,7 +13614,10 @@
       g.strokeStyle = '#d9b77f';
       g.stroke();
     });
-    var cx = 36 + SLOT / 2, cy = y + 15 + SLOT / 2;
+    if (row.done) { // a finished row is quieter
+      c.add(this.add.rectangle(27, y + 1, W - 54, ROW_H, 0xeadbb8, 0.45).setOrigin(0));
+    }
+    var cx = 36 + SLOT / 2, cy = y + ROW_H / 2;
     this.canvasImg(c, cx - 25, cy - 25, 'ui-rowbadge', 50, 52, function (g) {
       circle(g, 25, 27, 23);
       g.fillStyle = 'rgba(122,77,38,0.25)';
@@ -13560,49 +13634,100 @@
     });
     if (row.people) {
       F.ensureTexture(this, 'people');
-      c.add(this.add.image(cx, y + 15 + SLOT - 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
+      c.add(this.add.image(cx, cy + SLOT / 2 - 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
     } else if (row.icon != null) {
       c.add(this.add.image(cx, cy, 'items', row.icon).setScale(ICON));
     }
-    var name = this.txt(90, y + 7, row.name, row.name.length > 18 ? 13 : 14, INK, { fontStyle: 'bold', wordWrap: { width: 136 } });
-    c.add(name);
-    var dy = Math.max(26, 7 + name.height + 2), desc = row.desc || '';
-    // a player who is playing right now: a green dot and "online" under the name
+    // the middle column, laid out from the top, then centred in the card
+    var mid = this.add.container(0, 0), my = 0;
+    c.add(mid);
+    var tagW = 0;
+    if (row.tag) {
+      var tagT = this.txt(0, 0, row.tag, 9, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5);
+      tagW = Math.round(tagT.width + 12);
+      mid.add(this.canvasImg(null, 90, my + 2, 'ui-tag-' + tagW, tagW, 14, function (g) {
+        rrect(g, 0, 0, tagW, 14, 7);
+        g.fillStyle = '#c0503a';
+        g.fill();
+      }));
+      tagT.setPosition(90 + tagW / 2, my + 9);
+      mid.add(tagT);
+      tagW += 5;
+    }
+    var name = this.txt(90 + tagW, my, row.name, row.name.length > 22 ? 13 : 14, INK, { fontStyle: 'bold', wordWrap: { width: textW - tagW }, lineSpacing: 1 });
+    mid.add(name);
+    my += name.height + 3;
     if (row.online) {
-      c.add(this.add.circle(94, y + dy + 5, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
-      c.add(this.txt(101, y + dy + 5, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
-      dy += 13;
+      mid.add(this.add.circle(94, my + 6, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
+      mid.add(this.txt(101, my + 6, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      my += 14;
     }
-    // "3/9. Prize: 150G." -> a bar showing 3 of 9, then "Prize: 150G."
-    var m = /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
+    var desc = row.desc || '', progress = row.progress;
+    var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
     if (m && Number(m[2]) > 0) {
-      var have = Math.min(Number(m[1]), Number(m[2])), need = Number(m[2]), bw = 96;
-      this.canvasImg(c, 90, y + dy + 1, 'ui-rowbar', bw, 10, function (g) {
-        rrect(g, 0, 0, bw, 10, 5);
-        g.fillStyle = '#c9a26b';
-        g.fill();
-        rrect(g, 1.5, 1.5, bw - 3, 7, 3.5);
-        g.fillStyle = '#7a5a3a';
-        g.fill();
-      });
-      if (have > 0) {
-        var fw = Math.max(8, (bw - 3) * have / need);
-        this.canvasImg(c, 91.5, y + dy + 2.5, 'ui-rowbarfill-' + Math.round(fw), fw, 7, function (g) {
-          rrect(g, 0, 0, fw, 7, 3.5);
-          g.fillStyle = vgrad(g, 0, 7, have >= need ? '#ffe680' : '#a6ef7c', have >= need ? '#e9a91c' : '#3fa535');
-          g.fill();
-        });
-      }
-      c.add(this.txt(90 + bw + 6, y + dy + 6, have + '/' + need, 10, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      progress = [Number(m[1]), Number(m[2])];
       desc = desc.slice(m[0].length);
-      dy += 14;
     }
-    c.add(this.txt(90, y + dy, desc, dy > 26 ? 10 : 11, '#6a4a2a', { wordWrap: { width: 136 }, lineSpacing: 1 }));
-    var b = row.buttons || [];
-    b.forEach(function (btn, k) {
-      var by = b.length === 1 ? y + ROW_H / 2 : y + 20 + k * 34;
-      self.button(c, W - 82, by, 100, 30, btn.label, btn.cb, btn.color || GREEN);
+    if (progress && progress[1] > 0) {
+      var have = Math.min(progress[0], progress[1]), need = progress[1], bw = Math.min(110, textW - 38);
+      mid.add(this.canvasImg(null, 90, my + 1, 'ui-rowbar-' + bw, bw, 11, function (g) {
+        rrect(g, 0, 0, bw, 11, 5.5);
+        g.fillStyle = '#6a4a2a';
+        g.fill();
+      }));
+      if (have > 0) {
+        var fw = Math.max(9, (bw - 3) * have / need), gold = have >= need;
+        mid.add(this.canvasImg(null, 91.5, my + 2.5, 'ui-rowbarfill-' + Math.round(fw) + (gold ? 'g' : ''), fw, 8, function (g) {
+          rrect(g, 0, 0, fw, 8, 4);
+          g.fillStyle = vgrad(g, 0, 8, gold ? '#ffe680' : '#a6ef7c', gold ? '#e9a91c' : '#3fa535');
+          g.fill();
+          rrect(g, 2, 1, fw - 4, 2.5, 1.25);
+          g.fillStyle = 'rgba(255,255,255,0.45)';
+          g.fill();
+        }));
+      }
+      mid.add(this.txt(90 + bw + 6, my + 6.5, have + '/' + need, 10, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      my += 16;
+    }
+    if (desc && !(row.reward && row.done)) {
+      // at most what fits in the card: a long description is cut at a word, with an ellipsis
+      var room = ROW_H - 10 - my - (row.reward ? 20 : 0);
+      var d = this.txt(90, my, desc, 10, '#7a5a3a', { wordWrap: { width: textW }, lineSpacing: 1 });
+      var words = desc.split(' ');
+      while (d.height > Math.max(14, room) && words.length > 3) {
+        words.pop();
+        d.setText(words.join(' ').replace(/[,.;:]$/, '') + '…');
+      }
+      mid.add(d);
+      my += d.height + 3;
+    }
+    if (row.reward) my += this.rewardChips(mid, 90, my, textW, row.reward, row.rewardPrefix);
+    var top = Math.max(y + 6, Math.round(cy - my / 2));
+    mid.y = top;
+    if (my > ROW_H - 8) mid.setScale(Math.max(0.8, (ROW_H - 8) / my)).setPosition(90 * (1 - mid.scaleX), y + 4);
+    // the laid-out pieces go straight into the panel (texts in a nested container would look like buttons to code
+    // that finds a button by its label)
+    var k = mid.scaleX, ox = mid.x, oy = mid.y;
+    mid.list.slice().forEach(function (o) {
+      mid.remove(o);
+      o.setPosition(ox + o.x * k, oy + o.y * k).setScale(o.scaleX * k, o.scaleY * k);
+      c.add(o);
     });
+    mid.destroy();
+    // the right column: the buttons, or a Done stamp
+    var rx = W - 30 - right / 2;
+    if (b.length) {
+      var bh = b.length > 1 ? 28 : 32, gap = 5, total = b.length * bh + (b.length - 1) * gap;
+      b.forEach(function (btn, k) {
+        self.pillButton(c, rx, cy - total / 2 + bh / 2 + k * (bh + gap), right - 8, bh, btn.label, btn.cb, btn.color || GREEN);
+      });
+    } else if (row.done) {
+      this.canvasImg(c, rx - 15, cy - 22, 'ui-donestamp', 30, 32, function (g) {
+        badge(g, 15, 15, 14, '#a6ef7c', '#3fa535');
+        line(g, [[9, 15.5], [13.5, 20], [21.5, 10.5]], 3.4, '#ffffff');
+      });
+      c.add(this.txt(rx, cy + 17, 'Done', 11, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0.5));
+    }
   };
 
   // ---------- decorate mode: a ribbon title and Home Beauty as a bar to the next level ----------

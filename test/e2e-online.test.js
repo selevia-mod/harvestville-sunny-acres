@@ -367,7 +367,7 @@ test('online: keeping it friendly: rude words refused, report and block, unblock
 
   // the owner unblocks from Me > Blocked farms; then the troll can visit, and More works from the visit bar
   await owner.page.evaluate(() => Farm.ui.openOnline('me', 0));
-  await waitModal(owner.page, /Blocked: who you blocked/);
+  await waitModal(owner.page, /Farm shown in lists/);
   await tapButton(owner.page, 'Blocked');
   await waitModal(owner.page, /Troll Farm/);
   await tapButton(owner.page, 'Unblock');

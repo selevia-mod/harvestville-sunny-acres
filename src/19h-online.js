@@ -690,11 +690,11 @@
       var me = O.me;
       show([
         { icon: C.ICON.tag, name: 'Farm: ' + me.name, desc: 'The name others see.', buttons: [{ label: 'Rename', cb: function () { self.renameFarm(); } }] },
-        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gold gifts are worth ' + ON.giftGold + 'G, Sunbeam gifts 1 Sunbeam.', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
+        { icon: C.ICON.gift, name: 'Gifts from visitors', desc: 'Gifts your visitors left you.', reward: { gold: ON.giftGold, stars: 1 }, rewardPrefix: 'Each gift', buttons: [{ label: 'Collect', color: GOLD, cb: function () { O.collect(false); } }] },
         { icon: C.ICON.letter, name: 'Who came by', desc: 'Visitors in the last 7 days.', buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openVisitors(); } }] },
         {
           icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden',
-          desc: (me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.') + ' Blocked: who you blocked.',
+          desc: me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.',
           buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } },
             { label: 'Blocked', color: GREY, cb: function () { self.closeModal(); self.openBlocked(); } }],
         },
