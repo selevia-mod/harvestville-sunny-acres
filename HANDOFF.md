@@ -40,8 +40,8 @@ Everything below is built, tested and pushed:
 - **Real time, FarmVille style** (the owner's latest request, rules and game side done, see below).
 
 Published preview (offline, no Online button there): https://claude.ai/artifact/4Nz2b6Q7q1tuA2AW2L9CnP
-(version 31, from **before** the real-time redesign: republish once the browser tests pass). The artifact limit
-is 16 MB per page; the game is now about 13.4 MB.
+(version 32: real time and 40 crops). The artifact limit is 16 MB per page; the game is about 13.4 MB.
+All tests pass: 145 unit, 18 browser playthroughs, the 3-phone online test.
 
 ## The real-time redesign (what the owner asked for, and what was decided)
 
