@@ -13,7 +13,7 @@
     s.net = L.newNet();
     return s;
   };
-  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0 }; };
+  L.newNet = function () { return { id: '', name: '', code: '', wk: 0, e0: 0, q0: 0, named: 0, off: 0 }; };
 
   // ---------- the snapshot ----------
   L.snapshot = function (s) {
@@ -133,7 +133,7 @@
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s);
-    o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0, s.net.named ? 1 : 0];
+    o.nt = [s.net.id, s.net.name, s.net.code, s.net.wk, s.net.e0, s.net.q0, s.net.named ? 1 : 0, s.net.off ? 1 : 0];
     return o;
   };
   var deserialize = L.deserialize;
@@ -141,7 +141,7 @@
     var s = deserialize(o);
     if (!s) return s;
     var n = Array.isArray(o.nt) ? o.nt : [];
-    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0 };
+    s.net = { id: str(n[0], 40), name: str(n[1], 24), code: str(n[2], 8), wk: int(n[3], 0, 1e7, 0), e0: int(n[4], 0, 1e12, 0), q0: int(n[5], 0, 1e9, 0), named: n[6] ? 1 : 0, off: n[7] ? 1 : 0 };
     return s;
   };
 })(window.Farm = window.Farm || {});

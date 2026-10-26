@@ -5,16 +5,16 @@
 
   // Standalone fallback (e.g. opening the HTML file directly in a browser). A real host
   // provides window.gameHost itself; this keeps the same contract using localStorage.
-  if (!window.gameHost) {
+  // (An app may set up only part of it before the game loads, e.g. just gameHost.net: the rest is filled in.)
+  if (!window.gameHost || typeof window.gameHost.save !== 'function') {
     var KEY = 'farm-save-v' + C.SAVE_VERSION;
     var stored = null;
     try { stored = JSON.parse(window.localStorage.getItem(KEY)); } catch (e) { stored = null; }
-    window.gameHost = {
-      state: stored,
-      save: function (state) {
-        this.state = state;
-        try { window.localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
-      },
+    var gh = window.gameHost = window.gameHost || {};
+    if (gh.state === undefined) gh.state = stored;
+    gh.save = function (state) {
+      this.state = state;
+      try { window.localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
     };
   }
 

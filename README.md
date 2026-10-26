@@ -239,11 +239,15 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 
 ### Online play
 
-Online play is built but **switched off** until the database script `supabase/farm_online.sql` is applied and
-`C.ONLINE.url` / `C.ONLINE.key` in `src/00-online.js` are filled in. Until then the Online button does not show.
+Players are online with their **Selebox account**: there is no sign-in in the game. The game makes no network
+calls itself. It asks the Selebox app through `window.gameHost.net`, and the app answers with its own signed-in
+Supabase client (`bridge/sunnyAcresBridge.js`, guide in `bridge/README.md`). Opened on its own, without the app,
+the game plays offline and the Online button does not show. The database side is `supabase/farm_online.sql`
+(not applied yet).
 
-- **Signing in:** the Online button (under Quests) offers a guest account and/or an app account (email and
-  password), set by `C.ONLINE.auth` ('guest', 'account' or 'both'). The first time, you name your farm.
+- **Joining:** online play starts by itself when the game opens. The first time you open the Online panel (the
+  button under Quests) you name your farm (it starts as your Selebox name). You can leave online play from the
+  Me tab (your online farm, friends and messages are deleted) and join again from the Online button.
 - **Your farm online:** your house, furniture, wallpaper and floor, yard, crops, weeds and stones, animals and pets
   are shared every minute when they change. Your bag, gold and progress stay private.
 - **Visiting:** the Visit tab lists the most beautiful farms, the ones just updated, or your friends'. On a visit
@@ -257,8 +261,8 @@ Online play is built but **switched off** until the database script `supabase/fa
 - **Friends:** add a friend with their 8-letter code; they accept in their Friends tab. Friends can always visit
   (even hidden farms) and send each other messages (up to 50 a day, 200 letters each).
 - **Ranks:** this week's top 50 by Home Beauty, gold earned and daily quests done (Monday to Sunday).
-- **Me:** rename the farm, collect gifts (also collected when you sign in), see who came by in the last 7 days,
-  hide the farm from the lists, sign out, or leave online play (deletes the online farm, friends and messages).
+- **Me:** rename the farm, collect gifts (also collected when the game opens), see who came by in the last 7 days,
+  hide the farm from the lists, or leave online play.
 
 ### Seasons, weather and festivals
 
@@ -313,7 +317,7 @@ sounds can be switched off in the pause menu.
 
 | Hook | Behaviour |
 | --- | --- |
-| `window.gameHost.net` | Optional: the host's own online transport (`session`, `signIn`, `signOut`, `rpc`, `join`), used instead of the bundled Supabase client. See `src/02-net.js` and `test/net-mock.js`. |
+| `window.gameHost.net` | Optional: online play through the app (`session`, `rpc`, `join`). Set up by `bridge/sunnyAcresBridge.js`; see `bridge/README.md`. Without it the game stays offline. |
 | `window.gameHost.state` | Read once at boot. Accepts the saved object (or its JSON string). Invalid data starts a new game. |
 | `window.gameHost.save(state)` | Called with a compact JSON-safe object (about 2 to 5 KB, always under 16 KB). Saves happen after sleeping, selling, buying, changing maps, on `__gameSleep(true)`, and every ~15 s of unsaved play. |
 | `window.__gameSleep(true/false)` | `true` saves, stops the game loop (clock, input, rendering) and suspends audio. `false` resumes. |
@@ -367,20 +371,21 @@ src/              game code, concatenated in filename order
                     the Power-Up and the Pet Meal
   19g-quests.js     the Quests button and panel, the daily gift, notice board requests, in-person requests,
                     Saffron's tent
-  00-online.js      online play settings (off until url and key are filled in)
+  00-online.js      online play settings
   01-logic8.js      online rules: the farm snapshot others see, rebuilding a visited farm from one (every value
                     checked), who fits on a farm, weekly scores, save
-  02-net.js         the connection: Supabase (bundled supabase-js) or the host's own transport
-  19h-online.js     signing in, publishing, visiting (look-only), live players and name tags, likes, gifts,
+  02-net.js         the connection: window.gameHost.net, provided by the app (no network calls in the game)
+  19h-online.js     joining, publishing, visiting (look-only), live players and name tags, likes, gifts,
                     the Online panel (Visit, Friends and chat, Ranks, Me), the text box
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
 tools/            make-art.js + art/*.js (draws all the art in headless Chromium), make-map.js (seeds the maps)
 build.js          inlines everything into dist/index.html
+bridge/           the Selebox app's side of online play (React Native): sunnyAcresBridge.js and its guide
 supabase/         farm_online.sql: the online database (a "farm" schema and public.farm_*_v1 functions; not applied)
 test/             logic + rules unit tests (Node), e2e.test.js (Playwright playthrough), e2e-online.test.js
-                  (three phones on a stand-in server, net-mock.js)
+                  (three phones through the app bridge on a stand-in Supabase, net-mock.js), bridge.test.js
 ```
 
 ## Commands
@@ -388,7 +393,7 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (138 tests)
+npm test           # rules + save-format unit tests (142 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (18 tests, ~30 min)
 node --test test/e2e-online.test.js   # online: an owner and two visitors (~2 min, after a build)
 npm run simulate   # plays a year with the real rules and prints the economy

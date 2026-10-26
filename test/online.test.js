@@ -95,7 +95,7 @@ test('weekly scores count from the Monday of the phone\'s week', () => {
 
 test('the online player info is saved', () => {
   const s = fresh();
-  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2, named: 1 };
+  s.net = { id: 'abc', name: 'Moon Meadow', code: 'ABCDEFGH', wk: 20000, e0: 10, q0: 2, named: 1, off: 1 };
   assert.deepStrictEqual(plain(roundTrip(s).net), plain(s.net));
   const old = L.serialize(fresh());
   delete old.nt;

@@ -43,13 +43,6 @@ list('maps', '.json').forEach((f) => {
 const inline = (code) => code.replace(/<\/script/gi, '<\\/script');
 
 const phaser = fs.readFileSync(require.resolve('phaser/dist/phaser-arcade-physics.min.js'), 'utf8');
-// the Supabase browser client, for online play (src/02-net.js); it does nothing until online is switched on
-// Inlined, the client cannot find its own URL (it only needs one to lazy-load Node-only chunks a browser never
-// asks for), and throws while loading; give it the page's address instead.
-const PUBLIC_PATH_THROW = 'if(!e)throw new Error("Automatic publicPath is not supported in this browser");';
-const supabaseRaw = fs.readFileSync(require.resolve('@supabase/supabase-js/dist/umd/supabase.js'), 'utf8');
-if (supabaseRaw.split(PUBLIC_PATH_THROW).length !== 2) throw new Error('supabase-js: publicPath code changed, check the patch in build.js');
-const supabaseJs = supabaseRaw.replace(PUBLIC_PATH_THROW, 'if(!e)e=String(o.g.location||"");');
 // WebP copies stored below full size (world art), with the size the game scales each back up to
 const sizesFile = path.join(ROOT, 'assets', 'sizes.json');
 const sizes = fs.existsSync(sizesFile) ? JSON.parse(read('assets/sizes.json')) : {};
@@ -76,7 +69,6 @@ const html = `<!DOCTYPE html>
 <div id="game"></div>
 <div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm…</div>
 <script>${inline(phaser)}</script>
-<script>${inline(supabaseJs)}</script>
 <script>${inline(assets)}</script>
 <script>${inline(game)}</script>
 </body>

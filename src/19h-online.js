@@ -1,9 +1,9 @@
-// Phase 4 at runtime: online play. Signing in (as a guest or with an app account), publishing your farm for
+// Phase 4 at runtime: online play, with the player's account in the app the game runs in (no sign-in here; you
+// can leave online play, and join again, from the Online panel). Publishing your farm for
 // others to visit, visiting a farm (a look-only copy built by L.visitState: nothing there can be changed, and
 // your own save is never touched), seeing everyone on the same farm live (the owner and up to 8 visitors),
 // likes and gifts, the leaderboards, friends and messages. The transport is F.Net (02-net.js), the database
-// side supabase/farm_online.sql, the rules 01-logic8.js. With online play off (no url/key, no host transport)
-// none of this shows.
+// side supabase/farm_online.sql, the rules 01-logic8.js. Without the app's transport none of this shows.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -19,7 +19,7 @@
   var noop = function () {};
   var errText = function (e) {
     var m = (e && e.message) || String(e || '');
-    if (/not signed in|JWT|auth/i.test(m)) return 'Please sign in again.';
+    if (/not signed in|JWT|auth/i.test(m)) return 'Sign in to Selebox to play online.';
     if (/fetch|network|offline|timeout/i.test(m)) return 'Could not reach the online world. Check your connection.';
     if (/no such farm/i.test(m)) return 'That farm is not online any more.';
     return 'Something went wrong online. Please try again.';
@@ -43,15 +43,25 @@
     O.started = true;
     F.Net.init();
     if (!F.Net.available()) return;
-    F.Net.session().then(function (uid) { if (uid) return O.joined(); }).catch(noop);
+    O.connect().catch(noop);
     O.timer = setInterval(function () { O.publish(false); }, ON.publishEvery);
   };
 
-  O.signIn = function (kind, email, password) {
-    return F.Net.signIn(kind, email, password).then(function () { return O.joined(); });
+  // Joins online play with the app's signed-in account (unless the player left it).
+  O.connect = function () {
+    if (O.on) return Promise.resolve(O.me);
+    if (O.joining) return O.joining;
+    O.joining = F.Net.session().then(function (uid) {
+      if (!uid) throw new Error('not signed in');
+      if (F.session.state.net.off) return null;
+      return O.joined();
+    });
+    var done = function () { O.joining = null; };
+    O.joining.then(done, done);
+    return O.joining;
   };
 
-  // After signing in: our player row (made the first time), our channel, our farm published, gifts collected.
+  // Joined: our player row (made the first time), our channel, our farm published, gifts collected.
   O.joined = function (name) {
     return F.Net.rpc('farm_join_v1', { p_farm_name: name || null }).then(function (r) {
       if (!r || !r.id) throw new Error('join failed');
@@ -68,7 +78,8 @@
     });
   };
 
-  O.signOut = function () {
+  // Stops playing online (after leaving it): back to your own farm, off the channel.
+  O.disconnect = function () {
     O.leaveChannel();
     O.on = false;
     O.me = null;
@@ -77,7 +88,6 @@
     F.session.visit = null;
     if (going) O.restartWorld();
     F.bus.emit('online');
-    return F.Net.signOut().catch(noop);
   };
 
   // Shares our farm (only when it changed; otherwise just says we are still here).
@@ -592,8 +602,9 @@
   // then(): runs once the panel is up (a toast shown before it would be hidden by the panel)
   U.openOnline = function (tab, page, then) {
     var self = this;
-    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nComing soon: visit other farms, make friends and climb the leaderboards!');
-    if (!O.on) return this.signInPanel();
+    if (!F.Net.available()) return this.dialog('ONLINE PLAY\nOpen Sunny Acres from the Selebox app to visit other farms, make friends and climb the leaderboards!');
+    if (!O.on) return this.joinPanel(tab, page, then);
+    if (!F.session.state.net.named) return this.firstName(function () { self.openOnline(tab, page, then); });
     this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
     var o = { title: 'Online', tab: tab, page: page, tabs: TABS, reopen: function (t, p) { self.openOnline(t, p); } };
     var show = function (rows, sub, empty) {
@@ -672,7 +683,6 @@
           icon: C.ICON.sparkle, name: me.listed ? 'Farm shown in lists' : 'Farm hidden', desc: me.listed ? 'Anyone can find and visit it.' : 'Only friends can visit it.',
           buttons: [{ label: me.listed ? 'Hide' : 'Show', color: GREY, cb: function () { self.setListed(!me.listed); } }],
         },
-        { icon: C.ICON.moon, name: 'Sign out', desc: 'Your farm stays online.', buttons: [{ label: 'Sign out', color: GREY, cb: function () { self.closeModal(); O.signOut(); self.toast('Signed out.'); } }] },
         {
           icon: C.ICON.exclaim, name: 'Leave online play', desc: 'Deletes your online farm, friends and messages.',
           buttons: [{ label: 'Leave', color: RED, cb: function () { self.leaveOnline(); } }],
@@ -681,41 +691,38 @@
     }
   };
 
-  U.signInPanel = function () {
-    var self = this, auth = ON.auth;
-    var guest = function () {
-      self.toast('Signing in...', 1500);
-      O.signIn('guest').then(function () { self.firstName(); }).catch(function (e) { self.toast(errText(e)); });
+  // Not online: joining (again, after leaving), or still connecting.
+  U.joinPanel = function (tab, page, then) {
+    var self = this, s = F.session.state;
+    var join = function () {
+      s.net.off = 0;
+      F.Host.save(s);
+      self.toast('Connecting...', 1500);
+      O.connect().then(function (me) {
+        if (me) self.openOnline(tab, page, then);
+      }).catch(function (e) { self.toast(errText(e)); });
     };
-    var account = function () {
-      self.askText('Your email', '', 120, function (email) {
-        email = email.trim();
-        if (!email) return;
-        self.askText('Your password', '', 72, function (pw) {
-          if (!pw) return;
-          self.toast('Signing in...', 1500);
-          O.signIn('account', email, pw).then(function () { self.firstName(); }).catch(function () { self.toast('That email and password did not work.'); });
-        }, { password: true, ok: 'Sign in' });
-      }, { email: true, hint: 'The account you use in the app.' });
-    };
-    var text = 'PLAY ONLINE\nVisit other farms and see who is there, leave likes and gifts, make friends and climb the weekly ranks.\n\n' +
-      'Others can visit your farm: your house, furniture, yard, crops and animals. Your bag and gold stay private.';
-    var buttons = auth === 'guest' ? [{ label: 'Not now', color: GREY }, { label: 'Play', cb: guest }]
-      : auth === 'account' ? [{ label: 'Not now', color: GREY }, { label: 'Sign in', cb: account }]
-        : [{ label: 'As guest', color: BLUE, cb: guest }, { label: 'Sign in', cb: account }];
-    this.dialog(text, buttons);
+    if (!s.net.off) return join(); // it did not connect at the start: try again
+    this.dialog('PLAY ONLINE\nVisit other farms and see who is there, leave likes and gifts, make friends and climb the weekly ranks.\n\n' +
+      'Others can visit your farm: your house, furniture, yard, crops and animals. Your bag and gold stay private.',
+    [{ label: 'Not now', color: GREY }, { label: 'Join', cb: join }]);
   };
 
-  // The first time online: name the farm.
-  U.firstName = function () {
-    var self = this, s = F.session.state;
-    if (s.net.named) return this.toast('Welcome back, ' + O.me.name + '!', 2200, 0x2f5a22);
+  // The first time the Online panel opens: name the farm (it starts as your Selebox name).
+  U.firstName = function (done) {
+    var s = F.session.state, self = this;
     this.askText('Name your farm', O.me.name, 24, function (n) {
       s.net.named = 1;
       F.Host.save(s);
       n = L.cleanText(n, 24);
-      if (n && n !== O.me.name) self.saveName(n);
-      else self.toast('You are online as ' + O.me.name + '!', 2200, 0x2f5a22);
+      if (!n || n === O.me.name) return done();
+      F.Net.rpc('farm_join_v1', { p_farm_name: n }).then(function (r) {
+        O.me.name = L.cleanText(r && r.farm_name, 24) || n;
+        s.net.name = O.me.name;
+        F.Host.save(s);
+        if (O.chan) O.chan.track(O.myState());
+        done();
+      }).catch(function (e) { self.toast(errText(e)); });
     }, { hint: 'Others see this name. You can change it later.' });
   };
 
@@ -750,14 +757,15 @@
 
   U.leaveOnline = function () {
     var self = this;
-    this.confirm('LEAVE ONLINE PLAY?\nYour online farm, likes, friends and messages are deleted. Your game on this phone stays.', function () {
+    this.confirm('LEAVE ONLINE PLAY?\nYour online farm, likes, friends and messages are deleted. Your game itself stays.', function () {
       F.Net.rpc('farm_leave_v1', {}).then(function () {
         var s = F.session.state;
         s.net = L.newNet();
+        s.net.off = 1; // until you join again from the Online panel
         F.Host.save(s);
         self.closeAll();
-        O.signOut();
-        self.toast('You left online play.');
+        O.disconnect();
+        self.toast('You left online play. Join again any time from the Online button.');
       }).catch(function (e) { self.toast(errText(e)); });
     });
   };

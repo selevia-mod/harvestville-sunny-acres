@@ -1,10 +1,12 @@
-// Online play end to end: three phones (the owner and two visitors) on a stand-in server (test/net-mock.js).
+// Online play end to end: three phones (the owner and two visitors), each a WebView in the Selebox app running
+// the real app bridge (bridge/sunnyAcresBridge.js) over a stand-in for the app's Supabase (test/net-mock.js).
 // Run alone: node --test test/e2e-online.test.js (SHOTS=/some/dir saves screenshots).
 const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const { chromium } = require('playwright');
-const { createServer, netScript } = require('./net-mock');
+const { createServer } = require('./net-mock');
+const { createSunnyAcresBridge } = require('../bridge/sunnyAcresBridge');
 
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
@@ -27,19 +29,31 @@ async function open(server) {
     problems.push('network: ' + url);
     return route.abort();
   });
-  const client = server.connect(page);
-  await context.exposeBinding('__net', (source, op, args) => client.call(op, args));
+  // the app: signed in to Selebox, the game in a WebView with the bridge
+  const uid = server.newUser();
+  const webViewRef = { current: { injectJavaScript: (code) => { page.evaluate(code).catch(() => {}); } } };
+  const bridge = createSunnyAcresBridge({ supabase: server.supabaseFor(uid), webViewRef });
+  await context.exposeBinding('__rnPost', (source, data) => { bridge.onMessage({ nativeEvent: { data } }); });
   await page.addInitScript(() => {
-    window.gameHost = { state: null, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; } };
+    window.ReactNativeWebView = { postMessage: (data) => window.__rnPost(data) };
+    // the app's save, kept across a reload of the page
+    let kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem('farm-test-save')); } catch (e) { kept = null; }
+    window.gameHost = {
+      state: kept, quiet: true, saves: [],
+      save(s) { this.saves.push(JSON.stringify(s)); this.state = s; try { sessionStorage.setItem('farm-test-save', JSON.stringify(s)); } catch (e) { /* none */ } },
+    };
   });
-  await page.addInitScript(netScript);
+  await page.addInitScript(bridge.injectedJavaScriptBeforeContentLoaded);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
   // the new-game look picker and welcome
   await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
   await page.evaluate(() => Farm.ui.closeAll());
-  return { page, problems, context };
+  // online straight away, with the app's account
+  await page.waitForFunction(() => Farm.Online.on, null, SLOW);
+  return { page, problems, context, uid, bridge };
 }
 
 const frames = (page, n = 3) => page.evaluate((n) => new Promise((r) => {
@@ -99,9 +113,13 @@ const waitRemotes = (page, names) => page.waitForFunction((want) => {
 }, names.slice().sort(), SLOW);
 const waitWorld = (page, visiting) => page.waitForFunction((v) => Farm.world && !Farm.world.busy && Farm.world.player.active && !!Farm.world.state.isVisit === v, visiting, SLOW);
 
-async function signIn(page, name) {
-  await page.evaluate((n) => Farm.Online.signIn('guest').then(() => Farm.ui.saveName(n)), name);
-  await page.waitForFunction((n) => Farm.Online.on && Farm.Online.me.name === n, name, SLOW);
+// Names the farm, as the first opening of the Online panel would.
+async function nameFarm(page, name) {
+  await page.evaluate((n) => Farm.Net.rpc('farm_join_v1', { p_farm_name: n }).then((r) => {
+    Farm.Online.me.name = r.farm_name;
+    Farm.session.state.net.named = 1;
+    Farm.Online.chan.track(Farm.Online.myState());
+  }), name);
 }
 
 test('online: an owner and two visitors see each other, like, gift, befriend, chat and rank', async () => {
@@ -109,16 +127,18 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   const owner = await open(server), ana = await open(server), ben = await open(server);
   const pages = [owner, ana, ben];
 
-  // ----- the owner signs in through the Online button: as a guest, then names the farm in the text box
+  // ----- no sign-in: everyone is online with their app account. The first time the owner opens Online, they
+  // name the farm in the text box, then the panel opens
+  const ownerId = owner.uid;
+  assert.strictEqual(await owner.page.evaluate(() => Farm.Online.me.id), ownerId, 'the app account');
   await owner.page.touchscreen.tap(316, 152);
-  await waitModal(owner.page, /PLAY ONLINE/);
-  await shot(owner.page, 'online-1-sign-in');
-  await tapButton(owner.page, 'As guest');
   await page_waitAsk(owner.page);
-  assert.strictEqual(await owner.page.inputValue('#farm-ask input'), 'Sunny Acres', 'the name to start from');
+  await shot(owner.page, 'online-1-name-farm');
+  assert.strictEqual(await owner.page.inputValue('#farm-ask input'), 'Sunny Acres', 'the name to start from (the app name in Selebox)');
   await type(owner.page, 'Moon Meadow');
-  await owner.page.waitForFunction(() => Farm.Online.me && Farm.Online.me.name === 'Moon Meadow', null, SLOW);
-  const ownerId = await owner.page.evaluate(() => Farm.Online.me.id);
+  await waitModal(owner.page, /Showing: Most beautiful/);
+  assert.strictEqual(await owner.page.evaluate(() => Farm.Online.me.name), 'Moon Meadow');
+  await owner.page.evaluate(() => Farm.ui.closeAll());
   assert.ok(server.db.snaps.has(ownerId), 'the farm is published for visitors');
   // something to see: a bench in the yard
   await owner.page.evaluate(() => {
@@ -128,7 +148,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
     return Farm.Online.publish(true);
   });
 
-  await signIn(ana.page, 'Ana Acres');
+  await nameFarm(ana.page, 'Ana Acres');
 
   // ----- Ana finds the farm in the Visit list and goes there
   await ana.page.touchscreen.tap(316, 152);
@@ -145,7 +165,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await waitRemotes(ana.page, ['Moon Meadow (owner)']);
   await waitToast(owner.page, /Ana Acres is visiting your farm!/);
   await waitRemotes(owner.page, ['Ana Acres']);
-  await signIn(ben.page, 'Ben Barn');
+  await nameFarm(ben.page, 'Ben Barn');
 
   // ----- a farm holds 8 visitors: with room for only 1, Ben is turned away; then he fits
   await ben.page.evaluate(() => { Farm.Config.ONLINE.maxVisitors = 1; });
@@ -277,6 +297,27 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   assert.deepStrictEqual(home, { same: true, saved: 'farm' });
   await waitRemotes(owner.page, []);
   assert.strictEqual(await ana.page.evaluate(() => Farm.Online.topic), 'farm:' + (await ana.page.evaluate(() => Farm.Online.me.id)), 'back on her own channel');
+
+  // ----- Ben leaves online play (his online farm is deleted), and later joins again from the Online button
+  await ben.page.evaluate(() => Farm.ui.openOnline('me', 0));
+  await waitModal(ben.page, /Leave online play/);
+  await tapButton(ben.page, 'Leave');
+  await waitModal(ben.page, /LEAVE ONLINE PLAY/);
+  await tapButton(ben.page, 'Yes');
+  await ben.page.waitForFunction(() => !Farm.Online.on && Farm.session.state.net.off === 1, null, SLOW);
+  assert.ok(!server.db.players.has(ben.uid), 'his online farm is gone');
+  await ben.page.reload();
+  await ben.page.waitForFunction(() => window.Farm && Farm.ui && Farm.ui.refresh && Farm.world && Farm.world.player, null, SLOW);
+  await ben.page.waitForTimeout(1500);
+  assert.strictEqual(await ben.page.evaluate(() => Farm.Online.on), false, 'he stays off after a restart');
+  await ben.page.evaluate(() => Farm.ui.closeAll());
+  await ben.page.touchscreen.tap(316, 152);
+  await waitModal(ben.page, /PLAY ONLINE/);
+  await tapButton(ben.page, 'Join');
+  await page_waitAsk(ben.page);
+  await type(ben.page, 'Ben Again');
+  await waitModal(ben.page, /Showing: Most beautiful/);
+  assert.strictEqual(server.db.players.get(ben.uid).farm_name, 'Ben Again');
 
   for (const p of pages) assert.deepStrictEqual(p.problems, []);
   for (const p of pages) await p.context.close();

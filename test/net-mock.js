@@ -1,6 +1,6 @@
-// A stand-in for the online world, for the end-to-end tests: the same answers as the database functions in
-// supabase/farm_online.sql (kept in memory) and live channels with presence and broadcasts, shared by every
-// page that is connected to it. Each page reaches it through window.gameHost.net (see netScript below).
+// A stand-in for the online world, for the tests: the same answers as the database functions in
+// supabase/farm_online.sql (kept in memory), and realtime channels with presence and broadcasts, behind a fake
+// of the app's supabase-js client, so the tests run the real app bridge (bridge/sunnyAcresBridge.js).
 const crypto = require('crypto');
 
 function createServer() {
@@ -137,86 +137,66 @@ function createServer() {
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
   };
 
-  // ----- live channels
-  const deliver = (m, kind, a, b) => {
-    setTimeout(() => {
-      m.client.page.evaluate(([hid, kind, a, b]) => window.__netRecv && window.__netRecv(hid, kind, a, b), [m.hid, kind, a, b]).catch(() => {});
-    }, 0);
+  // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
+  const topics = new Map(); // topic -> Set of channels
+  const later = (fn) => setTimeout(fn, 0);
+  const sync = (topic) => {
+    const set = topics.get(topic);
+    if (!set) return;
+    const state = {};
+    for (const c of set) if (c.tracked) state[c.key] = [Object.assign({ presence_ref: 'r' + c.n }, c.state)];
+    for (const c of set) { c.presence = state; c.fire('presence', 'sync', {}); }
   };
-  const presence = (topic) => {
-    const ch = channels.get(topic);
-    if (!ch) return;
-    for (const m of ch.values()) deliver(m, 'presence', [...ch.values()].filter((o) => o.client.uid !== m.client.uid).map((o) => o.state));
-  };
+  let nChan = 0;
 
-  function connect(page) {
-    const client = { page, uid: null, subs: new Map() };
-    client.call = async (op, args) => {
-      if (op === 'session') return client.uid;
-      if (op === 'signIn') { client.uid = crypto.randomUUID(); return client.uid; }
-      if (op === 'signOut') { client.uid = null; return null; }
-      if (op === 'rpc') {
-        const fn = rpc[args[0]];
-        if (!fn) throw new Error('no function ' + args[0]);
-        return fn(client.uid, args[1] || {});
-      }
-      const [hid] = args;
-      if (op === 'join') {
-        const topic = args[1];
-        if (!client.uid || !/^farm:[0-9a-f-]{36}$/.test(topic)) return null;
-        if (!channels.has(topic)) channels.set(topic, new Map());
-        const m = { client, hid, topic, state: args[2] };
-        channels.get(topic).set(client.uid + ':' + hid, m);
-        client.subs.set(hid, m);
-        presence(topic);
-      } else if (op === 'track') {
-        const m = client.subs.get(hid);
-        if (m) { m.state = args[1]; presence(m.topic); }
-      } else if (op === 'send') {
-        const m = client.subs.get(hid);
-        if (!m) return null;
-        for (const o of channels.get(m.topic).values()) if (o.client.uid !== client.uid) deliver(o, 'message', args[1], args[2]);
-      } else if (op === 'leave') {
-        const m = client.subs.get(hid);
-        if (!m) return null;
-        client.subs.delete(hid);
-        channels.get(m.topic).delete(client.uid + ':' + hid);
-        presence(m.topic);
-      }
-      return null;
+  // A stand-in for the app's signed-in supabase-js client (only what the bridge uses).
+  function supabaseFor(uid) {
+    return {
+      auth: { getSession: async () => ({ data: { session: uid ? { user: { id: uid } } : null }, error: null }) },
+      async rpc(name, args) {
+        const fn = rpc[name];
+        if (!fn) return { data: null, error: { message: 'Could not find the function ' + name } };
+        try { return { data: JSON.parse(JSON.stringify(fn(uid, args || {}) ?? null)), error: null }; } catch (e) { return { data: null, error: { message: e.message } }; }
+      },
+      channel(topic, opts) {
+        const cfg = (opts && opts.config) || {};
+        const c = {
+          topic, n: ++nChan, key: (cfg.presence && cfg.presence.key) || uid, self: !!(cfg.broadcast && cfg.broadcast.self),
+          listeners: [], state: null, tracked: false, presence: {}, joined: false,
+          on(type, filter, cb) { this.listeners.push({ type, event: filter.event, cb }); return this; },
+          fire(type, event, arg) { this.listeners.forEach((l) => { if (l.type === type && (l.event === '*' || l.event === event)) l.cb(arg); }); },
+          subscribe(cb) {
+            later(() => {
+              // private channels: only farm:<id> topics, for signed-in players (farm_topic_ok_v1)
+              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid)) return cb && cb('CHANNEL_ERROR');
+              if (!topics.has(topic)) topics.set(topic, new Set());
+              topics.get(topic).add(this);
+              this.joined = true;
+              if (cb) cb('SUBSCRIBED');
+            });
+            return this;
+          },
+          async track(state) { this.state = state; this.tracked = true; later(() => sync(topic)); return 'ok'; },
+          presenceState() { return this.presence; },
+          async send(m) {
+            const set = topics.get(topic);
+            if (!set || !this.joined) return 'error';
+            for (const o of set) if (o !== this || this.self) later(() => o.fire('broadcast', m.event, { type: 'broadcast', event: m.event, payload: m.payload }));
+            return 'ok';
+          },
+        };
+        return c;
+      },
+      async removeChannel(c) {
+        const set = topics.get(c.topic);
+        if (set && set.delete(c)) later(() => sync(c.topic));
+        c.joined = false;
+        return 'ok';
+      },
     };
-    return client;
   }
 
-  return { connect, db, channels };
+  return { supabaseFor, db, topics, newUser: () => crypto.randomUUID() };
 }
 
-// Runs in the page (before the game): window.gameHost.net talks to the server through the __net binding.
-const netScript = () => {
-  let seq = 0;
-  const handlers = {};
-  window.__netRecv = (hid, kind, a, b) => {
-    const h = handlers[hid];
-    if (!h) return;
-    if (kind === 'presence') h.presence(a);
-    else h.message(a, b);
-  };
-  window.gameHost.net = {
-    session: () => window.__net('session', []),
-    signIn: (kind, email, password) => window.__net('signIn', [kind, email, password]),
-    signOut: () => window.__net('signOut', []),
-    rpc: (name, args) => window.__net('rpc', [name, JSON.parse(JSON.stringify(args || {}))]),
-    join: (topic, me, on) => {
-      const hid = ++seq;
-      handlers[hid] = on;
-      window.__net('join', [hid, topic, me]);
-      return {
-        track: (s) => window.__net('track', [hid, s]),
-        send: (event, payload) => window.__net('send', [hid, event, payload]),
-        leave: () => { delete handlers[hid]; return window.__net('leave', [hid]); },
-      };
-    },
-  };
-};
-
-module.exports = { createServer, netScript };
+module.exports = { createServer };
