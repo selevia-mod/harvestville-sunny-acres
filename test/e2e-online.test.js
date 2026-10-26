@@ -36,13 +36,7 @@ async function open(server) {
   await context.exposeBinding('__rnPost', (source, data) => { bridge.onMessage({ nativeEvent: { data } }); });
   await page.addInitScript(() => {
     window.ReactNativeWebView = { postMessage: (data) => window.__rnPost(data) };
-    // the app's save, kept across a reload of the page
-    let kept = null;
-    try { kept = JSON.parse(sessionStorage.getItem('farm-test-save')); } catch (e) { kept = null; }
-    window.gameHost = {
-      state: kept, quiet: true, saves: [],
-      save(s) { this.saves.push(JSON.stringify(s)); this.state = s; try { sessionStorage.setItem('farm-test-save', JSON.stringify(s)); } catch (e) { /* none */ } },
-    };
+    window.gameHost = { state: null, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; } };
   });
   await page.addInitScript(bridge.injectedJavaScriptBeforeContentLoaded);
   await page.goto(PAGE, { timeout: 90000 });
@@ -306,10 +300,14 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await tapButton(ben.page, 'Yes');
   await ben.page.waitForFunction(() => !Farm.Online.on && Farm.session.state.net.off === 1, null, SLOW);
   assert.ok(!server.db.players.has(ben.uid), 'his online farm is gone');
+  // the app restarts the game with its last save
+  const lastSave = await ben.page.evaluate(() => window.gameHost.saves[window.gameHost.saves.length - 1]);
+  await ben.page.addInitScript((saved) => { window.gameHost.state = JSON.parse(saved); }, lastSave);
   await ben.page.reload();
   await ben.page.waitForFunction(() => window.Farm && Farm.ui && Farm.ui.refresh && Farm.world && Farm.world.player, null, SLOW);
   await ben.page.waitForTimeout(1500);
-  assert.strictEqual(await ben.page.evaluate(() => Farm.Online.on), false, 'he stays off after a restart');
+  const restarted = await ben.page.evaluate(() => ({ on: Farm.Online.on, off: Farm.session.state.net.off, isNew: Farm.session.isNew }));
+  assert.deepStrictEqual(restarted, { on: false, off: 1, isNew: false }, 'he stays off after a restart');
   await ben.page.evaluate(() => Farm.ui.closeAll());
   await ben.page.touchscreen.tap(316, 152);
   await waitModal(ben.page, /PLAY ONLINE/);
