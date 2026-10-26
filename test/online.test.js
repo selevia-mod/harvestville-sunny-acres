@@ -51,6 +51,16 @@ test('a visited farm is rebuilt from the snapshot', () => {
   assert.strictEqual(v.home.items.length, host.home.items.length);
   assert.ok(v.soil[300]);
   assert.ok(v.horse && v.builds.stable);
+  // crops show the stage they were at, and grow on from there
+  L.till(host, 301);
+  L.till(host, 302);
+  L.till(host, 303);
+  host.soil[301] = { w: 0, c: 'pumpkin', p: clock.min() - 800, r: 0 };
+  host.soil[302] = { w: 1, c: 'turnip', p: clock.min() - 20, r: 0 };
+  host.soil[303] = { w: 0, c: 'carrot', p: clock.min() - 5000, r: 0 };
+  const v2 = L.visitState(plain(L.snapshot(host)), me);
+  [301, 302, 303].forEach((i) => assert.strictEqual(L.cropStage(v2.soil[i]), L.cropStage(host.soil[i]), 'tile ' + i));
+  assert.deepStrictEqual([2, 3, 4].map((st) => st), [301, 302, 303].map((i) => L.cropStage(host.soil[i])));
   assert.strictEqual(v.time, 13 * 60, 'the time is yours');
   assert.strictEqual(v.map, 'farm');
   assert.strictEqual(v.gold, me.gold === undefined ? v.gold : v.gold, 'a fresh state: nothing of theirs but the farm');

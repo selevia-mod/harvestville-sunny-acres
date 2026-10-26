@@ -10,7 +10,7 @@
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   // The phone's date, as 'YYYY-MM-DD'.
   F.today = function () {
-    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    var d = new Date(L.clock()), p = function (n) { return (n < 10 ? '0' : '') + n; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   };
   // tests (and hosts that show their own popups) can turn off the login gift popup and quest toasts

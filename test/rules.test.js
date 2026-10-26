@@ -90,6 +90,8 @@ test('tool upgrades cost gold and ore, and make tools cheaper and the can bigger
 // ---------- debris ----------
 test('a new farm starts with debris on the field, and saves keep it', () => {
   const s = L.newState({ fieldTiles: FIELD });
+  assert.ok(Object.keys(s.debris).length > 0);
+  s.debris = L.makeDebris(12345, FIELD); // a fixed farm (a random one now and then has no boulder)
   const kinds = Object.values(s.debris);
   assert.ok(kinds.length > 224 * 0.4 && kinds.length < 224 * 0.65, kinds.length + ' debris tiles');
   C.DEBRIS_KEYS.forEach((k) => assert.ok(kinds.includes(k), 'has ' + k));

@@ -1,8 +1,9 @@
 # Handoff: Sunny Acres (for the next Claude)
 
 You are picking up **Sunny Acres**, a Harvest Moon style farming game. It runs as a mini game inside the
-**Selebox** app (React Native). This file is the state of things at the handoff (26 Oct 2026). The README has
-the full game description and file layout. Read both before changing anything.
+**Selebox** app (React Native). This file is the state of things at the handoff (26 Oct 2026, updated after the
+real-time redesign). The README has the full game description and file layout, but **its time and crop sections
+are out of date** (see "In progress" below). Read both before changing anything.
 
 Repo: `selevia-mod/harvestville-sunny-acres`, branch `main`. Commit and push to `main` when the owner asks to
 save; they often do ("save it to GitHub"). End commit messages with the attribution lines your harness gives.
@@ -35,10 +36,59 @@ Everything below is built, tested and pushed:
 - Phase 4 game side: online play (visiting farms look-only, the owner plus up to 8 visitors see each other live,
   likes, gifts, friends, chat, weekly ranks). Players are online with their **Selebox account**: no sign-in in
   the game, no guests.
-- Art: the owner's generated pictures, batches 01-07 (77 pictures) imported.
+- Art: all 83 of the owner's generated pictures imported (batches 01-07 and the last 6).
+- **Real time, FarmVille style** (the owner's latest request, rules and game side done, see below).
 
 Published preview (offline, no Online button there): https://claude.ai/artifact/4Nz2b6Q7q1tuA2AW2L9CnP
-(version 31). The artifact limit is 16 MB per page; the game is about 12.9 MB.
+(version 31, from **before** the real-time redesign: republish once the browser tests pass). The artifact limit
+is 16 MB per page; the game is now about 13.4 MB.
+
+## The real-time redesign (what the owner asked for, and what was decided)
+
+The owner: "use the real time and date of the user's phone; crops grow by time, like FarmVille; users cannot just
+sleep to gain energy; birthdays and events are shared by all users (Lily's birthday on Oct 27 for everyone)";
+"Season by real month"; "10 plants for every season". Decided with them (or by me, told to them, not objected to):
+
+- **Clock:** game time = the phone's time (`L.clock()`; the app may give `window.gameHost.now()`, e.g. server
+  time; the tests use it to control time). `s.day` is the real local date as a day number since 1970
+  (`L.dayOf`), `s.start` the farm's first day, `s.time` minutes after midnight. No passing out, no sleeping.
+- **New day at midnight:** `L.catchUp(s, now, info)` (src/01-logic9.js) runs `L.endDay` once per day that went
+  by (max 30) and merges the reports; it runs on load (10-boot.js) and once a second in the world
+  (`tickClock` in 11-world.js), which shows the "A NEW DAY" / "WELCOME BACK" report where the player stands.
+  A clock set back never undoes days.
+- **Seasons by month:** Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb (`C.SEASON_OF_MONTH`).
+- **Birthdays and festivals on fixed real dates**, the same for everyone: `birthday: [month, day]`,
+  `FESTIVALS[].date`. Lily is Oct 27. Festivals: Flower Apr 14, Fireworks Jul 24, Harvest Oct 12, Cow Nov 20,
+  Starry Dec 24 (day festivals 8 AM-9 PM, night ones 5 PM-midnight). Weather is the same for every player.
+- **Crops (FarmVille):** 40 crops, 10 per season, 15 minutes to 2 days (`C.CROPS[k].mins`), plus grass for
+  fodder. Soil tile = `{ w, c, p, r }`: p = planted minute, w = watered (25% faster, rain waters too), r =
+  grass regrowing. No watering needed. A ripe crop withers after as long again as it grew (min 4 h): stage 4,
+  cleared with the Hoe. Seeds sold in season; a planted crop grows on into the next season. Prices come from the
+  growing time (`6 + 14 * sqrt(hours)` profit per tile). Saves store soil in groups (`soilGroups`).
+- **Energy:** comes back by itself, 1 point every 3 minutes (`C.ENERGY_EVERY`, `L.regen`), also while the
+  game is closed. The bed only explains this. Fainting in the mine sends you home.
+- **Shops:** open 7 AM-11 PM real time (school 8-3, chapel 6-10); Lily's seed stand keeps shop hours.
+- **Old saves** (no `rt` key) carry on from today (`L.deserialize` shifts building/wedding days, converts crops).
+- **Art:** the 33 new crops have drawn stand-ins (`tools/art/crops2.js`); the crops sheet is 7 frames wide
+  (2048x4096) with a withered frame (`C.CROP_WITHERED`). The art manifest has jobs + prompts for real
+  pictures: `crops/<crop>.png` (33), `crops/withered.png`, `icons/icons_crops_1..5.png`. Those prompts have
+  **not** been sent to the owner yet (write them out like `art-src/REMAINING-6-PROMPTS.md` when asked).
+
+## In progress at the handoff
+
+1. **Browser tests (`test/e2e.test.js`) are half rewritten for the real clock.** Done: `open(save, when)` and
+   `makeSave(edit, when)` take a date `[y, m, d, h, min]` (default `START` = Wed 1 Apr 2026, 10 AM);
+   helpers `setClock`, `advance(minutes)`, `nextMorning()` (replaces the old `sleepThroughNight`); the farming
+   loop test is rewritten. Still to rewrite (they use old game days, `s.day = 9`, `DAYS_PER_SEASON`, the 2 AM
+   pass-out, `Spring 1` texts, old prices): "passing out" (make it "a new day at midnight where you stand;
+   energy comes back over time"), "garbage save" (day), "New game" (day, `Apr 1` text), "seasons" (use May 31 ->
+   June 1 and Nov 30 -> Dec 1; winter now has crops), the town buyer test (advance the clock a few minutes so
+   the shelf comes due; coins = 4 x potato price), "home life" (open on Apr 14; `engaged.day` = that day + 3),
+   "new things" (`s.day = 2`), "phase 3" (a trader day: Tue/Thu/Sat, e.g. 7 Apr 2026). `s.time = 600` in saves
+   is harmless (the clock decides). Then run the suite alone, fix, and run `test/e2e-online.test.js`.
+2. **Docs:** README sections on time, crops, seasons, energy, festivals and the commands' test counts
+   (145 unit tests now). `tools/simulate.js` still runs but simulates the old day-based economy.
+3. Then build, publish the artifact (same URL), commit, push, and tell the owner what changed in plain words.
 
 ## What is left (in order)
 
@@ -51,8 +101,7 @@ Published preview (offline, no Online button there): https://claude.ai/artifact/
    The game talks only to `window.gameHost.net`; the bridge answers with the app's signed-in supabase-js client,
    and allows only `farm_*_v1` functions and `farm:<uuid>` channels.
 3. **Device test** with 2-3 real Selebox accounts once 1 and 2 are done.
-4. **Art:** 6 pictures still on drawn placeholders. Prompts: `art-src/REMAINING-6-PROMPTS.md` (trader,
-   trader tent, quest icons, outdoor fences/paths/garden).
+4. **Art:** the 33 new crops, the withered plant and their icons are drawn stand-ins (see above).
 5. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
    `notification_push_policy` have row-level security off. The owner decides.
 
@@ -62,7 +111,7 @@ Published preview (offline, no Online button there): https://claude.ai/artifact/
 npm install
 npx playwright install chromium   # locally (the cloud had it preinstalled)
 npm run build                     # -> dist/index.html
-npm test                          # 142 rule/save/bridge unit tests, seconds
+npm test                          # 145 rule/save/bridge unit tests, seconds (they control time with test/clock.js)
 node --test test/e2e.test.js      # 18 browser playthroughs, ~30 min: run it ALONE, nothing else heavy
 node --test test/e2e-online.test.js   # 3 phones online through the real bridge, ~2 min (build first)
 npm run art                       # regenerate assets/ from tools/art + art-src/ pictures (~5 min)
@@ -81,7 +130,7 @@ npm run art                       # regenerate assets/ from tools/art + art-src/
 - Mixins wrap prototypes: `var x = P.x; P.x = function () { ...; return x.call(this, ...); };`. Later files wrap
   earlier ones (e.g. `19h-online.js` wraps WorldScene create/update/save/travel/resolve/tickClock).
 - Logic layers wrap `L.newState`, `L.endDay`, `L.serialize`, `L.deserialize` in turn (logic -> logic2 -> ... ->
-  logic8). Each layer saves its own short key (`o.yd`, `o.p3`, `o.nt`, ...). Keep saves small; old saves must
+  logic9; logic9 is the real-time catch-up, which must call the fully wrapped `L.endDay`). Each layer saves its own short key (`o.yd`, `o.p3`, `o.nt`, ...). Keep saves small; old saves must
   still load (tests cover migrations).
 - Unit tests load the source in a `vm` context; compare objects from it with `plain()` (a JSON copy), because
   `deepStrictEqual` fails across realms.
@@ -104,7 +153,7 @@ npm run art                       # regenerate assets/ from tools/art + art-src/
   never bag or gold), rebuilding a visited farm from untrusted data (`L.visitState`, every value checked),
   `L.visitorFits` (first 8 to arrive stay), weekly scores, the `nt` save (`off` = the player left online play).
 - `src/19h-online.js` runtime: auto-join at start, the Online panel (Visit, Friends + chat, Ranks, Me), visit
-  mode (a sandbox state swapped in for WorldScene.create; tools off, clock stopped, saves go to your own
-  game), live presence and remote farmers with name tags, the text box (`askText`, a DOM input).
+  mode (a sandbox state swapped in for WorldScene.create; tools off, only your clock and energy tick, saves
+  go to your own game; snapshots send each crop's stage), live presence and remote farmers with name tags, the text box (`askText`, a DOM input).
 - `test/net-mock.js` is an in-memory stand-in for the database functions and supabase-js realtime, used by
   `test/bridge.test.js` and `test/e2e-online.test.js`.

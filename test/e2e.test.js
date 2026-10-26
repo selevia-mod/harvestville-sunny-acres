@@ -17,7 +17,11 @@ let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
 
-async function open(savedState) {
+// The game's clock (window.gameHost.now): a spring Wednesday at 10 AM unless a test says otherwise.
+const START = [2026, 4, 1, 10, 0];
+const at = (when) => new Date(when[0], when[1] - 1, when[2], when[3] || 0, when[4] || 0).getTime();
+
+async function open(savedState, when = START) {
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const problems = [];
@@ -29,14 +33,16 @@ async function open(savedState) {
     problems.push('network: ' + url);
     return route.abort();
   });
-  await page.addInitScript((state) => {
+  await page.addInitScript(([state, now]) => {
+    window.__now = now;
     window.gameHost = {
       state: state,
       quiet: !window.__loud, // no daily-gift popup or quest toasts in the way of the other tests
       saves: [],
       save(s) { this.saves.push(JSON.stringify(s)); this.state = s; },
+      now: () => window.__now,
     };
-  }, savedState || null);
+  }, [savedState || null, at(when)]);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; }); // no surprise rain
@@ -46,8 +52,8 @@ async function open(savedState) {
 }
 
 // A save made from a fresh state (no debris on the field), changed by `edit` (run in the page).
-async function makeSave(edit) {
-  const { page, context } = await open();
+async function makeSave(edit, when) {
+  const { page, context } = await open(null, when);
   const save = await page.evaluate((edit) => {
     const L = Farm.Logic, C = Farm.Config, s = L.newState();
     // eslint-disable-next-line no-eval
@@ -135,25 +141,36 @@ async function go(page, map, spawn) {
   await waitMap(page, map);
 }
 
-// Goes to bed in the farmhouse, reads the morning report, and goes back to where we were.
-async function sleepThroughNight(page) {
+// Moves the game's clock: the world catches up within a frame or two.
+const tick = (page) => page.evaluate(() => { if (Farm.world) Farm.world.clockMs = 1000; });
+async function setClock(page, when) {
+  await page.evaluate((t) => { window.__now = t; }, at(when));
+  await tick(page);
+  await frames(page, 3);
+}
+async function advance(page, mins) {
+  await page.evaluate((m) => { window.__now += m * 60000; }, mins);
+  await tick(page);
+  await frames(page, 3);
+}
+
+// To 8 AM the next day: the new day starts where you stand, with its report. Returns the report's text.
+async function nextMorning(page) {
   const { day } = await state(page);
-  const from = await page.evaluate(() => Farm.world.mapKey);
-  if (from !== 'house') await go(page, 'house', 'bed');
-  await teleport(page, 2, 4, 'up'); // facing the bed
-  assert.strictEqual(await actionLabel(page), 'Sleep');
-  await tapAction(page);
-  await tapButton(page, 'Yes');
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world.mapKey === 'house' && !Farm.world.busy, day, SLOW);
+  await page.evaluate(() => {
+    Farm.ui.closeAll();
+    const d = new Date(window.__now);
+    window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime();
+    Farm.world.clockMs = 1000;
+  });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active, day, SLOW);
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW); // the morning report
   const report = await modalText(page);
   await tapButton(page, 'OK');
-  if (from === 'farm') await go(page, 'farm', 'house_door');
-  else if (from === 'town') await go(page, 'town', 'from_farm');
   return report;
 }
 
-test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest, sell at the stand, shop, save', async () => {
+test('farming loop: clear debris, till, plant a seed bag, water, wait in real time, harvest, sell at the stand, shop, save', async () => {
   const { page, problems, context, cdp } = await open();
   const idx = (x, y) => y * W + x;
 
@@ -246,25 +263,31 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   for (let y = 12; y <= 14; y++) for (let x = 5; x <= 7; x++) assert.strictEqual(s.soil[idx(x, y)].c, 'turnip');
   assert.strictEqual(count(s, 'seed_turnip'), 3, '3 bags + 1 from the till goal - 1 planted');
 
-  // water the top row each day, then sleep in the farmhouse; three watered days ripen turnips
-  for (let day = 0; day < 3; day++) {
-    await tapHotbar(page, 1);
-    for (let x = 5; x <= 7; x++) {
-      await teleport(page, x, 11, 'down');
-      if (x === 5 && day === 0) assert.strictEqual(await actionLabel(page), 'Water');
-      await page.keyboard.press('Space'); // the keyboard works too
-      await frames(page);
-    }
-    s = await state(page);
-    assert.strictEqual(s.soil[idx(5, 12)].w, 1, `watered on day ${s.day}`);
-    if (day === 0) await shot(page, '04-watered');
-    const report = await sleepThroughNight(page);
-    assert.match(report, /GOOD MORNING/);
+  // water the top row: watered turnips ripen in 11 1/4 minutes instead of 15
+  await tapHotbar(page, 1);
+  for (let x = 5; x <= 7; x++) {
+    await teleport(page, x, 11, 'down');
+    if (x === 5) assert.strictEqual(await actionLabel(page), 'Water');
+    await page.keyboard.press('Space'); // the keyboard works too
+    await frames(page);
   }
   s = await state(page);
-  assert.strictEqual(s.day, 4);
-  assert.strictEqual(s.soil[idx(5, 12)].d, 3);
-  assert.strictEqual(s.soil[idx(5, 13)].d, 0, 'the unwatered row did not grow');
+  assert.strictEqual(s.soil[idx(5, 12)].w, 1, 'watered');
+  await shot(page, '04-watered');
+  // facing a growing crop (with nothing to use on it) says how long it has left
+  await hold(page, 'chicken_feed');
+  await teleport(page, 5, 11, 'down');
+  await page.evaluate(() => { Farm.world.hintKey = null; });
+  await frames(page);
+  assert.strictEqual(await actionLabel(page), 'Growing');
+  await tapAction(page);
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip: ready in 12 min/);
+  // 12 real minutes later the watered row is ripe, the dry rows are not
+  await advance(page, 12);
+  s = await state(page);
+  assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 38 + 5])));
+  assert.ok(await page.evaluate(() => !Farm.Logic.isRipe(Farm.session.state.soil[13 * 38 + 5])), 'the unwatered row is still growing');
+  assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 38 + 5].stage), 3, 'the field shows it');
   await teleport(page, 5, 11, 'down');
   await shot(page, '05-ripe');
 
@@ -299,35 +322,37 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await page.waitForTimeout(300);
   await page.touchscreen.tap(33 + 22, 206 + 22); // the turnips, the only thing in the bag that sells
   await page.waitForTimeout(300);
-  assert.match(await modalText(page), /Sell now: 135G/);
-  await tapButton(page, 'Fair: 216G  (about 2.5h)');
+  const P = await page.evaluate(() => ({ now: 3 * Math.floor(Farm.Config.ITEMS.turnip.sell * Farm.Config.STAND.instant), fair: 3 * Math.round(Farm.Config.ITEMS.turnip.sell * 1.2) }));
+  assert.match(await modalText(page), new RegExp('Sell now: ' + P.now + 'G'));
+  await tapButton(page, 'Fair: ' + P.fair + 'G  (about 2.5h)');
   s = await state(page);
   assert.deepStrictEqual(s.shelves[0] && [s.shelves[0].id, s.shelves[0].n, s.shelves[0].price], ['turnip', 3, 1]);
   assert.strictEqual(count(s, 'turnip'), 0);
   await page.evaluate(() => Farm.ui.closeAll());
   const goldBefore = s.gold;
-  const report = await sleepThroughNight(page);
-  assert.match(report, /1 lot sold\. Collect 216G/);
+  const report = await nextMorning(page);
+  assert.match(report, new RegExp('1 lot sold\\. Collect ' + P.fair + 'G'));
   await teleport(page, 11, 15, 'up');
   assert.strictEqual(await actionLabel(page), 'Collect');
   await tapAction(page);
   s = await state(page);
-  assert.strictEqual(s.gold, goldBefore + 216, 'the stall paid 3 x 72G');
+  assert.strictEqual(s.gold, goldBefore + P.fair, 'the stall paid the fair price');
   assert.strictEqual(s.shelves[0], null);
   await go(page, 'farm', 'from_town');
 
-  // Lily's stand is closed early in the morning, open at 10 AM
+  // Lily's stand opens at 7 in the morning (real time)
+  await setClock(page, [2026, 4, 2, 6, 30]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
   assert.match(await modalText(page), /Closed/);
   await tapButton(page, 'OK');
-  await page.evaluate(() => { Farm.session.state.time = 600; });
+  await setClock(page, [2026, 4, 2, 10, 0]);
   await tapAction(page);
   await shot(page, '07-shop');
-  await tapButton(page, 'Buy 120G'); // a bag of turnip seeds
+  await tapButton(page, 'Buy 100G'); // a bag of turnip seeds
   s = await state(page);
-  assert.strictEqual(count(s, 'seed_turnip'), 4);
-  assert.strictEqual(s.gold, goldBefore + 216 - 120);
+  assert.strictEqual(count(s, 'seed_turnip'), 3);
+  assert.strictEqual(s.gold, goldBefore + P.fair - 100);
   await tapButton(page, 'Supplies');
   assert.match(await modalText(page), /Milker/);
   assert.match(await modalText(page), /Fishing Rod/);
@@ -345,20 +370,21 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
 
-  // night falls
-  await page.evaluate(() => { Farm.session.state.time = 21 * 60; Farm.bus.emit('hud'); });
-  await frames(page);
+  // night falls on the phone's clock
+  await setClock(page, [2026, 4, 2, 21, 0]);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.timeText.text), '9:00 PM');
   await shot(page, '10-night');
 
-  // __gameSleep pauses the clock and saves; waking resumes
+  // __gameSleep pauses the game and saves; waking picks up the real time
   const savesBefore = await page.evaluate(() => gameHost.saves.length);
   await page.evaluate(() => window.__gameSleep(true));
   const t0 = (await state(page)).time;
+  await page.evaluate(() => { window.__now += 10 * 60000; });
   await page.waitForTimeout(1500);
-  assert.strictEqual((await state(page)).time, t0, 'clock stopped while asleep');
+  assert.strictEqual((await state(page)).time, t0, 'nothing runs while asleep');
   assert.strictEqual(await page.evaluate(() => gameHost.saves.length), savesBefore + 1, 'saved on sleep');
   await page.evaluate(() => window.__gameSleep(false));
-  await page.waitForFunction((t0) => Farm.session.state.time > t0, t0, SLOW); // clock runs again after waking
+  await page.waitForFunction((t0) => Farm.session.state.time >= t0 + 10, t0, SLOW); // and catches up on waking
 
   // saves are small and restore correctly in a fresh page
   const saves = await page.evaluate(() => gameHost.saves);
@@ -369,7 +395,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, sleep, harvest,
   assert.deepStrictEqual(problems, []);
   await context.close();
 
-  const again = await open(last);
+  const again = await open(last, [2026, 4, 2, 21, 30]);
   assert.strictEqual(await again.page.evaluate(() => Farm.ui.modals.length), 0, 'no welcome dialog on a loaded game');
   assert.strictEqual(await again.page.evaluate(() => Farm.world.player.texture.key), 'player_girl', 'still the girl after loading');
   const after = await state(again.page);
@@ -523,7 +549,7 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   await shot(page, '11-pen');
 
   // next morning there is an egg waiting
-  await sleepThroughNight(page);
+  await nextMorning(page);
   s = await state(page);
   assert.strictEqual(s.animals[0].ready, 1);
   assert.strictEqual(await page.evaluate(() => Farm.world.herd.members[0].bubble.visible), true, 'egg bubble shows');
@@ -686,7 +712,7 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   await tapAction(page);
   assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, null, 'tomato refused in spring');
 
-  await sleepThroughNight(page);
+  await nextMorning(page);
   let s = await state(page);
   assert.strictEqual(s.day, 29);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Summer 1');
@@ -714,7 +740,7 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
 
   // jump to the last day of fall and sleep into winter
   await page.evaluate(() => { Farm.session.state.day = 3 * Farm.Config.DAYS_PER_SEASON; });
-  await sleepThroughNight(page);
+  await nextMorning(page);
   s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Winter 1');
   assert.strictEqual(s.soil[12 * 38 + 6].c, null, 'the summer tomato withered');
@@ -753,7 +779,7 @@ test('upgraded tools charge: hold the button to till a 3x3 patch; rain waters th
 
   // tomorrow it rains: the forecast says so, the crops get watered, and rain falls on the farm
   await page.evaluate(() => { Farm.Logic.weather = (s, day) => (day === s.day + 1 || day > 1 ? 'rain' : 'sunny'); });
-  const report = await sleepThroughNight(page);
+  const report = await nextMorning(page);
   assert.match(report, /Rain/);
   s = await state(page);
   assert.strictEqual(s.soil[12 * W + 5].w, 1, 'rain watered the soil');
@@ -963,9 +989,9 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   assert.deepStrictEqual(s.engaged, { who: 'lily', day: 17 });
 
   // the wedding is three days later; then she lives at the farmhouse
-  await sleepThroughNight(page);
-  await sleepThroughNight(page);
-  const report = await sleepThroughNight(page);
+  await nextMorning(page);
+  await nextMorning(page);
+  const report = await nextMorning(page);
   assert.match(report, /married Lily/);
   s = await state(page);
   assert.strictEqual(s.spouse, 'lily');
@@ -1142,7 +1168,7 @@ test('home: decorate, buy furniture, upgrade the house', async () => {
   assert.strictEqual(s.home.bag['4.3'], 1);
 
   // a night later the house is bigger, and the sofa goes in from storage
-  await sleepThroughNight(page);
+  await nextMorning(page);
   s = await state(page);
   assert.strictEqual(s.home.level, 2);
   assert.strictEqual(await page.evaluate(() => Farm.world.map.width), 10);

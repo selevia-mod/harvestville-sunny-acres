@@ -20,7 +20,8 @@
     var soil = [];
     Object.keys(s.soil).forEach(function (idx) {
       var t = s.soil[idx];
-      if (soil.length < 400) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.d || 0, t.w ? 1 : 0]);
+      // [tile, crop + 1, its stage now (0 seeds .. 3 ripe, 4 withered), watered]
+      if (soil.length < 400) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.c ? L.cropStage(t) : 0, t.w ? 1 : 0]);
     });
     var debris = [];
     Object.keys(s.debris).forEach(function (idx) { if (debris.length < 800) debris.push([Number(idx), C.DEBRIS_KEYS.indexOf(s.debris[idx])]); });
@@ -45,6 +46,7 @@
   // A state to walk around someone else's farm in: their house, furniture, yard, crops and animals, nothing else.
   // `snap` is untrusted: anything unknown or out of range is dropped.
   L.visitState = function (snap, mine) {
+    var now = L.nowMin();
     snap = snap && typeof snap === 'object' ? snap : {};
     var s = L.newState();
     s.seed = 1;
@@ -78,7 +80,12 @@
       var idx = int(e[0], -1, 1e6, -1), crop = C.CROP_KEYS[int(e[1], 0, 1e6, 0) - 1] || null;
       if (idx > 1e5) return;
       if (idx < 0) return;
-      s.soil[idx] = { w: e[3] ? 1 : 0, c: crop, d: crop ? int(e[2], 0, C.CROPS[crop].days, 0) : 0 };
+      var t = { w: e[3] ? 1 : 0, c: crop, p: 0, r: 0 };
+      if (crop) { // planted long enough ago to show the stage it was at (and it grows on from there)
+        var stage = int(e[2], 0, 4, 0), grow = L.growMins(t);
+        t.p = now - (stage === 4 ? grow + L.witherMins(t) + 1 : [0.1, 0.35, 0.7, 1][stage] * grow + (stage === 3 ? 1 : 0));
+      }
+      s.soil[idx] = t;
     });
     (Array.isArray(snap.debris) ? snap.debris : []).slice(0, 800).forEach(function (e) {
       if (!Array.isArray(e)) return;
