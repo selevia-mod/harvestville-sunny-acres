@@ -50,7 +50,7 @@
     GROW: { boost: 0.25, wither: 1, witherMin: 240 }, // watering takes 25% off the growing time; a ripe crop withers after as long again as it grew (at least 4 hours)
     MONTHS: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     SEASON_OF_MONTH: [3, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3], // Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb
-    SHOP_OPEN: 7 * 60, // real clock times: open early to late, so people can play after work
+    SHOP_OPEN: 6 * 60, // real clock times: shops and the market open 6 AM to 11 PM (the townsfolk sleep at night)
     SHOP_CLOSE: 23 * 60,
 
     DAYS_PER_SEASON: 28,
@@ -433,10 +433,10 @@
     // Town buildings: who runs them, when they are open, and what they offer.
     BUILDINGS: {
       mayor: { name: "Mayor's House", open: [8 * 60, 21 * 60] },
-      inn: { name: 'Sunny Inn', open: [8 * 60, 23 * 60], owner: 'rosa', offers: ['inn'] },
-      forge: { name: "Bram's Forge", open: [7 * 60, 23 * 60], owner: 'bram', offers: ['upgrade'] },
-      woodshop: { name: "Mira's Woodshop", open: [7 * 60, 23 * 60], owner: 'mira', offers: ['build', 'materials'] },
-      clinic: { name: "Ivy's Clinic", open: [7 * 60, 23 * 60], owner: 'ivy', offers: ['clinic'] },
+      inn: { name: 'Sunny Inn', open: [6 * 60, 23 * 60], owner: 'rosa', offers: ['inn'] },
+      forge: { name: "Bram's Forge", open: [6 * 60, 23 * 60], owner: 'bram', offers: ['upgrade'] },
+      woodshop: { name: "Mira's Woodshop", open: [6 * 60, 23 * 60], owner: 'mira', offers: ['build', 'materials'] },
+      clinic: { name: "Ivy's Clinic", open: [6 * 60, 23 * 60], owner: 'ivy', offers: ['clinic'] },
       cottage: { name: "Lily's Cottage" },
       cabin: { name: "Leo's Cabin" },
     },

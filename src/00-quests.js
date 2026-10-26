@@ -135,7 +135,7 @@
   // ---------- the travelling trader (Market Street, 3 days a week) ----------
   C.TRADER = {
     key: 'trader', name: 'Saffron', look: 'Saffron, a cheerful travelling trader woman with a big orange turban, gold hoop earrings, a purple embroidered coat and baggy brown trousers',
-    days: [2, 4, 6], open: [8 * 60, 22 * 60],
+    days: [2, 4, 6], open: [6 * 60, 23 * 60],
     buys: ['ore_copper', 'ore_silver', 'ore_gold', 'gem', 'fish_s', 'fish_m', 'fish_l', 'fish_k', 'truffle'],
     wanted: 3, // today's wanted goods pay the most...
     wantedPay: 1.8,

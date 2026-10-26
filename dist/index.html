@@ -71,7 +71,7 @@
     GROW: { boost: 0.25, wither: 1, witherMin: 240 }, // watering takes 25% off the growing time; a ripe crop withers after as long again as it grew (at least 4 hours)
     MONTHS: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     SEASON_OF_MONTH: [3, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3], // Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb
-    SHOP_OPEN: 7 * 60, // real clock times: open early to late, so people can play after work
+    SHOP_OPEN: 6 * 60, // real clock times: shops and the market open 6 AM to 11 PM (the townsfolk sleep at night)
     SHOP_CLOSE: 23 * 60,
 
     DAYS_PER_SEASON: 28,
@@ -454,10 +454,10 @@
     // Town buildings: who runs them, when they are open, and what they offer.
     BUILDINGS: {
       mayor: { name: "Mayor's House", open: [8 * 60, 21 * 60] },
-      inn: { name: 'Sunny Inn', open: [8 * 60, 23 * 60], owner: 'rosa', offers: ['inn'] },
-      forge: { name: "Bram's Forge", open: [7 * 60, 23 * 60], owner: 'bram', offers: ['upgrade'] },
-      woodshop: { name: "Mira's Woodshop", open: [7 * 60, 23 * 60], owner: 'mira', offers: ['build', 'materials'] },
-      clinic: { name: "Ivy's Clinic", open: [7 * 60, 23 * 60], owner: 'ivy', offers: ['clinic'] },
+      inn: { name: 'Sunny Inn', open: [6 * 60, 23 * 60], owner: 'rosa', offers: ['inn'] },
+      forge: { name: "Bram's Forge", open: [6 * 60, 23 * 60], owner: 'bram', offers: ['upgrade'] },
+      woodshop: { name: "Mira's Woodshop", open: [6 * 60, 23 * 60], owner: 'mira', offers: ['build', 'materials'] },
+      clinic: { name: "Ivy's Clinic", open: [6 * 60, 23 * 60], owner: 'ivy', offers: ['clinic'] },
       cottage: { name: "Lily's Cottage" },
       cabin: { name: "Leo's Cabin" },
     },
@@ -1045,7 +1045,7 @@
   // ---------- the travelling trader (Market Street, 3 days a week) ----------
   C.TRADER = {
     key: 'trader', name: 'Saffron', look: 'Saffron, a cheerful travelling trader woman with a big orange turban, gold hoop earrings, a purple embroidered coat and baggy brown trousers',
-    days: [2, 4, 6], open: [8 * 60, 22 * 60],
+    days: [2, 4, 6], open: [6 * 60, 23 * 60],
     buys: ['ore_copper', 'ore_silver', 'ore_gold', 'gem', 'fish_s', 'fish_m', 'fish_l', 'fish_k', 'truffle'],
     wanted: 3, // today's wanted goods pay the most...
     wantedPay: 1.8,
@@ -1266,15 +1266,15 @@
   // ---------- the new buildings ----------
   // offers: what the building's panel does (see 19e-town.js). days: open only on these days of the week (1..7).
   Object.assign(C.BUILDINGS, {
-    bakery: { name: "Hana's Bakery", open: [7 * H, 23 * H], owner: 'hana', offers: ['bakery'] },
-    florist: { name: "Poppy's Flowers", open: [7 * H, 23 * H], owner: 'poppy', offers: ['florist'] },
-    post: { name: 'Post Office', open: [7 * H, 23 * H], owner: 'finn', offers: ['post'] },
-    library: { name: 'Willow Library', open: [7 * H, 23 * H], owner: 'elliot', offers: ['library'] },
+    bakery: { name: "Hana's Bakery", open: [6 * H, 23 * H], owner: 'hana', offers: ['bakery'] },
+    florist: { name: "Poppy's Flowers", open: [6 * H, 23 * H], owner: 'poppy', offers: ['florist'] },
+    post: { name: 'Post Office', open: [6 * H, 23 * H], owner: 'finn', offers: ['post'] },
+    library: { name: 'Willow Library', open: [6 * H, 23 * H], owner: 'elliot', offers: ['library'] },
     school: { name: 'Willowbrook School', open: [8 * H, 15 * H], owner: 'clara', offers: ['school'], days: [1, 2, 3, 4, 5] },
-    chapel: { name: 'Chapel', open: [6 * H, 22 * H], owner: 'tomas', offers: ['chapel'] },
-    vet: { name: "Owen's Animal Clinic", open: [7 * H, 23 * H], owner: 'owen', offers: ['vet'] },
-    shack: { name: 'Seaside Shack', open: [7 * H, 23 * H], owner: 'ewan', offers: ['shack'] },
-    wagon: { name: "Marco's Wagon", open: [7 * H, 23 * H], owner: 'marco', offers: ['wagon'] },
+    chapel: { name: 'Chapel', open: [6 * H, 23 * H], owner: 'tomas', offers: ['chapel'] },
+    vet: { name: "Owen's Animal Clinic", open: [6 * H, 23 * H], owner: 'owen', offers: ['vet'] },
+    shack: { name: 'Seaside Shack', open: [6 * H, 23 * H], owner: 'ewan', offers: ['shack'] },
+    wagon: { name: "Marco's Wagon", open: [6 * H, 23 * H], owner: 'marco', offers: ['wagon'] },
     lane1: { name: "Pearl and Ewan's House" },
     lane2: { name: "Clara and Nina's House" },
     lane3: { name: 'The Studio' },
@@ -2570,6 +2570,10 @@
   };
 
   // ---------- time ----------
+  // Night: the townsfolk are asleep, and every shop and the market stall are shut (11 PM to 6 AM).
+  L.sleepTime = function (s) { return s.time < C.SHOP_OPEN || s.time >= C.SHOP_CLOSE; };
+  L.marketOpen = function (s) { return !L.sleepTime(s); };
+
   L.shopOpen = function (s) {
     return s.time >= C.SHOP_OPEN && s.time < C.SHOP_CLOSE && !L.festivalOn(s.day);
   };
@@ -7406,8 +7410,7 @@
   // ---------- shop, TV, coop ----------
   M.openShop = function () {
     if (!L.shopOpen(this.state)) {
-      var fest = L.festivalOn(this.state.day);
-      F.ui.dialog("LILY'S SEED STAND\n" + (fest ? 'Closed today for the ' + fest.name + '. See you in the town plaza!' : 'Closed. The seed stand is open from 9:00 AM to 5:00 PM.'));
+      F.ui.dialog(F.ui.closedText("Lily's Seed Stand", 'lily', 'Closed. The seed stand is open ' + L.formatTime(C.SHOP_OPEN) + ' to ' + L.formatTime(C.SHOP_CLOSE) + '.'));
       return;
     }
     F.ui.openShop();
@@ -8306,6 +8309,19 @@
     });
   };
 
+  // Why a shop is shut, as a dialog text: a festival, the night (its keeper is asleep until 6 AM), or its
+  // hours (`otherwise`).
+  M.closedText = function (name, owner, otherwise) {
+    var s = F.session.state, fest = L.festivalOn(s.day);
+    var title = name.toUpperCase() + '\n';
+    if (fest) return title + 'Closed today: everyone is at the ' + fest.name + ' in the plaza.';
+    if (L.sleepTime(s)) {
+      var who = owner && C.VILLAGERS[owner] ? C.VILLAGERS[owner].name + ' is' : 'Everyone is';
+      return title + 'Zzz... ' + who + ' sleeping.\nCome back at ' + L.formatTime(C.SHOP_OPEN) + '.';
+    }
+    return title + otherwise;
+  };
+
   // ---------- morning report ----------
   M.dayReport = function (result, s) {
     var lines = [], names = function (keys) { return keys.map(function (k) { return C.VILLAGERS[k].name; }).join(' and '); };
@@ -8558,11 +8574,7 @@
       }
       return this.dialog(b.name.toUpperCase() + '\nYou knock, but nobody is home.');
     }
-    if (!L.buildingOpen(s, key)) {
-      var fest = L.festivalOn(s.day);
-      return this.dialog(b.name.toUpperCase() + '\n' + (fest ? 'Closed today: everyone is at the ' + fest.name + ' in the plaza.'
-        : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'));
-    }
+    if (!L.buildingOpen(s, key)) return this.dialog(this.closedText(b.name, b.owner, 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'));
     sfx('door');
     if (key === 'forge') return this.openForge();
     if (key === 'woodshop') return this.openWoodshop('build');
@@ -8978,6 +8990,7 @@
   // The stand window. tab: 'shelves' (default) or 'orders'.
   M.openStand = function (tab) {
     var self = this, s = state();
+    if (!L.marketOpen(s)) return this.dialog('MARKET STALL\nZzz... The market is closed for the night: the townsfolk are sleeping.\nCome back at ' + L.formatTime(C.SHOP_OPEN) + '.');
     tab = tab || 'shelves';
     var c = this.openModal();
     this.panelImg(c, 12, 74, W - 24, 528);
@@ -11009,6 +11022,38 @@
   P.setupExtras = function () {
     setupExtras.call(this);
     if (this.mapKey === 'town' && this.villagers) this.villagers.addShoppers();
+    this.nightSigns = null;
+    this.signMs = 0;
+  };
+
+  // ---------- at night (11 PM to 6 AM) the shops are shut: a sign on each shop door, the stall and the stand ----------
+  var updateExtras = P.updateExtras;
+  P.updateExtras = function (dt, time) {
+    updateExtras.call(this, dt, time);
+    this.signMs -= dt;
+    if (this.signMs > 0) return;
+    this.signMs = 2000;
+    this.updateNightSigns();
+  };
+
+  P.updateNightSigns = function () {
+    var self = this, night = L.sleepTime(this.state);
+    if (!!this.nightSigns === night) return;
+    if (!night) {
+      this.nightSigns.forEach(function (t) { t.destroy(); });
+      this.nightSigns = null;
+      return;
+    }
+    this.nightSigns = [];
+    this.objects.forEach(function (o) {
+      var b = o.type === 'door' && C.BUILDINGS[o.props.building];
+      if (!(b && b.open) && o.type !== 'stand' && o.type !== 'shop') return;
+      var sign = self.add.text((o.x0 + o.x1 + 1) / 2 * T, o.y0 * T + 40, 'Zzz  CLOSED', {
+        fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '96px', fontStyle: 'bold', color: '#ffe9a8',
+        backgroundColor: '#5a3a1e', padding: { x: 26, y: 10 },
+      }).setOrigin(0.5, 1).setDepth(32); // above the night sheet (18-polish.js), like the lit windows
+      self.nightSigns.push(sign);
+    });
   };
 
   // Picks the nearest person out in town and free (a villager or a visitor) and walks them to the stall.
@@ -11092,11 +11137,9 @@
     var mine = { bakery: 1, shack: 1, florist: 1, vet: 1, post: 1, library: 1, school: 1, chapel: 1, wagon: 1 };
     if (!mine[key] || !b) return openBuilding.call(this, key);
     if (!L.buildingOpen(s, key)) {
-      var fest = L.festivalOn(s.day);
       var when = b.days ? ' on weekdays' : '';
-      return this.dialog(b.name.toUpperCase() + '\n' + (fest ? 'Closed today: everyone is at the ' + fest.name + ' in the plaza.'
-        : key === 'wagon' ? "Marco's wagon is shut. He trades " + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'
-          : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + when + '.'));
+      return this.dialog(this.closedText(b.name, b.owner, key === 'wagon' ? "Marco's wagon is shut. He trades " + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'
+        : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + when + '.'));
     }
     sfx('door');
     if (key === 'bakery') return this.openMenuShop(key, C.BAKERY_MENU);

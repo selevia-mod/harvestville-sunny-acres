@@ -82,6 +82,19 @@
     });
   };
 
+  // Why a shop is shut, as a dialog text: a festival, the night (its keeper is asleep until 6 AM), or its
+  // hours (`otherwise`).
+  M.closedText = function (name, owner, otherwise) {
+    var s = F.session.state, fest = L.festivalOn(s.day);
+    var title = name.toUpperCase() + '\n';
+    if (fest) return title + 'Closed today: everyone is at the ' + fest.name + ' in the plaza.';
+    if (L.sleepTime(s)) {
+      var who = owner && C.VILLAGERS[owner] ? C.VILLAGERS[owner].name + ' is' : 'Everyone is';
+      return title + 'Zzz... ' + who + ' sleeping.\nCome back at ' + L.formatTime(C.SHOP_OPEN) + '.';
+    }
+    return title + otherwise;
+  };
+
   // ---------- morning report ----------
   M.dayReport = function (result, s) {
     var lines = [], names = function (keys) { return keys.map(function (k) { return C.VILLAGERS[k].name; }).join(' and '); };
@@ -334,11 +347,7 @@
       }
       return this.dialog(b.name.toUpperCase() + '\nYou knock, but nobody is home.');
     }
-    if (!L.buildingOpen(s, key)) {
-      var fest = L.festivalOn(s.day);
-      return this.dialog(b.name.toUpperCase() + '\n' + (fest ? 'Closed today: everyone is at the ' + fest.name + ' in the plaza.'
-        : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'));
-    }
+    if (!L.buildingOpen(s, key)) return this.dialog(this.closedText(b.name, b.owner, 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'));
     sfx('door');
     if (key === 'forge') return this.openForge();
     if (key === 'woodshop') return this.openWoodshop('build');

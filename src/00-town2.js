@@ -122,15 +122,15 @@
   // ---------- the new buildings ----------
   // offers: what the building's panel does (see 19e-town.js). days: open only on these days of the week (1..7).
   Object.assign(C.BUILDINGS, {
-    bakery: { name: "Hana's Bakery", open: [7 * H, 23 * H], owner: 'hana', offers: ['bakery'] },
-    florist: { name: "Poppy's Flowers", open: [7 * H, 23 * H], owner: 'poppy', offers: ['florist'] },
-    post: { name: 'Post Office', open: [7 * H, 23 * H], owner: 'finn', offers: ['post'] },
-    library: { name: 'Willow Library', open: [7 * H, 23 * H], owner: 'elliot', offers: ['library'] },
+    bakery: { name: "Hana's Bakery", open: [6 * H, 23 * H], owner: 'hana', offers: ['bakery'] },
+    florist: { name: "Poppy's Flowers", open: [6 * H, 23 * H], owner: 'poppy', offers: ['florist'] },
+    post: { name: 'Post Office', open: [6 * H, 23 * H], owner: 'finn', offers: ['post'] },
+    library: { name: 'Willow Library', open: [6 * H, 23 * H], owner: 'elliot', offers: ['library'] },
     school: { name: 'Willowbrook School', open: [8 * H, 15 * H], owner: 'clara', offers: ['school'], days: [1, 2, 3, 4, 5] },
-    chapel: { name: 'Chapel', open: [6 * H, 22 * H], owner: 'tomas', offers: ['chapel'] },
-    vet: { name: "Owen's Animal Clinic", open: [7 * H, 23 * H], owner: 'owen', offers: ['vet'] },
-    shack: { name: 'Seaside Shack', open: [7 * H, 23 * H], owner: 'ewan', offers: ['shack'] },
-    wagon: { name: "Marco's Wagon", open: [7 * H, 23 * H], owner: 'marco', offers: ['wagon'] },
+    chapel: { name: 'Chapel', open: [6 * H, 23 * H], owner: 'tomas', offers: ['chapel'] },
+    vet: { name: "Owen's Animal Clinic", open: [6 * H, 23 * H], owner: 'owen', offers: ['vet'] },
+    shack: { name: 'Seaside Shack', open: [6 * H, 23 * H], owner: 'ewan', offers: ['shack'] },
+    wagon: { name: "Marco's Wagon", open: [6 * H, 23 * H], owner: 'marco', offers: ['wagon'] },
     lane1: { name: "Pearl and Ewan's House" },
     lane2: { name: "Clara and Nina's House" },
     lane3: { name: 'The Studio' },

@@ -82,8 +82,10 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
     pays 150% of the items' price plus friendship with that villager; a new order comes about an hour later.
     Orders only ask for what you can get now: crops in season, your animals' produce, fish (with a rod) and ore
     from mine floors you have reached. A "!" over the board means you can fill one.
-- **Lily's Seed Stand** (south of the field, 7 AM to 11 PM) has this season's Seeds, Animals and Supplies
-  (Brush, Milker, Fishing Rod, Miracle Potion, Blue Feather). Town shops are open 7 AM to 11 PM too.
+- **Lily's Seed Stand** (south of the field, 6 AM to 11 PM) has this season's Seeds, Animals and Supplies
+  (Brush, Milker, Fishing Rod, Miracle Potion, Blue Feather). Town shops and the market stall are open 6 AM to
+  11 PM too. At night the townsfolk are asleep: a "Zzz CLOSED" sign hangs on every shop, and knocking gets
+  "Hana is sleeping. Come back at 6:00 AM." (The school keeps 8 AM to 3 PM on weekdays.)
 - **The TV** has tomorrow's weather. Every player has the same weather on the same day.
 
 ### Tools and energy

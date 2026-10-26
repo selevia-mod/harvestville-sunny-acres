@@ -119,6 +119,38 @@
   P.setupExtras = function () {
     setupExtras.call(this);
     if (this.mapKey === 'town' && this.villagers) this.villagers.addShoppers();
+    this.nightSigns = null;
+    this.signMs = 0;
+  };
+
+  // ---------- at night (11 PM to 6 AM) the shops are shut: a sign on each shop door, the stall and the stand ----------
+  var updateExtras = P.updateExtras;
+  P.updateExtras = function (dt, time) {
+    updateExtras.call(this, dt, time);
+    this.signMs -= dt;
+    if (this.signMs > 0) return;
+    this.signMs = 2000;
+    this.updateNightSigns();
+  };
+
+  P.updateNightSigns = function () {
+    var self = this, night = L.sleepTime(this.state);
+    if (!!this.nightSigns === night) return;
+    if (!night) {
+      this.nightSigns.forEach(function (t) { t.destroy(); });
+      this.nightSigns = null;
+      return;
+    }
+    this.nightSigns = [];
+    this.objects.forEach(function (o) {
+      var b = o.type === 'door' && C.BUILDINGS[o.props.building];
+      if (!(b && b.open) && o.type !== 'stand' && o.type !== 'shop') return;
+      var sign = self.add.text((o.x0 + o.x1 + 1) / 2 * T, o.y0 * T + 40, 'Zzz  CLOSED', {
+        fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '96px', fontStyle: 'bold', color: '#ffe9a8',
+        backgroundColor: '#5a3a1e', padding: { x: 26, y: 10 },
+      }).setOrigin(0.5, 1).setDepth(32); // above the night sheet (18-polish.js), like the lit windows
+      self.nightSigns.push(sign);
+    });
   };
 
   // Picks the nearest person out in town and free (a villager or a visitor) and walks them to the stall.
@@ -202,11 +234,9 @@
     var mine = { bakery: 1, shack: 1, florist: 1, vet: 1, post: 1, library: 1, school: 1, chapel: 1, wagon: 1 };
     if (!mine[key] || !b) return openBuilding.call(this, key);
     if (!L.buildingOpen(s, key)) {
-      var fest = L.festivalOn(s.day);
       var when = b.days ? ' on weekdays' : '';
-      return this.dialog(b.name.toUpperCase() + '\n' + (fest ? 'Closed today: everyone is at the ' + fest.name + ' in the plaza.'
-        : key === 'wagon' ? "Marco's wagon is shut. He trades " + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'
-          : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + when + '.'));
+      return this.dialog(this.closedText(b.name, b.owner, key === 'wagon' ? "Marco's wagon is shut. He trades " + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + '.'
+        : 'Closed. Open ' + L.formatTime(b.open[0]) + ' to ' + L.formatTime(b.open[1]) + when + '.'));
     }
     sfx('door');
     if (key === 'bakery') return this.openMenuShop(key, C.BAKERY_MENU);

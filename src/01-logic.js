@@ -912,6 +912,10 @@
   };
 
   // ---------- time ----------
+  // Night: the townsfolk are asleep, and every shop and the market stall are shut (11 PM to 6 AM).
+  L.sleepTime = function (s) { return s.time < C.SHOP_OPEN || s.time >= C.SHOP_CLOSE; };
+  L.marketOpen = function (s) { return !L.sleepTime(s); };
+
   L.shopOpen = function (s) {
     return s.time >= C.SHOP_OPEN && s.time < C.SHOP_CLOSE && !L.festivalOn(s.day);
   };

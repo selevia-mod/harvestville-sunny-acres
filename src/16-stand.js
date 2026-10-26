@@ -46,6 +46,7 @@
   // The stand window. tab: 'shelves' (default) or 'orders'.
   M.openStand = function (tab) {
     var self = this, s = state();
+    if (!L.marketOpen(s)) return this.dialog('MARKET STALL\nZzz... The market is closed for the night: the townsfolk are sleeping.\nCome back at ' + L.formatTime(C.SHOP_OPEN) + '.');
     tab = tab || 'shelves';
     var c = this.openModal();
     this.panelImg(c, 12, 74, W - 24, 528);

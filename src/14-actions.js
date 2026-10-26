@@ -492,8 +492,7 @@
   // ---------- shop, TV, coop ----------
   M.openShop = function () {
     if (!L.shopOpen(this.state)) {
-      var fest = L.festivalOn(this.state.day);
-      F.ui.dialog("LILY'S SEED STAND\n" + (fest ? 'Closed today for the ' + fest.name + '. See you in the town plaza!' : 'Closed. The seed stand is open from 9:00 AM to 5:00 PM.'));
+      F.ui.dialog(F.ui.closedText("Lily's Seed Stand", 'lily', 'Closed. The seed stand is open ' + L.formatTime(C.SHOP_OPEN) + ' to ' + L.formatTime(C.SHOP_CLOSE) + '.'));
       return;
     }
     F.ui.openShop();

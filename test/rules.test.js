@@ -516,3 +516,13 @@ test('a farmer in the mine wakes up at the mine entrance in town', () => {
   assert.strictEqual(back.player.x, null);
   assert.strictEqual(back.player.spawn, 'from_mine');
 });
+
+test('shops and the market are open 6 AM to 11 PM; at night everyone is asleep', () => {
+  const s = fresh();
+  s.day = dayOn(4, 1); // a Wednesday
+  const at = (h, m) => { s.time = h * 60 + m; return [L.sleepTime(s), L.marketOpen(s), L.shopOpen(s), L.buildingOpen(s, 'forge'), L.buildingOpen(s, 'bakery')]; };
+  same(at(5, 59), [true, false, false, false, false]);
+  same(at(6, 0), [false, true, true, true, true]);
+  same(at(22, 59), [false, true, true, true, true]);
+  same(at(23, 0), [true, false, false, false, false]);
+});

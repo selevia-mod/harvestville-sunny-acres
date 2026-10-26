@@ -67,7 +67,9 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
   growing time (`6 + 14 * sqrt(hours)` profit per tile). Saves store soil in groups (`soilGroups`).
 - **Energy:** comes back by itself, 1 point every 3 minutes (`C.ENERGY_EVERY`, `L.regen`), also while the
   game is closed. The bed only explains this. Fainting in the mine sends you home.
-- **Shops:** open 7 AM-11 PM real time (school 8-3, chapel 6-10); Lily's seed stand keeps shop hours.
+- **Shops and the market stall:** open 6 AM-11 PM real time (school 8-3 on weekdays). At night "Zzz CLOSED"
+  signs show (19e-town.js) and shops say "<owner> is sleeping. Come back at 6:00 AM." (`closedText`,
+  16-panels.js; `L.sleepTime`).
 - **Old saves** (no `rt` key) carry on from today (`L.deserialize` shifts building/wedding days, converts crops).
 - **Art:** the 33 new crops have drawn stand-ins (`tools/art/crops2.js`); the crops sheet is 7 frames wide
   (2048x4096) with a withered frame (`C.CROP_WITHERED`). The art manifest has jobs + prompts for real

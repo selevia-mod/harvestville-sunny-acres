@@ -341,11 +341,12 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.strictEqual(s.shelves[0], null);
   await go(page, 'farm', 'from_town');
 
-  // Lily's stand opens at 7 in the morning (real time)
-  await setClock(page, [2026, 4, 2, 6, 30]);
+  // Lily's stand opens at 6 in the morning (real time); before that she is asleep, and the market is shut too
+  await setClock(page, [2026, 4, 2, 5, 30]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
-  assert.match(await modalText(page), /Closed/);
+  assert.match(await modalText(page), /Lily is sleeping\.\s+Come back at 6:00 AM/);
+  assert.ok(await page.evaluate(() => Farm.world.nightSigns && Farm.world.nightSigns.length > 0), 'a CLOSED sign on the stand');
   await tapButton(page, 'OK');
   await setClock(page, [2026, 4, 2, 10, 0]);
   await tapAction(page);
