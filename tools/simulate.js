@@ -1,12 +1,15 @@
 'use strict';
-// Plays the game's real rules (src/00-*, src/01-*) for a year with a sensible, energy-limited strategy and
-// prints how money and progress grow. Used to balance prices, growth times and energy costs.
-// Run: node tools/simulate.js [days] [--quiet]
+// Plays the game's real rules (src/00-*, src/01-*) on a real clock: a player who opens the game a few times a
+// day (SESSIONS) with a sensible, energy-limited strategy, from April 1st. Prints how money and progress grow.
+// Used to balance prices, growth times and energy costs. Run: node tools/simulate.js [days] [--quiet]
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
 const ctx = { window: {}, console, Math };
+let NOW = new Date(2026, 3, 1, 8, 0).getTime(); // the clock the game sees (window.gameHost.now)
+ctx.window.gameHost = { now: () => NOW };
+const SESSIONS = [[8, 0], [12, 30], [19, 0], [22, 0]]; // when the player opens the game each day
 vm.createContext(ctx);
 const SRC = path.join(__dirname, '..', 'src');
 fs.readdirSync(SRC).filter((f) => /^0[01]-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), ctx));
@@ -27,15 +30,13 @@ const once = (key, msg) => { if (!milestones[key]) { milestones[key] = s.day; no
 function spend(n) { return L.spendEnergy(s, n); }
 function slot(id) { return s.inv.findIndex((x) => x && x.id === id); }
 
-// The best seed to plant today: most money per tile per day, if it can ripen before the season ends.
-function bestSeed() {
-  const d = L.date(s.day), left = C.DAYS_PER_SEASON - d.day;
+// The best seed to plant now: the most money per tile that will be ripe (watered) by the next visit.
+function bestSeed(gap) {
   let best = null, bestValue = 0;
   L.seedsInSeason(s.day).forEach((id) => {
     const item = C.ITEMS[id], crop = C.CROPS[item.crop];
-    if (crop.sickle || crop.days > left) return;
-    const harvests = crop.regrow ? 1 + Math.floor((left - crop.days) / crop.regrow) : 1;
-    const value = (C.ITEMS[crop.item].sell * harvests * 9 - item.price) / Math.max(crop.days, left);
+    if (crop.sickle || crop.mins * (1 - C.GROW.boost) > gap) return;
+    const value = C.ITEMS[crop.item].sell * 9 - item.price;
     if (value > bestValue) { bestValue = value; best = id; }
   });
   return best;
@@ -50,13 +51,16 @@ function sell(id) {
   }
 }
 
-function day() {
+// One visit to the game; gap = minutes until the next one.
+function session(gap, first) {
+  const r = L.catchUp(s, NOW, { fieldTiles: FIELD });
+  if (r && r.built) once('b_' + r.built, C.BUILDS[r.built].name + ' finished');
   const weather = L.weather(s, s.day);
-  // the stand: collect what sold overnight, and deliver any order that can be filled
+  // the stand: collect what sold, and deliver any order that can be filled
   L.collectStand(s);
   s.orders.forEach((o, i) => L.deliverOrder(s, i));
-  // animals: collect, feed, pet
-  s.animals.forEach((a, i) => {
+  // animals, once a day: collect, feed, pet
+  if (first) s.animals.forEach((a, i) => {
     if (a.ready) { const got = L.collect(s, i); if (got[0] !== '!') sell(got); }
     const feed = C.ANIMALS[a.kind].feed;
     if (!a.young && !L.hasItem(s, feed)) L.buy(s, feed, 5);
@@ -64,26 +68,18 @@ function day() {
     L.petAnimal(s, i);
     if (L.hasItem(s, 'brush')) L.brushAnimal(s, i);
   });
-  // harvest everything ripe and sell it
+  // harvest everything ripe (and clear what withered) and sell it
   Object.keys(s.soil).forEach((k) => {
     const t = s.soil[k];
     if (L.isRipe(t) && !C.CROPS[t.c].sickle) L.harvest(s, Number(k));
+    else if (L.isWithered(t) && spend(L.toolEnergy(s, 'hoe', 1))) { L.till(s, Number(k)); once('withered', 'a crop withered'); }
   });
-  ['turnip', 'potato', 'strawberry', 'tomato', 'corn', 'carrot', 'pumpkin', 'herb', 'berry', 'mushroom', 'root', 'ore_copper', 'gem', 'fish_s', 'fish_m', 'fish_l', 'fish_k']
-    .forEach(sell);
+  C.CROP_KEYS.map((k) => C.CROPS[k].item).concat(['herb', 'berry', 'mushroom', 'root', 'ore_copper', 'gem', 'fish_s', 'fish_m', 'fish_l', 'fish_k'])
+    .filter((id, i, a) => id !== 'fodder' && a.indexOf(id) === i).forEach(sell);
   // forage on the farm (3 a day)
   for (let i = 0; i < C.FORAGE_COUNT.farm; i++) L.takeForage(s, 'farm', 1000 + i);
-  // water what is growing (rain does it for free)
-  const growing = Object.keys(s.soil).filter((k) => s.soil[k].c && !L.isRipe(s.soil[k]));
-  if (!C.WEATHER[weather].waters) {
-    growing.forEach((k) => {
-      if (s.soil[k].w) return;
-      if (s.water <= 0) L.refill(s);
-      if (spend(L.toolEnergy(s, 'can', 1))) L.water(s, Number(k));
-    });
-  }
   // plant: fill empty tilled tiles, till more cleared field, clear debris when needed
-  const seed = bestSeed();
+  const seed = bestSeed(gap);
   let empty = Object.keys(s.soil).filter((k) => !s.soil[k].c).map(Number);
   while (seed && s.energy > 30) {
     if (empty.length < 9) {
@@ -111,8 +107,8 @@ function day() {
     if (!C.WEATHER[weather].waters) planted.forEach((i) => { if (s.water <= 0) L.refill(s); if (spend(L.toolEnergy(s, 'can', 1))) L.water(s, i); });
     empty = empty.slice(9);
   }
-  // spare energy on rainy days (or when nothing to plant): the mine
-  if (s.energy > 25 && (C.WEATHER[weather].waters || !seed || L.date(s.day).key === 'winter')) {
+  // spare energy at the last visit of the day: the mine
+  if (gap > 8 * 60 && s.energy > 25) {
     let floor = 1;
     while (s.energy > 12) {
       const cost = L.mineEnergy(s, floor);
@@ -137,21 +133,28 @@ function day() {
       if (L.startBuild(s, b) === 'ok') note('started the ' + def.name);
     }
   });
-  // sleep
-  const r = L.endDay(s, false, { fieldTiles: FIELD });
-  if (r.built) once('b_' + r.built, C.BUILDS[r.built].name + ' finished');
-  return r;
 }
 
-console.log('Simulating ' + DAYS + ' days with the real rules...\n');
+function day() {
+  const d = new Date(NOW);
+  SESSIONS.forEach((t, i) => {
+    NOW = new Date(d.getFullYear(), d.getMonth(), d.getDate(), t[0], t[1]).getTime();
+    const next = SESSIONS[i + 1] ? SESSIONS[i + 1] : [SESSIONS[0][0] + 24, SESSIONS[0][1]];
+    session((next[0] - t[0]) * 60 + next[1] - t[1], i === 0);
+  });
+  NOW = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, SESSIONS[0][0], SESSIONS[0][1]).getTime();
+}
+
+console.log('Simulating ' + DAYS + ' days with the real rules, ' + SESSIONS.length + ' visits a day...\n');
 console.log('day  date        gold   earned/day  planted  animals  tools        lumber stone');
 const rows = [];
 let week = 0;
 for (let d = 0; d < DAYS; d++) {
   const before = s.stats.earned;
   day();
+  L.catchUp(s, NOW, { fieldTiles: FIELD });
   week += s.stats.earned - before;
-  if (s.day % 7 === 1) {
+  if ((d + 1) % 7 === 0) {
     const planted = Object.values(s.soil).filter((t) => t.c).length;
     const row = String(s.day - 1).padEnd(5) + L.formatDate(s.day - 1).padEnd(12) + String(s.gold).padStart(6) + String(Math.round(week / 7)).padStart(11) +
       String(planted).padStart(10) + String(s.animals.length).padStart(9) + '  ' + C.TOOL_KEYS.map((t) => s.tools[t]).join('') + '        ' +

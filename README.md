@@ -38,8 +38,13 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 ### Getting started
 
 - **Boy or girl:** a new game starts by asking who you will play: the farmer boy or the farmer girl.
+- **Real time:** the game follows the phone's clock and date (or the app's, through `window.gameHost.now()`).
+  Day and night follow the real clock. A new day starts at midnight, wherever you are: animals have their
+  produce, the shipping box pays, the weather and the villagers' day reset. Coming back after days away, one
+  "welcome back" report covers them all. There is no sleeping to skip time.
 - **Goals:** a new farm shows one goal at a time under the top bar: clear debris, till, plant, water, feed
-  Clucky, sleep, collect an egg, visit town, sell at the market stall, meet villagers, harvest. Each one pays a small reward. A
+  Clucky, harvest the turnips (about 15 minutes), visit town, sell at the market stall, meet villagers, and the
+  next day, collect an egg. Each one pays a small reward. A
   yellow arrow points the way, even across maps. Tap the goal bar for details.
 - **Tips:** the first time you hold each kind of item (a tool, seeds, feed, food...), a tip explains it.
 - **Mail:** the mailbox by the house gets letters: a welcome lunch, festival invitations, birthday reminders,
@@ -50,32 +55,36 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
 - **Clearing:** a new farm is overgrown. Use the **Sickle** on weeds, the **Axe** on branches and stumps (lumber),
   and the **Hammer** on stones and boulders (stone). Stumps and boulders take several swings, and boulders need a
   Copper Hammer. A few weeds sprout at each new season.
-- **Crops:** hoe the soil, then plant. A **seed bag** sows the 3×3 tilled patch around the tile. Water every day;
-  rain does it for you. The Hammer flattens empty tilled soil.
-- **Crops by season:**
+- **Crops (FarmVille style):** hoe the soil, then plant. A **seed bag** sows the 3×3 tilled patch around the
+  tile. Crops grow in real time from the minute they are planted, from 15 minutes to 2 days; no watering is
+  needed, but a watered crop grows 25% faster (rain waters the whole field). A ripe crop waits as long again as
+  it took to grow (at least 4 hours), then **withers**: clear it with the Hoe. Facing a crop shows how long it
+  has left. A crop planted late in a season grows on into the next. The Hammer flattens empty tilled soil.
+- **Crops by season** (10 each; growing time / sell price; quick crops pay more per hour, slow ones more per
+  harvest):
 
   | Season | Crops |
   | --- | --- |
-  | Spring | Turnip 3 days/60G, Potato 5/80G, Strawberry 7/50G (regrows every 3) |
-  | Summer | Tomato 6/60G (regrows every 3), Corn 9/100G (regrows every 4) |
-  | Fall | Carrot 4/70G, Pumpkin 10/250G |
-  | All but winter | Grass: cut it with the Sickle for Fodder, and it regrows |
+  | Spring | Turnip 15 min/5G, Radish 30 min/6G, Lettuce 1 h/7G, Strawberry 2 h/9G, Peas 4 h/12G, Potato 6 h/14G, Cabbage 8 h/16G, Cauliflower 12 h/18G, Onion 1 day/25G, Tulip 2 days/34G |
+  | Summer | Okra 15 min/5G, Chili Pepper 30 min/6G, Cucumber 1 h/7G, Bell Pepper 2 h/9G, Tomato 4 h/12G, Eggplant 6 h/14G, Sunflower 8 h/16G, Corn 12 h/18G, Melon 1 day/25G, Watermelon 2 days/34G |
+  | Fall | Carrot 15 min/5G, Spinach 30 min/6G, Bok Choy 1 h/7G, Beet 2 h/9G, Garlic 4 h/12G, Sweet Potato 6 h/14G, Cranberries 8 h/16G, Rice 12 h/18G, Pumpkin 1 day/25G, Grapes 2 days/34G |
+  | Winter | Kale 15 min/5G, Celery 30 min/6G, Broccoli 1 h/7G, Leek 2 h/9G, Parsnip 4 h/12G, Red Cabbage 6 h/14G, Brussels Sprouts 8 h/16G, Ginger 12 h/18G, Winter Squash 1 day/25G, Coffee Beans 2 days/34G |
+  | Spring to fall | Grass: cut it with the Sickle for Fodder after 2 hours; it regrows and never withers |
 
 - **Selling at the market stall** (north side of the town plaza): crops, produce, fish, ore and forage.
   - **Sell now** pays 75% of the base price straight away.
   - **Shelves** (6 of them, up to 20 of one item each): pick a price and a villager comes by to buy the lot.
     When you are in town you see them walk up to the stall, stop to buy, and go back to their day.
-    Low pays 100% in about 40 minutes, Fair 120% in about 2.5 hours, High 140% in about 6 hours (game time).
-    Time also passes for the shelves while you are away and overnight. Coins wait at the stall (a coin bobs over
+    Low pays 100% in about 40 minutes, Fair 120% in about 2.5 hours, High 140% in about 6 hours (real time).
+    Shelves also sell at midnight while you are away. Coins wait at the stall (a coin bobs over
     it) until you collect them.
   - **The order board** on the plaza has 3 villagers' requests, like "5 Eggs + 3 Turnips". Delivering one
     pays 150% of the items' price plus friendship with that villager; a new order comes about an hour later.
     Orders only ask for what you can get now: crops in season, your animals' produce, fish (with a rod) and ore
     from mine floors you have reached. A "!" over the board means you can fill one.
-- **Lily's Seed Stand** (south of the field, 9 AM to 5 PM) has Seeds, Animals and Supplies (Brush, Milker,
-  Fishing Rod, Miracle Potion, Blue Feather).
-- **Days:** the clock runs from 6 AM. At 2 AM you pass out (half energy next day). Sleep in the bed in your
-  farmhouse. The **TV** has tomorrow's weather.
+- **Lily's Seed Stand** (south of the field, 7 AM to 11 PM) has this season's Seeds, Animals and Supplies
+  (Brush, Milker, Fishing Rod, Miracle Potion, Blue Feather). Town shops are open 7 AM to 11 PM too.
+- **The TV** has tomorrow's weather. Every player has the same weather on the same day.
 
 ### Tools and energy
 
@@ -87,6 +96,8 @@ Desktop keys for testing: WASD/arrows move, Space/Enter act (hold to charge), 1 
   3×3, then 3×5.
 - **Watering can:** it holds 20 waters, up to 60 at Gold. Each tile costs 2 energy with the basic can, less with
   upgrades.
+- **Energy** comes back by itself: 1 point every 3 minutes (full in about 5 hours), also while the game is
+  closed. Sleeping does not refill it. A nicer home raises the maximum.
 - **Food:** eat food to restore energy (tap Eat with it in hand, or from the bag). With a **kitchen** you cook 9
   recipes from your crops, eggs, milk, fish and mushrooms. Rosa's inn and Ivy's clinic sell meals and tonics.
 
@@ -266,23 +277,25 @@ the game plays offline and the Online button does not show. The database side is
 
 ### Seasons, weather and festivals
 
-- **Seasons:** Spring, Summer, Fall and Winter, 28 days each. Crops wither when their season ends. The farm and town
-  change look, with petals, leaves or snow drifting down.
-- **Weather:** sunny, rain, storms (summer) or snow (winter). Rain and storms water the field. The forecast is on
-  the TV, and when you go to bed.
-- **Festivals** (in the plaza; the calendar in the pause menu shows them and the birthdays):
+- **Seasons follow the real months:** Spring March to May, Summer June to August, Fall September to November,
+  Winter December to February, each with its own 10 crops. The farm and town change look, with petals, leaves or
+  snow drifting down.
+- **Weather:** sunny, rain, storms (summer) or snow (winter), the same for every player on a given day. Rain and
+  storms water the field. The forecast is on the TV and in the bed's note.
+- **Festivals and birthdays are on fixed real dates, the same for every player** (the calendar in the pause menu
+  shows a month at a time). Every villager has a real birthday (Lily: October 27).
 
-  | Festival | Date | What you do |
-  | --- | --- | --- |
-  | Flower Festival | Spring 14 | The Flower Dance: tap when each ring reaches the circle. A better dance means more friendship |
-  | Fireworks Night | Summer 24 | Watch with someone you invite |
-  | Harvest Festival | Fall 12 | Judges taste your crop, with a drumroll before the prize |
-  | Cow Festival | Fall 20 | Your happiest cow competes for the blue ribbon |
-  | Starry Night | Winter 24 | Spend the evening with someone |
+  | Festival | Date | Hours | What you do |
+  | --- | --- | --- | --- |
+  | Flower Festival | April 14 | 8 AM to 9 PM | The Flower Dance: tap when each ring reaches the circle. A better dance means more friendship |
+  | Fireworks Night | July 24 | 5 PM to midnight | Watch with someone you invite |
+  | Harvest Festival | October 12 | 8 AM to 9 PM | Judges taste your crop (a day's crop or more wins), with a drumroll before the prize |
+  | Cow Festival | November 20 | 8 AM to 9 PM | Your happiest cow competes for the blue ribbon |
+  | Starry Night | December 24 | 5 PM to midnight | Spend the evening with someone |
 
   Talk to Mayor Hollis there to take part. Shops close on festival days.
 - **Marriage:** any of the 14 candidates (see Heart events) can marry you. You need 8 hearts, the Farmhouse (house Lv 3) and a Blue Feather.
-  Show them the feather, and the wedding is 3 days later. Your spouse then lives at the farmhouse and sometimes packs
+  Show them the feather, and the wedding is 3 (real) days later. Your spouse then lives at the farmhouse and sometimes packs
   you lunch.
 
 ### Collection and records
@@ -293,18 +306,20 @@ close friends.
 
 ### Balance
 
-`npm run simulate` plays a year with the real rules: an efficient player who waters as much as energy allows,
-keeps animals and mines on rainy days. It prints gold and income per week, and when the buildings and upgrades
-become affordable. With the current numbers:
+`npm run simulate` plays the real rules on a real clock: a player who opens the game 4 times a day (8 AM,
+12:30, 7 PM, 10 PM), plants the best crop that will be ripe by the next visit, keeps animals and goes down the
+mine in the evening. It prints gold and income per week and when buildings and upgrades become affordable.
+With the current numbers (from April 1st):
 
 | When | What |
 | --- | --- |
-| Spring | About 21,000G earned |
-| End of spring | The kitchen |
-| Early fall | The Farmhouse (Lv 3), so marriage is possible in fall of year 1 |
-| End of year 1 | About 200,000G earned |
+| First week | About 2,500G a day; a second chicken and a cow |
+| Day 10 | The kitchen |
+| Days 14 to 24 | Bigger Coop, Stable, Bigger Barn |
+| Day 34 | The House Extension (marriage possible) |
+| 4 months | About 540,000G earned; the bigger house levels over the following months |
 
-A relaxed player will be well behind that.
+A player who visits less often earns less: crops left too long wither.
 
 ### Sound
 
@@ -374,13 +389,14 @@ src/              game code, concatenated in filename order
   00-online.js      online play settings
   01-logic8.js      online rules: the farm snapshot others see, rebuilding a visited farm from one (every value
                     checked), who fits on a farm, weekly scores, save
+  01-logic9.js      real time: catching the farm up with the phone's clock (each midnight that went by, one report)
   02-net.js         the connection: window.gameHost.net, provided by the app (no network calls in the game)
   19h-online.js     joining, publishing, visiting (look-only), live players and name tags, likes, gifts,
                     the Online panel (Visit, Friends and chat, Ranks, Me), the text box
   20-main.js        decodes images, starts Phaser
 maps/             Tiled maps (JSON, embedded tilesets): farm, house_1..house_10 (one per level), town, mine
 assets/*.png      sprite sheets and tilesets (256x256 tiles), plus assets/props/*.png (one image per prop)
-tools/            make-art.js + art/*.js (draws all the art in headless Chromium), make-map.js (seeds the maps)
+tools/            make-art.js + art/*.js (draws all the art in headless Chromium; crops2.js: the 33 newer crops), make-map.js (seeds the maps)
 build.js          inlines everything into dist/index.html
 bridge/           the Selebox app's side of online play (React Native): sunnyAcresBridge.js and its guide
 supabase/         farm_online.sql: the online database (a "farm" schema and public.farm_*_v1 functions; not applied)
@@ -393,7 +409,7 @@ test/             logic + rules unit tests (Node), e2e.test.js (Playwright playt
 ```
 npm install
 npm run build      # -> dist/index.html
-npm test           # rules + save-format unit tests (142 tests)
+npm test           # rules + save-format unit tests (145 tests)
 npm run test:e2e   # builds, then plays the game headlessly on a phone-sized screen (18 tests, ~30 min)
 node --test test/e2e-online.test.js   # online: an owner and two visitors (~2 min, after a build)
 npm run simulate   # plays a year with the real rules and prints the economy

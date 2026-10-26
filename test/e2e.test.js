@@ -349,10 +349,11 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   await setClock(page, [2026, 4, 2, 10, 0]);
   await tapAction(page);
   await shot(page, '07-shop');
-  await tapButton(page, 'Buy 100G'); // a bag of turnip seeds
+  const bag = await page.evaluate(() => Farm.Config.ITEMS.seed_turnip.price);
+  await tapButton(page, 'Buy ' + bag + 'G'); // a bag of turnip seeds
   s = await state(page);
-  assert.strictEqual(count(s, 'seed_turnip'), 3);
-  assert.strictEqual(s.gold, goldBefore + P.fair - 100);
+  assert.strictEqual(count(s, 'seed_turnip'), 4);
+  assert.strictEqual(s.gold, goldBefore + P.fair - bag);
   await tapButton(page, 'Supplies');
   assert.match(await modalText(page), /Milker/);
   assert.match(await modalText(page), /Fishing Rod/);
@@ -454,6 +455,7 @@ test('in town, a villager walks up to the market stall and buys what is on a she
     L.listItem(s, 0, s.inv.findIndex((x) => x && x.id === 'potato'), 4, 0);
     s.shelves[0].left = 1; // a buyer is due in a minute
   });
+  await advance(page, 2);
   // someone heads for the stall...
   await page.waitForFunction(() => Farm.world.buyers && Object.keys(Farm.world.buyers).length, null, SLOW);
   const buyer = await page.evaluate(() => Farm.world.buyers[0]);
@@ -466,7 +468,7 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   assert.ok(at < 256, 'they stood at the stall');
   const s = await state(page);
   if (!buyer.startsWith('visitor_')) assert.strictEqual(s.shelves[0].buyer, buyer); // a visitor's sale goes down as a villager's
-  assert.strictEqual(s.shelves[0].coins, 320);
+  assert.strictEqual(s.shelves[0].coins, 4 * (await page.evaluate(() => Farm.Config.ITEMS.potato.sell)));
   await page.waitForFunction(() => !Farm.world.villagers.list.some((v) => v.errand), null, SLOW); // they head off
   await teleport(page, 11, 15, 'up');
   assert.strictEqual(await actionLabel(page), 'Collect');
@@ -474,17 +476,30 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   await context.close();
 });
 
-test('passing out at 2 AM wakes you in bed with half energy', async () => {
-  const { page, problems, context } = await open();
+test('a new day starts at midnight wherever you are; energy comes back by itself', async () => {
+  const { page, problems, context } = await open(null, [2026, 4, 1, 23, 50]);
   await tapButton(page, 'Boy');
   await page.evaluate(() => window.__gameBack());
-  await page.evaluate(() => { Farm.session.state.time = Farm.Config.PASS_OUT - 1; });
-  await page.waitForFunction(() => Farm.session.state.day === 2 && Farm.world.mapKey === 'house' && !Farm.world.busy, null, SLOW);
+  await teleport(page, 10, 20, 'down');
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.session.state.energy = 10; });
+  await advance(page, 30); // 00:20: a new day, and 10 more energy
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && !Farm.world.busy && Farm.world.player.active, day, SLOW);
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
-  assert.match(await modalText(page), /passed out/);
+  assert.match(await modalText(page), /A NEW DAY! APR 2/);
+  await tapButton(page, 'OK');
   const s = await state(page);
-  assert.strictEqual(s.energy, 50);
-  assert.strictEqual(s.time, 360);
+  assert.strictEqual(s.energy, 20);
+  assert.strictEqual(Math.floor(s.time), 20);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'farm', 'still on the farm');
+  assert.ok(Math.abs(s.player.x / 256 - 10.5) < 0.5 && Math.abs(s.player.y / 256 - 20.5) < 0.5, 'where you stood');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.timeText.text), '12:20 AM');
+  // the bed explains it
+  await go(page, 'house', 'bed');
+  await teleport(page, 2, 4, 'up');
+  assert.strictEqual(await actionLabel(page), 'Bed');
+  await tapAction(page);
+  assert.match(await modalText(page), /A new day starts at midnight/);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -492,7 +507,7 @@ test('passing out at 2 AM wakes you in bed with half energy', async () => {
 test('a garbage save from the host starts a new game instead of crashing', async () => {
   const { page, problems, context } = await open('{not json');
   const s = await state(page);
-  assert.strictEqual(s.day, 1);
+  assert.strictEqual(s.day, await page.evaluate(() => Farm.Logic.dayOf(window.__now)), 'a new farm, today');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -629,7 +644,7 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
 
 test('New game in the pause menu replaces a progressed farm with a fresh one', async () => {
   const progressed = await makeSave(`
-    s.day = 9;
+    s.start = s.day - 8;
     s.gold = 4321;
     L.till(s, 300);
     L.plant(s, 300, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
@@ -637,7 +652,8 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   `);
   const { page, problems, context } = await open(progressed);
   let s = await state(page);
-  assert.strictEqual(s.day, 9);
+  const today = s.day;
+  assert.strictEqual(s.start, today - 8);
   assert.strictEqual(s.animals.length, 2);
 
   // Back opens the pause menu; "No" keeps the farm
@@ -645,15 +661,15 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   await shot(page, '14-pause-newgame');
   await tapButton(page, 'New game');
   await tapButton(page, 'No');
-  assert.strictEqual((await state(page)).day, 9, 'No keeps the farm');
+  assert.strictEqual((await state(page)).start, today - 8, 'No keeps the farm');
 
   // "Yes" starts over
   await tapButton(page, 'New game');
   await tapButton(page, 'Yes');
-  await page.waitForFunction(() => Farm.ui && Farm.ui.refresh && Farm.world && Farm.world.herd && Farm.session.state.day === 1, null, SLOW);
+  await page.waitForFunction((d) => Farm.ui && Farm.ui.refresh && Farm.world && Farm.world.herd && Farm.session.state.start === d, today, SLOW);
   await frames(page, 5);
   s = await state(page);
-  assert.strictEqual(s.day, 1);
+  assert.strictEqual(s.day, today);
   assert.strictEqual(s.gold, 300);
   assert.deepStrictEqual(s.soil, {});
   assert.ok(Object.keys(s.debris).length > 60, 'the new farm is overgrown again');
@@ -661,7 +677,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(await page.evaluate(() => Farm.world.herd.members.length), 1);
   assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.crops).length), 0);
   const last = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
-  assert.strictEqual(last.d, 1, 'the new farm is saved straight away');
+  assert.strictEqual(last.s0, today, 'the new farm is saved straight away');
   assert.strictEqual(last.g, 300);
 
   // the boy-or-girl choice and the welcome message show, the HUD is live, and the farm is playable
@@ -669,7 +685,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   await tapButton(page, 'Boy');
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
-  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 1');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Apr 1');
   await page.evaluate(() => { delete Farm.session.state.debris[12 * 38 + 5]; Farm.world.refreshDebris(); });
   await teleport(page, 5, 11, 'down');
   await tapHotbar(page, 0);
@@ -681,7 +697,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
 
   // and the new farm is what loads next time
   const again = await open(last);
-  assert.strictEqual((await state(again.page)).day, 1);
+  assert.strictEqual((await state(again.page)).start, today);
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
 });
@@ -689,14 +705,15 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
 // The gid drawn at a map tile, and the seasons tileset's first gid, to check which season's art is showing.
 const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.layers[l].getTileAt(x, y).index, [layer, x, y]);
 
-test('seasons: summer arrives, spring crops wither, the shop and the farm change', async () => {
+test('seasons follow the months: summer on June 1st, winter on December 1st; the shop and the farm change', async () => {
+  const MAY31 = [2026, 5, 31, 22, 0];
   const save = await makeSave(`
-    s.day = C.DAYS_PER_SEASON;
     L.till(s, 12 * 38 + 5);
-    L.plant(s, 12 * 38 + 5, s.inv.findIndex((x) => x && x.id === 'seed_turnip'));
-  `);
-  const { page, problems, context } = await open(save);
-  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Spring 28');
+    L.addItem(s, 'seed_onion', 1);
+    L.plant(s, 12 * 38 + 5, s.inv.findIndex((x) => x && x.id === 'seed_onion'));
+  `, MAY31);
+  const { page, problems, context } = await open(save, MAY31);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'May 31');
   const springGrass = await tileGid(page, 'Ground', 2, 3);
   const seasonsFirst = await page.evaluate(() => Farm.world.map.getTileset('seasons').firstgid);
   assert.ok(springGrass >= seasonsFirst && springGrass < seasonsFirst + 12, 'spring art from the seasons tileset');
@@ -712,12 +729,11 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   await tapAction(page);
   assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, null, 'tomato refused in spring');
 
-  await nextMorning(page);
+  const report = await nextMorning(page);
+  assert.match(report, /Summer has arrived/);
   let s = await state(page);
-  assert.strictEqual(s.day, 29);
-  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Summer 1');
-  assert.strictEqual(s.soil[12 * 38 + 5].c, null, 'the spring turnip withered');
-  assert.ok(s.soil[12 * 38 + 5], 'its soil is still tilled');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
+  assert.strictEqual(s.soil[12 * 38 + 5].c, 'onion', 'the spring onion grows on');
   const summerGrass = await tileGid(page, 'Ground', 2, 3);
   assert.strictEqual(summerGrass, springGrass + 12, 'grass switched to the summer art');
   await teleport(page, 6, 9, 'down');
@@ -730,30 +746,33 @@ test('seasons: summer arrives, spring crops wither, the shop and the farm change
   assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, 'tomato');
 
   // the shop's seeds tab follows the season
-  await page.evaluate(() => { Farm.session.state.time = 600; });
+  await setClock(page, [2026, 6, 1, 10, 0]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
-  const names = await modalText(page);
-  assert.ok(names.includes('Tomato Seeds') && names.includes('Corn Seeds'));
+  let names = await modalText(page);
+  assert.ok(names.includes('Okra Seeds') && names.includes('Chili Pepper Seeds'), names);
   assert.ok(!names.includes('Turnip Seeds'));
   await page.evaluate(() => window.__gameBack());
 
-  // jump to the last day of fall and sleep into winter
-  await page.evaluate(() => { Farm.session.state.day = 3 * Farm.Config.DAYS_PER_SEASON; });
+  // the last evening of fall, then winter
+  await page.evaluate(() => {
+    window.__now = new Date(2026, 10, 30, 22, 0).getTime();
+    Farm.session.state.day = Farm.Logic.dayOf(window.__now);
+  });
   await nextMorning(page);
   s = await state(page);
-  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Winter 1');
-  assert.strictEqual(s.soil[12 * 38 + 6].c, null, 'the summer tomato withered');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Dec 1');
   assert.strictEqual(await tileGid(page, 'Ground', 2, 3), springGrass + 36, 'snow');
   assert.ok(await page.evaluate(() => Farm.ui.weather && Farm.ui.weather.getAliveParticleCount() > 0), 'snow is falling');
   // trees still block the way in winter (collision follows the swapped tiles)
   assert.strictEqual(await page.evaluate(() => Farm.world.layers.Walls.getTileAt(0, 3).collides), true);
   await teleport(page, 6, 9, 'down');
   await shot(page, '17-winter');
-  await page.evaluate(() => { Farm.session.state.time = 600; });
+  await setClock(page, [2026, 12, 1, 10, 0]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
-  assert.match(await modalText(page), /Nothing grows in winter/);
+  names = await modalText(page);
+  assert.ok(names.includes('Kale Seeds'), 'winter has its own crops: ' + names);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -926,9 +945,8 @@ test('town: walk down the road, talk, gift, the forge, the woodshop, the inn, an
 });
 
 test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', async () => {
+  const APR14 = [2026, 4, 14, 10, 0]; // the Flower Festival
   const save = await makeSave(`
-    s.day = 14; // Spring 14: the Flower Festival
-    s.time = 600;
     s.map = 'house';
     s.builds.kitchen = 1;
     s.builds.bighouse = 1;
@@ -937,8 +955,8 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
     L.friend(s, 'lily').met = 1;
     L.addItem(s, 'egg', 1);
     L.addItem(s, 'blue_feather', 1);
-  `);
-  const { page, problems, context } = await open(save);
+  `, APR14);
+  const { page, problems, context } = await open(save, APR14);
   await waitMap(page, 'house');
   await shot(page, '25-house');
 
@@ -986,7 +1004,7 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   assert.match(await modalText(page), /Yes!/);
   await tapButton(page, 'OK');
   s = await state(page);
-  assert.deepStrictEqual(s.engaged, { who: 'lily', day: 17 });
+  assert.deepStrictEqual(s.engaged, { who: 'lily', day: s.day + 3 });
 
   // the wedding is three days later; then she lives at the farmhouse
   await nextMorning(page);
@@ -1004,8 +1022,7 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
 
 test('new things: mail, a heart event, the horse and saddlebag, the cat, furniture, a mine chest, the collection', async () => {
   const save = await makeSave(`
-    s.day = 2;
-    s.time = 600;
+    s.start = s.day - 1;
     s.gold = 5000;
     s.mail = ['welcome'];
     s.builds.stable = 1;
@@ -1314,15 +1331,14 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   await context.close();
 });
 test('phase 3: the daily gift, claiming a quest, a request on the board, the trader, a Power-Up', async () => {
+  const TUE = [2026, 4, 7, 10, 0]; // a Tuesday: a trader day
   const save = await makeSave(`
-    s.day = 2; // a trader day
-    s.time = 600;
     s.gold = 1000;
     s.energy = 30;
     L.addItem(s, 'gem', 5);
     L.addItem(s, 'power_up', 1);
-  `);
-  const { page, problems, context } = await open(save);
+  `, TUE);
+  const { page, problems, context } = await open(save, TUE);
   // the daily gift pops up once the game is quiet
   await page.evaluate(() => { window.gameHost.quiet = false; });
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
