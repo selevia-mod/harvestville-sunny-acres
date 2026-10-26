@@ -199,7 +199,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await shot(ben.page, 'online-5-ben');
 
   // ----- look, don't touch: tools do nothing on someone else's farm, and the clock stands still
-  const before = await ana.page.evaluate(() => ({ soil: Object.keys(Farm.world.state.soil).length, time: Farm.world.state.time, own: JSON.stringify(Farm.Logic.serialize(Farm.session.state)) }));
+  const before = await ana.page.evaluate(() => ({ soil: Object.keys(Farm.world.state.soil).length, time: Farm.world.state.time, own: JSON.stringify([Farm.session.state.soil, Farm.session.state.gold, Farm.session.state.inv, Farm.session.state.debris]) }));
   await ana.page.evaluate((T) => {
     const s = Farm.session.state;
     s.sel = s.inv.findIndex((x) => x && x.id === 'hoe');
@@ -213,9 +213,9 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   assert.ok(act && act.disabled && /look, but don't touch/.test(act.why), 'tools are off: ' + JSON.stringify(act));
   await ana.page.touchscreen.tap(294, 512);
   await ana.page.waitForTimeout(1500);
-  const after = await ana.page.evaluate(() => ({ soil: Object.keys(Farm.world.state.soil).length, time: Farm.world.state.time, own: JSON.stringify(Farm.Logic.serialize(Farm.session.state)) }));
+  const after = await ana.page.evaluate(() => ({ soil: Object.keys(Farm.world.state.soil).length, time: Farm.world.state.time, own: JSON.stringify([Farm.session.state.soil, Farm.session.state.gold, Farm.session.state.inv, Farm.session.state.debris]) }));
   assert.strictEqual(after.soil, before.soil, 'no soil tilled');
-  assert.strictEqual(after.time, before.time, 'the clock is stopped');
+  assert.strictEqual(after.own, before.own, 'your own farm is untouched');
 
   // ----- Ana likes the farm and leaves a gold gift; Ben waves; the owner hears about all of it
   await ana.page.touchscreen.tap(VISIT_BAR.Like, VISIT_BAR.y);

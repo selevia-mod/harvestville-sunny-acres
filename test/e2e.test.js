@@ -332,6 +332,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   const goldBefore = s.gold;
   const report = await nextMorning(page);
   assert.match(report, new RegExp('1 lot sold\\. Collect ' + P.fair + 'G'));
+  await clearAround(page, 11, 14); // (villagers stroll the plaza in the morning)
   await teleport(page, 11, 15, 'up');
   assert.strictEqual(await actionLabel(page), 'Collect');
   await tapAction(page);
