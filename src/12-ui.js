@@ -73,6 +73,7 @@
   }
 
   F.UI_CONST = { W: W, H: H, INK: INK, COL: COL, SLOT: SLOT, ICON: ICON };
+  F.UI_DRAW = { rrect: rrect, circle: circle, vgrad: vgrad, shade: shade, card: card }; // for the later UI files (19i-look.js)
 
   F.UIScene = class extends Phaser.Scene {
     constructor() {

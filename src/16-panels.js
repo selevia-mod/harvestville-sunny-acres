@@ -16,6 +16,7 @@
   // o: { title, sub(): string, tabs: [[key, label]], tab, reopen(tab, page), rows: [row], page, talk: villager key }
   // row: { icon | people, name, desc, buttons: [{ label, cb, color }] } (at most two buttons, stacked)
   M.listPanel = function (o) {
+    if (this.lookListPanel) return this.lookListPanel(o); // the current look (19i-look.js); later files wrap listPanel itself
     var self = this, c = this.openModal();
     this.panelImg(c, 12, 66, W - 24, 540);
     c.add(this.txt(W / 2, 82, o.title, 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
@@ -61,6 +62,7 @@
   };
 
   M.listRow = function (c, y, row) {
+    if (this.lookListRow) return this.lookListRow(c, y, row);
     var self = this;
     this.baked(c, 28, y, 'ui-row', W - 56, ROW_H, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, W - 56, ROW_H, 10); });
     c.add(this.add.image(34, y + 13, this.slotTex('plain')).setOrigin(0).setScale(1 / F.R));

@@ -745,7 +745,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   await tapHotbar(page, 0);
   await tapAction(page);
   assert.ok((await state(page)).soil[12 * 38 + 5], 'can till on the new farm');
-  assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300G');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300'); // the coin says it is gold
   assert.deepStrictEqual(problems, []);
   await context.close();
 
@@ -1202,7 +1202,7 @@ test('home: decorate, buy furniture, upgrade the house', async () => {
   assert.strictEqual(await page.evaluate(() => Farm.world.map.width), 8, 'a Cozy Cabin to start');
 
   // Decorate: drag the table three tiles to the right
-  await page.touchscreen.tap(298, 438);
+  await page.touchscreen.tap(330, 420);
   await page.waitForFunction(() => Farm.world.decor && Farm.ui.decorBar, null, SLOW);
   const at = await page.evaluate(() => {
     const w = Farm.world, cam = w.cameras.main, T = 256, s = w.state;
@@ -1336,7 +1336,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
     const cam = Farm.world.cameras.main, T = 256;
     return { x: ((x + 0.5) * T - cam.worldView.x) * cam.zoom / Farm.R, y: ((y + 0.5) * T - cam.worldView.y) * cam.zoom / Farm.R };
   }, [x, y]);
-  await page.touchscreen.tap(298, 438); // Decorate
+  await page.touchscreen.tap(330, 420); // Decorate
   await page.waitForFunction(() => Farm.world.yd && Farm.ui.decorBar, null, SLOW);
 
   // three wooden fences in a row, a tap each
@@ -1406,7 +1406,7 @@ test('phase 3: the daily gift, claiming a quest, a request on the board, the tra
   // 10 daily quests; finish one and claim it from the Quests button
   assert.strictEqual(s.dq.list.length, 10);
   await page.evaluate(() => { const q = Farm.session.state.dq.list[0]; q.b -= q.n; });
-  await page.touchscreen.tap(316, 116); // Quests
+  await page.touchscreen.tap(330, 134); // Quests
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
   await tapButton(page, 'Claim');
   s = await state(page);

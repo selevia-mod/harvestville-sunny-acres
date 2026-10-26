@@ -125,7 +125,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   // name the farm in the text box, then the panel opens
   const ownerId = owner.uid;
   assert.strictEqual(await owner.page.evaluate(() => Farm.Online.me.id), ownerId, 'the app account');
-  await owner.page.touchscreen.tap(316, 152);
+  await owner.page.touchscreen.tap(330, 196);
   await page_waitAsk(owner.page);
   await shot(owner.page, 'online-1-name-farm');
   assert.strictEqual(await owner.page.inputValue('#farm-ask input'), 'Sunny Acres', 'the name to start from (the app name in Selebox)');
@@ -145,8 +145,8 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await nameFarm(ana.page, 'Ana Acres');
 
   // ----- Ana finds the farm in the Visit list and goes there
-  await ana.page.touchscreen.tap(316, 152);
-  await waitModal(ana.page, /Moon Meadow \(online\)/);
+  await ana.page.touchscreen.tap(330, 196);
+  await waitModal(ana.page, /Moon Meadow \| online/);
   assert.match(await modalText(ana.page), /Showing: Most beautiful/);
   await shot(ana.page, 'online-2-visit-list');
   await tapButton(ana.page, 'Visit', 1); // (the first is the tab)
@@ -262,7 +262,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await waitModal(owner.page, /Ana Acres.*Wants to be your friend/);
   await tapButton(owner.page, 'Accept');
   await waitToast(owner.page, /You and Ana Acres are friends now!/);
-  await waitModal(owner.page, /Ana Acres \(online\)/);
+  await waitModal(owner.page, /Ana Acres \| online/);
   await tapButton(owner.page, 'Chat');
   await waitModal(owner.page, /No messages yet/);
   await tapButton(owner.page, 'Write');
@@ -309,7 +309,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   const restarted = await ben.page.evaluate(() => ({ on: Farm.Online.on, off: Farm.session.state.net.off, isNew: Farm.session.isNew }));
   assert.deepStrictEqual(restarted, { on: false, off: 1, isNew: false }, 'he stays off after a restart');
   await ben.page.evaluate(() => Farm.ui.closeAll());
-  await ben.page.touchscreen.tap(316, 152);
+  await ben.page.touchscreen.tap(330, 196);
   await waitModal(ben.page, /PLAY ONLINE/);
   await tapButton(ben.page, 'Join');
   await page_waitAsk(ben.page);

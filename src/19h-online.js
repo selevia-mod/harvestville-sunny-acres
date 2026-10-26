@@ -639,7 +639,7 @@
       F.Net.rpc('farm_list_v1', { p_kind: this.onlineKind.visit, p_limit: 30 }).then(function (list) {
         var rows = [kindRow('visit')].concat((list || []).map(function (f) {
           return {
-            icon: C.ICON.spring, name: name(f.farm_name) + (f.online ? ' (online)' : ''),
+            icon: C.ICON.spring, name: name(f.farm_name), online: !!f.online,
             desc: 'Beauty ' + (Number(f.beauty) || 0) + ', house level ' + (Number(f.house_level) || 1) + ', ' + (Number(f.likes_week) || 0) + ' likes this week.',
             buttons: [{ label: 'Visit', cb: function () { O.visit(String(f.id)); } }, more(String(f.id), name(f.farm_name), 'visit')],
           };
@@ -666,7 +666,7 @@
           else if (f.status === 'sent') rows.push({ icon: C.ICON.heart, name: n, desc: 'Request sent. Waiting for them to accept.', buttons: [{ label: 'Cancel', color: GREY, cb: answer(false) }] });
           else {
             rows.push({
-              icon: C.ICON.heart, name: n + (f.online ? ' (online)' : ''), desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : 'Your friend.',
+              icon: C.ICON.heart, name: n, online: !!f.online, desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : 'Your friend.',
               buttons: [{ label: unread ? 'Chat (' + unread + ')' : 'Chat', color: BLUE, cb: function () { self.closeModal(); self.openChat(id, n); } }, { label: 'Visit', cb: function () { O.visit(id); } }],
             });
           }

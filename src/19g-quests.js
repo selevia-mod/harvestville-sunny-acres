@@ -280,8 +280,8 @@
     this.listPanel({
       title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); },
       sub: function () {
-        var when = { daily: 'New quests every day at midnight.', weekly: 'New goals every Monday.', monthly: month + ' goals. New ones on the 1st.', badges: 'Badges for big milestones.' }[tab];
-        return 'Sunbeams: ' + s.stars + '   ' + when;
+        var when = { daily: 'New quests at midnight', weekly: 'New goals every Monday', monthly: month + ' goals: new on the 1st', badges: 'Badges for big milestones' }[tab];
+        return when + '   ·   Sunbeams: ' + s.stars;
       },
     });
   };
