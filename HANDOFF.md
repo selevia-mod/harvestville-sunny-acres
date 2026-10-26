@@ -2,8 +2,8 @@
 
 You are picking up **Sunny Acres**, a Harvest Moon style farming game. It runs as a mini game inside the
 **Selebox** app (React Native). This file is the state of things at the handoff (26 Oct 2026, updated after the
-real-time redesign). The README has the full game description and file layout, but **its time and crop sections
-are out of date** (see "In progress" below). Read both before changing anything.
+real-time redesign). The README has the full game description and file layout. Read both before changing
+anything.
 
 Repo: `selevia-mod/harvestville-sunny-acres`, branch `main`. Commit and push to `main` when the owner asks to
 save; they often do ("save it to GitHub"). End commit messages with the attribution lines your harness gives.
@@ -71,24 +71,16 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
 - **Old saves** (no `rt` key) carry on from today (`L.deserialize` shifts building/wedding days, converts crops).
 - **Art:** the 33 new crops have drawn stand-ins (`tools/art/crops2.js`); the crops sheet is 7 frames wide
   (2048x4096) with a withered frame (`C.CROP_WITHERED`). The art manifest has jobs + prompts for real
-  pictures: `crops/<crop>.png` (33), `crops/withered.png`, `icons/icons_crops_1..5.png`. Those prompts have
-  **not** been sent to the owner yet (write them out like `art-src/REMAINING-6-PROMPTS.md` when asked).
+  pictures: `crops/<crop>.png` (33), `crops/withered.png`, `icons/icons_crops_1..5.png`, written out in
+  `art-src/NEW-CROPS-PROMPTS.md` (sent to the owner).
 
-## In progress at the handoff
+## Real-time status
 
-1. **Browser tests (`test/e2e.test.js`) are half rewritten for the real clock.** Done: `open(save, when)` and
-   `makeSave(edit, when)` take a date `[y, m, d, h, min]` (default `START` = Wed 1 Apr 2026, 10 AM);
-   helpers `setClock`, `advance(minutes)`, `nextMorning()` (replaces the old `sleepThroughNight`); the farming
-   loop test is rewritten. Still to rewrite (they use old game days, `s.day = 9`, `DAYS_PER_SEASON`, the 2 AM
-   pass-out, `Spring 1` texts, old prices): "passing out" (make it "a new day at midnight where you stand;
-   energy comes back over time"), "garbage save" (day), "New game" (day, `Apr 1` text), "seasons" (use May 31 ->
-   June 1 and Nov 30 -> Dec 1; winter now has crops), the town buyer test (advance the clock a few minutes so
-   the shelf comes due; coins = 4 x potato price), "home life" (open on Apr 14; `engaged.day` = that day + 3),
-   "new things" (`s.day = 2`), "phase 3" (a trader day: Tue/Thu/Sat, e.g. 7 Apr 2026). `s.time = 600` in saves
-   is harmless (the clock decides). Then run the suite alone, fix, and run `test/e2e-online.test.js`.
-2. **Docs:** README sections on time, crops, seasons, energy, festivals and the commands' test counts
-   (145 unit tests now). `tools/simulate.js` still runs but simulates the old day-based economy.
-3. Then build, publish the artifact (same URL), commit, push, and tell the owner what changed in plain words.
+Done and tested: rules (145 unit tests), game side, art stand-ins, browser tests rewritten for the real clock
+(`test/e2e.test.js`: `open(save, when)`, `makeSave(edit, when)` with a date `[y, m, d, h, min]`, default
+`START` = Wed 1 Apr 2026 10 AM; helpers `setClock`, `advance(minutes)`, `nextMorning()`), README, and a
+real-time economy simulator (`npm run simulate`: 4 visits a day). Crop prices were rescaled for harvests
+several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
 
 ## What is left (in order)
 
@@ -101,7 +93,8 @@ sleep to gain energy; birthdays and events are shared by all users (Lily's birth
    The game talks only to `window.gameHost.net`; the bridge answers with the app's signed-in supabase-js client,
    and allows only `farm_*_v1` functions and `farm:<uuid>` channels.
 3. **Device test** with 2-3 real Selebox accounts once 1 and 2 are done.
-4. **Art:** the 33 new crops, the withered plant and their icons are drawn stand-ins (see above).
+4. **Art:** the 33 new crops, the withered plant and their icons are drawn stand-ins. Their prompts were sent to
+   the owner: `art-src/NEW-CROPS-PROMPTS.md` (39 pictures). Import them like any batch.
 5. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
    `notification_push_policy` have row-level security off. The owner decides.
 
