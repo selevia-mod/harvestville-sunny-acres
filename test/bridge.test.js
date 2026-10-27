@@ -146,3 +146,40 @@ test('a call with no answer fails after a while instead of waiting forever', asy
   } finally { global.setTimeout = real; }
   assert.ok(replies.some((r) => /reply\(7, false, "timeout"\)/.test(r)), replies.join('\n'));
 });
+
+test('leaving a farm channel and joining it again at once (a quick sleep and wake) still works', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  const A = webview(server, a), B = webview(server, b);
+  await A.net.rpc('farm_join_v1', {});
+  await B.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, seen = { A: [], B: [] };
+  const on = (k) => ({ presence: (l) => seen[k].push(plain(l)), message: () => {} });
+  const first = A.net.join(topic, { id: a, name: 'Owner' }, on('A'));
+  await tick(60);
+  B.net.join(topic, { id: b, name: 'Visitor' }, on('B'));
+  await tick(60);
+  assert.deepStrictEqual(seen.A.at(-1), [{ id: b, name: 'Visitor' }]);
+  // the owner's phone sleeps and wakes: leave, and join the same farm straight away
+  first.leave();
+  A.net.join(topic, { id: a, name: 'Owner' }, on('A'));
+  await tick(300);
+  assert.deepStrictEqual(seen.B.at(-1), [{ id: a, name: 'Owner' }], 'the visitor still sees the owner');
+  assert.deepStrictEqual(seen.A.at(-1), [{ id: b, name: 'Visitor' }], 'and the owner still sees the visitor');
+});
+
+test('a farm channel the server drops is joined again by itself', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  const A = webview(server, a), B = webview(server, b);
+  await A.net.rpc('farm_join_v1', {});
+  await B.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, seen = [];
+  A.net.join(topic, { id: a, name: 'Owner' }, { presence: () => {}, message: () => {} });
+  B.net.join(topic, { id: b, name: 'Visitor' }, { presence: (l) => seen.push(plain(l)), message: () => {} });
+  await tick(80);
+  assert.deepStrictEqual(seen.at(-1), [{ id: a, name: 'Owner' }]);
+  [...server.topics.get(topic)].find((c) => c.key === a).drop();
+  await tick(60);
+  assert.deepStrictEqual(seen.at(-1), [], 'gone for a moment');
+  await tick(3000);
+  assert.deepStrictEqual(seen.at(-1), [{ id: a, name: 'Owner' }], 'back, without the game doing anything');
+});

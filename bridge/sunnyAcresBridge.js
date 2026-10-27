@@ -66,7 +66,24 @@ const js = (v) => JSON.stringify(v === undefined ? null : v).replace(/\u2028/g, 
 
 function createSunnyAcresBridge({ supabase, webViewRef }) {
   const channels = new Map(); // ch (the game's number) -> { channel, state, subscribed }
+  const closing = new Map(); // topic -> a channel of that topic still on its way out (a promise)
   let disposed = false;
+
+  // supabase-js keeps one channel per topic: channel(topic) hands back one still leaving (which never joins again),
+  // and a channel that closes takes every channel of its topic with it. So a farm is joined again (a sleep and a wake,
+  // a visit and back) only once the last channel of that topic is fully gone.
+  const listed = (topic) => (supabase.getChannels ? supabase.getChannels() : []).filter((c) => c.topic === 'realtime:' + topic || c.topic === topic);
+  const drop = (topic, channel) => {
+    const p = Promise.resolve(supabase.removeChannel(channel)).catch(() => {}).then(async () => {
+      for (let i = 0; i < 30 && listed(topic).length; i++) await new Promise((r) => setTimeout(r, 100));
+    }).finally(() => { if (closing.get(topic) === p) closing.delete(topic); });
+    closing.set(topic, p);
+    return p;
+  };
+  const settle = async (topic) => {
+    if (closing.has(topic)) await closing.get(topic);
+    for (const stale of listed(topic)) await drop(topic, stale); // (a leave that never got its answer)
+  };
 
   const inject = (code) => {
     const view = webViewRef && webViewRef.current;
@@ -98,23 +115,9 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const uid = await userId();
       if (channels.get(ch) !== entry || disposed) return false;
       if (!uid) { channels.delete(ch); throw new Error('not signed in'); }
-      const channel = supabase.channel(topic, { config: { private: true, broadcast: { self: false }, presence: { key: uid } } });
-      entry.channel = channel;
-      channel.on('presence', { event: 'sync' }, () => {
-        const all = channel.presenceState(), others = [];
-        Object.keys(all).forEach((key) => {
-          if (key === uid || !all[key] || !all[key][0]) return;
-          const { presence_ref, ...state } = all[key][0]; // eslint-disable-line no-unused-vars
-          others.push({ ...state, id: key }); // who they are is the server-checked key, never what they say
-        });
-        emit(ch, 'presence', others);
-      });
-      channel.on('broadcast', { event: '*' }, (m) => emit(ch, 'message', m.event, m.payload));
-      channel.subscribe((status) => {
-        if (status !== 'SUBSCRIBED' || !channels.has(ch)) return;
-        entry.subscribed = true;
-        channel.track(entry.state);
-      });
+      entry.topic = topic;
+      entry.tries = 0;
+      await open(ch, entry, uid);
       return true;
     },
 
@@ -137,10 +140,54 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const entry = channels.get(ch);
       if (!entry) return false;
       channels.delete(ch);
-      if (entry.channel) await supabase.removeChannel(entry.channel);
+      clearTimeout(entry.retry);
+      if (entry.channel) await drop(entry.topic, entry.channel);
       return true;
     },
   };
+
+  // Joins (or joins again) the entry's farm channel. A channel the server drops (a network cut, an error) is joined
+  // again by itself after a few seconds, a few times; a deliberate leave never is.
+  async function open(ch, entry, uid) {
+    const topic = entry.topic;
+    await settle(topic);
+    if (channels.get(ch) !== entry || disposed) return;
+    const channel = supabase.channel(topic, { config: { private: true, broadcast: { self: false }, presence: { key: uid } } });
+    entry.channel = channel;
+    entry.subscribed = false;
+    channel.on('presence', { event: 'sync' }, () => {
+      if (entry.channel !== channel) return;
+      const all = channel.presenceState(), others = [];
+      Object.keys(all).forEach((key) => {
+        if (key === uid || !all[key] || !all[key][0]) return;
+        const { presence_ref, ...state } = all[key][0]; // eslint-disable-line no-unused-vars
+        others.push({ ...state, id: key }); // who they are is the server-checked key, never what they say
+      });
+      emit(ch, 'presence', others);
+    });
+    channel.on('broadcast', { event: '*' }, (m) => { if (entry.channel === channel) emit(ch, 'message', m.event, m.payload); });
+    channel.subscribe((status) => {
+      if (channels.get(ch) !== entry || entry.channel !== channel || disposed) return;
+      if (status === 'SUBSCRIBED') {
+        entry.subscribed = true;
+        entry.tries = 0;
+        channel.track(entry.state);
+        return;
+      }
+      if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT' && status !== 'CLOSED') return;
+      entry.subscribed = false;
+      if (entry.tries >= 5 || entry.retry) return;
+      entry.retry = setTimeout(async () => {
+        entry.retry = null;
+        if (channels.get(ch) !== entry || disposed) return;
+        entry.tries++;
+        emit(ch, 'presence', []); // until it is back, nobody is seen there
+        entry.channel = null; // (its CLOSED on the way out is not another drop)
+        await drop(topic, channel);
+        open(ch, entry, uid).catch(() => {});
+      }, Math.min(30000, 2000 * Math.pow(2, entry.tries)));
+    });
+  }
 
   // Returns true when the message was the game's (handled here), false for any other message.
   const onMessage = (event) => {
@@ -161,7 +208,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
   // Call when the game screen closes: leaves every live channel.
   const dispose = () => {
     disposed = true;
-    channels.forEach((entry) => { if (entry.channel) supabase.removeChannel(entry.channel); });
+    channels.forEach((entry) => { clearTimeout(entry.retry); if (entry.channel) supabase.removeChannel(entry.channel); });
     channels.clear();
   };
 

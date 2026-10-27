@@ -298,8 +298,12 @@ function createServer() {
   };
   let nChan = 0;
 
-  // A stand-in for the app's signed-in supabase-js client (only what the bridge uses).
+  // A stand-in for the app's signed-in supabase-js client (only what the bridge uses). Like supabase-js 2.x, the client
+  // keeps its channels in a list by topic: channel(topic) hands back one still in the list (even one on its way out),
+  // a channel on its way out never subscribes again, and a channel that closes takes every channel of its topic out of
+  // the list (RealtimeClient._remove filters by topic).
   function supabaseFor(uid) {
+    let list = [];
     return {
       auth: { getSession: async () => ({ data: { session: uid ? { user: { id: uid } } : null }, error: null }) },
       async rpc(name, args) {
@@ -307,39 +311,57 @@ function createServer() {
         if (!fn) return { data: null, error: { message: 'Could not find the function ' + name } };
         try { return { data: JSON.parse(JSON.stringify(fn(uid, args || {}) ?? null)), error: null }; } catch (e) { return { data: null, error: { message: e.message } }; }
       },
-      channel(topic, opts) {
+      getChannels() { return list.slice(); },
+      channel(room, opts) {
+        const same = list.find((c) => c.topic === 'realtime:' + room);
+        if (same) return same;
         const cfg = (opts && opts.config) || {};
         const c = {
-          topic, n: ++nChan, key: (cfg.presence && cfg.presence.key) || uid, self: !!(cfg.broadcast && cfg.broadcast.self),
-          listeners: [], state: null, tracked: false, presence: {}, joined: false,
+          topic: 'realtime:' + room, room, n: ++nChan, key: (cfg.presence && cfg.presence.key) || uid, self: !!(cfg.broadcast && cfg.broadcast.self),
+          listeners: [], state: null, tracked: false, presence: {}, joined: false, leaving: false, statusCb: null,
           on(type, filter, cb) { this.listeners.push({ type, event: filter.event, cb }); return this; },
           fire(type, event, arg) { this.listeners.forEach((l) => { if (l.type === type && (l.event === '*' || l.event === event)) l.cb(arg); }); },
           subscribe(cb) {
+            if (this.leaving || this.joined) return this; // (a channel on its way out stays out)
+            this.statusCb = cb || null;
             later(() => {
+              if (this.leaving) return;
               // private channels: only farm:<id> topics, for signed-in players (farm_topic_ok_v1)
-              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid) || blocked(uid, topic.slice(5))) return cb && cb('CHANNEL_ERROR');
-              if (!topics.has(topic)) topics.set(topic, new Set());
-              topics.get(topic).add(this);
+              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(room) || !db.players.has(uid) || blocked(uid, room.slice(5))) return cb && cb('CHANNEL_ERROR');
+              if (!topics.has(room)) topics.set(room, new Set());
+              topics.get(room).add(this);
               this.joined = true;
               if (cb) cb('SUBSCRIBED');
             });
             return this;
           },
-          async track(state) { this.state = state; this.tracked = true; later(() => sync(topic)); return 'ok'; },
+          async track(state) { this.state = state; this.tracked = true; later(() => sync(room)); return 'ok'; },
           presenceState() { return this.presence; },
           async send(m) {
-            const set = topics.get(topic);
+            const set = topics.get(room);
             if (!set || !this.joined) return 'error';
             for (const o of set) if (o !== this || this.self) later(() => o.fire('broadcast', m.event, { type: 'broadcast', event: m.event, payload: m.payload }));
             return 'ok';
           },
+          // the server drops this phone (a network cut): it stays in the list, closed
+          drop() {
+            const set = topics.get(room);
+            if (set && set.delete(this)) later(() => sync(room));
+            this.joined = false;
+            if (this.statusCb) this.statusCb('CHANNEL_ERROR');
+          },
         };
+        list.push(c);
         return c;
       },
       async removeChannel(c) {
-        const set = topics.get(c.topic);
-        if (set && set.delete(c)) later(() => sync(c.topic));
+        c.leaving = true;
+        await new Promise((r) => setTimeout(r, 30)); // the server's answer to the leave takes a moment
+        const set = topics.get(c.room);
+        if (set && set.delete(c)) later(() => sync(c.room));
         c.joined = false;
+        list = list.filter((x) => x.topic !== c.topic);
+        if (c.statusCb) c.statusCb('CLOSED');
         return 'ok';
       },
     };
