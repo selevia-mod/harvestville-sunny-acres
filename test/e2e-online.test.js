@@ -352,6 +352,9 @@ test('online: the owner is away on another farm: "not here, join them?"', async 
   await b.page.evaluate((id) => Farm.Online.visit(id), c.uid);
   await c.page.waitForFunction((id) => Farm.session.visit === null && Object.keys(Farm.world.remotes).indexOf(id) >= 0, b.uid, SLOW);
   await waitRemotes(a.page, []);
+  // (B walks somewhere on C's farm while C is away: C must see B there, not where B arrived)
+  await b.page.evaluate(() => { const T = Farm.Config.TILE; Farm.world.setFeet(30 * T + T / 2, 20 * T + T / 2); Farm.world.dir = 'down'; Farm.world.idle(); });
+  await frames(b.page, 10);
   await c.page.evaluate((id) => Farm.Online.visit(id), b.uid);
   await waitWorld(c.page, true);
   await waitModal(c.page, /visiting your farm right now/);
@@ -360,6 +363,10 @@ test('online: the owner is away on another farm: "not here, join them?"', async 
   await waitWorld(c.page, false);
   await waitRemotes(c.page, ['Berry Barn']);
   await waitToast(c.page, /Berry Barn is visiting your farm!/);
+  await c.page.waitForFunction((id) => {
+    const T = Farm.Config.TILE, r = Farm.world.remotes[id];
+    return r && Math.abs(r.x - (30 * T + T / 2)) < 8 && Math.abs(r.y - (20 * T + T / 2)) < 8;
+  }, b.uid, { timeout: 15000 });
 
   // ----- B goes home with C on B's farm; then B leaves for A's farm: C is asked to follow, not told B "went home"
   await b.page.evaluate(() => Farm.Online.leaveVisit());

@@ -336,6 +336,7 @@ function createServer() {
             return this;
           },
           async track(state) { this.state = state; this.tracked = true; later(() => sync(room)); return 'ok'; },
+          async untrack() { this.state = null; this.tracked = false; later(() => sync(room)); return 'ok'; },
           presenceState() { return this.presence; },
           async send(m) {
             const set = topics.get(room);
@@ -356,7 +357,7 @@ function createServer() {
       },
       async removeChannel(c) {
         c.leaving = true;
-        await new Promise((r) => setTimeout(r, 30)); // the server's answer to the leave takes a moment
+        await new Promise((r) => setTimeout(r, db.leaveMs || 30)); // the server's answer to the leave takes a moment (or several seconds)
         const set = topics.get(c.room);
         if (set && set.delete(c)) later(() => sync(c.room));
         c.joined = false;

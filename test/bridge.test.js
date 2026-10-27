@@ -183,3 +183,31 @@ test('a farm channel the server drops is joined again by itself', async () => {
   await tick(3000);
   assert.deepStrictEqual(seen.at(-1), [{ id: a, name: 'Owner' }], 'back, without the game doing anything');
 });
+
+test('home and straight back to the same farm while the server is slow to answer the leave: still live', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  server.db.leaveMs = 5000;
+  const A = webview(server, a), B = webview(server, b);
+  await A.net.rpc('farm_join_v1', {});
+  await B.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, seen = { A: [], B: [] };
+  const on = (k) => ({ presence: (l) => seen[k].push(plain(l)), message: () => {} });
+  A.net.join(topic, { id: a, name: 'Owner', x: 1 }, on('A'));
+  await tick(60);
+  const visit = B.net.join(topic, { id: b, name: 'Visitor', x: 2 }, on('B'));
+  await tick(80);
+  assert.deepStrictEqual(seen.A.at(-1), [{ id: b, name: 'Visitor', x: 2 }]);
+  // the visitor goes home, then visits again at once
+  visit.leave();
+  await tick(20);
+  B.net.join(topic, { id: b, name: 'Visitor', x: 3 }, on('B'));
+  await tick(300);
+  assert.deepStrictEqual(seen.A.at(-1), [{ id: b, name: 'Visitor', x: 3 }], 'the owner sees the visitor back');
+  // and the visitor hears the owner change
+  const before = seen.B.length;
+  await A.ctx.__sunnyNet && null;
+  [...server.topics.get(topic)].find((c) => c.key === a).track({ id: a, name: 'Owner', x: 9 });
+  await tick(80);
+  assert.ok(seen.B.length > before, 'the visitor still gets the room');
+  assert.deepStrictEqual(seen.B.at(-1), [{ id: a, name: 'Owner', x: 9 }]);
+});
