@@ -1650,6 +1650,27 @@ test('the growing farm: the Bakery bakes, a mango tree fruits, a field plot is t
   await context.close();
 });
 
+test('the gold counter comes back to your gold after a visit showed another number (28 Oct, OPPO: stuck on 300)', async () => {
+  const save = await makeSave('s.gold = 1854;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const shown = () => page.evaluate(() => Farm.ui.goldText.text);
+  const settle = () => page.waitForTimeout(1500);
+  // a daily gift rolls the counter up to 2,354 ...
+  await page.evaluate(() => { Farm.session.state.gold = 2354; Farm.ui.refresh(); });
+  await settle();
+  assert.strictEqual(await shown(), '2,354');
+  // ... a visit's look-only farm shows 300 while it loads ...
+  await page.evaluate(() => Farm.ui.showGold(300));
+  assert.strictEqual(await shown(), '300');
+  // ... and home again, the counter is back on your gold
+  await page.evaluate(() => Farm.ui.refresh());
+  await settle();
+  assert.strictEqual(await shown(), '2,354');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('the watering can fills up at the pond (27 Oct: an energy refill had taken the name of the can\'s refill)', async () => {
   const save = await makeSave('s.time = 600; s.water = 0;');
   const { page, problems, context } = await open(save);

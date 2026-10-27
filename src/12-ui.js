@@ -488,6 +488,7 @@
       if (this.goldShown == null || gold <= this.goldShown) {
         if (this.goldTween) this.goldTween.remove();
         this.goldShown = gold;
+        this.goldTarget = null;
         this.goldText.setText(gold + 'G');
         return;
       }

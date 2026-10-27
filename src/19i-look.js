@@ -278,6 +278,7 @@
     if (this.goldShown == null || gold <= this.goldShown) {
       if (this.goldTween) this.goldTween.remove();
       this.goldShown = gold;
+      this.goldTarget = null; // (else a later roll back up to the last target stops short: 28 Oct, stuck on 300 after a visit)
       set(gold);
       return;
     }
