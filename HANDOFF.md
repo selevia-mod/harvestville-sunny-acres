@@ -113,8 +113,10 @@ several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
   Server: `supabase/farm_online_6.sql` (table farm.helps, farm_help_v1, farm_helps_v1). Without it the game says
   "Helping friends opens soon!" and carries on.
 - A one-time "NEW ON YOUR FARM" page (tip key `farm2`). Bread and cake now sell (38G / 210G: below Hana's prices x1.5).
-- Still open (owner, 27 Oct): what a player shop between players is FOR (proposal: a shopping list, so out-of-season or
-  not-yet-unlocked items for orders, quests and recipes can be bought from friends).
+- The Market (owner OK'd the purpose, 27 Oct): `src/19l-market.js`, server `supabase/farm_online_7.sql`. Its purpose
+  is the shopping list (L.shoppingList: what orders, requests and workshop recipes miss), each with Find (who sells
+  it, friends first). Stalls: 4 lots of up to 10 for 2 days, priced 1x / 1.4x / 2x the selling price; 10 buys a day.
+  The server only decides who got a lot; the buyer pays in their game, the seller collects with Online's collect.
 
 ## Last session (26 Oct 2026), in short
 

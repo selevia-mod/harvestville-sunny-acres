@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [] };
+  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], market: [], lotId: 0 };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
@@ -103,6 +103,57 @@ function createServer() {
       const taken = db.helps.filter((h) => h.host === uid && !h.claimed);
       taken.forEach((h) => { h.claimed = true; });
       return { tiles: [...new Set(taken.map((h) => h.tile))], from: [...new Set(taken.map((h) => db.players.get(h.helper).farm_name))] };
+    },
+    // part 7 (supabase/farm_online_7.sql): the Market
+    farm_market_list_v1(uid, a) {
+      need(uid);
+      if (!/^[a-z][a-z_]{0,23}$/.test(String(a.p_item)) || !(a.p_qty >= 1 && a.p_qty <= 10) || !(a.p_price >= 1 && a.p_price <= 100000)) return { ok: false, code: 'bad' };
+      if (db.market.filter((m) => m.seller === uid && !m.claimed).length >= 4) return { ok: false, code: 'full' };
+      const m = { id: ++db.lotId, seller: uid, item: a.p_item, qty: a.p_qty, price: a.p_price, expires: Date.now() + 2 * 864e5, buyer: null, sold: 0, claimed: false };
+      db.market.push(m);
+      return { ok: true, id: m.id };
+    },
+    farm_market_cancel_v1(uid, a) {
+      need(uid);
+      const m = db.market.find((x) => x.id === a.p_id && x.seller === uid && !x.buyer);
+      if (!m) return { ok: false, code: 'gone' };
+      db.market.splice(db.market.indexOf(m), 1);
+      return { ok: true, item: m.item, qty: m.qty };
+    },
+    farm_market_mine_v1(uid) {
+      need(uid);
+      return db.market.filter((m) => m.seller === uid && !m.claimed).map((m) => ({ id: m.id, item: m.item, qty: m.qty, price: m.price,
+        status: m.buyer ? 'sold' : m.expires <= Date.now() ? 'expired' : 'open', buyer_name: m.buyer ? db.players.get(m.buyer).farm_name : null, expires_at: new Date(m.expires).toISOString() }));
+    },
+    farm_market_collect_v1(uid) {
+      need(uid);
+      const sold = db.market.filter((m) => m.seller === uid && m.buyer && !m.claimed), back = db.market.filter((m) => m.seller === uid && !m.buyer && m.expires <= Date.now());
+      sold.forEach((m) => { m.claimed = true; });
+      db.market = db.market.filter((m) => !back.includes(m));
+      return { sold: sold.map((m) => ({ item: m.item, qty: m.qty, price: m.price, buyer: db.players.get(m.buyer).farm_name })), returned: back.map((m) => ({ item: m.item, qty: m.qty })) };
+    },
+    farm_market_of_v1(uid, a) {
+      need(uid);
+      const p = db.players.get(a.p_host);
+      if (!p || blocked(uid, a.p_host) || !(p.listed || areFriends(uid, a.p_host))) return [];
+      return db.market.filter((m) => m.seller === a.p_host && !m.buyer && m.expires > Date.now()).map((m) => ({ id: m.id, item: m.item, qty: m.qty, price: m.price, expires_at: new Date(m.expires).toISOString() }));
+    },
+    farm_market_find_v1(uid, a) {
+      need(uid);
+      return db.market.filter((m) => m.item === a.p_item && !m.buyer && m.expires > Date.now() && m.seller !== uid && !blocked(uid, m.seller))
+        .map((m) => ({ id: m.id, seller: m.seller, farm_name: db.players.get(m.seller).farm_name, friend: areFriends(uid, m.seller), qty: m.qty, price: m.price }))
+        .sort((x, y) => (y.friend - x.friend) || x.price / x.qty - y.price / y.qty).slice(0, 10);
+    },
+    farm_market_buy_v1(uid, a) {
+      need(uid);
+      const m = db.market.find((x) => x.id === a.p_id);
+      if (!m) return { ok: false, code: 'gone' };
+      if (m.seller === uid) return { ok: false, code: 'self' };
+      if (m.buyer || m.expires <= Date.now() || blocked(uid, m.seller)) return { ok: false, code: 'gone' };
+      if (db.market.filter((x) => x.buyer === uid && Date.now() - x.sold < 864e5).length >= 10) return { ok: false, code: 'limit' };
+      m.buyer = uid;
+      m.sold = Date.now();
+      return { ok: true, item: m.item, qty: m.qty, price: m.price, seller: db.players.get(m.seller).farm_name };
     },
     farm_visitors_v1(uid) {
       need(uid);

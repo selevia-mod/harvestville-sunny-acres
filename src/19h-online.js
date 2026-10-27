@@ -738,7 +738,7 @@
   };
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
-  var TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']];
+  var TABS = O.TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']]; // (19l-market.js adds Market)
   var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
@@ -1007,7 +1007,7 @@
     this.listPanel({
       title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
-      rows: [
+      rows: (self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
         {
           icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
           buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
@@ -1017,7 +1017,7 @@
           desc: blocked ? 'Let them find, visit and message you again.' : "They can't visit, find or message you, and you won't see them.",
           buttons: [{ label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } }],
         },
-      ],
+      ]),
     });
   };
 

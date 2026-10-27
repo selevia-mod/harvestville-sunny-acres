@@ -450,6 +450,67 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: the Market: sell at your stall; a buyer finds what an order needs, buys it; the seller collects the gold', async () => {
+  const server = createServer();
+  const seller = await open(server), buyer = await open(server);
+  await nameFarm(seller.page, 'Moon Meadow');
+  await nameFarm(buyer.page, 'Ana Acres');
+  server.db.follows.push({ by: seller.uid, who: buyer.uid }, { by: buyer.uid, who: seller.uid });
+  await seller.page.evaluate(() => { Farm.Logic.addItem(Farm.session.state, 'milk', 4); Farm.ui.closeAll(); });
+
+  // the seller puts 4 milk up at the Fair price (1.4x)
+  await seller.page.evaluate(() => Farm.ui.openOnline('market', 0));
+  await waitModal(seller.page, /Shopping list[\s\S]*Sell at your stall[\s\S]*0 of 4 lots/);
+  await shot(seller.page, 'market-1-tab');
+  await tapButton(seller.page, 'Sell');
+  await waitModal(seller.page, /Sell at your stall[\s\S]*Milk/);
+  await tapButton(seller.page, 'Choose');
+  await waitModal(seller.page, /4 Milk for 400G[\s\S]*4 Milk for 560G/);
+  await tapButton(seller.page, 'Put up', 1);
+  await waitModal(seller.page, /4 Milk  560G[\s\S]*For sale/);
+  assert.strictEqual(await seller.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'milk')), 0, 'off the bag');
+  assert.strictEqual(server.db.market.length, 1);
+  await shot(seller.page, 'market-2-stall');
+  await seller.page.evaluate(() => Farm.ui.closeAll());
+
+  // the buyer has an order for milk: it is on the shopping list; Find shows the friend's lot; Buy
+  await buyer.page.evaluate(() => {
+    const s = Farm.session.state;
+    s.orders = [{ from: 'lily', items: [['milk', 3]], gold: 400 }, { wait: 60 }, { wait: 60 }];
+    s.gold = 1000;
+    Farm.ui.openShoppingList(0);
+  });
+  await waitModal(buyer.page, /3 Milk[\s\S]*An order from Lily/);
+  await shot(buyer.page, 'market-3-shopping-list');
+  await tapButton(buyer.page, 'Find');
+  await waitModal(buyer.page, /Moon Meadow  \(friend\)[\s\S]*4 Milk for 560G/);
+  await shot(buyer.page, 'market-4-find');
+  await tapButton(buyer.page, 'Buy');
+  await waitToast(buyer.page, /Bought 4 Milk from Moon Meadow for 560G/);
+  const b = await buyer.page.evaluate(() => ({ gold: Farm.session.state.gold, milk: Farm.Logic.countItem(Farm.session.state, 'milk') }));
+  assert.deepStrictEqual(b, { gold: 440, milk: 4 });
+  assert.match(await modalText(buyer.page), /Nobody is selling Milk/, 'sold once');
+
+  // the seller's Market says sold; Collect pays them
+  const gold = await seller.page.evaluate(() => Farm.session.state.gold);
+  await seller.page.evaluate(() => Farm.ui.openOnline('market', 0));
+  await waitModal(seller.page, /Sold to Ana Acres!/);
+  await tapButton(seller.page, 'Collect');
+  await waitToast(seller.page, /Ana Acres bought from your stall: \+560G!/);
+  assert.strictEqual(await seller.page.evaluate(() => Farm.session.state.gold), gold + 560);
+  await shot(seller.page, 'market-5-collected');
+
+  // a farm's stall from its More menu
+  await seller.page.evaluate(() => { Farm.Logic.addItem(Farm.session.state, 'egg', 2); Farm.ui.closeAll(); });
+  await seller.page.evaluate(() => Farm.Net.rpc('farm_market_list_v1', { p_item: 'egg', p_qty: 2, p_price: 80 }));
+  await buyer.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.playerMenu(id, 'Moon Meadow'); }, [seller.uid]);
+  await tapButton(buyer.page, 'Look');
+  await waitModal(buyer.page, /Moon Meadow's stall[\s\S]*2 Egg[\s\S]*80G/);
+
+  for (const p of [seller, buyer]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [seller, buyer]) await p.context.close();
+});
+
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
   const server = createServer();
   const owner = await open(server), troll = await open(server);

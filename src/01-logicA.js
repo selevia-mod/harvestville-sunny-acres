@@ -317,6 +317,46 @@
     return n;
   };
 
+  // ---------- the Market (online): farms sell to each other ----------
+  C.MARKET = { lots: 4, most: 10, prices: [['Low', 1], ['Fair', 1.4], ['High', 2]] };
+  // Can it go on a stall? Anything with a selling price (not tools, seeds or shop goods).
+  L.marketable = function (id) {
+    var it = C.ITEMS[id];
+    return !!(it && it.sell > 0 && !it.price && it.kind !== 'tool' && /^[a-z][a-z_]{0,23}$/.test(id));
+  };
+  // The three prices a lot can ask: [label, gold] (its selling price, 1.4x, 2x)
+  L.marketPrices = function (id, n) {
+    var base = C.ITEMS[id].sell * n;
+    return C.MARKET.prices.map(function (p) { return [p[0], Math.max(1, Math.round(base * p[1]))]; });
+  };
+  // What you are missing for your orders, villagers' requests and your workshops' recipes: [{ id, n, why }],
+  // the orders and requests first. This is what the Market is for: buying what you can't make yet.
+  L.shoppingList = function (s) {
+    var out = [], seen = {};
+    var want = function (id, n, why) {
+      if (!L.marketable(id)) return;
+      var miss = n - L.countItem(s, id);
+      if (miss <= 0) return;
+      if (seen[id]) { seen[id].n = Math.max(seen[id].n, miss); return; }
+      out.push(seen[id] = { id: id, n: miss, why: why });
+    };
+    var who = function (k) { return C.VILLAGERS[k] ? C.VILLAGERS[k].name : 'A villager'; };
+    (s.orders || []).forEach(function (o) {
+      if (o && o.items) o.items.forEach(function (e) { want(e[0], e[1], 'An order from ' + who(o.from) + '.'); });
+    });
+    (s.rq && s.rq.list || []).forEach(function (r) { if (!r.done) want(r.id, r.n, who(r.from) + ' asked for it.'); });
+    C.WORKSHOP_KEYS.forEach(function (k) {
+      if (!L.yardHas(s, k)) return;
+      C.WORKSHOPS[k].recipes.forEach(function (rec) {
+        rec.needs.forEach(function (e) {
+          if (L.countNeed(s, e[0]) >= e[1]) return;
+          want(L.ingredientItems(e[0])[0], e[1] - L.countNeed(s, e[0]) + L.countItem(s, L.ingredientItems(e[0])[0]), 'For ' + C.ITEMS[rec.out].name + ' (' + C.WORKSHOPS[k].name + ').');
+        });
+      });
+    });
+    return out;
+  };
+
   // ---------- tips for the new kinds of goods ----------
   var tipKey = L.tipKey;
   L.tipKey = function (id) {

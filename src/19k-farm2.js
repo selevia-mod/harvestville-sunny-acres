@@ -281,7 +281,14 @@
             self.closeModal();
             self.openWorkshop(key, page);
           },
-        }],
+        }].concat(can || !O.on || !self.openFind ? [] : [{
+          // the Market: who sells what's missing (19l-market.js)
+          label: 'Find', color: BLUE, cb: function () {
+            var need = rec.needs.filter(function (e) { return L.countNeed(s, e[0]) < e[1]; })[0];
+            self.closeModal();
+            self.openFind(L.ingredientItems(need[0])[0], function () { self.openWorkshop(key, page); });
+          },
+        }]),
       };
     });
     var line = function () {

@@ -376,3 +376,53 @@ do $$ begin
   perform pg_temp.ok(has_function_privilege('authenticated', 'public.farm_help_v1(uuid, int)', 'execute'), 'players can call it');
   perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'help') <= 1, 'one push a day per pair');
 end $$;
+-- part 7: the Market
+set role authenticated;
+do $$ declare r json; lot bigint; lot2 bigint; begin
+  perform pg_temp.as_(6);
+  perform pg_temp.ok(farm_market_list_v1('milk', 11, 100) ->> 'code' = 'bad', 'up to 10 in a lot');
+  perform pg_temp.ok(farm_market_list_v1('Milk!', 1, 100) ->> 'code' = 'bad', 'an item id, nothing else');
+  lot := (farm_market_list_v1('milk', 3, 280) ->> 'id')::bigint;
+  perform pg_temp.ok(lot is not null, 'a lot at the stall');
+  lot2 := (farm_market_list_v1('mango', 3, 120) ->> 'id')::bigint;
+  perform farm_market_list_v1('cheese', 1, 500); perform farm_market_list_v1('egg', 2, 90);
+  perform pg_temp.ok(farm_market_list_v1('egg', 1, 45) ->> 'code' = 'full', '4 lots at a time');
+  perform pg_temp.ok((select count(*) from farm_market_mine_v1() where status = 'open') = 4, 'my stall shows them');
+  perform pg_temp.ok(farm_market_buy_v1(lot) ->> 'code' = 'self', 'not your own lot');
+  r := farm_market_cancel_v1((select id from farm_market_mine_v1() where item = 'egg'));
+  perform pg_temp.ok((r ->> 'ok')::boolean and r ->> 'item' = 'egg', 'take a lot back');
+  perform pg_temp.as_(7);
+  perform pg_temp.ok((select count(*) from farm_market_of_v1(pg_temp.id(6))) = 3, 'a friend sees the stall');
+  perform pg_temp.ok((select friend from farm_market_find_v1('milk') limit 1) and (select price from farm_market_find_v1('milk') limit 1) = 280, 'find: friends first');
+  r := farm_market_buy_v1(lot);
+  perform pg_temp.ok((r ->> 'ok')::boolean and r ->> 'item' = 'milk' and (r ->> 'qty')::int = 3 and (r ->> 'price')::int = 280, 'bought (' || r || ')');
+  perform pg_temp.as_(8);
+  perform pg_temp.ok(farm_market_buy_v1(lot) ->> 'code' = 'gone', 'sold once only');
+  perform pg_temp.ok((select count(*) from farm_market_find_v1('milk')) = 0, 'a sold lot is off the market');
+  perform pg_temp.as_(6);
+  perform pg_temp.ok((select buyer_name from farm_market_mine_v1() where id = lot) is not null, 'the seller sees who bought it');
+  r := farm_market_collect_v1();
+  perform pg_temp.ok(json_array_length(r -> 'sold') = 1 and (r -> 'sold' -> 0 ->> 'price')::int = 280, 'the seller collects the gold (' || r || ')');
+  perform pg_temp.ok(json_array_length(farm_market_collect_v1() -> 'sold') = 0, 'once');
+end $$;
+-- blocked: no stall, no finding, no buying; an expired lot comes back
+reset role;
+insert into farm.blocks (blocker, blocked) values (pg_temp.id(6), pg_temp.id(8)) on conflict do nothing;
+update farm.market set expires_at = now() - interval '1 minute' where item = 'cheese';
+create temp table mango_lot as select id from farm.market where item = 'mango'; grant select on mango_lot to authenticated;
+set role authenticated;
+do $$ declare r json; begin
+  perform pg_temp.as_(8);
+  perform pg_temp.ok((select count(*) from farm_market_of_v1(pg_temp.id(6))) = 0 and (select count(*) from farm_market_find_v1('mango')) = 0, 'a blocked player sees nothing');
+  perform pg_temp.ok(farm_market_buy_v1((select id from mango_lot)) ->> 'code' = 'gone', 'nor buys from them');
+  perform pg_temp.as_(7);
+  perform pg_temp.ok((select count(*) from farm_market_find_v1('cheese')) = 0, 'an expired lot is off the market');
+  perform pg_temp.as_(6);
+  r := farm_market_collect_v1();
+  perform pg_temp.ok(json_array_length(r -> 'returned') = 1 and r -> 'returned' -> 0 ->> 'item' = 'cheese', 'and back to the seller (' || r || ')');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok(not has_function_privilege('anon', 'public.farm_market_buy_v1(bigint)', 'execute') and not has_function_privilege('anon', 'public.farm_market_find_v1(text)', 'execute'), 'market: not for signed-out users');
+  perform pg_temp.ok(not has_function_privilege('authenticated', 'farm.can_see(uuid, uuid)', 'execute'), 'helpers stay private');
+end $$;

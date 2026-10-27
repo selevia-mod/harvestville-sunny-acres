@@ -218,3 +218,25 @@ test('the save stays small with all of it', () => {
   const back = roundTrip(s);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(back.ws)), JSON.parse(JSON.stringify(s.ws)));
 });
+
+test('the Market: what can go on a stall, its three prices, and the shopping list of what you are missing', () => {
+  const s = fresh();
+  assert.ok(L.marketable('milk') && L.marketable('kesong_puti') && L.marketable('mango'));
+  assert.ok(!L.marketable('hoe') && !L.marketable('seed_turnip') && !L.marketable('bread'), 'not tools, seeds or what Hana sells');
+  Object.keys(C.ITEMS).filter(L.marketable).forEach((id) => assert.match(id, /^[a-z][a-z_]{0,23}$/, 'the server takes ' + id));
+  assert.deepStrictEqual(plain(L.marketPrices('milk', 3)), [['Low', 300], ['Fair', 420], ['High', 600]]);
+  // an order, a request and a workshop recipe you can't fill yet
+  s.orders = [{ from: 'lily', items: [['milk', 2], ['turnip', 3]], gold: 100 }, { wait: 30 }];
+  s.rq.list = [{ from: 'bram', id: 'ore_copper', n: 4, gold: 50, where: 'board', done: 0 }, { from: 'mira', id: 'egg', n: 1, done: 1 }];
+  L.addItem(s, 'turnip', 3);
+  L.buyYard(s, ix.dairy, 1);
+  L.placeYard(s, FARM, ix.dairy, 25, 14);
+  L.addItem(s, 'milk', 1);
+  const list = plain(L.shoppingList(s));
+  const of = (id) => list.find((e) => e.id === id);
+  assert.strictEqual(of('milk').n, 2, 'cheese needs 3 milk, you have 1');
+  assert.match(of('milk').why, /Lily/, 'the order comes first');
+  assert.strictEqual(of('ore_copper').n, 4);
+  assert.ok(of('carabao_milk'), 'kesong puti');
+  assert.ok(!of('turnip') && !of('egg'), 'nothing you have or already gave');
+});
