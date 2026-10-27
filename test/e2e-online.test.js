@@ -836,3 +836,44 @@ test('online: energy refills for Selebox Coins or Stars, never paid twice', asyn
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
 });
+
+test('online: on a visit the top bar is yours: your gold, your bag, your date (28 Oct, OPPO: 300G and a starter bag)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await host.page.evaluate(() => { Farm.session.state.day += 3; return Farm.Online.publish(true); }); // their calendar is ahead
+  const before = await guest.page.evaluate(() => {
+    const s = Farm.session.state;
+    s.gold = 2354;
+    const sickle = s.inv.findIndex((it) => it && it.id === 'sickle');
+    if (sickle > 2) { const t = s.inv[2]; s.inv[2] = s.inv[sickle]; s.inv[sickle] = t; }
+    Farm.ui.refresh();
+    return { day: Farm.ui.dayText.text, slot2: s.inv[2] && s.inv[2].id };
+  });
+  await guest.page.waitForTimeout(1500);
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await guest.page.waitForTimeout(300); // well before the clock's next minute
+  const hud = await guest.page.evaluate(() => ({
+    gold: Farm.ui.goldText.text, day: Farm.ui.dayText.text,
+    slot2: (Farm.world.state.inv[2] || {}).id, mine2: (Farm.session.state.inv[2] || {}).id,
+    same: Farm.world.state === Farm.session.state,
+  }));
+  assert.strictEqual(hud.gold, '2,354', 'your gold, not the 300 of their look-only copy');
+  assert.strictEqual(hud.day, before.day, 'your date');
+  assert.strictEqual(hud.slot2, 'sickle', 'the farm you are on sees your bag');
+  assert.strictEqual(hud.mine2, 'sickle');
+  // picking a hotbar slot there picks it in your own game
+  await guest.page.evaluate(() => Farm.ui.select(2));
+  assert.deepStrictEqual(await guest.page.evaluate(() => [Farm.session.state.sel, Farm.world.state.sel]), [2, 2]);
+  // home again: still your gold and your bag, nothing of theirs came along
+  await guest.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(guest.page, false);
+  await guest.page.waitForTimeout(1500);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.ui.goldText.text), '2,354');
+  assert.strictEqual(await guest.page.evaluate(() => Farm.session.state.inv[2].id), 'sickle');
+  assert.deepStrictEqual(guest.problems, []);
+  assert.deepStrictEqual(host.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});

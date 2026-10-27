@@ -13772,6 +13772,12 @@
       var st = L.visitState(r.data, mine);
       st.look = mine.look; // you look like yourself on their farm
       st.isVisit = true;
+      // Your bag is your own on their farm too: the hotbar and the action button show what you carry (28 Oct, OPPO:
+      // a starter bag and 300G until the clock ticked).
+      st.inv = mine.inv;
+      ['sel', 'gold', 'energy', 'water'].forEach(function (k) {
+        Object.defineProperty(st, k, { get: function () { return mine[k]; }, set: function (x) { mine[k] = x; }, enumerable: true });
+      });
       F.session.visit = {
         host: String(r.id), name: L.cleanText(r.farm_name, 24) || 'Farmer', state: st, liked: !!r.liked, gift: r.gift || null,
         friend: !!r.friend, likes: Math.max(0, Number(r.likes) || 0), beauty: Math.max(0, Number(r.beauty) || 0),
@@ -13845,6 +13851,7 @@
       var mine = F.session.state;
       F.session.state = v.state;
       try { create.call(this); } finally { F.session.state = mine; }
+      F.bus.emit('hud'); // the top bar is yours: your gold, energy, date and bag (it was drawn from their copy)
     } else {
       create.call(this);
     }
