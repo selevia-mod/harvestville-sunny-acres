@@ -400,6 +400,28 @@
     return true;
   };
 
+  // ---------- arranging the bag (owner, 27 Oct: "I cannot re-arrange the bag ... put in the shortcut the sickle") ----------
+  // Moves what is in slot `from` to slot `to`: onto an empty slot, a swap with another item, or the same item stacked
+  // together (what does not fit stays behind). The first C.HOTBAR slots are the hotbar. Returns 'ok', 'same' or 'empty'.
+  L.moveSlot = function (s, from, to) {
+    var a = s.inv[from];
+    if (!a) return 'empty';
+    if (from === to || to < 0 || to >= s.inv.length) return 'same';
+    var b = s.inv[to];
+    if (b && b.id === a.id) {
+      var room = Math.max(0, L.stackLimit(a.id) - b.n), n = Math.min(room, a.n);
+      b.n += n;
+      a.n -= n;
+      if (a.n <= 0) s.inv[from] = null;
+    } else {
+      s.inv[to] = a;
+      s.inv[from] = b || null;
+    }
+    if (s.sel === from) s.sel = to;
+    else if (s.sel === to) s.sel = from;
+    return 'ok';
+  };
+
   // ---------- your farmer's name ----------
   // One short line (C.FARMER_NAME letters), no rude words (L.chatClean: others see it over your head online).
   C.FARMER_NAME = 16;

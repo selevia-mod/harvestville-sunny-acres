@@ -270,12 +270,22 @@
     var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
     var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
     var mats = this.txt(W / 2, 404 + dy, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var note = this.txt(W / 2, 428 + dy, 'Tap an item to hold it. The first row is your hotbar.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
+    var NOTE = 'Tap an item to hold it. The first row is your hotbar: tap Move to put an item there.';
+    var note = this.txt(W / 2, 428 + dy, NOTE, 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
+    // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item)
+    var moving = null;
     for (var i = 0; i < s.inv.length; i++) {
       (function (i) {
         var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
+          if (moving != null) {
+            var r = L.moveSlot(s, moving, i);
+            moving = null;
+            if (r === 'ok') { sfx('pick'); F.session.dirty = true; world().hintKey = null; world().save(); }
+            self.refresh();
+            return;
+          }
           if (s.sel === i && s.inv[i]) { self.closeModal(); return; }
           s.sel = i;
           F.session.dirty = true;
@@ -284,14 +294,26 @@
         }));
       })(i);
     }
-    var eatBtn = this.button(c, W / 2 - 64, 488 + dy, 110, 42, 'Eat', function () {
+    var eatBtn = this.button(c, W / 2 - 108, 488 + dy, 96, 42, 'Eat', function () {
       world().eat();
       self.refresh();
     }, BLUE);
-    this.button(c, W / 2 + 64, 488 + dy, 110, 42, 'Close', function () { self.closeModal(); });
+    var moveBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Move', function () {
+      if (!L.held(s)) return;
+      moving = s.sel;
+      self.refresh();
+    }, BROWN);
+    var stopBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Cancel', function () { moving = null; self.refresh(); }, GREY);
+    this.button(c, W / 2 + 108, 488 + dy, 96, 42, 'Close', function () { self.closeModal(); });
     this.invRefresh = function () {
-      widgets.forEach(function (w, i) { self.drawSlot(w, s.inv[i], s.sel === i); });
+      widgets.forEach(function (w, i) {
+        self.drawSlot(w, s.inv[i], s.sel === i);
+        w.icon.setAlpha(moving === i ? 0.45 : 1); // the one being moved
+      });
       var held = L.held(s);
+      moveBtn.setVisible(moving == null && !!held);
+      stopBtn.setVisible(moving != null);
+      note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '. The first row is your hotbar.' : NOTE);
       name.setText(held ? L.itemName(s, held.id) + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
       var d = held ? C.ITEMS[held.id].desc : 'Choose something to hold.';
       if (held && L.energyOf(held.id)) d += ' (+' + L.energyOf(held.id) + ' energy)';

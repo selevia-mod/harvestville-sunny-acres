@@ -285,3 +285,30 @@ test('your farmer has a name: up to 16 letters, no rude words, saved', () => {
   delete o.nm;
   assert.strictEqual(L.deserialize(o).name, '', 'older saves: not named yet');
 });
+
+test('arranging the bag: move an item onto the hotbar, swap two items, stack the same item together', () => {
+  const s = fresh();
+  const at = (id) => s.inv.findIndex((x) => x && x.id === id);
+  const sickle = at('sickle');
+  assert.ok(sickle >= 0);
+  const target = 0, was = s.inv[target] && s.inv[target].id;
+  s.sel = sickle;
+  assert.strictEqual(L.moveSlot(s, sickle, target), 'ok');
+  assert.strictEqual(s.inv[target].id, 'sickle', 'the sickle is in the first hotbar slot');
+  if (was) assert.strictEqual(s.inv[sickle].id, was, 'and what was there took its place');
+  assert.strictEqual(s.sel, target, 'still holding the sickle');
+  // onto an empty slot
+  const empty = s.inv.findIndex((x) => !x);
+  assert.strictEqual(L.moveSlot(s, target, empty), 'ok');
+  assert.strictEqual(s.inv[target], null, 'the slot it left is empty');
+  assert.strictEqual(s.inv[empty].id, 'sickle');
+  // the same item stacks, up to the limit
+  s.inv[10] = { id: 'turnip', n: 98 };
+  s.inv[11] = { id: 'turnip', n: 5 };
+  assert.strictEqual(L.moveSlot(s, 11, 10), 'ok');
+  assert.deepStrictEqual(plain([s.inv[10], s.inv[11]]), [{ id: 'turnip', n: 99 }, { id: 'turnip', n: 4 }]);
+  s.inv[12] = null;
+  assert.strictEqual(L.moveSlot(s, 12, 10), 'empty');
+  assert.strictEqual(L.moveSlot(s, 10, 10), 'same');
+  assert.strictEqual(roundTrip(s).inv[empty].id, 'sickle', 'saved');
+});

@@ -1718,3 +1718,35 @@ test('your farmer has a name: asked after picking the farmer on a new farm, rena
   await second.context.close();
   await context.close();
 });
+
+test('arranging the bag: Move puts the sickle in the first hotbar slot (owner, 27 Oct)', async () => {
+  const save = await makeSave('s.time = 600;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.touchscreen.tap(14 + 6 * 48 + 22, 606); // the bag
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  const sickle = await page.evaluate(() => Farm.session.state.inv.findIndex((x) => x && x.id === 'sickle'));
+  // tap the sickle (hold it), then Move, then the first slot
+  // the bag's slots: its square tap zones, in order
+  const slotXY = (i) => page.evaluate((i) => { const c = Farm.ui.modals[0].c; const z = c.list.filter((o) => o.type === 'Zone' && o.width === o.height)[i]; return z && { x: z.x, y: z.y + c.y }; }, i);
+  let p = await slotXY(sickle);
+  assert.ok(p, 'the sickle slot');
+  await page.touchscreen.tap(p.x, p.y);
+  await frames(page);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.held(Farm.session.state).id), 'sickle');
+  await tapButton(page, 'Move');
+  assert.match(await modalText(page), /Now tap where to put the Sickle/);
+  await shot(page, 'bag-1-move');
+  p = await slotXY(0);
+  await page.touchscreen.tap(p.x, p.y);
+  await frames(page);
+  const s = await state(page);
+  assert.strictEqual(s.inv[0].id, 'sickle', 'the sickle is on the hotbar');
+  assert.strictEqual(s.inv[sickle].id, 'hoe', 'the hoe took its place');
+  assert.strictEqual(s.sel, 0, 'still holding it');
+  await shot(page, 'bag-2-done');
+  await closeAll(page);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.slots[0].icon.frame.name), await page.evaluate(() => Farm.Logic.iconOf(Farm.session.state, 'sickle')));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
