@@ -279,6 +279,14 @@
   };
 
   // ---------- a farm's stall (its More menu) ----------
+  // On a visit the Online button is away (the visit bar is there), so More also opens your own Market (owner, 28 Oct).
+  U.marketRow = function () {
+    var self = this;
+    return {
+      icon: C.ICON.book, name: 'Your Market', desc: 'Your shopping list, Find, and your stall.',
+      buttons: [{ label: 'Open', color: BLUE, cb: function () { self.swapTo(function () { self.openMarket(0); }); } }],
+    };
+  };
   U.stallRow = function (id, who, back) {
     var self = this;
     return {

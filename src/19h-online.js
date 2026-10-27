@@ -505,7 +505,9 @@
     return F.Net.rpc('farm_visit_v1', { p_host: host }).then(function (r) {
       if (!O.on || !F.world || F.world.busy) return false; // left online play (or the map is changing) meanwhile
       if (!r || !r.data) throw new Error('no such farm');
-      var mine = F.session.state, st = L.visitState(r.data, mine);
+      var old = F.session.visit, mine = F.session.state;
+      if (old && old.back) { mine.map = old.back.map; mine.player = old.back.player; } // (from a town: you were elsewhere)
+      var st = L.visitState(r.data, mine);
       st.look = mine.look; // you look like yourself on their farm
       st.isVisit = true;
       F.session.visit = {
@@ -525,8 +527,13 @@
 
   // to (optional): where to go instead of home ('town', with its spawn point): your own game picks up there.
   O.leaveVisit = function (why, to, spawn, floor) {
-    if (!F.session.visit) return;
+    var v = F.session.visit;
+    if (!v) return;
     F.session.visit = null;
+    if (v.back) { // from their town: Home takes you back where you were
+      F.session.state.map = v.back.map;
+      F.session.state.player = v.back.player;
+    }
     if (to) {
       var mine = F.session.state;
       mine.map = to;
@@ -558,10 +565,21 @@
   var P = F.WorldScene.prototype;
   var visiting = function (w) { return !!(w.state && w.state.isVisit); };
 
+  // In the owner's town you play your own game (owner, 28 Oct: shops, the market stall, villagers): the town is the same
+  // for everyone, so the world there runs on your own save (v.inTown), still in the owner's room so you see each other.
+  // v.back: where you were in your own game when the visit began, to go back to with Home.
   var create = P.create;
   P.create = function () {
     var v = F.session.visit;
-    if (v) {
+    if (v && v.inTown) {
+      create.call(this);
+    } else if (v) {
+      if (v.back) { // back from their town to their farm: your own save is where it was
+        F.session.state.map = v.back.map;
+        F.session.state.player = v.back.player;
+        v.back = null;
+        F.Host.save(F.session.state);
+      }
       var mine = F.session.state;
       F.session.state = v.state;
       try { create.call(this); } finally { F.session.state = mine; }
@@ -610,6 +628,28 @@
     // On a visit you can go where the owner can be seen: their farm, their house and their town (owner, 28 Oct: "visitors
     // can also go to others town ... to follow who they visit"). The mine is everyone's own: heading there ends the visit
     // and you walk in as yourself.
+    var v = F.session.visit;
+    if (v && !this.busy) {
+      if (visiting(this) && to === 'town') { // into their town, in your own game
+        var mine = F.session.state;
+        v.back = v.back || { map: mine.map, player: mine.player };
+        v.inTown = true;
+        mine.map = 'town';
+        mine.player = { x: null, y: null, dir: 'down' };
+        F.session.spawn = spawn;
+        O.restartWorld();
+        return;
+      }
+      if (v.inTown && to === 'farm') { // back to their farm
+        v.inTown = false;
+        v.state.map = 'farm';
+        v.state.player = { x: null, y: null, dir: 'down' };
+        F.session.spawn = spawn;
+        O.restartWorld();
+        return;
+      }
+      if (v.inTown && to !== 'town') { O.leaveVisit(null, to, spawn, floor); return; } // the mine: your own
+    }
     if (visiting(this) && to !== 'farm' && to !== 'house' && to !== 'town') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
   };
@@ -1060,7 +1100,7 @@
     this.listPanel({
       title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
-      rows: (self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
+      rows: (F.session.visit && self.marketRow ? [self.marketRow()] : []).concat(self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
         {
           icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
           buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
