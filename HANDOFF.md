@@ -100,6 +100,22 @@ several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
 4. Not ours but noted to the owner: in the Selebox project, tables `books_v2_category_terms` and
    `notification_push_policy` have row-level security off. The owner decides.
 
+## The growing farm (27 Oct 2026, owner approved: ideas from FarmVille, Hay Day and Harvest Moon)
+
+- Content `src/00-workshop.js`, rules `src/01-logicA.js` (tests `test/farm2.test.js`), farm screen `src/19k-farm2.js`,
+  drawn art `tools/art/farm2.js` (generated pictures can replace it: `outdoor/farm2.png`, `icons/<name>.png`).
+- Workshops (Bakery, Dairy, Jam Maker): yard pieces (3x3, one each) at Mira's (Outdoor > Workshops); 3 jobs in line,
+  real minutes; collect by facing it. Goods feed orders and requests once made. Wheat is the new Bakery crop.
+- Fruit trees (apple, orange, mango, peach): n fruit every few hours in two seasons; timers in `s.fruit` by 'x,y'.
+- More land: Field Plots (3x3, up to 6, each 1,500G dearer), tillable like the field; soil moves with the plot.
+- Crop mastery: 50/200/500 hand harvests = Bronze/Silver/Gold, 10/20/30% chance of one more (Collection > Crop stars).
+- Helping a friend: on a friend's farm, water 5 growing crops a day for 20G each; the owner's game waters those tiles.
+  Server: `supabase/farm_online_6.sql` (table farm.helps, farm_help_v1, farm_helps_v1). Without it the game says
+  "Helping friends opens soon!" and carries on.
+- A one-time "NEW ON YOUR FARM" page (tip key `farm2`). Bread and cake now sell (38G / 210G: below Hana's prices x1.5).
+- Still open (owner, 27 Oct): what a player shop between players is FOR (proposal: a shopping list, so out-of-season or
+  not-yet-unlocked items for orders, quests and recipes can be bought from friends).
+
 ## Last session (26 Oct 2026), in short
 
 1. Shops, Lily's stand and the town market stall open 6 AM-11 PM real time; at night they say

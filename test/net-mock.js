@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false };
+  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [] };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
@@ -83,6 +83,26 @@ function createServer() {
       const taken = db.visits.filter((v) => v.host === uid && v.gift && !v.collected);
       taken.forEach((v) => { v.collected = true; });
       return { gold: taken.filter((v) => v.gift === 'gold').length, stars: taken.filter((v) => v.gift === 'star').length, from: [...new Set(taken.map((v) => db.players.get(v.visitor).farm_name))] };
+    },
+    // part 6 (supabase/farm_online_6.sql): water a friend's crops on a visit; the tiles friends watered for you
+    farm_help_v1(uid, a) {
+      need(uid);
+      if (!a.p_host || a.p_host === uid) return { ok: false, code: 'self' };
+      const tile = Number(a.p_tile);
+      if (!Number.isInteger(tile) || tile < 0 || tile > 100000) return { ok: false, code: 'bad' };
+      if (blocked(uid, a.p_host) || !areFriends(uid, a.p_host)) return { ok: false, code: 'friends' };
+      if (!visitOf(a.p_host, uid)) return { ok: false, code: 'visit' };
+      const mineToday = db.helps.filter((h) => h.helper === uid && h.day === today()), mine = mineToday.filter((h) => h.host === a.p_host).length;
+      if (mine >= 5 || mineToday.length >= 25) return { ok: false, code: 'limit', left: 0 };
+      if (mineToday.some((h) => h.host === a.p_host && h.tile === tile)) return { ok: false, code: 'done', left: 5 - mine };
+      db.helps.push({ host: a.p_host, helper: uid, day: today(), tile, claimed: false });
+      return { ok: true, left: 4 - mine };
+    },
+    farm_helps_v1(uid) {
+      need(uid);
+      const taken = db.helps.filter((h) => h.host === uid && !h.claimed);
+      taken.forEach((h) => { h.claimed = true; });
+      return { tiles: [...new Set(taken.map((h) => h.tile))], from: [...new Set(taken.map((h) => db.players.get(h.helper).farm_name))] };
     },
     farm_visitors_v1(uid) {
       need(uid);

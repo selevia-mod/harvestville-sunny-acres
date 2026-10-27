@@ -259,6 +259,10 @@
     };
   }
 
+  // more pieces can add their drawing here (tools/art/farm2.js)
+  A.YARD_DRAW = D;
+  A.yardTree = tree;
+
   // One frame of the sheet, at 128 px per tile.
   A.yardPiece = function (frame) {
     var name = frame[0], t = frame[1], W = frame[2] * U, H = frame[3] * U, c = A.canvas(W, H), g = c.getContext('2d');

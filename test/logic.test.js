@@ -377,10 +377,11 @@ test('calendar: the real date; seasons by month', () => {
   assert.strictEqual(L.minuteOf(new Date(2026, 0, 1, 13, 45).getTime()), 13 * 60 + 45);
 });
 
-test('the shop sells this season\'s 10 seeds (and grass, but not in winter)', () => {
+test('the shop sells this season\'s 10 seeds (and grass and wheat, but not in winter)', () => {
   const day = (m) => L.dayOf(new Date(2026, m - 1, 10, 12).getTime());
   const seeds = (m) => L.seedsInSeason(day(m));
-  assert.strictEqual(seeds(4).length, 11);
+  assert.strictEqual(seeds(4).length, 12);
+  assert.ok(seeds(4).includes('seed_wheat') && seeds(7).includes('seed_wheat') && seeds(10).includes('seed_wheat') && !seeds(1).includes('seed_wheat'));
   assert.ok(seeds(4).includes('seed_turnip') && seeds(4).includes('seed_tulip') && seeds(4).includes('seed_grass'));
   assert.ok(seeds(7).includes('seed_watermelon') && !seeds(7).includes('seed_turnip'));
   assert.ok(seeds(10).includes('seed_pumpkin') && seeds(10).includes('seed_rice'));
@@ -414,7 +415,8 @@ test('a crop planted at the end of a season grows on into the next', () => {
 });
 
 test('10 crops in every season, all sellable, from 15 minutes to 2 days', () => {
-  C.SEASONS.forEach((se) => assert.strictEqual(C.CROP_KEYS.filter((k) => !C.CROPS[k].sickle && C.CROPS[k].seasons[0] === se.key).length, 10, se.key));
+  // (wheat, for the Bakery, grows in three seasons on top of each season's own 10)
+  C.SEASONS.forEach((se) => assert.strictEqual(C.CROP_KEYS.filter((k) => !C.CROPS[k].sickle && k !== 'wheat' && C.CROPS[k].seasons[0] === se.key).length, 10, se.key));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell || C.CROPS[k].sickle, k + ' sells'));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS['seed_' + k] && C.ITEMS['seed_' + k].crop === k, k + ' has seeds'));
   const mins = C.CROP_KEYS.map((k) => C.CROPS[k].mins);

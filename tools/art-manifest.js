@@ -556,7 +556,8 @@ HOME.styles.forEach((st, v) => {
 // ---------- 12. outdoor decorations for the farm (src/00-outdoor.js) ----------
 const OD = GAME.OUTDOOR.types.filter((t) => !t.prop);
 const fences = OD.filter((t) => t.kind === 'fence'), paths = OD.filter((t) => t.kind === 'path');
-const garden = OD.filter((t) => t.kind === 'hedge' || t.kind === 'prop');
+const garden = OD.filter((t) => (t.kind === 'hedge' || t.kind === 'prop') && !t.farm2);
+const farm2 = OD.filter((t) => t.farm2); // workshops, fruit trees and the field plot (src/00-workshop.js)
 add({
   id: 'yard_fences', group: 'Outdoor decorations', file: 'outdoor/fences.png', gen: '1024x1024', final: fences.length * 3 + ' pieces of 128x128',
   mode: 'yard', cols: 3, rows: fences.length, targets: fences.map((t) => 'yard:' + t.key),
@@ -578,6 +579,14 @@ add({
   pieces: garden.map((t) => ({ name: t.key, w: t.w, h: t.h })),
   prompt: `${STYLE} A set of ${garden.length} garden and yard decorations for a farm, all in the same style and at the same scale (a small planter is small, a windmill is tall). ` +
     `${GRID(4, 4)} Row by row, left to right: ${garden.map((t, k) => (k + 1) + ') ' + t.what).join('; ')}.` + (garden.length < 16 ? ' Leave the remaining cells empty.' : '') + ` ${CUTOUT}`,
+});
+
+add({
+  id: 'yard_farm2', group: 'Outdoor decorations', file: 'outdoor/farm2.png', gen: '1024x1024', final: farm2.length + ' pieces',
+  mode: 'yard', cols: 4, rows: 2, targets: farm2.map((t) => 'yard:' + t.key),
+  pieces: farm2.map((t) => ({ name: t.key, w: t.w, h: t.h })),
+  prompt: `${STYLE} A set of ${farm2.length} farm buildings and fruit trees for a farming game, all in the same style and at the same scale (a hut is about as tall as a small tree). ` +
+    `${GRID(4, 2)} Row by row, left to right: ${farm2.map((t, k) => (k + 1) + ') ' + t.what).join('; ')}.` + (farm2.length < 8 ? ' Leave the remaining cells empty.' : '') + ` ${CUTOUT}`,
 });
 
 module.exports = { jobs, STYLE, CUTOUT, TEXTURE, FX_KINDS };

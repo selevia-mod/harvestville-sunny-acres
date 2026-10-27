@@ -71,10 +71,13 @@ test('the children go to school on weekdays and play on rest days; the school is
   assert.ok(L.buildingOpen(s, 'bakery'), 'the bakery opens every day');
 });
 
-test('the new goods: bakery food has energy, the bouquet is a loved gift, and none of them sells', () => {
+test('the new goods: bakery food has energy, the bouquet is a loved gift, and none of them sells for a profit', () => {
   ['bread', 'cookie', 'cake'].forEach((id) => assert.ok(C.ITEMS[id].energy > 0 && C.ITEMS[id].price > 0));
   ['bread', 'cookie', 'cake', 'bouquet', 'treat'].forEach((id) => {
-    assert.ok(!C.ITEMS[id].sell, id);
+    // bread and cake are also baked in your own Bakery, so they sell: never for what Hana asks, even on a high
+    // shelf or in an order (1.5x)
+    if (id === 'bread' || id === 'cake') assert.ok(C.ITEMS[id].sell * 1.5 < C.ITEMS[id].price, id);
+    else assert.ok(!C.ITEMS[id].sell, id);
     assert.strictEqual(typeof C.ITEMS[id].icon, 'number');
   });
   assert.ok(L.giftable('bouquet'));

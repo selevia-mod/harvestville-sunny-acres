@@ -1553,3 +1553,85 @@ test('holding the watering can off the soil (grass, in town) never stops the gam
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the growing farm: the Bakery bakes, a mango tree fruits, a field plot is tilled and planted, crop stars', async () => {
+  const save = await makeSave(`s.time = 600; s.gold = 50000;
+    const ix = C.OUTDOOR.index, farm = Farm.farm();
+    [['bakery', 25, 14], ['mango_tree', 30, 14], ['farm_plot', 24, 20]].forEach(([k, x, y]) => { L.buyYard(s, ix[k], 1); L.placeYard(s, farm, ix[k], x, y); });
+    L.addItem(s, 'wheat', 6); L.addItem(s, 'seed_wheat', 1);`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+
+  // the Bakery: face it and tap: its panel; make bread; it's ready 30 minutes later
+  await teleport(page, 25, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Open');
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.match(await modalText(page), /Bakery \|[\s\S]*Fresh Bread[\s\S]*Pandesal[\s\S]*Strawberry Cake/);
+  await shot(page, 'farm2-1-bakery');
+  await tapButton(page, 'Make');
+  assert.match(await modalText(page), /Fresh Bread: 30 min/);
+  let s = await state(page);
+  assert.strictEqual(count(s, 'wheat'), 3, 'three wheat went in');
+  await closeAll(page);
+  await advance(page, 31);
+  await page.evaluate(() => Farm.world.farm2Bubbles());
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.bubbles2).length), 1, 'a bubble over the Bakery');
+  await shot(page, 'farm2-2-bread-ready');
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(count(s, 'bread'), 1);
+
+  // the mango tree: growing its first fruit, then ripe 12 hours later (it's spring)
+  await teleport(page, 30, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Growing');
+  await advance(page, 12 * 60);
+  await teleport(page, 30, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Pick');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(count(s, 'mango'), 3);
+
+  // the field plot: till it with the hoe, plant wheat on it
+  await hold(page, 'hoe');
+  await teleport(page, 25, 23, 'up');
+  assert.strictEqual(await actionLabel(page), 'Till');
+  await tapAction(page);
+  s = await state(page);
+  assert.ok(s.soil[22 * W + 25], 'tilled soil on the plot');
+  await hold(page, 'seed_wheat');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[22 * W + 25].c, 'wheat');
+  await teleport(page, 25, 24, 'up');
+  await shot(page, 'farm2-3-plot');
+
+  // the Collection has a Crop stars list
+  await page.evaluate(() => Farm.ui.openCollection());
+  await tapButton(page, 'Crop stars');
+  assert.match(await modalText(page), /Crop stars/);
+  await shot(page, 'farm2-4-crop-stars');
+  await closeAll(page);
+  // Mira's catalog: the new pages; one Bakery only; each plot dearer
+  await page.evaluate(() => Farm.ui.openOutdoor(null, 1));
+  assert.match(await modalText(page), /Workshops[\s\S]*Fruit trees[\s\S]*More land/);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openOutdoor('workshops', 0));
+  assert.match(await modalText(page), /Bakery[\s\S]*You have one\.[\s\S]*Dairy[\s\S]*Buy 4000G/);
+  await shot(page, 'farm2-6-workshops');
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
+  assert.match(await modalText(page), /Field Plot[\s\S]*Buy 3000G/);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openOutdoor('orchard', 0));
+  await shot(page, 'farm2-7-orchard');
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.newOnFarm());
+  assert.match(await modalText(page), /NEW ON YOUR FARM/);
+  await shot(page, 'farm2-5-new');
+  await closeAll(page);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

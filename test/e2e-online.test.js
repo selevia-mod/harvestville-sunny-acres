@@ -386,6 +386,70 @@ test('online: the owner is away on another farm: "not here, join them?"', async 
   for (const p of [a, b, c]) await p.context.close();
 });
 
+test('online: helping a friend: water their growing crops on a visit (5 a day, 20G each); they see it at home', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server), stranger = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  await nameFarm(stranger.page, 'Ben Barn');
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid }); // friends (mutual Selebox follows)
+  const W = 38, tiles = [[10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15], [16, 15]].map(([x, y]) => y * W + x);
+  await host.page.evaluate((tiles) => {
+    const s = Farm.session.state, now = Farm.Logic.nowMin();
+    tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now, r: 0 }; });
+    Farm.world.refreshAllSoil();
+    return Farm.Online.publish(true);
+  }, tiles);
+  const face = (page, x, y) => page.evaluate(([x, y]) => {
+    const T = Farm.Config.TILE;
+    Farm.world.setFeet(x * T + T / 2, (y + 1) * T + T / 2);
+    Farm.world.dir = 'up';
+    Farm.world.idle();
+    Farm.world.hintKey = null;
+  }, [x, y]);
+  const label = async (page) => { await page.waitForTimeout(120); return page.evaluate(() => Farm.ui.actionLabel.text); };
+
+  // a stranger can only look
+  await stranger.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(stranger.page, true);
+  await face(stranger.page, 10, 15);
+  assert.notStrictEqual(await label(stranger.page), 'Water');
+  await stranger.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(stranger.page, false);
+
+  // a friend waters: the tile is wet on their copy, the server has it, they get 20G
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(friend.page, true);
+  await waitRemotes(friend.page, ['Moon Meadow (owner)']);
+  const gold = await friend.page.evaluate(() => Farm.session.state.gold);
+  await face(friend.page, 10, 15);
+  assert.strictEqual(await label(friend.page), 'Water');
+  await friend.page.touchscreen.tap(294, 512);
+  await friend.page.waitForFunction(() => Farm.session.state.gold > 0 && Object.keys(Farm.Online.helped).length > 0, null, SLOW);
+  assert.strictEqual(await friend.page.evaluate(() => Farm.session.state.gold), gold + 20);
+  assert.strictEqual(await friend.page.evaluate((i) => Farm.world.state.soil[i].w, tiles[0]), 1);
+  assert.strictEqual(server.db.helps.length, 1);
+  await shot(friend.page, 'online-help-1-water');
+  // the owner, at home, sees it right away (and that crop grows faster)
+  await waitToast(host.page, /Ana Acres watered 1 of your crops!/);
+  assert.strictEqual(await host.page.evaluate((i) => Farm.session.state.soil[i].w, tiles[0]), 1);
+  await shot(host.page, 'online-help-2-owner');
+  // four more, then no more today
+  for (const [x] of [[11], [12], [13], [14]]) {
+    await face(friend.page, x, 15);
+    await friend.page.touchscreen.tap(294, 512);
+    await friend.page.waitForFunction((n) => (window.__h = Farm.Online.helped[Object.keys(Farm.Online.helped)[0]]) === n, 4 - (x - 10), SLOW);
+  }
+  await face(friend.page, 15, 15);
+  assert.strictEqual(await label(friend.page), 'Water');
+  assert.strictEqual(await friend.page.evaluate(() => { const a = Farm.world.resolve(); return a.disabled && /helped water 5/.test(a.why); }), true, '5 a day');
+  assert.strictEqual(server.db.helps.length, 5);
+  assert.strictEqual(await friend.page.evaluate(() => Farm.session.state.gold), gold + 100);
+
+  for (const p of [host, friend, stranger]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend, stranger]) await p.context.close();
+});
+
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
   const server = createServer();
   const owner = await open(server), troll = await open(server);

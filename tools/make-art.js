@@ -36,7 +36,7 @@ const OUT = path.join(__dirname, '..', 'assets');
     return route.fulfill({ contentType: 'image/png', body: fs.readFileSync(file) });
   });
   await page.goto(ORIGIN + 'index.html');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js']) {
     await page.addScriptTag({ path: path.join(__dirname, 'art', f) });
   }
   await page.addScriptTag({ path: path.join(__dirname, 'art', 'import.js') });

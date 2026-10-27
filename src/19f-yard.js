@@ -241,7 +241,8 @@
   P.yardStore = function () {
     var d = this.yd;
     if (!d || d.sel == null) return;
-    L.storeYard(this.state, d.sel);
+    var r = L.storeYard(this.state, d.sel);
+    if (r === 'crops') { sfx('nope'); return F.ui.toast('Harvest the crops on this plot first.'); }
     sfx('pick');
     this.renderYard();
     this.yardSelect(null);
@@ -373,14 +374,17 @@
       rows = O.types.map(function (t, i) { return i; }).filter(function (i) { return O.types[i].cat === cat; }).map(function (i) {
         var type = O.types[i], onSale = L.yardOnSale(s, i), tile = TILE_KINDS[type.kind];
         var fest = type.festival && C.FESTIVALS.filter(function (f) { return f.key === type.festival; })[0];
+        // (workshops, fruit trees and plots say what they do; each plot costs more than the last: 19k-farm2.js)
+        var price = L.yardPrice ? L.yardPrice(s, i) : type.price, info = F.yardInfo && F.yardInfo(s, i), done = L.yardCantBuy && L.yardCantBuy(s, i);
         return {
           img: self.yardImg(i), name: type.name,
-          desc: type.price + 'G' + (tile ? ' each' : '') + '. +' + type.beauty + ' beauty.' + (onSale ? '' : ' Sold in ' + L.festSeason(fest) + '.') + (s.yard.bag[i] ? ' You have ' + s.yard.bag[i] + '.' : ''),
-          buttons: !onSale ? [] : (tile ? [1, 10] : [1]).map(function (n, k) {
+          desc: info ? price + 'G. ' + info : price + 'G' + (tile ? ' each' : '') + '. +' + type.beauty + ' beauty.' + (onSale ? '' : ' Sold in ' + L.festSeason(fest) + '.') + (s.yard.bag[i] ? ' You have ' + s.yard.bag[i] + '.' : ''),
+          buttons: !onSale || done ? [] : (tile ? [1, 10] : [1]).map(function (n, k) {
             return {
-              label: 'Buy ' + (n > 1 ? n + ' ' : '') + type.price * n + 'G', color: k ? BLUE : GREEN, cb: function () {
+              label: 'Buy ' + (n > 1 ? n + ' ' : '') + price * n + 'G', color: k ? BLUE : GREEN, cb: function () {
                 var r = L.buyYard(s, i, n);
                 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+                if (r === 'have' || r === 'max') { sfx('nope'); return self.toast(r === 'have' ? 'You have one already.' : 'You have all of them already.'); }
                 if (r !== 'ok') { sfx('nope'); return self.toast("Mira can't sell that right now."); }
                 sfx('coin');
                 world().changed();

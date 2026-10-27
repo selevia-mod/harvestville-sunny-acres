@@ -57,7 +57,9 @@
     Host.reminded = key;
     var item = next && C.ITEMS[next.item], what = item ? item.name.toLowerCase() : 'crop';
     try {
-      h.remind(next ? { at: next.at * 60000, title: 'Harvest Ville', body: 'Your ' + what + ' crop is ripe! Come and harvest it before it withers.' } : null);
+      var body = !item || item.kind === 'crop' ? 'Your ' + what + ' crop is ripe! Come and harvest it before it withers.'
+        : item.kind === 'fruit' ? 'Your ' + (item.plural || what) + ' are ready to pick!' : 'Your ' + what + ' is ready! Come and collect it.';
+      h.remind(next ? { at: next.at * 60000, title: 'Harvest Ville', body: body } : null);
     } catch (e) { /* the app's reminder is optional */ }
   };
 

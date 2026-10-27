@@ -727,11 +727,11 @@
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
     c.add(this.txt(W / 2, 116, L.collectionCount(s) + ' of ' + C.COLLECTION.length + ' found', 13, '#7a5a3a').setOrigin(0.5, 0));
     // the records sit beside the bottom of the grid, so the panel always holds them (70 items = 10 rows)
-    var cols = 7, cell = 40, x0 = (W - cols * cell) / 2, y0 = 136;
+    var big = C.COLLECTION.length > 70, cols = big ? 8 : 7, cell = big ? 36 : 40, x0 = (W - cols * cell) / 2, y0 = 136;
     C.COLLECTION.forEach(function (id, i) {
       var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, got = L.discovered(s, id);
-      self.baked(c, x + 2, y + 2, 'ui-colcell', cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });
-      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(0.24);
+      self.baked(c, x + 2, y + 2, 'ui-colcell' + cell, cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });
+      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', C.ITEMS[id].icon).setScale(cell * 0.006);
       if (!got) icon.setTint(0x000000).setAlpha(0.22);
       c.add(icon);
     });
