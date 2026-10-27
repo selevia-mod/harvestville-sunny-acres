@@ -245,14 +245,14 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await ben.page.waitForFunction(() => Farm.world.mapKey === 'house' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
   await waitRemotes(owner.page, ['Ana Acres']);
   await waitRemotes(ben.page, []);
-  // and the road to town takes a visitor into town, in his own game (owner, 28 Oct: it used to send him home)
+  // and the road to town takes a visitor into the owner's town, still visiting (owner, 28 Oct: "follow who they visit");
+  // Home takes him home
   await ben.page.evaluate(() => Farm.world.travel('farm', 'house_door'));
   await ben.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
   await ben.page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await ben.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
+  await ben.page.evaluate(() => Farm.Online.leaveVisit());
   await waitWorld(ben.page, false);
-  assert.strictEqual(await ben.page.evaluate(() => Farm.world.mapKey), 'town', 'in town, his own game');
-  await ben.page.evaluate(() => Farm.world.travel('farm', 'road_north'));
-  await ben.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && !Farm.world.state.isVisit, null, SLOW);
   await waitRemotes(owner.page, ['Ana Acres']);
 
   // ----- friends: Ana adds the owner by code, the owner accepts, they chat
@@ -581,24 +581,36 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   for (const p of [owner, guest]) await p.context.close();
 });
 
-test('online: from a friend\'s farm, the road to town takes you into town as yourself (owner, 28 Oct)', async () => {
+test('online: visitors follow the owner to town: asked once, Follow, both see each other there; the mine ends a visit', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);
   await nameFarm(host.page, 'Moon Meadow');
   await nameFarm(guest.page, 'Ana Acres');
   await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
   await waitWorld(guest.page, true);
-  // the farm's way to town, as walking onto it would do
-  const warp = await guest.page.evaluate(() => {
-    const w = Farm.world, found = (w.objects || []).filter((o) => o.type === 'warp' && o.props && o.props.to === 'town')[0];
-    return found ? { to: found.props.to, spawn: found.props.spawn } : null;
-  });
-  assert.ok(warp, 'a road to town on the farm');
-  await guest.page.evaluate((w) => Farm.world.travel(w.to, w.spawn), warp);
-  await guest.page.waitForFunction(() => Farm.world && Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
-  const g = await guest.page.evaluate(() => ({ visit: Farm.session.visit, own: Farm.world.state === Farm.session.state, map: Farm.session.state.map }));
-  assert.deepStrictEqual(g, { visit: null, own: true, map: 'town' }, 'in town, in your own game');
-  await waitRemotes(host.page, []);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  // the owner walks to town: the guest is asked to follow
+  await host.page.evaluate(() => Farm.Online.follow('town'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /MOON MEADOW WENT TO TOWN[\s\S]*Follow them\?/);
+  await shot(guest.page, 'follow-1-ask');
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await shot(guest.page, 'follow-2-town');
+  assert.strictEqual(await guest.page.evaluate(() => Farm.session.visit && Farm.session.visit.name), 'Moon Meadow', 'still visiting');
+  // back to the farm: asked again (the other way)
+  await host.page.evaluate(() => Farm.Online.follow('farm'));
+  await waitModal(guest.page, /went back to the farm/);
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
+  // the mine is your own: heading there from their town ends the visit
+  await guest.page.evaluate(() => Farm.Online.follow('town'));
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await guest.page.evaluate(() => Farm.world.travel('mine', 'entrance', 1));
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.session.visit), null, 'in your own mine');
   for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, guest]) await p.context.close();
 });

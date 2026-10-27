@@ -309,6 +309,38 @@
     }
     O.syncSprites();
     if (v) O.hostAway(v, away);
+    if (v && now[v.host]) O.hostMoved(v, now[v.host]);
+  };
+
+  // On a visit, the owner walked to town (or back to the farm) while you are on the other one: "follow them?", once a
+  // visit for each place. Their house is close by (its door is on the farm); the mine is theirs alone.
+  var ROAD = { farm: 'town', town: 'farm' };
+  O.hostMoved = function (v, host) {
+    var w = F.world, to = host.map;
+    if (!w || w.busy || !F.ui || ROAD[w.mapKey] !== to) return;
+    v.asked = v.asked || {};
+    if (v.asked['map:' + to]) return;
+    v.asked['map:' + to] = 1;
+    var where = to === 'town' ? 'to town' : 'back to the farm';
+    var show = function () {
+      var ww = F.world;
+      if (F.session.visit !== v || !ww || ROAD[ww.mapKey] !== to) return;
+      if (F.ui.modals.length || ww.busy) return setTimeout(show, 1200);
+      sfx('found');
+      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (to === 'town' ? 'TO TOWN' : 'HOME') + '\n' + v.name + ' went ' + where + '. Follow them?', [
+        { label: 'Stay here', color: 0xc0703a },
+        { label: 'Follow', cb: function () { O.follow(to); } },
+      ]);
+    };
+    show();
+  };
+  // Walks the road to `to` (farm <-> town), as the road itself would.
+  O.follow = function (to) {
+    var w = F.world;
+    if (!w || w.busy) return;
+    var name = C.ROUTES[w.mapKey] && C.ROUTES[w.mapKey][to];
+    var road = (w.objects || []).filter(function (o) { return o.type === 'warp' && (o.name === name || (o.props && o.props.to === to)); })[0];
+    if (road) w.travel(road.props.to, road.props.spawn);
   };
 
   // On a visit, the owner is on another farm: "not here, join them?" (once for each farm they go to on this visit).
@@ -359,6 +391,8 @@
       var changedMap = q.map !== who.map;
       O.others[q.id] = q;
       if (changedMap) O.syncSprites();
+      var vv = F.session.visit;
+      if (changedMap && vv && q.id === vv.host) O.hostMoved(vv, q);
     } else if (event === 'emote') {
       O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
     } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
@@ -384,7 +418,7 @@
     var want = {};
     Object.keys(O.others).forEach(function (id) {
       var p = O.others[id];
-      if (p.map === w.mapKey && w.mapKey !== 'town' && w.mapKey !== 'mine') want[id] = p;
+      if (p.map === w.mapKey && w.mapKey !== 'mine') want[id] = p; // (the town too: visitors follow the owner there)
     });
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
@@ -538,7 +572,7 @@
     O.last = null;
     O.mvMs = 0;
     if (O.on) O.ensureChannel();
-    if (v && F.ui) F.ui.toast('Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+    if (v && F.ui) F.ui.toast(this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
   var update = P.update;
@@ -573,9 +607,10 @@
   // Their farmhouse door works; the road to town takes you home.
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
-    // the road to town from a friend's farm: the visit ends and you walk into town as yourself (owner, 28 Oct: "why i
-    // send back to my own farm? I should able to visit the town also")
-    if (visiting(this) && to !== 'farm' && to !== 'house') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
+    // On a visit you can go where the owner can be seen: their farm, their house and their town (owner, 28 Oct: "visitors
+    // can also go to others town ... to follow who they visit"). The mine is everyone's own: heading there ends the visit
+    // and you walk in as yourself.
+    if (visiting(this) && to !== 'farm' && to !== 'house' && to !== 'town') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
   };
 

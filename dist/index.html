@@ -7637,46 +7637,33 @@
       return this.dialog(text, [{ label: 'No', color: 0xc0703a }, { label: 'Yes', cb: onYes }]);
     }
 
-    // Ten drawn hearts for a friendship of `pts` (0-100, 10 a heart): full ones red, the next one filled as far as you
-    // are toward it, the rest empty; and "n of 10 hearts" under them (owner, 28 Oct: the text hearts looked poor).
-    heartRow(parent, x, y, pts) {
+    // Friendship as ten of the game's own heart icons (owner, 28 Oct: picked option B of five): the hearts earned in
+    // full colour, the next one filled from the bottom as far as you are toward it, the rest dark. pts: 0-100, 10 a heart.
+    // step: px from one heart to the next. Returns the width.
+    heartIcons(parent, x, y, pts, step) {
       pts = Math.max(0, Math.min(C.FRIEND.max, Number(pts) || 0));
-      var full = Math.floor(pts / 10), part = (pts % 10) / 10, size = 17, step = 18;
-      var draw = function (fill, edge, shine) {
-        return function (g) {
-          var s = size;
-          g.beginPath();
-          g.moveTo(s / 2, s * 0.92);
-          g.bezierCurveTo(s * 0.08, s * 0.6, -s * 0.02, s * 0.28, s * 0.22, s * 0.12);
-          g.bezierCurveTo(s * 0.36, s * 0.02, s * 0.48, s * 0.1, s / 2, s * 0.26);
-          g.bezierCurveTo(s * 0.52, s * 0.1, s * 0.64, s * 0.02, s * 0.78, s * 0.12);
-          g.bezierCurveTo(s * 1.02, s * 0.28, s * 0.92, s * 0.6, s / 2, s * 0.92);
-          g.closePath();
-          g.fillStyle = fill;
-          g.fill();
-          g.lineWidth = 1.4;
-          g.strokeStyle = edge;
-          g.stroke();
-          if (shine) {
-            g.beginPath();
-            g.ellipse(s * 0.3, s * 0.3, s * 0.1, s * 0.06, -0.6, 0, Math.PI * 2);
-            g.fillStyle = 'rgba(255,255,255,0.75)';
-            g.fill();
-          }
-        };
-      };
+      step = step || 18.6;
+      var full = Math.floor(pts / 10), part = (pts % 10) / 10, sc = step * 0.86 / 128;
       for (var i = 0; i < 10; i++) {
-        var hx = x + i * step;
-        this.canvasImg(parent, hx, y, 'ui-heart-empty', size, size, draw('#f3dfc4', '#c9a27a', false));
-        if (i < full) this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
-        else if (i === full && part > 0) {
-          var img = this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
-          var th = img.height; // filled from the bottom up, as far as you are toward this heart
-          img.setCrop(0, th * (1 - part), img.width, th * part);
+        var hx = x + i * step + step / 2;
+        var back = this.add.image(hx, y, 'items', C.ICON.heart).setScale(sc).setTint(0x8a7a6a); // dark red: not earned yet (the look picked)
+        if (parent) parent.add(back);
+        if (i < full || (i === full && part > 0)) {
+          var im = this.add.image(hx, y, 'items', C.ICON.heart).setScale(sc);
+          if (i === full) im.setCrop(0, im.height * (1 - part), im.width, im.height * part);
+          if (parent) parent.add(im);
         }
       }
+      return step * 10;
+    }
+
+    // The villager dialog's hearts: the icons, and "n of 10 hearts" under them.
+    heartRow(parent, x, y, pts) {
+      pts = Math.max(0, Math.min(C.FRIEND.max, Number(pts) || 0));
+      var full = Math.floor(pts / 10), part = (pts % 10) / 10;
+      this.heartIcons(parent, x, y + 7, pts);
       var label = full === 10 ? 'Best friends! 10 of 10 hearts' : full + ' of 10 hearts' + (part > 0 ? ', ' + Math.round(part * 100) + '% to the next' : '');
-      if (parent) parent.add(this.txt(x, y + size + 3, label, 11, '#7a5a3a'));
+      if (parent) parent.add(this.txt(x, y + 19, label, 11, '#7a5a3a'));
     }
 
     heartsText(x, y, n) {
@@ -10051,11 +10038,12 @@
   M.openFriends = function (page) {
     var self = this, s = F.session.state;
     var rows = C.VILLAGER_ORDER.map(function (k) {
-      var f = L.friend(s, k), v = C.VILLAGERS[k], n = L.friendHearts(s, k);
+      var f = L.friend(s, k), v = C.VILLAGERS[k];
       if (!f.met) return { icon: C.ICON.exclaim, name: '???', desc: 'Not met yet.' };
       return {
         people: k, name: v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : ''),
-        desc: new Array(n + 1).join('\u2665') + new Array(10 - n + 1).join('\u2661') + '\n' + v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
+        hearts: f.pts, // drawn hearts (owner, 28 Oct: option B)
+        desc: v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
       };
     });
     this.listPanel({
@@ -13582,6 +13570,38 @@
     }
     O.syncSprites();
     if (v) O.hostAway(v, away);
+    if (v && now[v.host]) O.hostMoved(v, now[v.host]);
+  };
+
+  // On a visit, the owner walked to town (or back to the farm) while you are on the other one: "follow them?", once a
+  // visit for each place. Their house is close by (its door is on the farm); the mine is theirs alone.
+  var ROAD = { farm: 'town', town: 'farm' };
+  O.hostMoved = function (v, host) {
+    var w = F.world, to = host.map;
+    if (!w || w.busy || !F.ui || ROAD[w.mapKey] !== to) return;
+    v.asked = v.asked || {};
+    if (v.asked['map:' + to]) return;
+    v.asked['map:' + to] = 1;
+    var where = to === 'town' ? 'to town' : 'back to the farm';
+    var show = function () {
+      var ww = F.world;
+      if (F.session.visit !== v || !ww || ROAD[ww.mapKey] !== to) return;
+      if (F.ui.modals.length || ww.busy) return setTimeout(show, 1200);
+      sfx('found');
+      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (to === 'town' ? 'TO TOWN' : 'HOME') + '\n' + v.name + ' went ' + where + '. Follow them?', [
+        { label: 'Stay here', color: 0xc0703a },
+        { label: 'Follow', cb: function () { O.follow(to); } },
+      ]);
+    };
+    show();
+  };
+  // Walks the road to `to` (farm <-> town), as the road itself would.
+  O.follow = function (to) {
+    var w = F.world;
+    if (!w || w.busy) return;
+    var name = C.ROUTES[w.mapKey] && C.ROUTES[w.mapKey][to];
+    var road = (w.objects || []).filter(function (o) { return o.type === 'warp' && (o.name === name || (o.props && o.props.to === to)); })[0];
+    if (road) w.travel(road.props.to, road.props.spawn);
   };
 
   // On a visit, the owner is on another farm: "not here, join them?" (once for each farm they go to on this visit).
@@ -13632,6 +13652,8 @@
       var changedMap = q.map !== who.map;
       O.others[q.id] = q;
       if (changedMap) O.syncSprites();
+      var vv = F.session.visit;
+      if (changedMap && vv && q.id === vv.host) O.hostMoved(vv, q);
     } else if (event === 'emote') {
       O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
     } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
@@ -13657,7 +13679,7 @@
     var want = {};
     Object.keys(O.others).forEach(function (id) {
       var p = O.others[id];
-      if (p.map === w.mapKey && w.mapKey !== 'town' && w.mapKey !== 'mine') want[id] = p;
+      if (p.map === w.mapKey && w.mapKey !== 'mine') want[id] = p; // (the town too: visitors follow the owner there)
     });
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
@@ -13811,7 +13833,7 @@
     O.last = null;
     O.mvMs = 0;
     if (O.on) O.ensureChannel();
-    if (v && F.ui) F.ui.toast('Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+    if (v && F.ui) F.ui.toast(this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
   var update = P.update;
@@ -13846,9 +13868,10 @@
   // Their farmhouse door works; the road to town takes you home.
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
-    // the road to town from a friend's farm: the visit ends and you walk into town as yourself (owner, 28 Oct: "why i
-    // send back to my own farm? I should able to visit the town also")
-    if (visiting(this) && to !== 'farm' && to !== 'house') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
+    // On a visit you can go where the owner can be seen: their farm, their house and their town (owner, 28 Oct: "visitors
+    // can also go to others town ... to follow who they visit"). The mine is everyone's own: heading there ends the visit
+    // and you walk in as yourself.
+    if (visiting(this) && to !== 'farm' && to !== 'house' && to !== 'town') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
   };
 
@@ -14974,6 +14997,10 @@
     var name = this.txt(90 + tagW, my, row.name, row.name.length > 22 ? 13 : 14, INK, { fontStyle: 'bold', wordWrap: { width: textW - tagW }, lineSpacing: 1 });
     mid.add(name);
     my += name.height + 3;
+    if (row.hearts != null) { // friendship, as the villager dialog shows it (12-ui.js heartIcons)
+      this.heartIcons(mid, 90, my + 7, row.hearts, Math.min(16, (textW - 4) / 10));
+      my += 17;
+    }
     if (row.online) {
       mid.add(this.add.circle(94, my + 6, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
       mid.add(this.txt(101, my + 6, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));

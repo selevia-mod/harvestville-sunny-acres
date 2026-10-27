@@ -574,6 +574,10 @@
     var name = this.txt(90 + tagW, my, row.name, row.name.length > 22 ? 13 : 14, INK, { fontStyle: 'bold', wordWrap: { width: textW - tagW }, lineSpacing: 1 });
     mid.add(name);
     my += name.height + 3;
+    if (row.hearts != null) { // friendship, as the villager dialog shows it (12-ui.js heartIcons)
+      this.heartIcons(mid, 90, my + 7, row.hearts, Math.min(16, (textW - 4) / 10));
+      my += 17;
+    }
     if (row.online) {
       mid.add(this.add.circle(94, my + 6, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
       mid.add(this.txt(101, my + 6, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));

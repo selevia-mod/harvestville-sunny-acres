@@ -945,46 +945,33 @@
       return this.dialog(text, [{ label: 'No', color: 0xc0703a }, { label: 'Yes', cb: onYes }]);
     }
 
-    // Ten drawn hearts for a friendship of `pts` (0-100, 10 a heart): full ones red, the next one filled as far as you
-    // are toward it, the rest empty; and "n of 10 hearts" under them (owner, 28 Oct: the text hearts looked poor).
-    heartRow(parent, x, y, pts) {
+    // Friendship as ten of the game's own heart icons (owner, 28 Oct: picked option B of five): the hearts earned in
+    // full colour, the next one filled from the bottom as far as you are toward it, the rest dark. pts: 0-100, 10 a heart.
+    // step: px from one heart to the next. Returns the width.
+    heartIcons(parent, x, y, pts, step) {
       pts = Math.max(0, Math.min(C.FRIEND.max, Number(pts) || 0));
-      var full = Math.floor(pts / 10), part = (pts % 10) / 10, size = 17, step = 18;
-      var draw = function (fill, edge, shine) {
-        return function (g) {
-          var s = size;
-          g.beginPath();
-          g.moveTo(s / 2, s * 0.92);
-          g.bezierCurveTo(s * 0.08, s * 0.6, -s * 0.02, s * 0.28, s * 0.22, s * 0.12);
-          g.bezierCurveTo(s * 0.36, s * 0.02, s * 0.48, s * 0.1, s / 2, s * 0.26);
-          g.bezierCurveTo(s * 0.52, s * 0.1, s * 0.64, s * 0.02, s * 0.78, s * 0.12);
-          g.bezierCurveTo(s * 1.02, s * 0.28, s * 0.92, s * 0.6, s / 2, s * 0.92);
-          g.closePath();
-          g.fillStyle = fill;
-          g.fill();
-          g.lineWidth = 1.4;
-          g.strokeStyle = edge;
-          g.stroke();
-          if (shine) {
-            g.beginPath();
-            g.ellipse(s * 0.3, s * 0.3, s * 0.1, s * 0.06, -0.6, 0, Math.PI * 2);
-            g.fillStyle = 'rgba(255,255,255,0.75)';
-            g.fill();
-          }
-        };
-      };
+      step = step || 18.6;
+      var full = Math.floor(pts / 10), part = (pts % 10) / 10, sc = step * 0.86 / 128;
       for (var i = 0; i < 10; i++) {
-        var hx = x + i * step;
-        this.canvasImg(parent, hx, y, 'ui-heart-empty', size, size, draw('#f3dfc4', '#c9a27a', false));
-        if (i < full) this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
-        else if (i === full && part > 0) {
-          var img = this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
-          var th = img.height; // filled from the bottom up, as far as you are toward this heart
-          img.setCrop(0, th * (1 - part), img.width, th * part);
+        var hx = x + i * step + step / 2;
+        var back = this.add.image(hx, y, 'items', C.ICON.heart).setScale(sc).setTint(0x8a7a6a); // dark red: not earned yet (the look picked)
+        if (parent) parent.add(back);
+        if (i < full || (i === full && part > 0)) {
+          var im = this.add.image(hx, y, 'items', C.ICON.heart).setScale(sc);
+          if (i === full) im.setCrop(0, im.height * (1 - part), im.width, im.height * part);
+          if (parent) parent.add(im);
         }
       }
+      return step * 10;
+    }
+
+    // The villager dialog's hearts: the icons, and "n of 10 hearts" under them.
+    heartRow(parent, x, y, pts) {
+      pts = Math.max(0, Math.min(C.FRIEND.max, Number(pts) || 0));
+      var full = Math.floor(pts / 10), part = (pts % 10) / 10;
+      this.heartIcons(parent, x, y + 7, pts);
       var label = full === 10 ? 'Best friends! 10 of 10 hearts' : full + ' of 10 hearts' + (part > 0 ? ', ' + Math.round(part * 100) + '% to the next' : '');
-      if (parent) parent.add(this.txt(x, y + size + 3, label, 11, '#7a5a3a'));
+      if (parent) parent.add(this.txt(x, y + 19, label, 11, '#7a5a3a'));
     }
 
     heartsText(x, y, n) {

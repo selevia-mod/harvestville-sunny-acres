@@ -778,11 +778,12 @@
   M.openFriends = function (page) {
     var self = this, s = F.session.state;
     var rows = C.VILLAGER_ORDER.map(function (k) {
-      var f = L.friend(s, k), v = C.VILLAGERS[k], n = L.friendHearts(s, k);
+      var f = L.friend(s, k), v = C.VILLAGERS[k];
       if (!f.met) return { icon: C.ICON.exclaim, name: '???', desc: 'Not met yet.' };
       return {
         people: k, name: v.name + (s.spouse === k ? '  (spouse)' : s.engaged && s.engaged.who === k ? '  (engaged)' : ''),
-        desc: new Array(n + 1).join('\u2665') + new Array(10 - n + 1).join('\u2661') + '\n' + v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
+        hearts: f.pts, // drawn hearts (owner, 28 Oct: option B)
+        desc: v.role + (f.talked ? '  \u2713 talked' : '') + (f.gifted ? '  \u2713 gift' : ''),
       };
     });
     this.listPanel({
