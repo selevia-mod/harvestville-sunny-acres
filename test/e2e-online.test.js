@@ -531,6 +531,9 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   await waitRemotes(owner.page, ['Ana Acres']);
   await owner.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
   await guest.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  // the name over your head is your farmer's, once named (and each phone checks it)
+  await guest.page.evaluate(() => { Farm.session.state.name = 'Ana Rose'; Farm.Online.retrack(); });
+  await waitRemotes(owner.page, ['Ana Rose']);
   // the guest taps Chat, then a quick line
   await guest.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSay(); });
   await waitModal(guest.page, /Say something[\s\S]*Nice farm!/);

@@ -149,13 +149,7 @@
   var curName = function (cur, n) { return n + ' ' + (n === 1 ? one[cur] : CUR[cur]); };
   L.canRefill = function () { return !!(host().shop && F.Net.available()); };
 
-  // Energy after a refill of `amount`: never above the max (a refill tops it up).
-  L.refill = function (s, amount) {
-    var before = s.energy, max = L.maxEnergy(s);
-    s.energy = Math.min(max, s.energy + Math.max(0, Math.floor(amount) || 0));
-    if (s.energy >= max) s.regen = L.nowMin();
-    return s.energy - before;
-  };
+  // (the energy itself: L.refillEnergy, 01-logicA.js)
 
   var requestId = function () {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
@@ -212,7 +206,7 @@
     var s = F.session.state;
     return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: 0, p_version: b[3], p_request_id: b[0] }).then(function (r) {
       s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; });
-      var gain = r && r.ok ? L.refill(s, Number(r.amount) || 0) : null;
+      var gain = r && r.ok ? L.refillEnergy(s, Number(r.amount) || 0) : null;
       save(s);
       if (gain === null) return 'none';
       spent();
@@ -256,7 +250,7 @@
             self.closeAll();
             return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
           }
-          var got = L.refill(s, Number(r.amount) || 0);
+          var got = L.refillEnergy(s, Number(r.amount) || 0);
           save(s);
           spent();
           self.closeAll();

@@ -148,7 +148,14 @@
     var c = this.openModal();
     this.panelImg(c, 30, 96, W - 60, 470);
     c.add(this.txt(W / 2, 118, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    c.add(this.txt(W / 2, 150, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  ' + L.formatTime(s.time) + '\nYour game saves automatically.', 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, 148, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  ' + L.formatTime(s.time), 14, INK, { align: 'center' }).setOrigin(0.5, 0));
+    // your farmer's name (owner, 27 Oct), with Rename (19n-name.js)
+    if (this.askFarmerName) {
+      var nm = this.txt(W / 2 - 40, 178, 'Farmer: ' + L.farmerName(s), 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0.5);
+      if (nm.width > 170) nm.setScale(170 / nm.width);
+      c.add(nm);
+      this.button(c, W / 2 + 92, 178, 84, 28, 'Rename', function () { self.closeModal(); self.askFarmerName(function () { self.openPause(); }); }, BROWN);
+    }
     var col = function (k) { return W / 2 + (k ? 68 : -68); };
     this.button(c, W / 2, 222, 266, 44, 'Resume', function () { self.closeModal(); });
     this.button(c, col(0), 274, 128, 40, 'Calendar', function () { self.openCalendar(0); }, BLUE);

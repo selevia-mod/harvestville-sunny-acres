@@ -141,7 +141,8 @@
     { key: 'fruit', text: 'FRUIT: eat it for energy, sell it, or make jam in a Jam Maker. Each tree fruits in two seasons.' },
     { key: 'goods', text: 'GOODS: made in your workshops. They sell for much more than what went into them.' },
     { key: 'farm2', text: 'NEW ON YOUR FARM' }, // the "new on your farm" page, shown once
-    { key: 'chat', text: 'CHAT: tap the speech bubble on the right to say something. It pops up over your farmer for everyone here.' }
+    { key: 'chat', text: 'CHAT: tap the speech bubble on the right to say something. It pops up over your farmer for everyone here.' },
+    { key: 'farmer_name', text: 'NAME YOUR FARMER' } // a farm from before asks once (19n-name.js)
   );
 
   // ---------- villagers who like the new goods ----------

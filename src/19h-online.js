@@ -166,10 +166,13 @@
     return 'farm:' + (F.session.visit ? F.session.visit.host : O.me.id);
   };
 
+  // The name over your head: your farmer's (01-logicA.js), or your farm's until you name them.
+  O.myName = function () { return (F.session.state && F.session.state.name) || (O.me && O.me.name) || 'Farmer'; };
+
   O.myState = function () {
     var w = F.world, f = w && w.player ? w.feet() : { x: 0, y: 0 };
     return {
-      id: O.me.id, name: O.me.name, look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm',
+      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm',
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
     };
   };
@@ -177,7 +180,7 @@
   // What our own farm's room hears while we are on someone else's farm.
   O.awayState = function () {
     return {
-      id: O.me.id, name: O.me.name, look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: 'farm', x: 0, y: 0, dir: 'down', m: 0,
+      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: 'farm', x: 0, y: 0, dir: 'down', m: 0,
       host: true, at: 0, t: Date.now(), away: F.session.visit ? F.session.visit.host : '',
     };
   };
@@ -252,7 +255,7 @@
     if (!p || typeof p !== 'object' || typeof p.id !== 'string' || p.id.length > 64) return null;
     var num = function (v) { v = Number(v); return isFinite(v) ? Math.max(0, Math.min(200 * T, v)) : 0; };
     return {
-      id: p.id, name: L.cleanText(p.name, 24) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
+      id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -385,7 +388,11 @@
     });
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
-      if (want[id] && want[id].look === r.look) return;
+      if (want[id] && want[id].look === r.look) {
+        var tag = want[id].name + (want[id].host ? ' (owner)' : ''); // (a rename shows straight away)
+        if (r.tag.text !== tag) r.tag.setText(tag);
+        return;
+      }
       r.spr.destroy();
       r.shadow.destroy();
       r.tag.destroy();
@@ -677,7 +684,7 @@
   };
 
   // ---------- typing: a real text box over the game ----------
-  // opts: { password, hint, ok }. done(text) gets the text, or nothing if cancelled.
+  // opts: { password, hint, ok, cancel }. done(text) gets the text; Cancel calls opts.cancel() (if given) instead.
   U.askText = function (title, value, max, done, opts) {
     opts = opts || {};
     var self = this, closed = false, modal;
@@ -715,6 +722,7 @@
       if (box.parentNode) box.parentNode.removeChild(box);
       if (self.modals.length && self.modals[self.modals.length - 1].c === modal) self.closeModal();
       if (v != null) done(v);
+      else if (typeof opts.cancel === 'function') opts.cancel();
     };
     mk('Cancel', '#c0703a', function () { close(null); });
     mk(opts.ok || 'OK', '#5fa84a', function () { close(input.value); });

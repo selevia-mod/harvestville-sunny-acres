@@ -185,6 +185,14 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.strictEqual((await state(page)).look, 'girl');
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player_girl');
 
+  // then she is named (27 Oct: name your farmer)
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.fill('#farm-ask input', 'Lily Rose');
+  await page.click('#farm-ask button:last-child');
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.strictEqual((await state(page)).name, 'Lily Rose');
+
   // then the welcome dialog, which closes with the host Back button
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
   assert.match(await modalText(page), /WELCOME/);
@@ -482,6 +490,9 @@ test('in town, a villager walks up to the market stall and buys what is on a she
 test('a new day starts at midnight wherever you are; energy comes back by itself', async () => {
   const { page, problems, context } = await open(null, [2026, 4, 1, 23, 50]);
   await tapButton(page, 'Boy');
+  await page.waitForSelector('#farm-ask input', SLOW); // name your farmer (27 Oct): Cancel
+  await page.click('#farm-ask button:first-child');
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
   await page.evaluate(() => window.__gameBack());
   // (the farm's debris is random: clear that tile, or the farmer would be standing inside a rock and moved off it)
   await page.evaluate(() => { delete Farm.session.state.debris[20 * Farm.Config.FARM_W + 10]; Farm.world.changed && Farm.world.changed(); });
@@ -775,6 +786,9 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   // the boy-or-girl choice and the welcome message show, the HUD is live, and the farm is playable
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
   await tapButton(page, 'Boy');
+  await page.waitForSelector('#farm-ask input', SLOW); // name your farmer (27 Oct)
+  await page.click('#farm-ask button:first-child'); // Cancel: still "Farmer", and on to the welcome
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Apr 1');
@@ -1633,5 +1647,74 @@ test('the growing farm: the Bakery bakes, a mango tree fruits, a field plot is t
   await shot(page, 'farm2-5-new');
   await closeAll(page);
   assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the watering can fills up at the pond (27 Oct: an energy refill had taken the name of the can\'s refill)', async () => {
+  const save = await makeSave('s.time = 600; s.water = 0;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  // a walkable tile next to the pond, facing the water
+  const spot = await page.evaluate(() => {
+    const w = Farm.world, D = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    for (let y = 1; y < w.map.height - 1; y++) for (let x = 1; x < w.map.width - 1; x++) {
+      if (!w.walkable(x, y)) continue;
+      for (const dir of Object.keys(D)) if (w.isWater(x + D[dir][0], y + D[dir][1])) return { x, y, dir };
+    }
+    return null;
+  });
+  assert.ok(spot, 'a spot by the pond');
+  await hold(page, 'can');
+  await teleport(page, spot.x, spot.y, spot.dir);
+  assert.strictEqual(await actionLabel(page), 'Refill');
+  assert.strictEqual((await state(page)).water, 0);
+  await tapAction(page);
+  const s = await state(page);
+  assert.strictEqual(s.water, await page.evaluate(() => Farm.Logic.canCapacity(Farm.session.state)), 'the can is full');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('your farmer has a name: asked after picking the farmer on a new farm, renamed from the pause menu', async () => {
+  const { page, problems, context } = await open(null);
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await tapButton(page, 'Girl');
+  await page.waitForSelector('#farm-ask input', SLOW);
+  assert.match(await page.textContent('#farm-ask'), /Name your farmer/);
+  await shot(page, 'name-1-ask');
+  // a rude name is refused, and asked again
+  await page.fill('#farm-ask input', 'gago');
+  await page.click('#farm-ask button:last-child');
+  await page.waitForFunction(() => /friendly/.test(Farm.ui.toastText.text), null, SLOW);
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.fill('#farm-ask input', 'Selene');
+  await page.click('#farm-ask button:last-child');
+  await page.waitForFunction(() => /WELCOME TO HARVEST VILLE/.test(JSON.stringify(Farm.ui.modals.map((m) => m.c.list.map((o) => o.text || '')))), null, SLOW);
+  assert.strictEqual((await state(page)).name, 'Selene');
+  assert.strictEqual((await state(page)).look, 'girl');
+  await closeAll(page);
+  // Rename from the pause menu
+  await page.evaluate(() => Farm.ui.openPause());
+  assert.match(await modalText(page), /Farmer: Selene/);
+  await shot(page, 'name-2-pause');
+  await tapButton(page, 'Rename');
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.fill('#farm-ask input', 'Selene Rose');
+  await page.click('#farm-ask button:last-child');
+  await page.waitForFunction(() => /Farmer: Selene Rose/.test(JSON.stringify(Farm.ui.modals.map((m) => m.c.list.map((o) => o.text || '')))), null, SLOW);
+  // saved
+  const saved = await page.evaluate(() => Farm.Logic.deserialize(JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1])).name);
+  assert.strictEqual(saved, 'Selene Rose');
+  // Cancel on a new farm still goes on to the welcome
+  const second = await open(null);
+  await second.page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await tapButton(second.page, 'Boy');
+  await second.page.waitForSelector('#farm-ask input', SLOW);
+  await second.page.click('#farm-ask button:first-child');
+  await second.page.waitForFunction(() => /WELCOME TO HARVEST VILLE/.test(JSON.stringify(Farm.ui.modals.map((m) => m.c.list.map((o) => o.text || '')))), null, SLOW);
+  assert.strictEqual(await second.page.evaluate(() => Farm.Logic.farmerName(Farm.session.state)), 'Farmer');
+  assert.deepStrictEqual(problems, []);
+  assert.deepStrictEqual(second.problems, []);
+  await second.context.close();
   await context.close();
 });

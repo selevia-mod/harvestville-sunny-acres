@@ -19,6 +19,7 @@
     s.mast = {}; // crop -> times harvested by hand
     s.ws = {}; // workshop -> [[recipe, minute it is done], ...] in the order they were started
     s.fruit = {}; // 'x,y' of a fruit tree in the yard -> the minute it was planted or last picked
+    s.name = ''; // your farmer's name (owner, 27 Oct: "no way to name your character"); '' = not named yet
     return s;
   };
 
@@ -317,6 +318,16 @@
     return n;
   };
 
+  // ---------- energy refills (Selebox Coins or Stars, 19j-social.js) ----------
+  // Energy after a refill of `amount`: never above the max (a refill tops it up). Its own name: L.refill is the watering
+  // can at the pond (01-logic.js), which this once replaced (27 Oct: the can stopped filling).
+  L.refillEnergy = function (s, amount) {
+    var before = s.energy, max = L.maxEnergy(s);
+    s.energy = Math.min(max, s.energy + Math.max(0, Math.floor(amount) || 0));
+    if (s.energy >= max) s.regen = L.nowMin();
+    return s.energy - before;
+  };
+
   // ---------- the Market (online): farms sell to each other ----------
   C.MARKET = { lots: 4, most: 10, prices: [['Low', 1], ['Fair', 1.4], ['High', 2]] };
   // Can it go on a stall? Anything with a selling price (not tools, seeds or shop goods).
@@ -389,6 +400,24 @@
     return true;
   };
 
+  // ---------- your farmer's name ----------
+  // One short line (C.FARMER_NAME letters), no rude words (L.chatClean: others see it over your head online).
+  C.FARMER_NAME = 16;
+  L.cleanName = function (text) {
+    var t = L.chatClean(L.cleanText(text, C.FARMER_NAME));
+    return t ? t.slice(0, C.FARMER_NAME) : '';
+  };
+  // Returns 'ok', 'empty' or 'rude'.
+  L.setFarmerName = function (s, text) {
+    var raw = L.cleanText(text, C.FARMER_NAME);
+    if (!raw) return 'empty';
+    var t = L.cleanName(raw);
+    if (!t) return 'rude';
+    s.name = t;
+    return 'ok';
+  };
+  L.farmerName = function (s) { return (s && s.name) || 'Farmer'; };
+
   // ---------- tips for the new kinds of goods ----------
   var tipKey = L.tipKey;
   L.tipKey = function (id) {
@@ -424,6 +453,7 @@
     });
     Object.keys(s.fruit).forEach(function (k) { var p = k.split(','); fr.push(Number(p[0]), Number(p[1]), s.fruit[k]); });
     o.g2 = [ms, ws, fr];
+    if (s.name) o.nm = s.name;
     return o;
   };
   var deserialize = L.deserialize;
@@ -448,6 +478,7 @@
       }
       if (jobs.length) s.ws[key] = jobs;
     });
+    s.name = L.cleanName(o.nm);
     s.fruit = {};
     for (var j = 0; j + 2 < fr.length && j < 900; j += 3) s.fruit[int(fr[j], 0, 999, 0) + ',' + int(fr[j + 1], 0, 999, 0)] = int(fr[j + 2], 0, 1e9, 0);
     return s;

@@ -257,3 +257,31 @@ test('chat bubbles: one short line, no rude words (with look-alike letters), and
   assert.strictEqual(n, C.CHAT.perMinute, 'a dozen a minute at most');
   assert.ok(L.chatAllowed(log, 125000), 'later, again');
 });
+
+test('the watering can fills at the pond again (an energy refill once took its name), and energy refills stay separate', () => {
+  const s = fresh();
+  s.water = 0;
+  L.refill(s);
+  assert.strictEqual(s.water, L.canCapacity(s), 'the can is full');
+  s.energy = 10;
+  assert.strictEqual(typeof L.refillEnergy, 'function');
+  const before = s.water;
+  assert.strictEqual(L.refillEnergy(s, 100), L.maxEnergy(s) - 10);
+  assert.strictEqual(s.water, before, 'an energy refill leaves the can alone');
+});
+
+test('your farmer has a name: up to 16 letters, no rude words, saved', () => {
+  const s = fresh();
+  assert.strictEqual(s.name, '');
+  assert.strictEqual(L.farmerName(s), 'Farmer');
+  assert.strictEqual(L.setFarmerName(s, '   '), 'empty');
+  assert.strictEqual(L.setFarmerName(s, 'you gago'), 'rude');
+  assert.strictEqual(L.setFarmerName(s, '  Selene   the Brave Farmer of Willowbrook '), 'ok');
+  assert.strictEqual(s.name, 'Selene the Brave');
+  assert.strictEqual(roundTrip(s).name, 'Selene the Brave');
+  const o = JSON.parse(JSON.stringify(L.serialize(s)));
+  o.nm = 'sh1t';
+  assert.strictEqual(L.deserialize(o).name, '', 'a rude name in a save is dropped');
+  delete o.nm;
+  assert.strictEqual(L.deserialize(o).name, '', 'older saves: not named yet');
+});
