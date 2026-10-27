@@ -321,6 +321,71 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   for (const p of pages) await p.context.close();
 });
 
+test('online: the owner is away on another farm: "not here, join them?"', async () => {
+  const server = createServer();
+  const a = await open(server), b = await open(server), c = await open(server);
+  await nameFarm(a.page, 'Apple Acres');
+  await nameFarm(b.page, 'Berry Barn');
+  await nameFarm(c.page, 'Clover Cove');
+  const visitHost = (p) => p.page.evaluate(() => Farm.session.visit && Farm.session.visit.host);
+
+  // ----- B visits A; C comes to B's farm and finds it empty: B is not drawn there, and C is asked to join B
+  await b.page.evaluate((id) => Farm.Online.visit(id), a.uid);
+  await waitWorld(b.page, true);
+  await waitRemotes(a.page, ['Berry Barn']);
+  await c.page.evaluate((id) => Farm.Online.visit(id), b.uid);
+  await waitWorld(c.page, true);
+  await waitModal(c.page, /NOT HERE RIGHT NOW/);
+  assert.match(await modalText(c.page), /Berry Barn is visiting another farm right now\.\nJoin Berry Barn there\?/);
+  assert.deepStrictEqual(await remotes(c.page), [], 'B is not drawn on their own farm while away');
+  assert.strictEqual(await c.page.evaluate(() => Farm.Online.away), a.uid);
+  await shot(c.page, 'online-away-1-join');
+  await tapButton(c.page, 'Join');
+  await c.page.waitForFunction((id) => Farm.session.visit && Farm.session.visit.host === id && !Farm.world.busy && Farm.world.state.isVisit, a.uid, SLOW);
+  await waitRemotes(c.page, ['Apple Acres (owner)', 'Berry Barn']);
+  await waitRemotes(b.page, ['Apple Acres (owner)', 'Clover Cove']);
+  await waitRemotes(a.page, ['Berry Barn', 'Clover Cove']);
+
+  // ----- C goes home; B goes to C's farm; C visits B: B is on C's own farm, so going home meets them
+  await c.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(c.page, false);
+  await b.page.evaluate((id) => Farm.Online.visit(id), c.uid);
+  await c.page.waitForFunction((id) => Farm.session.visit === null && Object.keys(Farm.world.remotes).indexOf(id) >= 0, b.uid, SLOW);
+  await waitRemotes(a.page, []);
+  await c.page.evaluate((id) => Farm.Online.visit(id), b.uid);
+  await waitWorld(c.page, true);
+  await waitModal(c.page, /visiting your farm right now/);
+  assert.match(await modalText(c.page), /Go home to meet them\?/);
+  await tapButton(c.page, 'Go home');
+  await waitWorld(c.page, false);
+  await waitRemotes(c.page, ['Berry Barn']);
+  await waitToast(c.page, /Berry Barn is visiting your farm!/);
+
+  // ----- B goes home with C on B's farm; then B leaves for A's farm: C is asked to follow, not told B "went home"
+  await b.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(b.page, false);
+  await c.page.evaluate((id) => Farm.Online.visit(id), b.uid);
+  await waitWorld(c.page, true);
+  await waitRemotes(c.page, ['Berry Barn (owner)']);
+  assert.strictEqual(await c.page.evaluate(() => Farm.ui.modals.length), 0, 'no question while B is home');
+  await b.page.evaluate((id) => Farm.Online.visit(id), a.uid);
+  await waitModal(c.page, /Berry Barn is visiting another farm right now/);
+  assert.doesNotMatch(await toast(c.page), /went home/);
+  await waitRemotes(c.page, []);
+  await tapButton(c.page, 'Stay here');
+  assert.strictEqual(await visitHost(c), b.uid, 'C stays on B\'s farm');
+  await frames(c.page, 10);
+  assert.strictEqual(await c.page.evaluate(() => Farm.ui.modals.length), 0, 'asked once for that farm');
+
+  // ----- B comes home: C sees them again
+  await b.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitRemotes(c.page, ['Berry Barn (owner)']);
+  await waitToast(c.page, /Berry Barn is home! Say hi\./);
+
+  for (const p of [a, b, c]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [a, b, c]) await p.context.close();
+});
+
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
   const server = createServer();
   const owner = await open(server), troll = await open(server);

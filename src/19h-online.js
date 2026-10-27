@@ -30,7 +30,9 @@
   var O = F.Online = {
     on: false, // signed in and joined
     me: null, // { id, name, code, listed }
-    chan: null, // the live channel we are on ('farm:<id>', our own or the farm we are visiting)
+    chan: null, // the live channel we are in ('farm:<id>', our own or the farm we are visiting)
+    home: null, // our own farm's channel: kept while we visit, saying where we went ({ topic, chan, last })
+    away: '', // on a visit: the farm the owner went to instead (their own room says so), or ''
     topic: '',
     others: {}, // id -> the others on the channel: { id, name, look, map, x, y, dir, m, at, host, t }
     seen: false, // had the first presence list on this channel
@@ -87,7 +89,7 @@
 
   // Stops playing online (after leaving it): back to your own farm, off the channel.
   O.disconnect = function () {
-    O.leaveChannel();
+    O.leaveAll();
     O.on = false;
     O.me = null;
     O.blocked = {};
@@ -156,6 +158,9 @@
   };
 
   // ---------- the live channel ----------
+  // Our own farm's room stays joined while we are online, even while we visit another farm: there we say where we
+  // went (away), so whoever comes to our farm can join us. O.chan is the room we are in: our own or the visited one.
+  // (One channel per topic: supabase-js hands back the same channel for a topic still leaving, so we never rejoin ours.)
   O.topicNow = function () {
     if (!O.on) return '';
     return 'farm:' + (F.session.visit ? F.session.visit.host : O.me.id);
@@ -169,29 +174,77 @@
     };
   };
 
+  // What our own farm's room hears while we are on someone else's farm.
+  O.awayState = function () {
+    return {
+      id: O.me.id, name: O.me.name, look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: 'farm', x: 0, y: 0, dir: 'down', m: 0,
+      host: true, at: 0, t: Date.now(), away: F.session.visit ? F.session.visit.host : '',
+    };
+  };
+
+  O.ensureHome = function () {
+    if (O.home) return O.home;
+    var h = { topic: 'farm:' + O.me.id, chan: null, last: [] };
+    O.home = h;
+    h.chan = F.Net.join(h.topic, F.session.visit ? O.awayState() : O.myState(), {
+      presence: function (list) { h.last = list; if (O.home === h && O.chan === h.chan) O.onPresence(list); },
+      message: function (event, payload) { if (O.home === h && O.chan === h.chan) O.onMessage(event, payload); },
+    });
+    if (!h.chan) O.home = null;
+    return O.home;
+  };
+
   O.ensureChannel = function () {
     var topic = O.topicNow();
-    if (topic && topic === O.topic) {
-      if (O.chan) O.chan.track(O.myState());
+    if (!topic) return;
+    var h = O.ensureHome();
+    if (!h) return;
+    if (F.session.visit) h.chan.track(O.awayState());
+    if (topic === O.topic && O.chan) {
+      O.chan.track(O.myState());
       O.syncSprites();
       return;
     }
     O.leaveChannel();
-    if (!topic) return;
     O.topic = topic;
     O.joinedAt = Date.now();
     O.seen = false;
+    if (topic === h.topic) {
+      // home again: our room was joined all along; what it last heard is who is here now
+      O.chan = h.chan;
+      O.chan.track(O.myState());
+      O.onPresence(h.last);
+      return;
+    }
     O.chan = F.Net.join(topic, O.myState(), { presence: O.onPresence, message: O.onMessage });
   };
 
+  // Out of the room we are in (our own room is only set aside, still joined).
   O.leaveChannel = function () {
-    if (O.chan) {
+    if (O.chan && !(O.home && O.chan === O.home.chan)) {
       try { O.chan.leave(); } catch (e) { /* already gone */ }
     }
     O.chan = null;
     O.topic = '';
     O.others = {};
+    O.away = '';
     O.syncSprites();
+  };
+
+  // Off every channel, our own room too (asleep, or out of online play).
+  O.leaveAll = function () {
+    O.leaveChannel();
+    var h = O.home;
+    O.home = null;
+    if (h && h.chan) {
+      try { h.chan.leave(); } catch (e) { /* already gone */ }
+    }
+  };
+
+  // Our name or look changed: tell the room we are in, and our own room while we are away.
+  O.retrack = function () {
+    if (O.chan) O.chan.track(O.myState());
+    if (O.home && O.home.chan && O.chan !== O.home.chan && F.session.visit) O.home.chan.track(O.awayState());
   };
 
   // Everything from the channel comes from other players: checked before it is used.
@@ -202,6 +255,7 @@
       id: p.id, name: L.cleanText(p.name, 24) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
+      away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
     };
   };
 
@@ -209,10 +263,12 @@
 
   O.onPresence = function (list) {
     if (!O.chan) return;
-    var before = O.others, now = {}, raw = [];
+    var before = O.others, now = {}, raw = [], v = F.session.visit, away = '';
     (Array.isArray(list) ? list : []).forEach(function (p) {
       var q = clean(p);
       if (!q || q.id === O.me.id) return;
+      // only the owner of this farm can say they are away (from their own room): not drawn, not counted
+      if (q.away) { if (v && q.id === v.host && !O.blocked[q.away]) away = q.away; return; }
       raw.push(q);
       if (O.blocked[q.id]) return;
       var old = before[q.id];
@@ -220,7 +276,6 @@
       if (old && old.rt && Date.now() - old.rt < 3000 && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.rt = old.rt; }
       now[q.id] = q;
     });
-    var v = F.session.visit;
     if (v && !O.seen && !L.visitorFits(raw, { id: O.me.id, at: Infinity }, v.host, ON.maxVisitors)) {
       O.leaveVisit('This farm is full right now (' + ON.maxVisitors + ' visitors). Try again in a little while!');
       return;
@@ -233,7 +288,7 @@
       now = keep;
     }
     var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
-    var went = Object.keys(before).filter(function (id) { return !now[id]; }).map(function (id) { return before[id]; });
+    var went = Object.keys(before).filter(function (id) { return !now[id] && !(away && id === v.host); }).map(function (id) { return before[id]; });
     O.others = now;
     if (came.length && O.chan) O.chan.track(O.myState()); // newcomers see where we are now, not where we last stopped
     var first = !O.seen;
@@ -250,6 +305,35 @@
       } else if (went.length && !first) F.ui.toast(names(went) + ' went home.', 2000);
     }
     O.syncSprites();
+    if (v) O.hostAway(v, away);
+  };
+
+  // On a visit, the owner is on another farm: "not here, join them?" (once for each farm they go to on this visit).
+  // If they are on our own farm, going home meets them.
+  O.hostAway = function (v, away) {
+    O.away = away;
+    if (!away || !F.ui) return;
+    v.asked = v.asked || {};
+    if (v.asked[away]) return;
+    v.asked[away] = 1;
+    var name = v.name, still = function () { return F.session.visit === v && O.away === away && O.on; };
+    var show = function () {
+      if (!still()) return;
+      if (F.ui.modals.length || (F.world && F.world.busy)) return setTimeout(show, 1200);
+      sfx('found');
+      if (away === O.me.id) {
+        F.ui.dialog('NOT HERE RIGHT NOW\n' + name + ' is visiting your farm right now!\nGo home to meet them?', [
+          { label: 'Stay here', color: 0xc0703a },
+          { label: 'Go home', cb: function () { if (still()) O.leaveVisit(); } },
+        ]);
+      } else {
+        F.ui.dialog('NOT HERE RIGHT NOW\n' + name + ' is visiting another farm right now.\nJoin ' + name + ' there?', [
+          { label: 'Stay here', color: 0xc0703a },
+          { label: 'Join', cb: function () { if (still()) O.visit(away, name); } },
+        ]);
+      }
+    };
+    show();
   };
 
   // A like or gift note from the same farmer at most once a minute (the server allows one a day anyway).
@@ -371,7 +455,7 @@
   };
 
   // ---------- visiting ----------
-  O.visit = function (host) {
+  O.visit = function (host, who) {
     if (!O.on || !F.world || F.world.busy || O.visiting) return Promise.resolve(false);
     if (host === O.me.id) { F.ui.toast('That is your own farm!'); return Promise.resolve(false); }
     F.ui.toast('Walking over...', 1500);
@@ -392,7 +476,10 @@
       O.leaveChannel(); // our own farm's news must not read as news about the farm we are walking to
       O.restartWorld();
       return true;
-    }).catch(function (e) { F.ui.toast(errText(e)); return false; }).then(done);
+    }).catch(function (e) {
+      F.ui.toast(who && /no such farm/i.test((e && e.message) || '') ? 'You can\'t join ' + who + ' on that farm right now.' : errText(e));
+      return false;
+    }).then(done);
   };
 
   O.leaveVisit = function (why) {
@@ -793,7 +880,7 @@
         O.me.name = L.cleanText(r && r.farm_name, 24) || n;
         s.net.name = O.me.name;
         F.Host.save(s);
-        if (O.chan) O.chan.track(O.myState());
+        O.retrack();
         done();
       }).catch(function (e) { self.toast(errText(e)); });
     }, { hint: 'Others see this name. You can change it later.' });
@@ -813,7 +900,7 @@
       O.me.name = L.cleanText(r && r.farm_name, 24) || n;
       F.session.state.net.name = O.me.name;
       F.Host.save(F.session.state);
-      if (O.chan) O.chan.track(O.myState());
+      O.retrack();
       var said = function () { self.toast('Your farm is called ' + O.me.name + '.', 2200, 0x2f5a22); };
       if (self.modals.length) { self.closeModal(); self.openOnline('me', 0, said); } else said();
     }).catch(function (e) { self.toast(errText(e)); });
@@ -1004,7 +1091,7 @@
     var was = F.Host.sleeping;
     sleep(sleeping);
     if (!O.on || !!sleeping === was) return;
-    if (sleeping) O.leaveChannel();
+    if (sleeping) O.leaveAll();
     else O.ensureChannel();
   };
 
