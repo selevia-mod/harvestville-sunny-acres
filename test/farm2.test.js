@@ -240,3 +240,20 @@ test('the Market: what can go on a stall, its three prices, and the shopping lis
   assert.ok(of('carabao_milk'), 'kesong puti');
   assert.ok(!of('turnip') && !of('egg'), 'nothing you have or already gave');
 });
+
+test('chat bubbles: one short line, no rude words (with look-alike letters), and not too fast', () => {
+  assert.strictEqual(L.chatClean('  Nice   farm!  '), 'Nice farm!');
+  assert.strictEqual(L.chatClean('x'.repeat(80)).length, C.CHAT.max);
+  assert.strictEqual(L.chatClean('line one\nline two'), 'line one line two');
+  ['you are a gago', 'sh1t', 'F U C K'.replace(/ /g, ''), 'tang ina mo', 'b0b0'].forEach((t) => assert.strictEqual(L.chatClean(t), '', t));
+  ['Sussex farm', 'my rooster says hi', 'tangerine pie', 'bobota'].forEach((t) => assert.ok(L.chatClean(t), t));
+  assert.strictEqual(L.chatClean(''), '');
+  C.CHAT.quick.forEach((q) => assert.strictEqual(L.chatClean(q), q));
+  const log = {};
+  assert.ok(L.chatAllowed(log, 1000));
+  assert.ok(!L.chatAllowed(log, 1500), 'not twice in a moment');
+  let n = 1;
+  for (let t = 3000; t < 60000; t += 1300) if (L.chatAllowed(log, t)) n++;
+  assert.strictEqual(n, C.CHAT.perMinute, 'a dozen a minute at most');
+  assert.ok(L.chatAllowed(log, 125000), 'later, again');
+});

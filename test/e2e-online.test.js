@@ -518,6 +518,51 @@ test('online: the Market: sell at your stall; a buyer finds what an order needs,
   for (const p of [seller, buyer]) await p.context.close();
 });
 
+test('online: chat bubbles: the Chat button shows when someone is here; a line pops up over your head for both', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  const chatBtn = (p) => p.evaluate(() => Farm.ui.chatBtn.visible);
+  assert.strictEqual(await chatBtn(owner.page), false, 'nobody here: no Chat button');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(owner.page, ['Ana Acres']);
+  await owner.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  await guest.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  // the guest taps Chat, then a quick line
+  await guest.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSay(); });
+  await waitModal(guest.page, /Say something[\s\S]*Nice farm!/);
+  await shot(guest.page, 'chat-1-panel');
+  await tapButton(guest.page, 'Nice farm!');
+  const bubbleText = (p, id) => p.evaluate((id) => { const b = Farm.world.bubbles[id]; return b ? b.c.list[1].text : null; }, id);
+  assert.strictEqual(await bubbleText(guest.page, guest.uid), 'Nice farm!', 'over your own head');
+  await owner.page.waitForFunction((id) => !!Farm.world.bubbles[id], guest.uid, SLOW);
+  assert.strictEqual(await bubbleText(owner.page, guest.uid), 'Nice farm!', 'over the guest, on the owner\'s phone');
+  await shot(owner.page, 'chat-2-owner-sees');
+  // typed: the owner answers
+  await owner.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSay(); });
+  await tapButton(owner.page, 'Type your own');
+  await type(owner.page, 'Welcome! Come see my cows');
+  await guest.page.waitForFunction((id) => !!Farm.world.bubbles[id], owner.uid, SLOW);
+  assert.strictEqual(await bubbleText(guest.page, owner.uid), 'Welcome! Come see my cows');
+  await shot(guest.page, 'chat-3-guest-sees');
+  // rude words are refused; a modified game sending them anyway is not shown
+  await owner.page.evaluate(() => Farm.ui.closeAll());
+  await owner.page.waitForTimeout(1300);
+  assert.match(await owner.page.evaluate(() => Farm.Online.say('you gago')), /friendly/);
+  await guest.page.evaluate(() => { Farm.world.bubbles = {}; });
+  await owner.page.evaluate(() => Farm.Online.send('say', { s: 'sh1t farm' }));
+  await guest.page.waitForTimeout(600);
+  assert.strictEqual(await bubbleText(guest.page, owner.uid), null, 'not shown');
+  // a bubble goes away by itself
+  await guest.page.evaluate(() => Farm.Online.say('Bye!'));
+  await guest.page.waitForFunction((id) => !Farm.world.bubbles[id], guest.uid, { timeout: 15000 });
+  for (const p of [owner, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [owner, guest]) await p.context.close();
+});
+
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
   const server = createServer();
   const owner = await open(server), troll = await open(server);

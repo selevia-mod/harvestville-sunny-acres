@@ -357,6 +357,38 @@
     return out;
   };
 
+  // ---------- chat bubbles (online): short lines over your farmer's head, for whoever is on the same farm ----------
+  // They travel over the farm's live room and are not stored, so each phone checks what it shows: one line, at most
+  // C.CHAT.max characters, and none of the rude words of the server's list (supabase/farm_online.sql farm.words, the
+  // same look-alike letters).
+  C.CHAT = {
+    max: 60, show: 5000, gap: 1200, perMinute: 12,
+    quick: ['Hi!', 'Nice farm!', 'Thank you!', 'Follow me!', 'Wait for me!', 'Come visit me!', 'Let\'s trade!', 'Bye!'],
+  };
+  var RUDE_PART = ['fuck', 'shit', 'bitch', 'cunt', 'nigger', 'nigga', 'faggot', 'whore', 'slut', 'pussy', 'porn', 'asshole', 'motherfucker',
+    'tangina', 'tang ina', 'putangina', 'putang', 'kantot', 'kantutan', 'hindot', 'jakol', 'pakyu', 'pakshet', 'tarantado'];
+  var RUDE_WORD = ['dick', 'rape', 'rapist', 'penis', 'vagina', 'sex', 'nude', 'nudes', 'boobs', 'puta', 'gago', 'ulol', 'ulul', 'bobo', 'tanga',
+    'pokpok', 'puke', 'titi', 'burat', 'kupal', 'punyeta'];
+  var LOOKS = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i' };
+  // The line to show, or '' when it can't be shown.
+  L.chatClean = function (text) {
+    var t = L.cleanText(text, C.CHAT.max);
+    if (!t) return '';
+    var x = t.toLowerCase().replace(/[0134578@$!|]/g, function (c) { return LOOKS[c]; });
+    if (RUDE_PART.some(function (w) { return x.indexOf(w) >= 0; })) return '';
+    if (RUDE_WORD.some(function (w) { return new RegExp('(^|[^a-z])' + w + '([^a-z]|$)').test(x); })) return '';
+    return t;
+  };
+  // Rate limits: { last, times } per speaker; true when a new line may be said (or shown) now.
+  L.chatAllowed = function (log, now) {
+    log.times = (log.times || []).filter(function (t) { return now - t < 60000; });
+    if (log.last && now - log.last < C.CHAT.gap) return false;
+    if (log.times.length >= C.CHAT.perMinute) return false;
+    log.last = now;
+    log.times.push(now);
+    return true;
+  };
+
   // ---------- tips for the new kinds of goods ----------
   var tipKey = L.tipKey;
   L.tipKey = function (id) {

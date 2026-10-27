@@ -57,6 +57,25 @@
 
   // The pictures on the round buttons: drawn, so they stay crisp at any size.
   var GLYPH = {
+    // a speech bubble with three dots (chat bubbles, 19m-chat.js)
+    chat: function (g, cx, cy, r) {
+      var w = r * 1.18, h = r * 0.86, x = cx - w / 2, y = cy - h / 2 - r * 0.08;
+      g.beginPath();
+      g.roundRect(x, y, w, h, h * 0.42);
+      g.moveTo(cx - w * 0.2, y + h - 1);
+      g.lineTo(cx - w * 0.32, y + h + r * 0.34);
+      g.lineTo(cx + w * 0.02, y + h - 1);
+      g.fillStyle = '#fffaf0';
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = EDGE;
+      g.stroke();
+      [-1, 0, 1].forEach(function (k) {
+        circle(g, cx + k * w * 0.24, y + h / 2, r * 0.09);
+        g.fillStyle = '#4a90c9';
+        g.fill();
+      });
+    },
     // a checklist: paper, lines and ticks
     quests: function (g, cx, cy, r) {
       var w = r * 0.92, h = r * 1.12, x = cx - w / 2, y = cy - h / 2;
@@ -276,7 +295,7 @@
 
   // ---------- the side buttons ----------
   // owner, 26 Oct: Decorate sits right under Online (one column at the top right)
-  var SIDE = { x: W - 30, r: 22, quests: 134, online: 196, decorate: 258 };
+  var SIDE = { x: W - 30, r: 22, quests: 134, online: 196, decorate: 258, chat: 320 }; // (chat: 19m-chat.js, owner 27 Oct: an icon under Decorate)
   U.SIDE = SIDE;
 
   var create = U.create;

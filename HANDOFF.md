@@ -117,6 +117,11 @@ several times a day: profit per tile = 1.5 + 2.5 x sqrt(hours).
   is the shopping list (L.shoppingList: what orders, requests and workshop recipes miss), each with Find (who sells
   it, friends first). Stalls: 4 lots of up to 10 for 2 days, priced 1x / 1.4x / 2x the selling price; 10 buys a day.
   The server only decides who got a lot; the buyer pays in their game, the seller collects with Online's collect.
+- Chat bubbles (owner, 27 Oct): `src/19m-chat.js`. A round speech-bubble icon under Decorate shows while someone else
+  is drawn on your map; 8 quick lines or type your own (60 letters); the line pops up over your farmer's head for
+  everyone on that farm (the 'say' event over the live room; not stored). Each phone checks what it shows
+  (L.chatClean: the server's rude-word list, look-alike letters) and limits each farmer (L.chatAllowed: 1.2 s apart,
+  12 a minute). No SQL. NB: U.openChat is the friends' message window; the bubble panel is U.openSay.
 
 ## Last session (26 Oct 2026), in short
 
