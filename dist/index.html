@@ -7447,7 +7447,19 @@
       return this.modals.length > 0;
     }
 
+    // Moves from this panel to another (a tab, a page, a new list) without closing it first: it stays on screen until the
+    // next panel opens, which then takes its place in the same frame (owner, 28 Oct: tabs closed and reopened the panel,
+    // the farm flashing through while the next tab loaded). If nothing opens within a few seconds, it simply stays.
+    swapTo(open) {
+      var top = this.modals[this.modals.length - 1];
+      this.swapping = top ? { m: top, at: Date.now() } : null;
+      open();
+    }
+
     openModal(onBack) {
+      var sw = this.swapping;
+      this.swapping = null;
+      if (sw && this.modals[this.modals.length - 1] === sw.m && Date.now() - sw.at < 8000) this.closeModal();
       this.hideToast(); // don't cover the panel's title
       // panels are drawn in the 640 layout, centred on a taller screen; the dim covers all of it
       var c = this.add.container(0, C.EXTRA / 2).setDepth(100 + this.modals.length);
@@ -7537,9 +7549,11 @@
           g.fillStyle(0xbfe0f0, 1).fillRoundedRect(3, 3, 64, 74, 8);
         });
         c.add(this.add.image(79, y0 + 98, 'people', vi * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150));
-        c.add(this.txt(126, y0 + 26, opts.name || C.VILLAGERS[opts.portrait].name, 18, INK, { fontStyle: 'bold' }));
-        c.add(this.txt(126, y0 + 50, C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
-        c.add(this.heartsText(126, y0 + 66, L.friendHearts(F.session.state, opts.portrait)));
+        var who = this.txt(126, y0 + 22, opts.name || C.VILLAGERS[opts.portrait].name, 19, INK, { fontStyle: 'bold' });
+        if (who.width > W - 126 - 40) who.setScale((W - 126 - 40) / who.width);
+        c.add(who);
+        c.add(this.txt(126, y0 + 46, C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
+        this.heartRow(c, 126, y0 + 66, L.friend(F.session.state, opts.portrait).pts);
       } else if (titleText) { // a ribbon across the top edge
         var rw = Math.min(W - 40, Math.max(170, titleText.width + 44));
         this.ribbon(c, W / 2, y0 + 4, rw);
@@ -7621,6 +7635,48 @@
 
     confirm(text, onYes) {
       return this.dialog(text, [{ label: 'No', color: 0xc0703a }, { label: 'Yes', cb: onYes }]);
+    }
+
+    // Ten drawn hearts for a friendship of `pts` (0-100, 10 a heart): full ones red, the next one filled as far as you
+    // are toward it, the rest empty; and "n of 10 hearts" under them (owner, 28 Oct: the text hearts looked poor).
+    heartRow(parent, x, y, pts) {
+      pts = Math.max(0, Math.min(C.FRIEND.max, Number(pts) || 0));
+      var full = Math.floor(pts / 10), part = (pts % 10) / 10, size = 17, step = 18;
+      var draw = function (fill, edge, shine) {
+        return function (g) {
+          var s = size;
+          g.beginPath();
+          g.moveTo(s / 2, s * 0.92);
+          g.bezierCurveTo(s * 0.08, s * 0.6, -s * 0.02, s * 0.28, s * 0.22, s * 0.12);
+          g.bezierCurveTo(s * 0.36, s * 0.02, s * 0.48, s * 0.1, s / 2, s * 0.26);
+          g.bezierCurveTo(s * 0.52, s * 0.1, s * 0.64, s * 0.02, s * 0.78, s * 0.12);
+          g.bezierCurveTo(s * 1.02, s * 0.28, s * 0.92, s * 0.6, s / 2, s * 0.92);
+          g.closePath();
+          g.fillStyle = fill;
+          g.fill();
+          g.lineWidth = 1.4;
+          g.strokeStyle = edge;
+          g.stroke();
+          if (shine) {
+            g.beginPath();
+            g.ellipse(s * 0.3, s * 0.3, s * 0.1, s * 0.06, -0.6, 0, Math.PI * 2);
+            g.fillStyle = 'rgba(255,255,255,0.75)';
+            g.fill();
+          }
+        };
+      };
+      for (var i = 0; i < 10; i++) {
+        var hx = x + i * step;
+        this.canvasImg(parent, hx, y, 'ui-heart-empty', size, size, draw('#f3dfc4', '#c9a27a', false));
+        if (i < full) this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
+        else if (i === full && part > 0) {
+          var img = this.canvasImg(parent, hx, y, 'ui-heart-full', size, size, draw('#e8354d', '#8f1f2e', true));
+          var th = img.height; // filled from the bottom up, as far as you are toward this heart
+          img.setCrop(0, th * (1 - part), img.width, th * part);
+        }
+      }
+      var label = full === 10 ? 'Best friends! 10 of 10 hearts' : full + ' of 10 hearts' + (part > 0 ? ', ' + Math.round(part * 100) + '% to the next' : '');
+      if (parent) parent.add(this.txt(x, y + size + 3, label, 11, '#7a5a3a'));
     }
 
     heartsText(x, y, n) {
@@ -13706,9 +13762,17 @@
     }).then(done);
   };
 
-  O.leaveVisit = function (why) {
+  // to (optional): where to go instead of home ('town', with its spawn point): your own game picks up there.
+  O.leaveVisit = function (why, to, spawn, floor) {
     if (!F.session.visit) return;
     F.session.visit = null;
+    if (to) {
+      var mine = F.session.state;
+      mine.map = to;
+      mine.player = { x: null, y: null, dir: 'down' };
+      F.session.spawn = spawn;
+      if (to === 'mine') F.session.mineFloor = floor || 1;
+    }
     O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);
     O.restartWorld();
@@ -13782,7 +13846,9 @@
   // Their farmhouse door works; the road to town takes you home.
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
-    if (visiting(this) && to !== 'farm' && to !== 'house') { O.leaveVisit(); return; }
+    // the road to town from a friend's farm: the visit ends and you walk into town as yourself (owner, 28 Oct: "why i
+    // send back to my own farm? I should able to visit the town also")
+    if (visiting(this) && to !== 'farm' && to !== 'house') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
   };
 
@@ -13996,7 +14062,7 @@
       var k = self.onlineKind[t];
       return {
         icon: t === 'visit' ? C.ICON.sparkle : C.ICON.ribbon, name: 'Showing: ' + kindName(t, k), desc: 'Tap Change to see another list.',
-        buttons: [{ label: 'Change', color: GREY, cb: function () { self.onlineKind[t] = nextKind(t, k); self.closeModal(); self.openOnline(t, 0); } }],
+        buttons: [{ label: 'Change', color: GREY, cb: function () { self.onlineKind[t] = nextKind(t, k); self.swapTo(function () { self.openOnline(t, 0); }); } }],
       };
     };
     if (tab === 'visit') {
@@ -14705,10 +14771,10 @@
     };
     showSub();
     o.refresh = showSub;
-    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.closeModal(); o.reopen(key, 0); });
+    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
     shown.forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
     if (!rows.length && o.empty) c.add(this.txt(W / 2, y0 + 50, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
-    if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.closeModal(); o.reopen(o.tab, p); });
+    if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.swapTo(function () { o.reopen(o.tab, p); }); });
     return o;
   };
   var GREY_BTN = 0xa08a68;

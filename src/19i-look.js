@@ -371,10 +371,10 @@
     };
     showSub();
     o.refresh = showSub;
-    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.closeModal(); o.reopen(key, 0); });
+    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
     shown.forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
     if (!rows.length && o.empty) c.add(this.txt(W / 2, y0 + 50, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
-    if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.closeModal(); o.reopen(o.tab, p); });
+    if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.swapTo(function () { o.reopen(o.tab, p); }); });
     return o;
   };
   var GREY_BTN = 0xa08a68;

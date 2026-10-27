@@ -245,12 +245,14 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await ben.page.waitForFunction(() => Farm.world.mapKey === 'house' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
   await waitRemotes(owner.page, ['Ana Acres']);
   await waitRemotes(ben.page, []);
-  // and the road to town takes a visitor home
+  // and the road to town takes a visitor into town, in his own game (owner, 28 Oct: it used to send him home)
   await ben.page.evaluate(() => Farm.world.travel('farm', 'house_door'));
   await ben.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
   await ben.page.evaluate(() => Farm.world.travel('town', 'from_farm'));
   await waitWorld(ben.page, false);
-  assert.strictEqual(await ben.page.evaluate(() => Farm.world.mapKey), 'farm', 'back on his own farm');
+  assert.strictEqual(await ben.page.evaluate(() => Farm.world.mapKey), 'town', 'in town, his own game');
+  await ben.page.evaluate(() => Farm.world.travel('farm', 'road_north'));
+  await ben.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && !Farm.world.state.isVisit, null, SLOW);
   await waitRemotes(owner.page, ['Ana Acres']);
 
   // ----- friends: Ana adds the owner by code, the owner accepts, they chat
@@ -468,6 +470,19 @@ test('online: the Market: sell at your stall; a buyer finds what an order needs,
   // the seller puts 4 milk up at the Fair price (1.4x)
   await seller.page.evaluate(() => Farm.ui.openOnline('market', 0));
   await waitModal(seller.page, /Shopping list[\s\S]*Sell at your stall[\s\S]*0 of 4 lots/);
+  // switching tabs keeps a panel on screen the whole time (owner, 28 Oct: it closed, the farm flashed, then reopened)
+  await seller.page.evaluate(() => {
+    window.__gaps = 0;
+    const check = () => { if (window.__watch) { if (!Farm.ui.modals.length) window.__gaps++; requestAnimationFrame(check); } };
+    window.__watch = true; requestAnimationFrame(check);
+  });
+  for (const t of ['Ranks', 'Me', 'Visit', 'Market']) {
+    await tapButton(seller.page, t);
+    await seller.page.waitForTimeout(400);
+  }
+  assert.strictEqual(await seller.page.evaluate(() => { window.__watch = false; return window.__gaps; }), 0, 'never a frame with no panel');
+  assert.strictEqual(await seller.page.evaluate(() => Farm.ui.modals.length), 1, 'one panel, not stacked');
+  await waitModal(seller.page, /Shopping list[\s\S]*Sell at your stall/);
   await shot(seller.page, 'market-1-tab');
   await tapButton(seller.page, 'Sell');
   await waitModal(seller.page, /Sell at your stall[\s\S]*Milk/);
@@ -564,6 +579,28 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   await guest.page.waitForFunction((id) => !Farm.world.bubbles[id], guest.uid, { timeout: 15000 });
   for (const p of [owner, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [owner, guest]) await p.context.close();
+});
+
+test('online: from a friend\'s farm, the road to town takes you into town as yourself (owner, 28 Oct)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  // the farm's way to town, as walking onto it would do
+  const warp = await guest.page.evaluate(() => {
+    const w = Farm.world, found = (w.objects || []).filter((o) => o.type === 'warp' && o.props && o.props.to === 'town')[0];
+    return found ? { to: found.props.to, spawn: found.props.spawn } : null;
+  });
+  assert.ok(warp, 'a road to town on the farm');
+  await guest.page.evaluate((w) => Farm.world.travel(w.to, w.spawn), warp);
+  await guest.page.waitForFunction(() => Farm.world && Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  const g = await guest.page.evaluate(() => ({ visit: Farm.session.visit, own: Farm.world.state === Farm.session.state, map: Farm.session.state.map }));
+  assert.deepStrictEqual(g, { visit: null, own: true, map: 'town' }, 'in town, in your own game');
+  await waitRemotes(host.page, []);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
 });
 
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {

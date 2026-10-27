@@ -489,9 +489,17 @@
     }).then(done);
   };
 
-  O.leaveVisit = function (why) {
+  // to (optional): where to go instead of home ('town', with its spawn point): your own game picks up there.
+  O.leaveVisit = function (why, to, spawn, floor) {
     if (!F.session.visit) return;
     F.session.visit = null;
+    if (to) {
+      var mine = F.session.state;
+      mine.map = to;
+      mine.player = { x: null, y: null, dir: 'down' };
+      F.session.spawn = spawn;
+      if (to === 'mine') F.session.mineFloor = floor || 1;
+    }
     O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);
     O.restartWorld();
@@ -565,7 +573,9 @@
   // Their farmhouse door works; the road to town takes you home.
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
-    if (visiting(this) && to !== 'farm' && to !== 'house') { O.leaveVisit(); return; }
+    // the road to town from a friend's farm: the visit ends and you walk into town as yourself (owner, 28 Oct: "why i
+    // send back to my own farm? I should able to visit the town also")
+    if (visiting(this) && to !== 'farm' && to !== 'house') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
   };
 
@@ -779,7 +789,7 @@
       var k = self.onlineKind[t];
       return {
         icon: t === 'visit' ? C.ICON.sparkle : C.ICON.ribbon, name: 'Showing: ' + kindName(t, k), desc: 'Tap Change to see another list.',
-        buttons: [{ label: 'Change', color: GREY, cb: function () { self.onlineKind[t] = nextKind(t, k); self.closeModal(); self.openOnline(t, 0); } }],
+        buttons: [{ label: 'Change', color: GREY, cb: function () { self.onlineKind[t] = nextKind(t, k); self.swapTo(function () { self.openOnline(t, 0); }); } }],
       };
     };
     if (tab === 'visit') {
