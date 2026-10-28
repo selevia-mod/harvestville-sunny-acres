@@ -877,3 +877,36 @@ test('online: on a visit the top bar is yours: your gold, your bag, your date (2
   assert.deepStrictEqual(host.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+test('online: on a visit the rain sound follows the weather you see (29 Oct, OPPO: rain sound on a sunny visit)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  // (the suite keeps every day sunny: here odd days rain, on both phones) a rainy day for their copy, a dry one for you
+  const wx = () => { Farm.Logic.weather = (s, d) => (d % 2 ? 'rain' : 'sunny'); };
+  await host.page.evaluate(wx);
+  await guest.page.evaluate(wx);
+  const start = await guest.page.evaluate(() => Farm.session.state.day);
+  const days = { rain: start + (start % 2 ? 2 : 3), dry: start + (start % 2 ? 3 : 2) };
+  await host.page.evaluate((d) => { Farm.session.state.day = d; return Farm.Online.publish(true); }, days.rain);
+  await guest.page.evaluate((d) => { Farm.session.state.day = d; Farm.ui.refresh(); }, days.dry);
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await guest.page.waitForTimeout(300);
+  const seen = await guest.page.evaluate(() => ({ sound: Farm.Audio.ambientKind, rainFx: /rain|storm/.test(Farm.ui.weatherKey || '') }));
+  assert.strictEqual(seen.rainFx, false, 'the screen shows your dry day');
+  assert.strictEqual(seen.sound, null, 'so no rain sound');
+  // and on a wet day of yours, the rain sound plays on their farm too
+  await guest.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(guest.page, false);
+  await guest.page.evaluate((d) => { Farm.session.state.day = d; }, days.rain);
+  await host.page.evaluate((d) => { Farm.session.state.day = d; return Farm.Online.publish(true); }, days.dry);
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await guest.page.waitForTimeout(300);
+  assert.ok(await guest.page.evaluate(() => /rain|storm/.test(Farm.ui.weatherKey) && !!Farm.Audio.ambientKind), 'rain on screen and in your ears');
+  assert.deepStrictEqual(guest.problems, []);
+  assert.deepStrictEqual(host.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});

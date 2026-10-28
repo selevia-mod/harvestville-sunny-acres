@@ -590,6 +590,11 @@
       F.session.state = v.state;
       try { create.call(this); } finally { F.session.state = mine; }
       F.bus.emit('hud'); // the top bar is yours: your gold, energy, date and bag (it was drawn from their copy)
+      // ...and so is the weather on screen, so the rain sound follows it (29 Oct, OPPO: their copy's rainy day buzzed on a dry visit)
+      if (F.Audio) {
+        var wx = L.weather(mine, mine.day);
+        F.Audio.ambient(this.outdoors && C.WEATHER[wx].waters ? wx : null);
+      }
     } else {
       create.call(this);
     }
