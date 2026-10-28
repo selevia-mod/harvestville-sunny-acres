@@ -241,7 +241,7 @@
   U.openEnergy = function () {
     var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
     var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
-    var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * C.ENERGY_EVERY + (C.ENERGY_EVERY - (now - s.regen))) + '.';
+    var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * L.regenEvery(s) + (L.regenEvery(s) - (now - s.regen))) + '.';
     var self = this, buy = L.canRefill && L.canRefill() && e < max;
     this.dialog('Energy ' + e + ' / ' + max, buy ? [{ label: 'OK', color: 0xa08a68 }, { label: 'Refill', cb: function () { self.openRefill(); } }] : null, {
       rows: [

@@ -290,12 +290,17 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   await frames(page);
   assert.strictEqual(await actionLabel(page), 'Growing');
   await tapAction(page);
-  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip: ready in 12 min/);
-  // 12 real minutes later the watered row is ripe, the dry rows are not
-  await advance(page, 12);
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip: ready in 15 min/);
+  // 15 real minutes later the watered row is ripe; the dry rows never started (owner, 29 Oct 2026: crops need water)
+  await advance(page, 15);
   s = await state(page);
   assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 38 + 5])));
-  assert.ok(await page.evaluate(() => !Farm.Logic.isRipe(Farm.session.state.soil[13 * 38 + 5])), 'the unwatered row is still growing');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.cropStage(Farm.session.state.soil[13 * 38 + 5])), 0, 'the unwatered row is still a seed');
+  await teleport(page, 5, 12, 'down');
+  await page.evaluate(() => { Farm.world.hintKey = null; });
+  await frames(page);
+  await tapAction(page);
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip needs water to grow/);
   assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 38 + 5].stage), 3, 'the field shows it');
   await teleport(page, 5, 11, 'down');
   await shot(page, '05-ripe');
@@ -516,6 +521,49 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   assert.strictEqual(await actionLabel(page), 'Bed');
   await tapAction(page);
   assert.match(await modalText(page), /A new day starts at midnight/);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('sleep in your bed: tucked in with Zzz, energy every minute, the joystick wakes you (owner, 29 Oct 2026)', async () => {
+  const { page, problems, context } = await open();
+  await tapButton(page, 'Boy');
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.click('#farm-ask button:first-child');
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
+  await page.evaluate(() => window.__gameBack());
+  await go(page, 'house', 'bed');
+  await teleport(page, 1, 4, 'up'); // (a new farm's bed is at 1,2)
+  await page.evaluate(() => { const s = Farm.session.state; s.energy = 10; s.regen = Farm.Logic.nowMin(); });
+  assert.strictEqual(await actionLabel(page), 'Bed');
+  await tapAction(page);
+  assert.match(await modalText(page), /Take a nap\?/);
+  await tapButton(page, 'Sleep');
+  await frames(page, 3);
+  let z = await page.evaluate(() => ({ on: !!Farm.world.sleeping, asleep: Farm.session.state.asleep, seen: Farm.world.player.visible,
+    art: Farm.world.sleeping && Farm.world.sleeping.img.texture.key, bar: !!Farm.ui.sleepBar }));
+  assert.deepStrictEqual(z, { on: true, asleep: true, seen: false, art: 'props/sleep_boy', bar: true });
+  await advance(page, 3);
+  await page.waitForTimeout(1200);
+  await shot(page, '40-asleep');
+  assert.strictEqual((await state(page)).energy, 13, '1 point a minute while asleep');
+  await page.waitForFunction(() => Farm.world.sleeping.zzz.length > 0, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.regenEvery(Farm.session.state)), 1);
+  // a push on the joystick wakes you, and energy is back to every 2 minutes
+  await page.evaluate(() => { Farm.input.jx = 1; });
+  await frames(page, 2);
+  await page.evaluate(() => { Farm.input.jx = 0; });
+  z = await page.evaluate(() => ({ on: !!Farm.world.sleeping, asleep: Farm.session.state.asleep, seen: Farm.world.player.visible, bar: !!Farm.ui.sleepBar }));
+  assert.deepStrictEqual(z, { on: false, asleep: false, seen: true, bar: false });
+  await advance(page, 4);
+  assert.strictEqual((await state(page)).energy, 15, 'awake: 1 point every 2 minutes');
+  // asleep with a nearly full bar: it wakes you when it is full; the saved game never says you are asleep
+  await page.evaluate(() => { const s = Farm.session.state; s.energy = Farm.Logic.maxEnergy(s) - 1; s.regen = Farm.Logic.nowMin(); Farm.world.fallAsleep(); });
+  assert.ok(!('asleep' in JSON.parse(JSON.stringify(await page.evaluate(() => Farm.Logic.serialize(Farm.session.state))))));
+  await advance(page, 1);
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => !!Farm.world.sleeping), false, 'woke up full');
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /full of energy/);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
