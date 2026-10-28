@@ -304,7 +304,7 @@
   L.helpWater = function (v, idx) {
     var t = v.soil[idx];
     if (!t || !t.c || t.w || L.cropStage(t) >= 3) return false;
-    t.w = 1;
+    L.wet(t);
     return true;
   };
   // At home: friends watered these tiles. Waters the ones still growing and dry; returns how many.
@@ -313,7 +313,7 @@
     (Array.isArray(tiles) ? tiles : []).forEach(function (idx) {
       idx = int(idx, -1, 1e5, -1);
       var t = s.soil[idx];
-      if (t && t.c && !t.w && L.cropStage(t) < 3) { t.w = 1; n++; }
+      if (t && t.c && !t.w && L.cropStage(t) < 3) { L.wet(t); n++; }
     });
     return n;
   };

@@ -238,7 +238,7 @@
       var w = F.world;
       if (w && w.mapKey === 'farm' && !visiting(w) && w.refreshAllSoil) w.refreshAllSoil();
       if (F.ui) F.ui.toast((from.length ? from.slice(0, 3).join(', ') + (from.length > 3 ? ' and more' : '') : 'Friends') + ' watered ' +
-        (n ? n + ' of your crops' : 'your farm') + '! They grow faster now.', 3600, 0x2f5a22);
+        (n ? n + ' of your crops' : 'your farm') + '! They are growing now.', 3600, 0x2f5a22);
       return n;
     }, function (e) {
       O.claimingHelps = false;

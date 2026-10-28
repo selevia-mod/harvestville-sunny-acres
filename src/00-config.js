@@ -47,6 +47,7 @@
     NIGHT_FULL: 20 * 60,
     MS_PER_MINUTE: 500, // (old game clock; time now follows the phone's clock)
     ENERGY_EVERY: 2, // real minutes per energy point coming back by itself (owner, 26 Oct: more play per visit; was 3)
+    SLEEP_EVERY: 1, // ...and while you sleep in your bed (owner, 29 Oct 2026)
     GROW: { boost: 0.25, wither: 1, witherMin: 240 }, // watering takes 25% off the growing time; a ripe crop withers after as long again as it grew (at least 4 hours)
     MONTHS: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     SEASON_OF_MONTH: [3, 3, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3], // Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb
@@ -281,8 +282,8 @@
     START_ANIMALS: ['chicken'],
     DOG: { name: 'Biscuit', frame0: 10, speed: 520, reach: 0.6, height: 0.55 },
 
-    // FarmVille-style crops: they grow in real time (mins) from planting, with no watering needed. Watering a
-    // growing crop once makes it grow faster (C.GROW.boost); a ripe crop withers if it is left too long
+    // Crops grow in real time (mins) once watered (owner, 29 Oct 2026: unwatered, a seed stays a seed; crops planted
+    // before that grew dry, and watering made them faster: C.GROW.boost); a ripe crop withers if it is left too long
     // (C.GROW.wither). art = the crop's growing/ripe frames in the crops sheet; plant/shape/color* draw the
     // placeholder art (tools/art/crops2.js). Seeds are sold in their season; a planted crop grows on through the
     // next season.

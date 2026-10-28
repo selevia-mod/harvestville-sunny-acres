@@ -35,7 +35,7 @@
     'HOW TO PLAY\n' +
     'Drag anywhere to walk. Tap the big button to act on the highlighted tile. Hold it with an upgraded tool to work a whole patch.\n\n' +
     'Clear the field: Sickle for weeds, Axe for branches and stumps (lumber), Hammer for stones (stone).\n\n' +
-    'Hoe the soil and plant a seed bag (it sows 3x3). Crops grow in real time, from 15 minutes to 2 days; watering makes them grow faster. ' +
+    'Hoe the soil and plant a seed bag (it sows 3x3). Crops grow in real time, from 15 minutes to 2 days, once you water them (rain waters them too). ' +
     'Pick them when ripe: a crop left too long withers (clear it with the Hoe).',
     'SELLING AND ANIMALS\n' +
     'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus.\n\n' +

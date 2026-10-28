@@ -174,7 +174,7 @@
     var toolOnCrop = soil && soil.c && def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
     if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
-      if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w ? '' : ' Water it to make it grow faster.') };
+      if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: (L.needsWater(soil) ? cropName + ' needs water to grow. Water it with the Watering Can.' : cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w || soil.h ? '' : ' Water it to make it grow faster.')) };
     }
     if (!def) return null;
     if (def.tool && C.TOOLS[def.tool]) return this.toolAction(def.tool, t);

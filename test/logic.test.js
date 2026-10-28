@@ -58,7 +58,12 @@ test('till, plant and grow a turnip to harvest in real time; a ripe crop withers
   assert.strictEqual(L.plant(s, 5, seeds), 'occupied');
   assert.strictEqual(L.cropStage(s.soil[5]), 0);
   assert.strictEqual(C.CROPS.turnip.mins, 15);
-  // no watering needed: it grows by the clock
+  // dry, it stays a seed (owner, 29 Oct 2026: a crop needs water to grow)
+  clock.advance(60);
+  assert.strictEqual(L.cropStage(s.soil[5]), 0);
+  assert.strictEqual(L.cropLeft(s.soil[5]), 15);
+  // watered, it grows by the clock in its seed packet's time
+  assert.strictEqual(L.water(s, 5), 'ok');
   clock.advance(8);
   assert.strictEqual(L.cropStage(s.soil[5]), 2);
   assert.strictEqual(L.harvest(s, 5), '!notripe');
@@ -71,27 +76,62 @@ test('till, plant and grow a turnip to harvest in real time; a ripe crop withers
 
   // ripe for as long as it grew (at least 4 hours), then withered: the Hoe clears it
   L.plant(s, 5, seeds);
+  L.water(s, 5);
   clock.advance(15 + C.GROW.witherMin - 1);
   assert.ok(L.isRipe(s.soil[5]));
   clock.advance(1);
   assert.ok(L.isWithered(s.soil[5]));
   assert.strictEqual(L.harvest(s, 5), '!notripe');
   assert.strictEqual(L.till(s, 5), 'cleared');
-  same(s.soil[5], { w: 0, c: null, p: 0, r: 0 });
+  same(s.soil[5], { w: 1, c: null, p: 0, r: 0 }, 'cleared, still wet');
 });
 
-test('watering makes a crop grow a quarter faster', () => {
+test('a crop needs water to grow: dry it stays a seed, watered it grows from then (owner, 29 Oct 2026)', () => {
   const s = L.newState();
+  s.water = 20;
   L.till(s, 5);
   L.till(s, 6);
+  L.water(s, 7); // (no soil there)
   L.plantBag(s, [5, 6], slotOf(s, 'seed_turnip'));
+  clock.advance(3 * 60);
+  assert.strictEqual(L.cropStage(s.soil[5]), 0, 'three hours dry: still a seed');
+  assert.ok(L.needsWater(s.soil[5]));
+  assert.strictEqual(L.nextHarvest(s), null, 'nothing to remind about while it waits');
   assert.strictEqual(L.water(s, 5), 'ok');
   assert.strictEqual(L.water(s, 5), 'already');
-  assert.strictEqual(L.growMins(s.soil[5]), 15 * 0.75);
-  clock.advance(12);
-  assert.ok(L.isRipe(s.soil[5]), 'watered: ripe after 11 1/4 minutes');
-  assert.ok(!L.isRipe(s.soil[6]), 'dry: still growing');
+  assert.strictEqual(L.growMins(s.soil[5]), 15, 'the seed packet\'s time');
+  clock.advance(15);
+  assert.ok(L.isRipe(s.soil[5]), 'watered: ripe 15 minutes after watering');
+  assert.strictEqual(L.cropStage(s.soil[6]), 0, 'the dry one next to it never grew');
   assert.strictEqual(L.water(s, 5), 'already', 'nothing to gain on a ripe crop');
+  // soil watered before planting: the crop grows right away
+  L.harvest(s, 5);
+  L.water(s, 5);
+  L.plantBag(s, [5], slotOf(s, 'seed_turnip'));
+  clock.advance(15);
+  assert.ok(L.isRipe(s.soil[5]));
+  const t = L.newState();
+  t.water = 20;
+  // grass for the animals grows by itself; a crop planted before the rule (no h) grows dry, faster when watered
+  L.till(t, 2);
+  L.addItem(t, 'seed_grass', 1);
+  L.plantBag(t, [2], slotOf(t, 'seed_grass'));
+  clock.advance(C.CROPS.grass.mins);
+  assert.ok(L.isRipe(t.soil[2]), 'grass needs no water');
+  const old = { c: 'turnip', p: L.nowMin(), w: 0, r: 0 };
+  clock.advance(15);
+  assert.ok(L.isRipe(old), 'an old dry crop still ripens');
+  assert.strictEqual(L.growMins({ c: 'turnip', p: 0, w: 1, r: 0 }), 15 * 0.75);
+  // rain waters the field and the waiting crops start growing; the rule survives a save
+  L.till(t, 3);
+  L.addItem(t, 'seed_turnip', 1);
+  L.plantBag(t, [3], slotOf(t, 'seed_turnip'));
+  assert.strictEqual(L.deserialize(JSON.parse(JSON.stringify(L.serialize(t)))).soil[3].h, 1);
+  L.weather = () => 'rain';
+  clock.nextDay(L, t);
+  L.weather = () => 'sunny';
+  clock.advance(15);
+  assert.ok(L.isRipe(t.soil[3]), 'the rain watered it');
 });
 
 test('growth stages progress for every crop', () => {
@@ -406,6 +446,8 @@ test('a crop planted at the end of a season grows on into the next', () => {
   L.till(s, 1);
   L.addItem(s, 'seed_onion', 1);
   L.plant(s, 1, slotOf(s, 'seed_onion'));
+  s.water = 5;
+  L.water(s, 1);
   const r = clock.nextDay(L, s); // June 1st: summer
   assert.strictEqual(r.newSeason, 'Summer');
   assert.strictEqual(s.soil[1].c, 'onion');
@@ -471,8 +513,9 @@ test('the next crop to ripen, for the phone reminder (grass is left out; Alerts 
   s.debris = {};
   const seeds = slotOf(s, 'seed_turnip');
   assert.strictEqual(L.nextHarvest(s), null, 'nothing growing');
-  L.till(s, 5); L.plant(s, 5, seeds);
-  L.till(s, 6); L.plant(s, 6, seeds);
+  s.water = 5;
+  L.till(s, 5); L.plant(s, 5, seeds); L.water(s, 5);
+  L.till(s, 6); L.plant(s, 6, seeds); L.water(s, 6);
   const at = L.nowMin() + Math.ceil(L.growMins(s.soil[5]));
   same(L.nextHarvest(s), { at, item: 'turnip', n: 2 });
   s.soil[7] = { c: 'grass', p: L.nowMin(), w: 0 };
@@ -486,7 +529,8 @@ test('the next crop to ripen, for the phone reminder (grass is left out; Alerts 
   ctx.window.gameHost.remind = (r) => sent.push(r && JSON.parse(JSON.stringify(r)));
   const t = L.newState();
   t.debris = {};
-  L.till(t, 5); L.plant(t, 5, slotOf(t, 'seed_turnip'));
+  t.water = 5;
+  L.till(t, 5); L.plant(t, 5, slotOf(t, 'seed_turnip')); L.water(t, 5);
   H.remind(t);
   H.remind(t);
   assert.strictEqual(sent.length, 1, 'once per change');

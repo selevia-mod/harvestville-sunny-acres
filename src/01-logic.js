@@ -52,7 +52,7 @@
       sel: 0,
       inv: [],
       box: [], // items in the shipping box, paid out overnight: [{ id, n }]
-      soil: {}, // farm tile index -> { w: watered 0|1 (grows faster), c: crop key or null, p: planted (minutes), r: regrowing }
+      soil: {}, // farm tile index -> { w: watered 0|1, c: crop key or null, p: planted or first watered (minutes), r: regrowing, h: grows only once watered }
       animals: [], // see L.addAnimal
       seed: Math.floor(Math.random() * 1e9),
       tools: { hoe: 0, can: 0, axe: 0, hammer: 0, sickle: 0 },
@@ -364,12 +364,20 @@
   };
 
   // ---------- soil & crops ----------
-  // FarmVille style: a crop grows in real time from the minute it is planted (t.p, in minutes); watered soil
-  // (t.w) grows it C.GROW.boost faster. Ripe, it waits as long again as it grew (at least C.GROW.witherMin
+  // A crop grows in real time (t.p, in minutes). Ripe, it waits as long again as it grew (at least C.GROW.witherMin
   // minutes), then withers: clear it with the Hoe. Stages: 0 seeds, 1 sprout, 2 growing, 3 ripe, 4 withered.
+  // Owner, 29 Oct 2026: a crop needs water to grow. One planted (or grown back) on dry soil (t.h) stays a seed until
+  // it is watered (by you, the rain or a friend), then grows from that minute in its seed packet's time. Grass for the
+  // animals grows by itself. Crops planted before this rule (no t.h) grow as they did: watering made them 25% faster.
+  L.needsWater = function (t) { return !!(t && t.c && t.h && !t.w); };
   L.growMins = function (t) {
     var crop = C.CROPS[t.c], mins = t.r && crop.regrow ? crop.regrow : crop.mins;
-    return mins * (t.w ? 1 - C.GROW.boost : 1);
+    return t.h ? mins : mins * (t.w ? 1 - C.GROW.boost : 1);
+  };
+  // Wets a tile; a crop that was waiting for water starts growing now.
+  L.wet = function (t, now) {
+    if (L.needsWater(t)) t.p = now == null ? L.nowMin() : now;
+    t.w = 1;
   };
   L.witherMins = function (t) {
     return Math.max(C.CROPS[t.c].mins * C.GROW.wither, C.GROW.witherMin);
@@ -378,6 +386,7 @@
   L.cropStage = function (tile, now) {
     if (!tile || !tile.c) return -1;
     if (now == null) now = L.nowMin();
+    if (L.needsWater(tile)) return 0;
     var grow = L.growMins(tile), el = now - tile.p;
     if (el >= grow) return el >= grow + L.witherMins(tile) && !C.CROPS[tile.c].sickle ? 4 : 3;
     if (el < grow * 0.25) return 0;
@@ -388,6 +397,7 @@
   L.cropLeft = function (tile, now) {
     if (!tile || !tile.c) return 0;
     if (now == null) now = L.nowMin();
+    if (L.needsWater(tile)) return Math.ceil(L.growMins(tile));
     var grow = L.growMins(tile), el = now - tile.p;
     return el < grow ? Math.ceil(grow - el) : Math.max(0, Math.ceil(grow + L.witherMins(tile) - el));
   };
@@ -398,7 +408,7 @@
     var best = null;
     Object.keys(s.soil || {}).forEach(function (k) {
       var t = s.soil[k];
-      if (!t || !t.c || C.CROPS[t.c].sickle) return;
+      if (!t || !t.c || C.CROPS[t.c].sickle || L.needsWater(t)) return;
       var at = Math.ceil(t.p + L.growMins(t));
       if (at <= now) return;
       if (!best || at < best.at - 1) best = { at: at, item: C.CROPS[t.c].item, n: 1 };
@@ -422,6 +432,7 @@
       t.c = null;
       t.p = 0;
       t.r = 0;
+      delete t.h;
       return 'cleared';
     }
     if (t) return 'already';
@@ -430,13 +441,13 @@
     return 'ok';
   };
 
-  // Watering: the crop on it (or the next one planted) grows faster.
+  // Watering: the crop on it (or the next one planted) grows.
   L.water = function (s, idx) {
     var t = s.soil[idx];
     if (!t) return 'nosoil';
     if (t.w || L.cropStage(t) >= 3) return 'already';
     if (s.water <= 0) return 'empty';
-    t.w = 1;
+    L.wet(t);
     s.water -= 1;
     return 'ok';
   };
@@ -459,6 +470,7 @@
         t.c = crop;
         t.p = now;
         t.r = 0;
+        t.h = C.CROPS[crop].sickle ? 0 : 1; // waits for water (wet soil: grows now)
         n++;
       }
     });
@@ -491,7 +503,8 @@
     return pick(s, t, C.CROPS[t.c]);
   };
 
-  // A picked crop leaves the soil as it was (watering lasts for one crop); grass grows back.
+  // A picked crop leaves the soil dry (watering lasts for one crop); grass grows back, and so do crops that regrow
+  // once watered again.
   function pick(s, t, crop) {
     if (L.addItem(s, crop.item, 1) > 0) return '!full';
     t.w = 0;
@@ -502,21 +515,24 @@
       t.c = null;
       t.p = 0;
       t.r = 0;
+      delete t.h;
     }
     return crop.item;
   }
 
   // ---------- energy ----------
-  // It comes back by itself, a point every C.ENERGY_EVERY minutes (also while the game is closed).
+  // It comes back by itself, a point every C.ENERGY_EVERY minutes (also while the game is closed), and every
+  // C.SLEEP_EVERY minutes while you sleep in your bed (s.asleep, never saved: 19o-sleep.js).
+  L.regenEvery = function (s) { return s && s.asleep ? C.SLEEP_EVERY : C.ENERGY_EVERY; };
   L.regen = function (s, now) {
     if (now == null) now = L.nowMin();
-    var max = L.maxEnergy ? L.maxEnergy(s) : C.MAX_ENERGY;
+    var max = L.maxEnergy ? L.maxEnergy(s) : C.MAX_ENERGY, every = L.regenEvery(s);
     if (!s.regen || s.regen > now || s.energy >= max) { s.regen = now; return 0; }
-    var n = Math.floor((now - s.regen) / C.ENERGY_EVERY);
+    var n = Math.floor((now - s.regen) / every);
     if (n <= 0) return 0;
     var add = Math.min(n, max - s.energy);
     s.energy += add;
-    s.regen = s.energy >= max ? now : s.regen + n * C.ENERGY_EVERY;
+    s.regen = s.energy >= max ? now : s.regen + n * every;
     return add;
   };
 
@@ -1073,9 +1089,13 @@
       s.project = null;
     }
 
-    // rain waters the whole field (growing crops speed up)
-    var weather = L.weather(s, s.day);
-    if (C.WEATHER[weather].waters) Object.keys(s.soil).forEach(function (idx) { if (L.cropStage(s.soil[idx]) < 3) s.soil[idx].w = 1; });
+    // rain waters the whole field: crops waiting for water start growing that morning (6 AM), even on a day you were away
+    var weather = L.weather(s, s.day), dd = L.date(s.day);
+    var rainAt = Math.min(L.nowMin(), Math.floor(new Date(dd.year, dd.month - 1, dd.day, 6).getTime() / 60000));
+    if (C.WEATHER[weather].waters) Object.keys(s.soil).forEach(function (idx) {
+      var t = s.soil[idx];
+      if (L.cropStage(t) < 3) L.wet(t, Math.max(t.p || 0, rainAt));
+    });
 
     var wedding = null, lunch = null;
     if (s.engaged && s.day >= s.engaged.day) {
@@ -1103,13 +1123,13 @@
   var MAPS = ['farm', 'house', 'town', 'mine'];
 
   // Soil is saved in groups of tiles that are alike: [crop + 1 (0 = none), planted minute (relative to today),
-  // watered + 2 x regrowing, tile, tile, ...]. A seed bag plants 9 tiles at the same minute, so they share one.
+  // watered + 2 x regrowing + 4 x grows only watered (t.h), tile, tile, ...]. A seed bag plants 9 tiles at the same minute, so they share one.
   function soilGroups(s) {
     var groups = {}, base = s.day * 1440;
     Object.keys(s.soil).forEach(function (idx) {
       var t = s.soil[idx], c = t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0;
       var p = c ? Math.max(t.p - base, -L.growMins(t) - L.witherMins(t) - 1440) : 0; // withered long ago: kept short
-      var key = c + ',' + Math.round(p) + ',' + ((t.w ? 1 : 0) + (t.r ? 2 : 0));
+      var key = c + ',' + Math.round(p) + ',' + ((t.w ? 1 : 0) + (t.r ? 2 : 0) + (c && t.h ? 4 : 0));
       (groups[key] = groups[key] || key.split(',').map(Number)).push(Number(idx));
     });
     return Object.keys(groups).map(function (k) { return groups[k]; });
@@ -1216,10 +1236,12 @@
     (Array.isArray(o.f) ? o.f : []).forEach(function (e) {
       if (!Array.isArray(e)) return;
       if (o.rt) { // groups (see soilGroups)
-        var c = C.CROP_KEYS[int(e[0], 0, 1e6, 0) - 1] || null, p = s.day * 1440 + int(e[1], -1e7, 1e7, 0), fl = int(e[2], 0, 3, 0);
+        var c = C.CROP_KEYS[int(e[0], 0, 1e6, 0) - 1] || null, p = s.day * 1440 + int(e[1], -1e7, 1e7, 0), fl = int(e[2], 0, 7, 0);
         e.slice(3, 3 + 2000).forEach(function (x) {
           var i = int(x, 0, 1e6, -1);
-          if (i >= 0) s.soil[i] = { w: fl & 1, c: c, p: c ? p : 0, r: c && fl & 2 && C.CROPS[c].regrow ? 1 : 0 };
+          if (i < 0) return;
+          s.soil[i] = { w: fl & 1, c: c, p: c ? p : 0, r: c && fl & 2 && C.CROPS[c].regrow ? 1 : 0 };
+          if (c && fl & 4) s.soil[i].h = 1;
         });
         return;
       }

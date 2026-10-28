@@ -11,7 +11,7 @@
     { event: 'clear', need: 3, text: 'Clear 3 weeds, branches or stones in your field', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 100 } },
     { event: 'till', need: 3, text: 'Till 3 tiles of cleared soil with the Hoe', target: { map: 'farm', x: 8, y: 13 }, reward: { item: 'starter', n: 1 } }, // 'starter': this season's starter seeds (STARTER_SEEDS)
     { event: 'plant', need: 1, text: 'Plant a seed bag on your tilled soil', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
-    { event: 'water', need: 3, text: 'Water your seeds: they grow faster', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
+    { event: 'water', need: 3, text: 'Water your seeds: they only grow when watered', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 50 } },
     { event: 'feed', need: 1, text: 'Feed Clucky in the pen (hold the Chicken Feed)', target: { map: 'farm', object: 'animal_pen' }, reward: { item: 'chicken_feed', n: 3 } },
     { event: 'harvest', need: 1, text: 'Harvest your {crop}s when they are ripe (about 15 minutes)', target: { map: 'farm', x: 8, y: 13 }, reward: { gold: 200 } },
     { event: 'town', need: 1, text: 'Visit Willowbrook, down the road south', target: { map: 'town', point: 'plaza_n' }, reward: { gold: 100 } },
