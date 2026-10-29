@@ -606,9 +606,9 @@ test('sleep in your bed: tucked in with Zzz, energy every minute, the joystick w
   await advance(page, 4);
   assert.strictEqual((await state(page)).energy, 15, 'awake: 1 point every 2 minutes');
   // asleep with a nearly full bar: it wakes you when it is full; the saved game never says you are asleep
-  // another style of bed: you and a quilt laid over it
+  // another style of bed: its own picture of the bed with you in it
   await page.evaluate(() => { Farm.session.state.home.items.forEach((it) => { if (Farm.Config.HOME.types[it.t].use === 'sleep') it.v = 1; }); Farm.world.fallAsleep(); });
-  assert.strictEqual(await page.evaluate(() => Farm.world.sleeping.img.texture.key), 'props/sleeper_boy', 'other styles: head and hands on that bed');
+  assert.strictEqual(await page.evaluate(() => Farm.world.sleeping.img.texture.key), 'props/sleepbed_v1_boy', 'other styles: their own whole-bed picture (30 Oct)');
   await page.evaluate(() => { Farm.world.wakeUp(); Farm.session.state.home.items.forEach((it) => { it.v = 0; }); });
   await page.evaluate(() => { const s = Farm.session.state; s.energy = Farm.Logic.maxEnergy(s) - 1; s.regen = Farm.Logic.nowMin(); Farm.world.fallAsleep(); });
   assert.ok(!('asleep' in JSON.parse(JSON.stringify(await page.evaluate(() => Farm.Logic.serialize(Farm.session.state))))));
