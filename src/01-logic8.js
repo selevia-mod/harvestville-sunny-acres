@@ -58,7 +58,7 @@
     snap = snap && typeof snap === 'object' ? snap : {};
     var s = L.newState();
     s.seed = 1;
-    s.day = int(snap.day, 1, 1e6, mine ? mine.day : 1);
+    s.day = mine ? mine.day : int(snap.day, 1, 1e6, 1); // today, the same sky as yours (their snapshot may be days old)
     s.time = mine ? mine.time : 10 * 60;
     s.look = snap.look === 'girl' ? 'girl' : 'boy';
     s.goal = 1e6; // no first-days goals

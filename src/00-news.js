@@ -8,6 +8,14 @@
 
   C.NEWS = [
     {
+      v: '1.2', date: 'October 29, 2026', lines: [
+        ['sparkle', 'Sharper pictures', 'The Bakery, Dairy, Jam Maker, fruit trees, field plot, basket and party hat are new and sharp.'],
+        ['apple', 'Trees show their fruit', 'A fruit tree shows its fruit only when it is ripe. After picking, it stays green until the next fruit.'],
+        ['moon', 'Tucked in', 'When you sleep, you are tucked in under your own bed\'s quilt.'],
+        ['heart', 'Picking for friends', 'On a farm that is not your friend\'s, a ripe crop tells you to add them as a friend first.'],
+      ],
+    },
+    {
       v: '1.1', date: 'October 29, 2026', lines: [
         ['carrot', 'Harvest Basket', "Pick a friend's ripe crops so none go to waste. They wait in the basket by their mailbox."],
         ['cake', 'Your birthday', 'Set it in the Calendar. On the day: a cake from the mayor, wishes and a party hat.'],

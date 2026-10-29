@@ -120,6 +120,10 @@
   });
   O.types[O.index.apple_tree].cat = 'orchard'; // the apple tree you could already buy fruits now
   O.types[O.index.apple_tree].price = 800;
+  // The owner's sharper pictures (29 Oct 2026), one each instead of a frame of the yard sheet (the sheet keeps its
+  // layout). A fruit tree also has a <hd>_bare picture, shown while it has no ripe fruit (19k-farm2.js).
+  [['bakery', 'ws_bakery'], ['dairy', 'ws_dairy'], ['jam_maker', 'ws_jam_maker'], ['farm_plot', 'ws_farm_plot'], ['apple_tree', 'tree_apple'],
+    ['orange_tree', 'tree_orange'], ['mango_tree', 'tree_mango'], ['peach_tree', 'tree_peach']].forEach(function (p) { O.types[O.index[p[0]]].hd = p[1]; });
   O.cats.push(
     ['workshops', 'Workshops', 'A Bakery, a Dairy and a Jam Maker: they make goods while you play (or sleep).'],
     ['orchard', 'Fruit trees', 'Apple, orange, mango and peach trees. Each fruits in two seasons.'],

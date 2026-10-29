@@ -28,9 +28,8 @@ const fresh = () => {
 };
 
 // ---------- weather ----------
-test('weather: a farm\'s first day and festival days are sunny; the rest follows the season odds, the same for everyone', () => {
+test('weather: festival days are sunny; the rest follows the season odds, the same for everyone (a new farm too)', () => {
   const s = fresh();
-  assert.strictEqual(realWeather(s, s.start), 'sunny');
   C.FESTIVALS.forEach((f) => assert.strictEqual(realWeather(s, dayOn(f.date[0], f.date[1])), 'sunny', f.key));
   const count = (m0, m1, kind) => {
     let n = 0, all = 0;
@@ -44,6 +43,12 @@ test('weather: a farm\'s first day and festival days are sunny; the rest follows
   other.seed = 999;
   const d = dayOn(5, 20);
   assert.strictEqual(realWeather(s, d), realWeather(other, d), 'every player has the same weather');
+  // a farm started today has today's sky, not a sunny day of its own (owner, 29 Oct 2026)
+  const rainy = [];
+  for (let k = dayOn(4, 1); rainy.length < 1; k++) if (realWeather(s, k) === 'rain') rainy.push(k);
+  const newbie = fresh();
+  newbie.start = rainy[0];
+  assert.strictEqual(realWeather(newbie, rainy[0]), 'rain');
 });
 
 test('rain waters every tilled tile for the new day', () => {

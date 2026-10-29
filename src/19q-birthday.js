@@ -93,8 +93,8 @@
     if (!(this.state && this.state.isVisit) && L.birthdayMail(mine())) F.session.dirty = true; // (opened on the day, before any morning mail)
     if (!this.partyHat) {
       F.ensureTexture(this, 'props/party_hat');
-      var hat = this.add.image(0, 0, 'props/party_hat').setOrigin(0.5, 1);
-      hat.setScale((0.62 * T) / hat.width);
+      var hat = this.add.image(0, 0, 'props/party_hat').setOrigin(0.5, 0.97); // (no string: the cone sits on your head)
+      hat.setScale((0.5 * T) / hat.width);
       this.partyHat = hat;
       this.placeHat();
     }
@@ -113,8 +113,8 @@
     hat.setVisible(!!on);
     if (!on) return;
     var f = this.feet(), flip = this.dir === 'left' ? -1 : this.dir === 'right' ? 1 : 0;
-    hat.setPosition(f.x + flip * 0.05 * T, f.y - 1.1 * T + (this.moving ? Math.sin(Date.now() / 90) * 0.02 * T : 0));
-    hat.setAngle(flip * 8);
+    hat.setPosition(f.x + flip * 0.08 * T, f.y - 1.0 * T + (this.moving ? Math.sin(Date.now() / 90) * 0.02 * T : 0));
+    hat.setAngle(flip ? flip * 14 : -10); // worn a little to one side
     F.depthTo(hat, DEPTH.actor + f.y / 1e5 + 0.0003);
   };
   var update = P.update;

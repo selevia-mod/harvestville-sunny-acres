@@ -38,14 +38,21 @@
   P.fallAsleep = function () {
     var s = this.state, it = this.sleepBed();
     if (this.sleeping || !it || this.busy) return;
-    var type = H.types[it.t], key = F.ensureTexture(this, s.look === 'girl' ? 'props/sleep_girl' : 'props/sleep_boy');
+    var type = H.types[it.t], who = s.look === 'girl' ? 'girl' : 'boy';
     L.regen(s); // the points earned at the waking rate, before the faster one starts
     s.asleep = true;
     // tucked in: on a single bed in the middle, on a double bed on one side (the other pillow is for your spouse)
-    var w = 1.5 * T, cx = (it.x + type.w / 2) * T;
+    var w = 1.5 * T, cx = (it.x + type.w / 2) * T, img;
     if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1 : 1)) * T;
-    var img = this.add.image(cx, it.y * T + 0.22 * T, key).setOrigin(0.5, 0);
-    img.setScale(w / img.width).setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
+    var whole = !it.v && { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key];
+    if (whole) { // the classic beds: the owner's picture of the whole bed with you in it (29 Oct), laid over the bed
+      img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole + who)).setOrigin(0, 1)
+        .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
+    } else { // other styles: you and a quilt, on top of that bed
+      img = this.add.image(cx, it.y * T + 0.22 * T, F.ensureTexture(this, 'props/sleep_' + who)).setOrigin(0.5, 0);
+      img.setScale(w / img.width);
+    }
+    img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };
     this.player.setVisible(false);
     if (this.shadow) this.shadow.setVisible(false);

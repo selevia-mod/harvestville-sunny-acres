@@ -48,11 +48,16 @@
     var self = this, s = this.state, want = {};
     if (!this.yardSprites || !this.bubbles2 || visiting(this)) return;
     var now = L.nowMin();
-    s.yard.items.forEach(function (it) {
+    s.yard.items.forEach(function (it, i) {
       var type = OD.types[it.t], icon = null;
       if (C.WORKSHOPS[type.key] && L.jobsReady(s, type.key, now)) icon = C.ITEMS[C.WORKSHOPS[type.key].recipes[s.ws[type.key][0][0]].out].icon;
       var st = L.treeOf(it.t) && L.treeState(s, it, now);
       if (st && st.ripe) icon = C.ITEMS[st.tree.fruit].icon;
+      var sp = self.yardSprites[i]; // a tree shows its fruit only while it is ripe (owner, 29 Oct: picked trees still had fruit)
+      if (st && type.hd && sp) {
+        var look = F.ensureTexture(self, 'props/' + type.hd + (st.ripe ? '' : '_bare'));
+        if (sp.texture.key !== look) sp.setTexture(look).setDisplaySize(type.w * T, type.h * T);
+      }
       if (icon == null) return;
       var k = it.x + ',' + it.y;
       want[k] = 1;

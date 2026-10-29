@@ -237,7 +237,9 @@
   // ---------- weather ----------
   // The same weather for every player on a given day (and always sunny on a new farm's first day).
   L.weather = function (s, day) {
-    if ((s && day === s.start) || L.festivalOn(day)) return 'sunny';
+    // One sky for everyone (owner, 29 Oct 2026: sunny on my side = sunny on theirs): it follows the date only. (A new
+    // farm's first day used to be sunny for that farm alone.)
+    if (L.festivalOn(day)) return 'sunny';
     var odds = C.WEATHER_ODDS[L.date(day).key], r = L.rand(20261026, day, 77), acc = 0;
     var keys = Object.keys(odds);
     for (var i = 0; i < keys.length; i++) {

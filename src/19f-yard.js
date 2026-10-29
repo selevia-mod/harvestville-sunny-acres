@@ -44,6 +44,7 @@
   F.yardImg = function (scene, t, shape) {
     var type = O.types[t];
     if (type.prop) return { key: F.ensureTexture(scene, 'props/' + type.prop), frame: undefined, w: type.w * U, h: type.h * U };
+    if (type.hd) return { key: F.ensureTexture(scene, 'props/' + type.hd), frame: undefined, w: type.w * U, h: type.h * U };
     return { key: F.yardTexture(scene), frame: type.key + (type.kind === 'fence' ? ':' + (shape || 'h') : ''), w: type.w * U, h: type.h * U };
   };
 
