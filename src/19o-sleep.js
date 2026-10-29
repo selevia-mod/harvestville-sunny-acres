@@ -1,5 +1,5 @@
-// Sleeping in your bed (owner, 29 Oct 2026): tap the bed and choose Sleep. The farmer tucks in (19o art: sleep_boy /
-// sleep_girl, laid over the bed), the room dims and Zzz float up. While you sleep, energy comes back every
+// Sleeping in your bed (owner, 29 Oct 2026): tap the bed and choose Sleep. The farmer tucks in (classic beds: sleepbed_*;
+// other styles: sleeper_*, laid over the bed), the room dims and Zzz float up. While you sleep, energy comes back every
 // C.SLEEP_EVERY minutes instead of every C.ENERGY_EVERY (L.regen reads s.asleep). Wake up with the button, the
 // joystick or the action button; a full bar wakes you by itself. s.asleep is never saved: closing the game wakes you.
 (function (F) {
@@ -42,15 +42,15 @@
     L.regen(s); // the points earned at the waking rate, before the faster one starts
     s.asleep = true;
     // tucked in: on a single bed in the middle, on a double bed on one side (the other pillow is for your spouse)
-    var w = 1.5 * T, cx = (it.x + type.w / 2) * T, img;
+    var cx = (it.x + type.w / 2) * T, img;
     if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1 : 1)) * T;
     var whole = !it.v && { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key];
     if (whole) { // the classic beds: the owner's picture of the whole bed with you in it (29 Oct), laid over the bed
       img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole + who)).setOrigin(0, 1)
         .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
-    } else { // other styles: you and a quilt, on top of that bed
-      img = this.add.image(cx, it.y * T + 0.22 * T, F.ensureTexture(this, 'props/sleep_' + who)).setOrigin(0.5, 0);
-      img.setScale(w / img.width);
+    } else { // other styles: your head and hands on that bed's own pillow and quilt (owner's art, 29 Oct)
+      img = this.add.image(cx, it.y * T + 0.34 * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
+      img.setScale((0.92 * T) / 437); // one scale for both (437 = the boy's width), so the girl's pigtails stick out
     }
     img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };

@@ -12,7 +12,7 @@
         ['sparkle', 'Sharper pictures', 'The Bakery, Dairy, Jam Maker, fruit trees, field plot and basket are new and sharp.'],
         ['cake', 'Your party hat', 'On your birthday your farmer wears a party hat all day, and friends see it too.'],
         ['apple', 'Trees show their fruit', 'A fruit tree shows its fruit only when it is ripe. After picking, it stays green until the next fruit.'],
-        ['moon', 'Tucked in', 'When you sleep, you are tucked in under your own bed\'s quilt.'],
+        ['moon', 'Tucked in', 'When you sleep, you are tucked in under your own bed\'s quilt, in every bed style.'],
         ['heart', 'Pick fruit for friends', "A friend's ripe fruit tree goes into their basket too. Only friends can pick: add them first."],
         ['bolt', 'Never boxed in', 'Building next to fences can no longer shut you in, and a farmer who was stuck hops out.'],
       ],
