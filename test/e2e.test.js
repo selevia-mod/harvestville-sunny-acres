@@ -120,6 +120,18 @@ async function tapButton(page, label, nth = 0) {
   await frames(page);
 }
 
+// Taps the k-th slot of the open bag page (the slots' own zones, in order).
+async function tapSlotOnPage(page, k) {
+  const pos = await page.evaluate((k) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    const z = m.c.list.filter((o) => o.type === 'Zone' && o.input && o.input.enabled)[k];
+    return z && { x: z.x, y: z.y };
+  }, k);
+  assert.ok(pos, 'slot ' + k + ' is on screen');
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page);
+}
+
 const modalText = (page) => page.evaluate(() => {
   const out = [];
   const walk = (list) => list.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
@@ -774,6 +786,17 @@ test('owner batch: one tap harvests the Sickle\'s reach; a bigger bag; the energ
   await page.evaluate(() => Farm.ui.openInventory());
   await shot(page, '36-bag-24');
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 1);
+  // a bag over 30 has pages (owner, 30 Oct): the arrows turn them, and Move takes an item to another page
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.resizeBag(s, 4); s.inv[2] = { id: 'carrot', n: 3 }; s.sel = 2; Farm.ui.openInventory(); });
+  assert.match(await modalText(page), /Bag {2}1\/2/);
+  await tapButton(page, 'Move');
+  await tapButton(page, '>');
+  assert.match(await modalText(page), /Bag {2}2\/2/);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.invPage()), 1);
+  await tapSlotOnPage(page, 5); // the 6th slot of page 2 = slot 35
+  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.inv[35]), { id: 'carrot', n: 3 });
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.inv[2]), null);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

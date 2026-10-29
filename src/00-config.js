@@ -81,8 +81,10 @@
     START_GOLD: 300,
     INV_SIZE: 18,
     // owner, 26 Oct: a bigger bag at Lily's (Supplies). Slots per level, and the price of the next level.
-    BAG_SIZES: [18, 24, 30],
-    BAG_PRICES: [2000, 6000],
+    // owner, 30 Oct: up to 90, 6 more each time; the bag shows 30 a page (BAG_PAGE), with arrows between pages.
+    BAG_SIZES: [18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90],
+    BAG_PRICES: [2000, 6000, 10000, 14000, 18000, 24000, 30000, 38000, 46000, 55000, 65000, 80000],
+    BAG_PAGE: 30,
     HOTBAR: 6,
     MAX_STACK: 99,
 

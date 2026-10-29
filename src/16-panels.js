@@ -286,14 +286,17 @@
   };
 
   // ---------- the bag ----------
+  // 30 slots a page (owner, 30 Oct): a bag over 30 gets arrows to the next page. The first row of page 1 is the hotbar.
   M.openInventory = function () {
-    var self = this, s = F.session.state;
+    var self = this, s = F.session.state, PAGE = C.BAG_PAGE;
     var c = this.openModal();
+    var pages = Math.ceil(s.inv.length / PAGE), page = Math.min(pages - 1, Math.floor(s.sel / PAGE));
     // a bigger bag (Lily's Supplies) adds rows: everything below the slots moves down with them
-    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(s.inv.length / cols);
+    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(Math.min(PAGE, s.inv.length) / cols);
     var extra = (rowsN - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 56, dy = y0 - 160 + extra;
     this.panelImg(c, 14, top, W - 28, 430 + extra);
-    c.add(this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    var title = this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    c.add(title);
     var widgets = [];
     var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
     var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
@@ -301,12 +304,15 @@
     var NOTE = 'Tap an item to hold it. The first row is your hotbar: tap Move to put an item there.';
     var note = this.txt(W / 2, 428 + dy, NOTE, 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
-    // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item)
+    // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item);
+    // the arrows work while moving, so an item can go to another page
     var moving = null;
-    for (var i = 0; i < s.inv.length; i++) {
-      (function (i) {
-        var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
+    for (var k = 0; k < Math.min(PAGE, s.inv.length); k++) {
+      (function (k) {
+        var x = x0 + (k % cols) * (SLOT + gap), y = y0 + Math.floor(k / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
+          var i = page * PAGE + k;
+          if (i >= s.inv.length) return;
           if (moving != null) {
             var r = L.moveSlot(s, moving, i);
             moving = null;
@@ -320,7 +326,12 @@
           world().hintKey = null;
           self.refresh();
         }));
-      })(i);
+      })(k);
+    }
+    var turn = function (d) { page = (page + d + pages) % pages; sfx('pick'); self.refresh(); };
+    if (pages > 1) {
+      this.button(c, 64, top + 30, 52, 38, '<', function () { turn(-1); }, BROWN);
+      this.button(c, W - 64, top + 30, 52, 38, '>', function () { turn(1); }, BROWN);
     }
     var eatBtn = this.button(c, W / 2 - 108, 488 + dy, 96, 42, 'Eat', function () {
       world().eat();
@@ -333,15 +344,24 @@
     }, BROWN);
     var stopBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Cancel', function () { moving = null; self.refresh(); }, GREY);
     this.button(c, W / 2 + 108, 488 + dy, 96, 42, 'Close', function () { self.closeModal(); });
+    this.invPage = function () { return page; };
+    this.invTurn = turn;
     this.invRefresh = function () {
-      widgets.forEach(function (w, i) {
+      widgets.forEach(function (w, k) {
+        var i = page * PAGE + k, on = i < s.inv.length;
+        [w.bg, w.icon, w.count, w.barBg, w.bar, w.zone].forEach(function (o) { if (!on) o.setVisible(false); });
+        if (!on) { w.zone.disableInteractive(); return; }
+        w.bg.setVisible(true);
+        w.zone.setVisible(true).setInteractive();
         self.drawSlot(w, s.inv[i], s.sel === i);
         w.icon.setAlpha(moving === i ? 0.45 : 1); // the one being moved
       });
+      title.setText(pages > 1 ? 'Bag  ' + (page + 1) + '/' + pages : 'Bag');
       var held = L.held(s);
       moveBtn.setVisible(moving == null && !!held);
       stopBtn.setVisible(moving != null);
-      note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '. The first row is your hotbar.' : NOTE);
+      note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '.' +
+        (pages > 1 ? ' Use the arrows for another page.' : ' The first row is your hotbar.') : NOTE);
       name.setText(held ? L.itemName(s, held.id) + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
       var d = held ? C.ITEMS[held.id].desc : 'Choose something to hold.';
       if (held && L.energyOf(held.id)) d += ' (+' + L.energyOf(held.id) + ' energy)';
