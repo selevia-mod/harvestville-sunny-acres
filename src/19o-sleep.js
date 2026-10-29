@@ -43,14 +43,14 @@
     s.asleep = true;
     // tucked in: on a single bed in the middle, on a double bed on one side (the other pillow is for your spouse)
     var cx = (it.x + type.w / 2) * T, img;
-    if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1 : 1)) * T;
+    if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1.17 : 1.17)) * T; // the double bed's art is 2 tiles wide in its 3: its left pillow
     var whole = !it.v && { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key];
     if (whole) { // the classic beds: the owner's picture of the whole bed with you in it (29 Oct), laid over the bed
       img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole + who)).setOrigin(0, 1)
         .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
     } else { // other styles: your head and hands on that bed's own pillow and quilt (owner's art, 29 Oct)
-      img = this.add.image(cx, it.y * T + 0.34 * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
-      img.setScale((0.92 * T) / 437); // one scale for both (437 = the boy's width), so the girl's pigtails stick out
+      img = this.add.image(cx, it.y * T + (type.w >= 3 ? 0.31 : 0.24) * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
+      img.setScale((0.6 * T) / 437); // the size of the classic bed's sleeper; one scale for both (437 = the boy's width)
     }
     img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };
