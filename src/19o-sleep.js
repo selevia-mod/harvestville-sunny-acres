@@ -1,5 +1,5 @@
-// Sleeping in your bed (owner, 29 Oct 2026): tap the bed and choose Sleep. The farmer tucks in (sleepbed_* pictures
-// of each bed with you in it; sleeper_* head and hands on a bed without one yet), the room dims and Zzz float up.
+// Sleeping in your bed (owner, 29 Oct 2026): tap the bed and choose Sleep. The farmer tucks in (the owner's sleepbed_*
+// pictures of each bed with you in it, every style), the room dims and Zzz float up.
 // While you sleep, energy comes back every C.SLEEP_EVERY minutes instead of every C.ENERGY_EVERY (L.regen reads
 // s.asleep). Wake up with the button, the joystick or the action button; a full bar wakes you by itself. s.asleep is
 // never saved: closing the game wakes you.
@@ -42,20 +42,14 @@
     var type = H.types[it.t], who = s.look === 'girl' ? 'girl' : 'boy';
     L.regen(s); // the points earned at the waking rate, before the faster one starts
     s.asleep = true;
-    // tucked in: on a single bed in the middle, on a double bed on one side (the other pillow is for your spouse)
+    // where the head is (for the Zzz): on a single bed in the middle, on a double bed the left pillow (the other is for your spouse)
     var cx = (it.x + type.w / 2) * T, img;
     if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1.17 : 1.17)) * T; // the double bed's art is 2 tiles wide in its 3: its left pillow
     // the owner's pictures of the whole bed with you in it, one per style (classic 29 Oct, the others 30 Oct), laid
     // exactly over the bed: props/sleepbed[2]_<who> for Classic, props/sleepbed[2]_v<style>_<who> for the others
-    var base = { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key];
-    var whole = base && base + (it.v ? 'v' + it.v + '_' : '') + who;
-    if (whole && F.images[whole]) {
-      img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole)).setOrigin(0, 1)
-        .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
-    } else { // a style without its picture yet: your head and hands on that bed's own pillow and quilt (owner's art, 29 Oct)
-      img = this.add.image(cx, it.y * T + (type.w >= 3 ? 0.31 : 0.24) * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
-      img.setScale((0.6 * T) / 437); // the size of the classic bed's sleeper; one scale for both (437 = the boy's width)
-    }
+    var whole = { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key] + (it.v ? 'v' + it.v + '_' : '') + who;
+    img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole)).setOrigin(0, 1)
+      .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
     img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };
     this.player.setVisible(false);

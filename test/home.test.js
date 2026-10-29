@@ -202,3 +202,12 @@ test('the home survives a save; an older save keeps its house and furniture wher
   for (let k = 0; k < 270; k++) big.home.bag[(k % 27) + '.' + (k % 10)] = 99;
   assert.ok(JSON.stringify(L.serialize(big)).length < 6000);
 });
+
+test('every bed in every style has its sleeping pictures, for the boy and the girl (owner, 30 Oct 2026)', () => {
+  const missing = [];
+  for (let v = 0; v < H.styles.length; v++) for (const base of ['sleepbed_', 'sleepbed2_']) for (const who of ['boy', 'girl']) {
+    const key = base + (v ? 'v' + v + '_' : '') + who;
+    if (!fs.existsSync(path.join(__dirname, '..', 'assets', 'props', key + '.webp'))) missing.push(key);
+  }
+  assert.deepStrictEqual(missing, []);
+});
