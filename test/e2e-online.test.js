@@ -485,6 +485,14 @@ test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 
   await waitWorld(friend.page, true);
   await waitRemotes(friend.page, ['Moon Meadow (owner)']);
   const gold = await friend.page.evaluate(() => Farm.session.state.gold);
+  // not friends: Pick is there but says why (owner, 29 Oct: it only said "look, but don't touch")
+  assert.deepStrictEqual(await friend.page.evaluate(() => {
+    const v = Farm.session.visit, was = v.friend;
+    v.friend = false;
+    const a = Farm.world.helpAction({ x: 10, y: 15 });
+    v.friend = was;
+    return [a.label, !!a.disabled, /Only friends can pick ripe crops\. Add Moon Meadow as a friend/.test(a.why)];
+  }), ['Pick', true, true]);
   await face(friend.page, 10, 15);
   assert.strictEqual(await label(friend.page), 'Pick');
   await friend.page.touchscreen.tap(294, 512);

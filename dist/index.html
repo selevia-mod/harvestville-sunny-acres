@@ -16999,6 +16999,9 @@
   var helpAction = P.helpAction;
   P.helpAction = function (t) {
     var v = F.session.visit, self = this, idx = this.idx(t.x, t.y), crop = L.pickable(this.state, idx);
+    if (crop && v && !v.friend && O.on && !O.pickOff) { // say why, instead of "look, but don't touch" (owner, 29 Oct)
+      return { label: 'Pick', icon: cropItem(crop).icon, disabled: true, why: 'Only friends can pick ripe crops. Add ' + v.name + ' as a friend in Online first.' };
+    }
     if (!crop || !v || !v.friend || !O.on || O.pickOff) return helpAction.call(this, t);
     var icon = cropItem(crop).icon;
     if (O.picked[v.host] === 0) return { label: 'Pick', icon: icon, disabled: true, why: 'You picked ' + C.PICK.tiles + ' of ' + v.name + "'s crops today. Thank you!" };
