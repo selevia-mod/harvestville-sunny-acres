@@ -846,6 +846,39 @@
   C.HOME.styles.forEach(function (st, i) { C.HOME.styleIndex[st.key] = i; });
 })(window.Farm = window.Farm || {});
 
+// ---- src/00-news.js
+// What's new in Harvest Ville, newest first (owner, 29 Oct 2026: "in menu add button there for what's new or latest
+// update ... v1 for major update and vX.1 for minor update"). v1 is the game as it opened to everyone; the next big
+// set of features is v2, smaller rounds v1.1, v1.2 ... Shown once after an update, and any time from the pause menu
+// (19s-news.js). Each line: [icon (a C.ICON key), title, a short line].
+(function (F) {
+  'use strict';
+  var C = F.Config;
+
+  C.NEWS = [
+    {
+      v: '1.1', date: 'October 29, 2026', lines: [
+        ['carrot', 'Harvest Basket', "Pick a friend's ripe crops so none go to waste. They wait in the basket by their mailbox."],
+        ['cake', 'Your birthday', 'Set it in the Calendar. On the day: a cake from the mayor, wishes and a party hat.'],
+        ['moon', 'Sleep in your bed', 'Tap your bed to nap. Energy comes back 1 point every minute while you sleep.'],
+        ['ore_copper', "Follow friends into the mine", 'Same rocks, same floor: dig together. Their town stall shows what they sell.'],
+        ['drop', 'Water your seeds', 'Seeds grow once watered. Rain and friends count too.'],
+        ['bread', 'New art', 'The Bakery, Dairy, Jam Maker, fruit trees and field plots got painted art.'],
+        ['note', 'Fixes', 'Online pages close with one tap, "Say hello" counts everyone, no rain sound on dry visits.'],
+      ],
+    },
+    {
+      v: '1', date: 'October 29, 2026', lines: [
+        ['turnip', 'Harvest Ville opens', 'Grow crops in real time, keep animals, fish, mine and make friends in town.'],
+        ['bread', 'Workshops and fruit trees', 'A Bakery, a Dairy and a Jam Maker work while you play. More land with field plots.'],
+        ['heart', 'Farm with friends', "Visit farms, leave likes and gifts, water friends' crops and chat in bubbles."],
+        ['tag', 'The Market', 'Sell to other farms and buy what you need for orders and recipes.'],
+      ],
+    },
+  ];
+  C.NEWS_LATEST = C.NEWS[0].v;
+})(window.Farm = window.Farm || {});
+
 // ---- src/00-online.js
 // Online play (Phase 4): settings. The database side is supabase/farm_online.sql. The game reaches it through
 // the app it runs in (window.gameHost.net, src/02-net.js), with the player's app account: online play is on
@@ -5857,6 +5890,7 @@
     s.basket = {}; // item -> how many friends picked for you, waiting by the farmhouse
     s.bd = 0; // your birthday, month * 100 + day (no year); 0 = not set
     s.bdy = 0; // the year the town last celebrated it (one cake a year)
+    s.wv = C.NEWS_LATEST; // the What's new version you have seen (a new farm has seen it all)
     return s;
   };
 
@@ -6017,6 +6051,7 @@
     Object.keys(s.basket || {}).forEach(function (id) { if (s.basket[id] > 0) bk.push(id, s.basket[id]); });
     if (bk.length) o.bk = bk;
     if (s.bd) o.bd = [s.bd, s.bdy];
+    if (s.wv) o.wv = s.wv;
     return o;
   };
   var deserialize = L.deserialize;
@@ -6029,6 +6064,7 @@
       var id = String(bk[i]), n = int(bk[i + 1], 0, 999, 0);
       if (C.ITEMS[id] && n > 0) s.basket[id] = n;
     }
+    s.wv = typeof o.wv === 'string' && /^\d{1,3}(\.\d{1,3})?$/.test(o.wv) ? o.wv : ''; // '' = a farm from before What's new
     s.bd = 0;
     s.bdy = 0;
     if (Array.isArray(o.bd)) {
@@ -9652,72 +9688,100 @@
   M.openPause = function () {
     var self = this, s = F.session.state;
     var c = this.openModal();
-    this.panelImg(c, 30, 96, W - 60, 470);
-    c.add(this.txt(W / 2, 118, 'Paused', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    c.add(this.txt(W / 2, 148, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  ' + L.formatTime(s.time), 14, INK, { align: 'center' }).setOrigin(0.5, 0));
-    // your farmer's name (owner, 27 Oct), with Rename (19n-name.js)
-    if (this.askFarmerName) {
-      var nm = this.txt(W / 2 - 40, 178, 'Farmer: ' + L.farmerName(s), 14, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0.5);
-      if (nm.width > 170) nm.setScale(170 / nm.width);
-      c.add(nm);
-      this.button(c, W / 2 + 92, 178, 84, 28, 'Rename', function () { self.closeModal(); self.askFarmerName(function () { self.openPause(); }); }, BROWN);
-    }
-    var col = function (k) { return W / 2 + (k ? 68 : -68); };
-    this.button(c, W / 2, 222, 266, 44, 'Resume', function () { self.closeModal(); });
-    this.button(c, col(0), 274, 128, 40, 'Calendar', function () { self.openCalendar(0); }, BLUE);
-    this.button(c, col(1), 274, 128, 40, 'Friends', function () { self.openFriends(); }, BLUE);
-    this.button(c, col(0), 322, 128, 40, 'How to play', function () { self.help(); }, BLUE);
-    this.button(c, col(1), 322, 128, 40, 'Save now', function () { world().save(); self.toast('Game saved.'); }, BROWN);
-    var toggle = function (key, label) {
-      return label + (s.opts[key] ? ': on' : ': off');
-    };
-    this.button(c, col(0), 370, 128, 40, toggle('music', 'Music'), function () {
-      s.opts.music = s.opts.music ? 0 : 1;
-      if (F.Audio) F.Audio.apply(s.opts);
-      F.session.dirty = true;
-      self.closeModal();
-      self.openPause();
-    }, BROWN);
-    this.button(c, col(1), 370, 128, 40, toggle('sfx', 'Sounds'), function () {
-      s.opts.sfx = s.opts.sfx ? 0 : 1;
-      if (F.Audio) F.Audio.apply(s.opts);
-      F.session.dirty = true;
-      self.closeModal();
-      self.openPause();
-    }, BROWN);
-    if (window.gameHost && typeof window.gameHost.remind === 'function') {
-      // In the app: the phone reminds you when a crop is ripe (the FPS meter stays in the page on its own)
-      this.button(c, col(0), 418, 128, 40, toggle('alerts', 'Alerts'), function () {
-        s.opts.alerts = s.opts.alerts === 0 ? 1 : 0;
-        F.session.dirty = true;
-        world().save();
-        self.closeModal();
-        self.openPause();
-      }, BROWN);
-    } else {
-      this.button(c, col(0), 418, 128, 40, this.fpsText.visible ? 'Hide FPS' : 'Show FPS', function () {
-        F.showFps = !self.fpsText.visible;
-        self.fpsText.setVisible(F.showFps);
-        self.closeModal();
-      }, BROWN);
-    }
-    this.button(c, col(1), 418, 128, 40, 'Collection', function () { self.openCollection(); }, BLUE);
-    // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
-    // gameHost.share: post a picture of the farm to the Selebox feed.
+    // The farmer card (owner, 29 Oct: option E): your farmer, name, birthday and the date on top; Resume (green) and
+    // Leave game (red) side by side; picture tiles for the places; round switches for the sounds; New game small, at
+    // the very bottom (it still asks first).
+    var canLeave = !!(window.gameHost && typeof window.gameHost.exit === 'function');
     var canShare = !!(window.gameHost && typeof window.gameHost.share === 'function');
-    if (canShare) this.button(c, col(0), 466, 128, 40, 'Share farm', function () { self.shareFarm(); }, BLUE);
-    if (window.gameHost && typeof window.gameHost.exit === 'function') {
-      this.button(c, canShare ? col(1) : W / 2, 466, canShare ? 128 : 266, 40, 'Leave game', function () {
+    var inApp = !!(window.gameHost && typeof window.gameHost.remind === 'function');
+    var reopen = function () { self.closeModal(); self.openPause(); };
+    var PH = 422, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W - 42; // centred, like every panel
+    this.panelImg(c, 30, top, W - 60, PH);
+    c.add(this.txt(W / 2, top + 10, 'Paused', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    // the card
+    var cy = top + 44, card = this.add.graphics();
+    card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, 78, 12);
+    card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, 78, 12);
+    card.fillStyle(0xf2d79a, 1).fillCircle(L0 + 36, cy + 39, 28);
+    c.add(card);
+    var face = this.add.image(L0 + 36, cy + 41, F.playerKey(this), 0).setCrop(0, 0, 256, 250);
+    face.setScale(0.24).setOrigin(0.5, 0.42);
+    c.add(face);
+    var nm = this.txt(L0 + 74, cy + 18, L.farmerName(s), 17, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    if (nm.width > 130) nm.setScale(130 / nm.width);
+    c.add(nm);
+    var tap = function (x, y, w, h, cb) {
+      var z = self.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
+      F.tapOn(z, cb);
+      return z;
+    };
+    var renameRow = this.add.container(0, 0);
+    renameRow.add(this.txt(R0 - 12, cy + 18, 'Rename', 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5));
+    renameRow.add(tap(R0 - 40, cy + 18, 76, 30, function () { self.closeModal(); self.askFarmerName(function () { self.openPause(); }); }));
+    c.add(renameRow);
+    if (this.askBirthday) { // your birthday, under your name (tap to set or change it)
+      var b = L.birthdayOf ? L.birthdayOf(s) : null, bd = this.add.container(0, 0);
+      bd.add(this.add.image(L0 + 82, cy + 41, 'items', C.ICON.cake).setScale(0.15));
+      bd.add(this.txt(L0 + 96, cy + 41, b ? 'Birthday: ' + C.MONTHS[b.month - 1].slice(0, 3) + ' ' + b.day : 'Set your birthday', 13, b ? INK : '#2f6fae', b ? {} : { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      bd.add(tap(L0 + 150, cy + 41, 160, 24, function () { self.closeModal(); self.askBirthday(function () { self.openPause(); }); }));
+      c.add(bd);
+    }
+    c.add(this.txt(L0 + 74, cy + 62, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  \u00b7  ' + L.formatTime(s.time), 12, '#8a6a4a').setOrigin(0, 0.5));
+    // Resume and Leave game
+    var by = cy + 108, half = (R0 - L0 - 10) / 2;
+    if (canLeave) {
+      this.button(c, L0 + half / 2, by, half, 44, 'Resume', function () { self.closeModal(); }, GREEN);
+      // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
+      this.button(c, R0 - half / 2, by, half, 44, 'Leave game', function () {
         world().save();
         self.closeModal();
+        self.toast('Saving your farm...', 1200);
         window.gameHost.exit();
-      }, GREEN);
+      }, RED);
+    } else {
+      this.button(c, W / 2, by, R0 - L0, 44, 'Resume', function () { self.closeModal(); }, GREEN);
     }
-    this.button(c, W / 2, 516, 200, 40, 'New game', function () {
+    // picture tiles, 4 a row
+    var tw = (R0 - L0 - 18) / 4, th = 58;
+    var tile = function (k, ty, icon, label, cb, on) {
+      var tx = L0 + k * (tw + 6), g = self.add.graphics(), rc = self.add.container(0, 0);
+      var fill = on === true ? 0xd8efc4 : on === false ? 0xe9dcc2 : 0xfff6dc;
+      g.fillStyle(fill, 1).fillRoundedRect(tx, ty, tw, th, 10);
+      g.lineStyle(1.5, on === true ? 0x5fa84a : 0x7a4d26, on === true ? 0.9 : 0.3).strokeRoundedRect(tx, ty, tw, th, 10);
+      rc.add(g);
+      var im = self.add.image(tx + tw / 2, ty + 22, 'items', C.ICON[icon]).setScale(0.2);
+      if (on === false) im.setAlpha(0.45);
+      rc.add(im);
+      var t = self.txt(tx + tw / 2, ty + 46, label, 11, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+      if (t.width > tw - 6) t.setScale((tw - 6) / t.width);
+      rc.add(t);
+      rc.add(tap(tx + tw / 2, ty + th / 2, tw, th, cb));
+      c.add(rc);
+    };
+    var t1 = by + 36, t2 = t1 + th + 8, t3 = t2 + th + 8;
+    tile(0, t1, 'calendar', 'Calendar', function () { self.openCalendar(0); });
+    tile(1, t1, 'heart', 'Friends', function () { self.openFriends(); });
+    tile(2, t1, 'book', 'Collection', function () { self.openCollection(); });
+    if (this.openNews) tile(3, t1, 'sparkle', "What's new", function () { self.closeModal(); self.openNews(0, function () { self.openPause(); }); });
+    tile(0, t2, 'hoe', 'How to play', function () { self.help(); });
+    tile(1, t2, 'bag', 'Save now', function () { world().save(); self.toast('Game saved.'); });
+    if (canShare) tile(2, t2, 'letter', 'Share farm', function () { self.shareFarm(); });
+    // sounds: a switch each (green = on)
+    tile(0, t3, 'note', 'Music: ' + (s.opts.music ? 'on' : 'off'), function () { s.opts.music = s.opts.music ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.music);
+    tile(1, t3, 'bubble', 'Sounds: ' + (s.opts.sfx ? 'on' : 'off'), function () { s.opts.sfx = s.opts.sfx ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.sfx);
+    // In the app: the phone reminds you when a crop is ripe (the FPS meter stays in the page on its own)
+    if (inApp) tile(2, t3, 'exclaim', 'Alerts: ' + (s.opts.alerts !== 0 ? 'on' : 'off'), function () { s.opts.alerts = s.opts.alerts === 0 ? 1 : 0; F.session.dirty = true; world().save(); reopen(); }, s.opts.alerts !== 0);
+    else tile(2, t3, 'bolt', 'FPS: ' + (self.fpsText.visible ? 'on' : 'off'), function () { F.showFps = !self.fpsText.visible; self.fpsText.setVisible(F.showFps); reopen(); }, self.fpsText.visible);
+    // New game: small, at the bottom, and it asks first
+    var fy = t3 + th + 18, ng = this.add.container(0, 0);
+    ng.add(this.txt(L0 + 4, fy, 'New game', 13, '#b8402a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+    ng.add(tap(L0 + 34, fy, 84, 28, function () {
       self.confirm('START A NEW FARM?\nYour current farm, gold, crops, animals and friendships will be gone for good.', function () {
         self.newGame();
       });
-    }, RED);
+    }));
+    c.add(ng);
+    if (C.NEWS_LATEST) c.add(this.txt(R0 - 4, fy, 'Harvest Ville v' + C.NEWS_LATEST, 12, '#8a6a4a').setOrigin(1, 0.5));
   };
 
   // ---------- a new farm: play as the boy or the girl ----------
@@ -17243,6 +17307,65 @@
     show();
   };
   void noop;
+})(window.Farm = window.Farm || {});
+
+// ---- src/19s-news.js
+// What's new in Harvest Ville (content and versions in 00-news.js): the list by version from the pause menu, and the
+// newest version's notes once, after the game updates (owner, 29 Oct 2026). Never on a new farm: it is all new there.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var BLUE = 0x4a90c9, GREY = 0xa08a68;
+
+  var rowsOf = function (news, header) {
+    var rows = [];
+    news.forEach(function (n, i) {
+      if (header) rows.push({ icon: C.ICON.star, name: 'Version ' + n.v + (i === 0 ? '  (latest)' : ''), desc: n.date });
+      n.lines.forEach(function (l) { rows.push({ icon: C.ICON[l[0]] != null ? C.ICON[l[0]] : C.ICON.note, name: l[1], desc: l[2] }); });
+    });
+    return rows;
+  };
+
+  // Every version, newest first. back: what Back opens (the pause menu).
+  U.openNews = function (page, back) {
+    var self = this;
+    this.listPanel({
+      title: "What's new", rows: rowsOf(C.NEWS, true), page: page || 0,
+      reopen: function (t, p) { self.openNews(p, back); },
+      sub: function () { return 'Harvest Ville v' + C.NEWS_LATEST; },
+      corner: back ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); back(); } } : null,
+    });
+  };
+
+  // The newest version only, once after an update.
+  U.openLatestNews = function (page) {
+    var self = this, n = C.NEWS[0];
+    this.listPanel({
+      title: "What's new in v" + n.v, rows: rowsOf([n], false), page: page || 0,
+      reopen: function (t, p) { self.openLatestNews(p); },
+      sub: function () { return n.date + '. All updates: pause menu, What\'s new.'; },
+      corner: { label: 'All', color: BLUE, cb: function () { self.closeModal(); self.openNews(0, null); } },
+    });
+  };
+
+  var create = P.create;
+  P.create = function () {
+    create.call(this);
+    var self = this, s = F.session.state;
+    if (this.mapKey !== 'farm' || (this.state && this.state.isVisit) || (window.gameHost && window.gameHost.quiet) || s.wv === C.NEWS_LATEST) return;
+    var show = function () {
+      if (!self.sys || !self.sys.isActive() || s.wv === C.NEWS_LATEST) return;
+      if (self.busy || !F.ui || F.ui.modals.length || F.session.visit || document.getElementById('farm-ask')) return self.time.delayedCall(2500, show);
+      s.wv = C.NEWS_LATEST;
+      self.save();
+      F.ui.openLatestNews(0);
+    };
+    this.time.delayedCall(4000, show);
+  };
+  void L;
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js

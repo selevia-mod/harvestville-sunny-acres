@@ -32,6 +32,7 @@
     s.basket = {}; // item -> how many friends picked for you, waiting by the farmhouse
     s.bd = 0; // your birthday, month * 100 + day (no year); 0 = not set
     s.bdy = 0; // the year the town last celebrated it (one cake a year)
+    s.wv = C.NEWS_LATEST; // the What's new version you have seen (a new farm has seen it all)
     return s;
   };
 
@@ -192,6 +193,7 @@
     Object.keys(s.basket || {}).forEach(function (id) { if (s.basket[id] > 0) bk.push(id, s.basket[id]); });
     if (bk.length) o.bk = bk;
     if (s.bd) o.bd = [s.bd, s.bdy];
+    if (s.wv) o.wv = s.wv;
     return o;
   };
   var deserialize = L.deserialize;
@@ -204,6 +206,7 @@
       var id = String(bk[i]), n = int(bk[i + 1], 0, 999, 0);
       if (C.ITEMS[id] && n > 0) s.basket[id] = n;
     }
+    s.wv = typeof o.wv === 'string' && /^\d{1,3}(\.\d{1,3})?$/.test(o.wv) ? o.wv : ''; // '' = a farm from before What's new
     s.bd = 0;
     s.bdy = 0;
     if (Array.isArray(o.bd)) {

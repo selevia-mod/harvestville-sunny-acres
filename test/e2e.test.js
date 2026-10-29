@@ -204,7 +204,8 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   await shot(page, '02-start');
 
   // joystick: drag right on the left side of the screen and the farmer walks right
-  const y0 = s.player.y;
+  await frames(page, 3); // (the save learns where the farmer stands on the first frames after the welcome closes)
+  const y0 = (await state(page)).player.y;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 90, y: 420, id: 1 }] });
   for (let i = 1; i <= 5; i++) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 90 + i * 8, y: 420, id: 1 }] });
@@ -1764,13 +1765,13 @@ test('your farmer has a name: asked after picking the farmer on a new farm, rena
   await closeAll(page);
   // Rename from the pause menu
   await page.evaluate(() => Farm.ui.openPause());
-  assert.match(await modalText(page), /Farmer: Selene/);
+  assert.match(await modalText(page), /Selene/); // on the farmer card (owner, 29 Oct: option E)
   await shot(page, 'name-2-pause');
   await tapButton(page, 'Rename');
   await page.waitForSelector('#farm-ask input', SLOW);
   await page.fill('#farm-ask input', 'Selene Rose');
   await page.click('#farm-ask button:last-child');
-  await page.waitForFunction(() => /Farmer: Selene Rose/.test(JSON.stringify(Farm.ui.modals.map((m) => m.c.list.map((o) => o.text || '')))), null, SLOW);
+  await page.waitForFunction(() => /Selene Rose/.test(JSON.stringify(Farm.ui.modals.map((m) => m.c.list.map((o) => o.text || '')))), null, SLOW);
   // saved
   const saved = await page.evaluate(() => Farm.Logic.deserialize(JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1])).name);
   assert.strictEqual(saved, 'Selene Rose');

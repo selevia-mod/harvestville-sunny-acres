@@ -144,3 +144,17 @@ test('saying hello: each different person counts once while the goal is open, vi
   s.goal += 1;
   assert.strictEqual(L.hello(s, 'hollis'), false, 'only while that goal is open');
 });
+
+test("What's new: versions newest first (v1 a major update, v1.1 a minor one); a new farm has seen them, an older save has not", () => {
+  assert.strictEqual(C.NEWS_LATEST, C.NEWS[0].v);
+  C.NEWS.forEach((n) => assert.match(n.v, /^\d+(\.\d+)?$/));
+  C.NEWS.forEach((n) => n.lines.forEach((l) => assert.ok(C.ICON[l[0]] != null, 'icon ' + l[0])));
+  const s = fresh();
+  assert.strictEqual(s.wv, C.NEWS_LATEST);
+  assert.strictEqual(roundTrip(s).wv, C.NEWS_LATEST);
+  const o = plain(L.serialize(s));
+  delete o.wv;
+  assert.strictEqual(L.deserialize(o).wv, '', 'a farm from before: shown once');
+  o.wv = '<b>9</b>';
+  assert.strictEqual(L.deserialize(o).wv, '');
+});
