@@ -102,8 +102,10 @@
     START_GOLD: 300,
     INV_SIZE: 18,
     // owner, 26 Oct: a bigger bag at Lily's (Supplies). Slots per level, and the price of the next level.
-    BAG_SIZES: [18, 24, 30],
-    BAG_PRICES: [2000, 6000],
+    // owner, 30 Oct: up to 90, 6 more each time; the bag shows 30 a page (BAG_PAGE), with arrows between pages.
+    BAG_SIZES: [18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90],
+    BAG_PRICES: [2000, 6000, 10000, 14000, 18000, 24000, 30000, 38000, 46000, 55000, 65000, 80000],
+    BAG_PAGE: 30,
     HOTBAR: 6,
     MAX_STACK: 99,
 
@@ -857,7 +859,10 @@
 
   C.NEWS = [
     {
-      v: '1.2', date: 'October 29, 2026', lines: [
+      v: '1.2', date: 'October 30, 2026', lines: [
+        ['bag', 'A much bigger bag', "Lily sells bigger bags up to 90 slots. Use the arrows to turn the bag's pages."],
+        ['chest', 'Storage at home', 'Tap a Dresser or Wardrobe to keep things there: 60 slots. Every farm gets a free Dresser.'],
+        ['gift', 'Give to friends', 'Hold food or anything else and face a friend: tap Give. Great for a tired friend in the mine!'],
         ['sparkle', 'Sharper pictures', 'The Bakery, Dairy, Jam Maker, fruit trees, field plot and basket are new and sharp.'],
         ['cake', 'Your party hat', 'On your birthday your farmer wears a party hat all day, and friends see it too.'],
         ['apple', 'Trees show their fruit', 'A fruit tree shows its fruit only when it is ripe. After picking, it stays green until the next fruit.'],
@@ -6129,6 +6134,111 @@
   };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicC.js
+// Home storage (owner, 30 Oct 2026, from players: "a storage box in the house to leave items in"). The Dresser and
+// the Wardrobe open it, every one of them the same 60 slots (s.store, like the bag: null or { id, n }). Every farm
+// gets a free Dresser once: by the wall if it fits, else in the furniture storage to place with Decorate.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var H = C.HOME;
+  var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+
+  C.STORE_SIZE = 60;
+  ['dresser', 'wardrobe'].forEach(function (k) { H.types[H.typeIndex[k]].use = 'storage'; });
+
+  // The free Dresser: next to the bed side of the room if there's room, else into the furniture storage.
+  L.giveDresser = function (s) {
+    var t = H.typeIndex.dresser;
+    var owned = s.home.items.some(function (it) { return it.t === t; }) ||
+      Object.keys(s.home.bag).some(function (k) { return +k.split('.')[0] === t && s.home.bag[k] > 0; });
+    if (owned) return null;
+    var spot = L.clearSpot(s, t);
+    if (spot) { s.home.items.push({ t: t, v: 0, x: spot.x, y: spot.y, f: 0 }); return 'placed'; }
+    s.home.bag[L.furnKey(t, 0)] = (s.home.bag[L.furnKey(t, 0)] || 0) + 1;
+    return 'bag';
+  };
+
+  // A spot where the whole piece shows (not only its feet free: nothing standing in front of or behind it), nearest
+  // the right-hand wall by the bed, or null.
+  L.clearSpot = function (s, t) {
+    var size = L.homeSize(s), best = null, bd = Infinity, box = {};
+    s.home.items.forEach(function (it) {
+      if (H.types[it.t].place === 'flat') return;
+      L.furnTiles(it.t, it.x, it.y).box.forEach(function (p) { box[p[0] + ',' + p[1]] = 1; });
+    });
+    for (var y = 1; y < size.h; y++) for (var x = 1; x < size.w; x++) {
+      if (L.cantPlace(s, t, x, y, null)) continue;
+      if (L.furnTiles(t, x, y).box.some(function (p) { return box[p[0] + ',' + p[1]]; })) continue;
+      var d = Math.abs(x - (size.w - 3)) + Math.abs(y - 2) * 1.5;
+      if (d < bd) { bd = d; best = { x: x, y: y }; }
+    }
+    return best;
+  };
+
+  var newState = L.newState;
+  L.newState = function (info) {
+    var s = newState(info);
+    s.store = [];
+    for (var i = 0; i < C.STORE_SIZE; i++) s.store.push(null);
+    L.giveDresser(s);
+    return s;
+  };
+
+  L.storeCount = function (s) { return s.store.filter(Boolean).length; };
+
+  // Puts the whole stack from bag slot i into storage (stacked with the same item first). Returns how many went in.
+  L.storeIn = function (s, i) {
+    var slot = s.inv[i];
+    if (!slot) return 0;
+    var max = L.stackLimit(slot.id), n = slot.n, k;
+    for (k = 0; k < s.store.length && n > 0; k++) {
+      var st = s.store[k];
+      if (st && st.id === slot.id && st.n < max) { var add = Math.min(n, max - st.n); st.n += add; n -= add; }
+    }
+    for (k = 0; k < s.store.length && n > 0; k++) {
+      if (!s.store[k]) { var put = Math.min(n, max); s.store[k] = { id: slot.id, n: put }; n -= put; }
+    }
+    var moved = slot.n - n;
+    slot.n = n;
+    if (slot.n <= 0) s.inv[i] = null;
+    return moved;
+  };
+
+  // Takes the whole stack in storage slot k into the bag. Returns how many came out (what doesn't fit stays).
+  L.storeOut = function (s, k) {
+    var st = s.store[k];
+    if (!st) return 0;
+    var left = L.addItem(s, st.id, st.n), moved = st.n - left;
+    st.n = left;
+    if (st.n <= 0) s.store[k] = null;
+    return moved;
+  };
+
+  // ---------- save: 'kp' (what you keep), always written (even empty): an older save is known by not having it ----------
+  var serialize = L.serialize;
+  L.serialize = function (s) {
+    var o = serialize(s), st = s.store.map(function (x) { return x ? [x.id, x.n] : 0; });
+    while (st.length && !st[st.length - 1]) st.pop();
+    o.kp = st;
+    return o;
+  };
+  var deserialize = L.deserialize;
+  L.deserialize = function (o) {
+    var s = deserialize(o);
+    if (!s) return s;
+    s.store = [];
+    var st = Array.isArray(o.kp) ? o.kp : [];
+    for (var k = 0; k < C.STORE_SIZE; k++) {
+      var e = st[k], id = Array.isArray(e) && String(e[0]), n = Array.isArray(e) ? int(e[1], 0, C.MAX_STACK, 0) : 0;
+      s.store.push(id && C.ITEMS[id] && n > 0 ? { id: id, n: Math.min(n, L.stackLimit(id)) } : null);
+    }
+    if (!Array.isArray(o.kp)) L.giveDresser(s); // a farm from before storage: its free Dresser
+    return s;
+  };
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 // Bridge to the app shell: window.gameHost (save/load), window.__gameSleep, window.__gameBack.
 (function (F) {
@@ -9902,14 +10012,17 @@
   };
 
   // ---------- the bag ----------
+  // 30 slots a page (owner, 30 Oct): a bag over 30 gets arrows to the next page. The first row of page 1 is the hotbar.
   M.openInventory = function () {
-    var self = this, s = F.session.state;
+    var self = this, s = F.session.state, PAGE = C.BAG_PAGE;
     var c = this.openModal();
+    var pages = Math.ceil(s.inv.length / PAGE), page = Math.min(pages - 1, Math.floor(s.sel / PAGE));
     // a bigger bag (Lily's Supplies) adds rows: everything below the slots moves down with them
-    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(s.inv.length / cols);
+    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rowsN = Math.ceil(Math.min(PAGE, s.inv.length) / cols);
     var extra = (rowsN - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 56, dy = y0 - 160 + extra;
     this.panelImg(c, 14, top, W - 28, 430 + extra);
-    c.add(this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    var title = this.txt(W / 2, top + 18, 'Bag', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    c.add(title);
     var widgets = [];
     var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
     var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
@@ -9917,12 +10030,15 @@
     var NOTE = 'Tap an item to hold it. The first row is your hotbar: tap Move to put an item there.';
     var note = this.txt(W / 2, 428 + dy, NOTE, 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
-    // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item)
+    // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item);
+    // the arrows work while moving, so an item can go to another page
     var moving = null;
-    for (var i = 0; i < s.inv.length; i++) {
-      (function (i) {
-        var x = x0 + (i % cols) * (SLOT + gap), y = y0 + Math.floor(i / cols) * (SLOT + gap);
+    for (var k = 0; k < Math.min(PAGE, s.inv.length); k++) {
+      (function (k) {
+        var x = x0 + (k % cols) * (SLOT + gap), y = y0 + Math.floor(k / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
+          var i = page * PAGE + k;
+          if (i >= s.inv.length) return;
           if (moving != null) {
             var r = L.moveSlot(s, moving, i);
             moving = null;
@@ -9936,7 +10052,12 @@
           world().hintKey = null;
           self.refresh();
         }));
-      })(i);
+      })(k);
+    }
+    var turn = function (d) { page = (page + d + pages) % pages; sfx('pick'); self.refresh(); };
+    if (pages > 1) {
+      this.button(c, 64, top + 30, 52, 38, '<', function () { turn(-1); }, BROWN);
+      this.button(c, W - 64, top + 30, 52, 38, '>', function () { turn(1); }, BROWN);
     }
     var eatBtn = this.button(c, W / 2 - 108, 488 + dy, 96, 42, 'Eat', function () {
       world().eat();
@@ -9949,15 +10070,24 @@
     }, BROWN);
     var stopBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Cancel', function () { moving = null; self.refresh(); }, GREY);
     this.button(c, W / 2 + 108, 488 + dy, 96, 42, 'Close', function () { self.closeModal(); });
+    this.invPage = function () { return page; };
+    this.invTurn = turn;
     this.invRefresh = function () {
-      widgets.forEach(function (w, i) {
+      widgets.forEach(function (w, k) {
+        var i = page * PAGE + k, on = i < s.inv.length;
+        [w.bg, w.icon, w.count, w.barBg, w.bar, w.zone].forEach(function (o) { if (!on) o.setVisible(false); });
+        if (!on) { w.zone.disableInteractive(); return; }
+        w.bg.setVisible(true);
+        w.zone.setVisible(true).setInteractive();
         self.drawSlot(w, s.inv[i], s.sel === i);
         w.icon.setAlpha(moving === i ? 0.45 : 1); // the one being moved
       });
+      title.setText(pages > 1 ? 'Bag  ' + (page + 1) + '/' + pages : 'Bag');
       var held = L.held(s);
       moveBtn.setVisible(moving == null && !!held);
       stopBtn.setVisible(moving != null);
-      note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '. The first row is your hotbar.' : NOTE);
+      note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '.' +
+        (pages > 1 ? ' Use the arrows for another page.' : ' The first row is your hotbar.') : NOTE);
       name.setText(held ? L.itemName(s, held.id) + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
       var d = held ? C.ITEMS[held.id].desc : 'Choose something to hold.';
       if (held && L.energyOf(held.id)) d += ' (+' + L.energyOf(held.id) + ' energy)';
@@ -16993,14 +17123,14 @@
     s.asleep = true;
     // tucked in: on a single bed in the middle, on a double bed on one side (the other pillow is for your spouse)
     var cx = (it.x + type.w / 2) * T, img;
-    if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1 : 1)) * T;
+    if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1.17 : 1.17)) * T; // the double bed's art is 2 tiles wide in its 3: its left pillow
     var whole = !it.v && { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key];
     if (whole) { // the classic beds: the owner's picture of the whole bed with you in it (29 Oct), laid over the bed
       img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole + who)).setOrigin(0, 1)
         .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
     } else { // other styles: your head and hands on that bed's own pillow and quilt (owner's art, 29 Oct)
-      img = this.add.image(cx, it.y * T + 0.34 * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
-      img.setScale((0.92 * T) / 437); // one scale for both (437 = the boy's width), so the girl's pigtails stick out
+      img = this.add.image(cx, it.y * T + (type.w >= 3 ? 0.31 : 0.24) * T, F.ensureTexture(this, 'props/sleeper_' + who)).setOrigin(0.5, 0);
+      img.setScale((0.6 * T) / 437); // the size of the classic bed's sleeper; one scale for both (437 = the boy's width)
     }
     img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };
@@ -17549,6 +17679,224 @@
     this.time.delayedCall(4000, show);
   };
   void L;
+})(window.Farm = window.Farm || {});
+
+// ---- src/19t-storage.js
+// Home storage (owner, 30 Oct 2026): tap a Dresser or a Wardrobe at home and choose Storage. Two tabs: Storage
+// (tap an item to take it into your bag) and Bag (tap an item to put it away). 30 slots a page, like the bag.
+// Rules in 01-logicC.js.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var K = F.UI_CONST, W = K.W, INK = K.INK, SLOT = K.SLOT;
+  var GREEN = 0x5fa84a, BROWN = 0x9a7a4a;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var PAGE = 30;
+
+  var extraObjectAction = P.extraObjectAction;
+  P.extraObjectAction = function (o, held, def) {
+    if (o.type !== 'storage') return extraObjectAction.call(this, o, held, def);
+    if (F.session.visit) return { label: 'Storage', icon: C.ICON.chest, disabled: true, why: "That's where " + F.session.visit.name + ' keeps their things.' };
+    return { label: 'Storage', icon: C.ICON.chest, run: function () { F.ui.openItemStorage(); } };
+  };
+
+  U.openItemStorage = function (tab) {
+    var self = this, s = F.session.state, w = F.world;
+    var c = this.openModal();
+    tab = tab || 'store';
+    var page = 0;
+    var list = function () { return tab === 'store' ? s.store : s.inv; };
+    var pages = function () { return Math.ceil(list().length / PAGE); };
+    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rows = 5;
+    var extra = (rows - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 104;
+    this.panelImg(c, 14, top, W - 28, 478 + extra);
+    var title = this.txt(W / 2, top + 18, '', 21, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    c.add(title);
+    // the tabs: the one you are on is green
+    var tabs = {};
+    [['store', 'Storage', W / 2 - 62], ['bag', 'Bag', W / 2 + 62]].forEach(function (t) {
+      tabs[t[0]] = {
+        on: self.button(c, t[2], top + 70, 112, 36, t[1], function () {}, GREEN),
+        off: self.button(c, t[2], top + 70, 112, 36, t[1], function () { tab = t[0]; page = 0; sfx('pick'); self.refresh(); }, BROWN),
+      };
+    });
+    var prev = this.button(c, 64, top + 30, 52, 38, '<', function () { page = (page + pages() - 1) % pages(); sfx('pick'); self.refresh(); }, BROWN);
+    var next = this.button(c, W - 64, top + 30, 52, 38, '>', function () { page = (page + 1) % pages(); sfx('pick'); self.refresh(); }, BROWN);
+    var widgets = [];
+    for (var k = 0; k < PAGE; k++) {
+      (function (k) {
+        var x = x0 + (k % cols) * (SLOT + gap), y = y0 + Math.floor(k / cols) * (SLOT + gap);
+        widgets.push(self.slotWidget(c, x, y, function () {
+          var i = page * PAGE + k, it = list()[i];
+          if (!it) return;
+          var name = L.itemName(s, it.id), n;
+          if (tab === 'store') {
+            n = L.storeOut(s, i);
+            if (!n) { sfx('nope'); return self.toast('Your bag is full. Put something away first.'); }
+            self.toast('Took ' + (n > 1 ? n + ' ' : '') + name + ' into your bag.' + (s.store[i] ? ' The rest did not fit.' : ''), 1800);
+          } else {
+            n = L.storeIn(s, i);
+            if (!n) { sfx('nope'); return self.toast('Your storage is full.'); }
+            self.toast('Put ' + (n > 1 ? n + ' ' : '') + name + ' away.' + (s.inv[i] ? ' The rest did not fit.' : ''), 1800);
+          }
+          sfx('pick');
+          F.session.dirty = true;
+          w.changed();
+          w.save();
+          self.refresh();
+        }));
+      })(k);
+    }
+    var note = this.txt(W / 2, y0 + rows * (SLOT + gap) + 10, '', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
+    c.add(note);
+    this.button(c, W / 2, y0 + rows * (SLOT + gap) + 70, 120, 42, 'Close', function () { self.closeModal(); });
+    this.storePage = function () { return { tab: tab, page: page }; };
+    this.invRefresh = function () {
+      var items = list(), n = pages();
+      if (page >= n) page = n - 1;
+      widgets.forEach(function (wd, k) {
+        var i = page * PAGE + k, on = i < items.length;
+        if (!on) {
+          [wd.bg, wd.icon, wd.count, wd.barBg, wd.bar].forEach(function (o) { o.setVisible(false); });
+          wd.zone.disableInteractive();
+          return;
+        }
+        wd.bg.setVisible(true);
+        wd.zone.setInteractive();
+        self.drawSlot(wd, items[i], false);
+      });
+      ['store', 'bag'].forEach(function (t) { tabs[t].on.setVisible(tab === t); tabs[t].off.setVisible(tab !== t); });
+      prev.setVisible(n > 1);
+      next.setVisible(n > 1);
+      var used = items.filter(Boolean).length;
+      title.setText((tab === 'store' ? 'Storage' : 'Bag') + (n > 1 ? '  ' + (page + 1) + '/' + n : ''));
+      note.setText((tab === 'store' ? 'Tap an item to take it into your bag. ' : 'Tap an item to put it away in storage. ') + used + ' of ' + items.length + ' slots used.');
+    };
+    this.invRefresh();
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19u-give.js
+// Giving items to a friend you play with (owner, 30 Oct 2026, from players: "give your friend food in the mine when
+// they are tired"). Hold an item and face their farmer: the action button says Give. It goes to their bag (to their
+// Harvest Basket if the bag is full), at once while they play. Friends only, up to 99 at a time (server part 9:
+// 10 gives a day to the same friend, 30 in all). Runs after 19h-online.js and 19p-basket.js.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var P = F.WorldScene.prototype;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var noop = function () {};
+
+  // The item you may give: anything in your hand but a tool.
+  var givable = function (s) {
+    var held = L.held(s);
+    return held && C.ITEMS[held.id] && C.ITEMS[held.id].kind !== 'tool' ? held : null;
+  };
+
+  var resolve = P.resolve;
+  P.resolve = function () {
+    var pt = this.front(0.7), r = this.remoteAt(pt.x, pt.y), s = F.session.state, held = givable(s);
+    if (r && held && O.on && !O.giveOff) {
+      var p = O.others[r.id], self = this;
+      if (p) return { label: 'Give', icon: L.iconOf(s, held.id), run: function () { self.askGive(p); } };
+    }
+    return resolve.call(this);
+  };
+
+  P.askGive = function (p) {
+    var self = this, s = F.session.state, held = givable(s), slot = s.sel;
+    if (!held) return;
+    var name = L.itemName(s, held.id), buttons = [{ label: 'Cancel', color: 0xa08a68 }, { label: 'Give 1', cb: function () { self.give(p, slot, 1); } }];
+    if (held.n > 1) buttons.push({ label: 'Give ' + Math.min(99, held.n), color: 0x4a90c9, cb: function () { self.give(p, slot, Math.min(99, held.n)); } });
+    F.ui.dialog('GIVE TO ' + p.name.toUpperCase() + '\nGive ' + p.name + ' your ' + name + (held.n > 1 ? ' (you have ' + held.n + ')' : '') + '?', buttons);
+  };
+
+  // Out of your bag at once; back into it if the server says no.
+  P.give = function (p, slot, n) {
+    var s = F.session.state, it = s.inv[slot];
+    if (this.giving || !it || C.ITEMS[it.id].kind === 'tool') return;
+    var id = it.id, name = L.itemName(s, id), took = L.removeAt(s, slot, n), self = this;
+    if (!took) return;
+    this.giving = true;
+    sfx('pick');
+    F.bus.emit('hud');
+    if (F.ui) F.ui.refresh();
+    var back = function () {
+      var left = L.addItem(s, id, took);
+      if (left) s.basket[id] = Math.min(999, (s.basket[id] || 0) + left);
+      if (F.ui) F.ui.refresh();
+    };
+    F.Net.rpc('farm_give_v1', { p_to: p.id, p_item: id, p_n: took }).then(function (r) {
+      self.giving = false;
+      if (r && r.ok) {
+        F.Host.save(s);
+        O.send('give', { to: p.id });
+        sfx('coin');
+        return F.ui.toast('You gave ' + p.name + ' ' + (took > 1 ? took + ' ' : 'your ') + name + '. How kind!', 2400, 0x2f5a22);
+      }
+      back();
+      var code = r && r.code;
+      if (code === 'friends') F.ui.toast('Only friends can give things. Add ' + p.name + ' as a friend in Online first.', 2800);
+      else if (code === 'limit') F.ui.toast('You gave ' + p.name + ' a lot today! Come back tomorrow.', 2600);
+      else F.ui.toast('Could not give right now. Try again in a moment.');
+    }).catch(function (e) {
+      self.giving = false;
+      back();
+      if (/Could not find the function/i.test((e && e.message) || '')) { O.giveOff = true; return F.ui.toast('Giving to friends opens soon!'); }
+      F.ui.toast('Could not reach the online world. Check your connection.');
+    });
+  };
+
+  // What friends gave you: into your own bag (wherever you are), the rest into your basket at home.
+  O.claimGives = function () {
+    if (!O.on || O.giveOff || O.claimingGives) return Promise.resolve(0);
+    O.claimingGives = true;
+    return F.Net.rpc('farm_gives_v1', {}).then(function (r) {
+      O.claimingGives = false;
+      var gives = r && Array.isArray(r.gives) ? r.gives : [];
+      if (!gives.length) return 0;
+      var s = F.session.state, got = {}, total = 0, basket = 0; // your own farm, not the one you are on
+      gives.slice(0, 100).forEach(function (g) {
+        var id = Array.isArray(g) && String(g[0]), n = Array.isArray(g) ? Math.max(0, Math.min(99, Math.floor(Number(g[1]) || 0))) : 0;
+        if (!id || !n || !C.ITEMS[id] || C.ITEMS[id].kind === 'tool') return;
+        var left = L.addItem(s, id, n);
+        if (left) { s.basket[id] = Math.min(999, (s.basket[id] || 0) + left); basket += left; }
+        got[id] = (got[id] || 0) + n;
+        total += n;
+      });
+      if (!total) return 0;
+      F.Host.save(s);
+      F.bus.emit('hud');
+      var w = F.world;
+      if (w && w.drawBasket) w.drawBasket();
+      if (F.ui) F.ui.refresh();
+      var from = (Array.isArray(r.from) ? r.from : []).map(function (x) { return L.cleanText(x, 24); }).filter(Boolean);
+      var what = Object.keys(got).slice(0, 3).map(function (id) { return got[id] + ' ' + L.itemName(s, id); }).join(', ');
+      sfx('coin');
+      if (F.ui) F.ui.toast((from.length ? from.slice(0, 2).join(' and ') : 'A friend') + ' gave you ' + what + (Object.keys(got).length > 3 ? ' and more' : '') + '!' +
+        (basket ? ' Your bag was full: ' + basket + ' wait in your basket at home.' : ''), 3600, 0x2f5a22);
+      return total;
+    }, function (e) {
+      O.claimingGives = false;
+      if (/Could not find the function/i.test((e && e.message) || '')) O.giveOff = true;
+      return 0;
+    });
+  };
+  var collect = O.collect;
+  O.collect = function (auto) {
+    return collect.call(O, auto).then(function (got) { O.claimGives().catch(noop); return got; });
+  };
+  var onMessage = O.onMessage;
+  O.onMessage = function (event, payload) {
+    if (event === 'give' && payload && O.me && payload.to === O.me.id && O.others[payload.id]) { O.claimGives().catch(noop); return; }
+    onMessage.call(O, event, payload);
+  };
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js
