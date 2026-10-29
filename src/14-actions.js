@@ -42,8 +42,9 @@
     var self = this, s = this.state, floor = F.session.mineFloor, rect = this.zones.minefloor[0];
     var tiles = [];
     for (var y = rect.y0; y <= rect.y1; y++) for (var x = rect.x0; x <= rect.x1; x++) if (!this.tileAt('Walls', x, y)) tiles.push(this.idx(x, y));
-    this.mine = L.mineFloor(s, floor, tiles);
-    var key = s.day + ':' + floor, broken = F.session.mineBroken[key] = F.session.mineBroken[key] || {};
+    var v = F.session.visit, seed = v && v.inTown && v.state.mineSeed; // following a friend: their mine's rocks (19r-follow.js)
+    this.mine = L.mineFloor(seed ? { seed: seed, day: s.day } : s, floor, tiles);
+    var key = (seed ? 'v' + seed + ':' : '') + s.day + ':' + floor, broken = F.session.mineBroken[key] = F.session.mineBroken[key] || {};
     this.mine.broken = broken;
     this.mine.rocks.forEach(function (idx) {
       var x = idx % self.map.width, y = Math.floor(idx / self.map.width);

@@ -254,7 +254,7 @@
     var name = v.def.name + (s.spouse === v.key ? ' (your spouse)' : '');
     F.ui.say(v.key, name, r.line);
     this.changed();
-    if (r.first) this.progress('meet');
+    if (L.hello(s, v.key)) this.progress('meet'); // each different person counts once (01-logicB.js)
     void self;
   };
 

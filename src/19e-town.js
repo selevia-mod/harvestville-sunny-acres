@@ -200,6 +200,7 @@
         self.emote(v, 'talk');
         sfx('talk');
         F.ui.dialog(v.def.name.toUpperCase() + '\n"' + v.def.line + '"');
+        if (L.hello(self.state, v.key)) self.progress('meet'); // shoppers say hello too (owner, 29 Oct)
       },
     };
   };

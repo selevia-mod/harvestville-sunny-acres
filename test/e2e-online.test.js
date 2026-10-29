@@ -459,6 +459,65 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 20G each); you take them at home', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  const W = 38, tiles = [10, 11, 12, 13, 14, 15].map((x) => 15 * W + x);
+  await host.page.evaluate((tiles) => {
+    const s = Farm.session.state, now = Farm.Logic.nowMin();
+    tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now - 30, r: 0 }; }); // ripe
+    Farm.world.refreshAllSoil();
+    return Farm.Online.publish(true);
+  }, tiles);
+  const face = (page, x, y) => page.evaluate(([x, y]) => {
+    const T = Farm.Config.TILE;
+    Farm.world.setFeet(x * T + T / 2, (y + 1) * T + T / 2);
+    Farm.world.dir = 'up';
+    Farm.world.idle();
+    Farm.world.hintKey = null;
+  }, [x, y]);
+  const label = async (page) => { await page.waitForTimeout(120); return page.evaluate(() => Farm.ui.actionLabel.text); };
+
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(friend.page, true);
+  await waitRemotes(friend.page, ['Moon Meadow (owner)']);
+  const gold = await friend.page.evaluate(() => Farm.session.state.gold);
+  await face(friend.page, 10, 15);
+  assert.strictEqual(await label(friend.page), 'Pick');
+  await friend.page.touchscreen.tap(294, 512);
+  await friend.page.waitForFunction(() => Object.keys(Farm.Online.picked).length > 0, null, SLOW);
+  assert.strictEqual(await friend.page.evaluate(() => Farm.session.state.gold), gold + 20);
+  assert.strictEqual(await friend.page.evaluate((i) => Farm.world.state.soil[i].c, tiles[0]), null, 'picked off their copy');
+  assert.strictEqual(await friend.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip')), 0, 'it goes to their basket, not your bag');
+  await shot(friend.page, 'online-pick-1');
+  // the owner, at home, finds it in the basket (and the crop is gone from the field)
+  await waitToast(host.page, /Ana Acres picked 1 of your ripe crop!/);
+  assert.deepStrictEqual(await host.page.evaluate((i) => [Farm.Logic.basketCount(Farm.session.state), Farm.session.state.soil[i].c], tiles[0]), [1, null]);
+  // four more, then no more today
+  for (const x of [11, 12, 13, 14]) {
+    await face(friend.page, x, 15);
+    await friend.page.touchscreen.tap(294, 512);
+    await friend.page.waitForFunction((n) => Farm.Online.picked[Object.keys(Farm.Online.picked)[0]] === n, 4 - (x - 10), SLOW);
+  }
+  // (the 6th tile, asked directly)
+  assert.deepStrictEqual(await friend.page.evaluate(() => { const a = Farm.world.helpAction({ x: 15, y: 15 }); return [a.label, !!a.disabled, /picked 5/.test(a.why)]; }), ['Pick', true, true], '5 a day');
+  assert.strictEqual(server.db.picks.length, 5);
+  await host.page.waitForFunction(() => Farm.Logic.basketCount(Farm.session.state) === 5, null, SLOW);
+  // the owner takes the basket into the bag
+  await host.page.evaluate(() => { const T = Farm.Config.TILE; Farm.ui.closeAll(); Farm.world.setFeet(10 * T + T / 2, 7 * T + T / 2); Farm.world.dir = 'up'; Farm.world.idle(); Farm.world.hintKey = null; });
+  assert.strictEqual(await label(host.page), 'Take');
+  await host.page.touchscreen.tap(294, 512);
+  await host.page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'turnip') === 5, null, SLOW);
+  assert.strictEqual(await host.page.evaluate(() => Farm.Logic.basketCount(Farm.session.state)), 0);
+  await shot(host.page, 'online-pick-2-owner');
+
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: the Market: sell at your stall; a buyer finds what an order needs, buys it; the seller collects the gold', async () => {
   const server = createServer();
   const seller = await open(server), buyer = await open(server);
@@ -581,7 +640,7 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   for (const p of [owner, guest]) await p.context.close();
 });
 
-test('online: visitors follow the owner to town: asked once, Follow, both see each other there; the mine ends a visit', async () => {
+test('online: visitors follow the owner to town and into the mine: asked, Follow, both see each other there, on the same rocks', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);
   await nameFarm(host.page, 'Moon Meadow');
@@ -629,12 +688,34 @@ test('online: visitors follow the owner to town: asked once, Follow, both see ea
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && !Farm.session.visit && !Farm.world.state.isVisit, null, SLOW);
   await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
   await waitWorld(guest.page, true);
-  // the mine is your own: heading there from their town ends the visit
+  // their town's market stall shows what THEY sell (owner, 29 Oct: "i saw my selling and not her")
   await guest.page.evaluate(() => Farm.Online.follow('town'));
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await guest.page.evaluate(() => Farm.world.travel('mine', 'entrance', 1));
-  await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
-  assert.strictEqual(await guest.page.evaluate(() => Farm.session.visit), null, 'in your own mine');
+  const stall = await guest.page.evaluate(() => { const o = Farm.world.objects.filter((x) => x.type === 'stand')[0]; const a = Farm.world.extraObjectAction(o); a.run(); return a.label; });
+  assert.strictEqual(stall, 'Look');
+  await waitModal(guest.page, /Moon Meadow's stall/);
+  await guest.page.evaluate(() => Farm.ui.closeAll());
+  // the owner goes into the mine (owner, 29 Oct: "i should able to follow her through mine cave"): asked, Follow
+  await host.page.evaluate(() => Farm.Online.follow('town'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await host.page.evaluate(() => Farm.world.travel('mine', 'entrance', 2));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /MOON MEADOW IS IN THE MINE[\s\S]*floor 2[\s\S]*Follow them\?/);
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.session.mineFloor === 2, null, SLOW);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.session.visit && Farm.session.visit.name), 'Moon Meadow', 'still visiting');
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(host.page, ['Ana Acres']);
+  // the same rocks, and a rock the owner breaks is gone for the guest too
+  const rocks = (page) => page.evaluate(() => Farm.world.mine.rocks.join(','));
+  assert.strictEqual(await rocks(guest.page), await rocks(host.page), 'the same rocks');
+  const idx = await host.page.evaluate(() => { const w = Farm.world, i = w.mine.rocks.filter((r) => r !== w.mine.stairs)[0]; const t = { x: i % w.map.width, y: Math.floor(i / w.map.width) }; const f = w.breakRock(i, t, {}); if (f) f(); return i; });
+  await guest.page.waitForFunction((i) => Farm.world.mine.broken[i] === 1, idx, SLOW);
+  await shot(guest.page, 'follow-3-mine');
+  // and back up the ladder: their town, still on the visit
+  await guest.page.evaluate(() => Farm.world.travel('town', 'from_mine'));
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  assert.strictEqual(await guest.page.evaluate(() => !!(Farm.session.visit && Farm.session.visit.inTown)), true, 'still in their town');
   for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, guest]) await p.context.close();
 });

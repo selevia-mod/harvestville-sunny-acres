@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], market: [], lotId: 0 };
+  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0 };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
@@ -103,6 +103,26 @@ function createServer() {
       const taken = db.helps.filter((h) => h.host === uid && !h.claimed);
       taken.forEach((h) => { h.claimed = true; });
       return { tiles: [...new Set(taken.map((h) => h.tile))], from: [...new Set(taken.map((h) => db.players.get(h.helper).farm_name))] };
+    },
+    // part 8 (supabase/farm_online_8.sql): pick a friend's ripe crops into their basket; the crops friends picked for you
+    farm_pick_v1(uid, a) {
+      need(uid);
+      if (!a.p_host || a.p_host === uid) return { ok: false, code: 'self' };
+      const tile = Number(a.p_tile);
+      if (!Number.isInteger(tile) || tile < 0 || tile > 100000 || !/^[a-z][a-z_]{0,23}$/.test(String(a.p_crop))) return { ok: false, code: 'bad' };
+      if (blocked(uid, a.p_host) || !areFriends(uid, a.p_host)) return { ok: false, code: 'friends' };
+      if (!visitOf(a.p_host, uid)) return { ok: false, code: 'visit' };
+      const mineToday = db.picks.filter((h) => h.picker === uid && h.day === today()), mine = mineToday.filter((h) => h.host === a.p_host).length;
+      if (mine >= 5 || mineToday.length >= 25) return { ok: false, code: 'limit', left: 0 };
+      if (db.picks.some((h) => h.host === a.p_host && h.tile === tile && (!h.claimed || (h.picker === uid && h.day === today())))) return { ok: false, code: 'done', left: 5 - mine };
+      db.picks.push({ host: a.p_host, picker: uid, day: today(), tile, crop: a.p_crop, claimed: false });
+      return { ok: true, left: 4 - mine };
+    },
+    farm_picks_v1(uid) {
+      need(uid);
+      const taken = db.picks.filter((h) => h.host === uid && !h.claimed);
+      taken.forEach((h) => { h.claimed = true; });
+      return { picks: taken.map((h) => [h.tile, h.crop]), from: [...new Set(taken.map((h) => db.players.get(h.picker).farm_name))] };
     },
     // part 7 (supabase/farm_online_7.sql): the Market
     farm_market_list_v1(uid, a) {

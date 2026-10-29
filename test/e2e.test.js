@@ -1819,3 +1819,40 @@ test('arranging the bag: Move puts the sickle in the first hotbar slot (owner, 2
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('paging a list while it loads opens one page, not a pile of them (owner, 29 Oct: X had to be tapped 100 times)', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  const left = await page.evaluate(() => new Promise((done) => {
+    const u = Farm.ui, rows = [];
+    for (let i = 0; i < 12; i++) rows.push({ icon: 0, name: 'Farm ' + i, desc: '' });
+    const show = (p) => u.listPanel({ title: 'Online', rows, page: p, reopen: (t, q) => setTimeout(() => show(q), 300) }); // a slow load
+    show(0);
+    for (let i = 0; i < 20; i++) u.swapTo(() => setTimeout(() => show(i + 1), 300));
+    setTimeout(() => done(u.modals.length), 1200);
+  }));
+  assert.strictEqual(left, 1, 'one panel');
+  await page.evaluate(() => Farm.ui.closeModal());
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'one X closes it');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('your birthday: the hat, confetti and the mayor\'s letter with a cake on the day; a cake on the calendar', async () => {
+  const save = await makeSave("s.name = 'Ana'; L.setBirthday(s, 4, 1);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.world.partyHat && Farm.world.partyHat.visible, null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.session.state.mail.includes('mybday')), 'the letter is in the mailbox');
+  await page.evaluate(() => Farm.ui.openCalendar(0));
+  await page.waitForTimeout(200);
+  const text = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[0].c.list); return out.join('\n'); });
+  assert.match(text, /Apr 1 {2}Your birthday!/);
+  await shot(page, 'birthday-calendar');
+  await closeAll(page);
+  const r = await page.evaluate(() => { const s = Farm.session.state; s.mail = ['mybday']; return Farm.Logic.readMail(s).letter.text; });
+  assert.match(r, /Happy birthday/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'cake')), 1);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

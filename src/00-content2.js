@@ -30,7 +30,7 @@
   // ---------- tips: shown once, the first time you hold something ----------
   C.TIPS = [
     { key: 'hoe', text: 'HOE: tills cleared field soil. Seeds need tilled soil.' },
-    { key: 'can', text: 'WATERING CAN: watered crops grow 25% faster. Refill it at the pond.' },
+    { key: 'can', text: 'WATERING CAN: seeds only grow once watered (rain counts). Refill it at the pond.' },
     { key: 'axe', text: 'AXE: chops branches (1 lumber) and stumps (4 lumber, several swings).' },
     { key: 'hammer', text: 'HAMMER: breaks stones and boulders for stone, and rocks in the mine.' },
     { key: 'sickle', text: 'SICKLE: cuts weeds, and cuts ripe grass into Fodder for cows.' },

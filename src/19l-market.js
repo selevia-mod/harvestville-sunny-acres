@@ -310,7 +310,7 @@
         reopen: function () { self.openStall(id, who, back); },
         sub: function () { return 'You have ' + fmt(s.gold) + 'G.'; },
         empty: who + ' is not selling anything right now.',
-        corner: { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, who, back); } },
+        corner: back ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, who, back); } } : null, // (no back: from their town's stall)
       });
       if (then) then();
     }).catch(function (e) { if (missing(e)) return soon(self); self.toast('Could not reach the online world. Check your connection.'); });

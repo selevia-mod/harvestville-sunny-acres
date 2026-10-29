@@ -47,7 +47,8 @@
     'TIME, SEASONS AND FESTIVALS\n' +
     'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every ' + C.ENERGY_EVERY + ' minutes: tap the energy bar to see when it is full.\n\n' +
     'Seasons follow the months (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb), each with 10 crops. ' +
-    'Festivals and birthdays are on the same dates for every player: check the calendar. With 8 hearts, the House Extension and a Blue Feather, you can propose.',
+    'Festivals and birthdays are on the same dates for every player: check the calendar, where you can set your own birthday too. With 8 hearts, the House Extension and a Blue Feather, you can propose.\n\n' +
+    'Online, friends can pick your ripe crops so none go to waste: they wait in the Harvest Basket by your mailbox.',
   ];
 
   // Canvas 2D drawing helpers for baked UI art.
@@ -759,8 +760,11 @@
     // Moves from this panel to another (a tab, a page, a new list) without closing it first: it stays on screen until the
     // next panel opens, which then takes its place in the same frame (owner, 28 Oct: tabs closed and reopened the panel,
     // the farm flashing through while the next tab loaded). If nothing opens within a few seconds, it simply stays.
+    // One swap at a time: while the last tap's panel is still loading, more taps wait for it (owner, 29 Oct: tapping Next
+    // 100 times stacked 100 panels, each dimming the screen, and X had to be tapped 100 times).
     swapTo(open) {
-      var top = this.modals[this.modals.length - 1];
+      var top = this.modals[this.modals.length - 1], sw = this.swapping;
+      if (top && sw && sw.m === top && Date.now() - sw.at < 8000) return;
       this.swapping = top ? { m: top, at: Date.now() } : null;
       open();
     }

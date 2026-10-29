@@ -355,7 +355,7 @@
     // a small pill at the top left: Talk to the shop's keeper, or the panel's own (Back, Events: o.corner)
     var corner = o.corner || (o.talk ? { label: 'Talk', color: BLUE, cb: function () {
       var r = L.talk(F.session.state, o.talk);
-      if (r.first) F.world.progress('meet');
+      if (L.hello(F.session.state, o.talk)) F.world.progress('meet');
       sfx('talk');
       F.world.changed();
       self.say(o.talk, C.VILLAGERS[o.talk].name, r.line);

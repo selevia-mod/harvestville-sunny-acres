@@ -426,3 +426,43 @@ do $$ begin
   perform pg_temp.ok(not has_function_privilege('anon', 'public.farm_market_buy_v1(bigint)', 'execute') and not has_function_privilege('anon', 'public.farm_market_find_v1(text)', 'execute'), 'market: not for signed-out users');
   perform pg_temp.ok(not has_function_privilege('authenticated', 'farm.can_see(uuid, uuid)', 'execute'), 'helpers stay private');
 end $$;
+-- part 8: picking a friend's ripe crops into their basket
+reset role;
+insert into farm.friends (user_a, user_b, requested_by, accepted_at)
+values (least(pg_temp.id(5), pg_temp.id(6)), greatest(pg_temp.id(5), pg_temp.id(6)), pg_temp.id(5), now())
+on conflict (user_a, user_b) do update set accepted_at = now();
+update farm.players set hidden = false, listed = true where user_id = pg_temp.id(5);
+delete from farm.blocks where pg_temp.id(5) in (blocker, blocked) and pg_temp.id(6) in (blocker, blocked);
+set role authenticated;
+do $$ declare r json; begin
+  perform pg_temp.as_(5);
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 20, 'turnip') ->> 'code' = 'visit', 'pick only on a farm you visited today');
+  perform pg_temp.as_(7);
+  r := farm_pick_v1(pg_temp.id(6), 20, 'turnip');
+  perform pg_temp.ok((r ->> 'ok')::boolean and (r ->> 'left')::int = 4, 'a friend picks a ripe crop (' || r || ')');
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 20, 'turnip') ->> 'code' = 'done', 'the same crop once');
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 21, 'Turnip!') ->> 'code' = 'bad', 'a real crop name');
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 100001, 'turnip') ->> 'code' = 'bad', 'a real tile');
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(7), 1, 'turnip') ->> 'code' = 'self', 'not your own farm');
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(8), 1, 'turnip') ->> 'code' = 'friends', 'friends only');
+  for t in 21..24 loop perform farm_pick_v1(pg_temp.id(6), t, 'potato'); end loop;
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 25, 'turnip') ->> 'code' = 'limit', '5 crops per friend a day');
+  perform pg_temp.as_(5);
+  perform farm_visit_v1(pg_temp.id(6));
+  perform pg_temp.ok(farm_pick_v1(pg_temp.id(6), 20, 'turnip') ->> 'code' = 'done', 'two friends cannot pick the same crop');
+  perform pg_temp.ok((farm_pick_v1(pg_temp.id(6), 30, 'carrot') ->> 'ok')::boolean, 'another friend picks another crop');
+  perform pg_temp.as_(6);
+  r := farm_picks_v1();
+  perform pg_temp.ok(json_array_length(r -> 'picks') = 6 and json_array_length(r -> 'from') = 2, 'the owner gets the 6 picks and who (' || r || ')');
+  perform pg_temp.ok(r::text like '%[20, "turnip"]%' or r::text like '%[20,"turnip"]%', 'each pick is [tile, crop]');
+  perform pg_temp.ok(json_array_length(farm_picks_v1() -> 'picks') = 0, 'taken once');
+  perform pg_temp.as_(5);
+  perform pg_temp.ok((farm_pick_v1(pg_temp.id(6), 20, 'turnip') ->> 'ok')::boolean, 'once taken, that tile can be picked again (it grew back)');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok(not has_function_privilege('anon', 'public.farm_pick_v1(uuid, int, text)', 'execute') and not has_function_privilege('anon', 'public.farm_picks_v1()', 'execute'), 'picking: not for signed-out users');
+  perform pg_temp.ok(has_function_privilege('authenticated', 'public.farm_pick_v1(uuid, int, text)', 'execute'), 'picking: players can call it');
+  perform pg_temp.ok(not has_table_privilege('authenticated', 'farm.picks', 'select'), 'picks stay private');
+  perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'pick') = 2, 'one push per friend a day (' || (select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'pick') || ')');
+end $$;

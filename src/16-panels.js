@@ -24,7 +24,7 @@
     if (o.talk) {
       this.button(c, 50, 96, 56, 34, 'Talk', function () {
         var r = L.talk(F.session.state, o.talk);
-        if (r.first) world().progress('meet');
+        if (L.hello(F.session.state, o.talk)) world().progress('meet');
         sfx('talk');
         world().changed();
         self.say(o.talk, C.VILLAGERS[o.talk].name, r.line);
@@ -694,6 +694,7 @@
     for (var d = from; d < from + days; d++) {
       var fest = L.festivalOn(d);
       if (fest) out.push({ day: d, fest: fest });
+      if (L.myBirthdayOn && L.myBirthdayOn(F.session.state, d)) out.push({ day: d, mine: true });
       L.birthdaysOn(d).forEach(function (k) { out.push({ day: d, birthday: k }); });
     }
     return out;
@@ -702,7 +703,7 @@
   M.noticeBoard = function () {
     var s = F.session.state, events = this.upcoming(s.day, 14);
     var lines = events.map(function (e) {
-      return (e.day === s.day ? 'TODAY' : L.formatDate(e.day)) + ': ' + (e.fest ? e.fest.name + ' (plaza)' : C.VILLAGERS[e.birthday].name + "'s birthday");
+      return (e.day === s.day ? 'TODAY' : L.formatDate(e.day)) + ': ' + (e.mine ? 'Your birthday!' : e.fest ? e.fest.name + ' (plaza)' : C.VILLAGERS[e.birthday].name + "'s birthday");
     });
     this.dialog('TOWN NOTICE BOARD\n' + (lines.length ? lines.join('\n') : 'Nothing planned in the next two weeks.') + '\n\nThe calendar in the pause menu shows the whole season.');
   };
@@ -725,7 +726,7 @@
     var events = [];
     for (var i = 0; i < n; i++) {
       var day = first + i, cell = lead + i, x = x0 + (cell % 7) * cw, y = y0 + 18 + Math.floor(cell / 7) * ch;
-      var fest = L.festivalOn(day), bdays = L.birthdaysOn(day), today = day === s.day;
+      var fest = L.festivalOn(day), bdays = L.birthdaysOn(day), today = day === s.day, mine = L.myBirthdayOn && L.myBirthdayOn(s, day);
       var kind = today ? 'today' : day < s.day ? 'past' : 'day';
       this.baked(c, x + 2, y, 'ui-cal2-' + kind, cw - 4, ch - 4, (function (kind) {
         return function (g) {
@@ -735,9 +736,11 @@
       })(kind));
       c.add(this.txt(x + 6, y + 2, String(i + 1), 11, INK, { fontStyle: 'bold' }));
       var soon = day >= s.day && day <= s.day + 1;
-      if (fest) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.ribbon).setScale(0.15));
+      if (mine) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.cake).setScale(0.15)); // your birthday (01-logicB.js)
+      else if (fest) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.ribbon).setScale(0.15));
       else if (bdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.gift).setScale(0.15));
       else if (soon) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.WEATHER[L.weather(s, day)].icon).setScale(0.11).setAlpha(0.9));
+      if (mine) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  Your birthday!');
       if (fest) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + fest.name);
       bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
     }
@@ -745,6 +748,7 @@
     events.push('Every Sat & Sun  Weekend Market');
     c.add(this.txt(W / 2, y0 + 18 + rows * ch + 8, events.join('\n'), 13, INK, { align: 'center', lineSpacing: 3 }).setOrigin(0.5, 0));
     if (offset > 0) this.button(c, W / 2 - 80, 556, 130, 38, 'Back', function () { self.closeModal(); self.openCalendar(offset - 1); }, GREY);
+    else if (this.askBirthday) this.button(c, W / 2 - 80, 556, 130, 38, s.bd ? 'My birthday' : 'Set birthday', function () { self.closeModal(); self.askBirthday(function () { self.openCalendar(0); }); }, BROWN);
     if (offset < 11) this.button(c, W / 2 + 80, 556, 130, 38, 'Next month', function () { self.closeModal(); self.openCalendar(offset + 1); }, BLUE);
   };
 

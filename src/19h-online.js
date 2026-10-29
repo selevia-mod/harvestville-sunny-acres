@@ -172,7 +172,7 @@
   O.myState = function () {
     var w = F.world, f = w && w.player ? w.feet() : { x: 0, y: 0 };
     return {
-      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm',
+      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w && w.mapKey === 'mine' ? F.session.mineFloor : 0,
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
     };
   };
@@ -257,6 +257,7 @@
     return {
       id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
+      fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
     };
@@ -388,7 +389,7 @@
       var q = clean(Object.assign({}, who, p, { id: who.id, name: who.name, look: who.look, at: who.at }));
       if (!q) return;
       q.rt = Date.now();
-      var changedMap = q.map !== who.map;
+      var changedMap = q.map !== who.map || q.fl !== who.fl;
       O.others[q.id] = q;
       if (changedMap) O.syncSprites();
       var vv = F.session.visit;
@@ -418,7 +419,7 @@
     var want = {};
     Object.keys(O.others).forEach(function (id) {
       var p = O.others[id];
-      if (p.map === w.mapKey && w.mapKey !== 'mine') want[id] = p; // (the town too: visitors follow the owner there)
+      if (p.map === w.mapKey && (w.mapKey !== 'mine' || p.fl === F.session.mineFloor)) want[id] = p; // (the town and the mine too: visitors follow the owner there)
     });
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
@@ -479,18 +480,19 @@
     if (!this.chan || w.busy) return;
     // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
     var alone = true;
+    var fl = w.mapKey === 'mine' ? F.session.mineFloor : 0;
     for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
-    if (alone && !(Object.keys(this.others).length && this.last && this.last.map !== w.mapKey)) return;
-    var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
+    if (alone && !(Object.keys(this.others).length && this.last && (this.last.map !== w.mapKey || this.last.fl !== fl))) return;
+    var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
     if (moved) {
-      this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, m: 1 };
+      this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, fl: fl, m: 1 };
       this.mvMs = ON.moveEvery;
-      this.send('mv', { map: w.mapKey, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now() });
+      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now() });
     } else if (last && last.m) {
       last.m = 0; // stopped: say so, and leave our place in the presence list for anyone who joins later
-      this.send('mv', { map: w.mapKey, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now() });
+      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now() });
       this.chan.track(this.myState());
     }
   };
@@ -602,7 +604,7 @@
     O.last = null;
     O.mvMs = 0;
     if (O.on) O.ensureChannel();
-    if (v && F.ui) F.ui.toast(this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+    if (v && F.ui) F.ui.toast(this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
   var update = P.update;
@@ -638,8 +640,8 @@
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
     // On a visit you can go where the owner can be seen: their farm, their house and their town (owner, 28 Oct: "visitors
-    // can also go to others town ... to follow who they visit"). The mine is everyone's own: heading there ends the visit
-    // and you walk in as yourself.
+    // can also go to others town ... to follow who they visit"), and their mine (owner, 29 Oct: "i should able to follow
+    // her through mine cave"): in your own game, on their mine's rocks (19r-follow.js), still on the visit.
     var v = F.session.visit;
     if (v && !this.busy) {
       if (visiting(this) && to === 'town') { // into their town, in your own game
@@ -660,7 +662,7 @@
         O.restartWorld();
         return;
       }
-      if (v.inTown && to !== 'town') { O.leaveVisit(null, to, spawn, floor); return; } // the mine: your own
+      if (v.inTown && to !== 'town' && to !== 'mine') { O.leaveVisit(null, to, spawn, floor); return; } // (their house: Home)
     }
     if (visiting(this) && to !== 'farm' && to !== 'house' && to !== 'town') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);
@@ -867,7 +869,7 @@
       self.listPanel(o);
       if (then) then();
     };
-    var fail = function (e) { self.toast(errText(e)); };
+    var fail = function (e) { self.swapping = null; self.toast(errText(e)); }; // a failed load lets the next tap try again
     // Report or block a player, then come back to this tab.
     var more = function (id, n, back) {
       return { label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, function (then) { self.openOnline(back, 0, then); }); } };
