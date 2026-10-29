@@ -500,8 +500,9 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await page.click('#farm-ask button:first-child');
   await page.waitForSelector('#farm-ask', { state: 'detached' });
   await page.evaluate(() => window.__gameBack());
-  // (the farm's debris is random: clear that tile, or the farmer would be standing inside a rock and moved off it)
-  await page.evaluate(() => { delete Farm.session.state.debris[20 * Farm.Config.FARM_W + 10]; Farm.world.changed && Farm.world.changed(); });
+  // (the farm's debris is random: clear that tile, in the save AND on the map, or the farmer would be standing inside a
+  // rock and pushed off it: the save alone left the rock on screen, and 1 run in 4 ended a tile away)
+  await page.evaluate(() => { const i = 20 * Farm.Config.FARM_W + 10; delete Farm.session.state.debris[i]; Farm.world.removeDebrisTile(i); Farm.world.changed && Farm.world.changed(); });
   await teleport(page, 10, 20, 'down');
   const day = (await state(page)).day;
   await page.evaluate(() => { Farm.session.state.energy = 10; });
@@ -1854,6 +1855,23 @@ test('your birthday: the hat, confetti and the mayor\'s letter with a cake on th
   const r = await page.evaluate(() => { const s = Farm.session.state; s.mail = ['mybday']; return Farm.Logic.readMail(s).letter.text; });
   assert.match(r, /Happy birthday/);
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'cake')), 1);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  const left = await page.evaluate(() => new Promise((done) => {
+    const u = Farm.ui, rows = [];
+    for (let i = 0; i < 12; i++) rows.push({ icon: 0, name: 'Farm ' + i, desc: '' });
+    const show = (p) => { const ticket = u.swapping; setTimeout(() => { if (!u.swapGone(ticket)) u.listPanel({ title: 'Online', rows, page: p, reopen: () => {} }); }, 300); }; // a slow load
+    u.listPanel({ title: 'Online', rows, page: 0, reopen: () => {} });
+    u.swapTo(() => show(1)); // Next...
+    u.closeModal(); // ...then X before page 2 arrives
+    setTimeout(() => done(u.modals.length), 900);
+  }));
+  assert.strictEqual(left, 0, 'nothing pops back up');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

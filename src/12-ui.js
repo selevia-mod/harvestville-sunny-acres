@@ -769,6 +769,10 @@
       open();
     }
 
+    swapGone(ticket) {
+      return !!(ticket && ticket.dropped);
+    }
+
     openModal(onBack) {
       var sw = this.swapping;
       this.swapping = null;
@@ -784,7 +788,10 @@
     }
 
     closeModal() {
-      var m = this.modals.pop();
+      var m = this.modals.pop(), sw = this.swapping;
+      // X on a panel whose next page is still loading: that page is not wanted any more (owner, 29 Oct). A loader
+      // holds its ticket (this.swapping when it started) and checks .dropped before it opens (U.swapGone).
+      if (sw && m && sw.m === m) { sw.dropped = true; this.swapping = null; }
       if (m) m.c.destroy();
       if (!this.modals.length) this.invRefresh = null;
     }

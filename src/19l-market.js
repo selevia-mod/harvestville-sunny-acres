@@ -36,7 +36,9 @@
   U.openMarket = function (page, then) {
     var self = this, s = F.session.state;
     if (O.marketOff) return soon(this);
+    var ticket = this.swapping; // (closed with X while this page loaded: it stays closed)
     F.Net.rpc('farm_market_mine_v1', {}).then(function (mine) {
+      if (self.swapGone(ticket)) return;
       mine = (Array.isArray(mine) ? mine : []).filter(function (r) { return r && C.ITEMS[r.item]; });
       var list = L.shoppingList(s), done = mine.some(function (r) { return r.status !== 'open'; });
       var rows = [

@@ -7737,6 +7737,10 @@
       open();
     }
 
+    swapGone(ticket) {
+      return !!(ticket && ticket.dropped);
+    }
+
     openModal(onBack) {
       var sw = this.swapping;
       this.swapping = null;
@@ -7752,7 +7756,10 @@
     }
 
     closeModal() {
-      var m = this.modals.pop();
+      var m = this.modals.pop(), sw = this.swapping;
+      // X on a panel whose next page is still loading: that page is not wanted any more (owner, 29 Oct). A loader
+      // holds its ticket (this.swapping when it started) and checks .dropped before it opens (U.swapGone).
+      if (sw && m && sw.m === m) { sw.dropped = true; this.swapping = null; }
       if (m) m.c.destroy();
       if (!this.modals.length) this.invRefresh = null;
     }
@@ -14438,7 +14445,9 @@
     if (!F.session.state.net.named) return this.firstName(function () { self.openOnline(tab, page, then); });
     this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
     var o = { title: 'Online', tab: tab, page: page, tabs: TABS, reopen: function (t, p) { self.openOnline(t, p); } };
+    var ticket = this.swapping; // (closed with X while this page loaded: it stays closed)
     var show = function (rows, sub, empty) {
+      if (self.swapGone(ticket)) return;
       o.rows = rows;
       o.sub = function () { return sub; };
       o.empty = empty;
@@ -16249,7 +16258,9 @@
   U.openMarket = function (page, then) {
     var self = this, s = F.session.state;
     if (O.marketOff) return soon(this);
+    var ticket = this.swapping; // (closed with X while this page loaded: it stays closed)
     F.Net.rpc('farm_market_mine_v1', {}).then(function (mine) {
+      if (self.swapGone(ticket)) return;
       mine = (Array.isArray(mine) ? mine : []).filter(function (r) { return r && C.ITEMS[r.item]; });
       var list = L.shoppingList(s), done = mine.some(function (r) { return r.status !== 'open'; });
       var rows = [

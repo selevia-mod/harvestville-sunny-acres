@@ -862,7 +862,9 @@
     if (!F.session.state.net.named) return this.firstName(function () { self.openOnline(tab, page, then); });
     this.onlineKind = this.onlineKind || { visit: 'popular', ranks: 'beauty' };
     var o = { title: 'Online', tab: tab, page: page, tabs: TABS, reopen: function (t, p) { self.openOnline(t, p); } };
+    var ticket = this.swapping; // (closed with X while this page loaded: it stays closed)
     var show = function (rows, sub, empty) {
+      if (self.swapGone(ticket)) return;
       o.rows = rows;
       o.sub = function () { return sub; };
       o.empty = empty;
