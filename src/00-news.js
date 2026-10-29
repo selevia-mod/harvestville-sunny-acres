@@ -8,7 +8,10 @@
 
   C.NEWS = [
     {
-      v: '1.2', date: 'October 29, 2026', lines: [
+      v: '1.2', date: 'October 30, 2026', lines: [
+        ['bag', 'A much bigger bag', "Lily sells bigger bags up to 90 slots. Use the arrows to turn the bag's pages."],
+        ['chest', 'Storage at home', 'Tap a Dresser or Wardrobe to keep things there: 60 slots. Every farm gets a free Dresser.'],
+        ['gift', 'Give to friends', 'Hold food or anything else and face a friend: tap Give. Great for a tired friend in the mine!'],
         ['sparkle', 'Sharper pictures', 'The Bakery, Dairy, Jam Maker, fruit trees, field plot and basket are new and sharp.'],
         ['cake', 'Your party hat', 'On your birthday your farmer wears a party hat all day, and friends see it too.'],
         ['apple', 'Trees show their fruit', 'A fruit tree shows its fruit only when it is ripe. After picking, it stays green until the next fruit.'],

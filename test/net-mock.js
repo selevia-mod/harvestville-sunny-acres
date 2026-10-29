@@ -124,6 +124,23 @@ function createServer() {
       taken.forEach((h) => { h.claimed = true; });
       return { picks: taken.map((h) => [h.tile, h.crop]), from: [...new Set(taken.map((h) => db.players.get(h.picker).farm_name))] };
     },
+    // part 9 (supabase/farm_online_9.sql): giving items to a friend
+    farm_give_v1(uid, a) {
+      need(uid);
+      if (!a.p_to || a.p_to === uid) return { ok: false, code: 'self' };
+      if (!/^[a-z][a-z0-9_]{0,23}$/.test(String(a.p_item)) || !Number.isInteger(a.p_n) || a.p_n < 1 || a.p_n > 99) return { ok: false, code: 'bad' };
+      if (blocked(uid, a.p_to) || !areFriends(uid, a.p_to)) return { ok: false, code: 'friends' };
+      const mine = (db.gives || []).filter((g) => g.giver === uid && g.day === today()), them = mine.filter((g) => g.taker === a.p_to).length;
+      if (them >= 10 || mine.length >= 30) return { ok: false, code: 'limit' };
+      (db.gives = db.gives || []).push({ giver: uid, taker: a.p_to, day: today(), item: a.p_item, n: a.p_n, claimed: false });
+      return { ok: true, left: Math.min(9 - them, 29 - mine.length) };
+    },
+    farm_gives_v1(uid) {
+      need(uid);
+      const taken = (db.gives || []).filter((g) => g.taker === uid && !g.claimed);
+      taken.forEach((g) => { g.claimed = true; });
+      return { gives: taken.map((g) => [g.item, g.n]), from: [...new Set(taken.map((g) => db.players.get(g.giver).farm_name))] };
+    },
     // part 7 (supabase/farm_online_7.sql): the Market
     farm_market_list_v1(uid, a) {
       need(uid);

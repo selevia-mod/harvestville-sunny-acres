@@ -466,3 +466,29 @@ do $$ begin
   perform pg_temp.ok(not has_table_privilege('authenticated', 'farm.picks', 'select'), 'picks stay private');
   perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'pick') = 2, 'one push per friend a day (' || (select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'pick') || ')');
 end $$;
+-- part 9: giving items to a friend
+set role authenticated;
+do $$ declare r json; i int; begin
+  perform pg_temp.as_(7);
+  r := farm_give_v1(pg_temp.id(6), 'grilled_fish', 3);
+  perform pg_temp.ok((r ->> 'ok')::boolean and (r ->> 'left')::int = 9, 'a friend gives 3 grilled fish (' || r || ')');
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(7), 'egg', 1) ->> 'code' = 'self', 'not to yourself');
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(8), 'egg', 1) ->> 'code' = 'friends', 'friends only');
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(6), 'Egg!', 1) ->> 'code' = 'bad', 'a real item name');
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(6), 'egg', 100) ->> 'code' = 'bad', 'up to 99 at a time');
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(6), 'egg', 0) ->> 'code' = 'bad', 'at least 1');
+  for i in 2..10 loop perform farm_give_v1(pg_temp.id(6), 'egg', 1); end loop;
+  perform pg_temp.ok(farm_give_v1(pg_temp.id(6), 'egg', 1) ->> 'code' = 'limit', '10 gives to the same friend a day');
+  perform pg_temp.as_(6);
+  r := farm_gives_v1();
+  perform pg_temp.ok(json_array_length(r -> 'gives') = 10 and json_array_length(r -> 'from') = 1, 'the friend gets the 10 gives and who (' || r || ')');
+  perform pg_temp.ok(r::text like '%["grilled_fish", 3]%' or r::text like '%["grilled_fish",3]%', 'each give is [item, n]');
+  perform pg_temp.ok(json_array_length(farm_gives_v1() -> 'gives') = 0, 'taken once');
+end $$;
+reset role;
+do $$ begin
+  perform pg_temp.ok(not has_function_privilege('anon', 'public.farm_give_v1(uuid, text, int)', 'execute') and not has_function_privilege('anon', 'public.farm_gives_v1()', 'execute'), 'giving: not for signed-out users');
+  perform pg_temp.ok(has_function_privilege('authenticated', 'public.farm_give_v1(uuid, text, int)', 'execute'), 'giving: players can call it');
+  perform pg_temp.ok(not has_table_privilege('authenticated', 'farm.gives', 'select'), 'gives stay private');
+  perform pg_temp.ok((select count(*) from public.notifications where type = 'farm_alert' and metadata ->> 'kind' = 'give') = 1, 'one push per friend a day');
+end $$;

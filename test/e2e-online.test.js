@@ -459,6 +459,48 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: hold food, face a friend: Give puts it in their bag at once; not friends, it stays yours (owner, 30 Oct)', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  await host.page.evaluate(() => Farm.Online.publish(true));
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await friend.page.waitForFunction((id) => Farm.world && Farm.world.state && Farm.world.state.isVisit && Farm.world.remotes && Farm.world.remotes[id], host.uid, { timeout: 60000 });
+  // the friend holds 5 grilled fish and faces the owner's farmer
+  const face = () => friend.page.evaluate((id) => {
+    const w = Farm.world, s = Farm.session.state, r = w.remotes[id], T = Farm.Config.TILE;
+    s.inv[8] = s.inv[8] || { id: 'grilled_fish', n: 5 };
+    s.sel = 8;
+    w.player.body.reset(r.x, r.y + 0.75 * T);
+    w.dir = 'up';
+    const a = w.resolve();
+    return a && [a.label, !!a.disabled];
+  }, host.uid);
+  assert.deepStrictEqual(await face(), ['Give', false]);
+  // not friends yet: the server says no, and the fish come back
+  await friend.page.evaluate((id) => Farm.world.give(Farm.Online.others[id], 8, 2), host.uid);
+  await friend.page.waitForFunction(() => !Farm.world.giving, null, { timeout: 60000 });
+  assert.deepStrictEqual(await friend.page.evaluate(() => Farm.session.state.inv[8]), { id: 'grilled_fish', n: 5 }, 'nothing lost');
+  // friends: the dialog, then Give 5
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  assert.deepStrictEqual(await face(), ['Give', false]);
+  await friend.page.evaluate((id) => Farm.world.askGive(Farm.Online.others[id]), host.uid);
+  assert.match(await friend.page.evaluate(() => Farm.ui.modals[Farm.ui.modals.length - 1].c.list.map((o) => o.text || '').join(' ')), /Give Moon Meadow your Grilled Fish \(you have 5\)\?/);
+  await friend.page.evaluate(() => { Farm.ui.closeAll(); });
+  await friend.page.evaluate((id) => Farm.world.give(Farm.Online.others[id], 8, 5), host.uid);
+  await friend.page.waitForFunction(() => !Farm.world.giving, null, { timeout: 60000 });
+  assert.strictEqual(await friend.page.evaluate(() => Farm.session.state.inv[8]), null, 'out of your bag');
+  assert.deepStrictEqual(server.db.gives.map((g) => [g.item, g.n, g.claimed]).slice(-1)[0].slice(0, 2), ['grilled_fish', 5]);
+  // the owner gets it in their bag right away
+  await host.page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'grilled_fish') === 5, null, { timeout: 60000 });
+  // empty hands or a tool: Wave as before
+  const wave = await friend.page.evaluate((id) => { const w = Farm.world, s = Farm.session.state; s.sel = 0; const a = w.resolve(); return a && a.label; }, host.uid);
+  assert.strictEqual(wave, 'Wave');
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: a friend picks your ripe fruit tree into your basket; they see it bare after, and so do you (owner, 29 Oct)', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);

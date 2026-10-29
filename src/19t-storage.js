@@ -16,10 +16,10 @@
   P.extraObjectAction = function (o, held, def) {
     if (o.type !== 'storage') return extraObjectAction.call(this, o, held, def);
     if (F.session.visit) return { label: 'Storage', icon: C.ICON.chest, disabled: true, why: "That's where " + F.session.visit.name + ' keeps their things.' };
-    return { label: 'Storage', icon: C.ICON.chest, run: function () { F.ui.openStorage(); } };
+    return { label: 'Storage', icon: C.ICON.chest, run: function () { F.ui.openItemStorage(); } };
   };
 
-  U.openStorage = function (tab) {
+  U.openItemStorage = function (tab) {
     var self = this, s = F.session.state, w = F.world;
     var c = this.openModal();
     tab = tab || 'store';
