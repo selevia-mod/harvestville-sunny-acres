@@ -542,6 +542,37 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await context.close();
 });
 
+test('home storage: the free Dresser opens Storage; put a stack away, take it back (owner, 30 Oct 2026)', async () => {
+  const { page, problems, context } = await open();
+  await tapButton(page, 'Boy');
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.click('#farm-ask button:first-child');
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
+  await page.evaluate(() => window.__gameBack());
+  await go(page, 'house', 'bed');
+  const d = await page.evaluate(() => { const H = Farm.Config.HOME; const it = Farm.session.state.home.items.find((x) => H.types[x.t].key === 'dresser'); return { x: it.x, y: it.y }; });
+  await teleport(page, d.x, d.y + 2, 'up');
+  assert.strictEqual(await actionLabel(page), 'Storage');
+  await page.evaluate(() => { Farm.session.state.inv[8] = { id: 'carrot', n: 40 }; });
+  await tapAction(page);
+  assert.match(await modalText(page), /Storage {2}1\/2.*0 of 60 slots used/);
+  await tapButton(page, 'Bag');
+  assert.match(await modalText(page), /Tap an item to put it away/);
+  await tapSlotOnPage(page, 8);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.inv[8]), null);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.store[0]), { id: 'carrot', n: 40 });
+  await shot(page, '41-storage');
+  // kept in the save
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.deepStrictEqual(saved.kp, [['carrot', 40]]);
+  await tapButton(page, 'Storage');
+  await tapSlotOnPage(page, 0);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'carrot')), 40);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.store[0]), null);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('sleep in your bed: tucked in with Zzz, energy every minute, the joystick wakes you (owner, 29 Oct 2026)', async () => {
   const { page, problems, context } = await open();
   await tapButton(page, 'Boy');

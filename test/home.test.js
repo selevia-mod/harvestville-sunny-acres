@@ -38,7 +38,7 @@ test('a new farm starts in a Cozy Cabin with the starter furniture, all of it va
   const s = fresh();
   assert.strictEqual(s.home.level, 1);
   assert.strictEqual(L.homeLevel(s).name, 'Cozy Cabin');
-  assert.strictEqual(s.home.items.length, H.starter.length);
+  assert.strictEqual(s.home.items.length, H.starter.length + 1, 'and the free Dresser (storage, 30 Oct)');
   s.home.items.forEach((it, i) => assert.strictEqual(L.cantPlace(s, it.t, it.x, it.y, i), null, H.types[it.t].key));
   assert.ok(L.homeHas(s, 'sleep') && L.homeHas(s, 'tv'));
   assert.strictEqual(L.homeTier(s), 0, 'a plain home to start with');
@@ -107,7 +107,7 @@ test('placing: wall things on the back wall, floor things on the floor, nothing 
 test('nothing may cut the bed, the TV or the kitchen off from the door', () => {
   const s = fresh();
   s.gold = 1e6;
-  s.home.items = s.home.items.filter((it) => H.types[it.t].key !== 'rug' && H.types[it.t].key !== 'table' && H.types[it.t].key !== 'plant');
+  s.home.items = s.home.items.filter((it) => !['rug', 'table', 'plant', 'dresser'].includes(H.types[it.t].key));
   // a row of dressers across the room below the bed and the TV
   for (let k = 0; k < 3; k++) L.buyFurn(s, T('dresser'), 0);
   assert.strictEqual(typeof L.placeFurn(s, T('dresser'), 0, 1, 4, 0), 'number');
