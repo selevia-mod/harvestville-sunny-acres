@@ -459,6 +459,38 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: a friend picks your ripe fruit tree into your basket; they see it bare after, and so do you (owner, 29 Oct)', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  await host.page.evaluate(() => {
+    const s = Farm.session.state, OD = Farm.Config.OUTDOOR;
+    s.day = Farm.Logic.dayOf(Date.UTC(2026, 9, 15, 4)); // fall: apples are in season
+    s.yard.items.push({ t: OD.index.apple_tree, x: 26, y: 11 });
+    Farm.world.renderYard();
+    return Farm.Online.publish(true);
+  });
+  await friend.page.evaluate(() => { const s = Farm.session.state; s.day = Farm.Logic.dayOf(Date.UTC(2026, 9, 15, 4)); });
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await friend.page.waitForFunction(() => Farm.world && Farm.world.state && Farm.world.state.isVisit && Farm.world.yardSprites && Farm.world.yardSprites.length, null, { timeout: 60000 });
+  const tree = () => friend.page.evaluate(() => Farm.world.yardSprites.map((sp) => sp.texture.key).filter((k) => /tree/.test(k))[0]);
+  assert.strictEqual(await tree(), 'props/tree_apple', 'ripe: with fruit');
+  const a = await friend.page.evaluate(() => { const r = Farm.world.helpAction({ x: 26, y: 13 }); return r && [r.label, !!r.disabled]; });
+  assert.deepStrictEqual(a, ['Pick', false]);
+  await friend.page.evaluate(() => Farm.world.helpAction({ x: 26, y: 13 }).run());
+  await friend.page.waitForFunction(() => Object.keys(Farm.Online.picked).length > 0, null, { timeout: 60000 });
+  assert.strictEqual(await tree(), 'props/tree_apple_bare', 'picked: bare on their screen');
+  assert.ok(server.db.picks[0].tile >= 50000 && server.db.picks[0].crop === 'apple', 'sent as the tree');
+  // the owner, at home: three apples in the basket, and the tree is bare
+  await host.page.waitForFunction(() => Farm.Logic.basketCount(Farm.session.state) === 3, null, { timeout: 60000 });
+  assert.deepStrictEqual(await host.page.evaluate(() => Farm.session.state.basket), { apple: 3 });
+  await host.page.waitForFunction(() => Farm.world.yardSprites.some((sp) => sp.texture.key === 'props/tree_apple_bare'), null, { timeout: 60000 });
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 20G each); you take them at home', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);
@@ -491,7 +523,7 @@ test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 
     v.friend = false;
     const a = Farm.world.helpAction({ x: 10, y: 15 });
     v.friend = was;
-    return [a.label, !!a.disabled, /Only friends can pick ripe crops\. Add Moon Meadow as a friend/.test(a.why)];
+    return [a.label, !!a.disabled, /Only friends can pick ripe crops and fruit\. Add Moon Meadow as a friend/.test(a.why)];
   }), ['Pick', true, true]);
   // the owner's birthday starts: the friend sees them in the party hat
   await host.page.evaluate(() => { const d = new Date(Farm.Logic.clock()); Farm.Logic.setBirthday(Farm.session.state, d.getMonth() + 1, d.getDate()); Farm.world.startParty(true); });

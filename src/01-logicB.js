@@ -82,11 +82,45 @@
 
   // At home: friends picked these [tile, crop] for you. A crop goes into the basket only if it is still on that
   // tile and ripe (or has withered since: they picked it in time), so nothing is picked twice. Returns how many.
+  // Fruit trees too (owner, 29 Oct 2026): a tree is sent to the server as a tile number of its own, 50000 + y * 200 + x
+  // (no field tile is that big), with its fruit as the crop. The friend picks all its ripe fruit at once.
+  var TREE0 = 50000;
+  L.treeTile = function (it) { return TREE0 + it.y * 200 + it.x; };
+  var treeAt = function (s, tile) {
+    var x = (tile - TREE0) % 200, y = Math.floor((tile - TREE0) / 200);
+    for (var i = 0; i < s.yard.items.length; i++) { var it = s.yard.items[i]; if (it.x === x && it.y === y && L.treeOf(it.t)) return i; }
+    return -1;
+  };
+  // On a friend's farm: the fruit you could pick off that tree now, or null.
+  L.pickableTree = function (v, i) {
+    var it = v.yard.items[i], st = it && L.treeState(v, it);
+    return st && st.ripe ? st.tree.fruit : null;
+  };
+  // Picks it off their copy (it shows bare). Returns what to put back if the server says no.
+  L.pickTreeOff = function (v, i) {
+    if (!L.pickableTree(v, i)) return null;
+    var it = v.yard.items[i], k = it.x + ',' + it.y, keep = { k: k, at: v.fruit[k] };
+    v.fruit[k] = L.nowMin();
+    return keep;
+  };
+  L.putTreeBack = function (v, keep) {
+    if (keep.at == null) delete v.fruit[keep.k];
+    else v.fruit[keep.k] = keep.at;
+  };
   L.applyPicks = function (s, picks) {
     var n = 0;
     (Array.isArray(picks) ? picks : []).forEach(function (e) {
       if (!Array.isArray(e)) return;
-      var t = s.soil[int(e[0], -1, 1e5, -1)], crop = String(e[1] || ''), item = cropItem(crop);
+      var tile = int(e[0], -1, 1e5, -1);
+      if (tile >= TREE0) { // a fruit tree: all its fruit, if it is still ripe with that fruit
+        var i = treeAt(s, tile), it = s.yard.items[i], st = it && L.treeState(s, it);
+        if (!st || !st.ripe || st.tree.fruit !== String(e[1] || '')) return;
+        s.fruit[it.x + ',' + it.y] = L.nowMin();
+        s.basket[st.tree.fruit] = Math.min(999, (s.basket[st.tree.fruit] || 0) + st.tree.n);
+        n += st.tree.n;
+        return;
+      }
+      var t = s.soil[tile], crop = String(e[1] || ''), item = cropItem(crop);
       if (!item || !t || t.c !== crop || L.cropStage(t) < 3) return;
       clearPicked(t);
       s.basket[item] = Math.min(999, (s.basket[item] || 0) + 1);

@@ -80,25 +80,43 @@
   var helpAction = P.helpAction;
   P.helpAction = function (t) {
     var v = F.session.visit, self = this, idx = this.idx(t.x, t.y), crop = L.pickable(this.state, idx);
-    if (crop && v && !v.friend && O.on && !O.pickOff) { // say why, instead of "look, but don't touch" (owner, 29 Oct)
-      return { label: 'Pick', icon: cropItem(crop).icon, disabled: true, why: 'Only friends can pick ripe crops. Add ' + v.name + ' as a friend in Online first.' };
+    // a ripe fruit tree picks too (owner, 29 Oct 2026), all its fruit at once
+    var ti = crop || !this.pieceAt ? -1 : this.pieceAt(t.x, t.y), fruit = ti >= 0 ? L.pickableTree(this.state, ti) : null;
+    var icon = crop ? cropItem(crop).icon : fruit ? C.ITEMS[fruit].icon : 0;
+    if ((crop || fruit) && v && !v.friend && O.on && !O.pickOff) { // say why, instead of "look, but don't touch" (owner, 29 Oct)
+      return { label: 'Pick', icon: icon, disabled: true, why: 'Only friends can pick ripe crops and fruit. Add ' + v.name + ' as a friend in Online first.' };
     }
-    if (!crop || !v || !v.friend || !O.on || O.pickOff) return helpAction.call(this, t);
-    var icon = cropItem(crop).icon;
-    if (O.picked[v.host] === 0) return { label: 'Pick', icon: icon, disabled: true, why: 'You picked ' + C.PICK.tiles + ' of ' + v.name + "'s crops today. Thank you!" };
+    if (!(crop || fruit) || !v || !v.friend || !O.on || O.pickOff) return helpAction.call(this, t);
+    if (O.picked[v.host] === 0) return { label: 'Pick', icon: icon, disabled: true, why: 'You picked ' + C.PICK.tiles + ' times on ' + v.name + "'s farm today. Thank you!" };
+    if (fruit) return { label: 'Pick', icon: icon, run: function () { self.pickTreeFor(t, ti, fruit); } };
     return { label: 'Pick', icon: icon, run: function () { self.pickFor(t, idx, crop); } };
   };
 
   P.pickFor = function (t, idx, crop) {
-    var self = this, v = F.session.visit, st = this.state;
+    var self = this, st = this.state;
     if (this.picking) return;
     var keep = L.pickOff(st, idx);
     if (!keep) return;
+    this.refreshTile(idx);
+    this.sendPick(t, idx, crop, cropItem(crop).name, 1, function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); });
+  };
+
+  P.pickTreeFor = function (t, i, fruit) {
+    var self = this, st = this.state, it = st.yard.items[i];
+    if (this.picking) return;
+    var keep = L.pickTreeOff(st, i);
+    if (!keep) return;
+    this.treeLooks();
+    var n = L.treeOf(it.t).n, f = C.ITEMS[fruit];
+    this.sendPick(t, L.treeTile(it), fruit, n + ' ' + (n > 1 ? f.plural : f.name.toLowerCase()), n, function () { L.putTreeBack(st, keep); if (self.sys.isActive()) self.treeLooks(); });
+  };
+
+  // Tells the server (5 picks a friend a day); what the friend sees is already picked, and goes back if it says no.
+  P.sendPick = function (t, tile, crop, what, n, undo) {
+    var self = this, v = F.session.visit, st = this.state;
     this.picking = true;
     sfx('pick');
-    this.refreshTile(idx);
-    var undo = function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); };
-    F.Net.rpc('farm_pick_v1', { p_host: v.host, p_tile: idx, p_crop: crop }).then(function (r) {
+    F.Net.rpc('farm_pick_v1', { p_host: v.host, p_tile: tile, p_crop: crop }).then(function (r) {
       self.picking = false;
       if (F.session.visit !== v) return;
       if (r && r.ok) {
@@ -108,12 +126,12 @@
         F.Host.save(s);
         F.bus.emit('hud');
         sfx('coin');
-        st.basketN = (st.basketN || 0) + 1;
+        st.basketN = (st.basketN || 0) + n;
         self.drawBasket();
         self.floatTextAt((t.x + 0.5) * T, t.y * T, '+' + C.PICK.gold + 'G');
         O.send('pick', {});
         F.ui.toast(O.picked[v.host] === 0 ? 'That was your 5th today. ' + v.name + ' will be glad!'
-          : cropItem(crop).name + ' is in ' + v.name + "'s basket. Thank you!", 2400, 0x2f5a22);
+          : what.charAt(0).toUpperCase() + what.slice(1) + (n > 1 ? ' are' : ' is') + ' in ' + v.name + "'s basket. Thank you!", 2400, 0x2f5a22);
         return;
       }
       undo();

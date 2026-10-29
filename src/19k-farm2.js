@@ -38,26 +38,34 @@
     this.bubbles2 = {}; // (a restarted scene keeps its properties, not its pictures)
     this.helping = false;
     buildObjects.call(this);
-    if (this.mapKey !== 'farm' || visiting(this)) return;
+    if (this.mapKey !== 'farm') return;
     var self = this;
-    this.time.addEvent({ delay: 3000, loop: true, callback: function () { self.farm2Bubbles(); } });
+    this.time.addEvent({ delay: 3000, loop: true, callback: function () { self.farm2Bubbles(); } }); // (on a visit: the trees only)
+  };
+
+  // A fruit tree shows its fruit only while it is ripe (owner, 29 Oct: picked trees still had fruit), on a visit too.
+  P.treeLooks = function () {
+    var self = this, s = this.state, now = L.nowMin();
+    if (!this.yardSprites) return;
+    s.yard.items.forEach(function (it, i) {
+      var type = OD.types[it.t], sp = self.yardSprites[i], st = type.hd && sp && L.treeOf(it.t) && L.treeState(s, it, now);
+      if (!st) return;
+      var look = F.ensureTexture(self, 'props/' + type.hd + (st.ripe ? '' : '_bare'));
+      if (sp.texture.key !== look) sp.setTexture(look).setDisplaySize(type.w * T, type.h * T);
+    });
   };
 
   // A bubble over every workshop with something ready and every tree with ripe fruit.
   P.farm2Bubbles = function () {
     var self = this, s = this.state, want = {};
+    this.treeLooks();
     if (!this.yardSprites || !this.bubbles2 || visiting(this)) return;
     var now = L.nowMin();
-    s.yard.items.forEach(function (it, i) {
+    s.yard.items.forEach(function (it) {
       var type = OD.types[it.t], icon = null;
       if (C.WORKSHOPS[type.key] && L.jobsReady(s, type.key, now)) icon = C.ITEMS[C.WORKSHOPS[type.key].recipes[s.ws[type.key][0][0]].out].icon;
       var st = L.treeOf(it.t) && L.treeState(s, it, now);
       if (st && st.ripe) icon = C.ITEMS[st.tree.fruit].icon;
-      var sp = self.yardSprites[i]; // a tree shows its fruit only while it is ripe (owner, 29 Oct: picked trees still had fruit)
-      if (st && type.hd && sp) {
-        var look = F.ensureTexture(self, 'props/' + type.hd + (st.ripe ? '' : '_bare'));
-        if (sp.texture.key !== look) sp.setTexture(look).setDisplaySize(type.w * T, type.h * T);
-      }
       if (icon == null) return;
       var k = it.x + ',' + it.y;
       want[k] = 1;

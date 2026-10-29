@@ -158,3 +158,27 @@ test("What's new: versions newest first (v1 a major update, v1.1 a minor one); a
   o.wv = '<b>9</b>';
   assert.strictEqual(L.deserialize(o).wv, '');
 });
+
+test('fruit trees: friends see a picked tree bare, pick a ripe one into your basket (all its fruit), once', () => {
+  const s = fresh(2026, 10, 1); // fall: apples and peaches are in season
+  const OD = C.OUTDOOR;
+  s.yard.items.push({ t: OD.index.apple_tree, x: 20, y: 15 }, { t: OD.index.peach_tree, x: 24, y: 15 });
+  s.fruit['24,15'] = L.nowMin(); // the peaches were just picked
+  const v = L.visitState(plain(L.snapshot(s)), fresh(2026, 10, 1));
+  const at = (st, x) => st.yard.items.findIndex((it) => it.x === x);
+  assert.strictEqual(L.pickableTree(v, at(v, 20)), 'apple');
+  assert.strictEqual(L.pickableTree(v, at(v, 24)), null, 'they see it was just picked');
+  // the friend picks the apples: gone from their copy, back if the server says no
+  const keep = L.pickTreeOff(v, at(v, 20));
+  assert.strictEqual(L.pickableTree(v, at(v, 20)), null);
+  L.putTreeBack(v, keep);
+  assert.strictEqual(L.pickableTree(v, at(v, 20)), 'apple');
+  // at home: the apples go into the basket and the tree is picked; the same pick twice, a wrong fruit, a tree
+  // that is not there: nothing
+  const apple = s.yard.items[at(s, 20)], peach = s.yard.items[at(s, 24)];
+  const n = L.applyPicks(s, [[L.treeTile(apple), 'apple'], [L.treeTile(apple), 'apple'], [L.treeTile(peach), 'peach'], [L.treeTile({ x: 3, y: 3 }), 'apple'], [L.treeTile(apple), 'mango']]);
+  assert.strictEqual(n, L.treeOf(apple.t).n);
+  assert.deepStrictEqual(plain(s.basket), { apple: L.treeOf(apple.t).n });
+  assert.strictEqual(L.treeState(s, apple).ripe, false, 'picked');
+  assert.ok(L.treeTile({ x: 199, y: 249 }) <= 100000, 'within what the server takes');
+});

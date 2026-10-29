@@ -36,7 +36,8 @@
     return {
       v: 1, day: s.day, look: s.look === 'girl' ? 'girl' : 'boy',
       home: { level: s.home.level, wall: s.home.wall, floor: s.home.floor, items: s.home.items.map(function (it) { return [it.t, it.v, it.x, it.y, it.f]; }) },
-      yard: s.yard.items.map(function (it) { return [it.t, it.x, it.y]; }),
+      // a fruit tree also says when it was last picked, so visitors see it bare or with fruit as you do
+      yard: s.yard.items.map(function (it) { var f = s.fruit && s.fruit[it.x + ',' + it.y]; return L.treeOf(it.t) && f != null ? [it.t, it.x, it.y, f] : [it.t, it.x, it.y]; }),
       soil: soil,
       debris: debris,
       animals: s.animals.slice(0, 40).map(function (a) { return [a.kind, a.name, a.young ? 1 : 0]; }),
@@ -80,7 +81,10 @@
     (Array.isArray(snap.yard) ? snap.yard : []).slice(0, 300).forEach(function (e) {
       if (!Array.isArray(e)) return;
       var t = int(e[0], -1, 1e6, -1);
-      if (O.types[t]) s.yard.items.push({ t: t, x: int(e[1], 0, 999, 0), y: int(e[2], 0, 999, 0) });
+      if (!O.types[t]) return;
+      var it = { t: t, x: int(e[1], 0, 999, 0), y: int(e[2], 0, 999, 0) };
+      s.yard.items.push(it);
+      if (e.length > 3 && L.treeOf && L.treeOf(t)) { var f = int(e[3], 0, 1e9, -1); if (f >= 0) (s.fruit = s.fruit || {})[it.x + ',' + it.y] = f; } // last picked
     });
     s.soil = {};
     (Array.isArray(snap.soil) ? snap.soil : []).slice(0, 400).forEach(function (e) {

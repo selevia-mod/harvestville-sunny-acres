@@ -12,7 +12,7 @@
   var U = 128, CELL = 3 * U, GAP = 16, COLS = 6; // the yard sheet's layout (tools/art/outdoor.js)
   var WHY = {
     outside: "It doesn't fit there.", blocked: "You can't build there.", taken: "Something's already there.",
-    blocks: 'That would block the way to a door, the field or the pen.', full: 'Your yard is full! Put something away first.', player: "You're standing there!",
+    blocks: 'That would block the way to a door, the field or the pen.', full: 'Your yard is full! Put something away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
   };
   var TILE_KINDS = { fence: 1, path: 1, hedge: 1 };
 
@@ -146,7 +146,87 @@
   };
 
   P.yardWhy = function (t, x, y, skip) {
-    return L.yardCantPlace(this.state, F.farm(), t, x, y, skip) || (this.yardOnPlayer(t, x, y) ? 'player' : null);
+    return L.yardCantPlace(this.state, F.farm(), t, x, y, skip) || (this.yardOnPlayer(t, x, y) ? 'player' : null) || (this.yardTraps(t, x, y, skip) ? 'trap' : null);
+  };
+
+  // ---------- never boxed in (owner, 29 Oct 2026: a player built next to a fence and another building, and was stuck) ----------
+  // The tiles you can walk to from the house door; `add` / `drop` = tile indexes to count as solid / open (a piece being
+  // placed or moved).
+  P.openFromDoor = function (add, drop) {
+    var self = this, W = this.map.width, H = this.map.height, s0 = F.farm().start, seen = new Uint8Array(W * H), debris = this.state.debris || {};
+    if (s0 < 0) return null;
+    var open = function (x, y) {
+      var k = y * W + x;
+      if (add && add[k]) return false;
+      if (drop && drop[k]) return true;
+      if (debris[k]) return true; // stones and weeds: your tools clear them, so they never shut you in
+      return self.walkable(x, y);
+    };
+    var q = [];
+    [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { // (the door's own tile may be the step)
+      var x = s0 % W + d[0], y = Math.floor(s0 / W) + d[1], k = y * W + x;
+      if (x >= 0 && y >= 0 && x < W && y < H && !seen[k] && open(x, y)) { seen[k] = 1; q.push(k); }
+    });
+    for (var i = 0; i < q.length; i++) {
+      var c = q[i], cx = c % W, cy = (c - cx) / W;
+      for (var d = 0; d < 4; d++) {
+        var nx = cx + [1, -1, 0, 0][d], ny = cy + [0, 0, 1, -1][d], ni = ny * W + nx;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[ni] || !open(nx, ny)) continue;
+        seen[ni] = 1;
+        q.push(ni);
+      }
+    }
+    return seen;
+  };
+  // The tiles under the farmer's body (not just the feet).
+  P.bodyTiles = function () {
+    var b = this.player.body, out = [];
+    for (var y = Math.floor((b.y + 8) / T); y <= Math.floor((b.y + b.height - 9) / T); y++) {
+      for (var x = Math.floor((b.x + 8) / T); x <= Math.floor((b.x + b.width - 9) / T); x++) out.push(this.idx(x, y));
+    }
+    return out;
+  };
+  // Would this piece here cover the farmer's body, or shut them in?
+  P.yardTraps = function (t, x, y, skip) {
+    var solid = L.yardSolid(t, x, y), self = this;
+    if (!solid.length || !this.player || !this.player.body) return false;
+    var add = {}, drop = {}, body = this.bodyTiles();
+    solid.forEach(function (p) { add[self.idx(p[0], p[1])] = 1; });
+    if (body.some(function (k) { return add[k]; })) return true;
+    var old = skip != null && this.state.yard.items[skip];
+    if (old) L.yardSolid(old.t, old.x, old.y).forEach(function (p) { var k = self.idx(p[0], p[1]); if (self.yardBlocked[k]) drop[k] = 1; });
+    var seen = this.openFromDoor(add, drop);
+    return !!seen && !body.some(function (k) { return seen[k]; });
+  };
+  // Stuck already (inside a piece, or shut in where the door can't be reached): hop out to the nearest open tile.
+  P.boxedIn = function () {
+    var self = this;
+    if (this.mapKey !== 'farm' || !this.player || !this.player.body || this.yd || this.busy || this.sleeping) return false;
+    if ((this.yardZones || []).some(function (z) { return self.physics.overlap(self.player, z); })) return true;
+    var seen = this.openFromDoor();
+    return !!seen && !this.bodyTiles().some(function (k) { return seen[k]; });
+  };
+  P.hopOut = function () {
+    var seen = this.openFromDoor();
+    if (!seen) return false;
+    var W = this.map.width, f = this.feet(), fx = Math.floor(f.x / T), fy = Math.floor(f.y / T), best = -1, bd = Infinity;
+    for (var k = 0; k < seen.length; k++) {
+      if (!seen[k]) continue;
+      var x = k % W, y = (k - x) / W, d = Math.abs(x - fx) + Math.abs(y - fy);
+      if (d < bd && this.walkable(x, y) && this.walkable(x - 1, y) && this.walkable(x + 1, y)) { bd = d; best = k; } // room for the whole body
+    }
+    if (best < 0) return false;
+    this.setFeet((best % W) * T + T / 2, Math.floor(best / W) * T + T / 2);
+    if (this.player.body) this.player.body.setVelocity(0, 0);
+    if (F.ui) F.ui.toast('You were boxed in, so you hopped out.', 2400);
+    return true;
+  };
+  var update = P.update;
+  P.update = function (time, dt) {
+    update.call(this, time, dt);
+    if (time - (this.boxCheckAt || 0) < 1500) return;
+    this.boxCheckAt = time;
+    if (this.boxedIn()) this.hopOut();
   };
 
   P.yardSelect = function (i) {

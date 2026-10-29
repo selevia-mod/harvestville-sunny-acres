@@ -329,6 +329,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   // sell them at the market stall in town: put them on a shelf at the fair price; a buyer comes overnight
   await go(page, 'town', 'from_farm');
   await teleport(page, 11, 15, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text !== 'Talk', null, SLOW); // (a villager may be walking past the stall)
   assert.strictEqual(await actionLabel(page), 'Sell');
   await tapAction(page);
   assert.match(await modalText(page), /Market Stall/);
@@ -349,6 +350,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.match(report, new RegExp('1 lot sold\\. Collect ' + P.fair + 'G'));
   await clearAround(page, 11, 14); // (villagers stroll the plaza in the morning)
   await teleport(page, 11, 15, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text !== 'Talk', null, SLOW); // (a villager may be walking past the stall)
   assert.strictEqual(await actionLabel(page), 'Collect');
   await tapAction(page);
   s = await state(page);
@@ -488,6 +490,7 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   assert.strictEqual(s.shelves[0].coins, 4 * (await page.evaluate(() => Farm.Config.ITEMS.potato.sell)));
   await page.waitForFunction(() => !Farm.world.villagers.list.some((v) => v.errand), null, SLOW); // they head off
   await teleport(page, 11, 15, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text !== 'Talk', null, SLOW); // (a villager may be walking past the stall)
   assert.strictEqual(await actionLabel(page), 'Collect');
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -649,6 +652,7 @@ test('animals: pet, feed, brush, collect an egg, sell it, buy a cow, the dog, sa
   // sell the egg right away at the market stall in town
   await go(page, 'town', 'from_farm');
   await teleport(page, 11, 15, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text !== 'Talk', null, SLOW); // (a villager may be walking past the stall)
   await tapAction(page);
   await tapButton(page, 'Sell from bag');
   await page.waitForTimeout(300);
@@ -1430,6 +1434,29 @@ test('the bigger town: new villagers and visitors, the bakery, the chapel, the s
   await tapButton(page, 'Rest');
   s = await state(page);
   assert.strictEqual(s.energy, 100);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the yard never boxes you in: a piece that would is refused, and a farmer already stuck hops out (owner, 29 Oct)', async () => {
+  const save = await makeSave('s.time = 600; s.gold = 20000;');
+  const { page, problems, context } = await open(save);
+  await teleport(page, 26, 14, 'down'); // in the meadow
+  const ring = [[25, 13], [26, 13], [27, 13], [25, 14], [27, 14], [25, 15], [26, 15], [27, 15]];
+  // seven fences around the farmer; the eighth would shut them in
+  const why = await page.evaluate((ring) => {
+    const s = Farm.session.state, fence = 0;
+    ring.slice(0, 7).forEach(([x, y]) => s.yard.items.push({ t: fence, x, y }));
+    Farm.world.renderYard();
+    return Farm.world.yardWhy(fence, ring[7][0], ring[7][1], null);
+  }, ring);
+  assert.strictEqual(why, 'trap');
+  // an older version let it happen: the farmer hops out to the nearest open tile
+  await page.evaluate((ring) => { Farm.session.state.yard.items.push({ t: 0, x: ring[7][0], y: ring[7][1] }); Farm.world.renderYard(); }, ring);
+  await page.waitForFunction(() => /boxed in/.test(Farm.ui.toastText.text), null, SLOW);
+  const at = await page.evaluate(() => { const f = Farm.world.feet(), T = Farm.Config.TILE; return [Math.floor(f.x / T), Math.floor(f.y / T)]; });
+  assert.notDeepStrictEqual(at, [26, 14], 'out of the ring');
+  assert.ok(!(at[0] >= 25 && at[0] <= 27 && at[1] >= 13 && at[1] <= 15), 'not on a fence either: ' + at);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
