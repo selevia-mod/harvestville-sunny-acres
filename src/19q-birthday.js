@@ -64,7 +64,6 @@
   P.create = function () {
     create.call(this);
     var self = this;
-    this.partyHat = null;
     if (!(this.state && this.state.isVisit) && today()) this.time.delayedCall(800, function () { self.startParty(false); });
     if (this.state && this.state.isVisit && this.state.hostBirthday) {
       var v = F.session.visit;
@@ -91,12 +90,10 @@
   P.startParty = function (now) {
     if (!this.sys || !this.sys.isActive() || !this.player || !today()) return;
     if (!(this.state && this.state.isVisit) && L.birthdayMail(mine())) F.session.dirty = true; // (opened on the day, before any morning mail)
-    if (!this.partyHat) {
-      F.ensureTexture(this, 'props/party_hat');
-      var hat = this.add.image(0, 0, 'props/party_hat').setOrigin(0.5, 0.97); // (no string: the cone sits on your head)
-      hat.setScale((0.5 * T) / hat.width);
-      this.partyHat = hat;
-      this.placeHat();
+    // the farmer in the party hat (the birthday sheets; set on the day, the picture changes right away)
+    if (this.player && this.player.texture.key !== F.playerKey() && this.applyLook) {
+      this.applyLook();
+      if (F.Online && F.Online.retrack) F.Online.retrack(); // friends here see the hat too
     }
     if (F.session.partied && !now) return;
     F.session.partied = true;
@@ -106,23 +103,6 @@
     }
     sfx('fanfare');
   };
-  P.placeHat = function () {
-    var hat = this.partyHat;
-    if (!hat) return;
-    var on = this.player && this.player.visible && this.player.active;
-    hat.setVisible(!!on);
-    if (!on) return;
-    var f = this.feet(), flip = this.dir === 'left' ? -1 : this.dir === 'right' ? 1 : 0;
-    hat.setPosition(f.x + flip * 0.08 * T, f.y - 1.0 * T + (this.moving ? Math.sin(Date.now() / 90) * 0.02 * T : 0));
-    hat.setAngle(flip ? flip * 14 : -10); // worn a little to one side
-    F.depthTo(hat, DEPTH.actor + f.y / 1e5 + 0.0003);
-  };
-  var update = P.update;
-  P.update = function (time, dt) {
-    update.call(this, time, dt);
-    if (this.partyHat) this.placeHat();
-  };
-
   // Confetti falling over the whole screen for a few seconds.
   U.confetti = function () {
     if (!this.textures.exists('confetti')) {

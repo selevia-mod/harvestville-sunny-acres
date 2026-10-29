@@ -493,6 +493,10 @@ test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 
     v.friend = was;
     return [a.label, !!a.disabled, /Only friends can pick ripe crops\. Add Moon Meadow as a friend/.test(a.why)];
   }), ['Pick', true, true]);
+  // the owner's birthday starts: the friend sees them in the party hat
+  await host.page.evaluate(() => { const d = new Date(Farm.Logic.clock()); Farm.Logic.setBirthday(Farm.session.state, d.getMonth() + 1, d.getDate()); Farm.world.startParty(true); });
+  await friend.page.waitForFunction(() => Object.values(Farm.world.remotes).some((r) => /_bday$/.test(r.spr.texture.key)), null, SLOW);
+  await host.page.evaluate(() => Farm.ui.closeAll());
   await face(friend.page, 10, 15);
   assert.strictEqual(await label(friend.page), 'Pick');
   await friend.page.touchscreen.tap(294, 512);

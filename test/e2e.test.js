@@ -1848,8 +1848,11 @@ test('your birthday: the hat, confetti and the mayor\'s letter with a cake on th
   const save = await makeSave("s.name = 'Ana'; L.setBirthday(s, 4, 1);");
   const { page, problems, context } = await open(save);
   await closeAll(page);
-  await page.waitForFunction(() => Farm.world.partyHat && Farm.world.partyHat.visible, null, SLOW);
-  assert.ok(await page.evaluate(() => Farm.session.state.mail.includes('mybday')), 'the letter is in the mailbox');
+  // the farmer wears the party hat in every pose: the birthday sheet, walking too (owner, 29 Oct: "change the character itself")
+  await page.waitForFunction(() => /^player(_girl)?_bday$/.test(Farm.world.player.texture.key), null, SLOW);
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.walkAnim('down'), !!Farm.world.anims.get(Farm.walkAnim('down'))]), ['walk-down-b', true]);
+  await shot(page, 'birthday-farmer');
+  await page.waitForFunction(() => Farm.session.state.mail.includes('mybday'), null, SLOW); // the letter is in the mailbox (the party starts after a moment)
   await page.evaluate(() => Farm.ui.openCalendar(0));
   await page.waitForTimeout(200);
   const text = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[0].c.list); return out.join('\n'); });

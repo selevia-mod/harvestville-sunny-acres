@@ -7,6 +7,8 @@
   var SHEETS = {
     player: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
     player_girl: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
+    player_bday: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 }, // the same farmers in a party hat
+    player_girl_bday: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
     crops: { frameWidth: 256, frameHeight: 256, margin: 8, spacing: 16 },
     items: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
     animals: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
@@ -85,7 +87,7 @@
     [['down', 0], ['up', 3], ['side', 6]].forEach(function (d) {
       var f = d[1];
       scene.anims.create({
-        key: 'walk-' + d[0] + (key === 'player_girl' ? '-g' : ''),
+        key: 'walk-' + d[0] + F.walkSuffix(key),
         frames: scene.anims.generateFrameNumbers(key, { frames: [f + 1, f, f + 2, f] }),
         frameRate: 8,
         repeat: -1,
@@ -110,12 +112,23 @@
 
   // The farmer's picture: the boy or the girl, picked at the start of a new game (the girl's sheet is only
   // added when she is played). Pass a scene to make sure the texture is there.
+  // On your birthday the farmer wears a party hat in every pose (owner, 29 Oct 2026: "change the character itself").
+  F.sheetFor = function (look, party) {
+    return (look === 'girl' ? 'player_girl' : 'player') + (party ? '_bday' : '');
+  };
+  F.walkSuffix = function (key) {
+    return { player: '', player_girl: '-g', player_bday: '-b', player_girl_bday: '-gb' }[key] || '';
+  };
+  F.myParty = function () {
+    var s = F.session && F.session.state;
+    return !!(s && F.Logic.myBirthdayOn && F.Logic.myBirthdayOn(s, s.day));
+  };
   F.playerKey = function (scene) {
-    var key = F.session && F.session.state.look === 'girl' ? 'player_girl' : 'player';
+    var key = F.session ? F.sheetFor(F.session.state.look, F.myParty()) : 'player';
     return scene ? F.ensureTexture(scene, key) : key;
   };
   F.walkAnim = function (dir) {
-    return 'walk-' + dir + (F.playerKey() === 'player_girl' ? '-g' : '');
+    return 'walk-' + dir + F.walkSuffix(F.playerKey());
   };
 
   // Tillable field tiles on the farm map: where new farms get their debris and where weeds sprout.

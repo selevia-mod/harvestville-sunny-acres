@@ -174,6 +174,7 @@
     return {
       id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w && w.mapKey === 'mine' ? F.session.mineFloor : 0,
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
+      pt: F.myParty() ? 1 : 0, // your birthday: they see you in the party hat
     };
   };
 
@@ -256,7 +257,7 @@
     var num = function (v) { v = Number(v); return isFinite(v) ? Math.max(0, Math.min(200 * T, v)) : 0; };
     return {
       id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
-      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0,
+      x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -435,8 +436,8 @@
     });
     Object.keys(want).forEach(function (id) {
       if (w.remotes[id]) return;
-      var p = want[id], key = F.ensureTexture(w, p.look === 'girl' ? 'player_girl' : 'player');
-      var r = { id: id, look: p.look, x: p.x, y: p.y, anim: '' };
+      var p = want[id], key = F.ensureTexture(w, F.sheetFor(p.look, p.pt));
+      var r = { id: id, look: p.look, key: key, x: p.x, y: p.y, anim: '' };
       r.shadow = w.add.image(p.x, p.y + 16, 'fx-shadow').setDepth(DEPTH.shadow); // (made by the world scene)
       r.spr = w.add.sprite(p.x, p.y - FEET_OFFSET, key, IDLE_FRAME[p.dir]).setFlipX(p.dir === 'right').setDepth(DEPTH.actor + p.y / 1e5);
       r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
@@ -467,7 +468,9 @@
       if (d > 6 * T || d <= step) { r.x = p.x; r.y = p.y; } else { r.x += dx / d * step; r.y += dy / d * step; }
       var moving = d > 8 || p.m, dir = p.dir;
       if (moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
-      var anim = moving ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + (r.look === 'girl' ? '-g' : '') : '';
+      var key = F.sheetFor(r.look, p.pt);
+      if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended
+      var anim = moving ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
       if (anim !== r.anim) {
         r.anim = anim;
         if (anim) r.spr.anims.play(anim, true);
