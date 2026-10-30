@@ -582,7 +582,13 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
   assert.ok(d, 'a clear spot');
   await teleport(page, d[0], d[1], 'right');
   assert.strictEqual(await actionLabel(page), 'Shoot');
-  for (let k = 0; k < 2; k++) { await tapAction(page); await page.waitForTimeout(500); }
+  // (a struck deer runs, so a second arrow can miss: it is brought back and held still for the test)
+  const spot = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return [a.x, a.y]; });
+  for (let k = 0; k < 2; k++) {
+    await tapAction(page);
+    await page.waitForTimeout(500);
+    await page.evaluate(([x, y]) => { const a = Farm.world.wild.animals[0]; if (a) { a.x = x; a.y = y; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; } }, spot);
+  }
   await page.waitForFunction(() => Farm.world.wild.animals.length === 0, null, SLOW);
   const drops = await page.evaluate(() => Farm.world.wildDrops.map((x) => x.id));
   assert.deepStrictEqual(drops.filter((x) => x === 'venison'), ['venison', 'venison']);
