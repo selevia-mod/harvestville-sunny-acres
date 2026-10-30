@@ -576,7 +576,7 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
     const a = w.wild.animals[0];
     a.def = Object.assign({}, a.def, { shy: 0 });
     a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9;
-    for (let tx = 4; tx < 26; tx++) for (let ty = 4; ty < 22; ty++) if (w.wildFree(tx, ty) && w.wildFree(tx + 3, ty)) { a.x = (tx + 3.5) * T; a.y = (ty + 0.7) * T; return [tx, ty]; }
+    for (let tx = 4; tx < 26; tx++) for (let ty = 4; ty < 22; ty++) if (w.wildFree(tx, ty) && w.wildFree(tx + 2, ty)) { a.x = (tx + 2.5) * T; a.y = (ty + 0.7) * T; return [tx, ty]; }
     return null;
   });
   assert.ok(d, 'a clear spot');

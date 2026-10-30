@@ -48,7 +48,7 @@
     nightTo: 6 * 60,
     shotEnergy: 2,
     // the Bow, by level (Basic, Copper, Silver, Gold): how far it shoots (tiles) and how hard it hits
-    bow: { price: 800, range: [6, 7, 8, 9], damage: [1, 1, 2, 2],
+    bow: { price: 800, range: [3, 4, 5, 6], damage: [1, 1, 2, 2],
       upgrades: [{ gold: 2000, ore: 'ore_copper', n: 5 }, { gold: 6000, ore: 'ore_silver', n: 5 }, { gold: 15000, ore: 'ore_gold', n: 5 }] },
     arrowPack: 10, // arrows bought at a time
     baitMins: 1, // how long an animal eats bait, in minutes

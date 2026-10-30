@@ -62,7 +62,7 @@ test('the Bow: buy it once, upgrade it with gold and ore, shoot with arrows and 
   s.gold = 100000;
   assert.strictEqual(L.buyBow(s), 'ok');
   assert.strictEqual(L.buyBow(s), 'have');
-  assert.strictEqual(L.bowRange(s), 6);
+  assert.strictEqual(L.bowRange(s), 3);
   assert.strictEqual(L.shoot(s), 'arrows');
   assert.strictEqual(L.buyWild(s, 'arrows'), 'ok');
   assert.strictEqual(L.countItem(s, 'arrows'), 10);
@@ -78,7 +78,7 @@ test('the Bow: buy it once, upgrade it with gold and ore, shoot with arrows and 
   assert.strictEqual(L.countItem(s, 'ore_copper'), 0);
   assert.strictEqual(L.itemName(s, 'bow'), 'Copper Bow');
   assert.strictEqual(L.iconOf(s, 'bow'), C.ICON.bow_1);
-  assert.strictEqual(L.bowRange(s), 7);
+  assert.strictEqual(L.bowRange(s), 4);
   L.addItem(s, 'ore_silver', 5);
   L.upgradeBow(s);
   assert.strictEqual(L.bowDamage(s), 2);
