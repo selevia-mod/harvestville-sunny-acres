@@ -24,10 +24,10 @@
     animals: {
       rabbit: { name: 'Rabbit', px: 140, w: 0.75, hop: 0.14, kg: 2, hp: 1, walk: 0.7, run: 4.2, shy: 3.2, drops: [['meat_rabbit', 1, 1], ['fur_rabbit', 1, 0.6]] },
       labuyo: { name: 'Labuyo', px: 165, w: 0.9, kg: 1.4, hp: 1, walk: 0.6, run: 4.6, shy: 2.8, flies: true, drops: [['meat_labuyo', 1, 1], ['feather_labuyo', 1, 0.7]] },
-      deer: { name: 'Deer', px: 179, w: 1.6, kg: 60, hp: 2, walk: 0.8, run: 4.4, shy: 4.2, drops: [['venison', 2, 1], ['antler', 1, 0.5]] },
+      deer: { name: 'Deer', px: 179, w: 1.3, kg: 60, hp: 2, walk: 0.8, run: 4.4, shy: 4.2, drops: [['venison', 2, 1], ['antler', 1, 0.5]] },
       boar: { name: 'Wild Boar', px: 178, w: 1.4, ground: true, kg: 90, hp: 3, walk: 0.7, run: 3.4, angry: 2.6, hit: 8, drops: [['meat_boar', 2, 1], ['tusk', 1, 0.5]] },
       wolf: { name: 'Wolf', px: 158, w: 1.5, kg: 40, hp: 3, walk: 0.9, run: 4.0, angry: 4, hit: 10, night: true, drops: [['pelt_wolf', 1, 1], ['fang_wolf', 1, 0.6]] },
-      whitedeer: { name: 'White Stag', px: 179, w: 1.7, kg: 75, hp: 3, walk: 0.8, run: 5.4, shy: 6, rare: true, respawn: 120, drops: [['venison', 3, 1], ['white_antler', 1, 1]] },
+      whitedeer: { name: 'White Stag', px: 179, w: 1.4, kg: 75, hp: 3, walk: 0.8, run: 5.4, shy: 6, rare: true, respawn: 120, drops: [['venison', 3, 1], ['white_antler', 1, 1]] },
       goldboar: { name: 'Golden Boar', px: 178, w: 1.6, ground: true, kg: 120, hp: 6, walk: 0.7, run: 3.8, angry: 3.2, hit: 12, rare: true, respawn: 120, drops: [['meat_boar', 3, 1], ['gold_tusk', 1, 1]] },
     },
     // the places: how many of each animal roam there, and who else comes out `when` it is dawn, dusk, rain, fall or a
@@ -43,7 +43,7 @@
     respawn: 6, // minutes until a hunted animal is back
     arrive: [20000, 40000], // ms between new animals walking in while you are there, if any are due
     rareOdds: 0.1, // the chance, for each 2 hours of each day, that a place has its rare animal (the same for everyone)
-    giant: { odds: 0.08, size: [1.35, 1.5] }, // 1 in 12 is a giant; the rest are 0.8 to 1.2 times the usual size
+    giant: { odds: 0.08, size: [1.25, 1.35] }, // 1 in 12 is a giant; the rest are 0.9 to 1.1 times the usual size
     nightFrom: 18 * 60, // wolves come out from 6 PM to 6 AM
     nightTo: 6 * 60,
     shotEnergy: 2,

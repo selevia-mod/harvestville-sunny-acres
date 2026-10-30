@@ -77,7 +77,7 @@
   L.wildSize = function (rnd) {
     var g = WI.giant;
     if (rnd() < g.odds) return g.size[0] + rnd() * (g.size[1] - g.size[0]);
-    return 0.8 + rnd() * 0.4;
+    return 0.9 + rnd() * 0.2;
   };
   L.wildGiant = function (size) { return size >= WI.giant.size[0]; };
   L.wildKg = function (kind, size) { return Math.round(WI.animals[kind].kg * size * 10) / 10; };

@@ -190,7 +190,7 @@ test('every animal has a size: giants are rare, the biggest goes in the book, an
   const rnd = seq();
   for (let k = 0; k < 4000; k++) {
     const size = L.wildSize(rnd);
-    assert.ok(size >= 0.8 && size <= 1.5, String(size));
+    assert.ok(size >= 0.9 && size <= 1.35, String(size));
     if (L.wildGiant(size)) giants++;
   }
   assert.ok(giants > 200 && giants < 480, 'about 1 in 12: ' + giants);
