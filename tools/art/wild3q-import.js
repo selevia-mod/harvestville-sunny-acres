@@ -6,7 +6,8 @@
 //   10 eating or sniffing (facing left), 11 running or flying away (facing left).
 // Each cell is copied as it is, scaled by K, so the artist's placement stays (no jitter between steps); every animal
 // stands on the same ground line (358 in the 1024x1536 pictures) and that line lands on FEET.
-// Prints each animal's walking-left width in the sheet: C.WILD.animals[].px.
+// Prints each animal's walking-left width in the sheet: C.WILD.animals[].px. Writes src/00-wildfeet.js: where each
+// frame's feet are (the middle and width of its lowest quarter, in frame px), for the shadow under them.
 // node tools/art/wild3q-import.js
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +32,7 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
     const sheet = document.createElement('canvas');
     sheet.width = M * 2 + 12 * FW + 11 * G;
     sheet.height = M * 2 + list.length * FH + (list.length - 1) * G;
-    const g = sheet.getContext('2d'), px = [];
+    const g = sheet.getContext('2d'), px = [], feet = [];
     g.imageSmoothingQuality = 'high';
     for (let row = 0; row < list.length; row++) {
       const im = await load(list[row]), cw = im.width / 3, ch = im.height / 4;
@@ -42,17 +43,29 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
         g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - GROUND * K, cw * K, ch * K);
         g.restore();
       }
-      // the walking-left frame's width (frame 6)
-      const x6 = M + 6 * (FW + G), y6 = M + row * (FH + G), d = g.getImageData(x6, y6, FW, FH).data;
-      let x0 = FW, x1 = -1;
-      for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) if (d[(y * FW + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
-      px.push(x1 - x0 + 1);
+      // each frame: its box, then its feet (the lowest quarter of the box): [middle from the frame's middle, width]
+      const ft = [];
+      for (let i = 0; i < 12; i++) {
+        const d = g.getImageData(M + i * (FW + G), M + row * (FH + G), FW, FH).data, on = (x, y) => d[(y * FW + x) * 4 + 3] > 40;
+        let x0 = FW, x1 = -1, y0 = FH, y1 = -1;
+        for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) if (on(x, y)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        if (i === 6) px.push(x1 - x0 + 1);
+        let f0 = FW, f1 = -1;
+        for (let y = Math.round(y1 - (y1 - y0) * 0.25); y <= y1; y++) for (let x = 0; x < FW; x++) if (on(x, y)) { if (x < f0) f0 = x; if (x > f1) f1 = x; }
+        ft.push([Math.round((f0 + f1) / 2 - FW / 2), f1 - f0 + 1]);
+      }
+      feet.push(ft);
     }
-    return { png: sheet.toDataURL('image/png'), webp: sheet.toDataURL('image/webp', 0.8), px, w: sheet.width, h: sheet.height };
+    return { png: sheet.toDataURL('image/png'), webp: sheet.toDataURL('image/webp', 0.8), px, feet, w: sheet.width, h: sheet.height };
   }, [C.WILD.order.map((a) => data(path.join(SRC, 'wild_' + a + '.png'))), FW, FH, M, G, K, GROUND, FEET]);
   fs.writeFileSync(path.join(OUT, 'wild.png'), Buffer.from(r.png.split(',')[1], 'base64'));
   fs.writeFileSync(path.join(OUT, 'wild.webp'), Buffer.from(r.webp.split(',')[1], 'base64'));
   console.log('assets/wild', r.w + 'x' + r.h, (Buffer.from(r.webp.split(',')[1], 'base64').length / 1024).toFixed(0) + ' KB webp');
   C.WILD.order.forEach((a, i) => console.log('  ' + a.padEnd(8), 'px', r.px[i]));
+  fs.writeFileSync(path.join(ROOT, 'src', '00-wildfeet.js'), '// Made by tools/art/wild3q-import.js: each wild animal\'s 12 frames, where its feet are: [middle, from the\n' +
+    '// frame\'s middle (frames face left), width], in assets/wild.png px. The shadow under it follows them (19v-wild.js).\n' +
+    '(function (F) {\n  F.Config.WILD.feet = {\n' + C.WILD.order.map((a, i) => '    ' + a + ': ' + JSON.stringify(r.feet[i]) + ',\n').join('') +
+    '  };\n})(window.Farm = window.Farm || {});\n');
+  console.log('src/00-wildfeet.js');
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

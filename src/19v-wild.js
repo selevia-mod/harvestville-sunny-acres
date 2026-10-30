@@ -24,6 +24,31 @@
   // face left: flipped for the right.
   var FACING = { down: 0, up: 3, side: 6 }, STEPS = [1, 0, 2, 0];
   var frameOf = function (kind, k) { return WI.order.indexOf(kind) * 12 + k; };
+
+  // Standing on the ground (owner, 30 Oct: "they look like they are floating"): a soft shadow right under the feet,
+  // sized to the pose (C.WILD.feet, measured from the art; the walks averaged so it holds still), a small rise and fall
+  // with each step (the shadow stays down: a rabbit hops, a leap leaves the ground, a flying labuyo is high above its
+  // shadow), breathing while it stands, and dust from its feet when it runs.
+  var shadowTexture = function (scene) {
+    if (scene.textures.exists('fx-wildshadow')) return;
+    var c = scene.textures.createCanvas('fx-wildshadow', 128, 128), g = c.getContext(), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,0.62)');
+    gr.addColorStop(0.55, 'rgba(0,0,0,0.42)');
+    gr.addColorStop(0.8, 'rgba(0,0,0,0.16)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+    c.refresh();
+  };
+  var FOOT = {};
+  var footOf = function (kind, fr) {
+    var f = FOOT[kind];
+    if (!f) {
+      var m = WI.feet[kind], avg = function (k) { return [(m[k][0] + m[k + 1][0] + m[k + 2][0]) / 3, (m[k][1] + m[k + 1][1] + m[k + 2][1]) / 3]; };
+      f = FOOT[kind] = { down: avg(0), up: avg(3), side: avg(6), 9: m[9], 10: m[10] };
+    }
+    return fr === 9 || fr === 10 ? f[fr] : fr < 3 ? f.down : fr < 6 ? f.up : f.side;
+  };
   var mine = function () { return F.session.state; };
 
   // ---------- setting up a wild place ----------
@@ -80,9 +105,9 @@
     var def = WI.animals[kind], scale = def.w * T / def.px;
     var a = {
       kind: kind, slot: slot, def: def, hp: def.hp, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
-      dir: 'side', left: Math.random() < 0.5, look: false,
+      dir: 'side', left: Math.random() < 0.5, look: false, fr: FACING.side, lift: 0, breath: rand(0, 6), scale: scale,
       img: this.add.image(x, y, 'wild', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
-      sh: this.add.image(x, y + 10, 'fx-shadow').setDepth(DEPTH.shadow).setScale(def.w * 0.8, 0.8).setAlpha(0.7),
+      sh: this.add.image(x, y, (shadowTexture(this), 'fx-wildshadow')).setDepth(DEPTH.shadow),
     };
     a.img.setFlipX(!a.left);
     this.wild.animals.push(a);
@@ -90,9 +115,17 @@
     return a;
   };
 
-  P.drawWild = function (a) {
-    a.img.setPosition(a.x, a.y);
-    a.sh.setPosition(a.x, a.y + 8).setVisible(!(a.def.flies && a.mode === 'flee'));
+  P.drawWild = function (a, dt) {
+    var ft = footOf(a.kind, a.fr), side = a.fr >= 6 && a.fr !== 9, k = a.scale;
+    // the shadow: wider than the feet, flat from the side, deeper when it faces you or walks away
+    var w = ft[1] * k * (side ? 1.25 : 1.6), h = w * (side ? 0.36 : 0.62), x = a.x + ft[0] * k * (side && !a.left ? -1 : 1);
+    var m = dt == null || a.shw == null ? 1 : Math.min(1, dt / 90); // eases between poses
+    a.shw = a.shw == null ? w : a.shw + (w - a.shw) * m;
+    a.shh = a.shh == null ? h : a.shh + (h - a.shh) * m;
+    a.shx = a.shx == null ? x - a.x : a.shx + (x - a.x - a.shx) * m;
+    var up = Math.min(0.55, a.lift / T); // off the ground: the shadow shrinks and fades
+    a.sh.setPosition(a.x + a.shx, a.y - a.shh * 0.18).setDisplaySize(a.shw * (1 - up * 0.7), a.shh * (1 - up * 0.7)).setAlpha(1 - up);
+    a.img.setPosition(a.x, a.y - a.lift);
     F.depthTo(a.img, DEPTH.actor + a.y / 1e5);
   };
 
@@ -143,9 +176,29 @@
       if (ax > 4) a.left = a.vx < 0;
       a.step += dt;
     }
-    var fr = this.wildPose(a, d);
+    var fr = this.wildPose(a, d), was = a.fr;
+    a.fr = fr;
     a.img.setFrame(frameOf(a.kind, fr)).setFlipX(fr >= 6 && fr !== 9 && !a.left);
-    this.drawWild(a);
+    this.wildFeel(a, was, dt);
+    this.drawWild(a, dt);
+  };
+
+  // The rise and fall of its steps, its breathing, and dust when it runs.
+  P.wildFeel = function (a, was, dt) {
+    var def = a.def, moving = a.vx || a.vy, fast = a.mode === 'flee' || a.mode === 'charge', fr = a.fr, lift = 0;
+    var wave = function (period, peak) { return (1 - Math.cos(2 * Math.PI * (a.step - peak + period / 2) / period)) / 2; };
+    if (moving && def.flies && a.mode === 'flee') lift = 0.45 * T + Math.sin(a.step / 90) * 0.04 * T;
+    else if (moving && fast && a.dir === 'side') lift = 0.12 * T * def.w * wave(260, 195); // a leap: up on frame 11
+    else if (moving) lift = (def.hop || 0.03 * def.w) * T * wave(fast ? 220 : 360, fast ? 165 : 270); // highest between steps
+    a.lift = lift;
+    // breathing while it stands (it grows from its feet, so they stay put)
+    var b = moving || dt == null ? 0 : Math.sin((a.breath += dt / 520));
+    a.img.setScale(a.scale * (1 - b * 0.006), a.scale * (1 + b * 0.018));
+    // dust: where a running foot lands
+    if (this.bits && fast && fr !== was && !(def.flies && a.mode === 'flee')) {
+      var land = a.dir === 'side' ? fr === 7 : fr % 3 !== 0;
+      if (land) this.bits.dust.explode(def.w > 1.2 ? 2 : 1, a.x + (a.dir === 'side' ? (a.left ? 1 : -1) * 0.25 * def.w * T : 0), a.y);
+    }
   };
 
   // Which of its 12 frames an animal shows: eating, looking up at you when you come near (or now and then), walking
@@ -319,11 +372,15 @@
 
   P.dropWild = function (id, x, y) {
     var s = this.state, img = this.add.image(x, y - 0.5 * T, 'items', L.iconOf(s, id)).setScale(1.35).setDepth(DEPTH.actor + y / 1e5);
-    // it pops out, lands, and bobs a little so it is easy to spot in the grass
+    shadowTexture(this);
+    var sh = this.add.image(x, y - 0.04 * T, 'fx-wildshadow').setDisplaySize(0.62 * T, 0.2 * T).setDepth(DEPTH.shadow);
+    // it pops out, lands, and bobs a little so it is easy to spot in the grass (its shadow stays on the ground)
     this.tweens.add({ targets: img, y: y - 0.2 * T, duration: 420, ease: 'Bounce.out', onComplete: function () {
-      if (img.active) img.scene.tweens.add({ targets: img, y: y - 0.32 * T, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      if (!img.active) return;
+      img.scene.tweens.add({ targets: img, y: y - 0.32 * T, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      img.scene.tweens.add({ targets: sh, scaleX: sh.scaleX * 0.82, scaleY: sh.scaleY * 0.82, alpha: 0.75, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     } });
-    this.wildDrops.push({ id: id, x: x, y: y, img: img });
+    this.wildDrops.push({ id: id, x: x, y: y, img: img, sh: sh });
   };
 
   P.pickWildDrops = function () {
@@ -335,6 +392,7 @@
       L.discover(s, d.id);
       self.iconPop(d.x, d.y - 0.3 * T, L.iconOf(s, d.id));
       d.img.destroy();
+      d.sh.destroy();
       sfx('pick');
       self.changed();
       return false;
