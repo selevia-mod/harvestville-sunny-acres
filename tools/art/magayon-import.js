@@ -50,7 +50,7 @@ const save = (name, r) => {
     const cl = W.cells(W.cutout(await W.load(src)), 4, 2, 0.02), cv = {};
     names.forEach((n, i) => { if (!cl[i]) throw new Error(n + ' is missing'); cv[n] = one(null, cl[i]); out[n] = W.out(cv[n], 0.85); });
     if (src2) {
-      const cl2 = W.cells(W.cutout(await W.load(src2)), 4, 1, 0.02);
+      const cl2 = W.cells(W.dehalo(W.cutout(await W.load(src2))), 4, 1, 0.02);
       names2.forEach((n, i) => { if (!cl2[i]) throw new Error(n + ' is missing'); out[n] = W.out(one(null, cl2[i]), 0.85); });
     } else names2.forEach((n) => {
       const [from, ramp] = stand[n], o = W.canvas(128, 128), g = o.getContext('2d');

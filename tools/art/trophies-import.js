@@ -26,12 +26,14 @@ const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
+  await p.addScriptTag({ content: require('./wild-lib') });
   await p.addScriptTag({ content: `
 window.load = (s) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('bad image')); i.src = s; });
 // the picture without its specks (anything far smaller than the biggest piece), cut to what is left
 window.clean = (img) => {
   const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
   const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+  W.dehalo(c);
   const w = c.width, h = c.height, px = g.getImageData(0, 0, w, h), d = px.data, lab = new Int32Array(w * h), sizes = [0];
   for (let k0 = 0; k0 < w * h; k0++) {
     if (lab[k0] || d[k0 * 4 + 3] < 24) continue;

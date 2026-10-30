@@ -80,6 +80,7 @@
     if (!zone) return;
     F.ensureTexture(this, 'wild');
     F.ensureTexture(this, 'wildshade');
+    F.ensureTexture(this, 'wildgrass');
     softShadow(this);
     printTexture(this);
     arrowTexture(this);
@@ -241,6 +242,39 @@
       a.bar.bg.setPosition(a.x, by);
       a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / a.def.hp, BAR_H);
     }
+    this.wildGrass(a, dt || 0, seen);
+  };
+
+  // Standing in the grass (owner, 30 Oct): a tuft before the feet, on grassy ground. It stays where it grew as the animal
+  // walks through and the next comes up ahead, like tall grass; one running flat out or in the air has none.
+  var GRASS_COL = { pulag: 0, makiling: 1, magayon: 2 };
+  P.wildGrassy = function (x, y) { // (the ground most of the map is: not a trail or lava)
+    var w = this.wild, t = this.layers.Ground.getTileAt(Math.floor(x / T), Math.floor(y / T));
+    if (w.soil == null) {
+      var n = {};
+      this.layers.Ground.forEachTile(function (o) { n[o.index] = (n[o.index] || 0) + 1; });
+      w.soil = Number(Object.keys(n).sort(function (p, q) { return n[q] - n[p]; })[0]);
+    }
+    return !!t && t.index === w.soil;
+  };
+  P.wildGrass = function (a, dt, seen) {
+    var g = a.grass, wide = (0.5 + a.def.w * 0.55) * a.size * T, self = this;
+    var show = a.lift < 0.08 * T && Math.hypot(a.vx, a.vy) < 1.8 * T;
+    var tuft = function () { return self.add.image(a.x, a.y, 'wildgrass', 0).setOrigin(0.5, 1).setAlpha(0); };
+    if (!g) g = a.grass = { now: tuft(), old: tuft(), x: 0, y: 0, on: false };
+    if (Math.abs(a.x - g.x) > wide * 0.3 || Math.abs(a.y - g.y) > 0.17 * T) {
+      var was = g.now, len = Math.max(1, Math.hypot(a.vx, a.vy));
+      g.now = g.old;
+      g.old = was;
+      g.x = a.x + a.vx / len * wide * 0.14;
+      g.y = a.y + a.vy / len * 0.08 * T;
+      g.on = this.wildGrassy(g.x, g.y);
+      g.now.setFrame(GRASS_COL[this.mapKey] + (Math.random() < 0.5 ? 3 : 0)).setFlipX(Math.random() < 0.5).setPosition(g.x, g.y + 0.07 * T)
+        .setDisplaySize(wide, wide * 0.27).setDepth(DEPTH.actor + (g.y + 0.07 * T) / 1e5);
+    }
+    var step = dt / 120, want = g.on && show ? seen : 0;
+    g.now.setAlpha(g.now.alpha + Math.max(-step, Math.min(step, want - g.now.alpha)));
+    g.old.setAlpha(Math.max(0, g.old.alpha - step));
   };
 
   // ---------- every frame ----------
@@ -546,6 +580,7 @@
     a.img.destroy();
     a.sh.destroy();
     if (a.bar) { a.bar.bg.destroy(); a.bar.fill.destroy(); }
+    if (a.grass) { a.grass.now.destroy(); a.grass.old.destroy(); }
   };
 
   // Hunted: a puff, its things on the ground, and its slot waits for it to come back.

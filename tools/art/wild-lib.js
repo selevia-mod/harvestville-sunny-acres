@@ -91,4 +91,23 @@ window.W = {
     g.drawImage(c, b.x, b.y, b.w, b.h, cx - w / 2, base != null ? base - h : cy - h / 2, w, h);
   },
   out: (c, q) => ({ png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', q || 0.8) }),
+  // the bright fringe the picture generator leaves round a cut-out (it shows as yellow, red or green specks): the faintest
+  // pixels go, and the soft edge that is left takes its colour from the solid picture beside it
+  dehalo(c) {
+    const g = c.getContext('2d'), w = c.width, h = c.height, im = g.getImageData(0, 0, w, h), d = im.data, was = d.slice(), R = 3;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4, a = was[i + 3];
+      if (a >= 240 || !a) continue;
+      if (a < 96) { d[i + 3] = 0; continue; }
+      let r = 0, gr = 0, b = 0, n = 0;
+      for (let v = Math.max(0, y - R); v <= Math.min(h - 1, y + R); v++) for (let u = Math.max(0, x - R); u <= Math.min(w - 1, x + R); u++) {
+        const k = (v * w + u) * 4;
+        if (was[k + 3] >= 240) { r += was[k]; gr += was[k + 1]; b += was[k + 2]; n++; }
+      }
+      if (!n) { d[i + 3] = 0; continue; }
+      d[i] = r / n; d[i + 1] = gr / n; d[i + 2] = b / n;
+    }
+    g.putImageData(im, 0, 0);
+    return c;
+  },
 };`;
