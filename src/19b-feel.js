@@ -278,7 +278,7 @@
     }
     var len = Math.sqrt(vx * vx + vy * vy);
     if (len < 0.2) { vx = vy = 0; len = 0; } else if (len > 1) { vx /= len; vy /= len; len = 1; }
-    var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1);
+    var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1) * (F.Logic.power(F.session.state, 'walk') ? 1.2 : 1);
     // ease toward the wanted velocity instead of jumping to it
     var dt = Math.min(this.game.loop.delta, 100), going = len > 0;
     var ease = 1 - Math.exp(-dt / (going ? ACCEL_MS : STOP_MS));

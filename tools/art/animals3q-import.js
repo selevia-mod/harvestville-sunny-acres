@@ -32,11 +32,11 @@ const C = ctx.window.Farm.Config;
 
 const FW = 224, FH = 252, M = 8, G = 16, K = 0.65, FEET = 233; // keep FW/FH/FEET in step with 10-boot.js, 13-animals.js and 19v-wild.js
 const SHADE = 3;
-const RARE = { whitedeer: ['wild_deer', 'white'], goldboar: ['wild_boar', 'gold'] }; // the rare ones are these, recoloured
+const RARE = { whitedeer: ['wild_deer', 'white'], goldboar: ['wild_boar', 'gold'], greatmammoth: ['wild_mammoth', 'dark'] }; // the rare ones are these, recoloured
 // Magayon's: bear and mammoth are drawn like the others (their ground line is 350). The tiger's and rhino's poses spill out
 // of their cells and do not share a line, so `fit` finds each pose and stands it on the line itself. The rhino's last row
 // runs eat, face you, charge: `swap` puts it in the usual order.
-const MAG = { bear: { line: 350 }, mammoth: { line: 350 }, tiger: { fit: true }, rhino: { fit: true, swap: true } };
+const MAG = { bear: { line: 350 }, mammoth: { line: 350 }, greatmammoth: { line: 350 }, tiger: { fit: true }, rhino: { fit: true, swap: true } };
 // the farm's rows; barn animals' last row: eating, asleep, happy facing you
 const BARN = { front: 11, lying: 10, ground: true };
 const FARM = [['farm_chicken', BARN], ['farm_cow', BARN], ['farm_pig', BARN], ['farm_carabao', BARN],
@@ -64,7 +64,11 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
       for (let i = 0; i < d.length; i += 4) {
         if (!d[i + 3]) continue;
         const l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
-        if (tone === 'white') {
+        if (tone === 'dark') { // the Great Mammoth: near-black fur, its tusks stay pale
+          if (l > 0.72) continue;
+          const v = mix(22, 118, Math.min(1, l / 0.72));
+          d[i] = v * 0.95; d[i + 1] = v * 0.86; d[i + 2] = v * 1.05;
+        } else if (tone === 'white') {
           if (l < 0.24) continue;
           const v = mix(205, 255, Math.min(1, (l - 0.24) / 0.5));
           d[i] = v; d[i + 1] = v * 0.985; d[i + 2] = v * 0.95;

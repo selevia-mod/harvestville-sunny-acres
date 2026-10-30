@@ -48,6 +48,7 @@
     if (when === 'rain') { var w = L.weather(s, s.day); return w === 'rain' || w === 'storm'; }
     if (when === 'fall') return L.date(s.day).key === 'fall';
     if (when === 'rare') return L.wildRare(s, area);
+    if (when === 'great') return L.weekendMarket(s.day);
     return true;
   };
 
@@ -71,6 +72,7 @@
     if (L.date(s.day).key === 'fall') out.push('Fall: more boars in Makiling.');
     if (L.wildWhen(s, 'pulag', 'dawn')) out.push('Dawn: rabbits are feeding in Pulag.');
     if (L.wildWhen(s, 'pulag', 'dusk')) out.push('Dusk: deer are moving.');
+    if (L.weekendMarket(s.day)) out.push('The Great Mammoth is on Magayon this weekend. It takes two or more hunters: bring a friend!');
     return out;
   };
 
@@ -107,6 +109,76 @@
     return { opened: next && L.wildOpen(s, next) ? next : null, kg: kg, record: !!old && tenths > old };
   };
 
+  // ---------- what the rest of the game needs from hunting ----------
+  L.hasNeeds = function (s, needs) { return (needs || []).every(function (n) { return L.countItem(s, n[0]) >= n[1]; }); };
+  L.takeNeeds = function (s, needs) { (needs || []).forEach(function (n) { L.removeItem(s, n[0], n[1]); }); };
+  L.needsText = function (needs) { return (needs || []).map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name; }).join(', '); };
+  var nextBag = L.nextBag;
+  L.nextBag = function (s) {
+    var b = nextBag(s);
+    if (b) b.needs = C.BAG_NEEDS[L.bagLevel(s) + 1] || null;
+    return b;
+  };
+  var upgradeBag = L.upgradeBag;
+  L.upgradeBag = function (s) {
+    var b = L.nextBag(s);
+    if (b && s.gold >= b.price && !L.hasNeeds(s, b.needs)) return 'needs';
+    var r = upgradeBag(s);
+    if (r === 'ok' && b) L.takeNeeds(s, b.needs);
+    return r;
+  };
+  var upgradeTool = L.upgradeTool;
+  L.upgradeTool = function (s, tool) {
+    var c = L.upgradeCost(s, tool);
+    if (c && s.gold >= c.gold && L.countItem(s, c.ore) >= c.n && !L.hasNeeds(s, c.needs)) return 'needs';
+    var r = upgradeTool(s, tool);
+    if (r === 'ok' && c) L.takeNeeds(s, c.needs);
+    return r;
+  };
+  var startHome = L.startHomeUpgrade;
+  L.startHomeUpgrade = function (s) {
+    var n = L.nextHome(s);
+    if (n && !s.project && s.gold >= n.gold && s.lumber >= n.lumber && s.stone >= n.stone && !L.hasNeeds(s, n.needs)) return 'needs';
+    var r = startHome(s);
+    if (r === 'ok' && n) L.takeNeeds(s, n.needs);
+    return r;
+  };
+
+  // ---------- dishes with a power ----------
+  // s.dp: { id, until (real minute) }. The newest dish's power replaces the last, and a full stomach still takes one.
+  L.power = function (s, key) {
+    var d = s.dp, p = d && C.DISH_POWERS[d.id];
+    return !!p && p.key === key && L.nowMin() < d.until;
+  };
+  L.powerLeft = function (s) { var d = s.dp; return d && C.DISH_POWERS[d.id] ? Math.max(0, d.until - L.nowMin()) : 0; };
+  var eat = L.eat;
+  L.eat = function (s, slotIndex) {
+    var slot = s.inv[slotIndex], id = slot && slot.id, p = id && C.DISH_POWERS[id], full = s.energy >= L.maxEnergy(s);
+    if (p && full) L.removeAt(s, slotIndex, 1);
+    var r = p && full ? 0 : eat(s, slotIndex);
+    if (p && (full || r > 0)) s.dp = { id: id, until: L.nowMin() + C.DISH_POWER_MINS };
+    return p && full ? -2 : r; // (-2: nothing to refill, the power is on)
+  };
+  var toolEnergy = L.toolEnergy;
+  L.toolEnergy = function (s, tool, n) { var e = toolEnergy(s, tool, n); return L.power(s, 'tools') ? Math.max(1, Math.round(e * 0.8)) : e; };
+  var mineEnergy = L.mineEnergy;
+  L.mineEnergy = function (s, floor) { var e = mineEnergy(s, floor); return L.power(s, 'mine') ? Math.max(1, Math.round(e * 0.7)) : e; };
+  var harvest = L.harvest;
+  L.harvest = function (s, idx) {
+    var got = harvest(s, idx);
+    if (typeof got === 'string' && got[0] !== '!' && L.power(s, 'crop') && Math.random() < 0.2) L.addItem(s, got, 1);
+    return got;
+  };
+
+  // ---------- the Great Mammoth ----------
+  // One Great Tusk a week for each hunter (it can come back the same weekend, for the rest of what it leaves).
+  L.greatTusk = function (s) {
+    var wk = L.weekOf(L.dayOf(L.clock()));
+    if (s.wild.gw === wk) return false;
+    s.wild.gw = wk;
+    return true;
+  };
+
   // ---------- hunting with friends ----------
   // One phone runs the animals of a place and tells the others where they are: whoever came first (ids settle a tie),
   // so everyone works out the same answer from the presence list. Someone from before this update (no sn) cannot.
@@ -117,7 +189,7 @@
   };
   var DIRS = ['down', 'up', 'side'], MODES = ['idle', 'graze', 'walk', 'flee', 'charge', 'eat', 'toBait'];
   L.wildPack = function (a) {
-    return [a.slot, WI.order.indexOf(a.kind), Math.round(a.x), Math.round(a.y), DIRS.indexOf(a.dir), a.left ? 1 : 0, MODES.indexOf(a.mode), a.hp, Math.round(a.size * 100), a.look ? 1 : 0];
+    return [a.slot, WI.order.indexOf(a.kind), Math.round(a.x), Math.round(a.y), DIRS.indexOf(a.dir), a.left ? 1 : 0, MODES.indexOf(a.mode), a.hp, Math.round(a.size * 100), a.look ? 1 : 0, a.max || WI.animals[a.kind].hp];
   };
   // (what comes off the live channel: anything that is not an animal is dropped)
   L.wildUnpack = function (r) {
@@ -125,7 +197,8 @@
     var kind = WI.order[r[1]], most = 400 * C.TILE;
     if (!kind || r[0] < 0 || r[0] > 99 || r[0] !== Math.floor(r[0]) || !DIRS[r[4]] || !MODES[r[6]]) return null;
     return { slot: r[0], kind: kind, x: Math.max(0, Math.min(most, r[2])), y: Math.max(0, Math.min(most, r[3])), dir: DIRS[r[4]], left: !!r[5], mode: MODES[r[6]],
-      hp: Math.max(0, Math.min(WI.animals[kind].hp, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9] };
+      hp: Math.max(0, Math.min(WI.animals[kind].hp, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9],
+      max: Math.max(1, Math.min(WI.animals[kind].hp, Number(r[10]) || WI.animals[kind].hp)) };
   };
 
   // ---------- Kanor's request of the day ----------
@@ -163,7 +236,7 @@
   // ---------- the Bow ----------
   L.hasBow = function (s) { return L.hasItem(s, 'bow') || (s.store || []).some(function (x) { return x && x.id === 'bow'; }); };
   L.bowLevel = function (s) { return s.tools.bow || 0; };
-  L.bowRange = function (s) { return WI.bow.range[L.bowLevel(s)]; };
+  L.bowRange = function (s) { return WI.bow.range[L.bowLevel(s)] + (L.power(s, 'bow') ? 1 : 0); };
   L.bowDamage = function (s) { return WI.bow.damage[L.bowLevel(s)]; };
   L.buyBow = function (s) {
     if (L.hasBow(s)) return 'have';
@@ -231,8 +304,9 @@
       if (now - w.gone[k] < 120 && AREAS.indexOf(p[0]) >= 0) gone.push([AREAS.indexOf(p[0]), +p[1], w.gone[k]]); // the minute itself: time away counts too
     });
     if (w.n || L.bowLevel(s) || L.hasBow(s) || gone.length) {
-      o.wl = [w.n, L.hasBow(s) ? L.bowLevel(s) + 1 : 0, WI.order.map(function (k) { return w.by[k] || 0; }), gone, w.job, WI.order.map(function (k) { return w.best[k] || 0; })];
+      o.wl = [w.n, L.hasBow(s) ? L.bowLevel(s) + 1 : 0, WI.order.map(function (k) { return w.by[k] || 0; }), gone, w.job, WI.order.map(function (k) { return w.best[k] || 0; }), w.gw || 0];
     }
+    if (s.dp && C.DISH_POWERS[s.dp.id]) o.dp = [s.dp.id, s.dp.until];
     return o;
   };
   var deserialize = L.deserialize;
@@ -252,7 +326,9 @@
       });
       s.wild.job = int(wl[4], 0, 1e7, 0);
       (Array.isArray(wl[5]) ? wl[5] : []).forEach(function (n, i) { if (WI.order[i]) s.wild.best[WI.order[i]] = int(n, 0, 1e6, 0); });
+      s.wild.gw = int(wl[6], 0, 1e7, 0);
     }
+    s.dp = Array.isArray(o.dp) && C.DISH_POWERS[o.dp[0]] ? { id: String(o.dp[0]), until: int(o.dp[1], 0, 1e10, 0) } : null;
     return s;
   };
 

@@ -430,11 +430,12 @@
       var bag = L.nextBag(s);
       if (bag) {
         rows.push({
-          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.',
+          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.' + (bag.needs ? ' Also needs ' + L.needsText(bag.needs) + '.' : ''),
           buttons: [{
             label: 'Buy ' + bag.price + 'G', cb: function () {
               var r = L.upgradeBag(s);
               if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+              if (r === 'needs') { sfx('nope'); return self.toast('You need ' + L.needsText(bag.needs) + '. Make it at a Tannery, or find it in the Market.', 3000); }
               sfx('coin');
               world().changed();
               world().save();
@@ -491,13 +492,14 @@
       return {
         icon: L.iconOf(s, tool), name: L.itemName(s, tool),
         // what the upgrade does, then its price as chips (gold and ore)
-        desc: cost ? L.upgradeText(s, tool) : 'Fully upgraded! The best ' + C.ITEMS[tool].name.toLowerCase() + ' in the valley.',
+        desc: cost ? L.upgradeText(s, tool) + (cost.needs ? ' Also needs ' + L.needsText(cost.needs) + '.' : '') : 'Fully upgraded! The best ' + C.ITEMS[tool].name.toLowerCase() + ' in the valley.',
         reward: cost ? { gold: cost.gold, item: cost.ore, n: cost.n } : null, rewardPrefix: 'Cost', buttonsBelow: true,
         buttons: cost ? [{
           label: 'Upgrade', cb: function () {
             var r = L.upgradeTool(s, tool);
             if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
             if (r === 'ore') { sfx('nope'); return self.toast('You need ' + cost.n + ' ' + C.ITEMS[cost.ore].name + '. Find ore in the mine.'); }
+            if (r === 'needs') { sfx('nope'); return self.toast('You need ' + L.needsText(cost.needs) + '. Hunt them, or find them in the Market.', 3000); }
             sfx('anvil');
             world().changed();
             world().save();

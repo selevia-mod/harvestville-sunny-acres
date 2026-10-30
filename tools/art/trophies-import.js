@@ -22,7 +22,7 @@ const C = ctx.window.Farm.Config;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const CELL = 384, U = 128, GAP = 16;
 const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_wolf', trophy_stag: 'white_antler', trophy_goldboar: 'gold_tusk',
-  trophy_rhino: 'horn_rhino', bear_rug: 'fur_bear', tiger_rug: 'pelt_tiger', trophy_mammoth: 'tusk_mammoth' };
+  trophy_rhino: 'horn_rhino', bear_rug: 'fur_bear', tiger_rug: 'pelt_tiger', trophy_mammoth: 'tusk_mammoth', trophy_great_mammoth: 'great_tusk' };
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();

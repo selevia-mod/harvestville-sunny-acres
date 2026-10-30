@@ -16,6 +16,7 @@ L.weather = () => 'sunny';
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(plain(L.serialize(s)));
 const kinds = (list) => plain(list.map((e) => e.kind));
+const fresh = () => { const s = L.newState(); s.seed = 11; return s; };
 
 test('the places and who roams there: wolves only at night', () => {
   const s = L.newState();
@@ -302,7 +303,8 @@ test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes'
 
 test('the new icons went at the very end, so no older icon moved in the items sheet', () => {
   const n = C.ICON_ORDER.length;
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 12)), ['meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek']);
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 16, n - 4)), ['meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek']);
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 4)), ['leather_soft', 'leather_thick', 'leather_tough', 'great_tusk']);
   assert.strictEqual(C.ICON.wheat, 211);
 });
 
@@ -353,7 +355,7 @@ test('hunting with friends: whoever came first runs the hunt, and every phone wo
 test('hunting with friends: an animal survives the trip, and junk off the channel is dropped', () => {
   const a = { slot: 3, kind: 'deer', x: 1234.6, y: 88.2, dir: 'side', left: true, mode: 'flee', hp: 2, size: 1.27, look: true };
   assert.deepStrictEqual(JSON.parse(JSON.stringify(L.wildUnpack(JSON.parse(JSON.stringify(L.wildPack(a)))))),
-    { slot: 3, kind: 'deer', x: 1235, y: 88, dir: 'side', left: true, mode: 'flee', hp: 2, size: 1.27, look: true });
+    { slot: 3, kind: 'deer', x: 1235, y: 88, dir: 'side', left: true, mode: 'flee', hp: 2, size: 1.27, look: true, max: 2 });
   const good = L.wildPack(a);
   [null, 'x', [], good.slice(0, 5), good.map((v, i) => (i === 1 ? 99 : v)), good.map((v, i) => (i === 0 ? -1 : v)), good.map((v, i) => (i === 0 ? 1.5 : v)),
     good.map((v, i) => (i === 4 ? 9 : v)), good.map((v, i) => (i === 6 ? 9 : v)), good.map((v, i) => (i === 2 ? 'x' : v)), good.map((v, i) => (i === 3 ? null : v))]
@@ -362,4 +364,95 @@ test('hunting with friends: an animal survives the trip, and junk off the channe
   assert.ok(wild.x <= 400 * C.TILE);
   assert.strictEqual(wild.hp, C.WILD.animals.deer.hp);
   assert.strictEqual(wild.size, 2);
+});
+
+test('the Tannery: a workshop that turns furs and hides into leather, for sale at the Market too', () => {
+  assert.deepStrictEqual(plain(C.WORKSHOPS.tannery.recipes.map((r) => [r.out, r.mins, r.needs])), [
+    ['leather_soft', 45, [['fur_rabbit', 3]]], ['leather_thick', 60, [['pelt_wolf', 1]]], ['leather_tough', 90, [['hide_rhino', 1]]]]);
+  assert.strictEqual(C.OUTDOOR.types[C.OUTDOOR.index.tannery].price, 5000);
+  ['leather_soft', 'leather_thick', 'leather_tough', 'great_tusk', 'tusk', 'wool_mammoth'].forEach((id) => assert.ok(L.marketable(id), id));
+  const s = fresh(), ix = C.OUTDOOR.index, FARM = L.farmInfo(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8')));
+  s.gold = 9000;
+  assert.strictEqual(L.buyYard(s, ix.tannery, 1), 'ok');
+  assert.strictEqual(L.buyYard(s, ix.tannery, 1), 'have', 'one Tannery');
+  assert.strictEqual(typeof L.placeYard(s, FARM, ix.tannery, 25, 14), 'number');
+  L.addItem(s, 'fur_rabbit', 3);
+  assert.strictEqual(L.startJob(s, 'tannery', 0), 'ok');
+  assert.strictEqual(L.countItem(s, 'fur_rabbit'), 0);
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.strictEqual(L.startJob(back, 'tannery', 0), 'missing', 'the job came through the save, and there is no more fur');
+});
+
+test('the top upgrades need what you hunt: Gold tools, the last bags, the top houses; nothing before them', () => {
+  const s = fresh();
+  s.gold = 1e7; s.lumber = 9999; s.stone = 9999;
+  L.addItem(s, 'ore_copper', 5); L.addItem(s, 'ore_silver', 5); L.addItem(s, 'ore_gold', 5);
+  assert.strictEqual(L.upgradeTool(s, 'hoe'), 'ok', 'Copper as before');
+  assert.strictEqual(L.upgradeTool(s, 'hoe'), 'ok', 'Silver as before');
+  assert.strictEqual(L.upgradeTool(s, 'hoe'), 'needs', 'Gold wants tusks');
+  assert.strictEqual(L.countItem(s, 'ore_gold'), 5, 'nothing was taken');
+  L.addItem(s, 'tusk', 3);
+  assert.strictEqual(L.upgradeTool(s, 'hoe'), 'ok');
+  assert.strictEqual(L.countItem(s, 'tusk'), 1);
+  const levels = C.HOME.levels;
+  assert.deepStrictEqual(plain(levels.filter((l) => l.needs).map((l) => [l.name, l.needs])), [['Villa', [['leather_thick', 10]]], ['Estate', [['wool_mammoth', 10]]], ['Mansion', [['tusk_mammoth', 5]]]]);
+  s.home.level = levels.findIndex((l) => l.name === 'Villa');
+  assert.strictEqual(L.startHomeUpgrade(s), 'needs');
+  assert.ok(!s.project);
+  L.addItem(s, 'leather_thick', 10);
+  assert.strictEqual(L.startHomeUpgrade(s), 'ok');
+  assert.strictEqual(L.countItem(s, 'leather_thick'), 0);
+});
+
+test('dishes with a power: 10 minutes, one at a time, and a full stomach still takes one', () => {
+  const s = fresh();
+  L.addItem(s, 'bistek', 1); L.addItem(s, 'venison_tapa', 1); L.addItem(s, 'kaldereta', 1); L.addItem(s, 'inihaw', 1);
+  const slot = (id) => s.inv.findIndex((x) => x && x.id === id);
+  s.energy = L.maxEnergy(s);
+  const full = L.toolEnergy(s, 'axe', 10), mine = L.mineEnergy(s, 30), range = L.bowRange(s);
+  assert.strictEqual(L.eat(s, slot('bistek')), -2, 'no energy to add, the power is on');
+  assert.ok(L.power(s, 'walk'));
+  assert.strictEqual(L.countItem(s, 'bistek'), 0);
+  s.energy = 10;
+  assert.ok(L.eat(s, slot('venison_tapa')) > 0);
+  assert.ok(!L.power(s, 'walk'), 'the newest replaces the last');
+  assert.ok(L.toolEnergy(s, 'axe', 10) < full);
+  L.eat(s, slot('kaldereta'));
+  assert.ok(L.mineEnergy(s, 30) < mine);
+  L.eat(s, slot('inihaw'));
+  assert.strictEqual(L.bowRange(s), range + 1);
+  assert.strictEqual(L.powerLeft(s), 10);
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.ok(L.power(back, 'bow'), 'kept in the save');
+  s.dp.until = L.nowMin() - 1;
+  assert.ok(!L.power(s, 'bow'), 'and it runs out');
+  L.addItem(s, 'carrot', 1);
+  s.energy = 10;
+  assert.ok(L.eat(s, slot('carrot')) > 0, 'other food is as it was');
+  s.energy = L.maxEnergy(s);
+  L.addItem(s, 'carrot', 1);
+  assert.strictEqual(L.eat(s, slot('carrot')), -1);
+});
+
+test('the Great Mammoth: at weekends, one Great Tusk a week each, 3 make the trophy', () => {
+  const s = fresh();
+  s.wild.n = 50;
+  const slots = L.wildSlots('magayon').filter((e) => e.kind === 'greatmammoth');
+  assert.strictEqual(slots.length, 1);
+  const here = () => L.wildHere(s, 'magayon').some((e) => e.kind === 'greatmammoth');
+  const week = L.weekendMarket;
+  L.weekendMarket = () => false;
+  assert.ok(!here());
+  L.weekendMarket = () => true;
+  assert.ok(here());
+  L.weekendMarket = week;
+  assert.ok(L.greatTusk(s));
+  assert.ok(!L.greatTusk(s), 'once a week');
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.ok(!L.greatTusk(back), 'kept in the save');
+  assert.strictEqual(C.WILD.animals.greatmammoth.minHits, 3);
+  assert.deepStrictEqual(plain(C.WILD.trophies[C.WILD.trophies.length - 1]), { type: 'trophy_great_mammoth', needs: [['great_tusk', 3]], gold: 5000 });
+  const row = L.wildUnpack(JSON.parse(JSON.stringify(L.wildPack({ slot: 12, kind: 'greatmammoth', x: 10, y: 10, dir: 'side', left: true, mode: 'walk', hp: 20, size: 1, look: false, max: 24 }))));
+  assert.strictEqual(row.hp, 20);
+  assert.strictEqual(row.max, 24);
 });

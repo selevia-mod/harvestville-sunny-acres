@@ -595,7 +595,7 @@ test("the first-days goals name this season's starter crop and give its seeds", 
 test('a bigger bag: 18 -> 24 -> 30 ... 90 slots at Lily\'s, kept in the save, items stay put', () => {
   const s = L.newState();
   assert.strictEqual(s.inv.length, 18);
-  same(L.nextBag(s), { size: 24, price: 2000 });
+  same(L.nextBag(s), { size: 24, price: 2000, needs: null });
   s.gold = 1000;
   assert.strictEqual(L.upgradeBag(s), 'gold');
   s.gold = 9000;
@@ -606,11 +606,16 @@ test('a bigger bag: 18 -> 24 -> 30 ... 90 slots at Lily\'s, kept in the save, it
   assert.strictEqual(L.upgradeBag(s), 'ok');
   assert.strictEqual(s.inv.length, 30);
   // owner, 30 Oct: then 6 more each time, up to 90 (three pages of 30)
-  same(L.nextBag(s), { size: 36, price: 10000 });
+  same(L.nextBag(s), { size: 36, price: 10000, needs: null });
   s.gold = 1e9;
   const sizes = [];
   while (L.upgradeBag(s) === 'ok') sizes.push(s.inv.length);
+  same(sizes, [36, 42, 48, 54, 60]);
+  assert.strictEqual(L.upgradeBag(s), 'needs', 'from 66 on it takes leather too');
+  L.addItem(s, 'leather_soft', 10); L.addItem(s, 'leather_thick', 10); L.addItem(s, 'leather_tough', 5);
+  while (L.upgradeBag(s) === 'ok') sizes.push(s.inv.length);
   same(sizes, [36, 42, 48, 54, 60, 66, 72, 78, 84, 90]);
+  assert.strictEqual(L.countItem(s, 'leather_soft') + L.countItem(s, 'leather_thick') + L.countItem(s, 'leather_tough'), 0);
   assert.strictEqual(L.upgradeBag(s), 'max');
   assert.strictEqual(L.nextBag(s), null);
   s.inv[89] = { id: 'fish_s', n: 2 };

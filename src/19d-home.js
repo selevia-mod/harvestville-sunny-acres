@@ -472,7 +472,7 @@
     var building = s.project && s.project.id === 'house';
     if (!next) return { icon: C.ICON.crate, name: cur.name + ' (Lv ' + s.home.level + ')', desc: 'Your house is as grand as it gets!', buttons: [] };
     var lv = s.home.level + 1, size = next.map[0] - 2 + ' x ' + (next.map[1] - 3);
-    var cost = next.gold + 'G, ' + next.lumber + ' lumber' + (next.stone ? ', ' + next.stone + ' stone' : '');
+    var cost = next.gold + 'G, ' + next.lumber + ' lumber' + (next.stone ? ', ' + next.stone + ' stone' : '') + (next.needs ? ', ' + L.needsText(next.needs) : '');
     return {
       icon: C.ICON.crate, name: next.name + ' (Lv ' + lv + ')',
       desc: building ? 'Mira is building it. Ready in ' + Math.max(1, s.project.done - s.day) + ' day(s).' :
@@ -480,7 +480,7 @@
       buttons: building ? [] : [{
         label: 'Build', cb: function () {
           var r = L.startHomeUpgrade(s);
-          var why = { busy: 'Mira is busy with another job. One at a time!', gold: 'Not enough gold.', lumber: 'You need ' + next.lumber + ' lumber. Chop branches and stumps, or buy some.', stone: 'You need ' + next.stone + ' stone.' };
+          var why = { needs: 'You need ' + L.needsText(next.needs) + '. Hunt them, or find them in the Market.', busy: 'Mira is busy with another job. One at a time!', gold: 'Not enough gold.', lumber: 'You need ' + next.lumber + ' lumber. Chop branches and stumps, or buy some.', stone: 'You need ' + next.stone + ' stone.' };
           if (r !== 'ok') { sfx('nope'); return self.toast(why[r] || 'Hmm.'); }
           sfx('hammer');
           world().changed();

@@ -910,6 +910,54 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await Promise.all([host.context.close(), guest.context.close()]);
 });
 
+test('online: the Great Mammoth: only with two hunters, strength for the crew; 3 hits share the hunt and a Great Tusk, fewer do not (owner, 30 Oct)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server), third = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await nameFarm(third.page, 'Sam Fields');
+  const crew = [host, guest, third];
+  for (const who of crew) await who.page.evaluate(() => { Farm.Logic.weekendMarket = () => true; Farm.session.state.wild.n = 50; });
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await third.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(third.page, true);
+  await waitRemotes(host.page, ['Ana Acres', 'Sam Fields']);
+  await host.page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await host.page.evaluate(() => Farm.world.travel('magayon', 'trail_south'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'magayon' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  // alone: it never comes
+  const arrive = (page) => page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 60; i++) { w.wild.next = 0; w.wildArrive(0); } return w.wild.animals.some((a) => a.def.great); });
+  assert.strictEqual(await arrive(host.page), false, 'not for one hunter');
+  for (const who of [guest, third]) {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('town', 'from_farm'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.session.visit.chase = null; Farm.world.travel('magayon', 'trail_south'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'magayon' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  }
+  await waitRemotes(host.page, ['Ana Acres', 'Sam Fields']);
+  await host.page.waitForFunction(() => { const w = Farm.world; w.wild.next = 0; w.wildArrive(0); return w.wild.animals.some((a) => a.def.great); }, null, SLOW);
+  const great = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.filter((x) => x.def.great)[0]; return a ? { hp: a.hp, max: a.max, slot: a.slot, bar: !!a.bar } : null; });
+  assert.deepStrictEqual(await great(host.page).then((g) => [g.hp, g.max, g.bar]), [36, 36, true], '12 for each of the 3 hunters');
+  for (const who of [guest, third]) await who.page.waitForFunction(() => Farm.world.wild.animals.some((a) => a.def.great), null, SLOW);
+  await waitToast(guest.page, /The Great Mammoth is here/);
+  // the guest lands 3 hits, the third hunter 1, and the owner the rest
+  const hit = (who, n) => who.page.evaluate((n) => { const w = Farm.world, a = w.wild.animals.filter((x) => x.def.great)[0]; for (let i = 0; i < n; i++) w.wildStruck(a); }, n);
+  await hit(guest, 3);
+  await hit(third, 1);
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.filter((x) => x.def.great)[0]; return a && a.hp === 32; }, null, SLOW);
+  await host.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.filter((x) => x.def.great)[0]; w.wildStruck(a); w.wildStruck(a); a.hp = 1; w.wildStruck(a); });
+  for (const who of crew) await who.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.def.great), null, SLOW);
+  const tusk = (who) => who.page.evaluate(() => Farm.world.wildDrops.filter((d) => d.id === 'great_tusk').length + Farm.Logic.countItem(Farm.session.state, 'great_tusk'));
+  assert.strictEqual(await tusk(guest), 1, '3 hits');
+  assert.strictEqual(await tusk(host), 1, 'the owner too');
+  assert.strictEqual(await tusk(third), 0, 'one hit is not enough');
+  await waitToast(third.page, /It took 3 hits/);
+  for (const who of crew) assert.deepStrictEqual(who.problems, []);
+  await Promise.all(crew.map((who) => who.context.close()));
+});
+
 test('online: visitors follow the owner to town and into the mine: asked, Follow, both see each other there, on the same rocks', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);

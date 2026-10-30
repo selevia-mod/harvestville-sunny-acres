@@ -176,7 +176,7 @@
       id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w && w.mapKey === 'mine' ? F.session.mineFloor : 0,
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
       pt: F.myParty() ? 1 : 0, // your birthday: they see you in the party hat
-      rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
+      sk: L.power(F.session.state, 'sneak') ? 1 : 0, rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
     };
   };
 
@@ -262,7 +262,7 @@
       id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
-      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0),
+      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0,
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
     };
@@ -537,7 +537,7 @@
     if (moved) {
       this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, fl: fl, m: 1, rd: F.session.riding ? 1 : 0 };
       this.mvMs = ON.moveEvery;
-      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });
+      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, sk: L.power(F.session.state, 'sneak') ? 1 : 0 });
     } else if (last && last.m) {
       last.m = 0; // stopped: say so, and leave our place in the presence list for anyone who joins later
       this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });

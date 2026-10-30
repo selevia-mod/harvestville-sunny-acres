@@ -486,13 +486,13 @@
 
   M.eat = function () {
     var s = this.state, held = L.held(s), name = C.ITEMS[held.id].name;
-    var gain = L.eat(s, s.sel);
-    if (gain < 0) return F.ui.toast("You're full of energy already.");
+    var power = C.DISH_POWERS[held.id], gain = L.eat(s, s.sel);
+    if (gain === -1) return F.ui.toast("You're full of energy already.");
     if (!gain) return;
     sfx('eat');
     var f = this.feet();
-    this.floatTextAt(f.x, f.y - 2 * T, '+' + gain + ' energy');
-    F.ui.toast('You ate the ' + name + '.');
+    if (gain > 0) this.floatTextAt(f.x, f.y - 2 * T, '+' + gain + ' energy');
+    F.ui.toast(power ? name + ': for ' + C.DISH_POWER_MINS + ' minutes, ' + power.text + '.' : 'You ate the ' + name + '.', power ? 3000 : undefined);
     this.changed();
   };
 

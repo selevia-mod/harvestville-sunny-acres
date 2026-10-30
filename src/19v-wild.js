@@ -81,6 +81,7 @@
     F.ensureTexture(this, 'wild');
     F.ensureTexture(this, 'wildshade');
     F.ensureTexture(this, 'wildgrass');
+    if (L.weekendMarket(s.day) && this.mapKey === 'magayon' && !friendsHere(this)) this.time.delayedCall(2200, function () { if (F.ui) F.ui.toast('The Great Mammoth is about, but it never shows for one hunter alone. Bring a friend!', 3200, 0x7a5a12); });
     softShadow(this);
     printTexture(this);
     arrowTexture(this);
@@ -89,6 +90,7 @@
     if (this.wildFollowing()) return; // a friend here runs the hunt: their animals are on the way
     var f = this.feet(), rare = null;
     L.wildHere(s, this.mapKey).forEach(function (e) {
+      if (WI.animals[e.kind].great) return; // (it walks in, when there are two of you)
       var p = self.wildSpot(zone, f, 6);
       if (!p) return;
       var a = self.addWildAnimal(e.kind, e.slot, p.x, p.y);
@@ -105,11 +107,16 @@
     w.next = rand(WI.arrive[0], WI.arrive[1]);
     var here = {};
     w.animals.forEach(function (a) { here[a.slot] = true; });
-    var due = L.wildHere(s, this.mapKey).filter(function (e) { return !here[e.slot]; });
+    var pair = friendsHere(this), crew = 1 + Object.keys(this.remotes || {}).length;
+    var due = L.wildHere(s, this.mapKey).filter(function (e) { return !here[e.slot] && (pair || !WI.animals[e.kind].great); });
     if (!due.length) return;
     var e = due[Math.floor(Math.random() * due.length)], p = this.wildEdge(w.zone);
     if (!p) return;
-    var a = this.addWildAnimal(e.kind, e.slot, p.x, p.y), z = w.zone;
+    var a = this.addWildAnimal(e.kind, e.slot, p.x, p.y, WI.animals[e.kind].great ? 1 : null), z = w.zone;
+    if (a.def.great) {
+      a.hp = a.max = a.def.hpEach * crew;
+      this.wildGreat(a);
+    }
     var ang = Math.atan2((z.y0 + z.y1) / 2 * T - p.y, (z.x0 + z.x1) / 2 * T - p.x);
     a.mode = 'walk';
     a.vx = Math.cos(ang) * a.def.walk * T;
@@ -118,6 +125,11 @@
     a.img.setAlpha(0);
     a.sh.setAlpha(0);
     a.fade = 0;
+  };
+  P.wildGreat = function (a) {
+    this.wildBar(a);
+    if (F.ui) F.ui.toast('The Great Mammoth is here! Land ' + a.def.minHits + ' hits to share the hunt.', 3200, 0x7a5a12);
+    sfx('found');
   };
   // A free tile along the edge of the zone, out of your sight (or null).
   P.wildEdge = function (z) {
@@ -240,7 +252,7 @@
     if (a.bar) {
       var by = a.y - a.lift - (0.42 + a.def.w * 0.62) * a.size * T;
       a.bar.bg.setPosition(a.x, by);
-      a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / a.def.hp, BAR_H);
+      a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / (a.max || a.def.hp), BAR_H);
     }
     this.wildGrass(a, dt || 0, seen);
   };
@@ -277,10 +289,28 @@
     g.old.setAlpha(Math.max(0, g.old.alpha - step));
   };
 
+  // A dish's power: a chip on the screen, with the minutes left.
+  P.powerChip = function () {
+    var ui = F.ui, s = F.session.state, left = L.powerLeft(s);
+    if (!ui || !ui.add || !ui.toastText) return;
+    if (!ui.dishChip) {
+      var bg = ui.add.rectangle(0, 0, 58, 26, 0x2e1c0c, 0.78).setOrigin(0, 0.5);
+      ui.dishIcon = ui.add.image(14, 0, 'items', 0).setScale(0.17);
+      ui.dishText = ui.add.text(27, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fff6e0' }).setOrigin(0, 0.5);
+      ui.dishChip = ui.add.container(8, 128, [bg, ui.dishIcon, ui.dishText]).setDepth(45).setVisible(false);
+    }
+    ui.dishChip.setVisible(left > 0);
+    if (left > 0) {
+      ui.dishIcon.setFrame(C.ITEMS[s.dp.id].icon);
+      ui.dishText.setText(left + ' min');
+    }
+  };
+
   // ---------- every frame ----------
   var update = P.update;
   P.update = function (time, delta) {
     update.call(this, time, delta);
+    if (Math.floor(time / 1000) !== this.chipAt) { this.chipAt = Math.floor(time / 1000); this.powerChip(); }
     if (!this.wild || this.busy || !this.sys.isActive()) return;
     var dt = Math.min(delta, 100);
     var busy = !F.ui || F.ui.blocking(), lead = this.wildFollowing(), crew = lead ? [] : this.wildCrew(!busy);
@@ -321,7 +351,7 @@
     });
     f = f || this.feet();
     var dx = a.x - f.x, dy = a.y - f.y, d = Math.hypot(dx, dy) / T, def = a.def;
-    var sneaking = (f.speed || 0) < C.SPEED * 0.6;
+    var sneaking = (f.speed || 0) < C.SPEED * 0.6 || (f.id ? (O.others[f.id] || {}).sk : L.power(this.state, 'sneak'));
     a.t -= dt;
     a.cool = Math.max(0, a.cool - dt);
     if (!frozen) {
@@ -442,8 +472,9 @@
   // A charge reached you: energy lost, a bump, and it backs off a while.
   P.wildHit = function (a) {
     var s = this.state, f = this.feet(), dx = f.x - a.x, dy = f.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
-    s.energy = Math.max(0, s.energy - a.def.hit);
-    this.floatTextAt(f.x, f.y - 1.6 * T, '-' + a.def.hit + ' energy');
+    var lost = L.power(s, 'charge') ? Math.ceil(a.def.hit / 2) : a.def.hit;
+    s.energy = Math.max(0, s.energy - lost);
+    this.floatTextAt(f.x, f.y - 1.6 * T, '-' + lost + ' energy');
     this.cameras.main.shake(160, 0.004);
     var nx = f.x + dx / len * 0.6 * T, ny = f.y + dy / len * 0.6 * T;
     if (this.walkable(Math.floor(nx / T), Math.floor(ny / T))) this.setFeet(nx, ny);
@@ -554,10 +585,11 @@
     var s = this.state, lead = this.wild.lead;
     if (friend) {
       a.hp -= friend.d;
-      a.by[friend.id] = 1;
+      a.by[friend.id] = (a.by[friend.id] || 0) + 1;
     } else {
       a.hp -= L.bowDamage(s);
-      a.mine = true;
+      a.hits = (a.hits || 0) + 1;
+      a.mine = a.hits >= (a.def.minHits || 1);
       if (lead) O.send('wh', { s: a.slot, d: L.bowDamage(s) });
       sfx('chop');
       this.cameras.main.shake(70, 0.0016);
@@ -586,7 +618,8 @@
   // Hunted: a puff, its things on the ground, and its slot waits for it to come back.
   P.wildDown = function (a) {
     var self = this, s = this.state;
-    if (!this.wild.lead && friendsHere(this)) O.send('wd', { s: a.slot, by: Object.keys(a.by).concat(a.mine ? [O.me.id] : []) });
+    var need = a.def.minHits || 1;
+    if (!this.wild.lead && friendsHere(this)) O.send('wd', { s: a.slot, by: Object.keys(a.by).filter(function (id) { return a.by[id] >= need; }).concat(a.mine ? [O.me.id] : []) });
     for (var i = 0; i < 8; i++) {
       var c = this.add.circle(a.x + rand(-0.4, 0.4) * T, a.y - rand(0.1, 0.6) * T, rand(20, 34), 0xfff6e0).setDepth(DEPTH.fx);
       this.tweens.add({ targets: c, y: c.y - rand(60, 140), alpha: 0, scale: 1.6, duration: rand(350, 600), onComplete: function (tw, t) { t[0].destroy(); } });
@@ -594,13 +627,15 @@
     this.wildGone(a);
     if (!a.mine) { // a friend's: nothing of yours in it
       var who = O.others[Object.keys(a.by)[0]];
-      if (who) F.ui.toast(who.name + ' got the ' + a.def.name + '!', 2000);
+      if (a.hits) F.ui.toast('It took ' + need + ' hits to share that hunt. You landed ' + a.hits + '.', 2600);
+      else if (who) F.ui.toast(who.name + ' got the ' + a.def.name + '!', 2000);
       return;
     }
     sfx('pick');
     L.huntDrops(a.kind, Math.random).forEach(function (d) {
       for (var k = 0; k < d[1]; k++) self.dropWild(d[0], a.x + rand(-0.6, 0.6) * T, a.y + rand(-0.3, 0.4) * T);
     });
+    if (a.def.great && L.greatTusk(s)) this.dropWild('great_tusk', a.x, a.y);
     var r = L.hunted(s, this.mapKey, a.slot, a.kind, a.size);
     var big = a.def.rare ? '' : L.wildGiant(a.size) ? 'Giant ' : '', soon = L.wildNext(s);
     if (a.def.rare) sfx('found');
@@ -723,7 +758,13 @@
       seen[r.slot] = true;
       var a = list.filter(function (x) { return x.slot === r.slot; })[0];
       if (a && a.kind !== r.kind) { self.wildGone(a); a = null; }
-      if (!a) { a = self.addWildAnimal(r.kind, r.slot, r.x, r.y, r.size); a.img.setAlpha(0); a.sh.setAlpha(0); a.fade = 0; a.left = r.left; }
+      if (!a) {
+        a = self.addWildAnimal(r.kind, r.slot, r.x, r.y, r.size);
+        a.img.setAlpha(0); a.sh.setAlpha(0); a.fade = 0; a.left = r.left;
+        a.hp = r.hp;
+        a.max = r.max;
+        if (a.def.great) self.wildGreat(a);
+      }
       a.path = a.path || { list: [], off: 0, heard: 0 };
       L.trailNote(a.path, { t: t, x: r.x, y: r.y, dir: r, m: 1 }, now);
       if (r.hp < a.hp) { a.hp = r.hp; self.wildBar(a); }
@@ -777,7 +818,8 @@
     } else if (event === 'wd' && lead === p.id) {
       var by = Array.isArray(p.by) ? p.by : [];
       a.mine = by.indexOf(O.me.id) >= 0;
-      by.forEach(function (id) { if (id !== O.me.id) a.by[id] = 1; });
+      a.by = {};
+      by.forEach(function (id) { if (id !== O.me.id) a.by[id] = 9; });
       w.wildDown(a);
     } else if (event === 'wb' && !lead) {
       var at = w.remotes[p.id] || who;
