@@ -268,7 +268,7 @@
       });
     } else {
       var set = L.questOf(s, tab), chest = L.chestOf(tab);
-      var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all 3' }[tab];
+      var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all ' + set.list.length }[tab];
       var chestDone = tab === 'daily' ? set.all : set.chest;
       rows.push({
         icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,

@@ -98,6 +98,8 @@
     C.ITEMS[id] = ITEMS[id];
   });
 
+  C.COUNTERS.push('hunt'); // (appended: the save keeps a counter's place in this list)
+
   // ---------- cooking (the kitchen) ----------
   C.FOOD_GROUPS.meat = ['meat_labuyo', 'meat_rabbit', 'venison', 'meat_boar'];
   C.RECIPES.push(

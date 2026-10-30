@@ -20,6 +20,7 @@
         ['book', "Hunter's Book", 'Every animal has its own size. Your biggest of each is saved, and friends can see it.'],
         ['white_antler', 'Rare animals', 'A White Stag or a Golden Boar shows up now and then. Rain, dawn, dusk and fall bring out more.'],
         ['bow', 'Hunt with friends', 'A friend goes hunting: join them from their farm. Same animals, and everyone who hits one shares the hunt.'],
+        ['chest', 'A bigger monthly quest', 'New every month: daily quests, planting, weekly chests, hunting and cooking. The chest now holds 50 Pet Meals.'],
         ['sparkle', 'Friends walk smoothly', 'Friends on your farm no longer stop and start, and you see them riding their horses.'],
       ],
     },

@@ -102,6 +102,7 @@
     s.wild.gone[area + ':' + slot] = L.nowMin();
     s.wild.n += 1;
     s.wild.by[kind] = (s.wild.by[kind] || 0) + 1;
+    L.bump(s, 'hunt');
     if (tenths > old) s.wild.best[kind] = tenths;
     return { opened: next && L.wildOpen(s, next) ? next : null, kg: kg, record: !!old && tenths > old };
   };

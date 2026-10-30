@@ -87,11 +87,14 @@
   C.MONTHLY = {
     names: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     goals: [
-      { c: 'dquest', n: 10, text: 'Finish {n} daily quests', reward: { stars: 2 } },
-      { c: 'login', n: 12, text: 'Play on {n} different days', reward: { stars: 2 } },
-      { c: 'wchest', n: 2, text: 'Open {n} weekly chests', reward: { stars: 3 } },
+      // (owner, 30 Oct: a list set for a month stays as it is until the 1st: a save keeps its own)
+      { c: 'dquest', n: 20, text: 'Finish {n} daily quests', reward: { stars: 2 } },
+      { c: 'plant', n: 600, text: 'Plant {n} plants', reward: { stars: 2 } },
+      { c: 'wchest', n: 3, text: 'Open {n} weekly chests', reward: { stars: 3 } },
+      { c: 'hunt', n: 300, text: 'Hunt {n} wild animals', reward: { stars: 3 } },
+      { c: 'cooked', n: 100, text: 'Cook {n} dishes', reward: { stars: 2 } },
     ],
-    chest: { stars: 5, gold: 10000, item: 'pet_meal', n: 3 },
+    chest: { stars: 5, gold: 10000, item: 'pet_meal', n: 50 },
   };
 
   // ---------- the login gift: a 7-day cycle (missing a day starts it again) ----------

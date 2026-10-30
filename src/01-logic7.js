@@ -133,8 +133,6 @@
     var mo = L.monthOf(today);
     if (!s.mq || s.mq.m !== mo) {
       s.mq = { m: mo, chest: 0, list: C.MONTHLY.goals.map(function (q) { return start(s, q); }) };
-      // logging in today counts for this month
-      s.mq.list.forEach(function (q) { if (q.c === 'login') q.b -= 1; });
       news.monthly = true;
     }
     return news;

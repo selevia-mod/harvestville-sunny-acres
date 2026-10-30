@@ -87,8 +87,8 @@ test('claiming quests: only when done, only once; all 10 give a bonus; they coun
   assert.strictEqual(s.stars, st + 1);
   assert.strictEqual(L.claimChest(s, 'daily'), 'notyet', 'once');
   const month = s.mq.list.find((x) => x.c === 'dquest');
-  assert.strictEqual(L.questProgress(s, month), 10, 'November: 10 daily quests done');
-  assert.ok(L.questReady(s, month));
+  assert.strictEqual(L.questProgress(s, month), 10, 'counted for the month');
+  assert.ok(!L.questReady(s, month), 'which wants 20');
 });
 
 test('weekly goals: 5 a week, a chest when all are done, counted for the month', () => {
@@ -109,18 +109,40 @@ test('weekly goals: 5 a week, a chest when all are done, counted for the month',
   assert.strictEqual(s.wq.chest, 0);
 });
 
-test('monthly goals reset with the calendar month and count the days you play', () => {
+test('the monthly quest (owner, 30 Oct): 20 daily quests, 600 plants, 3 weekly chests, 300 hunts, 100 dishes; 10,000G, 5 Sunbeams and 50 Pet Meals', () => {
+  assert.deepStrictEqual(plain(C.MONTHLY.goals.map((q) => [q.c, q.n])), [['dquest', 20], ['plant', 600], ['wchest', 3], ['hunt', 300], ['cooked', 100]]);
+  assert.deepStrictEqual(plain(C.MONTHLY.chest), { stars: 5, gold: 10000, item: 'pet_meal', n: 50 });
+  const s = L.newState();
+  s.seed = 3;
+  L.refreshQuests(s, '2026-12-05');
+  const hunt = () => L.questProgress(s, s.mq.list.find((q) => q.c === 'hunt'));
+  assert.strictEqual(hunt(), 0);
+  L.hunted(s, 'pulag', 0, 'deer', 1);
+  L.hunted(s, 'pulag', 1, 'deer', 1);
+  assert.strictEqual(hunt(), 2, 'each hunt counts');
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.strictEqual(L.questProgress(back, back.mq.list.find((q) => q.c === 'hunt')), 2, 'kept in the save');
+  // a save that began the month on the old list keeps it until the 1st
+  const old = L.newState();
+  old.seed = 3;
+  L.refreshQuests(old, '2026-11-05');
+  old.mq.list = [{ c: 'login', n: 12, text: 'Play on 12 different days', reward: { stars: 2 }, b: 0, done: 0 }];
+  L.refreshQuests(old, '2026-11-20');
+  assert.strictEqual(old.mq.list[0].c, 'login');
+  L.refreshQuests(old, '2026-12-01');
+  assert.strictEqual(old.mq.list.length, 5, 'the new quest on the 1st');
+});
+
+test('monthly goals reset with the calendar month', () => {
   const s = fresh();
   L.refreshQuests(s, '2026-11-01');
-  const login = () => L.questProgress(s, s.mq.list.find((q) => q.c === 'login'));
-  assert.strictEqual(login(), 1);
-  L.refreshQuests(s, '2026-11-01');
-  assert.strictEqual(login(), 1, 'once a day');
+  const planted = () => L.questProgress(s, s.mq.list.find((q) => q.c === 'plant'));
+  L.bump(s, 'plant', 40);
   L.refreshQuests(s, '2026-11-05');
-  assert.strictEqual(login(), 2);
+  assert.strictEqual(planted(), 40);
   L.refreshQuests(s, '2026-12-01');
   assert.strictEqual(s.mq.m, '2026-12');
-  assert.strictEqual(login(), 1);
+  assert.strictEqual(planted(), 0);
 });
 
 test('the login gift: a 7-day cycle that starts again if you miss a day', () => {
