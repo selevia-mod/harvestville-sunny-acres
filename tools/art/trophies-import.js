@@ -2,8 +2,9 @@
 // What the hunting game adds to the older sheets (owner, 30 Oct 2026), without redrawing them:
 //   art-src/icons/white_antler.png, gold_tusk.png  the antler and tusk icons, recoloured, and painted into items.png/.webp
 //   furn_0.png/.webp  the 5 trophies (C.WILD.trophies), in the classic sheet's cells for their C.HOME.types index
-// Until the owner's pictures come (art-src/trophies/<type>.png, see art-src/TROPHY-PROMPTS.md), a trophy is its icon on a
-// wooden plaque, and the rug is the pelt. Run it again after npm run art, which redraws furn_0 and items.
+// The owner's pictures are art-src/trophies/<type>.png (prompts: art-src/TROPHY-PROMPTS.md): stray specks are dropped,
+// the picture is trimmed and fitted to its wall or floor space without stretching. A trophy with no picture yet is its
+// icon on a wooden plaque. Run it again after npm run art, which redraws furn_0 and items.
 // node tools/art/trophies-import.js
 const fs = require('fs');
 const path = require('path');
@@ -26,6 +27,34 @@ const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: `
 window.load = (s) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('bad image')); i.src = s; });
+// the picture without its specks (anything far smaller than the biggest piece), cut to what is left
+window.clean = (img) => {
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+  const w = c.width, h = c.height, px = g.getImageData(0, 0, w, h), d = px.data, lab = new Int32Array(w * h), sizes = [0];
+  for (let k0 = 0; k0 < w * h; k0++) {
+    if (lab[k0] || d[k0 * 4 + 3] < 24) continue;
+    const id = sizes.length, q = [k0];
+    lab[k0] = id;
+    let n = 0;
+    while (q.length) {
+      const m = q.pop(), x = m % w;
+      n++;
+      [x > 0 ? m - 1 : -1, x < w - 1 ? m + 1 : -1, m - w, m + w].forEach((o) => { if (o >= 0 && o < w * h && !lab[o] && d[o * 4 + 3] >= 24) { lab[o] = id; q.push(o); } });
+    }
+    sizes.push(n);
+  }
+  const big = Math.max(...sizes);
+  let x0 = w, x1 = 0, y0 = h, y1 = 0;
+  for (let k = 0; k < w * h; k++) {
+    const keep = lab[k] && sizes[lab[k]] >= big * 0.02;
+    if (!keep) { d[k * 4 + 3] = lab[k] ? 0 : d[k * 4 + 3] < 24 ? 0 : d[k * 4 + 3]; continue; }
+    const x = k % w, y = (k - x) / w;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  g.putImageData(px, 0, 0);
+  return { c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+};
 window.tone = (img, kind) => {
   const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
   const g = c.getContext('2d'); g.drawImage(img, 0, 0);
@@ -83,7 +112,11 @@ window.tone = (img, kind) => {
     for (const t of list) {
       const x = 8 + (t.i % 4) * (CELL + GAP), y = 8 + Math.floor(t.i / 4) * (CELL + GAP) + CELL - t.h;
       g.clearRect(x, y, t.w, t.h);
-      if (t.own) { g.drawImage(await load(t.own), x, y, t.w, t.h); continue; }
+      if (t.own) { // as big as it goes without stretching, in the middle of its space
+        const o = clean(await load(t.own)), k = Math.min((t.w - 6) / o.w, (t.h - 6) / o.h), dw = o.w * k, dh = o.h * k;
+        g.drawImage(o.c, o.x, o.y, o.w, o.h, x + (t.w - dw) / 2, y + (t.h - dh) / 2, dw, dh);
+        continue;
+      }
       const ic = await load(t.icon);
       if (t.place === 'flat') { g.drawImage(ic, x + 8, y + 8, t.w - 16, t.h - 16); continue; }
       // a wooden plaque, the icon on it
