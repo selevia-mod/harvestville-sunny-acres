@@ -15412,7 +15412,7 @@
     var c = this.visitBar = this.add.container(0, 0).setDepth(40);
     if (F.world && L.isWildMap(F.world.mapKey)) { // out hunting: only what you need, out of the way of the map
       [['Wave', BLUE, function () { O.wave(); }], ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]].forEach(function (b, i) {
-        self.button(c, 38 + i * 60, 116, 54, 24, b[0], b[2], b[1]);
+        self.button(c, 38 + i * 60, 170, 54, 24, b[0], b[2], b[1]);
       });
       return;
     }
