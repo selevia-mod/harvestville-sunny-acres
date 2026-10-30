@@ -472,7 +472,7 @@
   // A charge reached you: energy lost, a bump, and it backs off a while.
   P.wildHit = function (a) {
     var s = this.state, f = this.feet(), dx = f.x - a.x, dy = f.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
-    var lost = L.power(s, 'charge') ? Math.ceil(a.def.hit / 2) : a.def.hit;
+    var lost = Math.ceil((a.def.hit || 0) / (L.power(s, 'charge') ? 2 : 1));
     s.energy = Math.max(0, s.energy - lost);
     this.floatTextAt(f.x, f.y - 1.6 * T, '-' + lost + ' energy');
     this.cameras.main.shake(160, 0.004);
@@ -625,7 +625,8 @@
       this.tweens.add({ targets: c, y: c.y - rand(60, 140), alpha: 0, scale: 1.6, duration: rand(350, 600), onComplete: function (tw, t) { t[0].destroy(); } });
     }
     this.wildGone(a);
-    if (!a.mine) { // a friend's: nothing of yours in it
+    if (!a.mine) { // a friend's: nothing of yours in it (the phone running the hunt still waits for it to come back)
+      if (!this.wild.lead) s.wild.gone[this.mapKey + ':' + a.slot] = L.nowMin();
       var who = O.others[Object.keys(a.by)[0]];
       if (a.hits) F.ui.toast('It took ' + need + ' hits to share that hunt. You landed ' + a.hits + '.', 2600);
       else if (who) F.ui.toast(who.name + ' got the ' + a.def.name + '!', 2000);

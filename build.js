@@ -83,5 +83,9 @@ const odd = html.search(/[^\x00-\x7f]/);
 if (odd >= 0) throw new Error('dist/index.html has a non-ASCII character at ' + odd + ': ' + JSON.stringify(html.slice(odd - 30, odd + 10)));
 
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
+// Android's WebView shows a blank screen, with no error, for a page of 20 MiB or more (the app adds the save to it).
+// Over this limit: node tools/art/squeeze.js, or smaller art.
+const PAGE_LIMIT = 19.5 * 1024 * 1024;
+if (Buffer.byteLength(html) > PAGE_LIMIT) throw new Error(`dist/index.html is ${(Buffer.byteLength(html) / 1048576).toFixed(1)} MiB: Android cannot open that. Keep it under ${PAGE_LIMIT / 1048576} MiB.`);
 fs.writeFileSync(path.join(ROOT, 'dist', 'index.html'), html);
 console.log(`dist/index.html written (${(html.length / 1024).toFixed(0)} KB)`);

@@ -31,7 +31,10 @@
     },
 
     join: function (topic, me, on) {
-      return this.available() ? host().join(topic, me, on) : null;
+      if (!this.available()) return null;
+      // (a live message that times out is only a missed message: nothing waits on it)
+      var c = host().join(topic, me, on), quiet = function (r) { if (r && r.catch) r.catch(function () {}); return r; };
+      return { track: function (s) { return quiet(c.track(s)); }, send: function (e, p) { return quiet(c.send(e, p)); }, leave: function () { return quiet(c.leave()); } };
     },
   };
 })(window.Farm = window.Farm || {});

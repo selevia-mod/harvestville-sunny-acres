@@ -854,6 +854,7 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   const counts = (page) => page.evaluate(() => ({ n: Farm.session.state.wild.n, drops: Farm.world.wildDrops.length }));
   assert.strictEqual((await counts(guest.page)).n, 1, 'the guest hunted it');
   assert.deepStrictEqual(await counts(host.page), { n: 0, drops: 0 }, 'nothing for the owner, who never hit it');
+  assert.ok(await host.page.evaluate((slot) => Farm.session.state.wild.gone['pulag:' + slot] != null, first), 'and it waits to come back on the phone running the hunt (OPPO, 31 Oct)');
   await waitToast(host.page, /Ana Acres got the /);
   // both hit one: it is a hunt for both, and each has their own drops
   const second = (await herd(host.page)).filter((a) => a[1] === 'rabbit' || a[1] === 'deer')[0][0];

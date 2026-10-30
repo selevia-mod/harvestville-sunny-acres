@@ -520,7 +520,8 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await page.evaluate(() => { const i = 20 * Farm.Config.FARM_W + 10; delete Farm.session.state.debris[i]; Farm.world.removeDebrisTile(i); Farm.world.changed && Farm.world.changed(); });
   await teleport(page, 10, 20, 'down');
   const day = (await state(page)).day;
-  await page.evaluate(() => { Farm.session.state.energy = 10; });
+  // a stone just above you must not count as being stuck when the day's new world is built (the feet were read a tile too high)
+  await page.evaluate(() => { const s = Farm.session.state; s.energy = 10; s.debris[19 * Farm.Config.FARM_W + 10] = 'stone'; });
   await advance(page, 30); // 00:20: a new day, and 30 minutes' worth of energy (1 every C.ENERGY_EVERY minutes)
   await page.waitForFunction((d) => Farm.session.state.day === d + 1 && !Farm.world.busy && Farm.world.player.active, day, SLOW);
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);

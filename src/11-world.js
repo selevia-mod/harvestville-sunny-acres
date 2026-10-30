@@ -278,6 +278,7 @@
     // ----- player helpers
     setFeet(x, y) {
       this.player.body.reset(x, y - FEET_OFFSET);
+      this.player.body.updateFromGameObject(); // (reset leaves out the feet's offset until the next frame: feet() would read a tile too high)
       this.shadow.setPosition(x, y + 16);
     }
 
