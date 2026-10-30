@@ -33,18 +33,23 @@ const C = ctx.window.Farm.Config;
 const FW = 224, FH = 252, M = 8, G = 16, K = 0.65, FEET = 233; // keep FW/FH/FEET in step with 10-boot.js, 13-animals.js and 19v-wild.js
 const SHADE = 3;
 const RARE = { whitedeer: ['wild_deer', 'white'], goldboar: ['wild_boar', 'gold'] }; // the rare ones are these, recoloured
+// Magayon's: bear and mammoth are drawn like the others (their ground line is 350). The tiger's and rhino's poses spill out
+// of their cells and do not share a line, so `fit` finds each pose and stands it on the line itself. The rhino's last row
+// runs eat, face you, charge: `swap` puts it in the usual order.
+const MAG = { bear: { line: 350 }, mammoth: { line: 350 }, tiger: { fit: true }, rhino: { fit: true, swap: true } };
 // the farm's rows; barn animals' last row: eating, asleep, happy facing you
 const BARN = { front: 11, lying: 10, ground: true };
 const FARM = [['farm_chicken', BARN], ['farm_cow', BARN], ['farm_pig', BARN], ['farm_carabao', BARN],
   ['pet_dog', { front: 9, lying: 10, ground: true }], ['pet_cat', { front: 9, lying: 10, ground: true }], ['horse', { front: 9, ground: true }]];
 const SETS = [
-  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: C.WILD.order.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, { front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }]) },
+  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: C.WILD.order.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, Object.assign({ front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }, MAG[a] ? { dir: 'magayon' } : {}, MAG[a])]) },
   { name: 'animals', shade: 'animalshade', dir: 'farm-3q', ground: 352, store: 0.75, rows: FARM },
 ];
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
+  await p.addScriptTag({ content: require('./wild-lib') });
   const sizes = JSON.parse(fs.readFileSync(path.join(OUT, 'sizes.json'), 'utf8'));
   for (const set of SETS) {
   const r = await p.evaluate(async ([list, FW, FH, M, G, K, GROUND, FEET, SHADE, store]) => {
@@ -155,12 +160,20 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
       sg.restore();
     };
     for (let row = 0; row < list.length; row++) {
-      const im = await load(list[row].src), cw = im.width / 3, ch = im.height / 4, opt = list[row];
+      const im = await load(list[row].src), cw = im.width / 3, ch = im.height / 4, opt = list[row], line = opt.line || GROUND;
+      let cl = null, base = null;
+      if (opt.fit) { // each pose on its own, its row keeping the artist's steps
+        cl = W.cells(W.cutout(im), 3, 4);
+        if (cl.some((x) => !x)) throw new Error('a pose is missing: row ' + row);
+        if (opt.swap) { const t = cl[9]; cl[9] = cl[10]; cl[10] = t; }
+        base = cl.map((c, k) => (k < 9 ? Math.max(cl[k - k % 3].foot, cl[k - k % 3 + 1].foot, cl[k - k % 3 + 2].foot) : c.foot));
+      }
       for (let i = 0; i < 12; i++) {
         const sx = (i % 3) * cw, sy = Math.floor(i / 3) * ch, x = M + i * (FW + G), y = M + row * (FH + G);
         g.save();
         g.beginPath(); g.rect(x, y, FW, FH); g.clip();
-        g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - GROUND * K, cw * K, ch * K);
+        if (cl) g.drawImage(cl[i].c, x + FW / 2 - cl[i].w * K / 2, y + FEET - (base[i] - cl[i].top) * K, cl[i].w * K, cl[i].h * K);
+        else g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - line * K, cw * K, ch * K);
         g.restore();
         if (opt.tone) {
           const px = g.getImageData(x, y, FW, FH);
@@ -199,7 +212,7 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
     }
     return { png: stored.toDataURL('image/png'), webp: stored.toDataURL('image/webp', 0.8), shadePng: small.toDataURL('image/png'), shadeWebp: small.toDataURL('image/webp', 0.7),
       show: show.toDataURL('image/png'), px, counts: counts.join(' '), w: sheet.width, h: sheet.height };
-  }, [set.rows.map(([f, o]) => Object.assign({ src: data(path.join(ROOT, 'art-src', set.dir, f + '.png')) }, o)), FW, FH, M, G, K, set.ground, FEET, SHADE, set.store]);
+  }, [set.rows.map(([f, o]) => Object.assign({ src: data(path.join(ROOT, 'art-src', o.dir || set.dir, f + '.png')) }, o)), FW, FH, M, G, K, set.ground, FEET, SHADE, set.store]);
   const put = (name, url) => { const buf = Buffer.from(url.split(',')[1], 'base64'); fs.writeFileSync(path.join(OUT, name), buf); return (buf.length / 1024).toFixed(0) + ' KB'; };
   put(set.name + '.png', r.png);
   console.log('assets/' + set.name, r.w + 'x' + r.h, put(set.name + '.webp', r.webp));

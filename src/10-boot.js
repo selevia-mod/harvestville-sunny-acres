@@ -70,7 +70,7 @@
 
   // Decodes the big sheets the next map needs off the main thread while the screen fades out (travel), so their first
   // upload is fast; ensureTexture uses the bitmap and closes it.
-  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'], pulag: ['wild', 'wildshade', 'kanor'], makiling: ['wild', 'wildshade'] };
+  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'], pulag: ['wild', 'wildshade', 'kanor'], makiling: ['wild', 'wildshade'], magayon: ['wild', 'wildshade'] };
   F.prewarm = function (map, scene) {
     if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function' || !F.bitmaps) return;
     (NEXT_MAP[map] || []).forEach(function (k) {

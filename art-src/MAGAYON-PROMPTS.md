@@ -37,3 +37,10 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 ```
 Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. One single large pili tree from the Bicol region of the Philippines: a tall straight trunk with buttress roots at the base and a wide dark-green leafy crown, standing on the bottom edge of the picture, the whole tree in frame, nothing cut off. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it.
 ```
+
+## 8. `icons_magayon2.png` (1024x1024, optional)
+The tiger and rhino drops. The game uses recoloured stand-ins until this comes; save it in art-src/magayon/ and run `node tools/art/magayon-import.js`.
+```
+Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and Hay Day: rounded friendly shapes, soft shading with gentle highlights, clean dark-brown outlines, bright warm colors, soft light from the top-left. Seen from a top-down three-quarter view (camera looking down at about 45 degrees). No text, no letters, no watermark, no border, no drop shadow box. A set of 4 game item icons, each a single object seen from a slight angle, bold and readable at small size. Arranged as a neat row of 4 columns by 1 row of equal cells, one item per cell, each item centered in its cell with clear empty space around it, all at the same scale and in the same style. No lines between cells. Left to right: 1) a folded soft orange tiger pelt with dark stripes; 2) one big pale curved tiger claw; 3) a folded thick grey rhino hide; 4) one heavy tan rhino horn. Isolated on a fully transparent background (PNG with alpha). If transparency is not possible, use a flat solid pure magenta #FF00FF background with nothing else on it.
+```
+

@@ -553,19 +553,45 @@ function makiling() {
   const m = new MapBuilder('makiling', 32, 30, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
   const r = rng(91);
   m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_forest);
-  trail(m, [[15, 28], [15, 21], [9, 21], [9, 12], [20, 12], [20, 5]]); // from Pulag (south), winding north
-  wildRing(m, [[15, 28, 16, 29]]);
+  trail(m, [[15, 28], [15, 21], [9, 21], [9, 12], [20, 12], [20, 0]]); // from Pulag (south), winding north to Magayon
+  wildRing(m, [[15, 28, 16, 29], [20, 0, 21, 1]]);
   m.point('from_pulag', 'spawn', 15.9, 27.4, [prop('dir', 'string', 'up')]);
   m.obj('trail_south', 'warp', 15, 29, 2, 1, [prop('to', 'string', 'pulag'), prop('spawn', 'string', 'from_makiling'), prop('walk', 'bool', true)]);
+  m.point('from_magayon', 'spawn', 20.9, 1.6, [prop('dir', 'string', 'down')]);
+  m.obj('trail_north', 'warp', 20, 0, 2, 1, [prop('to', 'string', 'magayon'), prop('spawn', 'string', 'from_makiling'), prop('walk', 'bool', true)]);
+  m.prop('trail_sign', 23, 3);
+  m.obj('sign_magayon', 'sign', 23, 4, 1, 1, [prop('text', 'string', 'MAGAYON PEAKS\nNorth along the trail. Bears, tigers, rhinos and a mammoth: Kanor says go after your 40th hunt.')]);
   m.prop('trail_sign', 18, 25);
   m.obj('sign_pulag', 'sign', 18, 26, 1, 1, [prop('text', 'string', 'MAKILING FOREST\nSouth: Pulag Grassland. Mind the wild boars, and the wolves at night.')]);
   m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
-  const free = (x, y) => !onTrail(m, x, y) && !(x >= 13 && x <= 19 && y >= 24);
+  const free = (x, y) => !onTrail(m, x, y) && !(x >= 13 && x <= 19 && y >= 24) && !(x >= 18 && x <= 25 && y <= 6);
   scatter(m, r, [['rainforest_tree', 8], ['mud_spring', 2], ['mossy_log', 4], ['fern_bush', 9], ['mushroom_rock', 6], ['jungle_grass', 24]], free);
   return m.json();
 }
 
-const MAPS = { farm, town, mine, pulag, makiling };
+function magayon() {
+  const m = new MapBuilder('magayon', 34, 30, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(113);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_ash);
+  // old lava flows
+  [[7, 7, 5, 3], [25, 8, 6, 4], [8, 21, 4, 3], [26, 22, 5, 3], [17, 16, 3, 2]].forEach(([cx, cy, rx, ry]) => {
+    for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+      if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 0.8 + r.int(5) / 10) m.rect('Ground', x, y, x + 1, y + 1, 'tiles', T.wild_lava);
+    }
+  });
+  trail(m, [[16, 28], [16, 22], [9, 22], [9, 14], [25, 14], [25, 6], [16, 6]]); // from Makiling (south), winding up the slope
+  wildRing(m, [[16, 28, 17, 29]]);
+  m.point('from_makiling', 'spawn', 16.9, 27.4, [prop('dir', 'string', 'up')]);
+  m.obj('trail_south', 'warp', 16, 29, 2, 1, [prop('to', 'string', 'makiling'), prop('spawn', 'string', 'from_magayon'), prop('walk', 'bool', true)]);
+  m.prop('trail_sign', 19, 25);
+  m.obj('sign_makiling', 'sign', 19, 26, 1, 1, [prop('text', 'string', 'MAGAYON PEAKS\nSouth: Makiling Forest. Bears, tigers and rhinos charge, and they say a mammoth walks the slopes.')]);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  const free = (x, y) => !onTrail(m, x, y) && !(x >= 14 && x <= 20 && y >= 24);
+  scatter(m, r, [['pili_tree', 6], ['hot_spring', 3], ['sulfur_vent', 4], ['lava_boulder', 7], ['charred_log', 4], ['abaca', 7], ['ash_fern', 12]], free);
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling, magayon };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

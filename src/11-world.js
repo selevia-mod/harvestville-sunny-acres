@@ -9,10 +9,10 @@
   var DIR_VEC = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // body centre sits this far below the sprite centre (see body offset below)
-  var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance', pulag: 'from_town', makiling: 'from_pulag' };
+  var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance', pulag: 'from_town', makiling: 'from_pulag', magayon: 'from_makiling' };
   // Sets a depth only when it changes: Phaser re-sorts the whole map on every depth set, even to the same value.
   F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
-  var OUTDOORS = { farm: true, town: true, pulag: true, makiling: true };
+  var OUTDOORS = { farm: true, town: true, pulag: true, makiling: true, magayon: true };
 
   function propsOf(list) {
     var out = {};

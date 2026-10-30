@@ -45,6 +45,7 @@ const TILES = layout('tiles', 7, 2048, {
   'd_weed', 'd_branch', 'd_stone', 'd_stump', 'd_boulder', 'dock', 'plaza',
   'sand', // the beach
   'wild_grass', 'wild_forest', 'wild_trail', // the Wild Lands (tools/art/wild-import.js paints them in)
+  'wild_ash', 'wild_lava', // Magayon Peaks (tools/art/magayon-import.js)
 ]);
 
 const RANCH = layout('ranch', 3, 1024, {
@@ -108,6 +109,9 @@ const PROPS = {
   trail_sign: { w: 1, h: 2, foot: 1 }, fern_bush: { w: 2, h: 2, foot: 1 }, mossy_log: { w: 3, h: 2, foot: 1 },
   mud_spring: { w: 2, h: 2, foot: 1 }, mushroom_rock: { w: 1, h: 1, foot: 1 },
   pine_tree: { w: 2, h: 4, foot: 1 }, rainforest_tree: { w: 4, h: 4, foot: 2 },
+  // Magayon Peaks (tools/art/magayon-import.js)
+  lava_boulder: { w: 2, h: 2, foot: 1 }, hot_spring: { w: 2, h: 3, foot: 1 }, sulfur_vent: { w: 2, h: 3, foot: 1 },
+  ash_fern: { w: 2, h: 2, foot: 1 }, abaca: { w: 2, h: 3, foot: 1 }, charred_log: { w: 3, h: 2, foot: 1 }, pili_tree: { w: 3, h: 5, foot: 1 },
 };
 
 function blockId(set, name, dx, dy) {

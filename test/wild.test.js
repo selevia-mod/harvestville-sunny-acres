@@ -259,3 +259,84 @@ test('trophies: made from rare drops, into furniture storage, and never for sale
   for (let d = 1; d < 400; d++) { s.day = d; L.wagonDeals(s).forEach((w) => assert.ok(!C.HOME.types[w.t].trophy)); }
   assert.ok(!C.HOME.types[L.swapPiece(s, 'furniture').t].trophy);
 });
+
+test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes', () => {
+  const s = L.newState();
+  s.time = 10 * 60;
+  assert.deepStrictEqual(kinds(L.wildHere(s, 'magayon')).sort(), ['bear', 'bear', 'bear', 'mammoth', 'rhino', 'rhino', 'tiger', 'tiger']);
+  assert.ok(L.isWildMap('magayon'));
+  assert.strictEqual(L.wildNext(s), 'makiling');
+  s.wild.n = 9;
+  assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'makiling');
+  assert.strictEqual(L.wildNext(s), 'magayon');
+  assert.strictEqual(L.wildOpen(s, 'magayon'), false);
+  s.wild.n = 39;
+  assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'magayon');
+  assert.strictEqual(L.wildOpen(s, 'magayon'), true);
+  assert.strictEqual(L.wildNext(s), null);
+  assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, null);
+  ['bear', 'mammoth', 'tiger', 'rhino'].forEach((k) => {
+    const def = C.WILD.animals[k];
+    assert.ok(C.WILD.order.includes(k) && def.angry && def.hit && def.hp >= 5 && def.ground, k);
+    def.drops.forEach((d) => assert.ok(C.ITEMS[d[0]] && C.ITEMS[d[0]].sell > 0, d[0]));
+  });
+  // Magayon's goods only asked for once it is open
+  const t = L.newState();
+  t.wild.n = 39;
+  const asked = new Set();
+  for (let d = 1; d <= 400; d++) { t.day = d; asked.add(L.wildJob(t).item); }
+  assert.ok(!asked.has('pelt_tiger'));
+  t.wild.n = 40;
+  for (let d = 1; d <= 400; d++) { t.day = d; asked.add(L.wildJob(t).item); }
+  assert.ok(asked.has('pelt_tiger'));
+  // the dishes cook, and a saved record of the new animals comes back
+  t.builds.kitchen = 1;
+  ['meat_mammoth', 'onion', 'rice'].forEach((id) => L.addItem(t, id, 1));
+  assert.strictEqual(L.cook(t, C.RECIPES.find((x) => x.dish === 'bistek')), 'ok');
+  L.hunted(t, 'magayon', 7, 'mammoth', 1.2);
+  assert.strictEqual(roundTrip(t).wild.best.mammoth, 48000);
+  assert.strictEqual(roundTrip(t).map, t.map);
+  t.map = 'magayon';
+  assert.strictEqual(roundTrip(t).map, 'magayon');
+});
+
+test('the new icons went at the very end, so no older icon moved in the items sheet', () => {
+  const n = C.ICON_ORDER.length;
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 12)), ['meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek']);
+  assert.strictEqual(C.ICON.wheat, 211);
+});
+
+test('every wild map: all its open ground can be walked to from the way in, and each way out is there', () => {
+  const { TILES, PROPS } = require('../tools/tiles');
+  ['pulag', 'makiling', 'magayon'].forEach((name) => {
+    const m = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', name + '.json'), 'utf8'));
+    const W = m.width, H = m.height, S = 256, solid = new Set();
+    const walls = m.layers.find((l) => l.name === 'Walls').data;
+    walls.forEach((g, i) => { if (g) solid.add(i); });
+    const objs = m.layers.filter((l) => l.type === 'objectgroup').flatMap((l) => l.objects);
+    objs.filter((o) => o.type === 'prop').forEach((o) => {
+      const p = PROPS[o.name], left = o.x / S, bottom = o.y / S;
+      for (let y = bottom - (p.foot || 0); y < bottom; y++) for (let x = left; x < left + p.w; x++) solid.add(y * W + x);
+    });
+    const warps = objs.filter((o) => o.type === 'warp'), spawn = objs.find((o) => o.type === 'spawn');
+    const start = Math.floor(spawn.y / S) * W + Math.floor(spawn.x / S);
+    const seen = new Set([start]), q = [start];
+    while (q.length) {
+      const k = q.pop(), x = k % W;
+      [x > 0 ? k - 1 : -1, x < W - 1 ? k + 1 : -1, k - W, k + W].forEach((o) => {
+        if (o >= 0 && o < W * H && !seen.has(o) && !solid.has(o)) { seen.add(o); q.push(o); }
+      });
+    }
+    warps.forEach((o) => assert.ok(seen.has(Math.floor(o.y / S) * W + Math.floor(o.x / S)), name + ': the way to ' + plain(o.properties).find((p) => p.name === 'to').value));
+    const z = objs.find((o) => o.type === 'wild');
+    let open = 0, cut = 0;
+    for (let y = z.y / S; y < (z.y + z.height) / S; y++) for (let x = z.x / S; x < (z.x + z.width) / S; x++) {
+      const k = y * W + x;
+      if (solid.has(k)) continue;
+      open++;
+      if (!seen.has(k)) cut++;
+    }
+    assert.ok(open > 300 && cut <= 4, name + ': ' + cut + ' of ' + open + ' tiles cut off');
+  });
+});
+

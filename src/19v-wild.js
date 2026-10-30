@@ -499,13 +499,13 @@
       for (var k = 0; k < d[1]; k++) self.dropWild(d[0], a.x + rand(-0.6, 0.6) * T, a.y + rand(-0.3, 0.4) * T);
     });
     var r = L.hunted(s, this.mapKey, a.slot, a.kind, a.size);
-    var big = a.def.rare ? '' : L.wildGiant(a.size) ? 'Giant ' : '';
+    var big = a.def.rare ? '' : L.wildGiant(a.size) ? 'Giant ' : '', soon = L.wildNext(s);
     if (a.def.rare) sfx('found');
     this.floatTextAt(a.x, a.y - T, r.kg + ' kg');
     F.ui.toast(r.record ? 'New record! ' + big + a.def.name + ', ' + r.kg + ' kg. In your Hunter\'s Book.'
-      : big + a.def.name + ' hunted! Pick up what it left.' + (s.wild.n < WI.areas.makiling.unlock ? ' (' + s.wild.n + '/' + WI.areas.makiling.unlock + ' hunts)' : ''), 2400, r.record ? 0x7a5a12 : 0x2f5a22);
+      : big + a.def.name + ' hunted! Pick up what it left.' + (soon ? ' (' + s.wild.n + '/' + WI.areas[soon].unlock + ' hunts)' : ''), 2400, r.record ? 0x7a5a12 : 0x2f5a22);
     if (!this.wild.animals.length && !r.opened) this.time.delayedCall(2600, function () { if (F.ui) F.ui.toast('That was the last one nearby. More will wander in soon.', 3000); });
-    if (r.opened) this.time.delayedCall(2400, function () { F.ui.dialog('MAKILING FOREST IS OPEN\nKanor: "Ten hunts! You are ready for the forest. Follow the trail north. Mind the wild boars, and the wolves at night."'); });
+    if (r.opened) this.time.delayedCall(2400, function () { F.ui.dialog(WI.areas[r.opened].opened); });
     this.changed();
     this.save();
   };
@@ -546,11 +546,11 @@
   P.travel = function (to, spawn, floor) {
     var s = this.state;
     if (L.isWildMap(to) && F.session.visit) return F.ui.toast('Hunting is your own trip: go from your own farm.');
-    if (to === 'makiling' && !L.wildOpen(s, 'makiling')) {
+    if (L.isWildMap(to) && !L.wildOpen(s, to)) {
       var f = this.feet();
       this.setFeet(f.x, f.y + 0.9 * T);
       this.player.body.setVelocity(0, 0);
-      return F.ui.toast('Kanor: "Makiling is wild boar and wolf country. Come after ' + WI.areas.makiling.unlock + ' hunts (' + s.wild.n + ' so far)."', 3200);
+      return F.ui.toast('Kanor: "' + WI.areas[to].shut + '. Come after ' + WI.areas[to].unlock + ' hunts (' + s.wild.n + ' so far)."', 3200);
     }
     if (this.wildDrops && this.wildDrops.length && !this.busy) {
       var left = 0;

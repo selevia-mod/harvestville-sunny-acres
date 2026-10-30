@@ -217,3 +217,9 @@ npm run art                       # regenerate assets/ from tools/art + art-src/
   from `tools/make-map.js` (`--force=pulag` / `--force=makiling`); the town's road west was patched in by
   `tools/wild-town.js`. Save key `wl`; the bow level lives in `s.tools.bow` but is not in `C.TOOL_KEYS` (the forge
   never upgrades it).
+
+## Magayon Peaks (30 Oct 2026)
+- `maps/magayon.json`, north of Makiling, open after 40 hunts. Content `src/00-zmagayon.js`: bear, mammoth, tiger, rhino, their drops, Kaldereta and Bistek.
+- That file loads last among the 00- files on purpose: new icons go at the very END of `C.ICON_ORDER`. `00-wild.js` loads BEFORE `00-workshop.js`, so adding an icon there moves the workshop's icons in the items sheet.
+- Art: `node tools/art/animals3q-import.js` (animals, shadows), `node tools/art/magayon-import.js` (icons, props, ground). Tiger and rhino drops are recoloured stand-ins until `art-src/magayon/icons_magayon2.png` exists.
+

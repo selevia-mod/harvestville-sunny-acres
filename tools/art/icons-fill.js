@@ -1,7 +1,8 @@
 'use strict';
 // Fills any icon that is empty in assets/items.png with its drawing from the art tools (ART.ICON_DRAW), into
-// art-src/icons/<name>.png and the items sheet, without redrawing every sheet (owner, 30 Oct 2026: wheat, the fruit and the
-// workshop goods had been drawn but never made it into the sheet: they showed as empty squares in the bag).
+// art-src/icons/<name>.png and the items sheet, without redrawing every sheet. (30 Oct 2026: the Wild Lands' icons went in
+// ahead of the workshop's, which moved wheat, the fruit and the goods past the end of the sheet. Never in a release.)
+// New icons belong at the very end of C.ICON_ORDER, so nothing moves: src/00-zmagayon.js loads last for that.
 // node tools/art/icons-fill.js
 const fs = require('fs');
 const path = require('path');

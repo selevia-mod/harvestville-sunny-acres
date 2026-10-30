@@ -14,7 +14,8 @@
 
   C.TIPS.push({ key: 'wild', text: 'THE WILD LANDS' }, { key: 'kanor', text: 'KANOR' });
   C.COLLECTION.push('meat_labuyo', 'meat_rabbit', 'venison', 'meat_boar', 'feather_labuyo', 'fur_rabbit', 'antler', 'tusk',
-    'pelt_wolf', 'fang_wolf', 'tinola', 'rabbit_stew', 'venison_tapa', 'boar_adobo', 'inihaw', 'white_antler', 'gold_tusk');
+    'pelt_wolf', 'fang_wolf', 'tinola', 'rabbit_stew', 'venison_tapa', 'boar_adobo', 'inihaw', 'white_antler', 'gold_tusk',
+    'meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek');
 
   var newState = L.newState;
   L.newState = function (info) {
@@ -89,20 +90,25 @@
     return out;
   };
 
-  // A hunt: the slot waits for its animal to come back. Returns { opened: 'makiling' } when that hunt opens it, and
+  // The next place still shut, if any.
+  L.wildNext = function (s) {
+    return AREAS.filter(function (a) { return !L.wildOpen(s, a); }).sort(function (a, b) { return WI.areas[a].unlock - WI.areas[b].unlock; })[0] || null;
+  };
+
+  // A hunt: the slot waits for its animal to come back. Returns { opened: 'makiling' } when that hunt opens a place, and
   // { kg, record: true } when this is the biggest of its kind so far (not for the very first).
   L.hunted = function (s, area, slot, kind, size) {
-    var before = L.wildOpen(s, 'makiling'), kg = L.wildKg(kind, size || 1), tenths = Math.round(kg * 10), old = s.wild.best[kind] || 0;
+    var next = L.wildNext(s), kg = L.wildKg(kind, size || 1), tenths = Math.round(kg * 10), old = s.wild.best[kind] || 0;
     s.wild.gone[area + ':' + slot] = L.nowMin();
     s.wild.n += 1;
     s.wild.by[kind] = (s.wild.by[kind] || 0) + 1;
     if (tenths > old) s.wild.best[kind] = tenths;
-    return { opened: !before && L.wildOpen(s, 'makiling') ? 'makiling' : null, kg: kg, record: !!old && tenths > old };
+    return { opened: next && L.wildOpen(s, next) ? next : null, kg: kg, record: !!old && tenths > old };
   };
 
   // ---------- Kanor's request of the day ----------
   L.wildJob = function (s) {
-    var open = L.wildOpen(s, 'makiling'), pool = WI.jobs.filter(function (j) { return open || !j[2]; });
+    var open = [true, L.wildOpen(s, 'makiling'), L.wildOpen(s, 'magayon')], pool = WI.jobs.filter(function (j) { return open[j[2] || 0]; });
     var j = pool[Math.floor(L.rand(s.seed, s.day, 910) * pool.length)];
     return { item: j[0], n: j[1], gold: Math.ceil(C.ITEMS[j[0]].sell * j[1] * WI.jobPay / 10) * 10, done: s.wild.job === s.day };
   };

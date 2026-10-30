@@ -605,11 +605,21 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
   await page.evaluate(() => Farm.world.travel('makiling', 'from_pulag'));
   await frames(page, 3);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'pulag');
+  // Magayon stays shut too, then the road north out of Makiling opens after 40 hunts, with its big animals
+  await page.evaluate(() => Farm.world.travel('magayon', 'from_makiling'));
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'pulag');
   // what is left on the ground goes home with you
   await go(page, 'town', 'from_pulag');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'venison')), 2);
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
   assert.strictEqual(saved.wl[0], 1);
+  await page.evaluate(() => { Farm.session.state.wild.n = 40; });
+  await go(page, 'makiling', 'from_pulag');
+  await page.evaluate(() => { const T = Farm.Config.TILE; Farm.world.setFeet(20.9 * T, 0.5 * T); Farm.world.dir = 'up'; });
+  await waitMap(page, 'magayon');
+  const big = await page.evaluate(() => Farm.world.wild.animals.map((a) => a.kind).sort());
+  assert.deepStrictEqual(big, ['bear', 'bear', 'bear', 'mammoth', 'rhino', 'rhino', 'tiger', 'tiger']);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
