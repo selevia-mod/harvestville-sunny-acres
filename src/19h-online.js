@@ -331,6 +331,8 @@
     var show = function () {
       var ww = F.world;
       if (F.session.visit !== v || !ww || ROAD[ww.mapKey] !== to) return;
+      var now = O.others[v.host];
+      if (!now || now.map !== to) { delete v.asked['map:' + to]; return; } // (they have moved on: no old news)
       if (F.ui.modals.length || ww.busy) return setTimeout(show, 1200);
       sfx('found');
       F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (to === 'town' ? 'TO TOWN' : 'HOME') + '\n' + v.name + ' went ' + where + '. Follow them?', [
@@ -781,6 +783,12 @@
     if (this.visitBar) { this.visitBar.destroy(); this.visitBar = null; }
     if (!v) return;
     var c = this.visitBar = this.add.container(0, 0).setDepth(40);
+    if (F.world && L.isWildMap(F.world.mapKey)) { // out hunting: only what you need, out of the way of the map
+      [['Wave', BLUE, function () { O.wave(); }], ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]].forEach(function (b, i) {
+        self.button(c, 38 + i * 60, 116, 54, 24, b[0], b[2], b[1]);
+      });
+      return;
+    }
     this.baked(c, 8, 136, 'ui-visitbar', W - 16, 58, function (g) {
       g.fillStyle(0x3d2614, 0.82).fillRoundedRect(0, 0, W - 16, 58, 12);
     });

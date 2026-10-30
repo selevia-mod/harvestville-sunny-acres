@@ -297,7 +297,7 @@
       var bg = ui.add.rectangle(0, 0, 58, 26, 0x2e1c0c, 0.78).setOrigin(0, 0.5);
       ui.dishIcon = ui.add.image(14, 0, 'items', 0).setScale(0.17);
       ui.dishText = ui.add.text(27, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fff6e0' }).setOrigin(0, 0.5);
-      ui.dishChip = ui.add.container(8, 128, [bg, ui.dishIcon, ui.dishText]).setDepth(45).setVisible(false);
+      ui.dishChip = ui.add.container(8, 238, [bg, ui.dishIcon, ui.dishText]).setDepth(45).setVisible(false);
     }
     ui.dishChip.setVisible(left > 0);
     if (left > 0) {
@@ -836,6 +836,8 @@
     var show = function () {
       var w = F.world;
       if (F.session.visit !== v || !w || w.mapKey === to) return;
+      var now = O.others[v.host];
+      if (!now || now.map !== to) { delete v.asked['map:' + to]; return; } // (they have moved on: no old news)
       if (F.ui.modals.length || w.busy) return setTimeout(show, 1200);
       sfx('found');
       F.ui.dialog(title + '\n' + line, [

@@ -61,7 +61,8 @@
   // ---------- the Great Mammoth: Saturday and Sunday in Magayon, for two or more ----------
   WI.order.push('greatmammoth'); // a row of assets/wild.png (the mammoth, darker)
   WI.animals.greatmammoth = {
-    name: 'Great Mammoth', px: 172, w: 3.9, ground: true, kg: 7000, hp: 108, walk: 0.5, run: 3, angry: 2.8, hit: 20, great: true, hpEach: 12, minHits: 3, respawn: 720,
+    name: 'Great Mammoth', px: 172, w: 3.9, ground: true, kg: 7000, hp: 108, walk: 0.5, run: 3, angry: 2.8, hit: 20, great: true, hpEach: 12, minHits: 3, respawn: 4320, // (3 days: once a weekend)
+   
     drops: [['meat_mammoth', 6, 1], ['wool_mammoth', 2, 1], ['tusk_mammoth', 1, 1]],
   };
   WI.areas.magayon.extra = (WI.areas.magayon.extra || []).concat([{ kind: 'greatmammoth', n: 1, when: 'great' }]);

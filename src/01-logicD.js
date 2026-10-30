@@ -301,7 +301,7 @@
     var o = serialize(s), w = s.wild, gone = [], now = L.nowMin();
     Object.keys(w.gone).forEach(function (k) {
       var p = k.split(':');
-      if (now - w.gone[k] < 120 && AREAS.indexOf(p[0]) >= 0) gone.push([AREAS.indexOf(p[0]), +p[1], w.gone[k]]); // the minute itself: time away counts too
+      if (now - w.gone[k] < 4320 && AREAS.indexOf(p[0]) >= 0) gone.push([AREAS.indexOf(p[0]), +p[1], w.gone[k]]); // the minute itself: time away counts too
     });
     if (w.n || L.bowLevel(s) || L.hasBow(s) || gone.length) {
       o.wl = [w.n, L.hasBow(s) ? L.bowLevel(s) + 1 : 0, WI.order.map(function (k) { return w.by[k] || 0; }), gone, w.job, WI.order.map(function (k) { return w.best[k] || 0; }), w.gw || 0];

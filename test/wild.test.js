@@ -469,3 +469,17 @@ test('Magayon\'s animals come back after 15 minutes, the others after 6 (owner, 
   s.wild.gone['magayon:' + slot] = L.nowMin() - 15;
   assert.ok(out(), 'back after 15');
 });
+
+test('the Great Mammoth comes once a weekend: it stays gone through a reload', () => {
+  const s = fresh();
+  s.wild.n = 50;
+  const week = L.weekendMarket, slot = L.wildSlots('magayon').find((e) => e.kind === 'greatmammoth').slot;
+  L.weekendMarket = () => true;
+  L.hunted(s, 'magayon', slot, 'greatmammoth', 1);
+  clock.advance ? clock.advance(600) : s.wild.gone['magayon:' + slot] -= 600; // 10 hours later
+  const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+  assert.ok(!L.wildHere(back, 'magayon').some((e) => e.kind === 'greatmammoth'), 'still gone after 10 hours and a reload');
+  back.wild.gone['magayon:' + slot] = L.nowMin() - 4321;
+  assert.ok(L.wildHere(back, 'magayon').some((e) => e.kind === 'greatmammoth'), 'back after 3 days');
+  L.weekendMarket = week;
+});
