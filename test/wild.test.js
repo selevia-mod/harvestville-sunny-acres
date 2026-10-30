@@ -456,3 +456,16 @@ test('the Great Mammoth: at weekends, one Great Tusk a week each, 3 make the tro
   assert.strictEqual(row.hp, 20);
   assert.strictEqual(row.max, 24);
 });
+
+test('Magayon\'s animals come back after 15 minutes, the others after 6 (owner, 31 Oct)', () => {
+  const s = fresh();
+  s.wild.n = 50;
+  ['bear', 'mammoth', 'tiger', 'rhino'].forEach((k) => assert.strictEqual(C.WILD.animals[k].respawn, 15, k));
+  ['rabbit', 'labuyo', 'deer', 'boar', 'wolf'].forEach((k) => assert.strictEqual(C.WILD.animals[k].respawn, undefined, k));
+  const slot = L.wildSlots('magayon').find((e) => e.kind === 'bear').slot;
+  const out = () => L.wildHere(s, 'magayon').some((e) => e.slot === slot);
+  s.wild.gone['magayon:' + slot] = L.nowMin() - 7;
+  assert.ok(!out(), 'not after 7 minutes');
+  s.wild.gone['magayon:' + slot] = L.nowMin() - 15;
+  assert.ok(out(), 'back after 15');
+});

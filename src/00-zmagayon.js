@@ -7,12 +7,13 @@
   'use strict';
   var C = F.Config, WI = C.WILD;
 
+  // (owner, 31 Oct: they pay well, so they come back after 15 minutes, not 6: a round here is worth a day's farming)
   WI.order.push('bear', 'mammoth', 'tiger', 'rhino'); // rows of assets/wild.png, after the others
   Object.assign(WI.animals, {
-    bear: { name: 'Bear', px: 148, w: 1.7, ground: true, kg: 180, hp: 5, walk: 0.7, run: 3.6, angry: 3, hit: 12, drops: [['meat_bear', 2, 1], ['fur_bear', 1, 0.6], ['claw_bear', 1, 0.5]] },
-    mammoth: { name: 'Mammoth', px: 172, w: 2.9, ground: true, kg: 4000, hp: 9, walk: 0.5, run: 3, angry: 2.4, hit: 18, drops: [['meat_mammoth', 4, 1], ['wool_mammoth', 1, 0.7], ['tusk_mammoth', 1, 0.5]] },
-    tiger: { name: 'Tiger', px: 202, w: 1.9, ground: true, kg: 200, hp: 5, walk: 0.8, run: 4.4, angry: 4, hit: 14, drops: [['pelt_tiger', 1, 1], ['claw_tiger', 1, 0.6]] },
-    rhino: { name: 'Rhino', px: 214, w: 2.1, ground: true, kg: 1500, hp: 7, walk: 0.5, run: 3.8, angry: 3, hit: 16, drops: [['hide_rhino', 1, 1], ['horn_rhino', 1, 0.5]] },
+    bear: { name: 'Bear', respawn: 15, px: 148, w: 1.7, ground: true, kg: 180, hp: 5, walk: 0.7, run: 3.6, angry: 3, hit: 12, drops: [['meat_bear', 2, 1], ['fur_bear', 1, 0.6], ['claw_bear', 1, 0.5]] },
+    mammoth: { name: 'Mammoth', respawn: 15, px: 172, w: 2.9, ground: true, kg: 4000, hp: 9, walk: 0.5, run: 3, angry: 2.4, hit: 18, drops: [['meat_mammoth', 4, 1], ['wool_mammoth', 1, 0.7], ['tusk_mammoth', 1, 0.5]] },
+    tiger: { name: 'Tiger', respawn: 15, px: 202, w: 1.9, ground: true, kg: 200, hp: 5, walk: 0.8, run: 4.4, angry: 4, hit: 14, drops: [['pelt_tiger', 1, 1], ['claw_tiger', 1, 0.6]] },
+    rhino: { name: 'Rhino', respawn: 15, px: 214, w: 2.1, ground: true, kg: 1500, hp: 7, walk: 0.5, run: 3.8, angry: 3, hit: 16, drops: [['hide_rhino', 1, 1], ['horn_rhino', 1, 0.5]] },
   });
   WI.areas.magayon = { name: 'Magayon Peaks', animals: { bear: 3, tiger: 2, rhino: 2, mammoth: 1 }, unlock: 40,
     shut: 'Magayon is bear and tiger country', opened: 'MAGAYON PEAKS IS OPEN\nKanor: "Forty hunts! Few hunters get this far. Take the trail north out of Makiling. Bears, tigers, rhinos, and they say a mammoth. Bring plenty of arrows and food."' };

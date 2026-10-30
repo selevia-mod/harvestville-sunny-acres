@@ -1512,6 +1512,48 @@ const clearAround = (page, tx, ty) => page.evaluate(([tx, ty]) => {
   vs.list.forEach((v) => { if (v.visible && Math.hypot(v.x - (tx + 0.5) * T, v.y - (ty + 0.5) * T) < 2.5 * T) { v.errand = null; vs.put(v, v.x, v.y, false); v.hideAtEnd = false; } });
 }, [tx, ty]);
 
+test('the Tannery: bought and placed, hides go in, leather comes out; a Gold tool and a big bag ask for what you hunt (owner, 30 Oct)', async () => {
+  const save = await makeSave(`s.time = 600; s.gold = 60000;
+    const ix = C.OUTDOOR.index, farm = Farm.farm();
+    L.buyYard(s, ix.tannery, 1); L.placeYard(s, farm, ix.tannery, 25, 14);
+    L.addItem(s, 'fur_rabbit', 3); L.addItem(s, 'pelt_wolf', 1); L.addItem(s, 'hide_rhino', 1);`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await teleport(page, 25, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Open');
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.match(await modalText(page), /Tannery \|[\s\S]*Soft Leather[\s\S]*Thick Leather[\s\S]*Tough Leather/);
+  await shot(page, 'tannery-1-panel');
+  await tapButton(page, 'Make');
+  assert.match(await modalText(page), /Soft Leather: 45 min/);
+  let s = await state(page);
+  assert.strictEqual(count(s, 'fur_rabbit'), 0, 'three furs went in');
+  await closeAll(page);
+  await advance(page, 46);
+  await page.evaluate(() => Farm.world.farm2Bubbles());
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.bubbles2).length), 1, 'a bubble over the Tannery');
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(count(s, 'leather_soft'), 1);
+  // Bram says what a Gold tool wants, and asks for it
+  await page.evaluate(() => { const s = Farm.session.state; s.tools.hoe = 2; Farm.Logic.addItem(s, 'ore_gold', 5); Farm.ui.openForge(); });
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.match(await modalText(page), /Also needs 2 Boar Tusk/);
+  await tapButton(page, 'Upgrade');
+  await page.waitForFunction(() => /You need 2 Boar Tusk/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual((await state(page)).tools.hoe, 2);
+  await closeAll(page);
+  // Lily says what a big bag wants
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.resizeBag(s, 7); s.gold = 1e6; Farm.ui.openShop('supplies'); });
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  assert.match(await modalText(page), /Also needs 5 Soft Leather/);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('the bigger town: new villagers and visitors, the bakery, the chapel, the school, and an animal treat', async () => {
   const save = await makeSave(`
     s.time = 600; // 10 AM on a weekday
