@@ -419,6 +419,7 @@ function town() {
   m.point('from_east', 'place', 53.5, 11.6); // visitors from out of town come along the valley road
   m.obj('road_north', 'warp', 14, 0, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'from_town'), prop('walk', 'bool', true)]);
   m.obj('mine_door', 'warp', 27, 10, 2, 1, [prop('to', 'string', 'mine'), prop('spawn', 'string', 'entrance'), prop('label', 'string', 'Enter')]);
+  wildRoad(m);
   const doors = {
     mayor: [4, 7, 2], inn: [24, 7, 2], forge: [4, 18, 1], woodshop: [25, 18, 1], clinic: [4, 26, 2], cottage: [24, 26, 2], cabin: [20, 30, 2],
     bakery: [32, 10, 1], florist: [36, 10, 2], post: [42, 10, 1], library: [47, 10, 2], vet: [48, 17, 1], shack: [31, 39, 2],
@@ -476,7 +477,95 @@ function mine() {
   return m.json();
 }
 
-const MAPS = { farm, town, mine };
+// The west end of the town's main road leads to Pulag Grassland (owner, 30 Oct 2026). Also patched into the existing
+// maps/town.json by tools/wild-town.js (the town map is edited by hand, so it is not regenerated).
+function wildRoad(m) {
+  m.rect('Ground', 0, 20, 3, 20, 'tiles', T.path);
+  m.put('Walls', 2, 21, 'tiles', T.sign);
+  m.point('from_pulag', 'spawn', 1.5, 20.6, [prop('dir', 'string', 'right')]);
+  m.obj('road_west', 'warp', 0, 20, 1, 1, [prop('to', 'string', 'pulag'), prop('spawn', 'string', 'from_town'), prop('walk', 'bool', true)]);
+  m.obj('pulag_sign', 'sign', 2, 21, 1, 1, [prop('text', 'string', 'TO PULAG GRASSLAND\nWild animals roam the grassland to the west. Kanor the hunter has his Lodge there.')]);
+}
+
+// ---------- the Wild Lands (owner, 30 Oct 2026): hunting places past the town's west road ----------
+// Ground of their own tiles, a ring of trees, props to hide behind, and a 'wild' zone where the animals roam
+// (src/19v-wild.js). The ring is the farm's tree tiles; inside, the owner's pine and rainforest trees.
+function wildRing(m, gaps) {
+  const open = (x, y) => gaps.some(([x0, y0, x1, y1]) => x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1);
+  for (let x = 0; x < m.W - 1; x += 2) {
+    if (!open(x, 0) && !open(x + 1, 0)) m.tree(x, -1);
+    if (!open(x, m.H - 2) && !open(x + 1, m.H - 1)) m.tree(x, m.H - 2);
+  }
+  for (let y = 1; y < m.H - 2; y += 2) {
+    if (!open(0, y) && !open(0, y + 1)) m.tree(0, y);
+    if (!open(m.W - 2, y) && !open(m.W - 1, y + 1)) m.tree(m.W - 2, y);
+  }
+}
+function scatter(m, r, list, free) {
+  list.forEach(([name, count]) => {
+    const p = PROPS[name];
+    for (let placed = 0, tries = 0; placed < count && tries < 600; tries++) {
+      const x = 2 + r.int(m.W - 4 - p.w), y = 2 + r.int(m.H - 4 - p.h);
+      let ok = true;
+      for (let dy = 0; dy < p.h && ok; dy++) for (let dx = 0; dx < p.w && ok; dx++) {
+        const k = (y + dy) * m.W + x + dx;
+        if (m.covered.has(k) || !free(x + dx, y + dy) || m.get('Walls', x + dx, y + dy) || m.get('Above', x + dx, y + dy)) ok = false;
+      }
+      if (!ok) continue;
+      m.prop(name, x, y);
+      placed++;
+    }
+  });
+}
+function trail(m, pts) { // a 2-wide trail through the points
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+    for (let x = Math.min(ax, bx); x <= Math.max(ax, bx); x++) m.rect('Ground', x, ay, x + 1, ay + 1, 'tiles', T.wild_trail);
+    for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) m.rect('Ground', bx, y, bx + 1, y + 1, 'tiles', T.wild_trail);
+  }
+}
+const onTrail = (m, x, y) => m.is('Ground', x, y, 'tiles', T.wild_trail);
+
+function pulag() {
+  const m = new MapBuilder('pulag', 32, 28, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(77);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_grass);
+  trail(m, [[30, 13], [24, 13], [24, 11], [15, 11], [15, 0]]); // from town (east) past the Lodge to Makiling (north)
+  wildRing(m, [[30, 13, 31, 14], [15, 0, 16, 1]]);
+  m.prop('hunters_lodge', 22, 6); // door at (24, 9)
+  m.prop('trail_sign', 28, 15);
+  m.prop('trail_sign', 17, 2);
+  m.point('from_town', 'spawn', 30.5, 14.6, [prop('dir', 'string', 'left')]);
+  m.point('from_makiling', 'spawn', 15.9, 1.6, [prop('dir', 'string', 'down')]);
+  m.point('kanor', 'place', 24.5, 10.7);
+  m.obj('road_east', 'warp', 31, 13, 1, 2, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_pulag'), prop('walk', 'bool', true)]);
+  m.obj('trail_north', 'warp', 15, 0, 2, 1, [prop('to', 'string', 'makiling'), prop('spawn', 'string', 'from_pulag'), prop('walk', 'bool', true)]);
+  m.obj('sign_town', 'sign', 28, 16, 1, 1, [prop('text', 'string', 'PULAG GRASSLAND\nEast: back to town. North: Makiling Forest. Kanor\'s Lodge is up the trail.')]);
+  m.obj('sign_makiling', 'sign', 17, 3, 1, 1, [prop('text', 'string', 'MAKILING FOREST\nNorth along the trail. Wild boars and wolves live there: Kanor says go after your first 10 hunts.')]);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  const lodge = (x, y) => x >= 20 && x <= 28 && y >= 5 && y <= 12;
+  const free = (x, y) => !onTrail(m, x, y) && !lodge(x, y) && !(x >= 27 && y >= 11 && y <= 16);
+  scatter(m, r, [['pine_tree', 7], ['boulder_moss', 5], ['bamboo_bush', 7], ['wildflowers', 8], ['tall_grass', 26]], free);
+  return m.json();
+}
+
+function makiling() {
+  const m = new MapBuilder('makiling', 32, 30, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(91);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_forest);
+  trail(m, [[15, 28], [15, 21], [9, 21], [9, 12], [20, 12], [20, 5]]); // from Pulag (south), winding north
+  wildRing(m, [[15, 28, 16, 29]]);
+  m.point('from_pulag', 'spawn', 15.9, 27.4, [prop('dir', 'string', 'up')]);
+  m.obj('trail_south', 'warp', 15, 29, 2, 1, [prop('to', 'string', 'pulag'), prop('spawn', 'string', 'from_makiling'), prop('walk', 'bool', true)]);
+  m.prop('trail_sign', 18, 25);
+  m.obj('sign_pulag', 'sign', 18, 26, 1, 1, [prop('text', 'string', 'MAKILING FOREST\nSouth: Pulag Grassland. Mind the wild boars, and the wolves at night.')]);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  const free = (x, y) => !onTrail(m, x, y) && !(x >= 13 && x <= 19 && y >= 24);
+  scatter(m, r, [['rainforest_tree', 8], ['mud_spring', 2], ['mossy_log', 4], ['fern_bush', 9], ['mushroom_rock', 6], ['jungle_grass', 24]], free);
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

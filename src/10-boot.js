@@ -15,6 +15,8 @@
     animals2: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
     people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 },
     fx: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
+    wild: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 }, // the Wild Lands' animals (C.WILD.order rows of 4)
+    kanor: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 }, // Kanor the hunter, like the farmer
   };
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
   // the first time a map needs them, which keeps memory down on low-end phones.
@@ -67,7 +69,7 @@
 
   // Decodes the big sheets the next map needs off the main thread while the screen fades out (travel), so their first
   // upload is fast; ensureTexture uses the bitmap and closes it.
-  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'] };
+  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'], pulag: ['wild', 'kanor'], makiling: ['wild'] };
   F.prewarm = function (map, scene) {
     if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function' || !F.bitmaps) return;
     (NEXT_MAP[map] || []).forEach(function (k) {

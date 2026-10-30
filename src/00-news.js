@@ -8,6 +8,15 @@
 
   C.NEWS = [
     {
+      v: '2', date: 'October 30, 2026', lines: [
+        ['bow', 'The Wild Lands', 'Walk west out of town to Pulag Grassland. Labuyo, rabbits and deer roam free.'],
+        ['arrows', 'Hunt with a Bow', "Kanor sells a Bow, arrows and bait at his Lodge. Sneak up slowly, then tap Shoot."],
+        ['venison', 'Meat on the ground', 'A hunted animal leaves meat, feathers, furs or antlers. Walk over them to pick up.'],
+        ['boar_adobo', 'New dishes', 'Cook Labuyo Tinola, Rabbit Stew, Venison Tapa, Boar Adobo and Inihaw Skewers.'],
+        ['tusk', 'Makiling Forest', 'After 10 hunts the forest opens: wild boars charge, and wolves come out at night.'],
+      ],
+    },
+    {
       v: '1.2', date: 'October 30, 2026', lines: [
         ['bag', 'A much bigger bag', "Lily sells bigger bags up to 90 slots. Use the arrows to turn the bag's pages."],
         ['chest', 'Storage at home', 'Tap a Dresser or Wardrobe to keep things there: 60 slots. Every farm gets a free Dresser.'],

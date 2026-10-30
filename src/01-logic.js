@@ -1122,7 +1122,7 @@
   // ---------- save format ----------
   // Compact on purpose: the save must stay well under 16 KB of JSON.
   var DIRS = ['down', 'up', 'left', 'right'];
-  var MAPS = ['farm', 'house', 'town', 'mine'];
+  var MAPS = ['farm', 'house', 'town', 'mine', 'pulag', 'makiling']; // (append only: the save stores the index)
 
   // Soil is saved in groups of tiles that are alike: [crop + 1 (0 = none), planted minute (relative to today),
   // watered + 2 x regrowing + 4 x grows only watered (t.h), tile, tile, ...]. A seed bag plants 9 tiles at the same minute, so they share one.

@@ -13,7 +13,7 @@
   var DEPTH = F.WorldScene.DEPTH;
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
-  var MAPS = { farm: 1, house: 1, town: 1, mine: 1 };
+  var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1 };
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};

@@ -542,6 +542,67 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await context.close();
 });
 
+test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer leaves venison, Makiling waits for 10 hunts (owner, 30 Oct 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await page.evaluate(() => { Farm.session.state.gold = 5000; });
+  await go(page, 'town', 'from_farm');
+  // the sign at the west end of the main road, then walk off the edge into Pulag
+  await teleport(page, 2, 20, 'down');
+  assert.strictEqual(await actionLabel(page), 'Read');
+  await teleport(page, 0, 20, 'left');
+  await waitMap(page, 'pulag');
+  const here = await page.evaluate(() => Farm.world.wild.animals.map((a) => a.kind).sort());
+  assert.deepStrictEqual(here, ['deer', 'deer', 'labuyo', 'labuyo', 'labuyo', 'rabbit', 'rabbit', 'rabbit']);
+  // Kanor: hello once, then his shop
+  await page.evaluate(() => { const k = Farm.world.kanor, T = Farm.Config.TILE; Farm.world.setFeet(k.x, k.y + 1.1 * T); Farm.world.dir = 'up'; Farm.world.idle(); });
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /KANOR.*Need a bow\?/);
+  await tapButton(page, 'Shop');
+  await tapButton(page, 'Buy 800G');
+  await tapButton(page, 'Buy 60G');
+  assert.match(await modalText(page), /Copper Bow.*You have 10/);
+  await shot(page, '42-kanor');
+  await closeAll(page);
+  // hold the Bow, face a deer that stands still, shoot it down (2 arrows), walk over its venison
+  const d = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, T = Farm.Config.TILE;
+    s.sel = s.inv.findIndex((x) => x && x.id === 'bow');
+    w.wild.animals.filter((a) => a.kind !== 'deer').forEach((a) => { a.img.destroy(); a.sh.destroy(); });
+    w.wild.animals = w.wild.animals.filter((a) => a.kind === 'deer').slice(0, 1);
+    const a = w.wild.animals[0];
+    a.def = Object.assign({}, a.def, { shy: 0 });
+    a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9;
+    for (let tx = 4; tx < 26; tx++) for (let ty = 4; ty < 22; ty++) if (w.wildFree(tx, ty) && w.wildFree(tx + 3, ty)) { a.x = (tx + 3.5) * T; a.y = (ty + 0.7) * T; return [tx, ty]; }
+    return null;
+  });
+  assert.ok(d, 'a clear spot');
+  await teleport(page, d[0], d[1], 'right');
+  assert.strictEqual(await actionLabel(page), 'Shoot');
+  for (let k = 0; k < 2; k++) { await tapAction(page); await page.waitForTimeout(500); }
+  await page.waitForFunction(() => Farm.world.wild.animals.length === 0, null, SLOW);
+  const drops = await page.evaluate(() => Farm.world.wildDrops.map((x) => x.id));
+  assert.deepStrictEqual(drops.filter((x) => x === 'venison'), ['venison', 'venison']);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.wild.n), 1);
+  await shot(page, '43-hunted');
+  const at = await page.evaluate(() => { const x = Farm.world.wildDrops[0]; return [x.x, x.y]; });
+  await page.evaluate(([x, y]) => Farm.world.setFeet(x, y), at);
+  await page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'venison') >= 1, null, SLOW);
+  // Makiling is shut until 10 hunts
+  await page.evaluate(() => Farm.world.travel('makiling', 'from_pulag'));
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'pulag');
+  // what is left on the ground goes home with you
+  await go(page, 'town', 'from_pulag');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'venison')), 2);
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.strictEqual(saved.wl[0], 1);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('home storage: the free Dresser opens Storage; put a stack away, take it back (owner, 30 Oct 2026)', async () => {
   const { page, problems, context } = await open();
   await tapButton(page, 'Boy');

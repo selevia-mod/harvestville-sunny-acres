@@ -200,3 +200,20 @@ npm run art                       # regenerate assets/ from tools/art + art-src/
   go to your own game; snapshots send each crop's stage), live presence and remote farmers with name tags, the text box (`askText`, a DOM input).
 - `test/net-mock.js` is an in-memory stand-in for the database functions and supabase-js realtime, used by
   `test/bridge.test.js` and `test/e2e-online.test.js`.
+
+## The Wild Lands (30 Oct 2026, owner's design: "like a real life, there's a boar that you will hunt")
+
+- Places: **Pulag Grassland** (`maps/pulag.json`; labuyo, rabbit, deer; Kanor's Lodge) past the west end of the town's
+  main road, and **Makiling Forest** (`maps/makiling.json`; deer, wild boar, wolves 6 PM-6 AM) north of Pulag, open
+  after 10 hunts. Magayon Peaks (bear, mammoth, misty volcano slopes, no snow) is step 2.
+- Content `src/00-wild.js`, rules `src/01-logicD.js` (tests `test/wild.test.js`), world `src/19v-wild.js` (browser test
+  "the Wild Lands" in `test/e2e.test.js`). Animals roam visibly: shy ones run (sneak with the joystick part way),
+  boars and wolves charge (energy lost; 0 = faint home). The Bow (Kanor, 800G; Copper/Silver/Gold with gold + 5 ore)
+  shoots arrows (1 each) at the nearest animal in front within range. A hunted animal leaves its things on the ground
+  (cozy: no blood); leftovers go home with you. Each animal is back 45 minutes after it was hunted. Bait draws a shy one.
+- Art: the owner's pictures in `art-src/wild/` are imported by `node tools/art/wild-import.js` (not `npm run art`, which
+  redraws every sheet): `assets/wild.png` (animals), `assets/kanor.png`, 21 icons appended to `items.png` (also saved
+  as `art-src/icons/<name>.png`), props at 160 px a tile, and 3 ground tiles painted into `tiles.png`. The maps come
+  from `tools/make-map.js` (`--force=pulag` / `--force=makiling`); the town's road west was patched in by
+  `tools/wild-town.js`. Save key `wl`; the bow level lives in `s.tools.bow` but is not in `C.TOOL_KEYS` (the forge
+  never upgrades it).

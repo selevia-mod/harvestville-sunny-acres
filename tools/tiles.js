@@ -44,6 +44,7 @@ const TILES = layout('tiles', 7, 2048, {
   // field debris (cleared with tools), plus town ground
   'd_weed', 'd_branch', 'd_stone', 'd_stump', 'd_boulder', 'dock', 'plaza',
   'sand', // the beach
+  'wild_grass', 'wild_forest', 'wild_trail', // the Wild Lands (tools/art/wild-import.js paints them in)
 ]);
 
 const RANCH = layout('ranch', 3, 1024, {
@@ -101,6 +102,12 @@ const PROPS = {
   fruit_stall: { w: 2, h: 2, foot: 1 }, cloth_stall: { w: 2, h: 2, foot: 1 }, statue: { w: 2, h: 3, foot: 1 },
   boat: { w: 3, h: 2, foot: 0, flat: true }, umbrella: { w: 2, h: 2, foot: 1 }, easel: { w: 1, h: 2, foot: 1 },
   trader_tent: { w: 3, h: 2, foot: 1 }, // shown by the game on the trader's days
+  // the Wild Lands (tools/art/wild-import.js; stored at 160 px a tile)
+  hunters_lodge: { w: 5, h: 4, foot: 2, door: [2, 1] }, tall_grass: { w: 1, h: 1, foot: 0 }, jungle_grass: { w: 1, h: 1, foot: 0 },
+  bamboo_bush: { w: 2, h: 2, foot: 1 }, boulder_moss: { w: 2, h: 2, foot: 1 }, wildflowers: { w: 2, h: 1, foot: 0, flat: true },
+  trail_sign: { w: 1, h: 2, foot: 1 }, fern_bush: { w: 2, h: 2, foot: 1 }, mossy_log: { w: 3, h: 2, foot: 1 },
+  mud_spring: { w: 2, h: 2, foot: 1 }, mushroom_rock: { w: 1, h: 1, foot: 1 },
+  pine_tree: { w: 2, h: 4, foot: 1 }, rainforest_tree: { w: 4, h: 4, foot: 2 },
 };
 
 function blockId(set, name, dx, dy) {
