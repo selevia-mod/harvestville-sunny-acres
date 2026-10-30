@@ -32,12 +32,13 @@ const C = ctx.window.Farm.Config;
 
 const FW = 224, FH = 252, M = 8, G = 16, K = 0.65, FEET = 233; // keep FW/FH/FEET in step with 10-boot.js, 13-animals.js and 19v-wild.js
 const SHADE = 3;
+const RARE = { whitedeer: ['wild_deer', 'white'], goldboar: ['wild_boar', 'gold'] }; // the rare ones are these, recoloured
 // the farm's rows; barn animals' last row: eating, asleep, happy facing you
 const BARN = { front: 11, lying: 10, ground: true };
 const FARM = [['farm_chicken', BARN], ['farm_cow', BARN], ['farm_pig', BARN], ['farm_carabao', BARN],
   ['pet_dog', { front: 9, lying: 10, ground: true }], ['pet_cat', { front: 9, lying: 10, ground: true }], ['horse', { front: 9, ground: true }]];
 const SETS = [
-  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 1, rows: C.WILD.order.map((a) => ['wild_' + a, { front: 9, ground: !!C.WILD.animals[a].ground }]) },
+  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: C.WILD.order.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, { front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }]) },
   { name: 'animals', shade: 'animalshade', dir: 'farm-3q', ground: 352, store: 0.75, rows: FARM },
 ];
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
@@ -52,6 +53,24 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
     sheet.width = M * 2 + 12 * FW + 11 * G;
     sheet.height = M * 2 + list.length * FH + (list.length - 1) * G;
     const g = sheet.getContext('2d', { willReadFrequently: true }), px = [], counts = [];
+    // white: pale fur, with the dark outline, eyes and hooves kept. gold: dark bronze to bright gold to pale yellow.
+    const recolour = (d, tone) => {
+      const mix = (a, b, t) => a + (b - a) * t;
+      for (let i = 0; i < d.length; i += 4) {
+        if (!d[i + 3]) continue;
+        const l = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
+        if (tone === 'white') {
+          if (l < 0.24) continue;
+          const v = mix(205, 255, Math.min(1, (l - 0.24) / 0.5));
+          d[i] = v; d[i + 1] = v * 0.985; d[i + 2] = v * 0.95;
+        } else {
+          if (l < 0.1) continue;
+          const c = l < 0.42 ? [mix(95, 232, l / 0.42), mix(58, 168, l / 0.42), mix(12, 36, l / 0.42)]
+            : [mix(232, 255, (l - 0.42) / 0.58), mix(168, 244, (l - 0.42) / 0.58), mix(36, 176, (l - 0.42) / 0.58)];
+          d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+        }
+      }
+    };
     g.imageSmoothingQuality = 'high';
     const shade = document.createElement('canvas');
     shade.width = sheet.width; shade.height = sheet.height;
@@ -143,6 +162,11 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
         g.beginPath(); g.rect(x, y, FW, FH); g.clip();
         g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - GROUND * K, cw * K, ch * K);
         g.restore();
+        if (opt.tone) {
+          const px = g.getImageData(x, y, FW, FH);
+          recolour(px.data, opt.tone);
+          g.putImageData(px, x, y);
+        }
       }
       for (let i = 0; i < 12; i++) {
         const box = frameBox(g, M + i * (FW + G), M + row * (FH + G));
@@ -184,6 +208,7 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
   console.log('assets/' + set.shade, put(set.shade + '.webp', r.shadeWebp), '; feet found:', r.counts);
   sizes[set.shade] = [r.w, r.h];
   if (set.store < 1) sizes[set.name] = [r.w, r.h];
+  // ('wild' and 'animals': the game takes the size from here)
   if (process.env.SHOW) fs.writeFileSync(path.join(process.env.SHOW, set.name + '.png'), Buffer.from(r.show.split(',')[1], 'base64'));
   }
   fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes, null, 1) + '\n');

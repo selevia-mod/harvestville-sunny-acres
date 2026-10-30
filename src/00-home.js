@@ -54,6 +54,12 @@
       { key: 'music_box', name: 'Music Box', w: 1, h: 1, foot: 1, place: 'floor', price: 800, beauty: 8, use: 'musicbox', prop: 'music_box', what: 'a music box on a little table' },
       { key: 'aquarium', name: 'Aquarium', w: 2, h: 2, foot: 1, place: 'floor', price: 1500, beauty: 15, use: 'aquarium', prop: 'aquarium', what: 'a fish tank on a cabinet' },
       { key: 'cat_bed', name: 'Cat Basket', w: 1, h: 1, foot: 0, place: 'flat', price: 600, beauty: 6, use: 'cat', prop: 'cat_bed', what: 'a cat basket with a cushion' },
+      // trophies: made by Kanor (C.WILD.trophies), in the classic sheet only (tools/art/trophies-import.js), never sold
+      { key: 'trophy_antler', name: 'Antler Trophy', w: 1, h: 1, foot: 0, place: 'wall', price: 0, beauty: 14, trophy: true, what: 'a pair of deer antlers on a wooden wall plaque' },
+      { key: 'trophy_tusk', name: 'Tusk Trophy', w: 1, h: 1, foot: 0, place: 'wall', price: 0, beauty: 16, trophy: true, what: 'two boar tusks on a wooden wall plaque' },
+      { key: 'wolf_rug', name: 'Wolf Pelt Rug', w: 3, h: 2, foot: 0, place: 'flat', price: 0, beauty: 22, trophy: true, what: 'a grey wolf pelt rug lying flat on the floor' },
+      { key: 'trophy_stag', name: 'White Stag Trophy', w: 2, h: 1, foot: 0, place: 'wall', price: 0, beauty: 40, trophy: true, what: 'shining white antlers on a dark wooden wall plaque' },
+      { key: 'trophy_goldboar', name: 'Golden Boar Trophy', w: 2, h: 1, foot: 0, place: 'wall', price: 0, beauty: 45, trophy: true, what: 'two gleaming golden tusks on a dark wooden wall plaque' },
     ],
 
     // styles: the 5 regular ones (always in the catalog) and 5 festival editions (sold during their

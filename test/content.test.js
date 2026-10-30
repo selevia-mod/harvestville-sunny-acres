@@ -326,3 +326,15 @@ test('the new animals and produce have icons, prices and a place in the shop', (
   assert.strictEqual(C.ICON_ORDER.slice(0, 110).pop(), 'cat_basket', 'new icons are appended');
   assert.ok(C.FOOD_GROUPS.milk.includes('carabao_milk'), 'carabao milk cooks like milk');
 });
+
+test('every item has a picture in the items sheet (wheat, fruit and workshop goods once showed as empty squares)', () => {
+  const size = (b) => [b.readUInt32BE(16), b.readUInt32BE(20)];
+  const [w, h] = size(fs.readFileSync(path.join(__dirname, '..', 'assets', 'items.png')));
+  assert.strictEqual(w, 1152);
+  Object.keys(C.ITEMS).forEach((id) => {
+    const i = C.ITEMS[id].icon;
+    assert.ok(Number.isInteger(i) && (Math.floor(i / 8) + 1) * 144 <= h, id + ' is on the sheet');
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'art-src', 'icons', C.ICON_ORDER[i] + '.png')) || i < 200, id + ' has its source picture');
+  });
+});
+

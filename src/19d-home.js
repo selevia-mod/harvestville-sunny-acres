@@ -519,6 +519,7 @@
       });
     } else {
       rows = H.types.map(function (type, t) {
+        if (type.trophy) return null; // Kanor makes those
         var price = L.furnPrice(t, v), have = (s.home.bag[L.furnKey(t, v)] || 0) + s.home.items.filter(function (it) { return it.t === t && it.v === v; }).length;
         var locked = type.needs && !s.builds[type.needs];
         return {
@@ -539,7 +540,7 @@
             },
           }],
         };
-      });
+      }).filter(Boolean);
     }
     var o = this.listPanel({
       title: v == null ? "Mira's Woodshop" : H.styles[v].name + ' Furniture', tab: 'furniture', page: page, rows: rows, talk: v == null ? 'mira' : null,

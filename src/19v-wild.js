@@ -1,9 +1,11 @@
 // The Wild Lands in the world (owner, 30 Oct 2026; content 00-wild.js, rules 01-logicD.js): the animals roam the
-// map, run from you (shy ones: sneak up slowly with the joystick only part way) or charge you (a boar, a wolf). Hold
-// the Bow and tap Shoot: the arrow flies to the nearest animal in front of you, within range. A hunted animal leaves
-// meat and the like on the ground: walk over it to pick it up (what is left goes in your bag when you leave). Bait
-// draws a shy animal to eat. Kanor stands by his Lodge in Pulag (6 AM to 10 PM): Bow, upgrades, arrows, bait, and he
-// buys what you hunt. Makiling Forest opens after 10 hunts. Hunting is your own trip: not while visiting a friend.
+// map, run from you (shy ones: sneak up slowly with the joystick only part way) or charge you (a boar, a wolf), and new
+// ones walk in from the edges while you are there. They leave footprints that fade. Hold the Bow: a ring marks the
+// animal you would hit (the nearest one ahead, in range) and Shoot turns you to it. A tough one shows a health bar once
+// hit. Each has its own size (a big one looks it); a hunted animal leaves meat and the like on the ground: walk over it to
+// pick it up (what is left goes in your bag when you leave). Bait draws a shy animal to eat. Kanor stands by his Lodge
+// in Pulag (6 AM to 10 PM): Bow, upgrades, arrows, bait, today's request, trophies; he buys what you hunt. Makiling
+// Forest opens after 10 hunts. Hunting is your own trip: not while visiting a friend.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -15,9 +17,10 @@
   var U = F.UIScene.prototype;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var rand = function (a, b) { return a + Math.random() * (b - a); };
-  var FRAME_H = 252, FEET = 233; // a wild.png frame, and its feet line (tools/art/wild3q-import.js)
+  var FRAME_H = 252, FEET = 233; // a wild.png frame, and its feet line (tools/art/animals3q-import.js)
+  var BAR_W = 180, BAR_H = 22, HIT_MS = 180;
   var ARROW_SPEED = 16 * T; // world units a second
-  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68;
+  var GREEN_BTN = 0x5fa84a, GREY_BTN = 0xa08a68;
 
   // An animal's 12 frames, drawn from above like the farmer: 0-2 walking toward you, 3-5 away, 6-8 to the left (stand,
   // step, step), 9 facing you (alert; the wolf howls), 10 eating or sniffing, 11 running or flying away. 6-8, 10 and 11
@@ -58,7 +61,13 @@
       var self = this;
       this.time.delayedCall(1200, function () {
         if (!self.sys || !self.sys.isActive() || !F.ui || F.ui.modals.length) return;
-        if (L.takeTip(self.state, 'wild')) { self.save(); F.ui.wildIntro(); }
+        if (L.takeTip(self.state, 'wild')) { self.save(); return F.ui.wildIntro(); }
+        // once a day: what Kanor wants
+        var j = L.wildJob(self.state);
+        if (F.session.jobSaid !== self.state.day && !j.done) {
+          F.session.jobSaid = self.state.day;
+          F.ui.toast('Kanor needs ' + j.n + ' ' + C.ITEMS[j.item].name + ' today: ' + j.gold + 'G.', 3000);
+        }
       });
     }
   };
@@ -68,12 +77,89 @@
     if (!zone) return;
     F.ensureTexture(this, 'wild');
     F.ensureTexture(this, 'wildshade');
-    this.wild = { zone: zone, animals: [] };
-    var f = this.feet();
+    softShadow(this);
+    printTexture(this);
+    this.wild = { zone: zone, animals: [], next: rand(WI.arrive[0], WI.arrive[1]), prints: [], ring: this.add.image(0, 0, 'fx-ring').setVisible(false).setDepth(DEPTH.shadow + 0.1).setTint(0xffd24a) };
+    var f = this.feet(), rare = null;
     L.wildHere(s, this.mapKey).forEach(function (e) {
       var p = self.wildSpot(zone, f, 6);
-      if (p) self.addWildAnimal(e.kind, e.slot, p.x, p.y);
+      if (!p) return;
+      var a = self.addWildAnimal(e.kind, e.slot, p.x, p.y);
+      if (a.def.rare) rare = a;
     });
+    if (rare && !(window.gameHost && window.gameHost.quiet)) this.time.delayedCall(1800, function () { if (F.ui) F.ui.toast('Something rare is about: a ' + rare.def.name + '!', 3200, 0x7a5a12); });
+  };
+
+  // New animals walk in from the edges while you are there, one at a time, if any are due.
+  P.wildArrive = function (dt) {
+    var w = this.wild, s = this.state;
+    w.next -= dt;
+    if (w.next > 0) return;
+    w.next = rand(WI.arrive[0], WI.arrive[1]);
+    var here = {};
+    w.animals.forEach(function (a) { here[a.slot] = true; });
+    var due = L.wildHere(s, this.mapKey).filter(function (e) { return !here[e.slot]; });
+    if (!due.length) return;
+    var e = due[Math.floor(Math.random() * due.length)], p = this.wildEdge(w.zone);
+    if (!p) return;
+    var a = this.addWildAnimal(e.kind, e.slot, p.x, p.y), z = w.zone;
+    var ang = Math.atan2((z.y0 + z.y1) / 2 * T - p.y, (z.x0 + z.x1) / 2 * T - p.x);
+    a.mode = 'walk';
+    a.vx = Math.cos(ang) * a.def.walk * T;
+    a.vy = Math.sin(ang) * a.def.walk * T;
+    a.t = rand(2500, 5000);
+    a.img.setAlpha(0);
+    a.sh.setAlpha(0);
+    a.fade = 0;
+  };
+  // A free tile along the edge of the zone, out of your sight (or null).
+  P.wildEdge = function (z) {
+    var f = this.feet();
+    for (var tries = 0; tries < 60; tries++) {
+      var side = Math.random() < 0.5, far = Math.random() < 0.5;
+      var x = side ? (far ? z.x1 : z.x0) : z.x0 + Math.floor(Math.random() * (z.x1 - z.x0 + 1));
+      var y = side ? z.y0 + Math.floor(Math.random() * (z.y1 - z.y0 + 1)) : (far ? z.y1 : z.y0);
+      if (!this.wildFree(x, y)) continue;
+      var wx = (x + 0.5) * T, wy = (y + 0.7) * T;
+      if (Math.hypot(wx - f.x, wy - f.y) >= 6 * T) return { x: wx, y: wy };
+    }
+    return null;
+  };
+
+  // Footprints: a pair every half tile or so, fading out over 30 seconds. They follow the animal, so they lead to it.
+  var printTexture = function (scene) {
+    if (scene.textures.exists('fx-print')) return;
+    var c = scene.textures.createCanvas('fx-print', 64, 64), g = c.getContext();
+    g.fillStyle = '#2e1c0c';
+    [[20, 22], [44, 42]].forEach(function (p) {
+      g.beginPath();
+      g.ellipse(p[0], p[1], 8, 12, 0, 0, Math.PI * 2);
+      g.fill();
+    });
+    c.refresh();
+  };
+  var PRINT_MAX = 44, PRINT_MS = 30000, PRINT_ALPHA = 0.42;
+  P.wildPrint = function (a) {
+    var list = this.wild.prints, p = list.length >= PRINT_MAX ? list.shift() : { img: this.add.image(0, 0, 'fx-print').setDepth(DEPTH.flat) };
+    var size = Math.max(0.45, a.def.w * 0.55) * a.size;
+    p.img.setPosition(a.x, a.y - 8).setRotation(Math.atan2(a.vy, a.vx) + Math.PI / 2).setScale(size).setAlpha(PRINT_ALPHA);
+    p.left = PRINT_MS;
+    list.push(p);
+  };
+  P.updatePrints = function (dt) {
+    this.wild.prints.forEach(function (p) {
+      p.left -= dt;
+      p.img.setAlpha(Math.max(0, p.left / PRINT_MS) * PRINT_ALPHA);
+    });
+  };
+
+  // The ring under the animal you would hit.
+  P.updateAim = function (time) {
+    var ring = this.wild.ring, held = L.held(this.state), a = held && held.id === 'bow' ? this.wildTarget() : null;
+    ring.setVisible(!!a);
+    if (!a) return;
+    var w = (0.55 + a.def.w * 0.55) * a.size * T * (1 + Math.sin(time / 160) * 0.05);
+    ring.setPosition(a.x, a.y - 0.08 * T).setDisplaySize(w, w * 0.46);
   };
 
   // A free tile in the zone at least `away` tiles from `from`: its middle, in world units (or null).
@@ -94,10 +180,10 @@
   };
 
   P.addWildAnimal = function (kind, slot, x, y) {
-    var def = WI.animals[kind], scale = def.w * T / def.px;
+    var def = WI.animals[kind], size = def.rare ? 1 : L.wildSize(Math.random), scale = def.w * T / def.px * size;
     var a = {
       kind: kind, slot: slot, def: def, hp: def.hp, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
-      dir: 'side', left: Math.random() < 0.5, look: false, fr: FACING.side, lift: 0, breath: rand(0, 6), scale: scale,
+      dir: 'side', left: Math.random() < 0.5, look: false, fr: FACING.side, lift: 0, breath: rand(0, 6), scale: scale, size: size, trail: 0, hitT: 0, glow: 0,
       img: this.add.image(x, y, 'wild', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
       sh: this.add.image(x, y, 'wildshade', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setDepth(DEPTH.shadow),
     };
@@ -108,11 +194,22 @@
     return a;
   };
 
-  P.drawWild = function (a) {
-    var up = Math.min(0.55, a.lift / T); // off the ground: the shadow shrinks and fades
-    a.sh.setPosition(a.x, a.y).setScale(a.scale * (1 - up * 0.5)).setAlpha(1 - up);
+  P.drawWild = function (a, dt) {
+    var up = Math.min(0.55, a.lift / T), seen = 1; // off the ground: the shadow shrinks and fades
+    if (a.fade != null) { // walking in
+      a.fade += dt || 0;
+      seen = Math.min(1, a.fade / 700);
+      a.img.setAlpha(seen);
+      if (seen >= 1) a.fade = null;
+    }
+    a.sh.setPosition(a.x, a.y).setScale(a.scale * (1 - up * 0.5)).setAlpha((1 - up) * seen);
     a.img.setPosition(a.x, a.y - a.lift);
     F.depthTo(a.img, DEPTH.actor + a.y / 1e5);
+    if (a.bar) {
+      var by = a.y - a.lift - (0.42 + a.def.w * 0.62) * a.size * T;
+      a.bar.bg.setPosition(a.x, by);
+      a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / a.def.hp, BAR_H);
+    }
   };
 
   // ---------- every frame ----------
@@ -125,7 +222,9 @@
     var self = this;
     this.wild.animals.slice().forEach(function (a) { self.updateWild(a, dt, frozen); });
     this.updateArrows(dt);
-    if (!frozen) this.pickWildDrops();
+    this.updatePrints(dt);
+    this.updateAim(time);
+    if (!frozen) { this.pickWildDrops(); this.wildArrive(dt); }
     if (this.wildBait && Date.now() > this.wildBait.until) { this.wildBait.img.destroy(); this.wildBait = null; }
     if (this.kanor) this.updateKanor();
   };
@@ -161,13 +260,17 @@
       if (ax > ay * 1.2) a.dir = 'side'; else if (ay > ax * 1.2) a.dir = a.vy > 0 ? 'down' : 'up';
       if (ax > 4) a.left = a.vx < 0;
       a.step += dt;
+      if (ok && !(def.flies && a.mode === 'flee')) {
+        a.trail += Math.hypot(a.vx, a.vy) * dt / 1000;
+        if (a.trail > 0.6 * T) { a.trail = 0; this.wildPrint(a); }
+      }
     }
     var fr = this.wildPose(a, d), was = a.fr, flip = fr >= 6 && fr !== 9 && !a.left;
     a.fr = fr;
     a.img.setFrame(frameOf(a.kind, fr)).setFlipX(flip);
     a.sh.setFrame(frameOf(a.kind, fr)).setFlipX(flip);
     this.wildFeel(a, was, dt);
-    this.drawWild(a);
+    this.drawWild(a, dt);
   };
 
   // Off the ground (a hop, a leap, a flight), its breathing, and dust when it runs.
@@ -178,8 +281,15 @@
     else if (moving && def.hop) lift = def.hop * T * Math.abs(Math.sin(a.step / (fast ? 110 : 180) * Math.PI / 2));
     a.lift = lift;
     // breathing while it stands (it grows from its feet, so they stay put)
-    var b = moving || dt == null ? 0 : Math.sin((a.breath += dt / 520));
-    a.img.setScale(a.scale * (1 - b * 0.006), a.scale * (1 + b * 0.018));
+    var b = moving || dt == null ? 0 : Math.sin((a.breath += dt / 520)), squash = 0;
+    if (a.hitT > 0) { a.hitT -= dt; squash = Math.max(0, a.hitT / HIT_MS) * 0.16; } // struck: it flinches
+    a.img.setScale(a.scale * (1 - b * 0.006 + squash), a.scale * (1 + b * 0.018 - squash));
+    // something rare glitters
+    if (def.rare && (a.glow -= dt) <= 0) {
+      a.glow = rand(180, 420);
+      var spark = this.add.circle(a.x + rand(-0.5, 0.5) * def.w * T, a.y - a.lift - rand(0.1, 0.9) * def.w * T, rand(10, 18), a.kind === 'goldboar' ? 0xffe28a : 0xffffff).setDepth(DEPTH.fx).setAlpha(0.9);
+      this.tweens.add({ targets: spark, y: spark.y - rand(40, 90), alpha: 0, scale: 0.4, duration: rand(500, 800), onComplete: function (tw, t) { t[0].destroy(); } });
+    }
     // dust: where a running foot lands
     if (this.bits && fast && fr !== was && !(def.flies && a.mode === 'flee')) {
       var land = a.dir === 'side' ? fr === 7 : fr % 3 !== 0;
@@ -270,14 +380,14 @@
     return resolve.call(this);
   };
 
-  // The nearest animal in front of you (within 35 degrees) and in range, or null.
+  // The nearest animal ahead of you (within 60 degrees) and in range, or null.
   P.wildTarget = function () {
     var f = this.feet(), d = this.dirVec(), range = L.bowRange(this.state) * T, best = null, bd = range;
     (this.wild ? this.wild.animals : []).forEach(function (a) {
       var ax = a.x - f.x, ay = (a.y - 0.3 * T) - (f.y - 0.5 * T), dist = Math.hypot(ax, ay);
       if (dist > range || dist < 1) return;
       var cos = (ax * d[0] + ay * d[1]) / dist;
-      if (cos < 0.82 || dist >= bd) return;
+      if (cos < 0.5 || dist >= bd) return;
       bd = dist;
       best = a;
     });
@@ -288,8 +398,12 @@
     var s = this.state, r = L.shoot(s);
     if (r === 'arrows') return F.ui.toast('No arrows left. Kanor sells them at his Lodge.');
     if (r === 'tired') return F.ui.toast('Too tired to draw the bow. Eat something first.');
-    var f = this.feet(), d = this.dirVec(), x = f.x + d[0] * 0.4 * T, y = f.y - 0.55 * T + d[1] * 0.3 * T;
-    var target = this.wildTarget(), ang;
+    var target = this.wildTarget(), f = this.feet(), ang;
+    if (target) { // you turn to it
+      var tx = target.x - f.x, ty = target.y - f.y;
+      this.dir = Math.abs(tx) > Math.abs(ty) ? (tx > 0 ? 'right' : 'left') : (ty > 0 ? 'down' : 'up');
+    }
+    var d = this.dirVec(), x = f.x + d[0] * 0.4 * T, y = f.y - 0.55 * T + d[1] * 0.3 * T;
     if (target) ang = Math.atan2((target.y - 0.3 * target.def.w * T) - y, target.x - x);
     else ang = Math.atan2(d[1], d[0]);
     F.ensureTexture(this, 'props/arrow_fly');
@@ -328,7 +442,14 @@
     a.img.setTintFill(0xffffff);
     this.time.delayedCall(90, function () { if (a.img.active) a.img.clearTint(); });
     sfx('chop');
+    a.hitT = HIT_MS;
+    this.cameras.main.shake(70, 0.0016);
+    if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
     if (a.hp > 0) {
+      if (!a.bar) {
+        a.bar = { bg: this.add.rectangle(a.x, a.y, BAR_W + 12, BAR_H + 12, 0x2e1c0c, 0.85).setDepth(DEPTH.fx),
+          fill: this.add.rectangle(a.x, a.y, BAR_W, BAR_H, 0xe5484d).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
+      }
       if (a.def.angry) { a.cool = 0; this.wildCharge(a); } else this.wildFlee(a, this.feet());
       return;
     }
@@ -345,12 +466,17 @@
     }
     a.img.destroy();
     a.sh.destroy();
+    if (a.bar) { a.bar.bg.destroy(); a.bar.fill.destroy(); }
     sfx('pick');
     L.huntDrops(a.kind, Math.random).forEach(function (d) {
       for (var k = 0; k < d[1]; k++) self.dropWild(d[0], a.x + rand(-0.6, 0.6) * T, a.y + rand(-0.3, 0.4) * T);
     });
-    var r = L.hunted(s, this.mapKey, a.slot, a.kind);
-    F.ui.toast(a.def.name + ' hunted! Pick up what it left.' + (s.wild.n < WI.areas.makiling.unlock ? ' (' + s.wild.n + '/' + WI.areas.makiling.unlock + ' hunts)' : ''), 2200, 0x2f5a22);
+    var r = L.hunted(s, this.mapKey, a.slot, a.kind, a.size);
+    var big = a.def.rare ? '' : L.wildGiant(a.size) ? 'Giant ' : '';
+    if (a.def.rare) sfx('found');
+    this.floatTextAt(a.x, a.y - T, r.kg + ' kg');
+    F.ui.toast(r.record ? 'New record! ' + big + a.def.name + ', ' + r.kg + ' kg. In your Hunter\'s Book.'
+      : big + a.def.name + ' hunted! Pick up what it left.' + (s.wild.n < WI.areas.makiling.unlock ? ' (' + s.wild.n + '/' + WI.areas.makiling.unlock + ' hunts)' : ''), 2400, r.record ? 0x7a5a12 : 0x2f5a22);
     if (r.opened) this.time.delayedCall(2400, function () { F.ui.dialog('MAKILING FOREST IS OPEN\nKanor: "Ten hunts! You are ready for the forest. Follow the trail north. Mind the wild boars, and the wolves at night."'); });
     this.changed();
     this.save();
@@ -453,7 +579,8 @@
       this.save();
       return F.ui.dialog('KANOR\n' + C.KANOR.hello, [{ label: 'Shop', cb: function () { F.ui.openKanor('buy', 0); } }]);
     }
-    F.ui.openKanor('buy', 0);
+    var j = L.wildJob(this.state);
+    F.ui.openKanor(!j.done && L.countItem(this.state, j.item) >= j.n ? 'job' : 'buy', 0); // you have what he asked for
   };
 
   // ---------- the panels ----------
@@ -492,20 +619,70 @@
         buttons: [{ label: 'Buy ' + I.arrows.price + 'G', cb: function () { done(L.buyWild(s, 'arrows'), WI.arrowPack + ' arrows.'); } }] });
       rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.',
         buttons: [{ label: 'Buy ' + I.bait.price + 'G', cb: function () { done(L.buyWild(s, 'bait'), 'Berry Bait.'); } }] });
-    } else {
+    } else if (tab === 'sell') {
       L.wildGoods(s).forEach(function (id) {
         var n = L.countItem(s, id);
         rows.push({ icon: I[id].icon, name: I[id].name + ' x' + n, desc: I[id].sell + 'G each.',
           buttons: [{ label: 'Sell ' + n * I[id].sell + 'G', cb: function () { var g = L.sellToKanor(s, id); F.bus.emit('hud'); done(g ? 'ok' : null, 'Sold for ' + g + 'G.'); } }] });
       });
+    } else if (tab === 'job') {
+      var j = L.wildJob(s), have = L.countItem(s, j.item);
+      rows.push({ icon: I[j.item].icon, name: j.n + ' ' + I[j.item].name,
+        desc: j.done ? 'Done for today. Come back tomorrow!' : 'Today he wants these. You have ' + have + '.',
+        buttons: j.done ? [] : [{ label: j.gold + 'G', color: have >= j.n ? GREEN_BTN : GREY_BTN, cb: function () {
+          var r = L.doWildJob(s);
+          if (r === 'short') { sfx('nope'); return self.toast('You need ' + j.n + ' ' + I[j.item].name + '.'); }
+          F.bus.emit('hud');
+          done('ok', 'Salamat! ' + j.gold + 'G from Kanor.');
+        } }] });
+      L.wildNews(s).forEach(function (line) { rows.push({ icon: C.ICON.sparkle, name: 'Kanor says', desc: line }); });
+    } else {
+      WI.trophies.forEach(function (t, k) {
+        var ti = C.HOME.typeIndex[t.type], type = C.HOME.types[ti];
+        rows.push({ img: self.furnImg(ti, 0), name: type.name,
+          desc: t.needs.map(function (n) { return n[1] + ' ' + I[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ') + '. +' + type.beauty + ' beauty.',
+          buttons: [{ label: t.gold + 'G', cb: function () {
+            var r = L.makeTrophy(s, k);
+            if (r === 'short') { sfx('nope'); return self.toast('You need more for that one. Hunt some more!'); }
+            done(r, type.name + ' done! Find it in your furniture storage: Decorate at home.');
+          } }] });
+      });
     }
     this.listPanel({
       title: "Kanor's Lodge", tab: tab, page: page, rows: rows,
-      tabs: [['buy', 'Buy'], ['sell', 'Sell']],
+      tabs: [['buy', 'Buy'], ['sell', 'Sell'], ['job', 'Request'], ['make', 'Trophies']],
+      corner: { label: 'Book', color: GREY_BTN, cb: function () { self.closeModal(); self.openBook(s, null, function () { self.openKanor(tab, page); }); } },
       sub: function () { return 'Gold ' + s.gold + '     Hunts ' + s.wild.n; },
       empty: 'Bring meat, feathers, furs, antlers, tusks, pelts and fangs from your hunts.',
       reopen: function (t, p) { self.openKanor(t, p); },
     });
+  };
+
+  // ---------- the Hunter's Book: how many of each, and the biggest (yours, or a friend's) ----------
+  U.bookRow = function (who) {
+    var self = this, st = F.session.visit && F.session.visit.state;
+    return { icon: C.ITEMS.antler.icon, name: "Hunter's Book", desc: 'See what ' + who + ' has hunted, and their biggest.',
+      buttons: [{ label: 'Look', cb: function () { self.closeModal(); self.openBook(st, who, function () { self.playerMenu(F.session.visit.host, who); }); } }] };
+  };
+  U.openBook = function (st, who, back, page) {
+    var self = this, I = C.ITEMS, total = 0, rows = WI.order.map(function (k) {
+      var def = WI.animals[k], n = st.wild.by[k] || 0, seen = n > 0, best = (st.wild.best[k] || 0) / 10;
+      total += n;
+      if (!seen && def.rare) return { icon: C.ICON.exclaim, name: '???', desc: 'A rare one. ' + (WI.areas.pulag.extra.some(function (x) { return x.kind === k; }) ? 'Seen in Pulag, some days.' : 'Seen in Makiling, some days.') };
+      return { icon: I[def.drops[0][0]].icon, name: def.name + (n ? ' x' + n : ''), desc: seen ? 'Biggest: ' + best + ' kg.' : 'Not hunted yet.' };
+    });
+    this.listPanel({
+      title: (who ? who + "'s" : "Hunter's") + ' Book', page: page || 0, rows: rows,
+      corner: { label: 'Back', color: GREY_BTN, cb: function () { self.closeModal(); if (back) back(); } },
+      sub: function () { return 'Hunts ' + total; },
+      reopen: function (t, p) { self.openBook(st, who, back, p); },
+    });
+  };
+  var openCollection = U.openCollection;
+  U.openCollection = function () {
+    openCollection.call(this);
+    var self = this, c = this.modals[this.modals.length - 1].c;
+    this.button(c, 228, 150, 88, 30, 'Hunts', function () { self.closeModal(); self.openBook(mine(), null, function () { self.openCollection(); }); }, GREY_BTN);
   };
 
   U.wildIntro = function () {
@@ -513,8 +690,9 @@
     this.dialog('PULAG GRASSLAND', [{ label: 'OK' }], {
       rows: [
         [I.bow.icon, "Kanor sells a Bow and arrows at his Lodge up the trail. Hold the Bow and tap Shoot."],
-        [C.ICON.bolt, 'Sneak: push the joystick only a little. Labuyo, rabbits and deer run if you rush them.'],
+        [C.ICON.bolt, 'Sneak: push the joystick only a little. Labuyo, rabbits and deer run if you rush them. Follow their footprints.'],
         [I.meat_boar.icon, 'A hunted animal leaves meat and more on the ground. Cook it at home or sell it to Kanor.'],
+        [I.antler.icon, "Kanor has a request each day, and makes trophies for your house. Your biggest catches go in the Hunter's Book."],
         [I.tusk.icon, 'Boars and wolves (in Makiling Forest, after 10 hunts) charge you: keep your distance.'],
       ],
     });

@@ -90,7 +90,7 @@
     for (var k = 0; out.length < C.WAGON.deals && k < 40; k++) {
       var t = Math.floor(L.rand(s.seed, s.day, 900 + k) * H.types.length);
       var v = 1 + Math.floor(L.rand(s.seed, s.day, 950 + k) * (H.styles.length - 1));
-      if (H.types[t].needs || seen[t + '.' + v]) continue;
+      if (H.types[t].needs || H.types[t].trophy || seen[t + '.' + v]) continue;
       seen[t + '.' + v] = 1;
       out.push({ t: t, v: v, price: Math.round(L.furnPrice(t, v) * (1 - C.WAGON.off) / 10) * 10 });
     }

@@ -1119,7 +1119,7 @@
     this.listPanel({
       title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
-      rows: (F.session.visit && self.marketRow ? [self.marketRow()] : []).concat(self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
+      rows: (F.session.visit && self.bookRow ? [self.bookRow(who)] : []).concat(F.session.visit && self.marketRow ? [self.marketRow()] : []).concat(self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
         {
           icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
           buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],

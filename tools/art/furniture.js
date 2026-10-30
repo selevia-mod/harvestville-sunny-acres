@@ -246,7 +246,7 @@
     var O = A.OVR || {}, key = 'furn:' + v + ':' + t;
     if (O[key]) g.drawImage(O[key], 0, 0, W, H);
     else if (v === 0 && type.prop && A.propHalf && A.propHalf[type.prop]) g.drawImage(A.propHalf[type.prop], 0, 0, W, H);
-    else DRAW[type.key](g, PAL[v], W, H);
+    else if (DRAW[type.key]) DRAW[type.key](g, PAL[v], W, H); // (trophies: tools/art/trophies-import.js)
     return c;
   };
 

@@ -347,7 +347,7 @@
       return { t: yards[Math.floor(r * yards.length)] };
     }
     var styles = C.HOME.styles.map(function (st, i) { return i; }).filter(function (i) { return C.HOME.styles[i].festival; });
-    var types = C.HOME.types.map(function (t, i) { return i; }).filter(function (i) { return !C.HOME.types[i].needs; });
+    var types = C.HOME.types.map(function (t, i) { return i; }).filter(function (i) { return !C.HOME.types[i].needs && !C.HOME.types[i].trophy; });
     return { t: types[Math.floor(r * types.length)], v: styles[Math.floor(L.rand(s.seed, s.day, 821) * styles.length)] };
   };
   L.canSwap = function (s, i) {

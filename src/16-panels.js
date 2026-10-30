@@ -807,8 +807,13 @@
     c.add(this.txt(W / 2, 88, 'Collection', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
     c.add(this.txt(W / 2, 116, L.collectionCount(s) + ' of ' + C.COLLECTION.length + ' found', 13, '#7a5a3a').setOrigin(0.5, 0));
-    // the records sit beside the bottom of the grid, so the panel always holds them (70 items = 10 rows)
-    var big = C.COLLECTION.length > 70, cols = big ? 8 : 7, cell = big ? 36 : 40, x0 = (W - cols * cell) / 2, y0 = 136;
+    // the grid takes the biggest cells that fit between the buttons and the records, however long the list grows
+    var n = C.COLLECTION.length, y0 = 170, cols = 7, cell = 0;
+    for (var k = 7; k <= 12; k++) {
+      var size = Math.floor(Math.min((W - 44) / k, 382 / Math.ceil(n / k)));
+      if (size > cell) { cell = size; cols = k; }
+    }
+    var x0 = (W - cols * cell) / 2;
     C.COLLECTION.forEach(function (id, i) {
       var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, got = L.discovered(s, id);
       self.baked(c, x + 2, y + 2, 'ui-colcell' + cell, cell - 4, cell - 4, function (g) { g.fillStyle(0xe8cf98, 1).fillRoundedRect(0, 0, cell - 4, cell - 4, 7); });

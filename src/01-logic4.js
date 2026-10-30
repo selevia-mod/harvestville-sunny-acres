@@ -125,7 +125,7 @@
   // Returns 'ok', 'gold', 'season' or 'needs' (the kitchen counter needs Mira's Kitchen first).
   L.buyFurn = function (s, t, v) {
     var type = H.types[t];
-    if (!type || !H.styles[v]) return 'bad';
+    if (!type || !H.styles[v] || type.trophy) return 'bad';
     if (!L.styleOnSale(s, v)) return 'season';
     if (type.needs && !s.builds[type.needs]) return 'needs';
     var price = L.furnPrice(t, v);

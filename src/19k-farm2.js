@@ -351,7 +351,7 @@
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, c = this.modals[this.modals.length - 1].c;
-    this.button(c, 64, 100, 80, 30, 'Crop stars', function () { self.closeModal(); self.openMastery(0); }, BLUE);
+    this.button(c, 132, 150, 88, 30, 'Crop stars', function () { self.closeModal(); self.openMastery(0); }, BLUE);
   };
 
   // What's new, once: everything the farm can do now, and where to find it.

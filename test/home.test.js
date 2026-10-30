@@ -21,13 +21,14 @@ const T = (key) => H.typeIndex[key];
 const fresh = () => { const s = L.newState(); s.seed = 3; return s; };
 const sleep = (s, n = 1) => { let r; for (let i = 0; i < n; i++) r = L.endDay(s, false, {}); return r; };
 
-test('the home data: 10 levels that only grow, 27 kinds of furniture in 10 styles', () => {
+test('the home data: 10 levels that only grow, 27 kinds of furniture in 10 styles, 5 trophies', () => {
   assert.strictEqual(H.levels.length, 10);
   for (let i = 1; i < H.levels.length; i++) {
     const a = H.levels[i - 1], b = H.levels[i];
     assert.ok(b.map[0] >= a.map[0] && b.map[1] >= a.map[1] && b.gold > a.gold, b.name);
   }
-  assert.strictEqual(H.types.length, 27);
+  assert.strictEqual(H.types.filter((t) => !t.trophy).length, 27);
+  assert.strictEqual(H.types.filter((t) => t.trophy).length, 5);
   assert.strictEqual(H.styles.length, 10);
   assert.strictEqual(H.styles.filter((st) => st.festival).length, 5);
   H.styles.forEach((st) => { if (st.festival) assert.ok(C.FESTIVALS.some((f) => f.key === st.festival), st.key); });

@@ -572,6 +572,7 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
     s.sel = s.inv.findIndex((x) => x && x.id === 'bow');
     w.wild.animals.filter((a) => a.kind !== 'deer').forEach((a) => { a.img.destroy(); a.sh.destroy(); });
     w.wild.animals = w.wild.animals.filter((a) => a.kind === 'deer').slice(0, 1);
+    w.wild.next = 1e9; // no new ones walking in
     const a = w.wild.animals[0];
     a.def = Object.assign({}, a.def, { shy: 0 });
     a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9;

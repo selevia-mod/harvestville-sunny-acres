@@ -14,6 +14,9 @@
         ['venison', 'Meat on the ground', 'A hunted animal leaves meat, feathers, furs or antlers. Walk over them to pick up.'],
         ['boar_adobo', 'New dishes', 'Cook Labuyo Tinola, Rabbit Stew, Venison Tapa, Boar Adobo and Inihaw Skewers.'],
         ['tusk', 'Makiling Forest', 'After 10 hunts the forest opens: wild boars charge, and wolves come out at night.'],
+        ['antler', "Kanor's requests", 'A new request every day pays well. He also makes trophies for your house from rare drops.'],
+        ['book', "Hunter's Book", 'Every animal has its own size. Your biggest of each is saved, and friends can see it.'],
+        ['white_antler', 'Rare animals', 'A White Stag or a Golden Boar shows up now and then. Rain, dawn, dusk and fall bring out more.'],
       ],
     },
     {
