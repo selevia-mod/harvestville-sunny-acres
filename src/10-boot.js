@@ -11,8 +11,8 @@
     player_girl_bday: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 },
     crops: { frameWidth: 256, frameHeight: 256, margin: 8, spacing: 16 },
     items: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
-    animals: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
-    animals2: { frameWidth: 384, frameHeight: 320, margin: 8, spacing: 16 },
+    animals: { frameWidth: 224, frameHeight: 252, margin: 8, spacing: 16 }, // a row of 12 per animal (tools/art/animals3q-import.js)
+    animalshade: { frameWidth: 224, frameHeight: 252, margin: 8, spacing: 16 }, // the shadow under each of those frames
     people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 },
     fx: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 },
     wild: { frameWidth: 224, frameHeight: 252, margin: 8, spacing: 16 }, // the Wild Lands' animals (C.WILD.order rows of 12: tools/art/wild3q-import.js)

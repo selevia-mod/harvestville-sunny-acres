@@ -32,14 +32,14 @@
       var at = F.session.riding ? this.feet() : F.session.horseAt && F.session.horseAt.map === this.mapKey ? F.session.horseAt
         : this.mapKey === 'farm' ? this.points.horse : null;
       if (at) {
-        this.horse = { x: at.x, y: at.y, sprite: this.add.image(at.x, at.y, 'animals', C.HORSE.frame0 + 2).setOrigin(0.5, 300 / 320).setScale(1.4) };
+        this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE) };
         this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
       }
     }
     // the cat lives in the farmhouse
     var catArea = this.zones.catarea && this.zones.catarea[0];
     if (s.cat && catArea) {
-      this.cat = new F.Dog(this, { x0: catArea.px, y0: catArea.py, x1: catArea.px + catArea.pw, y1: catArea.py + catArea.ph }, C.CAT, 0.75);
+      this.cat = new F.Dog(this, { x0: catArea.px, y0: catArea.py, x1: catArea.px + catArea.pw, y1: catArea.py + catArea.ph }, C.CAT);
     }
     // a letter bobs over the mailbox while there is mail
     var box = this.objects.filter(function (o) { return o.type === 'mail'; })[0];
@@ -70,19 +70,22 @@
     var h = this.horse;
     if (!h) return;
     if (F.session.riding) {
-      var f = this.feet(), flip = !!this.rideFlip;
+      // it goes the way you go: the farmer's back on the way up; the way down, its head and mane are in front of you
+      var f = this.feet(), flip = !!this.rideFlip, A = F.Anim, side = this.dir === 'left' || this.dir === 'right', d = side ? 'side' : this.dir;
+      var k = !this.moving ? A.FACING[d] : side ? (Math.floor(time / 130) % 2 ? 11 : 7) : A.FACING[d] + A.STEPS[Math.floor(time / 120) % 4];
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
-      F.depthTo(this.rider.setVisible(true).setFrame(6).setFlipX(flip).setPosition(f.x + (flip ? -30 : 30), f.y - 350), DEPTH.actor + f.y / 1e5 + 0.0002);
-      h.sprite.setFrame(C.HORSE.frame0 + (this.moving ? Math.floor(time / 140) % 2 : 2)).setFlipX(flip);
-      this.shadow.setScale(1.6, 1.3);
+      this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip).setPosition(f.x + (side ? (flip ? -30 : 30) : 0), f.y - (side ? 350 : d === 'up' ? 330 : 370));
+      F.depthTo(this.rider, DEPTH.actor + f.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005)); // (the horse stands 20 units, 0.0002, lower)
+      A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
+      this.shadow.setVisible(false);
     } else {
       this.player.setVisible(true);
       this.rider.setVisible(false);
-      this.shadow.setScale(1);
-      h.sprite.setFrame(C.HORSE.frame0 + (Math.floor(time / 2600) % 3 === 0 ? 3 : 2));
+      F.Anim.show(h, C.HORSE.frame0 + (Math.floor(time / 2600) % 3 === 0 ? 10 : 9), false);
     }
+    h.sh.setPosition(h.x, h.y);
     F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
   };
 
@@ -101,7 +104,7 @@
     }
     this.player.setVisible(true);
     if (this.rider) this.rider.setVisible(false);
-    this.shadow.setScale(1);
+    this.shadow.setVisible(true);
     this.idle();
   };
 

@@ -253,26 +253,26 @@
       tonic: { name: 'Energy Tonic', icon: 'tonic', kind: 'dish', price: 120, energy: 50, desc: "Ivy's herbal pick-me-up." },
     },
 
-    // frame0 = first frame in the animals sheet (poses: walk A, walk B, eat, sleep; 5 frames per row)
+    // frame0 = first of its 12 frames in the animals sheet (13-animals.js says which is which); px = its walking-left
+    // frame's width in the sheet (tools/art/animals3q-import.js prints it); w = that width on the map, in tiles
     ANIMALS: {
       chicken: {
-        name: 'Chicken', price: 500, max: 4, feed: 'chicken_feed', product: 'egg', large: 'egg_l', icon: 'chicken', frame0: 0,
+        name: 'Chicken', price: 500, max: 4, feed: 'chicken_feed', product: 'egg', large: 'egg_l', icon: 'chicken', frame0: 0, px: 150, w: 0.8,
         speed: 230, reach: 0.6, height: 0.6, names: ['Clucky', 'Nugget', 'Pecky', 'Henrietta'], grow: 5, young: 'chick',
         desc: 'Lays an egg every morning after a day it was fed.', shop: 'Lays an egg when fed every day.', home: 'coop',
       },
       cow: {
-        name: 'Cow', price: 2000, max: 4, feed: 'fodder', product: 'milk', large: 'milk_l', icon: 'cow', frame0: 5,
+        name: 'Cow', price: 2000, max: 4, feed: 'fodder', product: 'milk', large: 'milk_l', icon: 'cow', frame0: 12, px: 157, w: 1.45,
         speed: 140, reach: 0.9, height: 1.0, names: ['Daisy', 'Bessie', 'Clover', 'Buttercup'], grow: 10, young: 'calf',
         desc: 'Gives milk every morning after a day it was fed.', shop: 'Gives milk when fed every day.', home: 'barn', milk: true,
       },
-      // sheet: these two are in the animals2 sheet (4 frames per row)
       pig: {
-        name: 'Pig', price: 1500, max: 2, feed: 'fodder', product: 'truffle', large: 'truffle', icon: 'pig', sheet: 'animals2', frame0: 0,
+        name: 'Pig', price: 1500, max: 2, feed: 'fodder', product: 'truffle', large: 'truffle', icon: 'pig', frame0: 24, px: 178, w: 1.1,
         speed: 160, reach: 0.7, height: 0.7, names: ['Oinky', 'Truffles', 'Porkchop', 'Peaches'], grow: 7, young: 'piglet',
         desc: 'Sniffs out a truffle every morning after a day it was fed.', shop: 'Finds a truffle when fed every day.', home: 'barn',
       },
       carabao: {
-        name: 'Carabao', price: 3000, max: 2, feed: 'fodder', product: 'carabao_milk', large: 'carabao_milk', icon: 'carabao', sheet: 'animals2', frame0: 4,
+        name: 'Carabao', price: 3000, max: 2, feed: 'fodder', product: 'carabao_milk', large: 'carabao_milk', icon: 'carabao', frame0: 36, px: 180, w: 1.55,
         speed: 120, reach: 1.0, height: 1.1, names: ['Kalabaw', 'Bantay', 'Dakila', 'Tikling'], grow: 10, young: 'calf',
         desc: 'Strong and gentle. Gives creamy milk every morning after a day it was fed.', shop: 'Gives carabao milk when fed every day.', home: 'barn', milk: true,
       },
@@ -282,7 +282,7 @@
     INCUBATE_DAYS: 3,
     PREGNANT_DAYS: 7,
     START_ANIMALS: ['chicken'],
-    DOG: { name: 'Biscuit', frame0: 10, speed: 520, reach: 0.6, height: 0.55 },
+    DOG: { name: 'Biscuit', frame0: 48, px: 158, w: 0.85, speed: 520, reach: 0.6, height: 0.55 },
 
     // Crops grow in real time (mins) once watered (owner, 29 Oct 2026: unwatered, a seed stays a seed; crops planted
     // before that grew dry, and watering made them faster: C.GROW.boost); a ripe crop withers if it is left too long

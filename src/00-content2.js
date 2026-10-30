@@ -61,8 +61,8 @@
   ];
 
   // ---------- pets ----------
-  C.HORSE = { name: 'Chestnut', frame0: 15, speed: 1.7, reach: 0.9, height: 1.0 };
-  C.CAT = { name: 'Mochi', frame0: 20, speed: 260, reach: 0.6, height: 0.4 };
+  C.HORSE = { name: 'Chestnut', frame0: 72, px: 168, w: 1.7, speed: 1.7, reach: 0.9, height: 1.0 };
+  C.CAT = { name: 'Mochi', frame0: 60, px: 174, w: 0.75, speed: 260, reach: 0.6, height: 0.4 };
 
   // ---------- furniture from Mira (bought outright; it appears in the farmhouse) ----------
   C.FURNITURE = {

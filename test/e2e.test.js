@@ -452,7 +452,7 @@ test('a pig and a carabao from the shop join the pen; the carabao is milked, the
   let s = await state(page);
   assert.deepStrictEqual(s.animals.map((a) => a.kind), ['chicken', 'pig', 'carabao']);
   assert.strictEqual(s.gold, 500);
-  assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals', 'animals2', 'animals2']);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals', 'animals', 'animals']);
   await page.evaluate(() => window.__gameBack());
   // fodder feeds them both; the next morning there is a truffle and carabao milk
   await hold(page, 'fodder');

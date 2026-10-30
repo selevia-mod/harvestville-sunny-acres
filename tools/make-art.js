@@ -64,7 +64,9 @@ const OUT = path.join(__dirname, '..', 'assets');
   if (errors.length) throw new Error(errors.join('\n'));
   fs.mkdirSync(path.join(OUT, 'props'), { recursive: true });
   // the full size of each WebP copy stored smaller (the game scales it back up)
-  const sizes = {};
+  // the animals are the owner's pictures now (tools/art/animals3q-import.js): those sheets are not redrawn here
+  ['animals', 'animals2'].forEach((name) => { delete sheets[name]; });
+  const sizes = JSON.parse(fs.readFileSync(path.join(OUT, 'sizes.json'), 'utf8'));
   Object.keys(sheets).forEach((name) => { if (sheets[name].size) sizes[name] = sheets[name].size; });
   fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes, null, 1) + '\n');
   Object.keys(sheets).forEach((name) => {

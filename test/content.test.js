@@ -320,7 +320,7 @@ test('the new animals and produce have icons, prices and a place in the shop', (
     assert.ok(C.SHOP_ANIMALS.includes(k) && C.ANIMAL_KEYS.includes(k), k);
     assert.strictEqual(typeof d.icon, 'number');
     assert.ok(C.ITEMS[d.product].sell > 0 && C.ITEMS[d.large], k);
-    assert.strictEqual(d.sheet, 'animals2');
+    assert.strictEqual(d.frame0 % 12, 0, 'a row of 12 frames in the animals sheet');
   });
   assert.strictEqual(C.ANIMAL_KEYS.slice(0, 2).join(), 'chicken,cow', 'older saves keep their animals');
   assert.strictEqual(C.ICON_ORDER.slice(0, 110).pop(), 'cat_basket', 'new icons are appended');
