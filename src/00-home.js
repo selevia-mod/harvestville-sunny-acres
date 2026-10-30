@@ -60,6 +60,10 @@
       { key: 'wolf_rug', name: 'Wolf Pelt Rug', w: 3, h: 2, foot: 0, place: 'flat', price: 0, beauty: 22, trophy: true, what: 'a grey wolf pelt rug lying flat on the floor' },
       { key: 'trophy_stag', name: 'White Stag Trophy', w: 2, h: 1, foot: 0, place: 'wall', price: 0, beauty: 40, trophy: true, what: 'shining white antlers on a dark wooden wall plaque' },
       { key: 'trophy_goldboar', name: 'Golden Boar Trophy', w: 2, h: 1, foot: 0, place: 'wall', price: 0, beauty: 45, trophy: true, what: 'two gleaming golden tusks on a dark wooden wall plaque' },
+      { key: 'trophy_rhino', name: 'Rhino Horn Trophy', w: 1, h: 1, foot: 0, place: 'wall', price: 0, beauty: 30, trophy: true, what: 'a heavy rhino horn on a round wooden wall plaque' },
+      { key: 'bear_rug', name: 'Bear Fur Rug', w: 3, h: 2, foot: 0, place: 'flat', price: 0, beauty: 32, trophy: true, what: 'a dark brown bear fur rug lying flat on the floor' },
+      { key: 'tiger_rug', name: 'Tiger Pelt Rug', w: 3, h: 2, foot: 0, place: 'flat', price: 0, beauty: 38, trophy: true, what: 'a striped orange tiger pelt rug lying flat on the floor' },
+      { key: 'trophy_mammoth', name: 'Mammoth Tusks', w: 2, h: 1, foot: 0, place: 'wall', price: 0, beauty: 55, trophy: true, what: 'two long crossed mammoth tusks on a dark wooden wall plaque' },
     ],
 
     // styles: the 5 regular ones (always in the catalog) and 5 festival editions (sold during their

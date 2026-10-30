@@ -106,6 +106,27 @@
     return { opened: next && L.wildOpen(s, next) ? next : null, kg: kg, record: !!old && tenths > old };
   };
 
+  // ---------- hunting with friends ----------
+  // One phone runs the animals of a place and tells the others where they are: whoever came first (ids settle a tie),
+  // so everyone works out the same answer from the presence list. Someone from before this update (no sn) cannot.
+  L.wildLead = function (list) {
+    var best = null;
+    (list || []).forEach(function (p) { if (p.sn && (!best || p.sn < best.sn || (p.sn === best.sn && p.id < best.id))) best = p; });
+    return best ? best.id : null;
+  };
+  var DIRS = ['down', 'up', 'side'], MODES = ['idle', 'graze', 'walk', 'flee', 'charge', 'eat', 'toBait'];
+  L.wildPack = function (a) {
+    return [a.slot, WI.order.indexOf(a.kind), Math.round(a.x), Math.round(a.y), DIRS.indexOf(a.dir), a.left ? 1 : 0, MODES.indexOf(a.mode), a.hp, Math.round(a.size * 100), a.look ? 1 : 0];
+  };
+  // (what comes off the live channel: anything that is not an animal is dropped)
+  L.wildUnpack = function (r) {
+    if (!Array.isArray(r) || r.length < 10 || r.slice(0, 9).some(function (v) { return typeof v !== 'number' || !isFinite(v); })) return null;
+    var kind = WI.order[r[1]], most = 400 * C.TILE;
+    if (!kind || r[0] < 0 || r[0] > 99 || r[0] !== Math.floor(r[0]) || !DIRS[r[4]] || !MODES[r[6]]) return null;
+    return { slot: r[0], kind: kind, x: Math.max(0, Math.min(most, r[2])), y: Math.max(0, Math.min(most, r[3])), dir: DIRS[r[4]], left: !!r[5], mode: MODES[r[6]],
+      hp: Math.max(0, Math.min(WI.animals[kind].hp, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9] };
+  };
+
   // ---------- Kanor's request of the day ----------
   L.wildJob = function (s) {
     var open = [true, L.wildOpen(s, 'makiling'), L.wildOpen(s, 'magayon')], pool = WI.jobs.filter(function (j) { return open[j[2] || 0]; });

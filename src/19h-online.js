@@ -176,6 +176,7 @@
       id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w && w.mapKey === 'mine' ? F.session.mineFloor : 0,
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
       pt: F.myParty() ? 1 : 0, // your birthday: they see you in the party hat
+      rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
     };
   };
 
@@ -261,6 +262,7 @@
       id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
+      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0),
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
     };
@@ -434,6 +436,7 @@
         if (r.tag.text !== tag) r.tag.setText(tag);
         return;
       }
+      O.dropHorse(r);
       r.spr.destroy();
       r.shadow.destroy();
       r.tag.destroy();
@@ -448,6 +451,29 @@
       r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
       w.remotes[id] = r;
     });
+  };
+
+  // A friend on their horse: it walks under them, as yours does under you (19-extras.js), and there is no second horse
+  // at the stable while the owner is out riding it.
+  O.dropHorse = function (r) {
+    if (!r.horse) return;
+    r.horse.sprite.destroy();
+    r.horse.sh.destroy();
+    r.horse = null;
+    r.shadow.setVisible(true);
+  };
+  O.drawRider = function (w, r, dir, moving, time) {
+    var A = F.Anim, side = dir === 'left' || dir === 'right', d = side ? 'side' : dir, flip = dir === 'right', hy = r.y + 20;
+    if (!r.horse) r.horse = { x: r.x, y: hy, sprite: A.image(w, r.x, hy, C.HORSE), sh: A.shadow(w, r.x, hy, C.HORSE) };
+    var h = r.horse, k = !moving ? A.FACING[d] : side ? (Math.floor(time / 130) % 2 ? 11 : 7) : A.FACING[d] + A.STEPS[Math.floor(time / 120) % 4];
+    h.x = r.x;
+    h.y = hy;
+    A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
+    h.sh.setPosition(h.x, h.y);
+    F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
+    r.spr.setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip).setPosition(r.x + (side ? (flip ? -30 : 30) : 0), r.y - (side ? 350 : d === 'up' ? 330 : 370));
+    F.depthTo(r.spr, DEPTH.actor + r.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005));
+    r.shadow.setVisible(false);
   };
 
   O.showEmote = function (id, kind) {
@@ -478,33 +504,43 @@
       if (!at && moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
       var key = F.sheetFor(r.look, p.pt);
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended
-      var anim = moving ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
+      r.speed = at ? at.speed : 0;
+      var anim = moving && !p.rd ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
       if (anim !== r.anim) {
         r.anim = anim;
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
       }
       if (at && at.moving) r.spr.anims.timeScale = 0.55 + 0.65 * Math.min(1, at.speed / C.SPEED); // (slow steps on a gentle push, like your own)
-      F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       r.shadow.setPosition(r.x, r.y + 16);
-      r.tag.setPosition(r.x, r.y - 1.45 * T);
+      if (p.rd) O.drawRider(w, r, dir, moving, w.time.now);
+      else {
+        O.dropHorse(r);
+        F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
+      }
+      r.tag.setPosition(r.x, r.y - (p.rd ? 2.2 : 1.45) * T);
     });
+    if (w.horse && w.state.isVisit) { // (their horse is out with them)
+      var boss = this.others[this.hostId()], out = !!(boss && boss.rd);
+      w.horse.sprite.setVisible(!out);
+      w.horse.sh.setVisible(!out);
+    }
     if (!this.chan || w.busy) return;
     // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
     var alone = true;
     var fl = w.mapKey === 'mine' ? F.session.mineFloor : 0;
     for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
     if (alone && !(Object.keys(this.others).length && this.last && (this.last.map !== w.mapKey || this.last.fl !== fl))) return;
-    var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir;
+    var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir || !!last.rd !== !!F.session.riding;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
     if (moved) {
-      this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, fl: fl, m: 1 };
+      this.last = { x: f.x, y: f.y, dir: w.dir, map: w.mapKey, fl: fl, m: 1, rd: F.session.riding ? 1 : 0 };
       this.mvMs = ON.moveEvery;
-      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now() });
+      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 1, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });
     } else if (last && last.m) {
       last.m = 0; // stopped: say so, and leave our place in the presence list for anyone who joins later
-      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now() });
+      this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });
       this.chan.track(this.myState());
     }
   };
@@ -615,8 +651,9 @@
     this.remotes = {};
     O.last = null;
     O.mvMs = 0;
+    O.mapAt = Date.now();
     if (O.on) O.ensureChannel();
-    if (v && F.ui) F.ui.toast(this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+    if (v && F.ui) F.ui.toast(L.isWildMap(this.mapKey) ? 'Hunting with ' + v.name + '. Tap Home to go back to your farm.' : this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
   var update = P.update;
@@ -674,7 +711,7 @@
         O.restartWorld();
         return;
       }
-      if (v.inTown && to !== 'town' && to !== 'mine') { O.leaveVisit(null, to, spawn, floor); return; } // (their house: Home)
+      if (v.inTown && to !== 'town' && to !== 'mine' && !L.isWildMap(to)) { O.leaveVisit(null, to, spawn, floor); return; } // (their house: Home)
     }
     if (visiting(this) && to !== 'farm' && to !== 'house' && to !== 'town') { if (!this.busy) O.leaveVisit(null, to, spawn, floor); return; }
     return travel.call(this, to, spawn, floor);

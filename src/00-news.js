@@ -19,7 +19,8 @@
         ['antler', "Kanor's requests", 'A new request every day pays well. He also makes trophies for your house from rare drops.'],
         ['book', "Hunter's Book", 'Every animal has its own size. Your biggest of each is saved, and friends can see it.'],
         ['white_antler', 'Rare animals', 'A White Stag or a Golden Boar shows up now and then. Rain, dawn, dusk and fall bring out more.'],
-        ['sparkle', 'Friends walk smoothly', 'Friends on your farm no longer stop and start, and friends on a horse no longer jump.'],
+        ['bow', 'Hunt with friends', 'A friend goes hunting: join them from their farm. Same animals, and everyone who hits one shares the hunt.'],
+        ['sparkle', 'Friends walk smoothly', 'Friends on your farm no longer stop and start, and you see them riding their horses.'],
       ],
     },
     {

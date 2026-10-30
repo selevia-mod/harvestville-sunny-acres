@@ -774,6 +774,122 @@ test('online: a friend walks smoothly on your screen: no stops and starts, no fl
   await Promise.all([owner.context.close(), guest.context.close()]);
 });
 
+test('online: a friend on a horse: you see it under them, and see it go when they get off', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const state = () => guest.page.evaluate(() => {
+    const r = Object.values(Farm.world.remotes)[0];
+    return { horse: !!(r.horse && r.horse.sprite.visible), shadow: r.shadow.visible, x: r.horse ? r.horse.x - r.x : null };
+  });
+  assert.strictEqual(await owner.page.evaluate(() => { Farm.session.riding = true; return Farm.Online.myState().rd; }), 1, 'told in the presence list');
+  await owner.page.evaluate(() => Farm.Online.chan.track(Farm.Online.myState()));
+  await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !!r.horse; }, null, SLOW);
+  assert.deepStrictEqual(await state(), { horse: true, shadow: false, x: 0 });
+  await owner.page.evaluate(() => { Farm.session.riding = false; Farm.Online.chan.track(Farm.Online.myState()); });
+  await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !r.horse; }, null, SLOW);
+  assert.deepStrictEqual(await state(), { horse: false, shadow: true, x: null });
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([owner.context.close(), guest.context.close()]);
+});
+
+test('online: hunting with friends: asked to join, the same animals on both phones, a hit shared, a charge felt, and the hunt goes on when the first hunter leaves (owner, 30 Oct)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  // the owner walks to town and on to Pulag: the guest is asked once, and the road takes two steps
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /WENT TO TOWN/);
+  await tapButton(guest.page, 'Stay here');
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitModal(guest.page, /MOON MEADOW WENT HUNTING[\s\S]*Pulag Grassland\. Hunt together\?/);
+  await tapButton(guest.page, 'Join them');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild && Farm.world.wild.animals.length > 0, null, SLOW);
+  await waitRemotes(host.page, ['Ana Acres']);
+  // one phone runs it: the first there. The other shows the same animals, the same size, in about the same place.
+  const herd = (page) => page.evaluate(() => Farm.world.wild.animals.map((a) => [a.slot, a.kind, Math.round(a.size * 100)]).sort((x, y) => x[0] - y[0]));
+  assert.strictEqual(await host.page.evaluate(() => Farm.world.wildFollowing()), null);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), host.uid);
+  await guest.page.waitForFunction((n) => Farm.world.wild.animals.length === n, await host.page.evaluate(() => Farm.world.wild.animals.length), SLOW);
+  assert.deepStrictEqual(await herd(guest.page), await herd(host.page));
+  // the guest's arrow takes down an animal the owner never touched: it is the guest's hunt, and gone for both
+  const hold = (slot) => host.page.evaluate((slot) => { // it stands still, hurt, on open ground
+    const w = Farm.world, a = w.wild.animals.filter((x) => x.slot === slot)[0], T = Farm.Config.TILE;
+    a.def = Object.assign({}, a.def, { shy: 0, angry: 0 });
+    a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; a.hp = 1;
+    return { x: a.x, y: a.y, T };
+  }, slot);
+  const shootAt = async (who, slot, at) => {
+    await who.page.evaluate(([slot, at]) => {
+      const w = Farm.world, T = at.T;
+      w.setFeet(at.x - 1.2 * T, at.y);
+      w.dir = 'right';
+      w.idle();
+    }, [slot, at]);
+    await frames(who.page, 3);
+    await who.page.evaluate(() => Farm.world.shoot());
+  };
+  const first = (await herd(host.page)).filter((a) => a[1] === 'rabbit' || a[1] === 'deer')[0][0];
+  const at = await hold(first);
+  await guest.page.waitForFunction((slot) => { const a = Farm.world.wild.animals.filter((x) => x.slot === slot)[0]; return a && a.mode === 'idle' && a.path; }, first, SLOW);
+  await new Promise((r) => setTimeout(r, 900)); // (it has come to rest on the guest's phone)
+  await shootAt(guest, first, at);
+  const gone = (page, slot) => page.waitForFunction((slot) => !Farm.world.wild.animals.some((x) => x.slot === slot), slot, SLOW);
+  await gone(host.page, first);
+  await gone(guest.page, first);
+  await guest.page.waitForFunction(() => Farm.world.wildDrops.length > 0, null, SLOW);
+  const counts = (page) => page.evaluate(() => ({ n: Farm.session.state.wild.n, drops: Farm.world.wildDrops.length }));
+  assert.strictEqual((await counts(guest.page)).n, 1, 'the guest hunted it');
+  assert.deepStrictEqual(await counts(host.page), { n: 0, drops: 0 }, 'nothing for the owner, who never hit it');
+  await waitToast(host.page, /Ana Acres got the /);
+  // both hit one: it is a hunt for both, and each has their own drops
+  const second = (await herd(host.page)).filter((a) => a[1] === 'rabbit' || a[1] === 'deer')[0][0];
+  const at2 = await hold(second);
+  await host.page.evaluate((slot) => { const w = Farm.world, a = w.wild.animals.filter((x) => x.slot === slot)[0]; a.hp = 2; a.def = Object.assign({}, a.def); w.wildStruck(a); a.mode = 'idle'; a.vx = a.vy = 0; a.t = 1e9; }, second);
+  await new Promise((r) => setTimeout(r, 900));
+  await shootAt(guest, second, at2);
+  await gone(host.page, second);
+  await guest.page.waitForFunction(() => Farm.session.state.wild.n === 2, null, SLOW);
+  await host.page.waitForFunction(() => Farm.session.state.wild.n === 1 && Farm.world.wildDrops.length > 0, null, SLOW);
+  // a charge that reaches a friend costs THEM the energy
+  const before = await guest.page.evaluate(() => Farm.session.state.energy);
+  await host.page.evaluate((id) => { const w = Farm.world, a = w.wild.animals[0]; a.def = Object.assign({}, a.def, { hit: 7 }); w.wildBump(a, { id, x: a.x + 10, y: a.y }); }, guest.uid);
+  await guest.page.evaluate(() => { const a = Farm.world.wild.animals[0]; a.def = Object.assign({}, a.def, { hit: 7 }); });
+  await guest.page.waitForFunction((was) => Farm.session.state.energy < was, before, SLOW);
+  // the owner goes back to town: the guest's phone takes over the animals, which go on moving, and is asked
+  const left = (await herd(guest.page)).length;
+  await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.wildKeep(); Farm.Online.follow('town'); });
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /MOON MEADOW LEFT[\s\S]*went back to town\. Follow them\?/);
+  await tapButton(guest.page, 'Stay here');
+  await guest.page.waitForFunction(() => Farm.world.wildFollowing() === null && Farm.world.wild.animals.every((a) => a.t < 1e8), null, SLOW);
+  assert.ok((await herd(guest.page)).length >= left, 'nothing vanished');
+  const spot = () => guest.page.evaluate(() => Farm.world.wild.animals.map((a) => Math.round(a.x) + ':' + Math.round(a.y)).join());
+  const was = await spot();
+  await guest.page.waitForFunction((w) => Farm.world.wild.animals.map((a) => Math.round(a.x) + ':' + Math.round(a.y)).join() !== w, was, SLOW);
+  // Home from the hunt: what lay on the ground comes along
+  const bagged = await guest.page.evaluate(() => { const w = Farm.world; w.dropWild('venison', w.feet().x + 256 * 3, w.feet().y); return Farm.Logic.countItem(Farm.session.state, 'venison'); });
+  await guest.page.evaluate(() => Farm.Online.leaveVisit());
+  await guest.page.waitForFunction(() => !Farm.session.visit && !Farm.world.busy && Farm.world.mapKey === 'farm', null, SLOW);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'venison')), bagged + 1);
+  assert.deepStrictEqual(guest.problems, []);
+  assert.deepStrictEqual(host.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
 test('online: visitors follow the owner to town and into the mine: asked, Follow, both see each other there, on the same rocks', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);

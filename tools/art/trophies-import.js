@@ -1,7 +1,7 @@
 'use strict';
 // What the hunting game adds to the older sheets (owner, 30 Oct 2026), without redrawing them:
 //   art-src/icons/white_antler.png, gold_tusk.png  the antler and tusk icons, recoloured, and painted into items.png/.webp
-//   furn_0.png/.webp  the 5 trophies (C.WILD.trophies), in the classic sheet's cells for their C.HOME.types index
+//   furn_0.png/.webp  the trophies (C.WILD.trophies), in the classic sheet's cells for their C.HOME.types index
 // The owner's pictures are art-src/trophies/<type>.png (prompts: art-src/TROPHY-PROMPTS.md): stray specks are dropped,
 // the picture is trimmed and fitted to its wall or floor space without stretching. A trophy with no picture yet is its
 // icon on a wooden plaque. Run it again after npm run art, which redraws furn_0 and items.
@@ -21,7 +21,8 @@ fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forE
 const C = ctx.window.Farm.Config;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const CELL = 384, U = 128, GAP = 16;
-const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_wolf', trophy_stag: 'white_antler', trophy_goldboar: 'gold_tusk' };
+const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_wolf', trophy_stag: 'white_antler', trophy_goldboar: 'gold_tusk',
+  trophy_rhino: 'horn_rhino', bear_rug: 'fur_bear', tiger_rug: 'pelt_tiger', trophy_mammoth: 'tusk_mammoth' };
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();

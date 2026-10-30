@@ -340,3 +340,26 @@ test('every wild map: all its open ground can be walked to from the way in, and 
   });
 });
 
+
+test('hunting with friends: whoever came first runs the hunt, and every phone works out the same answer', () => {
+  const list = [{ id: 'b', sn: 200 }, { id: 'a', sn: 300 }, { id: 'c', sn: 100 }];
+  assert.strictEqual(L.wildLead(list), 'c');
+  assert.strictEqual(L.wildLead(list.slice().reverse()), 'c');
+  assert.strictEqual(L.wildLead([{ id: 'b', sn: 100 }, { id: 'a', sn: 100 }]), 'a', 'a tie');
+  assert.strictEqual(L.wildLead([{ id: 'old', sn: 0 }, { id: 'me', sn: 500 }]), 'me', 'someone from before this update cannot run it');
+  assert.strictEqual(L.wildLead([]), null);
+});
+
+test('hunting with friends: an animal survives the trip, and junk off the channel is dropped', () => {
+  const a = { slot: 3, kind: 'deer', x: 1234.6, y: 88.2, dir: 'side', left: true, mode: 'flee', hp: 2, size: 1.27, look: true };
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(L.wildUnpack(JSON.parse(JSON.stringify(L.wildPack(a)))))),
+    { slot: 3, kind: 'deer', x: 1235, y: 88, dir: 'side', left: true, mode: 'flee', hp: 2, size: 1.27, look: true });
+  const good = L.wildPack(a);
+  [null, 'x', [], good.slice(0, 5), good.map((v, i) => (i === 1 ? 99 : v)), good.map((v, i) => (i === 0 ? -1 : v)), good.map((v, i) => (i === 0 ? 1.5 : v)),
+    good.map((v, i) => (i === 4 ? 9 : v)), good.map((v, i) => (i === 6 ? 9 : v)), good.map((v, i) => (i === 2 ? 'x' : v)), good.map((v, i) => (i === 3 ? null : v))]
+    .forEach((bad) => assert.strictEqual(L.wildUnpack(bad), null, JSON.stringify(bad)));
+  const wild = L.wildUnpack(good.map((v, i) => (i === 2 ? 1e12 : i === 7 ? 999 : i === 8 ? 9000 : v)));
+  assert.ok(wild.x <= 400 * C.TILE);
+  assert.strictEqual(wild.hp, C.WILD.animals.deer.hp);
+  assert.strictEqual(wild.size, 2);
+});

@@ -19,6 +19,12 @@
   WI.areas.makiling.shut = 'Makiling is wild boar and wolf country';
   WI.areas.makiling.opened = 'MAKILING FOREST IS OPEN\nKanor: "Ten hunts! You are ready for the forest. Follow the trail north. Mind the wild boars, and the wolves at night."';
   // jobs: the third value says what must be open first (1 Makiling, 2 Magayon)
+  WI.trophies.push(
+    { type: 'trophy_rhino', needs: [['horn_rhino', 2]], gold: 1500 },
+    { type: 'bear_rug', needs: [['fur_bear', 3], ['claw_bear', 2]], gold: 1500 },
+    { type: 'tiger_rug', needs: [['pelt_tiger', 3], ['claw_tiger', 2]], gold: 2000 },
+    { type: 'trophy_mammoth', needs: [['tusk_mammoth', 2]], gold: 3000 }
+  );
   WI.jobs.push(['fur_bear', 2, 2], ['claw_bear', 2, 2], ['wool_mammoth', 2, 2], ['pelt_tiger', 2, 2], ['hide_rhino', 2, 2]);
 
   var ITEMS = {

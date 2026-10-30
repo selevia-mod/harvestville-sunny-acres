@@ -5,7 +5,7 @@
 // hit. Each has its own size (a big one looks it); a hunted animal leaves meat and the like on the ground: walk over it to
 // pick it up (what is left goes in your bag when you leave). Bait draws a shy animal to eat. Kanor stands by his Lodge
 // in Pulag (6 AM to 10 PM): Bow, upgrades, arrows, bait, today's request, trophies; he buys what you hunt. Makiling
-// Forest opens after 10 hunts. Hunting is your own trip: not while visiting a friend.
+// Forest opens after 10 hunts. Friends hunt together (one phone runs the animals: see "hunting with friends" below).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -44,6 +44,8 @@
     c.refresh();
   };
   var mine = function () { return F.session.state; };
+  var O = F.Online;
+  var friendsHere = function (w) { return Object.keys(w.remotes || {}).length > 0; };
 
   // ---------- setting up a wild place ----------
   var create = P.create;
@@ -54,7 +56,8 @@
     this.wildBait = null;
     this.kanor = null;
     create.call(this);
-    if (!L.isWildMap(this.mapKey) || F.session.visit) return;
+    var v = F.session.visit;
+    if (!L.isWildMap(this.mapKey) || (v && !v.inTown)) return;
     this.setupWild();
     if (this.mapKey === 'pulag') this.setupKanor();
     if (this.mapKey === 'pulag' && !(window.gameHost && window.gameHost.quiet)) {
@@ -82,6 +85,7 @@
     arrowTexture(this);
     this.wild = { zone: zone, animals: [], next: rand(WI.arrive[0], WI.arrive[1]), prints: [], ring: this.add.image(0, 0, 'fx-ring').setVisible(false).setDepth(DEPTH.shadow + 0.1).setTint(0xffd24a),
       hint: this.add.image(0, 0, 'fx-huntarrow').setVisible(false).setDepth(DEPTH.fx).setScale(2.4) };
+    if (this.wildFollowing()) return; // a friend here runs the hunt: their animals are on the way
     var f = this.feet(), rare = null;
     L.wildHere(s, this.mapKey).forEach(function (e) {
       var p = self.wildSpot(zone, f, 6);
@@ -206,10 +210,10 @@
     return this.inMap(x, y) && this.walkable(x, y) && !this.blocked[this.idx(x, y)];
   };
 
-  P.addWildAnimal = function (kind, slot, x, y) {
-    var def = WI.animals[kind], size = def.rare ? 1 : L.wildSize(Math.random), scale = def.w * T / def.px * size;
+  P.addWildAnimal = function (kind, slot, x, y, sized) {
+    var def = WI.animals[kind], size = sized || (def.rare ? 1 : L.wildSize(Math.random)), scale = def.w * T / def.px * size;
     var a = {
-      kind: kind, slot: slot, def: def, hp: def.hp, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
+      kind: kind, slot: slot, def: def, hp: def.hp, by: {}, mine: false, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
       dir: 'side', left: Math.random() < 0.5, look: false, fr: FACING.side, lift: 0, breath: rand(0, 6), scale: scale, size: size, trail: 0, hitT: 0, glow: 0,
       img: this.add.image(x, y, 'wild', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
       sh: this.add.image(x, y, 'wildshade', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setDepth(DEPTH.shadow),
@@ -245,20 +249,45 @@
     update.call(this, time, delta);
     if (!this.wild || this.busy || !this.sys.isActive()) return;
     var dt = Math.min(delta, 100);
-    var frozen = !F.ui || F.ui.blocking();
+    var busy = !F.ui || F.ui.blocking(), lead = this.wildFollowing(), crew = lead ? [] : this.wildCrew(!busy);
     var self = this;
-    this.wild.animals.slice().forEach(function (a) { self.updateWild(a, dt, frozen); });
+    this.wild.lead = lead;
+    this.wild.crew = crew;
+    this.wild.animals.slice().forEach(function (a) {
+      if (lead) self.wildCopy(a, dt);
+      else if (a.hp <= 0) self.wildDown(a); // (they ran the hunt until a moment ago)
+      else self.updateWild(a, dt, !crew.length);
+    });
     this.updateArrows(dt);
     this.updatePrints(dt);
     this.updateAim(time);
-    if (!frozen) { this.pickWildDrops(); this.wildArrive(dt); }
+    if (!busy) this.pickWildDrops();
+    if (!busy && !lead) this.wildArrive(dt);
+    if (!lead) this.wildTell(dt);
     if (this.wildBait && Date.now() > this.wildBait.until) { this.wildBait.img.destroy(); this.wildBait = null; }
     if (this.kanor) this.updateKanor();
   };
 
+  // Who the animals can see: you (not while a menu is open) and the friends on this map.
+  P.wildCrew = function (me) {
+    var list = [], self = this;
+    if (me) {
+      var f = this.feet();
+      list.push({ me: true, x: f.x, y: f.y, speed: Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y) });
+    }
+    Object.keys(this.remotes || {}).forEach(function (id) { var r = self.remotes[id]; list.push({ id: id, x: r.x, y: r.y, speed: r.speed || 0 }); });
+    return list;
+  };
+
   P.updateWild = function (a, dt, frozen) {
-    var f = this.feet(), dx = a.x - f.x, dy = a.y - f.y, d = Math.hypot(dx, dy) / T, def = a.def;
-    var speed = Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y), sneaking = speed < C.SPEED * 0.6;
+    var f = null, bd = Infinity;
+    (this.wild.crew || []).forEach(function (c) {
+      var cd = Math.hypot(a.x - c.x, a.y - c.y);
+      if (cd < bd) { bd = cd; f = c; }
+    });
+    f = f || this.feet();
+    var dx = a.x - f.x, dy = a.y - f.y, d = Math.hypot(dx, dy) / T, def = a.def;
+    var sneaking = (f.speed || 0) < C.SPEED * 0.6;
     a.t -= dt;
     a.cool = Math.max(0, a.cool - dt);
     if (!frozen) {
@@ -268,7 +297,7 @@
         var len = Math.max(1, Math.hypot(dx, dy));
         a.vx = -dx / len * def.run * T;
         a.vy = -dy / len * def.run * T;
-        if (d < 0.7) this.wildHit(a);
+        if (d < 0.7) { if (f.id) this.wildBump(a, f); else this.wildHit(a); }
       }
     }
     if (a.mode === 'toBait' && this.wildBait) {
@@ -292,6 +321,10 @@
         if (a.trail > 0.6 * T) { a.trail = 0; this.wildPrint(a); }
       }
     }
+    this.wildShow(a, d, dt);
+  };
+
+  P.wildShow = function (a, d, dt) {
     var fr = this.wildPose(a, d), was = a.fr, flip = fr >= 6 && fr !== 9 && !a.left;
     a.fr = fr;
     a.img.setFrame(frameOf(a.kind, fr)).setFlipX(flip);
@@ -379,14 +412,24 @@
     this.cameras.main.shake(160, 0.004);
     var nx = f.x + dx / len * 0.6 * T, ny = f.y + dy / len * 0.6 * T;
     if (this.walkable(Math.floor(nx / T), Math.floor(ny / T))) this.setFeet(nx, ny);
+    this.wildBack(a, f);
+    F.bus.emit('hud');
+    this.changed();
+    if (s.energy <= 0) this.faint();
+  };
+
+  P.wildBack = function (a, f) {
+    var dx = f.x - a.x, dy = f.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
     a.mode = 'walk';
     a.vx = -dx / len * a.def.walk * T;
     a.vy = -dy / len * a.def.walk * T;
     a.t = 2500;
     a.cool = 5000;
-    F.bus.emit('hud');
-    this.changed();
-    if (s.energy <= 0) this.faint();
+  };
+  // A charge reached a friend: it is their phone that loses the energy.
+  P.wildBump = function (a, f) {
+    O.send('wb', { s: a.slot, to: f.id });
+    this.wildBack(a, f);
   };
 
   // ---------- the Bow ----------
@@ -433,13 +476,19 @@
     var d = this.dirVec(), x = f.x + d[0] * 0.4 * T, y = f.y - 0.55 * T + d[1] * 0.3 * T;
     if (target) ang = Math.atan2((target.y - 0.3 * target.def.w * T) - y, target.x - x);
     else ang = Math.atan2(d[1], d[0]);
-    F.ensureTexture(this, 'props/arrow_fly');
-    var img = this.add.image(x, y, 'props/arrow_fly').setDisplaySize(0.85 * T, 0.28 * T).setRotation(ang).setDepth(DEPTH.fx);
-    this.wildArrows.push({ img: img, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: L.bowRange(s) * T });
+    this.wildArrow(x, y, ang, L.bowRange(s) * T, false);
+    if (friendsHere(this)) O.send('ar', { x: Math.round(x), y: Math.round(y), a: ang, l: L.bowRange(s) * T });
     this.idle();
     sfx('swoosh');
     F.bus.emit('hud');
     this.changed();
+  };
+
+  // (shown: a friend's arrow, seen on your phone. Their phone says what it hit.)
+  P.wildArrow = function (x, y, ang, left, shown) {
+    F.ensureTexture(this, 'props/arrow_fly');
+    var img = this.add.image(x, y, 'props/arrow_fly').setDisplaySize(0.85 * T, 0.28 * T).setRotation(ang).setDepth(DEPTH.fx);
+    this.wildArrows.push({ img: img, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: left, shown: shown });
   };
 
   P.updateArrows = function (dt) {
@@ -451,8 +500,8 @@
       ar.left -= step;
       ar.img.setPosition(ar.x, ar.y);
       var hit = null;
-      (self.wild ? self.wild.animals : []).forEach(function (a) {
-        if (!hit && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
+      (self.wild && !ar.shown ? self.wild.animals : []).forEach(function (a) {
+        if (!hit && a.hp > 0 && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
       });
       if (hit) { ar.img.destroy(); self.wildStruck(hit); return false; }
       if (ar.left <= 0) {
@@ -463,37 +512,60 @@
     });
   };
 
-  P.wildStruck = function (a) {
-    var s = this.state;
-    a.hp -= L.bowDamage(s);
+  P.wildBar = function (a) {
+    if (a.bar || a.hp <= 0) return;
+    a.bar = { bg: this.add.rectangle(a.x, a.y, BAR_W + 12, BAR_H + 12, 0x2e1c0c, 0.85).setDepth(DEPTH.fx),
+      fill: this.add.rectangle(a.x, a.y, BAR_W, BAR_H, 0xe5484d).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
+  };
+
+  // Your arrow hit it, or (friend: { id, d, x, y }) a friend's did, heard by the phone running the hunt. Their arrows
+  // count on the phone that runs it, which says when it is down; everyone who hit it shares the hunt.
+  P.wildStruck = function (a, friend) {
+    var s = this.state, lead = this.wild.lead;
+    if (friend) {
+      a.hp -= friend.d;
+      a.by[friend.id] = 1;
+    } else {
+      a.hp -= L.bowDamage(s);
+      a.mine = true;
+      if (lead) O.send('wh', { s: a.slot, d: L.bowDamage(s) });
+      sfx('chop');
+      this.cameras.main.shake(70, 0.0016);
+    }
     a.img.setTintFill(0xffffff);
     this.time.delayedCall(90, function () { if (a.img.active) a.img.clearTint(); });
-    sfx('chop');
     a.hitT = HIT_MS;
-    this.cameras.main.shake(70, 0.0016);
     if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
+    this.wildBar(a);
+    if (lead) return;
     if (a.hp > 0) {
-      if (!a.bar) {
-        a.bar = { bg: this.add.rectangle(a.x, a.y, BAR_W + 12, BAR_H + 12, 0x2e1c0c, 0.85).setDepth(DEPTH.fx),
-          fill: this.add.rectangle(a.x, a.y, BAR_W, BAR_H, 0xe5484d).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
-      }
-      if (a.def.angry) { a.cool = 0; this.wildCharge(a); } else this.wildFlee(a, this.feet());
+      if (a.def.angry) { a.cool = 0; this.wildCharge(a); } else this.wildFlee(a, friend || this.feet());
       return;
     }
     this.wildDown(a);
   };
 
+  P.wildGone = function (a) {
+    this.wild.animals.splice(this.wild.animals.indexOf(a), 1);
+    a.img.destroy();
+    a.sh.destroy();
+    if (a.bar) { a.bar.bg.destroy(); a.bar.fill.destroy(); }
+  };
+
   // Hunted: a puff, its things on the ground, and its slot waits for it to come back.
   P.wildDown = function (a) {
     var self = this, s = this.state;
-    this.wild.animals.splice(this.wild.animals.indexOf(a), 1);
+    if (!this.wild.lead && friendsHere(this)) O.send('wd', { s: a.slot, by: Object.keys(a.by).concat(a.mine ? [O.me.id] : []) });
     for (var i = 0; i < 8; i++) {
       var c = this.add.circle(a.x + rand(-0.4, 0.4) * T, a.y - rand(0.1, 0.6) * T, rand(20, 34), 0xfff6e0).setDepth(DEPTH.fx);
       this.tweens.add({ targets: c, y: c.y - rand(60, 140), alpha: 0, scale: 1.6, duration: rand(350, 600), onComplete: function (tw, t) { t[0].destroy(); } });
     }
-    a.img.destroy();
-    a.sh.destroy();
-    if (a.bar) { a.bar.bg.destroy(); a.bar.fill.destroy(); }
+    this.wildGone(a);
+    if (!a.mine) { // a friend's: nothing of yours in it
+      var who = O.others[Object.keys(a.by)[0]];
+      if (who) F.ui.toast(who.name + ' got the ' + a.def.name + '!', 2000);
+      return;
+    }
     sfx('pick');
     L.huntDrops(a.kind, Math.random).forEach(function (d) {
       for (var k = 0; k < d[1]; k++) self.dropWild(d[0], a.x + rand(-0.6, 0.6) * T, a.y + rand(-0.3, 0.4) * T);
@@ -543,25 +615,16 @@
 
   // Leaving: what is still on the ground goes in your bag (the rest waits in your basket at home).
   var travel = P.travel;
+  var friendOn = function (to) { return Object.keys(O.others).some(function (id) { return O.others[id].map === to; }); };
   P.travel = function (to, spawn, floor) {
     var s = this.state;
-    if (L.isWildMap(to) && F.session.visit) return F.ui.toast('Hunting is your own trip: go from your own farm.');
-    if (L.isWildMap(to) && !L.wildOpen(s, to)) {
+    if (L.isWildMap(to) && !L.wildOpen(s, to) && !friendOn(to)) { // (a friend there takes you along)
       var f = this.feet();
       this.setFeet(f.x, f.y + 0.9 * T);
       this.player.body.setVelocity(0, 0);
       return F.ui.toast('Kanor: "' + WI.areas[to].shut + '. Come after ' + WI.areas[to].unlock + ' hunts (' + s.wild.n + ' so far)."', 3200);
     }
-    if (this.wildDrops && this.wildDrops.length && !this.busy) {
-      var left = 0;
-      this.wildDrops.forEach(function (d) {
-        if (L.canAdd(s, d.id, 1)) L.addItem(s, d.id, 1);
-        else { s.basket[d.id] = Math.min(999, (s.basket[d.id] || 0) + 1); left++; }
-        L.discover(s, d.id);
-      });
-      this.wildDrops = [];
-      if (left) F.ui.toast(left + (left > 1 ? ' things' : ' thing') + ' did not fit in your bag: they wait in your basket at home.', 3200);
-    }
+    if (!this.busy) this.wildKeep();
     return travel.call(this, to, spawn, floor);
   };
 
@@ -570,12 +633,151 @@
     var s = this.state, pt = this.front(0.8);
     if (this.wildBait) return F.ui.toast('There is bait down already.');
     L.removeItem(s, 'bait', 1);
-    var img = this.add.image(pt.x, pt.y, 'items', C.ICON.bait).setScale(0.7).setDepth(DEPTH.actor + pt.y / 1e5);
-    this.wildBait = { x: pt.x, y: pt.y, img: img, until: Date.now() + WI.baitMins * 60000 + 30000 };
-    var shy = this.wild.animals.filter(function (a) { return a.def.shy; }).sort(function (a, b) { return Math.hypot(a.x - pt.x, a.y - pt.y) - Math.hypot(b.x - pt.x, b.y - pt.y); })[0];
-    if (shy && Math.hypot(shy.x - pt.x, shy.y - pt.y) < 9 * T) { shy.mode = 'toBait'; shy.t = 20000; }
+    this.layBait(pt.x, pt.y);
+    if (friendsHere(this)) O.send('bt', { x: Math.round(pt.x), y: Math.round(pt.y) });
     F.ui.toast('Bait down. Step back and wait: a shy animal may come to eat.', 2600);
     this.changed();
+  };
+  P.layBait = function (x, y) {
+    var img = this.add.image(x, y, 'items', C.ICON.bait).setScale(0.7).setDepth(DEPTH.actor + y / 1e5);
+    this.wildBait = { x: x, y: y, img: img, until: Date.now() + WI.baitMins * 60000 + 30000 };
+    if (this.wild.lead) return;
+    var shy = this.wild.animals.filter(function (a) { return a.def.shy; }).sort(function (a, b) { return Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y); })[0];
+    if (shy && Math.hypot(shy.x - x, shy.y - y) < 9 * T) { shy.mode = 'toBait'; shy.t = 20000; }
+  };
+
+  P.wildKeep = function () {
+    var s = this.state, left = 0;
+    if (!this.wildDrops || !this.wildDrops.length) return;
+    this.wildDrops.forEach(function (d) {
+      if (L.canAdd(s, d.id, 1)) L.addItem(s, d.id, 1);
+      else { s.basket[d.id] = Math.min(999, (s.basket[d.id] || 0) + 1); left++; }
+      L.discover(s, d.id);
+    });
+    this.wildDrops = [];
+    if (left) F.ui.toast(left + (left > 1 ? ' things' : ' thing') + ' did not fit in your bag: they wait in your basket at home.', 3200);
+  };
+  // (Home, on a hunt with a friend, leaves by a different door)
+  var leaveVisit = O.leaveVisit;
+  O.leaveVisit = function (why, to, spawn, floor) {
+    if (F.world && F.world.wildKeep && F.session.visit && F.session.visit.inTown) F.world.wildKeep();
+    return leaveVisit.call(O, why, to, spawn, floor);
+  };
+
+  // ---------- hunting with friends ----------
+  // Who runs the hunt here, if it is not you.
+  P.wildFollowing = function () {
+    if (!O.on || !O.me) return null;
+    var list = [{ id: O.me.id, sn: O.mapAt }], map = this.mapKey;
+    Object.keys(O.others).forEach(function (id) { var p = O.others[id]; if (p.map === map) list.push(p); });
+    var lead = L.wildLead(list);
+    return lead && lead !== O.me.id ? lead : null;
+  };
+
+  // Running it: where the animals are, four times a second, for anyone here.
+  P.wildTell = function (dt) {
+    var w = this.wild;
+    w.sent = (w.sent || 0) - dt;
+    if (w.sent > 0 || !friendsHere(this)) return;
+    w.sent = C.ONLINE.moveEvery;
+    O.send('wa', { t: Date.now(), l: w.animals.map(L.wildPack) });
+  };
+
+  // Following it: each animal is drawn a moment in the past, between two reports, as friends are (L.trailAt). The report
+  // rides in the trail as its dir, so an animal turns and bolts at the moment it is seen to.
+  P.wildHear = function (t, rows) {
+    var self = this, list = this.wild.animals, seen = {}, now = Date.now();
+    (Array.isArray(rows) ? rows.slice(0, 60) : []).map(L.wildUnpack).forEach(function (r) {
+      if (!r) return;
+      seen[r.slot] = true;
+      var a = list.filter(function (x) { return x.slot === r.slot; })[0];
+      if (a && a.kind !== r.kind) { self.wildGone(a); a = null; }
+      if (!a) { a = self.addWildAnimal(r.kind, r.slot, r.x, r.y, r.size); a.img.setAlpha(0); a.sh.setAlpha(0); a.fade = 0; a.left = r.left; }
+      a.path = a.path || { list: [], off: 0, heard: 0 };
+      L.trailNote(a.path, { t: t, x: r.x, y: r.y, dir: r, m: 1 }, now);
+      if (r.hp < a.hp) { a.hp = r.hp; self.wildBar(a); }
+    });
+    list.slice().forEach(function (a) { if (!seen[a.slot]) self.wildGone(a); });
+  };
+  P.wildCopy = function (a, dt) {
+    var at = L.trailAt(a.path, Date.now()), f = this.feet(), vx = 0, vy = 0;
+    if (at) {
+      var dx = at.x - a.x, dy = at.y - a.y, k = Math.hypot(dx, dy) > 6 * T ? 1 : 1 - Math.exp(-dt / 60);
+      vx = dx * k / Math.max(1, dt) * 1000;
+      vy = dy * k / Math.max(1, dt) * 1000;
+      a.x += dx * k;
+      a.y += dy * k;
+      a.dir = at.dir.dir;
+      a.left = at.dir.left;
+      a.mode = at.dir.mode;
+      a.look = at.dir.look;
+    }
+    var going = Math.hypot(vx, vy) > 0.15 * T;
+    a.vx = going ? vx : 0;
+    a.vy = going ? vy : 0;
+    if (going) {
+      a.step += dt;
+      a.trail += Math.hypot(vx, vy) * dt / 1000;
+      if (a.trail > 0.6 * T && !(a.def.flies && a.mode === 'flee')) { a.trail = 0; this.wildPrint(a); }
+    }
+    this.wildShow(a, Math.hypot(a.x - f.x, a.y - f.y) / T, dt);
+  };
+
+  var HUNT_NEWS = { wa: 1, wh: 1, wd: 1, wb: 1, ar: 1, bt: 1 };
+  var onMessage = O.onMessage;
+  O.onMessage = function (event, payload) {
+    if (!HUNT_NEWS[event]) return onMessage.call(O, event, payload);
+    var p = payload && typeof payload === 'object' ? payload : {}, w = F.world, who = typeof p.id === 'string' ? O.others[p.id] : null;
+    if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey) return;
+    var lead = w.wildFollowing(), a = w.wild.animals.filter(function (x) { return x.slot === p.s; })[0];
+    if (event === 'wa') { if (lead === p.id) w.wildHear(Number(p.t) || Date.now(), p.l); return; }
+    if (event === 'ar') { if (isFinite(p.x) && isFinite(p.y) && isFinite(p.a)) w.wildArrow(Number(p.x), Number(p.y), Number(p.a), Math.min(8 * T, Number(p.l) || 0), true); return; }
+    if (event === 'bt') { if (isFinite(p.x) && isFinite(p.y) && !w.wildBait) w.layBait(Number(p.x), Number(p.y)); return; }
+    if (!a) return;
+    if (event === 'wh' && !lead && a.hp > 0) {
+      var r = w.remotes[p.id];
+      w.wildStruck(a, { id: p.id, d: Math.max(1, Math.min(20, Number(p.d) || 1)), x: r ? r.x : who.x, y: r ? r.y : who.y });
+    } else if (event === 'wd' && lead === p.id) {
+      var by = Array.isArray(p.by) ? p.by : [];
+      a.mine = by.indexOf(O.me.id) >= 0;
+      by.forEach(function (id) { if (id !== O.me.id) a.by[id] = 1; });
+      w.wildDown(a);
+    } else if (event === 'wb' && p.to === O.me.id) {
+      w.wildHit(a);
+    }
+  };
+
+  // A friend went hunting: "join them?" (once for each place, until you meet up there); the road may take a few steps.
+  O.askFollow = function (v, to, title, line, yes) {
+    v.asked = v.asked || {};
+    if (v.asked['map:' + to]) return;
+    v.asked['map:' + to] = 1;
+    var show = function () {
+      var w = F.world;
+      if (F.session.visit !== v || !w || w.mapKey === to) return;
+      if (F.ui.modals.length || w.busy) return setTimeout(show, 1200);
+      sfx('found');
+      F.ui.dialog(title + '\n' + line, [
+        { label: 'Stay here', color: 0xc0703a },
+        { label: yes, cb: function () { v.chase = to; O.follow(to); } },
+      ]);
+    };
+    show();
+  };
+  var hostMoved = O.hostMoved;
+  O.hostMoved = function (v, host) {
+    var w = F.world, to = host.map;
+    if (!w || w.busy || !F.ui) return;
+    if (to === w.mapKey) {
+      v.chase = null;
+      if (L.isWildMap(to) && v.asked) Object.keys(v.asked).forEach(function (k) { if (k.indexOf('map:') === 0) delete v.asked[k]; }); // (so the next trip asks again)
+      return;
+    }
+    if (v.chase === to) return O.follow(to);
+    var name = v.name, big = name.toUpperCase().slice(0, 18);
+    if (L.isWildMap(to)) return O.askFollow(v, to, big + ' WENT HUNTING', name + ' is hunting in ' + WI.areas[to].name + '. Hunt together?', 'Join them');
+    if (L.isWildMap(w.mapKey) && (to === 'town' || to === 'farm')) return O.askFollow(v, to, big + ' LEFT', name + ' went back to ' + (to === 'town' ? 'town' : 'the farm') + '. Follow them?', 'Follow');
+    return hostMoved.call(O, v, host);
   };
 
   // ---------- Kanor ----------
