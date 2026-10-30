@@ -15,11 +15,15 @@
   var U = F.UIScene.prototype;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var rand = function (a, b) { return a + Math.random() * (b - a); };
-  var FRAME_H = 320, FEET = 300; // a wild.png frame, and its feet line
+  var FRAME_H = 252, FEET = 233; // a wild.png frame, and its feet line (tools/art/wild3q-import.js)
   var ARROW_SPEED = 16 * T; // world units a second
   var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68;
 
-  var frameOf = function (kind, k) { return WI.order.indexOf(kind) * 4 + k; };
+  // An animal's 12 frames, drawn from above like the farmer: 0-2 walking toward you, 3-5 away, 6-8 to the left (stand,
+  // step, step), 9 facing you (alert; the wolf howls), 10 eating or sniffing, 11 running or flying away. 6-8, 10 and 11
+  // face left: flipped for the right.
+  var FACING = { down: 0, up: 3, side: 6 }, STEPS = [1, 0, 2, 0];
+  var frameOf = function (kind, k) { return WI.order.indexOf(kind) * 12 + k; };
   var mine = function () { return F.session.state; };
 
   // ---------- setting up a wild place ----------
@@ -76,10 +80,11 @@
     var def = WI.animals[kind], scale = def.w * T / def.px;
     var a = {
       kind: kind, slot: slot, def: def, hp: def.hp, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
-      img: this.add.image(x, y, 'wild', frameOf(kind, 2)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
+      dir: 'side', left: Math.random() < 0.5, look: false,
+      img: this.add.image(x, y, 'wild', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
       sh: this.add.image(x, y + 10, 'fx-shadow').setDepth(DEPTH.shadow).setScale(def.w * 0.8, 0.8).setAlpha(0.7),
     };
-    a.img.setFlipX(Math.random() < 0.5);
+    a.img.setFlipX(!a.left);
     this.wild.animals.push(a);
     this.drawWild(a);
     return a;
@@ -132,13 +137,29 @@
       var nx = a.x + a.vx * dt / 1000, ny = a.y + a.vy * dt / 1000;
       var ok = def.flies && a.mode === 'flee' ? this.wildInZone(nx, ny) : this.wildFree(Math.floor(nx / T), Math.floor(ny / T));
       if (ok) { a.x = nx; a.y = ny; } else if (a.mode === 'flee' || a.mode === 'charge') { a.vx = -a.vx * 0.5; a.vy = rand(-1, 1) * def.run * T; } else { a.vx = a.vy = 0; a.t = Math.min(a.t, 400); }
-      if (Math.abs(a.vx) > 4) a.img.setFlipX(a.vx > 0); // the art faces left
+      // the way it faces: sideways, or toward / away from you (a little give, so it does not flicker on a slant)
+      var ax = Math.abs(a.vx), ay = Math.abs(a.vy);
+      if (ax > ay * 1.2) a.dir = 'side'; else if (ay > ax * 1.2) a.dir = a.vy > 0 ? 'down' : 'up';
+      if (ax > 4) a.left = a.vx < 0;
       a.step += dt;
     }
-    var fast = a.mode === 'flee' || a.mode === 'charge';
-    var fr = !(a.vx || a.vy) ? (a.mode === 'eat' || a.mode === 'graze' ? 2 : 0) : fast ? (Math.floor(a.step / 140) % 2 ? 3 : 1) : Math.floor(a.step / 200) % 2;
-    a.img.setFrame(frameOf(a.kind, fr));
+    var fr = this.wildPose(a, d);
+    a.img.setFrame(frameOf(a.kind, fr)).setFlipX(fr >= 6 && fr !== 9 && !a.left);
     this.drawWild(a);
+  };
+
+  // Which of its 12 frames an animal shows: eating, looking up at you when you come near (or now and then), walking
+  // with its steps, or running away / charging in long leaps when it goes sideways.
+  P.wildPose = function (a, d) {
+    var def = a.def, fast = a.mode === 'flee' || a.mode === 'charge';
+    if (!(a.vx || a.vy)) {
+      if (a.mode === 'eat' || a.mode === 'graze') return 10;
+      if (a.mode === 'idle' && (a.look || d < (def.shy || def.angry) * 1.8)) return 9;
+      return FACING[a.dir];
+    }
+    if (def.flies && a.mode === 'flee') return 11;
+    if (fast && a.dir === 'side') return Math.floor(a.step / 130) % 2 ? 11 : 7;
+    return FACING[a.dir] + STEPS[Math.floor(a.step / (fast ? 110 : 180)) % 4];
   };
 
   P.wildInZone = function (x, y) {
@@ -151,7 +172,8 @@
     if (a.mode === 'eat' || a.mode === 'toBait') { a.mode = 'idle'; }
     if (a.mode === 'charge') a.cool = 4000;
     var r = Math.random();
-    if (r < 0.45) { a.mode = r < 0.25 ? 'graze' : 'idle'; a.vx = a.vy = 0; a.t = rand(1500, 4500); return; }
+    a.look = false;
+    if (r < 0.45) { a.mode = r < 0.25 ? 'graze' : 'idle'; a.look = r > 0.38; a.vx = a.vy = 0; a.t = rand(1500, 4500); return; }
     var ang = rand(0, Math.PI * 2);
     a.mode = 'walk';
     a.vx = Math.cos(ang) * a.def.walk * T;

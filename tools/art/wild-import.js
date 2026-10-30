@@ -1,7 +1,6 @@
 'use strict';
 // Wild Lands art (owner, 30 Oct 2026; prompts in art-src/WILD-LANDS-PROMPTS.md, pictures in art-src/wild/) into the
 // game, without rebuilding every sheet (npm run art redraws them all; this only adds the new pieces):
-//   assets/wild.png/.webp     the 5 animals, a row each, 4 frames of 384x320 (feet on the line at 300), like animals.png
 //   assets/kanor.png/.webp    Kanor's 3x3 walking frames of 256x384, like player.png
 //   art-src/icons/<name>.png  the 21 new icons (npm run art picks them up), and painted into assets/items.png/.webp
 //   assets/props/<name>.*     the props, the Lodge and the flying arrow, at 160 px a tile
@@ -22,7 +21,6 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx));
 const C = ctx.window.Farm.Config;
 
-const ANIMALS = C.WILD.order; // rows of wild.png
 const ICONS = [ // [picture, cols, rows, icon names in order]
   ['icons_wild.png', 4, 4, ['bow', 'bow_1', 'bow_2', 'bow_3', 'arrows', 'bait', 'meat_labuyo', 'meat_rabbit', 'venison', 'meat_boar',
     'feather_labuyo', 'fur_rabbit', 'antler', 'tusk', 'pelt_wolf', 'fang_wolf']],
@@ -130,19 +128,7 @@ window.W = {
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: LIB });
 
-  // ---------- the animals: wild.png, a row each (one scale per animal, so its poses match) ----------
-  const FW = 384, FH = 320, M = 8, G = 16;
-  const wild = await p.evaluate(async ([list, FW, FH, M, G]) => {
-    const sheet = W.canvas(M * 2 + 4 * FW + 3 * G, M * 2 + list.length * FH + (list.length - 1) * G), g = sheet.getContext('2d');
-    for (let r = 0; r < list.length; r++) {
-      const [src, size] = list[r], c = W.cutout(await W.load(src)), cl = W.cells(c, 2, 2);
-      if (cl.some((x) => !x)) throw new Error('animal ' + r + ': a pose is missing');
-      const k = Math.min(...cl.map((x) => Math.min(FW * 0.96 * size / x.w, 290 * size / x.h)));
-      cl.forEach((x, i) => W.draw(g, x.c, x, k, M + i * (FW + G) + FW / 2, M + r * (FH + G) + 300));
-    }
-    return W.out(sheet, 0.82);
-  }, [ANIMALS.map((a) => [data(path.join(SRC, 'animal_' + a + '.png')), C.WILD.animals[a].art]), FW, FH, M, G]);
-  save('wild', wild);
+  // (the animals: assets/wild.png comes from tools/art/wild3q-import.js since they were redrawn from above, 30 Oct)
 
   // ---------- Kanor: 3x3 frames of 256x384 (rows: down, up, left; cols: still, step, step) ----------
   const kanor = await p.evaluate(async (src) => {
