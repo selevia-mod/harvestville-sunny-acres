@@ -83,6 +83,18 @@ const odd = html.search(/[^\x00-\x7f]/);
 if (odd >= 0) throw new Error('dist/index.html has a non-ASCII character at ' + odd + ': ' + JSON.stringify(html.slice(odd - 30, odd + 10)));
 
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
+// Many cheaper phones cannot load a sheet over 4096 px on a side: they draw it black, with no error.
+const webpSize = (f) => {
+  const d = fs.readFileSync(f), k = d.toString('latin1', 12, 16);
+  if (k === 'VP8X') return [1 + d.readUIntLE(24, 3), 1 + d.readUIntLE(27, 3)];
+  if (k === 'VP8 ') return [d.readUInt16LE(26) & 0x3fff, d.readUInt16LE(28) & 0x3fff];
+  const b = d.readUInt32LE(21);
+  return [(b & 0x3fff) + 1, ((b >>> 14) & 0x3fff) + 1];
+};
+list('assets', '.webp').forEach((f) => {
+  const [w, h] = webpSize(path.join(ROOT, 'assets', f));
+  if (Math.max(w, h) > 4096) throw new Error(`assets/${f} is ${w}x${h}: phones with a 4096 limit draw it black. Run node tools/art/squeeze.js.`);
+});
 // Android's WebView shows a blank screen, with no error, for a page of 20 MiB or more (the app adds the save to it).
 // Over this limit: node tools/art/squeeze.js, or smaller art.
 const PAGE_LIMIT = 19.5 * 1024 * 1024;
