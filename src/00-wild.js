@@ -15,13 +15,13 @@
     // the map, in tiles; hp = arrows to bring it
     // down (a Silver or Gold Bow hits twice as hard); run = tiles a second when it runs; shy = it runs when you come
     // this close (tiles; walking slowly lets you get nearer); hop = how high it bounces as it goes (tiles; the others
-    // a little, by size); angry = it charges when you come this close, and a
+    // keep their feet down); ground = its run stays on the ground (no leaps); angry = it charges when you come this close, and a
     // charge that reaches you costs `hit` energy. drops: [item, how many, chance].
     animals: {
       rabbit: { name: 'Rabbit', px: 140, w: 0.75, hop: 0.14, hp: 1, walk: 0.7, run: 4.2, shy: 3.2, drops: [['meat_rabbit', 1, 1], ['fur_rabbit', 1, 0.6]] },
       labuyo: { name: 'Labuyo', px: 165, w: 0.9, hp: 1, walk: 0.6, run: 4.6, shy: 2.8, flies: true, drops: [['meat_labuyo', 1, 1], ['feather_labuyo', 1, 0.7]] },
       deer: { name: 'Deer', px: 179, w: 1.6, hp: 2, walk: 0.8, run: 4.4, shy: 4.2, drops: [['venison', 2, 1], ['antler', 1, 0.5]] },
-      boar: { name: 'Wild Boar', px: 178, w: 1.4, hp: 3, walk: 0.7, run: 3.4, angry: 2.6, hit: 8, drops: [['meat_boar', 2, 1], ['tusk', 1, 0.5]] },
+      boar: { name: 'Wild Boar', px: 178, w: 1.4, ground: true, hp: 3, walk: 0.7, run: 3.4, angry: 2.6, hit: 8, drops: [['meat_boar', 2, 1], ['tusk', 1, 0.5]] },
       wolf: { name: 'Wolf', px: 158, w: 1.5, hp: 3, walk: 0.9, run: 4.0, angry: 4, hit: 10, night: true, drops: [['pelt_wolf', 1, 1], ['fang_wolf', 1, 0.6]] },
     },
     // the places: how many of each animal roam there
