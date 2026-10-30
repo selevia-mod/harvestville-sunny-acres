@@ -7,6 +7,8 @@
     maxVisitors: 8, // on one farm at a time, besides the owner
     publishEvery: 60 * 1000, // how often a changed farm is published (ms)
     moveEvery: 250, // how often your position is sent while you walk (ms)
+    moveDelay: 400, // the others are drawn this far in the past, so the next step has already arrived (ms)
+    moveAhead: 200, // a step that comes late: they keep walking this long on their own (ms)
     giftGold: 100, // what a gold gift is worth to the farm you leave it at
   };
 })(window.Farm = window.Farm || {});

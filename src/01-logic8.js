@@ -148,6 +148,46 @@
     return typeof v === 'string' ? str(v.replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
   };
 
+  // ---------- the others walking on this phone ----------
+  // Their position comes four times a second, and never quite on time. Heading for the newest one is a walk of stops
+  // and starts (30 Oct, owner: friends looked laggy), so each is kept with the time on THEIR phone and they are drawn
+  // a moment in the past, between two steps already here. tr.off turns their clock into ours (it is the quickest
+  // any step has come, and creeps up in case the road got longer); tr.play follows it gently, so they never lurch.
+  L.trailNote = function (tr, s, now) {
+    var late = now - s.t, last = tr.list[tr.list.length - 1];
+    if (!isFinite(late)) return tr;
+    if (!last || Math.abs(late - tr.off) > 3000) { tr.list = [s]; tr.off = tr.play = late; tr.heard = now; return tr; } // (their clock changed)
+    if (s.t <= last.t) return tr;
+    tr.off = Math.min(late, tr.off + (now - tr.heard) * 0.01);
+    tr.heard = now;
+    tr.list.push(s);
+    if (tr.list.length > 12) tr.list.shift(); // (they may be on another map, where nothing reads these)
+    return tr;
+  };
+
+  // Where to draw them now: { x, y, dir, moving, speed }, or null with nothing heard for a while.
+  L.trailAt = function (tr, now) {
+    var list = tr && tr.list, ON = C.ONLINE;
+    if (!list || !list.length) return null;
+    var most = (now - (tr.seen || now)) * 0.05, gap = tr.off - tr.play;
+    tr.seen = now;
+    tr.play += Math.max(-most, Math.min(most, gap));
+    var t = now - tr.play - ON.moveDelay, last = list[list.length - 1];
+    if (t - last.t > 3000) return null;
+    while (list.length > 2 && list[1].t <= t) list.shift();
+    var a = list[0], b = list[1] || a, ms = b.t - a.t, dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
+    var speed = ms > 0 ? d * 1000 / ms : 0, far = d > 6 * C.TILE, going = speed > C.SPEED * 0.1 && !far; // (far: a door or a warp, not a walk)
+    if (t < a.t) return { x: a.x, y: a.y, dir: a.dir, moving: false, speed: 0 };
+    if (t < b.t) {
+      var k = far ? 0 : (t - a.t) / ms;
+      return { x: a.x + dx * k, y: a.y + dy * k, dir: b.dir, moving: going, speed: speed };
+    }
+    var over = t - b.t, on = b.m && going;
+    if (!on) return { x: b.x, y: b.y, dir: b.dir, moving: false, speed: 0 };
+    var ahead = Math.min(over, ON.moveAhead) / ms; // their next step is late: straight on, for a moment
+    return { x: b.x + dx * ahead, y: b.y + dy * ahead, dir: b.dir, moving: over < ON.moveEvery * 2, speed: speed };
+  };
+
   // ---------- save ----------
   var serialize = L.serialize;
   L.serialize = function (s) {

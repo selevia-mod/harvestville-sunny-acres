@@ -35,6 +35,7 @@
     away: '', // on a visit: the farm the owner went to instead (their own room says so), or ''
     topic: '',
     others: {}, // id -> the others on the channel: { id, name, look, map, x, y, dir, m, at, host, t }
+    trails: {}, // id -> their last steps, to draw them walking between (L.trailAt)
     seen: false, // had the first presence list on this channel
     lastSnap: '',
     mvMs: 0,
@@ -231,6 +232,7 @@
     O.chan = null;
     O.topic = '';
     O.others = {};
+    O.trails = {};
     O.away = '';
     O.syncSprites();
   };
@@ -392,6 +394,9 @@
       q.rt = Date.now();
       var changedMap = q.map !== who.map || q.fl !== who.fl;
       O.others[q.id] = q;
+      if (changedMap) delete O.trails[q.id];
+      var tr = O.trails[q.id] || (O.trails[q.id] = { list: [], off: 0, heard: 0 });
+      L.trailNote(tr, { t: Number(p.t) || q.rt, x: q.x, y: q.y, dir: q.dir, m: q.m }, q.rt);
       if (changedMap) O.syncSprites();
       var vv = F.session.visit;
       if (changedMap && vv && q.id === vv.host) O.hostMoved(vv, q);
@@ -464,10 +469,13 @@
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id], p = self.others[id];
       if (!p) return;
-      var dx = p.x - r.x, dy = p.y - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPEED * 1.25 * dt / 1000;
-      if (d > 6 * T || d <= step) { r.x = p.x; r.y = p.y; } else { r.x += dx / d * step; r.y += dy / d * step; }
-      var moving = d > 8 || p.m, dir = p.dir;
-      if (moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+      var at = L.trailAt(self.trails[id], Date.now()), tx = at ? at.x : p.x, ty = at ? at.y : p.y;
+      var dx = tx - r.x, dy = ty - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPEED * 1.25 * dt / 1000;
+      if (d > 6 * T || d <= step && !at) { r.x = tx; r.y = ty; }
+      else if (at) { var ease = 1 - Math.exp(-dt / 60); r.x += dx * ease; r.y += dy * ease; } // (a late step corrects softly)
+      else { r.x += dx / d * step; r.y += dy / d * step; }
+      var moving = at ? at.moving : d > 8 || p.m, dir = at ? at.dir : p.dir; // (the way they face: their own, no flicker on a diagonal)
+      if (!at && moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
       var key = F.sheetFor(r.look, p.pt);
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended
       var anim = moving ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
@@ -476,6 +484,7 @@
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
       }
+      if (at && at.moving) r.spr.anims.timeScale = 0.55 + 0.65 * Math.min(1, at.speed / C.SPEED); // (slow steps on a gentle push, like your own)
       F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       r.shadow.setPosition(r.x, r.y + 16);
       r.tag.setPosition(r.x, r.y - 1.45 * T);

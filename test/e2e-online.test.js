@@ -11,6 +11,7 @@ const { createSunnyAcresBridge } = require('../bridge/sunnyAcresBridge');
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
 const SLOW = { timeout: 90000 };
+const Farm_SPEED = 1152; // C.SPEED
 const VISIT_BAR = { Like: 46, Gift: 113, Wave: 180, More: 247, Home: 314, y: 174 };
 
 let browser;
@@ -724,6 +725,53 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   await guest.page.waitForFunction((id) => !Farm.world.bubbles[id], guest.uid, { timeout: 15000 });
   for (const p of [owner, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [owner, guest]) await p.context.close();
+});
+
+test('online: a friend walks smoothly on your screen: no stops and starts, no flicker on a diagonal, and they end where they stopped (owner, 30 Oct)', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(owner.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const feet = () => guest.page.evaluate(() => { const f = Farm.world.feet(); return { x: f.x, y: f.y }; });
+  const walk = async (jx, jy) => {
+    const from = await feet();
+    const seen = owner.page.evaluate(() => new Promise((done) => { // every frame the owner sees, for 2.8 s
+      const w = Farm.world, r = w.remotes[Object.keys(w.remotes)[0]], list = [], t0 = performance.now();
+      const step = () => { const t = performance.now() - t0; list.push([t, r.x, r.y, r.anim]); if (t < 2800) requestAnimationFrame(step); else done(list); };
+      step();
+    }));
+    await guest.page.evaluate(([x, y]) => { Farm.input.jx = x; Farm.input.jy = y; }, [jx, jy]);
+    await new Promise((r) => setTimeout(r, 2200));
+    const to = await feet();
+    await guest.page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+    const list = await seen, mid = list.filter((f) => f[0] > 900 && f[0] < 2100);
+    const gone = Math.hypot(to.x - from.x, to.y - from.y) / 256;
+    assert.ok(gone > 4, 'the guest really walked: ' + gone.toFixed(1) + ' tiles');
+    let stalls = 0, frames = 0, swaps = 0;
+    for (let i = 1; i < mid.length; i++) {
+      const dt = mid[i][0] - mid[i - 1][0];
+      if (dt < 1) continue;
+      frames++;
+      if (Math.hypot(mid[i][1] - mid[i - 1][1], mid[i][2] - mid[i - 1][2]) / dt * 1000 < Farm_SPEED * 0.25) stalls++;
+      if (mid[i][3] !== mid[i - 1][3]) swaps++;
+    }
+    assert.ok(frames > 10, 'enough frames to judge: ' + frames);
+    assert.ok(stalls / frames < 0.05, 'stopped on ' + stalls + ' of ' + frames + ' frames');
+    assert.ok(swaps <= 1, 'the walk changed ' + swaps + ' times');
+    await owner.page.waitForFunction((f) => { // they end where they stopped, standing
+      const r = Object.values(Farm.world.remotes)[0];
+      return r.anim === '' && Math.hypot(r.x - f.x, r.y - f.y) < 12;
+    }, await feet(), SLOW);
+  };
+  await walk(1, 0);
+  await walk(-0.71, 0.7);
+  assert.deepStrictEqual(owner.problems, []);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([owner.context.close(), guest.context.close()]);
 });
 
 test('online: visitors follow the owner to town and into the mine: asked, Follow, both see each other there, on the same rocks', async () => {

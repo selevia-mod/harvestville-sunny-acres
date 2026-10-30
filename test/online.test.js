@@ -141,3 +141,88 @@ test('weeds, stones and stumps show on a visited farm too', () => {
   const bad = L.visitState({ debris: [[5, 999], [-3, 0], ['x', 0], [7, 0], 'junk'] }, null);
   assert.deepStrictEqual(Object.keys(bad.debris), ['7']);
 });
+
+// A walk as it reaches this phone: a step every 250 ms from their phone, each arriving a little late.
+const walk = (steps, speed, lateMs, theirClock = 0) => {
+  const tr = { list: [], off: 0, heard: 0 };
+  const sent = [];
+  for (let i = 0; i < steps; i++) sent.push({ t: i * 250 + theirClock, x: 1000 + speed * i / 4, y: 500, dir: 'right', m: 1 });
+  return { tr, sent, deliver(upTo) { // everything that has arrived by this time on our phone
+    sent.filter((s) => !s.got && s.t - theirClock + lateMs(s) <= upTo).forEach((s) => { s.got = true; L.trailNote(tr, s, s.t - theirClock + lateMs(s)); });
+  } };
+};
+
+test('a friend walks at an even speed between their steps, however unevenly the steps arrive, and with any clock (owner, 30 Oct)', () => {
+  [0, 86400000, -3600000].forEach((theirClock) => {
+    const uneven = [40, 170, 60, 130, 30, 190, 80, 150];
+    const w = walk(24, C.SPEED, (s) => uneven[Math.round((s.t - theirClock) / 250) % uneven.length], theirClock);
+    let was = null, min = Infinity, max = 0;
+    for (let now = 1000; now < 5000; now += 16) {
+      w.deliver(now);
+      const at = L.trailAt(w.tr, now);
+      assert.ok(at && at.moving, 'walking all the way: ' + now);
+      if (was) { const v = (at.x - was) / 16 * 1000; min = Math.min(min, v); max = Math.max(max, v); }
+      was = at.x;
+    }
+    assert.ok(min > C.SPEED * 0.9 && max < C.SPEED * 1.1, 'steady speed, got ' + Math.round(min) + ' to ' + Math.round(max));
+  });
+});
+
+test('a friend on a horse glides too: they never fall behind and jump', () => {
+  const speed = C.SPEED * C.HORSE.speed, w = walk(24, speed, () => 100);
+  let was = null, most = 0;
+  for (let now = 1000; now < 5000; now += 16) {
+    w.deliver(now);
+    const at = L.trailAt(w.tr, now);
+    if (was !== null) most = Math.max(most, Math.abs(at.x - was));
+    was = at.x;
+  }
+  assert.ok(most < speed * 0.02, 'a step of ' + Math.round(most));
+});
+
+test('a late step: a friend keeps going for a moment, then waits, and stops walking; they catch up when it comes', () => {
+  const w = walk(8, C.SPEED, () => 50), lastStep = w.sent[7];
+  w.deliver(100000);
+  const at = (past) => L.trailAt(w.tr, lastStep.t + C.ONLINE.moveDelay + past + w.tr.off);
+  assert.ok(Math.abs(at(100).x - (lastStep.x + C.SPEED / 10)) < 1, 'straight on, for a moment');
+  assert.strictEqual(at(150).moving, true);
+  const held = at(C.ONLINE.moveAhead + 100).x;
+  assert.ok(Math.abs(held - (lastStep.x + C.SPEED * C.ONLINE.moveAhead / 1000)) < 1, 'no further than that');
+  assert.strictEqual(at(C.ONLINE.moveEvery * 2 + 1).moving, false, 'no walking on the spot');
+  assert.strictEqual(at(4000), null, 'nothing heard for a while: the game goes by their last known place');
+});
+
+test('stopping: a friend ends exactly where they stopped; a door or warp is a jump, not a slide across the map', () => {
+  const tr = { list: [], off: 0, heard: 0 };
+  L.trailNote(tr, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1000);
+  L.trailNote(tr, { t: 1250, x: 288, y: 0, dir: 'right', m: 1 }, 1250);
+  L.trailNote(tr, { t: 1500, x: 288, y: 0, dir: 'up', m: 0 }, 1500);
+  const stopped = L.trailAt(tr, 2100);
+  assert.deepStrictEqual(plain(stopped), { x: 288, y: 0, dir: 'up', moving: false, speed: 0 });
+  const jump = { list: [], off: 0, heard: 0 };
+  L.trailNote(jump, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1000);
+  L.trailNote(jump, { t: 1250, x: 40 * C.TILE, y: 0, dir: 'right', m: 1 }, 1250);
+  assert.strictEqual(L.trailAt(jump, 1500).x, 0, 'still there');
+  assert.strictEqual(L.trailAt(jump, 1650).x, 40 * C.TILE, 'then here, at once');
+});
+
+test('the steps kept: a late copy and a changed clock do no harm, junk is ignored, and the list never grows', () => {
+  const tr = { list: [], off: 0, heard: 0 };
+  L.trailNote(tr, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1000);
+  L.trailNote(tr, { t: 1250, x: 100, y: 0, dir: 'right', m: 1 }, 1250);
+  L.trailNote(tr, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1260);
+  assert.strictEqual(tr.list.length, 2, 'older than the newest: dropped');
+  L.trailNote(tr, { t: Infinity, x: 5, y: 0, dir: 'right', m: 1 }, 1300);
+  assert.strictEqual(tr.list.length, 2, 'a time that is no time');
+  L.trailNote(tr, { t: -500000, x: 9, y: 9, dir: 'right', m: 1 }, 1400);
+  assert.deepStrictEqual(plain(tr.list), [{ t: -500000, x: 9, y: 9, dir: 'right', m: 1 }], 'their clock changed: start again');
+  for (let i = 1; i <= 100; i++) L.trailNote(tr, { t: -500000 + i * 250, x: i, y: 0, dir: 'right', m: 1 }, 1400 + i * 250);
+  assert.ok(tr.list.length <= 12);
+  const ahead = { list: [], off: 0, heard: 0 };
+  L.trailNote(ahead, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1000);
+  L.trailNote(ahead, { t: 6250, x: 50, y: 0, dir: 'right', m: 1 }, 1250);
+  L.trailNote(ahead, { t: 6500, x: 100, y: 0, dir: 'right', m: 1 }, 1500);
+  assert.ok(Math.abs(L.trailAt(ahead, 1900).x - 100) < 1, 'their clock jumped ahead: no long wait behind it');
+  assert.strictEqual(L.trailAt(null, 1), null);
+  assert.strictEqual(L.trailAt({ list: [], off: 0 }, 1), null);
+});
