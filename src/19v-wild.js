@@ -297,7 +297,8 @@
         var len = Math.max(1, Math.hypot(dx, dy));
         a.vx = -dx / len * def.run * T;
         a.vy = -dy / len * def.run * T;
-        if (d < 0.7) { if (f.id) this.wildBump(a, f); else this.wildHit(a); }
+        // (reaching a friend: their phone sees it arrive and says so, or they would feel it while it still looks far away)
+        if (d < 0.7) { if (f.id) a.vx = a.vy = 0; else this.wildHit(a); }
       }
     }
     if (a.mode === 'toBait' && this.wildBait) {
@@ -425,11 +426,6 @@
     a.vy = -dy / len * a.def.walk * T;
     a.t = 2500;
     a.cool = 5000;
-  };
-  // A charge reached a friend: it is their phone that loses the energy.
-  P.wildBump = function (a, f) {
-    O.send('wb', { s: a.slot, to: f.id });
-    this.wildBack(a, f);
   };
 
   // ---------- the Bow ----------
@@ -712,6 +708,12 @@
       a.mode = at.dir.mode;
       a.look = at.dir.look;
     }
+    a.cool = Math.max(0, a.cool - dt);
+    var d = Math.hypot(a.x - f.x, a.y - f.y) / T;
+    if (a.mode === 'charge' && !a.cool && d < 0.7 && !F.ui.blocking()) { // it reached you, on your screen
+      O.send('wb', { s: a.slot });
+      this.wildHit(a);
+    }
     var going = Math.hypot(vx, vy) > 0.15 * T;
     a.vx = going ? vx : 0;
     a.vy = going ? vy : 0;
@@ -720,7 +722,7 @@
       a.trail += Math.hypot(vx, vy) * dt / 1000;
       if (a.trail > 0.6 * T && !(a.def.flies && a.mode === 'flee')) { a.trail = 0; this.wildPrint(a); }
     }
-    this.wildShow(a, Math.hypot(a.x - f.x, a.y - f.y) / T, dt);
+    this.wildShow(a, d, dt);
   };
 
   var HUNT_NEWS = { wa: 1, wh: 1, wd: 1, wb: 1, ar: 1, bt: 1 };
@@ -742,8 +744,9 @@
       a.mine = by.indexOf(O.me.id) >= 0;
       by.forEach(function (id) { if (id !== O.me.id) a.by[id] = 1; });
       w.wildDown(a);
-    } else if (event === 'wb' && p.to === O.me.id) {
-      w.wildHit(a);
+    } else if (event === 'wb' && !lead) {
+      var at = w.remotes[p.id] || who;
+      w.wildBack(a, { x: at.x, y: at.y });
     }
   };
 

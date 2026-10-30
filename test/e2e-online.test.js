@@ -864,11 +864,31 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await gone(host.page, second);
   await guest.page.waitForFunction(() => Farm.session.state.wild.n === 2, null, SLOW);
   await host.page.waitForFunction(() => Farm.session.state.wild.n === 1 && Farm.world.wildDrops.length > 0, null, SLOW);
-  // a charge that reaches a friend costs THEM the energy
-  const before = await guest.page.evaluate(() => Farm.session.state.energy);
-  await host.page.evaluate((id) => { const w = Farm.world, a = w.wild.animals[0]; a.def = Object.assign({}, a.def, { hit: 7 }); w.wildBump(a, { id, x: a.x + 10, y: a.y }); }, guest.uid);
-  await guest.page.evaluate(() => { const a = Farm.world.wild.animals[0]; a.def = Object.assign({}, a.def, { hit: 7 }); });
-  await guest.page.waitForFunction((was) => Farm.session.state.energy < was, before, SLOW);
+  // a charge at a friend costs THEM the energy, when it reaches them on THEIR screen, and it backs off on both phones
+  const stand = await guest.page.evaluate(() => {
+    const w = Farm.world, z = w.wild.zone;
+    for (let x = z.x0 + 3; x < z.x1 - 10; x++) for (let y = z.y0 + 3; y < z.y1; y++) if (w.walkable(x, y)) { w.setFeet((x + 0.5) * 256, (y + 0.5) * 256); const f = w.feet(); return { x: f.x, y: f.y }; }
+  });
+  await new Promise((r) => setTimeout(r, 900)); // (the owner's phone sees the guest there)
+  await guest.page.evaluate(() => {
+    const w = Farm.world, hit = w.wildHit;
+    window.hitFrom = null;
+    w.wildHit = function (a) { const f = w.feet(); window.hitFrom = Math.hypot(a.x - f.x, a.y - f.y) / 256; w.wildHit = hit; return hit.call(w, a); };
+  });
+  const charger = await host.page.evaluate((at) => {
+    const w = Farm.world, a = w.wild.animals[0];
+    a.def = Object.assign({}, a.def, { run: 4, hit: 7, shy: 0, angry: 0 }); // (a shy one would turn and run)
+    a.x = at.x + 6 * 256; a.y = at.y; a.cool = 0;
+    w.wildFree = () => true;
+    const crew = w.wildCrew;
+    w.wildCrew = () => crew.call(w, false); // (the owner stands out of it: it goes for the guest)
+    w.wildCharge(a);
+    a.t = 8000;
+    return a.slot;
+  }, stand);
+  await guest.page.waitForFunction(() => window.hitFrom != null, null, SLOW);
+  assert.ok(await guest.page.evaluate(() => window.hitFrom) < 0.8, 'it had reached them, on their own screen');
+  await host.page.waitForFunction((slot) => { const a = Farm.world.wild.animals.filter((x) => x.slot === slot)[0]; return a && a.mode === 'walk' && a.cool > 0; }, charger, SLOW);
   // the owner goes back to town: the guest's phone takes over the animals, which go on moving, and is asked
   const left = (await herd(guest.page)).length;
   await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.wildKeep(); Farm.Online.follow('town'); });
