@@ -81,7 +81,7 @@
     printTexture(this);
     arrowTexture(this);
     this.wild = { zone: zone, animals: [], next: rand(WI.arrive[0], WI.arrive[1]), prints: [], ring: this.add.image(0, 0, 'fx-ring').setVisible(false).setDepth(DEPTH.shadow + 0.1).setTint(0xffd24a),
-      hint: this.add.image(0, 0, 'fx-huntarrow').setVisible(false).setDepth(DEPTH.fx).setScale(1.2) };
+      hint: this.add.image(0, 0, 'fx-huntarrow').setVisible(false).setDepth(DEPTH.fx).setScale(2.4) };
     var f = this.feet(), rare = null;
     L.wildHere(s, this.mapKey).forEach(function (e) {
       var p = self.wildSpot(zone, f, 6);
