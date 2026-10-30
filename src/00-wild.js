@@ -38,8 +38,10 @@
       makiling: { name: 'Makiling Forest', animals: { deer: 2, boar: 3, wolf: 2 }, unlock: 10,
         extra: [{ kind: 'boar', n: 2, when: 'rain' }, { kind: 'boar', n: 1, when: 'fall' }, { kind: 'deer', n: 1, when: 'dusk' }, { kind: 'goldboar', n: 1, when: 'rare' }] },
     },
-    respawn: 30, // minutes until a hunted animal is back
-    arrive: [45000, 90000], // ms between new animals walking in while you are there, if any are due
+    // A keen hunter clears a place in a few minutes (owner, 30 Oct: 30 minutes left it dead for what felt like hours).
+    // What holds hunting back is energy and arrows, not an empty map.
+    respawn: 6, // minutes until a hunted animal is back
+    arrive: [20000, 40000], // ms between new animals walking in while you are there, if any are due
     rareOdds: 0.1, // the chance, for each 2 hours of each day, that a place has its rare animal (the same for everyone)
     giant: { odds: 0.08, size: [1.35, 1.5] }, // 1 in 12 is a giant; the rest are 0.8 to 1.2 times the usual size
     nightFrom: 18 * 60, // wolves come out from 6 PM to 6 AM

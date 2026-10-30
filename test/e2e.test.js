@@ -594,6 +594,10 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
   assert.deepStrictEqual(drops.filter((x) => x === 'venison'), ['venison', 'venison']);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.wild.n), 1);
   await shot(page, '43-hunted');
+  // a new one walks in once it is due, while you stay
+  await page.evaluate(() => { const w = Farm.world, g = Farm.session.state.wild.gone; Object.keys(g).forEach((k) => { g[k] = 0; }); w.wild.next = 0; });
+  await page.waitForFunction(() => Farm.world.wild.animals.length === 1, null, SLOW);
+  await page.evaluate(() => { const w = Farm.world; w.wild.next = 1e9; });
   const at = await page.evaluate(() => { const x = Farm.world.wildDrops[0]; return [x.x, x.y]; });
   await page.evaluate(([x, y]) => Farm.world.setFeet(x, y), at);
   await page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'venison') >= 1, null, SLOW);

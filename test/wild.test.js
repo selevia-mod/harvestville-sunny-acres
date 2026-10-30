@@ -29,7 +29,7 @@ test('the places and who roams there: wolves only at night', () => {
   assert.ok(L.isWildMap('pulag') && L.isWildMap('makiling') && !L.isWildMap('town'));
 });
 
-test('a hunted animal is gone for 30 minutes, then back; Makiling opens on the 10th hunt', () => {
+test('a hunted animal is gone for a few minutes, then back; Makiling opens on the 10th hunt', () => {
   const s = L.newState();
   s.time = 10 * 60;
   assert.strictEqual(L.wildOpen(s, 'pulag'), true);
@@ -37,10 +37,10 @@ test('a hunted animal is gone for 30 minutes, then back; Makiling opens on the 1
   assert.strictEqual(L.hunted(s, 'pulag', 6, 'deer').opened, null);
   const plainOnes = () => L.wildHere(s, 'pulag').filter((e) => !e.when);
   assert.deepStrictEqual(kinds(plainOnes()).filter((k) => k === 'deer'), ['deer']);
-  clock.advance(29);
+  clock.advance(C.WILD.respawn - 1);
   assert.strictEqual(plainOnes().length, 7);
   clock.advance(2);
-  assert.strictEqual(plainOnes().length, 8, 'back after 30 minutes');
+  assert.strictEqual(plainOnes().length, 8, 'back');
   for (let i = 0; i < 8; i++) L.hunted(s, 'pulag', 0, 'labuyo');
   assert.strictEqual(L.hunted(s, 'pulag', 1, 'labuyo').opened, 'makiling');
   assert.strictEqual(L.wildOpen(s, 'makiling'), true);
@@ -124,6 +124,10 @@ test('saved: hunts, the bow and its level, animals still away; older saves start
   assert.strictEqual(L.bowLevel(b), 1);
   assert.strictEqual(b.map, 'pulag');
   assert.strictEqual(L.wildHere(b, 'makiling').filter((e) => e.slot === 3).length, 0, 'still away');
+  // the wait goes on while the game is closed (it used to stop, and restart on opening)
+  const saved = plain(L.serialize(s));
+  clock.advance(C.WILD.respawn + 1);
+  assert.strictEqual(L.wildHere(L.deserialize(saved), 'makiling').filter((e) => e.slot === 3).length, 1, 'back after time away');
   const old = plain(L.serialize(L.newState()));
   delete old.wl;
   const o = L.deserialize(old);

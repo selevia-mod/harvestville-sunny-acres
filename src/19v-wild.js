@@ -79,7 +79,9 @@
     F.ensureTexture(this, 'wildshade');
     softShadow(this);
     printTexture(this);
-    this.wild = { zone: zone, animals: [], next: rand(WI.arrive[0], WI.arrive[1]), prints: [], ring: this.add.image(0, 0, 'fx-ring').setVisible(false).setDepth(DEPTH.shadow + 0.1).setTint(0xffd24a) };
+    arrowTexture(this);
+    this.wild = { zone: zone, animals: [], next: rand(WI.arrive[0], WI.arrive[1]), prints: [], ring: this.add.image(0, 0, 'fx-ring').setVisible(false).setDepth(DEPTH.shadow + 0.1).setTint(0xffd24a),
+      hint: this.add.image(0, 0, 'fx-huntarrow').setVisible(false).setDepth(DEPTH.fx).setScale(1.2) };
     var f = this.feet(), rare = null;
     L.wildHere(s, this.mapKey).forEach(function (e) {
       var p = self.wildSpot(zone, f, 6);
@@ -153,13 +155,38 @@
     });
   };
 
-  // The ring under the animal you would hit.
+  // The ring under the animal you would hit; and with the Bow in hand and nothing on screen, an arrow beside you
+  // pointing to the nearest animal (the places are far bigger than the screen).
+  var arrowTexture = function (scene) {
+    if (scene.textures.exists('fx-huntarrow')) return;
+    var c = scene.textures.createCanvas('fx-huntarrow', 96, 96), g = c.getContext();
+    g.beginPath();
+    g.moveTo(48, 8); g.lineTo(84, 78); g.lineTo(48, 62); g.lineTo(12, 78); g.closePath();
+    g.lineJoin = 'round';
+    g.lineWidth = 8;
+    g.strokeStyle = '#ffffff';
+    g.stroke();
+    g.fillStyle = '#4fae3c';
+    g.fill();
+    c.refresh();
+  };
   P.updateAim = function (time) {
-    var ring = this.wild.ring, held = L.held(this.state), a = held && held.id === 'bow' ? this.wildTarget() : null;
+    var w0 = this.wild, ring = w0.ring, hint = w0.hint, held = L.held(this.state), bow = held && held.id === 'bow', a = bow ? this.wildTarget() : null;
     ring.setVisible(!!a);
-    if (!a) return;
-    var w = (0.55 + a.def.w * 0.55) * a.size * T * (1 + Math.sin(time / 160) * 0.05);
-    ring.setPosition(a.x, a.y - 0.08 * T).setDisplaySize(w, w * 0.46);
+    if (a) {
+      var w = (0.55 + a.def.w * 0.55) * a.size * T * (1 + Math.sin(time / 160) * 0.05);
+      ring.setPosition(a.x, a.y - 0.08 * T).setDisplaySize(w, w * 0.46);
+    }
+    var f = this.feet(), view = this.cameras.main.worldView, near = null, bd = Infinity;
+    if (bow) w0.animals.forEach(function (x) {
+      var d = Math.hypot(x.x - f.x, x.y - f.y);
+      if (d < bd) { bd = d; near = x; }
+    });
+    var show = !!near && !view.contains(near.x, near.y - 0.3 * T);
+    hint.setVisible(show);
+    if (!show) return;
+    var ang = Math.atan2(near.y - f.y, near.x - f.x), r = (1.5 + Math.sin(time / 220) * 0.12) * T;
+    hint.setPosition(f.x + Math.cos(ang) * r, f.y - 0.5 * T + Math.sin(ang) * r).setRotation(ang + Math.PI / 2);
   };
 
   // A free tile in the zone at least `away` tiles from `from`: its middle, in world units (or null).
@@ -477,6 +504,7 @@
     this.floatTextAt(a.x, a.y - T, r.kg + ' kg');
     F.ui.toast(r.record ? 'New record! ' + big + a.def.name + ', ' + r.kg + ' kg. In your Hunter\'s Book.'
       : big + a.def.name + ' hunted! Pick up what it left.' + (s.wild.n < WI.areas.makiling.unlock ? ' (' + s.wild.n + '/' + WI.areas.makiling.unlock + ' hunts)' : ''), 2400, r.record ? 0x7a5a12 : 0x2f5a22);
+    if (!this.wild.animals.length && !r.opened) this.time.delayedCall(2600, function () { if (F.ui) F.ui.toast('That was the last one nearby. More will wander in soon.', 3000); });
     if (r.opened) this.time.delayedCall(2400, function () { F.ui.dialog('MAKILING FOREST IS OPEN\nKanor: "Ten hunts! You are ready for the forest. Follow the trail north. Mind the wild boars, and the wolves at night."'); });
     this.changed();
     this.save();

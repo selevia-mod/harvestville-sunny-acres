@@ -2,7 +2,7 @@
 // roam each place right now, a hunted animal's slot waiting C.WILD.respawn minutes, what it leaves, Makiling opening
 // after 10 hunts, the Bow (bought from Kanor, upgraded with gold and ore), arrows and bait, selling to Kanor, his request
 // of the day, trophies, each animal's size and the Hunter's Book, and who comes out with the hour, weather and season.
-// Saved as 'wl': [hunts, bow level + 1 (0 = no bow yet), hunts per animal in C.WILD.order, [area, slot, minutes ago]...,
+// Saved as 'wl': [hunts, bow level + 1 (0 = no bow yet), hunts per animal in C.WILD.order, [area, slot, the minute it went]...,
 // the day of the last request done, biggest of each animal in C.WILD.order (tenths of a kg)].
 (function (F) {
   'use strict';
@@ -199,8 +199,8 @@
   L.serialize = function (s) {
     var o = serialize(s), w = s.wild, gone = [], now = L.nowMin();
     Object.keys(w.gone).forEach(function (k) {
-      var ago = now - w.gone[k], p = k.split(':');
-      if (ago < 120 && AREAS.indexOf(p[0]) >= 0) gone.push([AREAS.indexOf(p[0]), +p[1], ago]);
+      var p = k.split(':');
+      if (now - w.gone[k] < 120 && AREAS.indexOf(p[0]) >= 0) gone.push([AREAS.indexOf(p[0]), +p[1], w.gone[k]]); // the minute itself: time away counts too
     });
     if (w.n || L.bowLevel(s) || L.hasBow(s) || gone.length) {
       o.wl = [w.n, L.hasBow(s) ? L.bowLevel(s) + 1 : 0, WI.order.map(function (k) { return w.by[k] || 0; }), gone, w.job, WI.order.map(function (k) { return w.best[k] || 0; })];
@@ -220,7 +220,7 @@
       var now = L.nowMin();
       (Array.isArray(wl[3]) ? wl[3] : []).slice(0, 50).forEach(function (g) {
         if (!Array.isArray(g) || !AREAS[g[0]]) return;
-        s.wild.gone[AREAS[g[0]] + ':' + int(g[1], 0, 99, 0)] = now - int(g[2], 0, 1e4, 0);
+        s.wild.gone[AREAS[g[0]] + ':' + int(g[1], 0, 99, 0)] = Math.min(now, int(g[2], 0, 1e10, 0));
       });
       s.wild.job = int(wl[4], 0, 1e7, 0);
       (Array.isArray(wl[5]) ? wl[5] : []).forEach(function (n, i) { if (WI.order[i]) s.wild.best[WI.order[i]] = int(n, 0, 1e6, 0); });
