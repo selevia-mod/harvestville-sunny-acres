@@ -176,7 +176,7 @@
     if (t - last.t > 3000) return null;
     while (list.length > 2 && list[1].t <= t) list.shift();
     var a = list[0], b = list[1] || a, ms = b.t - a.t, dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
-    var speed = ms > 0 ? d * 1000 / ms : 0, far = d > 6 * C.TILE, going = speed > C.SPEED * 0.1 && !far; // (far: a door or a warp, not a walk)
+    var speed = ms > 0 ? d * 1000 / ms : 0, far = speed > C.SPEED * 3, going = speed > C.SPEED * 0.1 && !far; // (far: a door or a warp, not a walk, however long since the last step)
     if (t < a.t) return { x: a.x, y: a.y, dir: a.dir, moving: false, speed: 0 };
     if (t < b.t) {
       var k = far ? 0 : (t - a.t) / ms;

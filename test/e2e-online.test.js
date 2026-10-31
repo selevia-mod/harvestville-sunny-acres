@@ -48,6 +48,7 @@ async function open(server) {
   await page.evaluate(() => Farm.ui.closeAll());
   // online straight away, with the app's account
   await page.waitForFunction(() => Farm.Online.on, null, SLOW);
+  await page.evaluate(() => { Farm.Config.ONLINE.trackEvery = 100; }); // (the tests do not wait out the real gap)
   return { page, problems, context, uid, bridge };
 }
 
@@ -769,6 +770,98 @@ test('online: a friend walks smoothly on your screen: no stops and starts, no fl
   };
   await walk(1, 0);
   await walk(-0.71, 0.7);
+  assert.deepStrictEqual(owner.problems, []);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([owner.context.close(), guest.context.close()]);
+});
+
+test('online: a friend who keeps stopping keeps their line: presence updates stay rare (31 Oct: the server closed it, and Eliska vanished)', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(owner.page, ['Ana Acres']);
+  await new Promise((r) => setTimeout(r, 300));
+  await guest.page.evaluate(() => { Farm.Config.ONLINE.trackEvery = 20000; });
+  await guest.page.evaluate(() => new Promise((done) => setTimeout(done, 400)));
+  server.db.tracks.length = 0;
+  for (let i = 0; i < 8; i++) { // mining: a few steps, stop, a few steps, stop
+    await guest.page.evaluate((x) => { Farm.input.jx = x; Farm.input.jy = 0; }, i % 2 ? 1 : -1);
+    await new Promise((r) => setTimeout(r, 450));
+    await guest.page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+    await new Promise((r) => setTimeout(r, 450));
+  }
+  const sent = server.db.tracks.filter((x) => x.uid === guest.uid).length;
+  assert.ok(sent <= 1, 'presence updates in 7 s of stopping and starting: ' + sent);
+  const f = await guest.page.evaluate(() => { const p = Farm.world.feet(); return { x: p.x, y: p.y }; });
+  await owner.page.waitForFunction((f) => { // the moves still tell them where the guest stopped
+    const r = Object.values(Farm.world.remotes)[0];
+    return r.anim === '' && Math.hypot(r.x - f.x, r.y - f.y) < 12;
+  }, f, SLOW);
+  assert.deepStrictEqual(owner.problems, []);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([owner.context.close(), guest.context.close()]);
+});
+
+test('online: a friend whose line drops for a moment stays on your screen, nothing is said, and they walk to where they went (31 Oct)', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(owner.page, ['Ana Acres']);
+  await owner.page.waitForFunction(() => !Farm.ui.toastText.visible, null, SLOW); // (the hello is over)
+  const seen = owner.page.evaluate(() => new Promise((done) => { // every frame for 6 s: where they are, the sprite, any toast
+    const w = Farm.world, first = w.remotes[Object.keys(w.remotes)[0]], list = [], toasts = [], t0 = performance.now();
+    const step = () => {
+      const t = performance.now() - t0, r = w.remotes[first.id];
+      list.push([t, r ? r.x : -1, r ? r.y : -1, r === first]);
+      if (Farm.ui.toastText.visible && toasts.indexOf(Farm.ui.toastText.text) < 0) toasts.push(Farm.ui.toastText.text);
+      if (t < 6000) requestAnimationFrame(step); else done({ list, toasts });
+    };
+    step();
+  }));
+  await guest.page.evaluate(() => { Farm.input.jx = 1; Farm.input.jy = 0; });
+  await new Promise((r) => setTimeout(r, 300));
+  server.kick(guest.uid, 'farm:' + owner.uid);
+  await new Promise((r) => setTimeout(r, 1500));
+  await guest.page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+  const { list, toasts } = await seen;
+  assert.ok(list.every((f) => f[3]), 'the same farmer all along');
+  assert.deepStrictEqual(toasts.filter((x) => /went home|is visiting|came to visit/.test(x)), []);
+  let fastest = 0; // over a tenth of a second: a frame's clock and the game's are not quite the same
+  for (let i = 0, j = 0; i < list.length; i++) {
+    while (j < list.length && list[j][0] - list[i][0] < 100) j++;
+    if (j < list.length) fastest = Math.max(fastest, Math.hypot(list[j][1] - list[i][1], list[j][2] - list[i][2]) / (list[j][0] - list[i][0]) * 1000);
+  }
+  assert.ok(fastest < Farm_SPEED * 3.5, 'no jump: fastest ' + (fastest / Farm_SPEED).toFixed(1) + ' x walking');
+  const f = await guest.page.evaluate(() => { const p = Farm.world.feet(); return { x: p.x, y: p.y }; });
+  await owner.page.waitForFunction((f) => {
+    const r = Object.values(Farm.world.remotes)[0];
+    return Math.hypot(r.x - f.x, r.y - f.y) < 12;
+  }, f, SLOW);
+  assert.deepStrictEqual(owner.problems, []);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([owner.context.close(), guest.context.close()]);
+});
+
+test('online: a friend who really leaves is gone at once, not after the wait for a dropped line (31 Oct, two phones: 8 s)', async () => {
+  const server = createServer();
+  const owner = await open(server), guest = await open(server);
+  await nameFarm(owner.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(owner.page, ['Ana Acres']);
+  server.db.presenceLagMs = 500;
+  const t0 = Date.now();
+  await guest.page.evaluate(() => Farm.Online.leaveVisit(''));
+  await waitRemotes(owner.page, []);
+  assert.ok(Date.now() - t0 < 3000, 'gone after ' + (Date.now() - t0) + ' ms');
+  await waitToast(owner.page, /Ana Acres went home/);
   assert.deepStrictEqual(owner.problems, []);
   assert.deepStrictEqual(guest.problems, []);
   await Promise.all([owner.context.close(), guest.context.close()]);

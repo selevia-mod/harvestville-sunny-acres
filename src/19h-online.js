@@ -227,7 +227,9 @@
 
   // Out of the room we are in (our own room is only set aside, still joined).
   O.leaveChannel = function () {
+    O.recheckAt = 0;
     if (O.chan && !(O.home && O.chan === O.home.chan)) {
+      O.send('bye');
       try { O.chan.leave(); } catch (e) { /* already gone */ }
     }
     O.chan = null;
@@ -240,6 +242,7 @@
 
   // Off every channel, our own room too (asleep, or out of online play).
   O.leaveAll = function () {
+    O.send('bye');
     O.leaveChannel();
     var h = O.home;
     O.home = null;
@@ -264,6 +267,7 @@
       fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
       rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0,
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
+      ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
     };
   };
@@ -272,7 +276,8 @@
 
   O.onPresence = function (list) {
     if (!O.chan) return;
-    var before = O.others, now = {}, raw = [], v = F.session.visit, away = '';
+    O.lastList = list;
+    var before = O.others, now = {}, raw = [], v = F.session.visit, away = '', clock = Date.now();
     (Array.isArray(list) ? list : []).forEach(function (p) {
       var q = clean(p);
       if (!q || q.id === O.me.id) return;
@@ -281,8 +286,9 @@
       raw.push(q);
       if (O.blocked[q.id]) return;
       var old = before[q.id];
-      // a presence list can carry an older stop than the moves heard since: keep the fresher position
-      if (old && old.rt && Date.now() - old.rt < 3000 && old.map === q.map) { q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.rt = old.rt; }
+      // a presence list can carry an older stop than the moves heard since: keep the fresher place (their clock on both)
+      if (old && old.ts >= q.ts) { q.map = old.map; q.fl = old.fl; q.x = old.x; q.y = old.y; q.dir = old.dir; q.m = old.m; q.rd = old.rd; q.rt = old.rt; q.ts = old.ts; }
+      if (old && old.bye) q.bye = 1;
       now[q.id] = q;
     });
     if (v && !O.seen && !L.visitorFits(raw, { id: O.me.id, at: Infinity }, v.host, ON.maxVisitors)) {
@@ -296,10 +302,21 @@
         .slice(0, ON.maxVisitors).forEach(function (q) { keep[q.id] = q; });
       now = keep;
     }
+    // Missing from the list: a dropped line is back in a few seconds, so they stay where they are and nothing is said.
+    // Someone who left says so ('bye').
+    Object.keys(before).forEach(function (id) {
+      var old = before[id];
+      if (now[id] || old.bye || O.blocked[id] || (away && id === v.host)) return;
+      old.lost = old.lost || clock;
+      var left = old.lost + ON.goneAfter - clock;
+      if (left <= 0) return;
+      now[id] = old;
+      O.recheckAt = Math.min(O.recheckAt || Infinity, clock + left);
+    });
     var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
     var went = Object.keys(before).filter(function (id) { return !now[id] && !(away && id === v.host); }).map(function (id) { return before[id]; });
     O.others = now;
-    if (came.length && O.chan) O.chan.track(O.myState()); // newcomers see where we are now, not where we last stopped
+    if (came.length && O.chan) O.tellPlace(); // newcomers see where we are now, not where we last stopped
     var first = !O.seen;
     O.seen = true;
     if (F.ui && (came.length || went.length)) {
@@ -392,7 +409,10 @@
     var p = payload && typeof payload === 'object' ? payload : {};
     var who = typeof p.id === 'string' ? O.others[p.id] : null;
     if (!who) return;
-    if (event === 'mv') {
+    if (event === 'bye') {
+      who.bye = 1;
+      if (who.lost) O.recheckAt = 1;
+    } else if (event === 'mv') {
       var q = clean(Object.assign({}, who, p, { id: who.id, name: who.name, look: who.look, at: who.at }));
       if (!q) return;
       q.rt = Date.now();
@@ -416,6 +436,15 @@
 
   O.send = function (event, payload) {
     if (O.chan) O.chan.send(event, Object.assign({ id: O.me.id }, payload || {}));
+  };
+
+  // Where we are, once, for someone who just came.
+  O.tellPlace = function () {
+    var w = F.world;
+    if (!w || !w.player || w.busy) return;
+    var f = w.feet(), fl = w.mapKey === 'mine' ? F.session.mineFloor : 0;
+    this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });
+    O.chan.track(O.myState());
   };
 
   // ---------- the others' farmers, drawn on this map ----------
@@ -494,15 +523,22 @@
   O.update = function (w, dt) {
     if (!w.remotes) return;
     var self = this;
+    if (this.recheckAt && Date.now() >= this.recheckAt) { // (their few seconds are up: back, or gone?)
+      this.recheckAt = 0;
+      this.onPresence(this.lastList);
+    }
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id], p = self.others[id];
       if (!p) return;
       var at = L.trailAt(self.trails[id], Date.now()), tx = at ? at.x : p.x, ty = at ? at.y : p.y;
       var dx = tx - r.x, dy = ty - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPEED * 1.25 * dt / 1000;
-      if (d > 6 * T || d <= step && !at) { r.x = tx; r.y = ty; }
-      else if (at) { var ease = 1 - Math.exp(-dt / 60); r.x += dx * ease; r.y += dy * ease; } // (a late step corrects softly)
-      else { r.x += dx / d * step; r.y += dy / d * step; }
-      var moving = at ? at.moving : d > 8 || p.m, dir = at ? at.dir : p.dir; // (the way they face: their own, no flicker on a diagonal)
+      var rush = C.SPEED * 3 * dt / 1000; // (the quickest they catch up after a gap: a run, not a jump)
+      if (d > ON.snapTiles * T || d <= step && !at) { r.x = tx; r.y = ty; }
+      else {
+        var by = at ? Math.min(d * (1 - Math.exp(-dt / 60)), rush) : d > 2 * T ? rush : step; // (a late step corrects softly)
+        if (d) { r.x += dx / d * by; r.y += dy / d * by; }
+      }
+      var moving = at ? at.moving || d > T : d > 8 || p.m, dir = at ? at.dir : p.dir; // (the way they face: their own, no flicker on a diagonal)
       if (!at && moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
       var key = F.sheetFor(r.look, p.pt);
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended

@@ -34,7 +34,20 @@
       if (!this.available()) return null;
       // (a live message that times out is only a missed message: nothing waits on it)
       var c = host().join(topic, me, on), quiet = function (r) { if (r && r.catch) r.catch(function () {}); return r; };
-      return { track: function (s) { return quiet(c.track(s)); }, send: function (e, p) { return quiet(c.send(e, p)); }, leave: function () { return quiet(c.leave()); } };
+      // Presence says who is here; the moves say where. A phone that updates it often has its line closed by the server
+      // (31 Oct: every stop sent one, so Eliska vanished, jumped and "went home"), so the newest waits its turn.
+      var last = Date.now(), next = null, timer = null;
+      var turn = function () {
+        var wait = last + F.Config.ONLINE.trackEvery - Date.now();
+        timer = null;
+        if (wait > 0) timer = setTimeout(turn, Math.min(wait, 1000));
+        else { last = Date.now(); quiet(c.track(next)); }
+      };
+      return {
+        track: function (s) { next = s; if (!timer) turn(); },
+        send: function (e, p) { return quiet(c.send(e, p)); },
+        leave: function () { clearTimeout(timer); timer = null; return quiet(c.leave()); },
+      };
     },
   };
 })(window.Farm = window.Farm || {});

@@ -9,6 +9,9 @@
     moveEvery: 250, // how often your position is sent while you walk (ms)
     moveDelay: 400, // the others are drawn this far in the past, so the next step has already arrived (ms)
     moveAhead: 200, // a step that comes late: they keep walking this long on their own (ms)
+    trackEvery: 20000, // the fewest ms between presence updates: the server closes the line of a phone that sends them often
+    goneAfter: 6000, // someone missing from the room this long has left; before that it is a dropped line (ms)
+    snapTiles: 14, // someone further than this from where they should be is put there; nearer, they walk over quickly
     giftGold: 100, // what a gold gift is worth to the farm you leave it at
   };
 })(window.Farm = window.Farm || {});

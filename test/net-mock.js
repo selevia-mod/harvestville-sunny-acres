@@ -6,6 +6,7 @@ const crypto = require('crypto');
 function createServer() {
   const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0 };
   const channels = new Map(); // topic -> Map(client:hid -> member)
+  db.tracks = []; // every presence update, as the server counts them
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
   const pair = (a, b) => (a < b ? [a, b] : [b, a]);
@@ -372,8 +373,8 @@ function createServer() {
             });
             return this;
           },
-          async track(state) { this.state = state; this.tracked = true; later(() => sync(room)); return 'ok'; },
-          async untrack() { this.state = null; this.tracked = false; later(() => sync(room)); return 'ok'; },
+          async track(state) { db.tracks.push({ uid, room, at: Date.now() }); this.state = state; this.tracked = true; later(() => sync(room)); return 'ok'; },
+          async untrack() { this.state = null; this.tracked = false; setTimeout(() => sync(room), db.presenceLagMs || 0); return 'ok'; }, // (a real server tells the others a little after any broadcast)
           presenceState() { return this.presence; },
           async send(m) {
             const set = topics.get(room);
@@ -405,7 +406,10 @@ function createServer() {
     };
   }
 
-  return { supabaseFor, db, topics, newUser: () => crypto.randomUUID() };
+  // The server closes one player's line, as it does to a phone that updates its presence too often.
+  const kick = (uid, room) => { for (const c of [...(topics.get(room) || [])]) if (c.key === uid) c.drop(); };
+
+  return { supabaseFor, db, topics, kick, newUser: () => crypto.randomUUID() };
 }
 
 module.exports = { createServer };

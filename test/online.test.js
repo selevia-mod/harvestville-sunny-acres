@@ -204,6 +204,11 @@ test('stopping: a friend ends exactly where they stopped; a door or warp is a ju
   L.trailNote(jump, { t: 1250, x: 40 * C.TILE, y: 0, dir: 'right', m: 1 }, 1250);
   assert.strictEqual(L.trailAt(jump, 1500).x, 0, 'still there');
   assert.strictEqual(L.trailAt(jump, 1650).x, 40 * C.TILE, 'then here, at once');
+  const lost = { list: [], off: 0, heard: 0 }; // steps lost for a while: a walk, not a warp
+  L.trailNote(lost, { t: 1000, x: 0, y: 0, dir: 'right', m: 1 }, 1000);
+  L.trailNote(lost, { t: 3500, x: 7 * C.TILE, y: 0, dir: 'right', m: 1 }, 3500);
+  const halfWay = L.trailAt(lost, 1000 + C.ONLINE.moveDelay + 1250);
+  assert.ok(Math.abs(halfWay.x - 3.5 * C.TILE) < C.TILE, 'half way there: ' + (halfWay.x / C.TILE).toFixed(1) + ' tiles');
 });
 
 test('the steps kept: a late copy and a changed clock do no harm, junk is ignored, and the list never grows', () => {
