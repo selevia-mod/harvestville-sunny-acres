@@ -550,6 +550,26 @@ test('someone walking near the farmer never freezes: a visitor at the stall leav
   await context.close();
 });
 
+test('a box with three buttons keeps them all on the panel (owner, 31 Oct)', async () => {
+  const { page, problems, context } = await open();
+  const row = await page.evaluate(() => {
+    Farm.ui.closeAll();
+    Farm.ui.dialog('GIVE TO SELENE\nGive Selene your Chicken Feed (you have 7)?', [{ label: 'Cancel' }, { label: 'Give 1' }, { label: 'Give 7' }]);
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1], seen = [];
+    (function walk(list) {
+      list.forEach((o) => {
+        if (o.type === 'Text' && /^(Cancel|Give \d+)$/.test(o.text)) seen.push(o.parentContainer.x);
+        if (o.list) walk(o.list);
+      });
+    })(m.c.list);
+    return { seen, W: Farm.Config.WIDTH };
+  });
+  assert.strictEqual(row.seen.length, 3);
+  row.seen.forEach((x) => { assert.ok(x - 45 >= 24 && x + 45 <= row.W - 24, 'on the panel: ' + x); });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('a new day starts at midnight wherever you are; energy comes back by itself', async () => {
   const { page, problems, context } = await open(null, [2026, 4, 1, 23, 50]);
   await tapButton(page, 'Boy');

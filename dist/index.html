@@ -8742,9 +8742,9 @@
         }
         c.add(b.t);
       });
-      var bw = buttons.length > 1 ? 120 : 150;
+      var three = buttons.length > 2, bw = three ? 90 : buttons.length > 1 ? 120 : 150; // three of the wider ones run off the screen
       buttons.forEach(function (b, i) {
-        var bx = W / 2 + (i - (buttons.length - 1) / 2) * (bw + 14);
+        var bx = W / 2 + (i - (buttons.length - 1) / 2) * (bw + (three ? 8 : 14));
         self.button(c, bx, y0 + h - 40, bw, 42, b.label, function () {
           self.closeModal();
           if (b.cb) b.cb();
