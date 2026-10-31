@@ -6,6 +6,7 @@
   var L = F.Logic;
   var T = C.TILE;
   var SPEED = 600; // world units per second (about 2.3 tiles/s)
+  var PATIENCE = 3000; // ms someone waits for a farmer standing in their way
   var DEPTH = 10;
   var STEP_X = [1, -1, 0, 0], STEP_Y = [0, 0, 1, -1];
 
@@ -85,12 +86,13 @@
         }
         if (frozen || !v.path.length) return;
         if (v.hold > 0) { v.hold -= dt; return; }
-        var dxp = f.x - v.x, dyp = f.y - v.y;
-        if (dxp * dxp + dyp * dyp < T * T * 0.6) { // the farmer is in the way
+        var p = v.path[0], dx = p.x - v.x, dy = p.y - v.y, d = Math.sqrt(dx * dx + dy * dy), step = SPEED * dt / 1000;
+        var dxp = f.x - v.x, dyp = f.y - v.y, near = dxp * dxp + dyp * dyp < T * T * 0.6;
+        if (!near) v.waited = 0;
+        else if (dx * dxp + dy * dyp > 0 && (v.waited = (v.waited || 0) + dt) < PATIENCE) { // the farmer is in the way: wait a moment, then pass
           if (v.sprite.anims.isPlaying) self.stand(v);
           return;
         }
-        var p = v.path[0], dx = p.x - v.x, dy = p.y - v.y, d = Math.sqrt(dx * dx + dy * dy), step = SPEED * dt / 1000;
         if (d <= step) {
           v.x = p.x;
           v.y = p.y;

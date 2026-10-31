@@ -482,9 +482,12 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   const { page, problems, context } = await open(await makeSave("s.time = 600; L.addItem(s, 'potato', 4);"));
   await go(page, 'town', 'from_farm');
   await page.evaluate(() => {
-    const s = Farm.session.state, L = Farm.Logic;
+    const s = Farm.session.state, L = Farm.Logic, V = Farm.world.villagers;
     L.listItem(s, 0, s.inv.findIndex((x) => x && x.id === 'potato'), 4, 0);
     s.shelves[0].left = 1; // a buyer is due in a minute
+    // no visitors today: one already at the stall buys within a frame or two, before this test can see them on the way
+    V.nextShopper = Infinity;
+    V.list.filter((v) => v.shopper).forEach((v) => { v.target = null; v.place = 'gone'; V.put(v, 0, 0, false); });
   });
   await advance(page, 2);
   // someone heads for the stall...
@@ -498,12 +501,51 @@ test('in town, a villager walks up to the market stall and buys what is on a she
   const at = await page.evaluate((k) => { const v = Farm.world.villagers.list.find((x) => x.key === k), p = Farm.world.points.stall_front; return Math.hypot(v.x - p.x, v.y - p.y); }, buyer);
   assert.ok(at < 256, 'they stood at the stall');
   const s = await state(page);
-  if (!buyer.startsWith('visitor_')) assert.strictEqual(s.shelves[0].buyer, buyer); // a visitor's sale goes down as a villager's
+  assert.strictEqual(s.shelves[0].buyer, buyer);
   assert.strictEqual(s.shelves[0].coins, 4 * (await page.evaluate(() => Farm.Config.ITEMS.potato.sell)));
   await page.waitForFunction(() => !Farm.world.villagers.list.some((v) => v.errand), null, SLOW); // they head off
   await teleport(page, 11, 15, 'up');
   await page.waitForFunction(() => Farm.ui.actionLabel.text !== 'Talk', null, SLOW); // (a villager may be walking past the stall)
   assert.strictEqual(await actionLabel(page), 'Collect');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('someone walking near the farmer never freezes: a visitor at the stall leaves, and a villager heading into you goes round after a moment (owner, 31 Oct)', async () => {
+  const { page, problems, context } = await open(await makeSave('s.time = 600;'));
+  await go(page, 'town', 'from_farm');
+  await teleport(page, 11, 15, 'up');
+  const walker = () => page.evaluate(() => {
+    const V = Farm.world.villagers, p = Farm.world.points;
+    V.nextShopper = Infinity;
+    V.list.filter((v) => v.shopper).forEach((v) => { v.target = null; v.place = 'gone'; V.put(v, 0, 0, false); });
+    const v = V.list.find((x) => x.shopper);
+    V.put(v, p.stall_front.x, p.stall_front.y, true); // standing at the stall, next to the farmer
+    return v.key;
+  });
+  const gone = (key) => page.waitForFunction((k) => {
+    const v = Farm.world.villagers.list.find((x) => x.key === k), f = Farm.world.feet();
+    return Math.hypot(v.x - f.x, v.y - f.y) > Farm.Config.TILE * 1.5;
+  }, key, { timeout: 15000 });
+  // walking away from you: off they go
+  let key = await walker();
+  await page.evaluate((k) => {
+    const v = Farm.world.villagers.list.find((x) => x.key === k), p = Farm.world.points;
+    v.n++; v.target = { place: 'leave#' + v.n, point: p.from_east, hide: true };
+  }, key);
+  await gone(key);
+  // walking straight at you: they stop first, so you can talk to them, and then carry on past
+  key = await walker();
+  await page.evaluate((k) => {
+    const v = Farm.world.villagers.list.find((x) => x.key === k), f = Farm.world.feet(), T = Farm.Config.TILE;
+    Farm.world.villagers.put(v, f.x - T * 0.6, f.y, true);
+    v.path = [{ x: f.x, y: f.y }, { x: f.x + T * 4, y: f.y }];
+    window.__held = 0;
+    const t = setInterval(() => { if (v.x === f.x - T * 0.6) window.__held++; else clearInterval(t); }, 100);
+  }, key);
+  await page.waitForTimeout(1000);
+  assert.ok(await page.evaluate(() => window.__held) >= 5, 'they stopped in front of you');
+  await gone(key);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
