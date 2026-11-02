@@ -421,11 +421,10 @@ test('nothing about the town is written to the save', () => {
   assert.strictEqual(C.SAVE_VERSION, plain(L.serialize(s)).v);
 });
 
-test('v2.1 names what is live, and keeps the two server features out until the script is applied', () => {
+test('v2.1 names what is live, the two server features included now the script is applied', () => {
   const news = C.NEWS[0];
   assert.strictEqual(news.v, '2.1');
   const titles = news.lines.map((l) => l[1]);
-  ['No more lost chests', "Today's Event", 'Rare surprises'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
-  ['Town Goal', 'Best Farm of the Week'].forEach((t) => assert.ok(titles.indexOf(t) < 0, t));
+  ['No more lost chests', "Today's Event", 'Rare surprises', 'Town Goal', 'Best Farm of the Week'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
 });
