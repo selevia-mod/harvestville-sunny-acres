@@ -257,7 +257,7 @@
       idx = Number(idx);
       var x = idx % C.FARM_W, y = Math.floor(idx / C.FARM_W);
       if (farm.field && farm.field[idx]) return;
-      if (L.plotAt(s, x, y) >= 0) return;
+      if (L.plotAt(s, x, y) >= 0 || L.landOpen(s, x, y)) return;
       delete s.soil[idx];
       n++;
     });

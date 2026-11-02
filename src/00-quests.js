@@ -144,6 +144,12 @@
     wantedPay: 1.8,
     pay: 1.3, // ...the rest a little over the stall price
     perDay: 10, // she buys up to this many of each, each visit
+    // Seasonal goods she sells while they are out of season: rare, so they cost more (owner, 1 Nov 2026). Her crops
+    // stay dearer than the Market's highest price, so buying from players is cheaper and nothing can be resold at a profit.
+    rare: [
+      { id: 'tomato', price: 50, most: 5 }, { id: 'onion', price: 100, most: 5 }, { id: 'ginger', price: 75, most: 5 },
+      { id: 'seed_tomato', price: 100, most: 3 }, { id: 'seed_onion', price: 200, most: 3 }, { id: 'seed_ginger', price: 150, most: 3 },
+    ],
     // swaps: give [[item or 'stars', n]...], get { item, n } or { stars } or { furniture } / { yard } (a festival piece of any season)
     swaps: [
       { give: [['gem', 5]], get: { stars: 1 } },

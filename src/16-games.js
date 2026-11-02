@@ -38,7 +38,7 @@
 
   M.refreshGoal = function () {
     var s = F.session.state, g = L.goal(s);
-    this.goalBar.setVisible(!!g);
+    this.goalBar.setVisible(!!g && !F.session.visit); // (a visit's bar sits here: 19h-online.js)
     if (!g) return;
     var text = g.text + (g.need > 1 ? '  ' + s.gp + '/' + g.need : '');
     this.goalText.setText(text).setFontSize(text.length > 46 ? 11 : 12);
@@ -136,7 +136,8 @@
   // ---------- mini-game: fishing ----------
   // Hold (the action button, the screen, or Space) to lift the green bar; keep the fish inside to fill the meter.
   M.startFishGame = function (fishId, done) {
-    var self = this, G = C.FISH_GAME, def = G[fishId] || G.fish_m;
+    var self = this, G = C.FISH_GAME, base = G[fishId] || G.fish_m, rod = L.rodLevel(F.session.state);
+    var def = { speed: base.speed, zone: base.zone * C.ROD.bar[rod] }, drain = G.drain * C.ROD.drain[rod]; // a better rod is kinder
     var finished = false;
     var finish = function (ok) {
       if (finished) return;
@@ -182,7 +183,7 @@
         }
         st.fy += Phaser.Math.Clamp(st.target - st.fy, -def.speed * sec, def.speed * sec);
         var inside = st.fy >= st.zy && st.fy <= st.zy + def.zone;
-        st.meter = Phaser.Math.Clamp(st.meter + (inside ? G.fill : -G.drain) * sec, 0, 1);
+        st.meter = Phaser.Math.Clamp(st.meter + (inside ? G.fill : -drain) * sec, 0, 1);
         zone.setY(TY + TH - st.zy * TH).setFillStyle(inside ? 0x9cff6a : 0x7bdc5a, 0.75);
         fish.setY(TY + TH - st.fy * TH).setFlipX(st.target > st.fy);
         meter.setSize(8, Math.max(1, st.meter * TH));

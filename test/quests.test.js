@@ -274,3 +274,88 @@ test('everything in Phase 3 is saved, and the save stays small', () => {
   for (let i = 0; i < 300; i++) s.yard.items.push({ t: i % 30, x: 20 + (i % 15), y: 2 + Math.floor(i / 15) });
   assert.ok(JSON.stringify(L.serialize(s)).length < C.MAX_SAVE_BYTES, JSON.stringify(L.serialize(s)).length + ' bytes');
 });
+
+// Owner, 1 Nov 2026: tomato, onion and ginger are rare out of season, so Saffron sells them and their seeds for more.
+const tuesday = (y, mo, d) => {
+  const s = fresh();
+  s.day = Math.floor(Date.UTC(y, mo - 1, d) / 864e5);
+  s.time = 10 * 60;
+  assert.ok(L.traderHere(s), 'she is here');
+  s.gold = 100000;
+  return s;
+};
+const rareIds = (s) => plain(L.traderRare(s)).map((r) => r.id).sort();
+
+test('rare goods: the owner\'s prices, for all six in fall', () => {
+  const s = tuesday(2026, 11, 3);
+  assert.deepStrictEqual(Object.fromEntries(plain(L.traderRare(s)).map((r) => [r.id, r.price])), {
+    tomato: 50, onion: 100, ginger: 75, seed_tomato: 100, seed_onion: 200, seed_ginger: 150,
+  });
+});
+
+test('rare goods: in its own season a crop goes back to the normal shop', () => {
+  const winter = tuesday(2026, 12, 1), spring = tuesday(2027, 3, 2), summer = tuesday(2027, 6, 1);
+  assert.deepStrictEqual(rareIds(winter), ['onion', 'seed_onion', 'seed_tomato', 'tomato']);
+  assert.deepStrictEqual(rareIds(spring), ['ginger', 'seed_ginger', 'seed_tomato', 'tomato']);
+  assert.deepStrictEqual(rareIds(summer), ['ginger', 'onion', 'seed_ginger', 'seed_onion']);
+  assert.strictEqual(L.traderBuy(winter, 'ginger', 1), 'season');
+  assert.ok(L.seedsInSeason(winter.day).includes('seed_ginger'));
+  assert.strictEqual(C.ITEMS.seed_ginger.price, 75, 'the normal price does not change');
+});
+
+test('rare goods: buying takes the gold, gives the goods, and stops at the limit for the visit', () => {
+  const s = tuesday(2026, 11, 3);
+  assert.strictEqual(L.traderBuy(s, 'tomato', 2), 100);
+  assert.strictEqual(s.gold, 100000 - 100);
+  assert.strictEqual(L.countItem(s, 'tomato'), 2);
+  assert.strictEqual(L.traderBuy(s, 'tomato', 9), 150, 'only 3 of the 5 are left');
+  assert.strictEqual(L.countItem(s, 'tomato'), 5);
+  assert.strictEqual(L.traderBuy(s, 'tomato', 1), 'none');
+  assert.strictEqual(L.traderBuy(s, 'seed_onion', 9), 600, '3 seed bags a visit');
+  assert.strictEqual(L.countItem(s, 'seed_onion'), 3);
+  const back = roundTrip(s);
+  assert.strictEqual(L.traderBuy(back, 'tomato', 1), 'none', 'closing the game does not restock her');
+  back.day += 2;
+  assert.strictEqual(L.traderBuy(back, 'tomato', 1), 50, 'her next visit does');
+});
+
+test('rare goods: no gold or no room buys nothing', () => {
+  const s = tuesday(2026, 11, 3);
+  s.gold = 49;
+  assert.strictEqual(L.traderBuy(s, 'tomato', 1), 'gold');
+  assert.strictEqual(L.countItem(s, 'tomato'), 0);
+  assert.strictEqual(s.gold, 49);
+  s.gold = 1000;
+  s.inv = s.inv.map(() => ({ id: 'stone', n: 999 }));
+  assert.strictEqual(L.traderBuy(s, 'tomato', 1), 'full');
+  assert.strictEqual(s.gold, 1000);
+});
+
+test('rare goods: her seeds still wait for their season', () => {
+  const s = tuesday(2026, 11, 3);
+  L.traderBuy(s, 'seed_tomato', 1);
+  const slot = slotOf(s, 'seed_tomato');
+  s.soil[5] = { w: 0 };
+  assert.strictEqual(L.plantBag(s, [5], slot), 'season');
+  assert.strictEqual(L.countItem(s, 'seed_tomato'), 1, 'and the bag is kept');
+  s.day = Math.floor(Date.UTC(2027, 5, 1) / 864e5);
+  assert.strictEqual(L.plantBag(s, [5], slot), 1);
+});
+
+test('rare goods: nobody can buy from her and sell for a profit', () => {
+  const top = C.MARKET.prices[C.MARKET.prices.length - 1][1];
+  C.TRADER.rare.forEach((r) => {
+    const it = C.ITEMS[r.id];
+    if (it.kind === 'seed') return assert.ok(!L.marketable(r.id), r.id + ' stays off the Market');
+    assert.ok(r.price > it.sell * top, r.id + ' costs more than the Market\'s highest price');
+    assert.ok(L.marketable(r.id), r.id + ' can still be sold between farms');
+  });
+});
+
+test('rare goods: the tip is new, so the tips already seen keep their places', () => {
+  assert.ok(C.TIPS.length <= 31, 'a tip is one bit of a saved number');
+  assert.ok(C.TIPS.findIndex((t) => t.key === 'rare') >= C.TIPS.findIndex((t) => t.key === 'kanor'), 'added after the others');
+  const s = fresh();
+  assert.match(L.takeTip(s, 'rare'), /Saffron/);
+  assert.strictEqual(L.takeTip(s, 'rare'), null, 'once');
+});

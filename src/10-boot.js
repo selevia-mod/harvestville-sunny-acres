@@ -19,6 +19,10 @@
     wildshade: { frameWidth: 224, frameHeight: 252, margin: 8, spacing: 16 }, // the shadow under each of those frames
     wildgrass: { frameWidth: 320, frameHeight: 120 }, // grass before their feet: Pulag, Makiling, Magayon, 2 rows (tools/art/grass-import.js)
     kanor: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 }, // Kanor the hunter, like the farmer
+    sidebtn: { frameWidth: 144, frameHeight: 144, margin: 8, spacing: 16 }, // the painted Quests, Online, Decorate and Chat buttons
+    visitbtn: { frameWidth: 144, frameHeight: 144, margin: 8, spacing: 16 }, // the painted buttons of a visit's fan (19h-online.js)
+    archer: { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 }, // the farmer drawing a bow, 3 poses a way (tools/art/archer-import.js)
+    archer_girl: { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 },
   };
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
   // the first time a map needs them, which keeps memory down on low-end phones.

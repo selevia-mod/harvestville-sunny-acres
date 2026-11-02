@@ -62,6 +62,12 @@ function createServer() {
       if (!v) db.visits.push(v = { host: a.p_host, visitor: uid, day: today(), liked: false, gift: null, collected: false });
       return { id: p.id, farm_name: p.farm_name, online: online(p), data: s.data, beauty: s.beauty, house_level: s.house_level, likes: db.visits.filter((x) => x.host === p.id && x.liked).length, friend: areFriends(uid, p.id), liked: v.liked, gift: v.gift };
     },
+    invite_collect_game_rewards_v1(uid, a) {
+      need(uid);
+      const box = db.invites = db.invites || {}, mine = box[uid] = box[uid] || {}, amount = mine[a.p_kind] || 0;
+      mine[a.p_kind] = 0;
+      return { ok: true, kind: a.p_kind, amount };
+    },
     farm_like_v1(uid, a) {
       const v = visitOf(a.p_host, need(uid));
       if (!v || v.liked) return false;
@@ -323,6 +329,53 @@ function createServer() {
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
   };
+
+  // part 12 (supabase/farm_online_12.sql): the Town Goal and Best Farm of the Week. Like the real thing before it is
+  // applied, these do not exist until a test sets server.db.town = {} (see townRpc): the game must then hide them quietly.
+  // db.town: { kind, target, total, gives: { uid: n today }, mine: { uid: n this week }, prize: { uid: [weeks to claim] }, best: { id, likes }, bestPrize: uid }
+  const townRpc = {
+    farm_town_goal_v1(uid) {
+      need(uid);
+      const t = db.town;
+      return { week: '2026-11-02', kind: t.kind || 'crop', target: t.target || 1000, total: t.total || 0, givers: Object.keys(t.mine || {}).length, mine: (t.mine || {})[uid] || 0, left_today: 40 - ((t.gives || {})[uid] || 0), day_cap: 40, min: 10, gold: 1000, stars: 1, ends_in: 3 * 86400 + 3600, can_give: true };
+    },
+    farm_town_give_v1(uid, a) {
+      need(uid);
+      const t = db.town, n = Number(a.p_n);
+      if (!Number.isInteger(n) || n < 1) return { ok: false, code: 'bad', given: 0 };
+      t.gives = t.gives || {};
+      t.mine = t.mine || {};
+      const took = Math.min(n, 40 - (t.gives[uid] || 0));
+      if (took <= 0) return { ok: false, code: 'limit', given: 0, left_today: 0 };
+      t.gives[uid] = (t.gives[uid] || 0) + took;
+      t.mine[uid] = (t.mine[uid] || 0) + took;
+      t.total = (t.total || 0) + took;
+      return { ok: true, given: took, left_today: 40 - t.gives[uid] };
+    },
+    farm_town_claim_v1(uid) {
+      need(uid);
+      const weeks = (db.town.prize || {})[uid] || [];
+      if (db.town.prize) delete db.town.prize[uid];
+      return weeks.map((week) => ({ week, gold: 1000, stars: 1 }));
+    },
+    farm_best_v1(uid) {
+      need(uid);
+      const b = db.town.best, who = b && db.players.get(b.id);
+      return { last: who ? { id: who.id, farm_name: who.farm_name, likes: b.likes, week: '2026-10-26' } : null, top: 0, mine: 0, gold: 5000, stars: 5 };
+    },
+    farm_best_claim_v1(uid) {
+      need(uid);
+      if (db.town.bestPrize !== uid) return [];
+      db.town.bestPrize = null;
+      return [{ week: '2026-10-26', likes: db.town.best ? db.town.best.likes : 1, gold: 5000, stars: 5 }];
+    },
+  };
+  Object.keys(townRpc).forEach((name) => {
+    rpc[name] = (uid, a) => {
+      if (!db.town) throw new Error('Could not find the function ' + name);
+      return townRpc[name](uid, a);
+    };
+  });
 
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels

@@ -340,7 +340,7 @@
     var redo = function () { self.closeModal(); self.openTrader(tab, page); };
     if (tab === 'sell') {
       var wanted = L.traderWanted(s);
-      rows = C.TRADER.buys.slice().sort(function (a, b) { return (wanted.indexOf(b) >= 0) - (wanted.indexOf(a) >= 0); }).map(function (id) {
+      rows = C.TRADER.buys.filter(function (id) { return C.TRADER.wantedFrom.indexOf(id) >= 0 || L.discovered(s, id); }).sort(function (a, b) { return (wanted.indexOf(b) >= 0) - (wanted.indexOf(a) >= 0); }).map(function (id) {
         var item = C.ITEMS[id], have = L.countItem(s, id), left = L.traderLeft(s, id), price = L.traderPrice(s, id);
         return {
           icon: item.icon, name: item.name + (wanted.indexOf(id) >= 0 ? '  WANTED' : ''),
@@ -355,6 +355,29 @@
                 world().save();
                 redo();
                 self.toast('Saffron pays you ' + g + 'G.', 2000, 0x7a4d12);
+              },
+            };
+          }) : [],
+        };
+      });
+    } else if (tab === 'rare') {
+      rows = L.traderRare(s).map(function (r) {
+        var item = C.ITEMS[r.id], left = L.traderRareLeft(s, r), most = Math.min(left, Math.floor(s.gold / r.price));
+        var note = item.kind === 'seed' ? ' Plant in ' + L.seasonsOf(item.crop) + '.' : ' Ready to cook.';
+        return {
+          icon: item.icon, name: item.name,
+          desc: r.price + 'G each.' + note + (left ? (left < r.most ? ' She has ' + left + ' more today.' : '') : ' Sold out today.'),
+          buttons: most > 0 ? [1, most].filter(function (n, k) { return k === 0 || n > 1; }).map(function (n, k) {
+            return {
+              label: 'Buy ' + n, color: k ? BLUE : GREEN, cb: function () {
+                var cost = L.traderBuy(s, r.id, n);
+                if (cost === 'full') { sfx('nope'); return self.toast('Your bag is full!'); }
+                if (typeof cost !== 'number') return;
+                sfx('coin');
+                world().changed();
+                world().save();
+                redo();
+                self.toast('You pay Saffron ' + cost + 'G.', 2000, 0x7a4d12);
               },
             };
           }) : [],
@@ -384,10 +407,12 @@
       });
     }
     o = this.listPanel({
-      title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap']],
+      title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap'], ['rare', 'Rare']],
       reopen: function (t, p) { self.openTrader(t, p); },
-      sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : '   Rare things for goods or Sunbeams.'); },
+      sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
     });
+    var tip = L.takeTip(s, 'rare');
+    if (tip) { world().save(); this.toast(tip, 4500, 0x7a4d12); }
     return o;
   };
 

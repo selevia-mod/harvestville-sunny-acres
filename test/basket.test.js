@@ -16,7 +16,7 @@ L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = (y = 2026, m = 4, d = 1) => { clock.set(y, m, d, 10, 0); const s = L.newState(); s.seed = 11; return s; };
+const fresh = (y = 2026, m = 4, d = 1) => { clock.set(y, m, d, 10, 0); const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ return s; };
 const ripe = (s, idx, crop) => { s.soil[idx] = { w: 0, c: crop, p: L.nowMin() - C.CROPS[crop].mins - 1, r: 0 }; };
 
 test('a friend picks a ripe crop off their copy of your farm; it goes back if the server says no', () => {

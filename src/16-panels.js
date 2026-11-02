@@ -301,7 +301,7 @@
     var name = this.txt(W / 2, 318 + dy, '', 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
     var desc = this.txt(W / 2, 342 + dy, '', 13, INK, { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0);
     var mats = this.txt(W / 2, 404 + dy, '', 13, '#5a3a1e', { align: 'center', fontStyle: 'bold' }).setOrigin(0.5, 0);
-    var NOTE = 'Tap an item to hold it. The first row is your hotbar: tap Move to put an item there.';
+    var NOTE = 'Tap an item to hold it. The first 3 rows are your 3 toolbars: tap Move to put an item there.';
     var note = this.txt(W / 2, 428 + dy, NOTE, 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
     c.add([name, desc, mats, note]);
     // Move (owner, 27 Oct): pick up the held item, then tap the slot to put it in (a swap, or stacked with the same item);
@@ -361,7 +361,7 @@
       moveBtn.setVisible(moving == null && !!held);
       stopBtn.setVisible(moving != null);
       note.setText(moving != null && s.inv[moving] ? 'Now tap where to put the ' + L.itemName(s, s.inv[moving].id) + '.' +
-        (pages > 1 ? ' Use the arrows for another page.' : ' The first row is your hotbar.') : NOTE);
+        (pages > 1 ? ' Use the arrows for another page.' : ' The first 3 rows are your toolbars.') : NOTE);
       name.setText(held ? L.itemName(s, held.id) + (held.n > 1 ? '  x' + held.n : '') : 'Empty hands');
       var d = held ? C.ITEMS[held.id].desc : 'Choose something to hold.';
       if (held && L.energyOf(held.id)) d += ' (+' + L.energyOf(held.id) + ' energy)';
@@ -485,7 +485,7 @@
     this.say('hollis', 'Mayor Hollis', r.line + (next ? '\n\n"Our next festival is the ' + next.fest.name + ' on ' + L.formatDate(next.day) + '. ' + next.fest.desc + '"' : ''));
   };
 
-  M.openForge = function () {
+  M.openForge = function (page) {
     var self = this, s = F.session.state, o;
     var rows = C.TOOL_KEYS.map(function (tool) {
       var cost = L.upgradeCost(s, tool), next = L.toolLevel(s, tool) + 1;
@@ -510,8 +510,29 @@
         }] : [],
       };
     });
+    if (L.hasRod(s)) {
+      var rodCost = L.rodCost(s), rodNext = L.rodLevel(s) + 1;
+      rows.push({
+        icon: C.ICON.rod, name: L.itemName(s, 'rod'),
+        desc: rodCost ? 'A ' + C.ROD.names[rodNext] + ': the green bar is ' + Math.round((C.ROD.bar[rodNext] - 1) * 100) + '% bigger, and fish get away ' + Math.round((1 - C.ROD.drain[rodNext]) * 100) + '% slower.' : 'Fully upgraded! The best rod in the valley.',
+        reward: rodCost ? { gold: rodCost.gold, item: rodCost.ore, n: rodCost.n } : null, rewardPrefix: 'Cost', buttonsBelow: true,
+        buttons: rodCost ? [{
+          label: 'Upgrade', cb: function () {
+            var r = L.upgradeRod(s);
+            if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+            if (r === 'ore') { sfx('nope'); return self.toast('You need ' + rodCost.n + ' ' + C.ITEMS[rodCost.ore].name + '. Find ore in the mine.'); }
+            sfx('anvil');
+            world().changed();
+            world().save();
+            self.closeModal();
+            self.openForge(1); // (past 5 rows the list has pages of 4: the rod is on the second)
+            self.toast('Clang! Bram made you a ' + L.itemName(s, 'rod') + '.');
+          },
+        }] : [],
+      });
+    }
     o = this.listPanel({
-      title: "Bram's Forge", rows: rows, talk: 'bram', reopen: function () { self.openForge(); },
+      title: "Bram's Forge", rows: rows, page: page || 0, talk: 'bram', reopen: function (t, p) { self.openForge(p); },
       sub: function () {
         return s.gold + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
       },

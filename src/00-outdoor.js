@@ -5,7 +5,7 @@
   'use strict';
   var C = F.Config;
 
-  C.FARM_W = 38; // the farm map's width in tiles (it was 24 before the yard; older saves are moved over)
+  C.FARM_W = 64; // the farm map's width in tiles (24 before the yard, 38 before the land; older saves are moved over)
 
   C.OUTDOOR = {
     // kind: fence (solid, joins its neighbours), path (flat, walk on it), hedge (solid block), prop (like

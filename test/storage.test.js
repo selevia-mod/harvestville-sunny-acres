@@ -101,3 +101,22 @@ test('a full 90-slot bag and full storage still save under 16 KB', () => {
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size + ' bytes');
 });
+
+test('a save that is too big is refused out loud: one message and one report a visit, and a smaller save still goes through', () => {
+  const told = [], reports = [], saved = [];
+  ctx.window.gameHost = { state: null, save: (x) => saved.push(x), report: (stage) => reports.push(stage), now: ctx.window.gameHost.now };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', '02-host.js'), 'utf8'), ctx);
+  const F = ctx.window.Farm;
+  F.ui = { toast: (text) => told.push(text) };
+  const big = L.newState(), limit = C.MAX_SAVE_BYTES;
+  C.MAX_SAVE_BYTES = 100;
+  assert.strictEqual(F.Host.save(big), false);
+  assert.strictEqual(F.Host.save(big), false);
+  C.MAX_SAVE_BYTES = limit;
+  assert.strictEqual(saved.length, 0);
+  assert.strictEqual(told.length, 1);
+  assert.match(told[0], /too full to save/);
+  assert.deepStrictEqual(reports, ['save_refused']);
+  assert.strictEqual(F.Host.save(L.newState()), true);
+  assert.strictEqual(saved.length, 1);
+});

@@ -6,7 +6,7 @@
   var C = F.Config;
   var L = F.Logic;
   var O = C.OUTDOOR;
-  var MAX_ITEMS = 300; // keeps the save small
+  var MAX_ITEMS = 360; // keeps the save small (300, and the field's 60 fence pieces)
 
   var newState = L.newState;
   L.newState = function (info) {
@@ -131,6 +131,7 @@
     var type = O.types[t], W = farm.w, i, k;
     if (!type) return 'bad';
     if (x < 1 || y < 1 || x + type.w - 1 > W - 2 || y + type.h - 1 > farm.h - 2) return 'outside';
+    if (L.landCantPlace(s, t, x, y)) return 'outside';
     var box = L.yardBox(t, x, y);
     for (i = 0; i < box.length; i++) if (farm.noPlace[box[i][1] * W + box[i][0]]) return 'blocked';
     var mine = claims(t, x, y), layer = layerOf(t), taken = {};
@@ -220,7 +221,7 @@
   L.yardRepair = function (s, farm) {
     var keep = [], moved = 0;
     s.yard.items.forEach(function (it) {
-      var trial = { yard: { items: keep } };
+      var trial = { yard: { items: keep }, land: s.land, soil: s.soil };
       if (!L.yardCantPlace(trial, farm, it.t, it.x, it.y, null)) keep.push(it);
       else { s.yard.bag[it.t] = (s.yard.bag[it.t] || 0) + 1; moved++; }
     });

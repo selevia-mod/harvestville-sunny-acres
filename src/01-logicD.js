@@ -13,6 +13,7 @@
   var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
 
   C.TIPS.push({ key: 'wild', text: 'THE WILD LANDS' }, { key: 'kanor', text: 'KANOR' });
+  C.TIPS.push({ key: 'rare', text: 'NEW: out of season? Saffron now sells tomato, onion and ginger, and their seeds. Look under Rare.' }); // always last: a tip is its place in a saved number
   C.COLLECTION.push('meat_labuyo', 'meat_rabbit', 'venison', 'meat_boar', 'feather_labuyo', 'fur_rabbit', 'antler', 'tusk',
     'pelt_wolf', 'fang_wolf', 'tinola', 'rabbit_stew', 'venison_tapa', 'boar_adobo', 'inihaw', 'white_antler', 'gold_tusk',
     'meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek');

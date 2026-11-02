@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
-const W = 38; // farm width in tiles
+const W = 64; // farm width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
 const SLOW = { timeout: 90000 }; // headless frames can be slow
@@ -87,7 +87,8 @@ async function tapAction(page) {
   await page.waitForTimeout(150);
 }
 
-async function tapHotbar(page, i) {
+async function tapHotbar(page, i, bar = 0) { // (an item held from further down the bag takes the bar with it)
+  await page.evaluate((bar) => Farm.ui.hotTo(bar), bar);
   await page.touchscreen.tap(14 + i * 48 + 22, 606);
   await frames(page);
 }
@@ -234,10 +235,10 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   // a patch of the field with a weed, a branch and a stone on it (and nothing else)
   await page.evaluate(() => {
     const s = Farm.session.state;
-    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 38 + x];
-    s.debris[12 * 38 + 5] = 'weed';
-    s.debris[12 * 38 + 6] = 'branch';
-    s.debris[12 * 38 + 7] = 'stone';
+    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 64 + x];
+    s.debris[12 * 64 + 5] = 'weed';
+    s.debris[12 * 64 + 6] = 'branch';
+    s.debris[12 * 64 + 7] = 'stone';
     Farm.world.refreshDebris();
   });
   await teleport(page, 5, 11, 'down');
@@ -307,14 +308,14 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   // 15 real minutes later the watered row is ripe; the dry rows never started (owner, 29 Oct 2026: crops need water)
   await advance(page, 15);
   s = await state(page);
-  assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 38 + 5])));
-  assert.strictEqual(await page.evaluate(() => Farm.Logic.cropStage(Farm.session.state.soil[13 * 38 + 5])), 0, 'the unwatered row is still a seed');
+  assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 64 + 5])));
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.cropStage(Farm.session.state.soil[13 * 64 + 5])), 0, 'the unwatered row is still a seed');
   await teleport(page, 5, 12, 'down');
   await page.evaluate(() => { Farm.world.hintKey = null; });
   await frames(page);
   await tapAction(page);
   assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip needs water to grow/);
-  assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 38 + 5].stage), 3, 'the field shows it');
+  assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 64 + 5].stage), 3, 'the field shows it');
   await teleport(page, 5, 11, 'down');
   await shot(page, '05-ripe');
 
@@ -605,6 +606,294 @@ test('a new day starts at midnight wherever you are; energy comes back by itself
   await context.close();
 });
 
+test('the Bow is a real shot: it comes up, the string pulls back, then the arrow leaves, one at a time (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic;
+    L.addItem(s, 'bow', 1);
+    L.addItem(s, 'arrows', 10);
+    s.sel = s.inv.findIndex((x) => x && x.id === 'bow');
+  });
+  await go(page, 'pulag', 'from_town');
+  await page.evaluate(() => { const w = Farm.world; w.wild.next = 1e9; w.dir = 'right'; w.idle(); });
+  const left = () => page.evaluate(() => Farm.session.state.inv.filter((x) => x && x.id === 'arrows').reduce((a, b) => a + b.n, 0));
+  // a second tap while drawing does nothing, and no arrow has left yet
+  const drawing = await page.evaluate(() => { const w = Farm.world; w.shoot(); w.shoot(); return { on: !!w.shot, flying: w.wildArrows.length, sheet: w.shot.body.texture.key, frame: w.shot.body.frame.name, hidden: !w.player.visible, standing: w.acting > 0 }; });
+  assert.deepStrictEqual(drawing, { on: true, flying: 0, sheet: 'archer', frame: 6, hidden: true, standing: true });
+  assert.strictEqual(await left(), 9);
+  await page.waitForFunction(() => Farm.world.wildArrows.length === 1, null, SLOW);
+  await page.waitForFunction(() => !Farm.world.shot, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.visible), true, 'the farmer is back');
+  // each way has its pose, and the bow stays with you when you shoot up or down
+  for (const [dir, frame] of [['up', 3], ['down', 0], ['left', 6]]) {
+    await page.waitForFunction(() => Farm.world.wildArrows.length === 0, null, SLOW);
+    const f = await page.evaluate((dir) => { const w = Farm.world; w.wild.animals.forEach((a) => { a.x = a.y = -9999; }); w.dir = dir; w.idle(); w.shoot(); return w.shot.body.frame.name; }, dir);
+    assert.strictEqual(f, frame, dir);
+    await page.waitForFunction(() => !Farm.world.shot, null, SLOW);
+  }
+  // leaving in the middle of a shot does not jam the Bow
+  await page.evaluate(() => { const w = Farm.world; w.shoot(); w.travel('town', 'road_west'); });
+  await waitMap(page, 'town');
+  await go(page, 'pulag', 'from_town');
+  assert.strictEqual(await page.evaluate(() => Farm.world.shot), null);
+  // the string drawn on the icon is gone, the bow itself is not, for every level; a friend's shot flashes their bow
+  const pictures = await page.evaluate(() => {
+    const w = Farm.world, out = [];
+    [0, 1, 2, 3].forEach((n) => {
+      w.bowFlash(w.player.x, w.player.y, 0, n);
+      const frame = Farm.Config.ICON[n ? 'bow_' + n : 'bow'], g = w.textures.get('fx-bow-' + frame).getSourceImage().getContext('2d');
+      out.push([g.getImageData(85, 86, 1, 1).data[3] === 0, g.getImageData(62, 50, 1, 1).data[3] > 200]);
+    });
+    return out;
+  });
+  assert.deepStrictEqual(pictures, [[true, true], [true, true], [true, true], [true, true]]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('players\' suggestions on the farm: dig up a growing crop, a Power-Up shows its minutes (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  const idx = 12 * 64 + 6;
+  await page.evaluate((idx) => {
+    const s = Farm.session.state;
+    for (let y = 11; y <= 14; y++) for (let x = 4; x <= 9; x++) delete s.debris[y * 64 + x];
+    s.soil[idx] = { w: 1, c: 'turnip', p: Farm.Logic.nowMin(), r: 0 };
+    Farm.world.refreshDebris();
+    Farm.world.refreshTile(idx);
+  }, idx);
+  await teleport(page, 6, 11, 'down');
+  await hold(page, 'hoe');
+  assert.strictEqual(await actionLabel(page), 'Dig up');
+  await tapAction(page);
+  assert.match(await modalText(page), /DIG THIS UP/);
+  await tapButton(page, 'Yes');
+  assert.strictEqual(await page.evaluate((idx) => Farm.session.state.soil[idx].c, idx), null);
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.addItem(s, 'power_up', 1); Farm.Logic.usePowerUp(s, s.inv.findIndex((x) => x && x.id === 'power_up')); });
+  await page.waitForFunction(() => Farm.ui.powerChipBox && Farm.ui.powerChipBox.visible, null, SLOW);
+  assert.match(await page.evaluate(() => Farm.ui.powerText.text), /^120 min$/);
+  await shot(page, '53-power');
+  // behind a friend, a floor past your own earns nothing: no chest, no lift, no energy
+  const deep = await page.evaluate(async () => {
+    const s = Farm.session.state;
+    s.stats.deepest = 20;
+    Farm.session.visit = { host: 'friend', name: 'Ana', inTown: true, state: {} };
+    Farm.world.travel('mine', 'entrance', 205);
+    return new Promise((done) => {
+      const look = () => {
+        const w = Farm.world;
+        if (w.mapKey !== 'mine' || w.busy || !w.chest) return setTimeout(look, 100);
+        w.setFeet(9.5 * 256, 4.6 * 256);
+        w.dir = 'up';
+        w.idle();
+        setTimeout(() => {
+          const a = w.objectAction ? w.objectAction(w.objects.filter((o) => o.type === 'chest')[0], null, null) : null;
+          done({ deepest: s.stats.deepest, label: a && a.label, max: Farm.Logic.maxEnergy(s) });
+        }, 300);
+      };
+      look();
+    });
+  });
+  assert.deepStrictEqual(deep, { deepest: 20, label: 'Locked', max: 100 });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('wood: the big trees of Makiling Forest come down to the Axe, and the Forge has the rod (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; s.wild.n = 10; L.addItem(s, 'rod', 1); L.addItem(s, 'ore_copper', 5); s.gold = 3000; });
+  await go(page, 'makiling', 'from_pulag');
+  await hold(page, 'axe');
+  const trees = await page.evaluate(() => {
+    const w = Farm.world, T = Farm.Config.TILE;
+    w.wild.next = 1e9;
+    w.wild.animals.forEach((a) => { a.x = a.y = -9999; });
+    const p = w.trees[0];
+    w.setFeet(p.x + p.displayWidth / 2, p.y + 0.5 * T);
+    w.dir = 'up';
+    w.idle();
+    return w.trees.length;
+  });
+  assert.strictEqual(trees, 8);
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Chop');
+  const before = await page.evaluate(() => Farm.session.state.lumber);
+  await tapAction(page);
+  await page.waitForTimeout(500);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.lumber), before + 2);
+  await shot(page, '54-tree');
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => { const a = Farm.world.resolve(); return a.label + (a.disabled ? ' off' : ''); }), 'Chop off');
+  await page.evaluate(() => Farm.ui.openForge(1));
+  await frames(page, 3);
+  assert.match(await modalText(page), /Fishing Rod.*A Copper Rod/);
+  await shot(page, '55-forge');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('three toolbars: swipe the bar for the next 6 slots, a swipe picks nothing, the Bag stays (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context, cdp } = await open();
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; s.inv[6] = { id: 'axe', n: 1 }; s.inv[13] = { id: 'seed_turnip', n: 2 }; Farm.ui.select(0); });
+  await frames(page, 2);
+  const bar = () => page.evaluate(() => ({ page: Farm.ui.hotPage, sel: Farm.session.state.sel }));
+  const swipe = async (from, to) => {
+    const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    await touch('touchStart', from, 606);
+    await frames(page);
+    for (let k = 1; k <= 4; k++) { await touch('touchMove', from + (to - from) * k / 4, 606); await frames(page); }
+    await touch('touchEnd');
+    await frames(page, 3);
+  };
+  await swipe(250, 150);
+  assert.deepStrictEqual(await bar(), { page: 1, sel: 0 }, 'on to the second bar, still holding the same thing');
+  await tapHotbar(page, 0, 1);
+  assert.deepStrictEqual(await bar(), { page: 1, sel: 6 }, 'a tap picks from this bar');
+  await shot(page, '52-toolbar');
+  await swipe(250, 150);
+  await swipe(250, 150);
+  assert.deepStrictEqual(await bar(), { page: 2, sel: 6 }, 'three bars, no more');
+  await tapHotbar(page, 1, 2);
+  assert.strictEqual((await bar()).sel, 13);
+  await swipe(100, 220);
+  await swipe(100, 220);
+  await swipe(100, 220);
+  assert.deepStrictEqual(await bar(), { page: 0, sel: 13 }, 'and back');
+  // picked in the bag: the bar shows it
+  await page.evaluate(() => { Farm.session.state.sel = 6; Farm.ui.refresh(); });
+  assert.strictEqual((await bar()).page, 1);
+  // past the three bars, the bag still works
+  await page.evaluate(() => { const s = Farm.session.state; s.inv[20] = { id: 'axe', n: 1 }; s.sel = 20; Farm.ui.refresh(); });
+  assert.deepStrictEqual(await bar(), { page: 1, sel: 20 });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('more land: a fenced block with a For Sale sign, bought, tilled, and still yours after a reload (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; s.gold = 15000; delete s.debris; s.debris = {}; });
+  // the way in, past the old tree line
+  await teleport(page, 34, 33, 'right');
+  await page.evaluate(() => { Farm.world.setFeet(39.5 * Farm.Config.TILE, 33.5 * Farm.Config.TILE); });
+  assert.strictEqual(await page.evaluate(() => Farm.world.tileAt('Walls', 36, 33)), null, 'the tree is gone');
+  // the second block is not for sale yet; the first is
+  await teleport(page, 39, 18, 'right');
+  assert.strictEqual(await actionLabel(page), 'For sale');
+  await tapAction(page);
+  assert.match(await modalText(page), /Not yet/);
+  await closeAll(page);
+  await teleport(page, 39, 29, 'right');
+  assert.strictEqual(await actionLabel(page), 'For sale');
+  await tapAction(page);
+  assert.match(await modalText(page), /BUY THIS LAND.*10,000G/);
+  await tapButton(page, 'Yes');
+  await frames(page, 5);
+  const bought = await page.evaluate(() => { const w = Farm.world; return { land: w.state.land, gold: w.state.gold, fence: !!w.tileAt('Walls', 40, 29), till: w.isTillable(45, 30), next: w.isTillable(45, 18) }; });
+  assert.deepStrictEqual(bought, { land: 1, gold: 5000, fence: false, till: true, next: false });
+  await shot(page, '50-land');
+  // walk in, till it
+  await hold(page, 'hoe');
+  await teleport(page, 44, 29, 'right');
+  await tapAction(page);
+  const idx = 29 * 64 + 45;
+  assert.ok(await page.evaluate((i) => !!Farm.session.state.soil[i], idx), 'tilled');
+  // a save and a reload keep the land and the soil
+  const save = await page.evaluate(() => JSON.stringify(Farm.Logic.serialize(Farm.session.state)));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  const again = await open(JSON.parse(save));
+  await closeAll(again.page);
+  const after = await again.page.evaluate((i) => { const w = Farm.world; return { land: w.state.land, soil: !!w.state.soil[i], fence: !!w.tileAt('Walls', 40, 29), locked: !!w.tileAt('Walls', 40, 18) }; }, idx);
+  assert.deepStrictEqual(after, { land: 1, soil: true, fence: false, locked: true });
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});
+
+test('the field fence can be moved: drag a piece in Decorate, put another away (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context, cdp } = await open();
+  await closeAll(page);
+  await teleport(page, 24, 18, 'left'); // (a solid piece can't go where the farmer stands)
+  const toScreen = (x, y) => page.evaluate(([x, y]) => {
+    const cam = Farm.world.cameras.main, T = 256;
+    return { x: ((x + 0.5) * T - cam.worldView.x) * cam.zoom / Farm.R, y: ((y + 0.5) * T - cam.worldView.y) * cam.zoom / Farm.R };
+  }, [x, y]);
+  await page.touchscreen.tap(330, 258); // Decorate
+  await page.waitForFunction(() => Farm.world.yd && Farm.ui.decorBar, null, SLOW);
+  const fence = () => page.evaluate(() => { const s = Farm.session.state, f = Farm.Config.OUTDOOR.index.field_fence; return s.yard.items.filter((it) => it.t === f).map((it) => it.x + ',' + it.y); });
+  assert.strictEqual((await fence()).length, 60);
+  const from = await toScreen(20, 15), to = await toScreen(22, 15);
+  const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await page.touchscreen.tap(from.x, from.y); // a tap picks the piece, then it can be dragged
+  await frames(page, 3);
+  const picked = await page.evaluate(() => { const w = Farm.world, it = w.state.yard.items[w.yd.sel]; return it && [it.x, it.y]; });
+  assert.deepStrictEqual(picked, [20, 15], 'a tap picks a fence piece');
+  await touch('touchStart', from.x, from.y);
+  await frames(page);
+  for (let k = 1; k <= 6; k++) { await touch('touchMove', from.x + (to.x - from.x) * k / 6, from.y); await frames(page, 2); }
+  await touch('touchEnd');
+  await frames(page, 3);
+  const moved = await fence();
+  assert.ok(moved.includes('22,15') && !moved.includes('20,15'), 'the piece moved');
+  assert.strictEqual(await page.evaluate(() => Farm.world.tileAt('Walls', 20, 15)), null);
+  await shot(page, '51-fence');
+  await page.evaluate(() => { const w = Farm.world, s = w.state, f = Farm.Config.OUTDOOR.index.field_fence; w.yardSelect(s.yard.items.findIndex((it) => it.t === f && it.x === 20 && it.y === 16)); w.yardStore(); });
+  await frames(page, 2);
+  assert.strictEqual((await fence()).length, 59);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.yard.bag[Farm.Config.OUTDOOR.index.field_fence]), 1, 'kept in storage');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the deeper Mine: the lift stops at a band you reached, its cave has its own colours, a new band grows the bar (owner, 2 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; s.stats.deepest = 250; s.goal = 1e6; });
+  await go(page, 'mine', 'entrance');
+  const sheet = () => page.evaluate(() => Farm.world.map.getTileset('indoor').image.key);
+  assert.strictEqual(await sheet(), 'indoor', 'the first 200 floors look as they did');
+  await teleport(page, 4, 3, 'left');
+  assert.strictEqual(await actionLabel(page), 'Lift');
+  await tapAction(page);
+  assert.match(await modalText(page), /Mine Lift/);
+  await tapButton(page, 'Go', 0); // floor 1 is where we are: the first Go is the Crystal Caves
+  await page.waitForFunction(() => Farm.session.mineFloor === 201 && Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  assert.strictEqual(await sheet(), 'indoor-crystal');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.maxEnergy(Farm.session.state)), 100 + 10);
+  await shot(page, '52-crystal');
+  // a rock here pays in the band's goods, and a chest holds its gem
+  const rock = await page.evaluate(() => {
+    const w = Farm.world, s = w.state, floor = 201;
+    const real = Math.random;
+    Math.random = () => 0.86;
+    const idx = w.mine.rocks[0], t = { x: idx % w.map.width, y: Math.floor(idx / w.map.width) }, show = w.breakRock(idx, t, {});
+    Math.random = real;
+    if (show) show();
+    return { has: Farm.Logic.countItem(s, 'amethyst'), floor };
+  });
+  assert.strictEqual(rock.has, 1);
+  // down the ladder into a new band for the first time
+  await page.evaluate(() => { Farm.session.state.stats.deepest = 400; Farm.world.travel('mine', 'entrance', 401); });
+  await page.waitForFunction(() => Farm.session.mineFloor === 401 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /Green Jade Deep/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual(await sheet(), 'indoor-jade');
+  assert.strictEqual(await page.evaluate(() => Farm.mineSheet), 'indoor-jade');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.maxEnergy(Farm.session.state)), 100 + 20);
+  // back to the top by the lift, and the cave is the old one again
+  await teleport(page, 4, 3, 'left');
+  await tapAction(page);
+  assert.match(await modalText(page), /Green Jade Deep/);
+  await tapButton(page, 'Go', 0);
+  await page.waitForFunction(() => Farm.session.mineFloor === 1 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  assert.strictEqual(await sheet(), 'indoor');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer leaves venison, Makiling waits for 10 hunts (owner, 30 Oct 2026)', async () => {
   const { page, problems, context } = await open();
   await closeAll(page);
@@ -702,8 +991,14 @@ test('home storage: the free Dresser opens Storage; put a stack away, take it ba
   await tapAction(page);
   assert.match(await modalText(page), /Storage {2}1\/2.*0 of 60 slots used/);
   await tapButton(page, 'Bag');
-  assert.match(await modalText(page), /Tap an item to put it away/);
+  assert.match(await modalText(page), /Tap an item to read about it, put it away/);
   await tapSlotOnPage(page, 8);
+  assert.match(await modalText(page), /Carrot.*x40.*Sells for.*How many to put away/, 'an item says what it is, and asks how many');
+  await shot(page, '41b-store-item');
+  await tapButton(page, '10');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.inv[8].n), 30);
+  await tapSlotOnPage(page, 8);
+  await tapButton(page, 'All');
   assert.strictEqual(await page.evaluate(() => Farm.session.state.inv[8]), null);
   assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.store[0]), { id: 'carrot', n: 40 });
   await shot(page, '41-storage');
@@ -711,9 +1006,16 @@ test('home storage: the free Dresser opens Storage; put a stack away, take it ba
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
   assert.deepStrictEqual(saved.kp, [['carrot', 40]]);
   await tapButton(page, 'Storage');
+  // Move: pick it up, tap where it goes
   await tapSlotOnPage(page, 0);
+  await tapButton(page, 'Move');
+  assert.match(await modalText(page), /Now tap where to put the Carrot/);
+  await tapSlotOnPage(page, 3);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.store[3]), { id: 'carrot', n: 40 });
+  await tapSlotOnPage(page, 3);
+  await tapButton(page, 'All');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'carrot')), 40);
-  assert.strictEqual(await page.evaluate(() => Farm.session.state.store[0]), null);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.store[3]), null);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -937,7 +1239,7 @@ test('owner batch: one tap harvests the Sickle\'s reach; a bigger bag; the energ
     s.goal = 1;
     s.gold = 9000;
     s.tools.sickle = 2; // Silver: a 3x3 patch
-    for (let y = 13; y <= 15; y++) for (let x = 9; x <= 11; x++) s.soil[y * 38 + x] = { c: 'carrot', p: L.nowMin() - 60, w: 0, r: 0 };
+    for (let y = 13; y <= 15; y++) for (let x = 9; x <= 11; x++) s.soil[y * 64 + x] = { c: 'carrot', p: L.nowMin() - 60, w: 0, r: 0 };
   `, SAT);
   const { page, problems, context } = await open(save, SAT);
   await closeAll(page);
@@ -1049,11 +1351,11 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Apr 1');
-  await page.evaluate(() => { delete Farm.session.state.debris[12 * 38 + 5]; Farm.world.refreshDebris(); });
+  await page.evaluate(() => { delete Farm.session.state.debris[12 * 64 + 5]; Farm.world.refreshDebris(); });
   await teleport(page, 5, 11, 'down');
   await tapHotbar(page, 0);
   await tapAction(page);
-  assert.ok((await state(page)).soil[12 * 38 + 5], 'can till on the new farm');
+  assert.ok((await state(page)).soil[12 * 64 + 5], 'can till on the new farm');
   assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300'); // the coin says it is gold
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -1071,9 +1373,9 @@ const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.l
 test('seasons follow the months: summer on June 1st, winter on December 1st; the shop and the farm change', async () => {
   const MAY31 = [2026, 5, 31, 22, 0];
   const save = await makeSave(`
-    L.till(s, 12 * 38 + 5);
+    L.till(s, 12 * 64 + 5);
     L.addItem(s, 'seed_onion', 1);
-    L.plant(s, 12 * 38 + 5, s.inv.findIndex((x) => x && x.id === 'seed_onion'));
+    L.plant(s, 12 * 64 + 5, s.inv.findIndex((x) => x && x.id === 'seed_onion'));
   `, MAY31);
   const { page, problems, context } = await open(save, MAY31);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'May 31');
@@ -1084,19 +1386,19 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   // summer seeds can't be planted yet
   await page.evaluate(() => {
     Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 1);
-    Farm.Logic.till(Farm.session.state, 12 * 38 + 6);
+    Farm.Logic.till(Farm.session.state, 12 * 64 + 6);
     Farm.world.refreshAllSoil();
   });
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, null, 'tomato refused in spring');
+  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, null, 'tomato refused in spring');
 
   const report = await nextMorning(page);
   assert.match(report, /Summer has arrived/);
   let s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
-  assert.strictEqual(s.soil[12 * 38 + 5].c, 'onion', 'the spring onion grows on');
+  assert.strictEqual(s.soil[12 * 64 + 5].c, 'onion', 'the spring onion grows on');
   const summerGrass = await tileGid(page, 'Ground', 2, 3);
   assert.strictEqual(summerGrass, springGrass + 12, 'grass switched to the summer art');
   await teleport(page, 6, 9, 'down');
@@ -1106,7 +1408,7 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 38 + 6].c, 'tomato');
+  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, 'tomato');
 
   // the shop's seeds tab follows the season
   await setClock(page, [2026, 6, 1, 10, 0]);
@@ -1722,8 +2024,8 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
     await frames(page, 2);
   }
   let s = await state(page);
-  assert.deepStrictEqual(s.yard.items.map((it) => [it.x, it.y]), [[24, 11], [25, 11], [26, 11]]);
-  assert.deepStrictEqual(await page.evaluate(() => [0, 1, 2].map((i) => Farm.Logic.fenceShape(Farm.session.state, i))), ['h', 'h', 'h']);
+  assert.deepStrictEqual(s.yard.items.slice(60).map((it) => [it.x, it.y]), [[24, 11], [25, 11], [26, 11]], 'after the 60 pieces of the field fence');
+  assert.deepStrictEqual(await page.evaluate(() => [60, 61, 62].map((i) => Farm.Logic.fenceShape(Farm.session.state, i))), ['h', 'h', 'h']);
   assert.strictEqual(s.yard.bag[0], 5, 'three of the eight starter fences used');
   await page.touchscreen.tap(180, 534); // Done placing
 
@@ -1731,7 +2033,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   await page.touchscreen.tap(90, 598);
   await tapButton(page, 'Place', 2); // Wooden Fence, Flower Bed, Bench
   s = await state(page);
-  const bench = s.yard.items[3];
+  const bench = s.yard.items[63];
   const IX = await page.evaluate(() => Farm.Config.OUTDOOR.index);
   assert.strictEqual(bench.t, IX.bench);
   const from = await toScreen(bench.x, bench.y), to = await toScreen(bench.x + 2, bench.y);
@@ -1742,7 +2044,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   await touch('touchEnd');
   await frames(page);
   s = await state(page);
-  assert.strictEqual(s.yard.items[3].x, bench.x + 2, 'the bench moved');
+  assert.strictEqual(s.yard.items[63].x, bench.x + 2, 'the bench moved');
   await shot(page, '38-yard');
   await page.touchscreen.tap(270, 598); // Done
   await page.waitForFunction(() => !Farm.world.yd && !Farm.world.busy, null, SLOW);
@@ -2147,6 +2449,151 @@ test('X on a list whose next page is still loading keeps it closed (owner, 29 Oc
     setTimeout(() => done(u.modals.length), 900);
   }));
   assert.strictEqual(left, 0, 'nothing pops back up');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// A day past a farm's first, on a Monday, with the goal banner up.
+const MONDAY = [2026, 11, 2, 10, 0];
+const boxOf = (page, name) => page.evaluate((name) => { const b = Farm.ui[name].getBounds(); return { x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height }; }, name);
+const apart = (a, b) => a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+
+test('Today\'s Event: a small chip you can tap, clear of the goal banner, the side buttons and the chat box', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 2;', MONDAY);
+  const { page, problems, context } = await open(save, MONDAY);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.ui.eventChipBox && Farm.ui.eventChipBox.visible, null, SLOW);
+  await shot(page, 'event-chip');
+  const chip = await boxOf(page, 'eventChipBox');
+  assert.ok(await page.evaluate(() => Farm.ui.goalBar.visible), 'the banner is up');
+  assert.ok(apart(chip, { x0: 8, y0: 68, x1: 352, y1: 98 }), 'not on the goal banner');
+  assert.ok(apart(chip, await boxOf(page, 'questBtn')), 'not on Quests');
+  assert.ok(chip.x1 < 300, 'nowhere near the side buttons');
+  const c = await page.evaluate(() => Farm.Config.EXTRA);
+  assert.ok(apart(chip, { x0: 8, y0: 402 + c, x1: 204, y1: 458 + c }), 'not on the chat box');
+  assert.ok(apart(chip, { x0: 8, y0: 225, x1: 82, y1: 281 }), 'over the dish and Power-Up chips, not on them');
+  await page.touchscreen.tap(chip.x0 + 40, (chip.y0 + chip.y1) / 2);
+  await frames(page, 3);
+  assert.match(await modalText(page), /FISH MONDAY.*Fish sell for 25% more.*Tomorrow: Timber Tuesday/);
+  await shot(page, 'event-panel');
+  await closeAll(page);
+  // it goes with Decorate, and on a visit
+  await page.evaluate(() => { Farm.session.visit = { host: 'x' }; Farm.world.powerChip(); });
+  assert.strictEqual(await page.evaluate(() => Farm.ui.eventChipBox.visible), false, 'not on a friend\'s farm');
+  await page.evaluate(() => { Farm.session.visit = null; Farm.world.powerChip(); });
+  // the stall pays it
+  const prices = await page.evaluate(() => [Farm.Logic.instantPrice('fish_l', 2), Farm.Logic.instantPrice('turnip', 2)]);
+  assert.deepStrictEqual(prices, [Math.floor(210 * 1.25), 6]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('Today\'s Event: one pop-up on the first open of the day, never in quiet mode, kept in the save', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;', MONDAY);
+  const { page, problems, context } = await open(save, MONDAY);
+  await closeAll(page);
+  await page.waitForTimeout(6000);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'quiet: no pop-up');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.evSeen), 0);
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  await go(page, 'house', 'door');
+  let seen = '';
+  for (let i = 0; i < 40 && !/FISH MONDAY/.test(seen); i++) {
+    seen = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; if (!m) return ''; const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return out.join(' | '); });
+    if (seen && !/FISH MONDAY/.test(seen)) { await closeAll(page); seen = ''; }
+    await page.waitForTimeout(500);
+  }
+  assert.match(seen, /FISH MONDAY/);
+  await shot(page, 'event-popup');
+  await closeAll(page);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.evSeen === Farm.session.state.day), true);
+  await go(page, 'farm', 'from_house');
+  await page.waitForTimeout(6000);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.some((m) => { let f = false; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && /FISH MONDAY/.test(o.text)) f = true; if (o.list) walk(o.list); }); walk(m.c.list); return f; })), false, 'once a day');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('rare surprises: a sparkling rock glints, pays once and stays paid after closing the game; a golden crop glows and pays', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.stats.deepest = 60; s.look = "boy"; s.seed = 4242;', MONDAY);
+  const { page, problems, context } = await open(save, MONDAY);
+  await closeAll(page);
+  await page.evaluate(() => { Farm.Config.RARE.rock = 0.1; Farm.world.travel('mine', 'entrance', 57); });
+  await page.waitForFunction(() => Farm.session.mineFloor === 57 && Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 4);
+  const info = await page.evaluate(() => {
+    const w = Farm.world, m = w.mine, idx = m.spark[0], x = idx % w.map.width, y = Math.floor(idx / w.map.width);
+    return { n: m.spark.length, shown: Object.keys(w.sparks).length, idx, tint: w.layers.Walls.getTileAt(x, y).tint, plain: w.layers.Walls.getTileAt(m.rocks.filter((r) => m.spark.indexOf(r) < 0 && r !== m.stairs)[0] % w.map.width, Math.floor(m.rocks.filter((r) => m.spark.indexOf(r) < 0 && r !== m.stairs)[0] / w.map.width)).tint };
+  });
+  assert.ok(info.n >= 1, 'a floor with sparkling rocks');
+  assert.strictEqual(info.shown, info.n, 'each one glints');
+  assert.notStrictEqual(info.tint, info.plain, 'and is tinted');
+  await shot(page, 'rare-rock');
+  const paid = await page.evaluate((idx) => {
+    const w = Farm.world, s = w.state, t = { x: idx % w.map.width, y: Math.floor(idx / w.map.width) }, was = s.gold, had = s.inv.filter(Boolean).reduce((a, b) => a + b.n, 0);
+    const f = w.breakRock(idx, t, {});
+    if (f) f();
+    return { paid: !!s.rr && s.rr.got.length === 1, value: s.gold - was + s.inv.filter(Boolean).reduce((a, b) => a + b.n, 0) - had, gone: !w.sparks[idx] };
+  }, info.idx);
+  assert.ok(paid.paid && paid.gone, 'paid, and its stars are gone');
+  assert.ok(paid.value > 0, 'a prize');
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /Sparkling rock!/.test(Farm.ui.toastText.text), null, SLOW);
+  await shot(page, 'rare-rock-prize');
+  // closing the game brings the rock back as a plain rock
+  const saved = await page.evaluate(() => JSON.parse(JSON.stringify(Farm.Logic.serialize(Farm.session.state))));
+  await context.close();
+  const again = await open(saved, MONDAY);
+  await closeAll(again.page);
+  const left = await again.page.evaluate((idx) => { const F = Farm, s = F.session.state; return { open: F.Logic.rockOpen(s, s.seed, 57, idx) }; }, info.idx);
+  assert.strictEqual(left.open, false);
+  // a golden crop
+  await go(again.page, 'farm', 'from_house');
+  await closeAll(again.page);
+  const r = await again.page.evaluate(() => {
+    const F = Farm, L = F.Logic, C = F.Config, w = F.world, s = w.state;
+    C.RARE.crop = 1;
+    s.tools.sickle = 0;
+    const idx = 15 * 64 + 10, t = { c: 'tomato', p: 0, w: 0, r: 0 };
+    t.p = L.nowMin() - L.growMins(t);
+    s.soil[idx] = t;
+    w.refreshTile(idx);
+    return { idx, tint: w.crops[idx].tintTopLeft, stars: (w.goldFx[idx] || []).length };
+  });
+  assert.ok(r.stars >= 3, 'stars over it');
+  assert.notStrictEqual(r.tint, 0xffffff, 'tinted gold');
+  await teleport(again.page, 10, 14, 'down');
+  await shot(again.page, 'rare-crop');
+  assert.strictEqual(await actionLabel(again.page), 'Harvest');
+  const before = await again.page.evaluate(() => Farm.session.state.gold);
+  await tapAction(again.page);
+  const after = await state(again.page);
+  assert.strictEqual(after.gold - before, 12 * 6, 'six times its price, on top of the crop');
+  assert.strictEqual(count(after, 'tomato'), 1);
+  await again.page.waitForFunction(() => Farm.ui.toastText.visible && /Golden Tomato!/.test(Farm.ui.toastText.text), null, SLOW);
+  await shot(again.page, 'rare-crop-prize');
+  assert.strictEqual(await again.page.evaluate((i) => !Farm.world.goldFx[i], r.idx), true, 'its stars went with it');
+  assert.deepStrictEqual(problems, []);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});
+
+test('Gem Sunday: a gem from a rock comes in twos, and says so', async () => {
+  const SUNDAY = [2026, 11, 8, 10, 0];
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.stats.deepest = 60;', SUNDAY);
+  const { page, problems, context } = await open(save, SUNDAY);
+  await closeAll(page);
+  await page.evaluate(() => Farm.world.travel('mine', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.mineFloor === 50 && Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  const got = await page.evaluate(() => {
+    const w = Farm.world, real = Math.random, items = {};
+    const idx = w.mine.rocks.filter((r) => r !== w.mine.stairs && w.mine.spark.indexOf(r) < 0)[0], t = { x: idx % w.map.width, y: Math.floor(idx / w.map.width) };
+    Math.random = () => 0.86; // a gem
+    const f = w.breakRock(idx, t, items);
+    Math.random = real;
+    if (f) f();
+    return { items, bag: Farm.Logic.countItem(w.state, 'gem') };
+  });
+  assert.deepStrictEqual(got, { items: { gem: 2 }, bag: 2 });
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

@@ -33,6 +33,7 @@
     var size = JSON.stringify(data).length;
     if (size > C.MAX_SAVE_BYTES) {
       console.warn('Save skipped: ' + size + ' bytes is over the limit');
+      Host.saveRefused();
       return false;
     }
     try {
@@ -43,6 +44,15 @@
       console.warn('gameHost.save failed', e);
       return false;
     }
+  };
+
+  // A save that doesn't fit never passes quietly: the player is told once a visit, and the app counts it.
+  Host.refused = false;
+  Host.saveRefused = function () {
+    if (Host.refused) return;
+    Host.refused = true;
+    if (window.gameHost && typeof window.gameHost.report === 'function') window.gameHost.report('save_refused');
+    if (F.ui && F.ui.toast) F.ui.toast('Your farm is too full to save! Put some decorations in storage, or sell things from your bag.', 5000);
   };
 
   // In the app (gameHost.remind): the next crop to ripen, so the phone can remind the player while the game is closed.

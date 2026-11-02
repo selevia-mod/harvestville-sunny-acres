@@ -29,7 +29,7 @@
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key), k = 0;
     O.types.forEach(function (t) {
-      if (t.prop) return;
+      if (t.prop || t.like) return;
       var names = t.kind === 'fence' ? [t.key + ':h', t.key + ':v', t.key + ':p'] : [t.key];
       names.forEach(function (name) {
         var x = 8 + (k % COLS) * (CELL + GAP), y = 8 + Math.floor(k / COLS) * (CELL + GAP), w = t.kind === 'fence' ? 1 : t.w, h = t.kind === 'fence' ? 1 : t.h;
@@ -45,7 +45,7 @@
     var type = O.types[t];
     if (type.prop) return { key: F.ensureTexture(scene, 'props/' + type.prop), frame: undefined, w: type.w * U, h: type.h * U };
     if (type.hd) return { key: F.ensureTexture(scene, 'props/' + type.hd), frame: undefined, w: type.w * U, h: type.h * U };
-    return { key: F.yardTexture(scene), frame: type.key + (type.kind === 'fence' ? ':' + (shape || 'h') : ''), w: type.w * U, h: type.h * U };
+    return { key: F.yardTexture(scene), frame: (type.like || type.key) + (type.kind === 'fence' ? ':' + (shape || 'h') : ''), w: type.w * U, h: type.h * U };
   };
 
   var P = F.WorldScene.prototype;

@@ -20,6 +20,7 @@
   var FRAME_H = 252, FEET = 233; // a wild.png frame, and its feet line (tools/art/animals3q-import.js)
   var BAR_W = 180, BAR_H = 22, HIT_MS = 180;
   var ARROW_SPEED = 16 * T; // world units a second
+  var STREAK = 1.4 * T; // the white line behind a flying arrow, at its longest
   var GREEN_BTN = 0x5fa84a, GREY_BTN = 0xa08a68;
 
   // An animal's 12 frames, drawn from above like the farmer: 0-2 walking toward you, 3-5 away, 6-8 to the left (stand,
@@ -53,6 +54,7 @@
     this.wild = null;
     this.wildDrops = [];
     this.wildArrows = [];
+    this.shot = null; // the shot being drawn (19w-bow.js)
     this.wildBait = null;
     this.kanor = null;
     create.call(this);
@@ -291,10 +293,10 @@
 
   // A dish's power: a chip on the screen, with the minutes left.
   P.powerChip = function () {
-    var ui = F.ui, s = F.session.state, left = L.powerLeft(s);
+    var ui = F.ui, s = F.session.state, left = L.powerLeft(s), pu = L.powerUpLeft(s);
     if (!ui || !ui.add || !ui.toastText) return;
     if (!ui.dishChip) {
-      var bg = ui.add.rectangle(0, 0, 58, 26, 0x2e1c0c, 0.78).setOrigin(0, 0.5);
+      var bg = ui.add.rectangle(0, 0, 74, 26, 0x2e1c0c, 0.78).setOrigin(0, 0.5);
       ui.dishIcon = ui.add.image(14, 0, 'items', 0).setScale(0.17);
       ui.dishText = ui.add.text(27, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fff6e0' }).setOrigin(0, 0.5);
       ui.dishChip = ui.add.container(8, 238, [bg, ui.dishIcon, ui.dishText]).setDepth(45).setVisible(false);
@@ -304,6 +306,15 @@
       ui.dishIcon.setFrame(C.ITEMS[s.dp.id].icon);
       ui.dishText.setText(left + ' min');
     }
+    // a Power-Up has its own, under the dish's (players, 2 Nov)
+    if (!ui.powerChipBox) {
+      var bg2 = ui.add.rectangle(0, 0, 74, 26, 0x2e1c0c, 0.78).setOrigin(0, 0.5);
+      var icon2 = ui.add.image(14, 0, 'items', C.ICON.power_up).setScale(0.17);
+      ui.powerText = ui.add.text(27, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#fff6e0' }).setOrigin(0, 0.5);
+      ui.powerChipBox = ui.add.container(8, 238, [bg2, icon2, ui.powerText]).setDepth(45).setVisible(false);
+    }
+    ui.powerChipBox.setVisible(pu > 0).setY(left > 0 ? 268 : 238);
+    if (pu > 0) ui.powerText.setText(Math.ceil(pu) + ' min');
   };
 
   // ---------- every frame ----------
@@ -525,31 +536,12 @@
     return best;
   };
 
-  P.shoot = function () {
-    var s = this.state, r = L.shoot(s);
-    if (r === 'arrows') return F.ui.toast('No arrows left. Kanor sells them at his Lodge.');
-    if (r === 'tired') return F.ui.toast('Too tired to draw the bow. Eat something first.');
-    var target = this.wildTarget(), f = this.feet(), ang;
-    if (target) { // you turn to it
-      var tx = target.x - f.x, ty = target.y - f.y;
-      this.dir = Math.abs(tx) > Math.abs(ty) ? (tx > 0 ? 'right' : 'left') : (ty > 0 ? 'down' : 'up');
-    }
-    var d = this.dirVec(), x = f.x + d[0] * 0.4 * T, y = f.y - 0.55 * T + d[1] * 0.3 * T;
-    if (target) ang = Math.atan2((target.y - 0.3 * target.def.w * T) - y, target.x - x);
-    else ang = Math.atan2(d[1], d[0]);
-    this.wildArrow(x, y, ang, L.bowRange(s) * T, false);
-    if (friendsHere(this)) O.send('ar', { x: Math.round(x), y: Math.round(y), a: ang, l: L.bowRange(s) * T });
-    this.idle();
-    sfx('swoosh');
-    F.bus.emit('hud');
-    this.changed();
-  };
-
   // (shown: a friend's arrow, seen on your phone. Their phone says what it hit.)
   P.wildArrow = function (x, y, ang, left, shown) {
     F.ensureTexture(this, 'props/arrow_fly');
     var img = this.add.image(x, y, 'props/arrow_fly').setDisplaySize(0.85 * T, 0.28 * T).setRotation(ang).setDepth(DEPTH.fx);
-    this.wildArrows.push({ img: img, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: left, shown: shown });
+    var streak = this.add.rectangle(x, y, 1, 14, 0xffffff, 0.55).setOrigin(1, 0.5).setRotation(ang).setDepth(DEPTH.fx - 0.001);
+    this.wildArrows.push({ img: img, streak: streak, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: left, shown: shown, went: 0 });
   };
 
   P.updateArrows = function (dt) {
@@ -559,14 +551,19 @@
       ar.x += ar.vx * dt / 1000;
       ar.y += ar.vy * dt / 1000;
       ar.left -= step;
+      ar.went += step;
       ar.img.setPosition(ar.x, ar.y);
+      ar.streak.setPosition(ar.x, ar.y).setSize(Math.min(ar.went, STREAK), 14);
       var hit = null;
       (self.wild && !ar.shown ? self.wild.animals : []).forEach(function (a) {
         if (!hit && a.hp > 0 && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
       });
-      if (hit) { ar.img.destroy(); self.wildStruck(hit); return false; }
-      if (ar.left <= 0) {
-        self.tweens.add({ targets: ar.img, alpha: 0, y: ar.y + 0.3 * T, duration: 250, onComplete: function () { ar.img.destroy(); } });
+      if (hit) { ar.img.destroy(); ar.streak.destroy(); self.wildStruck(hit); return false; }
+      if (ar.left <= 0) { // a miss stands in the ground for a moment
+        ar.streak.destroy();
+        self.tweens.add({ targets: ar.img, y: ar.y + 0.16 * T, rotation: ar.img.rotation + (Math.cos(ar.img.rotation) < 0 ? -0.5 : 0.5), duration: 90, ease: 'Quad.in' });
+        self.tweens.add({ targets: ar.img, alpha: 0, delay: 420, duration: 220, onComplete: function () { ar.img.destroy(); } });
+        if (self.bits) self.bits.dust.explode(2, ar.x, ar.y + 0.16 * T);
         return false;
       }
       return true;
@@ -810,7 +807,7 @@
     if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey) return;
     var lead = w.wildFollowing(), a = w.wild.animals.filter(function (x) { return x.slot === p.s; })[0];
     if (event === 'wa') { if (lead === p.id) w.wildHear(Number(p.t) || Date.now(), p.l); return; }
-    if (event === 'ar') { if (isFinite(p.x) && isFinite(p.y) && isFinite(p.a)) w.wildArrow(Number(p.x), Number(p.y), Number(p.a), Math.min(8 * T, Number(p.l) || 0), true); return; }
+    if (event === 'ar') { if (isFinite(p.x) && isFinite(p.y) && isFinite(p.a)) { w.wildArrow(Number(p.x), Number(p.y), Number(p.a), Math.min(8 * T, Number(p.l) || 0), true); w.bowFlash(Number(p.x), Number(p.y), Number(p.a), Number(p.b) || 0); } return; }
     if (event === 'bt') { if (isFinite(p.x) && isFinite(p.y) && !w.wildBait) w.layBait(Number(p.x), Number(p.y)); return; }
     if (!a) return;
     if (event === 'wh' && !lead && a.hp > 0) {
@@ -936,7 +933,7 @@
       L.wildGoods(s).forEach(function (id) {
         var n = L.countItem(s, id);
         rows.push({ icon: I[id].icon, name: I[id].name + ' x' + n, desc: I[id].sell + 'G each.',
-          buttons: [{ label: 'Sell ' + n * I[id].sell + 'G', cb: function () { var g = L.sellToKanor(s, id); F.bus.emit('hud'); done(g ? 'ok' : null, 'Sold for ' + g + 'G.'); } }] });
+          buttons: [{ label: 'Sell ' + L.kanorPay(n * I[id].sell) + 'G', cb: function () { var g = L.sellToKanor(s, id); F.bus.emit('hud'); done(g ? 'ok' : null, 'Sold for ' + g + 'G.'); } }] });
       });
     } else if (tab === 'job') {
       var j = L.wildJob(s), have = L.countItem(s, j.item);

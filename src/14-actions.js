@@ -173,6 +173,16 @@
     // (holding a tool that can't work a growing crop says how it is doing too: the can still waters it, the hoe
     // still clears a withered one)
     var toolOnCrop = soil && soil.c && def && def.tool && !(def.tool === 'can' && !soil.w && !L.isRipe(soil)) && !(def.tool === 'hoe' && L.isWithered(soil));
+    if (soil && soil.c && def && def.tool === 'hoe' && !L.isWithered(soil) && !L.isRipe(soil) && !s.isVisit) { // (players, 2 Nov: "destroy plants they want to change")
+      return { label: 'Dig up', icon: L.iconOf(s, 'hoe'), run: function () {
+        F.ui.confirm('DIG THIS UP?\nThe ' + cropName + ' will be gone, and its seeds do not come back.', function () {
+          if (L.digUp(s, idx) !== 'ok') return;
+          sfx('plant');
+          self.refreshTile(idx);
+          self.changed();
+        });
+      } };
+    }
     if (soil && soil.c && (!def || toolOnCrop || (!def.tool && def.kind !== 'seed' && !L.energyOf(held.id)))) {
       if (L.isWithered(soil)) return { label: 'Withered', icon: -1, disabled: true, why: 'This ' + cropName + ' withered: it was left too long after it ripened. Clear it with the Hoe and plant again.' };
       if (!L.isRipe(soil)) return { label: 'Growing', icon: C.ITEMS[C.CROPS[soil.c].item].icon, disabled: true, why: (L.needsWater(soil) ? cropName + ' needs water to grow. Water it with the Watering Can.' : cropName + ': ready in ' + L.formatLeft(L.cropLeft(soil)) + '.' + (soil.w || soil.h ? '' : ' Water it to make it grow faster.')) };
@@ -273,7 +283,7 @@
     switch (tool) {
       case 'hoe': return soil ? 'This soil is already tilled.' : this.mapKey === 'farm' ? 'You can only till the soil in your field.' : 'Till the field back on your farm.';
       case 'can': return soil ? 'Already watered today.' : 'Water tilled soil, or refill the can at the pond.';
-      case 'axe': return 'Chop branches and stumps in your field for lumber.';
+      case 'axe': return 'Chop branches and stumps for lumber. New ones fall in your meadow each day, and the big trees of Makiling Forest give more.';
       case 'hammer': return this.mapKey === 'mine' ? 'Smash the rocks to find ore and the ladder down.' : 'Smash stones and boulders, or flatten empty tilled soil.';
       case 'sickle': return 'Cut weeds, or cut ripe grass into fodder.';
     }

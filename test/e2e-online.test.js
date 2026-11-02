@@ -12,7 +12,14 @@ const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
 const SLOW = { timeout: 90000 };
 const Farm_SPEED = 1152; // C.SPEED
-const VISIT_BAR = { Like: 46, Gift: 113, Wave: 180, More: 247, Home: 314, y: 174 };
+const VISIT_FAN = { Like: [156, 86], Gift: [148, 126], Wave: [124, 164], More: [86, 188], Home: [34, 196] };
+// The round button at the top left fans out (owner, 2 Nov): open it, then tap.
+const tapVisit = async (page, name) => {
+  await page.touchscreen.tap(32, 88);
+  await page.waitForTimeout(400);
+  await shot(page, 'visit-fan');
+  await page.touchscreen.tap(VISIT_FAN[name][0], VISIT_FAN[name][1]);
+};
 
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
@@ -157,7 +164,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
     map: Farm.world.mapKey, own: Farm.session.state === Farm.world.state, bench: Farm.world.state.yard.items.length,
     ownMap: Farm.session.state.map, host: Farm.session.visit.name,
   }));
-  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 1, ownMap: 'farm', host: 'Moon Meadow' });
+  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 61, ownMap: 'farm', host: 'Moon Meadow' }); // the bench, and the field's fence
   await waitRemotes(ana.page, ['Moon Meadow (owner)']);
   await waitToast(owner.page, /Ana Acres is visiting your farm!/);
   await waitRemotes(owner.page, ['Ana Acres']);
@@ -220,17 +227,17 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   assert.strictEqual(after.own, before.own, 'your own farm is untouched');
 
   // ----- Ana likes the farm and leaves a gold gift; Ben waves; the owner hears about all of it
-  await ana.page.touchscreen.tap(VISIT_BAR.Like, VISIT_BAR.y);
+  await tapVisit(ana.page, 'Like');
   await waitToast(ana.page, /You liked Moon Meadow's farm!/);
   await waitToast(owner.page, /Ana Acres liked your farm!/);
-  await ana.page.touchscreen.tap(VISIT_BAR.Like, VISIT_BAR.y);
+  await tapVisit(ana.page, 'Like');
   await waitToast(ana.page, /already liked/);
-  await ana.page.touchscreen.tap(VISIT_BAR.Gift, VISIT_BAR.y);
+  await tapVisit(ana.page, 'Gift');
   await waitModal(ana.page, /LEAVE A GIFT/);
   await tapButton(ana.page, '100G');
   await waitToast(ana.page, /You left Moon Meadow a 100G gift!/);
   await waitToast(owner.page, /Ana Acres left you a gift!/);
-  await ben.page.touchscreen.tap(VISIT_BAR.Wave, VISIT_BAR.y);
+  await tapVisit(ben.page, 'Wave');
   await ben.page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Hi!'), null, SLOW);
   await owner.page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Hi!'), null, SLOW);
   await shot(ben.page, 'online-6-wave');
@@ -289,7 +296,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await owner.page.evaluate(() => Farm.ui.closeAll());
 
   // ----- Ana goes home with the Home button; her own game is just as she left it
-  await ana.page.touchscreen.tap(VISIT_BAR.Home, VISIT_BAR.y);
+  await tapVisit(ana.page, 'Home');
   await waitWorld(ana.page, false);
   const home = await ana.page.evaluate(() => ({ same: Farm.session.state === Farm.world.state, saved: Farm.Logic.deserialize(JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1])).map }));
   assert.deepStrictEqual(home, { same: true, saved: 'farm' });
@@ -404,7 +411,7 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   await nameFarm(friend.page, 'Ana Acres');
   await nameFarm(stranger.page, 'Ben Barn');
   server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid }); // friends (mutual Selebox follows)
-  const W = 38, tiles = [[10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15], [16, 15]].map(([x, y]) => y * W + x);
+  const W = 64, tiles = [[10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15], [16, 15]].map(([x, y]) => y * W + x);
   await host.page.evaluate((tiles) => {
     const s = Farm.session.state, now = Farm.Logic.nowMin();
     tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now, r: 0 }; });
@@ -541,7 +548,7 @@ test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 
   await nameFarm(host.page, 'Moon Meadow');
   await nameFarm(friend.page, 'Ana Acres');
   server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
-  const W = 38, tiles = [10, 11, 12, 13, 14, 15].map((x) => 15 * W + x);
+  const W = 64, tiles = [10, 11, 12, 13, 14, 15].map((x) => 15 * W + x);
   await host.page.evaluate((tiles) => {
     const s = Farm.session.state, now = Farm.Logic.nowMin();
     tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now - 30, r: 0 }; }); // ripe
@@ -680,6 +687,26 @@ test('online: the Market: sell at your stall; a buyer finds what an order needs,
   for (const p of [seller, buyer]) await p.context.close();
 });
 
+test('online: Invite Friends rewards arrive once when the game connects: gold, and free refills to use (owner, 2 Nov 2026)', async () => {
+  const server = createServer();
+  const me = await open(server);
+  await nameFarm(me.page, 'Moon Meadow');
+  server.db.invites = { [me.uid]: { harvest_gold: 10000, harvest_energy: 10 } };
+  const gold = await me.page.evaluate(() => Farm.session.state.gold);
+  await me.page.evaluate(async () => { await Farm.Online.inviteCollect(); });
+  await waitModal(me.page, /INVITE FRIENDS[\s\S]*10,000G[\s\S]*10 free energy refills/);
+  assert.deepStrictEqual(await me.page.evaluate(() => { const s = Farm.session.state; return { gold: s.gold, rf: s.rf }; }), { gold: gold + 10000, rf: 10 });
+  await shot(me.page, 'invite-reward');
+  await me.page.evaluate(async () => { Farm.ui.closeAll(); await Farm.Online.inviteCollect(); });
+  assert.deepStrictEqual(await me.page.evaluate(() => { const s = Farm.session.state; return { gold: s.gold, rf: s.rf, open: Farm.ui.modals.length }; }), { gold: gold + 10000, rf: 10, open: 0 }, 'once');
+  await me.page.evaluate(() => { Farm.session.state.energy = 20; Farm.ui.openEnergy(); });
+  await waitModal(me.page, /Free refill \(10\)/);
+  await tapButton(me.page, 'Free refill (10)');
+  assert.deepStrictEqual(await me.page.evaluate(() => { const s = Farm.session.state; return { e: s.energy, rf: s.rf }; }), { e: 100, rf: 9 });
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
 test('online: chat bubbles: the Chat button shows when someone is here; a line pops up over your head for both', async () => {
   const server = createServer();
   const owner = await open(server), guest = await open(server);
@@ -698,7 +725,7 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   await waitRemotes(owner.page, ['Ana Rose']);
   // the guest taps Chat, then a quick line
   await guest.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSay(); });
-  await waitModal(guest.page, /Say something[\s\S]*Nice farm!/);
+  await waitModal(guest.page, /Chat[\s\S]*Nice farm!/);
   await shot(guest.page, 'chat-1-panel');
   await tapButton(guest.page, 'Nice farm!');
   const bubbleText = (p, id) => p.evaluate((id) => { const b = Farm.world.bubbles[id]; return b ? b.c.list[1].text : null; }, id);
@@ -724,6 +751,26 @@ test('online: chat bubbles: the Chat button shows when someone is here; a line p
   // a bubble goes away by itself
   await guest.page.evaluate(() => Farm.Online.say('Bye!'));
   await guest.page.waitForFunction((id) => !Farm.world.bubbles[id], guest.uid, { timeout: 15000 });
+  // owner, 2 Nov, from players: a line reaches you when the speaker is off screen, in the small box, and stays in the panel
+  const boxText = (p) => p.evaluate(() => Farm.ui.chatBox.visible ? Farm.ui.chatBox.list.filter((o) => o.text).map((o) => o.text).join(' ') : '');
+  await owner.page.waitForFunction(() => Farm.Online.chatLog.length >= 3, null, SLOW);
+  await guest.page.evaluate(() => { const w = Farm.world, T = Farm.Config.TILE; w.setFeet(34.5 * T, 6.5 * T); });
+  await owner.page.evaluate(() => { const w = Farm.world, T = Farm.Config.TILE; w.setFeet(5.5 * T, 30.5 * T); });
+  await owner.page.waitForTimeout(1300);
+  await guest.page.waitForTimeout(1300);
+  await guest.page.evaluate(() => Farm.Online.say('Far away hello'));
+  await owner.page.waitForFunction(() => Farm.Online.chatLog.some((l) => l.text === 'Far away hello'), null, SLOW);
+  assert.match(await boxText(owner.page), /Ana Rose: Far away hello/);
+  await shot(owner.page, 'chat-4-box');
+  await owner.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSay(); });
+  await waitModal(owner.page, /Nice farm![\s\S]*Welcome! Come see my cows[\s\S]*Far away hello/);
+  await shot(owner.page, 'chat-5-history');
+  await owner.page.evaluate(() => Farm.ui.closeAll());
+  // a long line stays a small bubble
+  const size = await guest.page.evaluate(() => { const w = Farm.world, long = new Array(13).join('wide words '); w.bubble('x', long); const b = w.bubbles.x || null; return b; });
+  assert.strictEqual(size, null, 'a bubble for nobody is dropped');
+  const small = await guest.page.evaluate((id) => { const w = Farm.world; delete w.bubbles[id]; w.bubble(id, new Array(13).join('wide words ')); const t = w.bubbles[id].c.list[1]; return { h: t.height, w: t.width, cut: /…$/.test(t.text), tile: Farm.Config.TILE }; }, guest.uid);
+  assert.ok(small.cut && small.w <= 4.5 * small.tile && small.h <= 1.4 * small.tile, JSON.stringify(small));
   for (const p of [owner, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [owner, guest]) await p.context.close();
 });
@@ -1121,6 +1168,8 @@ test('online: visitors follow the owner to town and into the mine: asked, Follow
   // the same rocks, and a rock the owner breaks is gone for the guest too
   const rocks = (page) => page.evaluate(() => Farm.world.mine.rocks.join(','));
   assert.strictEqual(await rocks(guest.page), await rocks(host.page), 'the same rocks');
+  const sparks = (page) => page.evaluate(() => Farm.world.mine.spark.join(','));
+  assert.strictEqual(await sparks(guest.page), await sparks(host.page), 'the same sparkling rocks');
   const idx = await host.page.evaluate(() => { const w = Farm.world, i = w.mine.rocks.filter((r) => r !== w.mine.stairs)[0]; const t = { x: i % w.map.width, y: Math.floor(i / w.map.width) }; const f = w.breakRock(i, t, {}); if (f) f(); return i; });
   await guest.page.waitForFunction((i) => Farm.world.mine.broken[i] === 1, idx, SLOW);
   await shot(guest.page, 'follow-3-mine');
@@ -1185,7 +1234,7 @@ test('online: keeping it friendly: rude words refused, report and block, unblock
   await waitToast(owner.page, /Troll Farm is unblocked/);
   await troll.page.evaluate((id) => Farm.Online.visit(id), owner.uid);
   await waitWorld(troll.page, true);
-  await troll.page.touchscreen.tap(VISIT_BAR.More, VISIT_BAR.y);
+  await tapVisit(troll.page, 'More');
   await waitModal(troll.page, /Moon Meadow.*Report.*Block/);
   await shot(troll.page, 'online-10-visit-more');
 
@@ -1210,6 +1259,119 @@ test('online: last week\'s rank prizes are claimed once, and the Ranks tab shows
   await waitModal(me.page, /Top 10 win prizes every Monday!.*Prize/);
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
+});
+
+const tabsOf = (page) => page.evaluate(() => Farm.Online.TABS.map((t) => t[0]).join(','));
+const crowns = (page) => page.evaluate(() => {
+  let n = 0;
+  const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+  const walk = (list) => list.forEach((o) => { if (o.texture && o.texture.key === 'ui-crown') n++; if (o.list) walk(o.list); });
+  walk(m.c.list);
+  return n;
+});
+
+test('online: before part 12 is applied the Town tab, the crown and their calls stay quietly away', async () => {
+  const server = createServer();
+  const me = await open(server);
+  await nameFarm(me.page, 'Quiet Farm');
+  await me.page.evaluate(() => Farm.Online.prizes());
+  assert.strictEqual(await me.page.evaluate(() => Farm.Online.town), null);
+  assert.strictEqual(await me.page.evaluate(() => Farm.Online.best), null);
+  assert.ok(!/town/.test(await tabsOf(me.page)), 'no Town tab');
+  await me.page.evaluate(() => Farm.ui.openOnline('ranks', 0));
+  await waitModal(me.page, /Top 10 win prizes/);
+  assert.strictEqual(await toast(me.page), '', 'no message');
+  assert.strictEqual(await crowns(me.page), 0);
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
+test('online: the Town Goal: give from the bag, the server takes only 40 a day, the bar moves, and a prize comes once', async () => {
+  const server = createServer();
+  server.db.town = { kind: 'crop', target: 100, total: 45 };
+  const me = await open(server);
+  await nameFarm(me.page, 'Town Farm');
+  await me.page.evaluate(() => {
+    const s = Farm.session.state;
+    s.inv[10] = { id: 'tomato', n: 60 };
+    s.inv[11] = { id: 'turnip', n: 7 };
+    s.inv[12] = { id: 'ore_gold', n: 5 };
+    return Farm.Online.townLoad();
+  });
+  assert.match(await tabsOf(me.page), /market,town,me/);
+  await me.page.evaluate(() => Farm.ui.openOnline('town', 0));
+  await waitModal(me.page, /Town Goal: crops.*45\/100.*You gave 0.*Give 10 more for the prize.*Best Farm of the Week.*Turnip x7.*Give 7.*Tomato x\d+.*Give 10/);
+  await shot(me.page, 'town-1-tab');
+  assert.ok(!/Gold Ore/.test(await modalText(me.page)), 'a crop week takes crops, not ore');
+  await tapButton(me.page, 'Give 7');
+  await waitToast(me.page, /7 more for the goal/);
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip')), 0, 'seven left the bag');
+  assert.strictEqual(server.db.town.total, 52);
+  for (let i = 0; i < 3; i++) {
+    await waitModal(me.page, /Tomato x\d+.*Give 10/);
+    await tapButton(me.page, 'Give 10');
+    await waitToast(me.page, /10 more for the goal/);
+  }
+  await waitModal(me.page, /Tomato x30.*Give 3/);
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'tomato')), 30);
+  // a game that asks for more than the day's room gets only what the server took
+  const paid = await me.page.evaluate(() => Farm.Net.rpc('farm_town_give_v1', { p_n: 500 }).then((r) => Farm.Logic.townPaid(Farm.session.state, 'tomato', 500, r.given)));
+  assert.strictEqual(paid, 3);
+  assert.strictEqual(server.db.town.mine[me.uid], 40);
+  await me.page.evaluate(() => Farm.ui.swapTo(() => Farm.ui.openOnline('town', 0)));
+  await waitModal(me.page, /That is all the town can take/);
+  await shot(me.page, 'town-3-done');
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  // the week was reached: the prize, once
+  const before = await me.page.evaluate(() => ({ g: Farm.session.state.gold, st: Farm.session.state.stars }));
+  server.db.town.prize = { [me.uid]: ['2026-10-26'] };
+  server.db.town.bestPrize = me.uid;
+  server.db.town.best = { id: me.uid, likes: 12 };
+  await me.page.evaluate(() => Farm.Online.prizes());
+  await waitModal(me.page, /TOWN PRIZES.*The town reached its goal: \+1,000G and 1 Sunbeam.*Best Farm of the Week: \+5,000G and 5 Sunbeams/);
+  await shot(me.page, 'town-4-prizes');
+  assert.deepStrictEqual(await me.page.evaluate(() => ({ g: Farm.session.state.gold, st: Farm.session.state.stars })), { g: before.g + 6000, st: before.st + 6 });
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  await me.page.evaluate(() => Farm.Online.prizes());
+  assert.deepStrictEqual(await me.page.evaluate(() => ({ g: Farm.session.state.gold, st: Farm.session.state.stars })), { g: before.g + 6000, st: before.st + 6 }, 'only once');
+  // a prize bigger than a prize can be is cut down to size
+  server.db.town.prize = {};
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.claimRead([{ gold: 1e9, stars: 1e9 }], 1000, 1)[0].gold), 1000);
+  // should the server go away, the tab goes too, with no fuss
+  server.db.town = null;
+  await me.page.evaluate(() => Farm.Online.townLoad());
+  assert.ok(!/town/.test(await tabsOf(me.page)));
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
+test('online: Best Farm of the Week: last week\'s winner wears a crown in the Online lists', async () => {
+  const server = createServer();
+  server.db.town = {};
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Crown Farm');
+  await nameFarm(b.page, 'Plain Farm');
+  await a.page.evaluate(() => Farm.Online.publish(true));
+  await b.page.evaluate(() => Farm.Online.publish(true));
+  await b.page.evaluate(() => Farm.Online.townLoad());
+  await b.page.evaluate(() => Farm.ui.openOnline('visit', 0));
+  await waitModal(b.page, /Crown Farm/);
+  assert.strictEqual(await crowns(b.page), 0, 'no winner yet, no crown');
+  await b.page.evaluate(() => Farm.ui.closeAll());
+  server.db.town.best = { id: a.uid, likes: 23 };
+  await b.page.evaluate(() => Farm.Online.townLoad());
+  await b.page.evaluate(() => Farm.ui.openOnline('visit', 0));
+  await waitModal(b.page, /Crown Farm/);
+  assert.strictEqual(await crowns(b.page), 1, 'one crown, by the winner');
+  await shot(b.page, 'town-5-crown');
+  await b.page.evaluate(() => Farm.ui.swapTo(() => Farm.ui.openOnline('town', 0)));
+  await waitModal(b.page, /Best Farm of the Week.*Crown Farm won last week with 23 likes/);
+  assert.strictEqual(await crowns(b.page), 1);
+  await shot(b.page, 'town-6-best');
+  assert.deepStrictEqual(a.problems, []);
+  assert.deepStrictEqual(b.problems, []);
+  await a.context.close();
+  await b.context.close();
 });
 
 // the name box comes up after signing in

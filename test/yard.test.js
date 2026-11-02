@@ -19,7 +19,7 @@ const FARM = L.farmInfo(MAP);
 const O = C.OUTDOOR, ix = O.index;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = () => { const s = L.newState(); s.seed = 11; s.gold = 1e6; return s; };
+const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ s.gold = 1e6; return s; };
 
 test('the farm is 38 wide and the save says so; the meadow is free to build on, the field and buildings are not', () => {
   assert.strictEqual(MAP.width, C.FARM_W);
@@ -57,7 +57,8 @@ test('placing, moving and storing pieces; pieces never overlap; paths go under t
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 25, 16), 'taken', 'but not two paths');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 10, 15), 'blocked', 'not on the field');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 36, 15), 'blocked', 'not under the border trees');
-  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 37, 15), 'outside');
+  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 37, 15), 'blocked', 'nor under the second row of them');
+  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 39, 15), 'outside', 'past them is land you have to buy');
   assert.strictEqual(L.moveYard(s, FARM, 0, 30, 20), 'ok');
   assert.deepStrictEqual(plain(s.yard.items[0]), { t: ix.apple_tree, x: 30, y: 20 });
   assert.strictEqual(L.storeYard(s, 0), 'ok');
@@ -115,12 +116,12 @@ test('an older save (24 tiles wide) keeps its crops and debris in the same place
   delete o.rt; // (from before real time too)
   o.f = [[3 * 24 + 5, 1, 1, 2], [12 * 24 + 10, 0, 0, 0]]; // tilled tiles at (5, 3) and (10, 12)
   const back = L.deserialize(JSON.parse(JSON.stringify(o)));
-  assert.ok(back.soil[3 * 38 + 5] && back.soil[12 * 38 + 10]);
-  assert.strictEqual(back.soil[3 * 38 + 5].w, 1);
+  assert.ok(back.soil[3 * C.FARM_W + 5] && back.soil[12 * C.FARM_W + 10]);
+  assert.strictEqual(back.soil[3 * C.FARM_W + 5].w, 1);
   assert.strictEqual(Object.keys(back.soil).length, 2);
   assert.strictEqual(back.yard.bag[ix.wood_fence], 8, 'and gets the starter pieces');
   const again = roundTrip(back);
-  assert.ok(again.soil[3 * 38 + 5], 'the new width is saved, so it is not moved twice');
+  assert.ok(again.soil[3 * C.FARM_W + 5], 'the new width is saved, so it is not moved twice');
 });
 
 test('a full yard still fits in the save', () => {

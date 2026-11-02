@@ -27,6 +27,7 @@
     return z;
   };
   var JOY = { x: 86, y: 512 + C.EXTRA, r: 46, knob: 22 };
+  var HOT_SWIPE = 24; // layout px along the bar that make a tap a swipe
   // owner, 26 Oct: lighter, and fainter still while dragging, so the farm shows through it
   var JOY_ALPHA = { idle: 0.55, drag: 0.4 };
   var ICON = 32 / 128; // item icons are 128px; slots show them at 32 layout px
@@ -416,7 +417,13 @@
       this.energyBar.setTexture(this.energyFills[pct > 0.5 ? 2 : pct > 0.2 ? 1 : 0]).setVisible(pct > 0);
       this.energyBar.setCrop(0, 0, Math.max(10, 76 * pct) * F.R, 10 * F.R);
       this.energyText.setText(String(Math.round(s.energy)));
-      for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[i], s.sel === i);
+      if (s.sel !== this.hotSel) { // picked in the bag: the bar goes to it
+        this.hotSel = s.sel;
+        if (s.sel < C.HOTBAR * C.HOTBAR_PAGES) this.hotPage = Math.floor(s.sel / C.HOTBAR);
+      }
+      var first = this.hotPage * C.HOTBAR;
+      for (var i = 0; i < C.HOTBAR; i++) this.drawSlot(this.slots[i], s.inv[first + i], s.sel === first + i);
+      this.drawHotDots();
       // the night sheet lives in the world, so windows and lamps can glow through it
       if (F.world && F.world.applyDark) F.world.applyDark(this.darkness());
       if (this.refreshGoal) this.refreshGoal();
@@ -518,14 +525,73 @@
       var total = (C.HOTBAR + 1) * SLOT + C.HOTBAR * GAP;
       var x0 = (W - total) / 2;
       this.slots = [];
+      this.hotPage = 0;
+      this.hotSel = null;
+      this.hotDown = null;
+      // A slot picks when the finger comes up, so that a swipe along the bar (owner, 2 Nov) picks nothing.
+      var press = function (i, p) { if (!self.modals.length) self.hotDown = { id: p.id, x: p.x, i: i }; };
       for (var i = 0; i < C.HOTBAR; i++) {
-        this.slots.push(this.slotWidget(null, x0 + i * (SLOT + GAP), HOTBAR_Y - SLOT / 2, this.select.bind(this, i)));
+        this.slots.push(this.slotWidget(null, x0 + i * (SLOT + GAP), HOTBAR_Y - SLOT / 2, press.bind(null, i)));
+      }
+      this.input.on('pointerup', function (p) {
+        var d = self.hotDown;
+        if (!d || d.id !== p.id) return;
+        self.hotDown = null;
+        var dx = (p.x - d.x) / F.R;
+        if (Math.abs(dx) >= HOT_SWIPE) self.hotTurn(dx < 0 ? 1 : -1);
+        else self.select(self.hotPage * C.HOTBAR + d.i);
+      });
+      // the dots above the bar: which one you are on, and a tap goes there
+      var dx0 = x0 + (C.HOTBAR * (SLOT + GAP) - GAP) / 2, dotY = HOTBAR_Y - 37;
+      this.hotPill = this.add.graphics({ x: dx0, y: dotY });
+      this.hotPill.fillStyle(0x24160b, 0.78).fillRoundedRect(-30, -7, 60, 14, 7);
+      this.hotPill.lineStyle(1, 0xffd23f, 0.8).strokeRoundedRect(-30, -7, 60, 14, 7);
+      this.hotDots = [];
+      for (var k = 0; k < C.HOTBAR_PAGES; k++) {
+        (function (k) {
+          var x = dx0 + (k - (C.HOTBAR_PAGES - 1) / 2) * 16;
+          self.hotDots.push(self.add.circle(x, dotY, 4, 0xffffff));
+          F.tapOn(self.add.zone(x, dotY, 18, 26).setInteractive({ useHandCursor: true }), function () { if (!self.modals.length) self.hotTo(k); });
+        })(k);
       }
       var bx = x0 + C.HOTBAR * (SLOT + GAP);
       var bag = this.slotWidget(null, bx, HOTBAR_Y - SLOT / 2, function () { if (!self.modals.length) self.openInventory(); });
       bag.bg.setTexture(this.slotTex('bag'));
       bag.icon.setFrame(C.ICON.bag);
       this.bagWidget = bag;
+      // the first time: say so, and the dots show where
+      this.time.delayedCall(7000, function () {
+        if (self.modals.length || (window.gameHost && window.gameHost.quiet)) return;
+        var tip = L.takeTip(F.session.state, 'toolbar');
+        if (!tip) return;
+        F.session.dirty = true;
+        self.toast(tip, 5000, 0x2f5a22);
+        self.tweens.add({ targets: self.hotDots.concat(self.hotPill), scale: 1.5, duration: 260, yoyo: true, repeat: 3, ease: 'Sine.inOut' });
+      });
+    }
+
+    hotTurn(by) {
+      this.hotTo(this.hotPage + by);
+    }
+
+    // Looking at another bar changes nothing you hold: a tap on a slot does.
+    hotTo(page) {
+      if (page < 0 || page >= C.HOTBAR_PAGES || page === this.hotPage) return;
+      var from = page > this.hotPage ? 26 : -26, self = this;
+      this.hotPage = page;
+      if (F.Audio) F.Audio.sfx('pick');
+      this.refresh();
+      this.slots.forEach(function (w) {
+        var x = w.x + SLOT / 2;
+        self.tweens.killTweensOf(w.icon);
+        w.icon.setX(x + from).setAlpha(0.2);
+        self.tweens.add({ targets: w.icon, x: x, alpha: 1, duration: 150, ease: 'Quad.out' });
+      });
+    }
+
+    drawHotDots() {
+      var page = this.hotPage;
+      this.hotDots.forEach(function (d, k) { d.setFillStyle(k === page ? 0xffd23f : 0xc8b89a).setRadius(k === page ? 4.5 : 3); });
     }
 
     select(i) {
@@ -1019,7 +1085,7 @@
           F.input.holding = true;
         }
         else if (e.key === 'e' || e.key === 'i') self.openInventory();
-        else if (e.key >= '1' && e.key <= '6') self.select(Number(e.key) - 1);
+        else if (e.key >= '1' && e.key <= '6') self.select(self.hotPage * C.HOTBAR + Number(e.key) - 1);
       });
       kb.on('keyup', function (e) {
         if (self.game2 && (e.key === ' ' || e.key === 'Enter' || e.key === 'j')) self.game2.press(false);

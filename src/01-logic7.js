@@ -64,7 +64,7 @@
     s.seen = s.seen || 0; // the last real day you played
     s.ach = s.ach || 0; // achievements claimed (bits)
     s.rq = s.rq || { day: 0, list: [], streak: 0, last: 0 }; // requests
-    s.trd = s.trd || { day: 0, sold: {} }; // what the trader bought today
+    s.trd = s.trd || { day: 0, sold: {} }; // what the trader bought today, and sold (never the same goods)
     s.pwr = s.pwr || { day: 0, until: 0 }; // Power-Up
     s.pm = s.pm || { day: 0, fed: 0 }; // Pet Meals given today (bits: dog, cat, horse)
   };
@@ -308,7 +308,7 @@
     return t.days.indexOf(L.weekday(s.day)) >= 0 && s.time >= t.open[0] && s.time < t.open[1] && !L.festivalOn(s.day);
   };
   L.traderWanted = function (s) {
-    var out = [], b = C.TRADER.buys;
+    var out = [], b = C.TRADER.wantedFrom;
     for (var k = 0; out.length < C.TRADER.wanted && k < 40; k++) {
       var id = b[Math.floor(L.rand(s.seed, s.day, 800 + k) * b.length)];
       if (out.indexOf(id) < 0) out.push(id);
@@ -335,6 +335,29 @@
     s.stats.earned += gold;
     L.discover(s, id);
     return gold;
+  };
+
+  // What she sells today: the seasonal goods that are out of season.
+  L.traderRare = function (s) {
+    return C.TRADER.rare.filter(function (r) { return !L.cropInSeason(C.ITEMS[r.id].crop || r.id, s.day); });
+  };
+  L.traderRareLeft = function (s, r) {
+    if (s.trd.day !== s.day) s.trd = { day: s.day, sold: {} };
+    return Math.max(0, r.most - (s.trd.sold[r.id] || 0));
+  };
+  // Buys n of a seasonal good, as many as she has left. Returns the gold it cost, or a reason.
+  L.traderBuy = function (s, id, n) {
+    var r = L.traderRare(s).filter(function (x) { return x.id === id; })[0];
+    if (!r) return 'season';
+    n = Math.min(n, L.traderRareLeft(s, r));
+    if (n <= 0) return 'none';
+    var cost = r.price * n;
+    if (s.gold < cost) return 'gold';
+    if (!L.canAdd(s, id, n)) return 'full';
+    s.gold -= cost;
+    L.addItem(s, id, n);
+    s.trd.sold[id] = (s.trd.sold[id] || 0) + n;
+    return cost;
   };
 
   // The festival piece a swap gives today (any season): furniture { t, v } or a yard piece { t }.

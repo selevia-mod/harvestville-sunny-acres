@@ -25,7 +25,8 @@
     s.horse = null; // { name, love, pet } once the stable is built
     s.cat = null; // { name, love, pet } once the cat basket is bought
     s.chests = 0; // bitmask of mine treasure chests opened (floor 5 = bit 0, 10 = bit 1, ... up to the 30th chest)
-    s.chHi = 0; // past the 30th chest (floor 150): the deepest chest opened (the mine is walked down floor by floor)
+    s.chHi = 0; // past the 30th chest (floor 150), saves from before the lift: every chest down to this one counts as opened
+    s.chB = ''; // past the 30th chest: which ones are opened, see chestBit
     s.musicDay = 0; // last day the music box was played
     s.look = 'boy'; // the farmer: 'boy' or 'girl', picked at the start
     return s;
@@ -177,9 +178,20 @@
     return floor > 0 && floor % C.MINE.chestEvery === 0;
   };
 
+  // Past the 30th chest the lift lets you skip floors, so each chest has its own bit: a string of base 32 letters, 5 chests
+  // to the letter, cut after the last letter in use. All 240 chests to floor 1,200 take 42 letters.
+  var chestBit = function (k) { return { at: Math.floor((k - 31) / 5), bit: 1 << ((k - 31) % 5) }; };
   L.chestOpened = function (s, floor) {
     var k = floor / C.MINE.chestEvery;
-    return k > 30 ? k <= (s.chHi || 0) : !!((s.chests >> (k - 1)) & 1);
+    if (k <= 30) return !!((s.chests >> (k - 1)) & 1);
+    if (k <= (s.chHi || 0)) return true;
+    var b = chestBit(k), letter = (s.chB || '').charAt(b.at);
+    return !!letter && !!(parseInt(letter, 32) & b.bit);
+  };
+  var markChest = function (s, k) {
+    var b = chestBit(k), bits = s.chB || '';
+    while (bits.length <= b.at) bits += '0';
+    s.chB = bits.slice(0, b.at) + (parseInt(bits.charAt(b.at), 32) | b.bit).toString(32) + bits.slice(b.at + 1);
   };
 
   // Opens the treasure chest on a floor (once ever). Returns { gold, items: [[id, n]] } or { error }.
@@ -187,7 +199,7 @@
     if (!L.hasChest(floor)) return { error: 'none' };
     if (L.chestOpened(s, floor)) return { error: 'opened' };
     var k = floor / C.MINE.chestEvery;
-    var items = k === 1 ? [['ore_copper', 3]] : k === 2 ? [['ore_silver', 3]] : k === 3 ? [['ore_gold', 3]] : [['gem', 1], ['ore_gold', 2]];
+    var items = k === 1 ? [['ore_copper', 3]] : k === 2 ? [['ore_silver', 3]] : k === 3 ? [['ore_gold', 3]] : [[L.chestGem(floor), 1], ['ore_gold', 2]];
     var room = items.every(function (it) { return L.canAdd(s, it[0], it[1]); });
     if (!room) return { error: 'full' };
     items.forEach(function (it) {
@@ -196,7 +208,7 @@
     });
     var gold = C.MINE.chestGold * k;
     s.gold += gold;
-    if (k > 30) s.chHi = Math.max(s.chHi || 0, k);
+    if (k > 30) markChest(s, k);
     else s.chests |= 1 << (k - 1);
     return { gold: gold, items: items };
   };
@@ -362,6 +374,7 @@
     o.ct = s.cat ? [s.cat.love, s.cat.pet] : 0;
     o.ch = s.chests;
     if (s.chHi) o.chh = s.chHi;
+    if (s.chB) o.chb = s.chB;
     o.mb = s.musicDay;
     o.lk = s.look === 'girl' ? 1 : 0;
     Object.keys(s.friends).forEach(function (k) { if (o.fr[k]) o.fr[k][4] = s.friends[k].ev || 0; });
@@ -394,7 +407,7 @@
       s.goal = s.day > s.start ? C.GOALS.length : 0; // older farms already know the ropes
     }
     s.tips = int(o.tp, 0, 2147483647, 0);
-    s.col = (Array.isArray(o.cl) ? o.cl : []).slice(0, 4).map(function (v) { return int(v, 0, (1 << BITS) - 1, 0); });
+    s.col = (Array.isArray(o.cl) ? o.cl : []).slice(0, 8).map(function (v) { return int(v, 0, (1 << BITS) - 1, 0); });
     if (Array.isArray(o.st)) {
       s.stats = { earned: int(o.st[0], 0, 1e9, 0), fish: int(o.st[1], 0, 1e7, 0), cooked: int(o.st[2], 0, 1e7, 0), deepest: int(o.st[3], 0, 1e4, 0) };
     }
@@ -406,6 +419,7 @@
     if (s.builds.f_cat && !s.cat) s.cat = { name: C.CAT.name, love: 0, pet: 0 };
     s.chests = int(o.ch, 0, 1073741823, 0); // 30 chests (it was cut at 20, forgetting chests past floor 100)
     s.chHi = int(o.chh, 0, 1e6, 0);
+    s.chB = typeof o.chb === 'string' && /^[0-9a-v]+$/.test(o.chb) ? o.chb.slice(0, 800) : ''; // 800 letters: down to floor 20,150
     s.musicDay = int(o.mb, 0, 1e6, 0);
     s.look = o.lk === 1 ? 'girl' : 'boy';
     if (o.fr && typeof o.fr === 'object') {

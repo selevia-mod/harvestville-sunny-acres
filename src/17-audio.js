@@ -122,6 +122,8 @@
     smash: function () { noise(0.18, 'lowpass', 1300, 0.5); tone(95, 0.14, 'square', 0.12, 60); },
     cut: function () { noise(0.1, 'highpass', 3200, 0.3); },
     swoosh: function () { noise(0.11, 'bandpass', 900, 0.1); },
+    bowdraw: function () { tone(120, 0.2, 'sawtooth', 0.025, 230); noise(0.18, 'bandpass', 1500, 0.035); },
+    bowshot: function () { tone(540, 0.13, 'triangle', 0.3, 170); noise(0.1, 'bandpass', 1400, 0.16); noise(0.14, 'bandpass', 900, 0.08, 0.04); },
     step: function () { noise(0.05, 'lowpass', 380 + Math.random() * 160, 0.07); },
     stepWood: function () { tone(150 + Math.random() * 30, 0.05, 'triangle', 0.06, 110); noise(0.03, 'lowpass', 900, 0.04); },
     leaves: function () { noise(0.16, 'highpass', 2600, 0.2); noise(0.1, 'bandpass', 1800, 0.12, 0.05); },

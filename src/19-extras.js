@@ -160,6 +160,7 @@
         return { label: 'Mailbox', icon: C.ICON.letter, run: function () { F.ui.toast('No new letters.'); } };
       case 'chest':
         if (L.chestOpened(s, F.session.mineFloor)) return { label: 'Empty', icon: C.ICON.chest, disabled: true, why: 'You already opened this chest.' };
+        if (F.session.visit && F.session.mineFloor > s.stats.deepest) return { label: 'Locked', icon: C.ICON.chest, disabled: true, why: 'Reach this floor on your own to open its chest.' };
         return { label: 'Open', icon: C.ICON.chest, run: function () { self.openChest(); } };
       case 'musicbox': return { label: 'Play', icon: C.ICON.music_box, run: function () { self.playMusicBox(); } };
       case 'aquarium': return { label: 'Look', icon: C.ICON.aquarium, run: function () { self.lookAquarium(); } };

@@ -20,7 +20,7 @@ const ix = C.OUTDOOR.index;
 const W = C.FARM_W;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = () => { clock.set(2026, 4, 1, 10, 0); const s = L.newState(); s.seed = 11; s.gold = 1e6; L.takeNotes(); return s; };
+const fresh = () => { clock.set(2026, 4, 1, 10, 0); const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ s.gold = 1e6; L.takeNotes(); return s; };
 const ripe = (s, idx, crop) => { s.soil[idx] = { w: 0, c: crop, p: L.nowMin() - C.CROPS[crop].mins, r: 0 }; };
 
 test('wheat: a 20-minute crop sold by Lily in spring, summer and fall; everything new has a name, an icon and a price', () => {

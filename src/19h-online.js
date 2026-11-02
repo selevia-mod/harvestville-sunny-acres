@@ -84,7 +84,8 @@
         (list || []).forEach(function (b) { O.blocked[String(b.id)] = L.cleanText(b.farm_name, 24) || 'Farmer'; });
       }, noop);
       return O.publish(true).then(function () { return O.collect(true); }).then(function () { return O.prizes(); })
-        .then(function () { return L.settleRefills ? L.settleRefills().catch(noop) : null; }).then(function () { return O.me; });
+        .then(function () { return L.settleRefills ? L.settleRefills().catch(noop) : null; })
+        .then(function () { return O.inviteCollect ? O.inviteCollect().catch(noop) : null; }).then(function () { return O.me; });
     });
   };
 
@@ -787,7 +788,7 @@
 
   // ---------- the UI ----------
   var K = F.UI_CONST, W = K.W, H = K.H, INK = K.INK;
-  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GOLD = 0xe9a91c, GREY = 0xa08a68, RED = 0xc0503a, PINK = 0xd0587a;
+  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GOLD = 0xe9a91c, GREY = 0xa08a68, RED = 0xc0503a;
   var U = F.UIScene.prototype;
 
   var uiCreate = U.create;
@@ -811,12 +812,14 @@
     this.onlineBtn.setVisible(F.Net.available() && !this.decorating && !F.session.visit);
   };
 
+  var FAN = { x: 32, y: 88, name: 116, at: [[156, 86], [148, 126], [124, 164], [86, 188], [34, 196]], frames: { visit: 0, like: 1, gift: 2, wave: 3, more: 4, home: 5 } };
   // The Online button, or (while visiting) the bar with Like, Gift, Wave and Home.
   U.showOnline = function () {
     var self = this, v = F.session.visit;
     this.onlineBtn.setVisible(F.Net.available() && !this.decorating && !v);
     if (this.decorBtn && v) this.decorBtn.setVisible(false);
     if (this.visitBar) { this.visitBar.destroy(); this.visitBar = null; }
+    if (this.goalBar) this.refreshGoal();
     if (!v) return;
     var c = this.visitBar = this.add.container(0, 0).setDepth(40);
     if (F.world && L.isWildMap(F.world.mapKey)) { // out hunting: only what you need, out of the way of the map
@@ -825,13 +828,47 @@
       });
       return;
     }
-    this.baked(c, 8, 136, 'ui-visitbar', W - 16, 58, function (g) {
-      g.fillStyle(0x3d2614, 0.82).fillRoundedRect(0, 0, W - 16, 58, 12);
+    // Owner, 2 Nov 2026: "taking much space", then option 4 of 5: one round button that fans out. (The goal waits at home.)
+    var name = this.txt(8, FAN.y + 25, v.name, 11, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 });
+    if (name.width > FAN.name) name.setScale(FAN.name / name.width); // the whole name, always (owner, 2 Nov): a long one shrinks
+    c.add(name);
+    var list = [['like', function () { self.likeFarm(); }], ['gift', function () { self.giftFarm(); }], ['wave', function () { O.wave(); }],
+      ['more', function () { self.playerMenu(v.host, v.name); }], ['home', function () { O.leaveVisit(); }]];
+    var fan = this.add.container(0, 0).setVisible(false);
+    c.add(fan);
+    var toggle, items = list.map(function (b, i) {
+      return self.fanButton(fan, FAN.at[i][0], FAN.at[i][1], b[0], function () { toggle(false); b[1](); });
     });
-    c.add(this.txt(W / 2, 140, 'Visiting ' + v.name, 12, '#ffe9a8', { fontStyle: 'bold' }).setOrigin(0.5, 0));
-    var bw = 62, list = [['Like', PINK, function () { self.likeFarm(); }], ['Gift', GOLD, function () { self.giftFarm(); }], ['Wave', BLUE, function () { O.wave(); }],
-      ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]];
-    list.forEach(function (b, i) { self.button(c, W / 2 + (i - (list.length - 1) / 2) * (bw + 5), 174, bw, 30, b[0], b[2], b[1]); });
+    var closed = this.fanButton(c, FAN.x, FAN.y, 'visit', function () { toggle(true); });
+    var shut = this.roundButton(c, FAN.x, FAN.y, 20, GREY, 'close', null, function () { toggle(false); }).setVisible(false);
+    toggle = this.visitFan = function (on) {
+      if (!closed.active) return;
+      closed.setVisible(!on);
+      shut.setVisible(on);
+      fan.setVisible(on);
+      if (on) { sfx('pick'); name.setVisible(true); }
+      if (!on) return;
+      items.forEach(function (b, i) {
+        var at = FAN.at[i];
+        self.tweens.killTweensOf(b);
+        b.setPosition(FAN.x, FAN.y).setScale(0.3);
+        self.tweens.add({ targets: b, x: at[0], y: at[1], scale: 1, duration: 170, delay: i * 25, ease: 'Back.out' });
+      });
+    };
+  };
+
+  // A round button with its painted picture (assets/visitbtn).
+  U.fanButton = function (parent, x, y, key, onTap) {
+    var c = this.add.container(x, y), size = 40;
+    c.add(this.add.circle(0, 2, size / 2, 0x1e1006, 0.35));
+    c.add(this.add.image(0, 0, F.ensureTexture(this, 'visitbtn'), FAN.frames[key]).setDisplaySize(size, size));
+    var z = this.add.zone(0, 0, size + 8, size + 8).setInteractive({ useHandCursor: true });
+    z.on('pointerdown', function () { c.setScale(0.9); });
+    z.on('pointerout', function () { c.setScale(1); });
+    F.tapOn(z, function () { c.setScale(1); onTap(); });
+    c.add(z);
+    if (parent) parent.add(c);
+    return c;
   };
 
   U.likeFarm = function () {
@@ -980,7 +1017,7 @@
       F.Net.rpc('farm_list_v1', { p_kind: this.onlineKind.visit, p_limit: 30 }).then(function (list) {
         var rows = [kindRow('visit')].concat((list || []).map(function (f) {
           return {
-            icon: C.ICON.spring, name: name(f.farm_name), online: !!f.online,
+            id: String(f.id), icon: C.ICON.spring, name: name(f.farm_name), online: !!f.online,
             desc: 'Beauty ' + (Number(f.beauty) || 0) + ', house level ' + (Number(f.house_level) || 1) + ', ' + (Number(f.likes_week) || 0) + ' likes this week.',
             buttons: [{ label: 'Visit', cb: function () { O.visit(String(f.id)); } }, more(String(f.id), name(f.farm_name), 'visit')],
           };
@@ -1007,7 +1044,7 @@
           else if (f.status === 'sent') rows.push({ icon: C.ICON.heart, name: n, desc: 'Request sent. Waiting for them to accept.', buttons: [{ label: 'Cancel', color: GREY, cb: answer(false) }] });
           else {
             rows.push({
-              icon: C.ICON.heart, name: n, online: !!f.online,
+              id: id, icon: C.ICON.heart, name: n, online: !!f.online,
               desc: unread ? unread + ' new message' + (unread > 1 ? 's' : '') + '!' : f.via === 'selebox' ? 'You follow each other on Selebox.' : 'Your friend.',
               buttons: [{ label: unread ? 'Chat (' + unread + ')' : 'Chat', color: BLUE, cb: function () { self.closeModal(); self.openChat(id, n); } }, { label: 'Visit', cb: function () { O.visit(id); } }],
             });
@@ -1023,7 +1060,7 @@
           var prize = rk >= 1 && rk <= 10 ? { gold: [5000, 3000, 2000][rk - 1] || 1000, stars: [5, 3, 2][rk - 1] || 1 } : null;
           return {
             reward: prize, rewardPrefix: prize ? 'Prize' : null,
-            icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
+            id: String(r.id), icon: C.ICON.ribbon, name: '#' + (Number(r.rank) || 0) + ' ' + name(r.farm_name) + (mine ? ' (you)' : ''),
             desc: kindName('ranks', k) + ': ' + (Number(r.score) || 0) + (k === 'earned' ? 'G' : '') + ' this week.',
             buttons: mine ? [] : [{ label: 'Visit', cb: function () { O.visit(String(r.id)); } }, more(String(r.id), name(r.farm_name), 'ranks')],
           };

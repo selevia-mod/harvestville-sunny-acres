@@ -35,6 +35,7 @@ test('the game asks who is signed in and calls the farm functions through the ap
   await assert.rejects(v.net.rpc('farm_visit_v1', { p_host: uid }), /own farm/, 'database errors come back as errors');
   await assert.rejects(v.net.rpc('delete_everything', {}), /not allowed/, 'only farm_*_v1 functions');
   await assert.rejects(v.net.rpc('farm_join', {}), /not allowed/);
+  await assert.rejects(v.net.rpc('invite_collect_anything_v1', {}), /not allowed/, 'and the one Invite Friends call, by its exact name');
   assert.strictEqual(await webview(server, null).net.session(), null, 'nobody signed in');
 });
 

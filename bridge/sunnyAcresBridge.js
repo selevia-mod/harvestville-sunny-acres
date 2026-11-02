@@ -162,7 +162,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     session: () => userId(),
 
     async rpc(name, args) {
-      if (!RPC_NAME.test(String(name))) throw new Error('not allowed');
+      if (!RPC_NAME.test(String(name)) && name !== 'invite_collect_game_rewards_v1') throw new Error('not allowed');
       const { data, error } = await supabase.rpc(name, args && typeof args === 'object' ? args : {});
       if (error) throw new Error(error.message || 'failed');
       return data;

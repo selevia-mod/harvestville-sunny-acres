@@ -51,11 +51,12 @@
 
   L.storeCount = function (s) { return s.store.filter(Boolean).length; };
 
-  // Puts the whole stack from bag slot i into storage (stacked with the same item first). Returns how many went in.
-  L.storeIn = function (s, i) {
+  // Puts `count` from bag slot i (all of it when not given) into storage, stacked with the same item first. Returns how
+  // many went in.
+  L.storeIn = function (s, i, count) {
     var slot = s.inv[i];
     if (!slot) return 0;
-    var max = L.stackLimit(slot.id), n = slot.n, k;
+    var max = L.stackLimit(slot.id), want = Math.min(count || slot.n, slot.n), n = want, k;
     for (k = 0; k < s.store.length && n > 0; k++) {
       var st = s.store[k];
       if (st && st.id === slot.id && st.n < max) { var add = Math.min(n, max - st.n); st.n += add; n -= add; }
@@ -63,20 +64,39 @@
     for (k = 0; k < s.store.length && n > 0; k++) {
       if (!s.store[k]) { var put = Math.min(n, max); s.store[k] = { id: slot.id, n: put }; n -= put; }
     }
-    var moved = slot.n - n;
-    slot.n = n;
+    var moved = want - n;
+    slot.n -= moved;
     if (slot.n <= 0) s.inv[i] = null;
     return moved;
   };
 
-  // Takes the whole stack in storage slot k into the bag. Returns how many came out (what doesn't fit stays).
-  L.storeOut = function (s, k) {
+  // Takes `count` from storage slot k (all of it when not given) into the bag. Returns how many came out (what doesn't
+  // fit stays).
+  L.storeOut = function (s, k, count) {
     var st = s.store[k];
     if (!st) return 0;
-    var left = L.addItem(s, st.id, st.n), moved = st.n - left;
-    st.n = left;
+    var want = Math.min(count || st.n, st.n), moved = want - L.addItem(s, st.id, want);
+    st.n -= moved;
     if (st.n <= 0) s.store[k] = null;
     return moved;
+  };
+
+  // Moves what is in storage slot `from` to slot `to`, like L.moveSlot in the bag: an empty slot, a swap, or stacked.
+  L.moveStore = function (s, from, to) {
+    var a = s.store[from];
+    if (!a) return 'empty';
+    if (from === to || to < 0 || to >= s.store.length) return 'same';
+    var b = s.store[to];
+    if (b && b.id === a.id) {
+      var n = Math.min(Math.max(0, L.stackLimit(a.id) - b.n), a.n);
+      b.n += n;
+      a.n -= n;
+      if (a.n <= 0) s.store[from] = null;
+    } else {
+      s.store[to] = a;
+      s.store[from] = b || null;
+    }
+    return 'ok';
   };
 
   // ---------- save: 'kp' (what you keep), always written (even empty): an older save is known by not having it ----------

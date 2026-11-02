@@ -16,7 +16,7 @@ L.weather = () => 'sunny';
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = () => { const s = L.newState(); s.seed = 11; return s; };
+const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ return s; };
 
 test('the snapshot has the house, furniture, yard, crops and animals, and nothing private', () => {
   const s = fresh();
@@ -81,7 +81,7 @@ test('junk in a snapshot is dropped instead of breaking the game', () => {
   assert.ok(v.yard.items.every((it) => C.OUTDOOR.types[it.t] && Number.isInteger(it.x) && Number.isInteger(it.y)), 'only real pieces');
   const FARM = L.farmInfo(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8')));
   L.yardRepair(v, FARM);
-  assert.strictEqual(v.yard.items.length, 0, 'and the farm map refuses ones in impossible places');
+  assert.strictEqual(v.yard.items.filter((it) => it.t !== C.OUTDOOR.index.field_fence).length, 0, 'and the farm map refuses ones in impossible places');
   assert.ok(!v.builds.hacked);
   assert.deepStrictEqual(plain(v.animals.map((a) => [a.kind, a.name])), [['chicken', 'A very long chic'], ['cow', 'Bessie']]);
   assert.strictEqual(v.dog.name, C.DOG.name);

@@ -11,7 +11,7 @@
   A.yardFrames = function (types) {
     var out = [];
     types.forEach(function (t) {
-      if (t.prop) return;
+      if (t.prop || t.like) return;
       if (t.kind === 'fence') ['h', 'v', 'p'].forEach(function (sh) { out.push([t.key + ':' + sh, t, 1, 1]); });
       else out.push([t.key, t, t.w, t.h]);
     });

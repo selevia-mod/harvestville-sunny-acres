@@ -23,8 +23,13 @@
     var self = this, s = F.session.state, w = F.world;
     var c = this.openModal();
     tab = tab || 'store';
-    var page = 0;
+    var page = 0, moving = null; // moving: the slot picked up with Move
     var list = function () { return tab === 'store' ? s.store : s.inv; };
+    var saved = function () {
+      F.session.dirty = true;
+      w.changed();
+      w.save();
+    };
     var pages = function () { return Math.ceil(list().length / PAGE); };
     var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, rows = 5;
     var extra = (rows - 3) * (SLOT + gap), top = Math.max(70, 104 - extra / 2), y0 = top + 104;
@@ -36,7 +41,7 @@
     [['store', 'Storage', W / 2 - 62], ['bag', 'Bag', W / 2 + 62]].forEach(function (t) {
       tabs[t[0]] = {
         on: self.button(c, t[2], top + 70, 112, 36, t[1], function () {}, GREEN),
-        off: self.button(c, t[2], top + 70, 112, 36, t[1], function () { tab = t[0]; page = 0; sfx('pick'); self.refresh(); }, BROWN),
+        off: self.button(c, t[2], top + 70, 112, 36, t[1], function () { tab = t[0]; page = 0; moving = null; sfx('pick'); self.refresh(); }, BROWN),
       };
     });
     var prev = this.button(c, 64, top + 30, 52, 38, '<', function () { page = (page + pages() - 1) % pages(); sfx('pick'); self.refresh(); }, BROWN);
@@ -47,22 +52,14 @@
         var x = x0 + (k % cols) * (SLOT + gap), y = y0 + Math.floor(k / cols) * (SLOT + gap);
         widgets.push(self.slotWidget(c, x, y, function () {
           var i = page * PAGE + k, it = list()[i];
-          if (!it) return;
-          var name = L.itemName(s, it.id), n;
-          if (tab === 'store') {
-            n = L.storeOut(s, i);
-            if (!n) { sfx('nope'); return self.toast('Your bag is full. Put something away first.'); }
-            self.toast('Took ' + (n > 1 ? n + ' ' : '') + name + ' into your bag.' + (s.store[i] ? ' The rest did not fit.' : ''), 1800);
-          } else {
-            n = L.storeIn(s, i);
-            if (!n) { sfx('nope'); return self.toast('Your storage is full.'); }
-            self.toast('Put ' + (n > 1 ? n + ' ' : '') + name + ' away.' + (s.inv[i] ? ' The rest did not fit.' : ''), 1800);
+          if (moving != null) {
+            var r = tab === 'store' ? L.moveStore(s, moving, i) : L.moveSlot(s, moving, i);
+            moving = null;
+            if (r === 'ok') { sfx('pick'); saved(); }
+            self.refresh();
+            return;
           }
-          sfx('pick');
-          F.session.dirty = true;
-          w.changed();
-          w.save();
-          self.refresh();
+          if (it) self.openStoreItem(tab, i, function () { moving = i; self.refresh(); }, saved);
         }));
       })(k);
     }
@@ -83,14 +80,46 @@
         wd.bg.setVisible(true);
         wd.zone.setInteractive();
         self.drawSlot(wd, items[i], false);
+        wd.icon.setAlpha(moving === i ? 0.45 : 1);
       });
       ['store', 'bag'].forEach(function (t) { tabs[t].on.setVisible(tab === t); tabs[t].off.setVisible(tab !== t); });
       prev.setVisible(n > 1);
       next.setVisible(n > 1);
       var used = items.filter(Boolean).length;
       title.setText((tab === 'store' ? 'Storage' : 'Bag') + (n > 1 ? '  ' + (page + 1) + '/' + n : ''));
-      note.setText((tab === 'store' ? 'Tap an item to take it into your bag. ' : 'Tap an item to put it away in storage. ') + used + ' of ' + items.length + ' slots used.');
+      note.setText(moving != null && items[moving] ? 'Now tap where to put the ' + L.itemName(s, items[moving].id) + '.' + (n > 1 ? ' The arrows change page.' : '') : 'Tap an item to read about it, ' + (tab === 'store' ? 'take it or move it. ' : 'put it away or move it. ') + used + ' of ' + items.length + ' slots used.');
     };
     this.invRefresh();
+  };
+
+  // One item in the box or the bag: what it is, how many to move across, and Move to arrange it.
+  U.openStoreItem = function (tab, i, onMove, saved) {
+    var self = this, s = F.session.state, store = tab === 'store', it = (store ? s.store : s.inv)[i], def = C.ITEMS[it.id] || {};
+    var c = this.openModal(), h = 262, top = (C.VIEW_H - h) / 2, name = L.itemName(s, it.id);
+    this.panelImg(c, 34, top, W - 68, h);
+    c.add(this.add.image(W / 2, top + 42, 'items', L.iconOf(s, it.id)).setScale(0.42));
+    c.add(this.txt(W / 2, top + 72, name + (it.n > 1 ? '  x' + it.n : ''), 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    var d = def.desc || '';
+    if (L.energyOf(it.id)) d += ' (+' + L.energyOf(it.id) + ' energy)';
+    if (def.sell) d += ' Sells for ' + def.sell + 'G.';
+    c.add(this.txt(W / 2, top + 96, d, 12, '#5a3a1e', { align: 'center', wordWrap: { width: W - 96 } }).setOrigin(0.5, 0));
+    var move = function (n) {
+      var moved = store ? L.storeOut(s, i, n) : L.storeIn(s, i, n);
+      self.closeModal();
+      if (!moved) { sfx('nope'); return self.toast(store ? 'Your bag is full. Put something away first.' : 'Your storage is full.'); }
+      self.toast((store ? 'Took ' : 'Put ') + (moved > 1 ? moved + ' ' : '') + name + (store ? ' into your bag.' : ' away.'), 1800);
+      sfx('pick');
+      saved();
+      self.refresh();
+    };
+    var y = top + 172, half = Math.floor(it.n / 2), amounts = it.n === 1 ? [[store ? 'Take' : 'Put away', 1]] : [['1', 1]];
+    if (it.n > 10) amounts.push(['10', 10]);
+    if (half > 1) amounts.push(['Half', half]);
+    if (it.n > 1) amounts.push(['All', it.n]);
+    if (it.n > 1) c.add(this.txt(W / 2, y - 26, store ? 'How many to take?' : 'How many to put away?', 12, '#7a5a3a').setOrigin(0.5, 0));
+    var bw = it.n === 1 ? 150 : 62;
+    amounts.forEach(function (a, k) { self.button(c, W / 2 + (k - (amounts.length - 1) / 2) * (bw + 6), y + 8, bw, 36, a[0], function () { move(a[1]); }, GREEN); });
+    this.button(c, W / 2 - 62, y + 56, 112, 36, 'Move', function () { self.closeModal(); onMove(); }, BROWN);
+    this.button(c, W / 2 + 62, y + 56, 112, 36, 'Close', function () { self.closeModal(); }, BROWN);
   };
 })(window.Farm = window.Farm || {});

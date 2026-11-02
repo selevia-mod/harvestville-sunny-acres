@@ -104,7 +104,7 @@
     return tier;
   };
   L.homeBonus = function (s) { return H.tiers[L.homeTier(s)][2]; };
-  L.maxEnergy = function (s) { return C.MAX_ENERGY + (s.home ? L.homeBonus(s) : 0); };
+  L.maxEnergy = function (s) { return C.MAX_ENERGY + (s.home ? L.homeBonus(s) : 0) + L.bandBonus(s); };
 
   // Something a villager might say about the home (r in [0, 1)), or null for a plain home.
   L.homeComment = function (s, r) {

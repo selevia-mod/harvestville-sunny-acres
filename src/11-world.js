@@ -94,7 +94,8 @@
       if (this.mapKey === 'town' || this.mapKey === 'house') this.villagers = new F.Villagers(this);
       this.setupExtras();
       this.setupPolish();
-      if (this.mapKey === 'mine') L.reachFloor(s, F.session.mineFloor);
+      // (a floor past your own, reached behind a friend, does not count: the lift, the energy and the chests are earned)
+      if (this.mapKey === 'mine' && !(F.session.visit && F.session.mineFloor > s.stats.deepest)) L.reachFloor(s, F.session.mineFloor);
       if (this.mapKey === 'town') this.time.delayedCall(600, function () { if (F.ui) self.progress('town'); });
 
       // ----- camera: follows the player, and centres maps smaller than the screen

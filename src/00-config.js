@@ -86,6 +86,7 @@
     BAG_PRICES: [2000, 6000, 10000, 14000, 18000, 24000, 30000, 38000, 46000, 55000, 65000, 80000],
     BAG_PAGE: 30,
     HOTBAR: 6,
+    HOTBAR_PAGES: 3, // owner, 2 Nov: swipe the bar for the next 6 slots: the first 3 rows of the bag
     MAX_STACK: 99,
 
     // ---------- tools ----------
@@ -463,7 +464,7 @@
     ],
 
     SAVE_VERSION: 1,
-    MAX_SAVE_BYTES: 16384,
+    MAX_SAVE_BYTES: 24000, // keep in step with the app's SUNNY_ACRES_SAVE_LIMIT; the server allows this much (farm_online_11.sql)
 
     ICON_ORDER: ICON_ORDER,
     ICON: {},

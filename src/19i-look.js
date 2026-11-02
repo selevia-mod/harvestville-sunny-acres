@@ -55,90 +55,10 @@
     g.stroke();
   }
 
-  // The pictures on the round buttons: drawn, so they stay crisp at any size.
+  // The pictures on the small round buttons: drawn, so they stay crisp at any size. The four big ones on the right are
+  // painted (owner, 2 Nov 2026; assets/sidebtn, tools/art/sidebuttons-import.js).
+  var PAINTED = { quests: 0, online: 1, decorate: 2, chat: 3 };
   var GLYPH = {
-    // a speech bubble with three dots (chat bubbles, 19m-chat.js)
-    chat: function (g, cx, cy, r) {
-      var w = r * 1.18, h = r * 0.86, x = cx - w / 2, y = cy - h / 2 - r * 0.08;
-      g.beginPath();
-      g.roundRect(x, y, w, h, h * 0.42);
-      g.moveTo(cx - w * 0.2, y + h - 1);
-      g.lineTo(cx - w * 0.32, y + h + r * 0.34);
-      g.lineTo(cx + w * 0.02, y + h - 1);
-      g.fillStyle = '#fffaf0';
-      g.fill();
-      g.lineWidth = 2;
-      g.strokeStyle = EDGE;
-      g.stroke();
-      [-1, 0, 1].forEach(function (k) {
-        circle(g, cx + k * w * 0.24, y + h / 2, r * 0.09);
-        g.fillStyle = '#4a90c9';
-        g.fill();
-      });
-    },
-    // a checklist: paper, lines and ticks
-    quests: function (g, cx, cy, r) {
-      var w = r * 0.92, h = r * 1.12, x = cx - w / 2, y = cy - h / 2;
-      rrect(g, x, y, w, h, 3);
-      g.fillStyle = '#fffaf0';
-      g.fill();
-      g.lineWidth = 2;
-      g.strokeStyle = EDGE;
-      g.stroke();
-      for (var i = 0; i < 3; i++) {
-        var ly = y + h * (0.27 + 0.24 * i);
-        line(g, [[x + w * 0.42, ly], [x + w * 0.84, ly]], 2, '#b08a5a');
-        line(g, [[x + w * 0.13, ly], [x + w * 0.21, ly + 2.5], [x + w * 0.33, ly - 3]], 2.2, i < 2 ? '#3f9a2f' : '#c9b48e');
-      }
-    },
-    // the world: a blue globe with a grid
-    online: function (g, cx, cy, r) {
-      var R = r * 0.6;
-      circle(g, cx, cy, R);
-      g.fillStyle = vgrad(g, cy - R, cy + R, '#d6f0ff', '#7cc4ef');
-      g.fill();
-      g.lineWidth = 1.6;
-      g.strokeStyle = '#2f6fa8';
-      g.beginPath();
-      g.ellipse(cx, cy, R * 0.45, R, 0, 0, Math.PI * 2);
-      g.moveTo(cx - R, cy);
-      g.lineTo(cx + R, cy);
-      g.moveTo(cx, cy - R);
-      g.lineTo(cx, cy + R);
-      g.stroke();
-      g.beginPath();
-      g.ellipse(cx, cy - R * 0.5, R * 0.86, R * 0.16, 0, 0, Math.PI * 2);
-      g.ellipse(cx, cy + R * 0.5, R * 0.86, R * 0.16, 0, 0, Math.PI * 2);
-      g.lineWidth = 1.1;
-      g.stroke();
-      circle(g, cx, cy, R);
-      g.lineWidth = 2;
-      g.strokeStyle = EDGE;
-      g.stroke();
-    },
-    // a paint brush
-    decorate: function (g, cx, cy, r) {
-      g.translate(cx, cy);
-      g.rotate(-Math.PI / 4);
-      rrect(g, -3, -r * 0.78, 6, r * 0.82, 3);
-      g.fillStyle = '#c98a4a';
-      g.fill();
-      g.lineWidth = 1.6;
-      g.strokeStyle = EDGE;
-      g.stroke();
-      rrect(g, -4.5, 0, 9, r * 0.24, 2);
-      g.fillStyle = '#d9dde3';
-      g.fill();
-      g.stroke();
-      g.beginPath();
-      g.moveTo(-5, r * 0.24);
-      g.quadraticCurveTo(-5.5, r * 0.6, 0, r * 0.8);
-      g.quadraticCurveTo(5.5, r * 0.6, 5, r * 0.24);
-      g.closePath();
-      g.fillStyle = '#ef6a96';
-      g.fill();
-      g.stroke();
-    },
     // an ×
     close: function (g, cx, cy, r) {
       var a = r * 0.36;
@@ -165,14 +85,19 @@
   // A round glossy button with a drawn picture and (optionally) a label under it.
   U.roundButton = function (parent, x, y, r, color, glyph, label, onTap) {
     var c = this.add.container(x, y);
-    var img = this.canvasImg(null, -r - 4, -r - 4, 'ui-round-' + glyph + '-' + r + '-' + color, r * 2 + 8, r * 2 + 11, function (g) {
-      var cx = r + 4, cy = r + 4;
-      badge(g, cx, cy, r, shade(color, 0.35), shade(color, -0.12));
-      g.save();
-      GLYPH[glyph](g, cx, cy, r);
-      g.restore();
-    });
-    c.add(img);
+    if (PAINTED[glyph] != null) {
+      var size = (r - 2) * 2;
+      c.add(this.add.circle(0, 2, size / 2, 0x1e1006, 0.35));
+      c.add(this.add.image(0, 0, F.ensureTexture(this, 'sidebtn'), PAINTED[glyph]).setDisplaySize(size, size));
+    } else {
+      c.add(this.canvasImg(null, -r - 4, -r - 4, 'ui-round-' + glyph + '-' + r + '-' + color, r * 2 + 8, r * 2 + 11, function (g) {
+        var cx = r + 4, cy = r + 4;
+        badge(g, cx, cy, r, shade(color, 0.35), shade(color, -0.12));
+        g.save();
+        GLYPH[glyph](g, cx, cy, r);
+        g.restore();
+      }));
+    }
     if (label) c.add(this.txt(0, r + 8, label, 11, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
     var z = this.add.zone(0, label ? 5 : 0, r * 2 + 10, r * 2 + (label ? 22 : 8)).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { c.setScale(0.9); });
@@ -242,8 +167,14 @@
     var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
     var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
     var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * L.regenEvery(s) + (L.regenEvery(s) - (now - s.regen))) + '.';
-    var self = this, buy = L.canRefill && L.canRefill() && e < max;
-    this.dialog('Energy ' + e + ' / ' + max, buy ? [{ label: 'OK', color: 0xa08a68 }, { label: 'Refill', cb: function () { self.openRefill(); } }] : null, {
+    var self = this, buy = L.canRefill && L.canRefill() && e < max, free = e < max ? L.refillsLeft(s) : 0;
+    var useFree = function () {
+      var gain = L.useFreeRefill(s);
+      F.Host.save(s);
+      F.bus.emit('hud');
+      self.toast('+' + gain + ' energy. ' + L.refillsLeft(s) + ' free ' + (L.refillsLeft(s) === 1 ? 'refill' : 'refills') + ' left.', 2400, 0x2f5a22);
+    };
+    this.dialog('Energy ' + e + ' / ' + max, free ? [{ label: 'OK', color: 0xa08a68 }, { label: 'Free refill (' + free + ')', cb: useFree }] : buy ? [{ label: 'OK', color: 0xa08a68 }, { label: 'Refill', cb: function () { self.openRefill(); } }] : null, {
       rows: [
         [C.ICON.bolt, head],
         [C.ICON.moon, 'It comes back by itself: 1 point every ' + C.ENERGY_EVERY + ' minutes, even while the game is closed.'],

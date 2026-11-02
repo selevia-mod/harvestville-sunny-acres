@@ -78,7 +78,7 @@
       s.home.items.push({ t: t, v: v, x: x, y: y, f: e[4] ? 1 : 0 });
     });
     s.yard = { items: [], bag: {} };
-    (Array.isArray(snap.yard) ? snap.yard : []).slice(0, 300).forEach(function (e) {
+    (Array.isArray(snap.yard) ? snap.yard : []).slice(0, 360).forEach(function (e) {
       if (!Array.isArray(e)) return;
       var t = int(e[0], -1, 1e6, -1);
       if (!O.types[t]) return;
