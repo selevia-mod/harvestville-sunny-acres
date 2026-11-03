@@ -2995,6 +2995,7 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   await page.evaluate(() => { window.__shared = null; window.gameHost.share = (p) => { window.__shared = p; }; Farm.ui.shareFarm(); });
   await page.waitForFunction(() => Farm.ui.photo, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.ui.cameras.main.visible), false, 'the buttons and bars are hidden');
+  assert.strictEqual(await page.evaluate(() => Farm.world.cursor.scale), 0, 'and the square on the tile in front (OPPO, 4 Nov)');
   const inFrame = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.photo.frame.list); return out.join(' | '); });
   assert.match(inFrame, /Harvest Ville on Selebox/);
   const tap = async (label) => {
@@ -3016,6 +3017,7 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   assert.ok(shared.jpeg && shared.w > 0);
   assert.match(shared.text, /My farm in Harvest Ville/);
   await page.waitForFunction(() => !Farm.ui.photo && Farm.ui.cameras.main.visible && Farm.ui.cameras.cameras.length === 1, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.world.cursor.scale), 1);
   // the tours: photo mode's, once
   await page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.shareFarm(); });
   await page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; return m && Farm.ui.photo; }, null, SLOW);

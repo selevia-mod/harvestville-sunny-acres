@@ -69,6 +69,8 @@
     var later = function (o) { if (self.photo && o !== frame && o !== bar && o.parentContainer !== frame && o.parentContainer !== bar && !frame.exists(o) && !bar.exists(o)) cam.ignore(o); };
     this.sys.events.on('addedtoscene', later);
     this.photo = { frame: frame, bar: bar, cam: cam };
+    var cursor = F.world && F.world.cursor; // (the white square on the tile in front of you: not in the picture)
+    if (cursor) cursor.setScale(0); // (its alpha pulses: 11-world.js)
     sfx('pick');
     var snap = function () {
       if (!self.photo || self.photo.busy) return;
@@ -90,6 +92,7 @@
       bar.destroy();
       main.setVisible(true);
       main.inputEnabled = true;
+      if (cursor && cursor.active) cursor.setScale(1);
       self.photo = null;
     };
     this.time.delayedCall(500, function () { if (self.photoTour) self.photoTour(); });
