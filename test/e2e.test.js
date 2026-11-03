@@ -2900,8 +2900,8 @@ test('your dog comes hunting: it follows you, points at a hidden animal, fetches
   assert.ok(spot, 'open ground');
   await page.evaluate(([x, y]) => Farm.world.setFeet((x + 0.5) * 256, (y + 0.5) * 256), spot);
   await page.waitForFunction(() => { const d = Farm.world.huntDog, f = Farm.world.feet(); return Math.hypot(d.x - f.x, d.y - f.y) < 1.6 * 256; }, null, SLOW);
-  await page.waitForTimeout(1500);
-  assert.strictEqual(await page.evaluate(() => Farm.world.huntDog.sprite.frame.name - Farm.Config.DOG.frame0), 9, 'it sits when you stop');
+  // it sits when you stop (waited for, not timed: frames are slow when the machine is busy)
+  await page.waitForFunction(() => Farm.world.huntDog.sprite.frame.name - Farm.Config.DOG.frame0 === 9, null, SLOW);
   // it points: an animal six tiles off, out in the grass
   await page.evaluate(([x, y]) => {
     const w = Farm.world, a = w.addWildAnimal('deer', 0, (x + 6.5) * 256, (y + 0.5) * 256, 1);
