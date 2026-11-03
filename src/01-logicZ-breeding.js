@@ -271,23 +271,36 @@
   };
   L.breedSel = SEL;
   L.breedRamp = function (paint) { return paint.ramp.map(hex); };
-  // One pixel of a breed: [r, g, b] in, [r, g, b] out. ramp: hex(paint.ramp) (pass it in a loop; it is made if not).
-  L.breedPixel = function (paint, r, g, b, ramp) {
-    if (!paint) return [r, g, b];
-    ramp = ramp || L.breedRamp(paint);
-    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = (mx - mn) / 255, y = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    var h = 0;
-    if (mx !== mn) {
-      if (mx === r) h = ((g - b) / (mx - mn) + 6) % 6;
-      else if (mx === g) h = (b - r) / (mx - mn) + 2;
-      else h = (r - g) / (mx - mn) + 4;
-      h *= 60;
+  // Paints RGBA pixels in place (an ImageData's data): every coat pixel takes the ramp's colour for its lightness, as
+  // much as it is coat. No allocations in the loop (a breed's frames are about 190,000 pixels, on a low-end phone).
+  L.breedPaintPixels = function (paint, px) {
+    if (!paint) return px;
+    var ramp = L.breedRamp(paint), sel = SEL[paint.sel] || SEL.neutral, lo = paint.range[0], span = paint.range[1] - lo, last = ramp.length - 1;
+    for (var i = 0; i < px.length; i += 4) {
+      if (!px[i + 3]) continue;
+      var r = px[i], g = px[i + 1], b = px[i + 2];
+      var mx = r > g ? (r > b ? r : b) : (g > b ? g : b), mn = r < g ? (r < b ? r : b) : (g < b ? g : b), d = mx - mn;
+      var c = d / 255, y = (0.299 * r + 0.587 * g + 0.114 * b) / 255, h = 0;
+      if (d) {
+        if (mx === r) h = ((g - b) / d + 6) % 6;
+        else if (mx === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+      }
+      var w = sel(y, c, h);
+      if (w <= 0) continue;
+      var t = (y - lo) / span;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      var seg = t * last, k = Math.min(last - 1, Math.floor(seg)), f = seg - k, A = ramp[k], B = ramp[k + 1];
+      px[i] = Math.round(r + (A[0] + (B[0] - A[0]) * f - r) * w);
+      px[i + 1] = Math.round(g + (A[1] + (B[1] - A[1]) * f - g) * w);
+      px[i + 2] = Math.round(b + (A[2] + (B[2] - A[2]) * f - b) * w);
     }
-    var w = (SEL[paint.sel] || SEL.neutral)(y, c, h);
-    if (w <= 0) return [r, g, b];
-    var lo = paint.range[0], hi = paint.range[1], t = Math.max(0, Math.min(1, (y - lo) / (hi - lo)));
-    var seg = t * (ramp.length - 1), k = Math.min(ramp.length - 2, Math.floor(seg)), f = seg - k, A = ramp[k], B = ramp[k + 1];
-    var out = [0, 1, 2].map(function (n) { return A[n] + (B[n] - A[n]) * f; });
-    return [0, 1, 2].map(function (n) { return Math.round([r, g, b][n] + (out[n] - [r, g, b][n]) * w); });
+    return px;
+  };
+  // One pixel of a breed: [r, g, b] in, [r, g, b] out.
+  L.breedPixel = function (paint, r, g, b) {
+    var px = L.breedPaintPixels(paint, [r, g, b, 255]);
+    return [px[0], px[1], px[2]];
   };
 })(window.Farm = window.Farm || {});

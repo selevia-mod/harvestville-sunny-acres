@@ -31,20 +31,14 @@
         var cv = document.createElement('canvas');
         cv.width = Math.ceil(ROW_W * out);
         cv.height = Math.ceil(ROW_H * out);
-        var g = cv.getContext('2d');
+        var g = cv.getContext('2d', { willReadFrequently: true }); // (read back once: keep it off the GPU)
         for (var k = 0; k < 12; k++) {
           var fr = src.get(def.frame0 + k);
           g.drawImage(img, fr.cutX * ratio, fr.cutY * ratio, fr.cutWidth * ratio, fr.cutHeight * ratio,
             (PAD + k * (FW + GAP)) * out, PAD * out, fr.cutWidth * out, fr.cutHeight * out);
         }
-        var data = g.getImageData(0, 0, cv.width, cv.height), px = data.data, ramp = L.breedRamp(paint);
-        for (var i = 0; i < px.length; i += 4) {
-          if (!px[i + 3]) continue;
-          var c = L.breedPixel(paint, px[i], px[i + 1], px[i + 2], ramp);
-          px[i] = c[0];
-          px[i + 1] = c[1];
-          px[i + 2] = c[2];
-        }
+        var data = g.getImageData(0, 0, cv.width, cv.height);
+        L.breedPaintPixels(paint, data.data);
         g.putImageData(data, 0, 0);
         var t = tex.create(key, cv, ROW_W, ROW_H), gt = t.source[0].glTexture;
         if (gt) { gt.width = ROW_W; gt.height = ROW_H; } // UVs in full-size pixels (10-boot.js does the same)

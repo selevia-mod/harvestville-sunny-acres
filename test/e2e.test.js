@@ -3041,3 +3041,115 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- animal breeds (src/19zz-breeding.js) ----------
+test('animal breeds: colours in the pen, a rare one twinkles and gives two, the shop sends a new colour, a RARE chick in the morning report, the Breeds book and its prize, the tour', async () => {
+  const save = await makeSave("s.gold = 50000; s.time = 600; s.builds.coop2 = 1; s.builds.barn2 = 1; s.goal = 99; s.wv = C.NEWS_LATEST;" +
+    "L.addAnimal(s, 'chicken'); L.addAnimal(s, 'cow'); L.addAnimal(s, 'cow'); L.addAnimal(s, 'pig'); L.addAnimal(s, 'carabao');" +
+    "s.brf = []; [3, 2, 0, 3, 3, 2].forEach(function (b, i) { if (b) s.animals[i].br = b; L.markBreed(s, s.animals[i].kind, b); });" +
+    "s.animals.forEach(function (a) { a.love = 60; }); s.animals[0].fed = 1;");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  let s = await state(page);
+  assert.deepStrictEqual(s.animals.map((a) => a.kind + ':' + (a.br || 0)), ['chicken:3', 'chicken:2', 'cow:0', 'cow:3', 'pig:3', 'carabao:2']);
+  const keys = await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key));
+  assert.deepStrictEqual(keys, ['animals_br_chicken_3', 'animals_br_chicken_2', 'animals', 'animals_br_cow_3', 'animals_br_pig_3', 'animals_br_carabao_2']);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.rare)), [true, false, false, true, true, true]);
+  // they walk in their own colours: the frames keep their numbers
+  await page.waitForFunction(() => Farm.world.herd.members.some((m) => m.pose === 'walk'), null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.herd.members.every((m) => m.sprite.frame.name >= m.def.frame0 && m.sprite.frame.name < m.def.frame0 + 12)));
+  // a line-up for the picture
+  await page.evaluate(() => {
+    const T = Farm.Config.TILE;
+    Farm.world.herd.members.forEach((m, i) => { m.x = m.tx = (4.5 + (i % 3) * 1.6) * T; m.y = m.ty = (33.6 + Math.floor(i / 3) * 1.5) * T; m.wait = 1e9; m.flip = i % 2 === 0; });
+  });
+  await teleport(page, 6, 31, 'down');
+  await page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Image' && o.texture.key === 'items' && o.frame.name === Farm.Config.ICON.star && o.depth === 23), null, SLOW);
+  await shot(page, 'breeds-pen');
+  // the golden hen: her breed in her info, and two eggs in the morning
+  await page.evaluate(() => { const s = Farm.session.state; s.animals[0].pet = 1; s.animals[0].fed = 1; s.animals[0].brushed = 1; });
+  await meetAnimal(page, 0, 5, 33);
+  assert.strictEqual(await actionLabel(page), s.animals[0].name);
+  await tapAction(page);
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Golden Hen \(rare: 2 a day\)/);
+  // a chick on the way, and the next one is rare (the dice are loaded for the test)
+  await page.evaluate(() => { const s = Farm.session.state; s.inc = 1; window.__r = Farm.Logic.brRandom; let n = 0; Farm.Logic.brRandom = () => [0.9, 0.5, 0.01, 0][n++ % 4]; });
+  const report = await nextMorning(page);
+  assert.match(report, /A RARE chick hatched! Say hello to [A-Za-z ]+[0-9]*, a Golden Hen!/);
+  assert.match(report, /2 Large Egg|2 Egg/);
+  await page.evaluate(() => { Farm.Logic.brRandom = window.__r; });
+  s = await state(page);
+  assert.strictEqual(s.animals.length, 7);
+  assert.strictEqual(s.animals[6].br, 3);
+  const eggs = count(s, 'egg_l') + count(s, 'egg');
+  assert.ok(s.animals[0].ready && s.animals[0].bx === 1, 'her egg and her bonus: ' + JSON.stringify(s.animals[0]));
+  await page.evaluate(() => Farm.world.herd.members.forEach((m, i) => { if (i) { m.x = m.tx = m.y = m.ty = 0; m.wait = 1e9; } })); // (the others out of the way)
+  await meetAnimal(page, 0, 5, 33);
+  assert.strictEqual(await actionLabel(page), 'Collect');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(count(s, 'egg_l') + count(s, 'egg'), eggs + 2, 'a rare hen: two eggs');
+  // the shop: a pig in a colour new to you, and the book says so
+  await page.evaluate(() => { Farm.session.state.time = 600; Farm.session.state.gold = 50000; });
+  await teleport(page, 16, 32, 'up');
+  await tapAction(page);
+  await tapButton(page, 'Animals');
+  await tapButton(page, 'Buy 1500G');
+  s = await state(page);
+  assert.strictEqual(s.animals[7].kind, 'pig');
+  assert.strictEqual(s.animals[7].br, undefined, 'the Pink Pig: the first colour not found yet');
+  await page.waitForFunction(() => /New in your Breeds book: the Pink Pig! \(2 of 4\)/.test(Farm.ui.toastText.text), null, SLOW);
+  await closeAll(page);
+  // the potion on a pig: a piglet is on the way
+  await page.evaluate(() => { const s = Farm.session.state; s.animals[4].love = 80; Farm.Logic.addItem(s, 'miracle', 1); });
+  await hold(page, 'miracle');
+  await meetAnimal(page, 4, 6, 33);
+  assert.strictEqual(await actionLabel(page), 'Potion');
+  await tapAction(page);
+  assert.match(await modalText(page), /expecting a piglet!/);
+  await closeAll(page);
+  // the Breeds book, from the Collection
+  await page.evaluate(() => Farm.ui.openCollection());
+  assert.match(await modalText(page), /Crop stars[\s\S]*Hunts[\s\S]*Breeds/);
+  await shot(page, 'breeds-collection');
+  await tapButton(page, 'Breeds');
+  let text = await modalText(page);
+  assert.match(text, /Breeds book[\s\S]*2 of 4 found/);
+  assert.match(text, /Golden Hen[\s\S]*Gives 2 a day/);
+  assert.match(text, /\?\?\?[\s\S]*Lily sells it/, 'the Brown Hen: not found yet');
+  await shot(page, 'breeds-book-hens');
+  await tapButton(page, 'Carabaos');
+  text = await modalText(page);
+  assert.match(text, /1 of 3 found[\s\S]*White Carabao[\s\S]*Prize: 3,000G \+ Miracle Potion[\s\S]*Find all 3 colours/);
+  await shot(page, 'breeds-book-carabaos');
+  // every carabao colour: the prize
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.markBreed(s, 'carabao', 0); Farm.Logic.markBreed(s, 'carabao', 1); Farm.ui.closeAll(); Farm.ui.openBreeds('carabao'); });
+  const gold = (await state(page)).gold;
+  await tapButton(page, 'Claim');
+  await page.waitForFunction((g) => Farm.session.state.gold === g + 3000, gold, SLOW);
+  assert.match(await modalText(page), /Claimed\. Well done!/);
+  await shot(page, 'breeds-book-claimed');
+  await closeAll(page);
+  // the tour: on the farm, once
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.world.travel('town', 'from_farm'); });
+  await waitMap(page, 'town');
+  for (let i = 0; i < 6 && await page.evaluate(() => Farm.ui.modals.length); i++) { await closeAll(page); await page.waitForTimeout(600); }
+  await page.evaluate(() => Farm.world.travel('farm', 'from_town'));
+  await waitMap(page, 'farm');
+  const top = async () => ((await page.evaluate(() => Farm.ui.modals.length)) ? modalText(page) : '');
+  for (let i = 0; i < 60 && !/ANIMAL BREEDS/.test(await top()); i++) {
+    if (await top()) await closeAll(page);
+    await page.waitForTimeout(500);
+  }
+  assert.match(await modalText(page), /ANIMAL BREEDS[\s\S]*come in colours now/);
+  await shot(page, 'tour-breeds-1');
+  for (let k = 0; k < 3; k++) { await frames(page, 4); await tapButton(page, 'Next'); if (k === 0) await shot(page, 'tour-breeds-2'); }
+  await shot(page, 'tour-breeds-last');
+  await tapButton(page, 'Got it');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'breeds_tour')), true);
+  // and they all come back from the save
+  const saved = await page.evaluate(() => { Farm.world.save(); return JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]).br; });
+  assert.deepStrictEqual(saved[0].slice(0, 8), [3, 2, 0, 3, 3, 2, 3, 0]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
