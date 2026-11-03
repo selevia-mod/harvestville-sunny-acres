@@ -20,6 +20,7 @@
         ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],
         ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
         ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
+        ['chicken', 'Animal breeds', 'Hens, cows, pigs and carabaos come in colours, and babies take after their parents. About 1 in 25 is born rare! Find them all in the Breeds book (Collection).', 'breeds'], // (19zz-breeding.js)
       ],
     },
     {
