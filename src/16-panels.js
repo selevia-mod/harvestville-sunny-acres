@@ -740,7 +740,7 @@
     });
   };
 
-  // Celebration particles over the whole screen for a few seconds.
+  // Celebration particles over the whole screen (under any panel) for a few seconds.
   M.fireworks = function (kind) {
     var self = this, tex = this.bake('ui-spark', 10, 10, function (g) { g.fillStyle(0xffffff, 1).fillCircle(5, 5, 5); });
     var colors = kind === 'stars' ? [0xfff6c0, 0xbfe0ff] : kind === 'petals' ? [0xffb3d1, 0xfff0f6, 0xffd23f] : [0xff5a5a, 0xffd23f, 0x6ad1ff, 0x9cff6a, 0xff8ae0];
@@ -751,7 +751,7 @@
         var p = self.add.particles(x, y, tex, {
           speed: kind === 'fireworks' ? { min: 60, max: 170 } : { min: 15, max: 60 }, lifespan: 1100, scale: { start: 0.9 / F.R * 2, end: 0 },
           tint: colors[n++ % colors.length], gravityY: kind === 'fireworks' ? 120 : 30, emitting: false,
-        }).setDepth(260);
+        }).setDepth(99); // under the panels (100 and up): the card that follows reads clearly, and nothing covers a panel
         p.explode(kind === 'fireworks' ? 36 : 14);
         if (kind === 'fireworks') sfx('boom');
         self.time.delayedCall(1300, function () { p.destroy(); });
@@ -854,6 +854,23 @@
     if (rec.width > W - 50) rec.setScale((W - 50) / rec.width);
     if (ry + rec.displayHeight > 592) rec.setY(592 - rec.displayHeight);
     c.add(rec);
+  };
+
+  // The Collection's row of books (Crop stars, Hunts, Breeds, Skills, each added by its own file): every add lays the
+  // whole row out again in one fixed order, as wide as fits, so any number of books and any order of files end the same.
+  var BOOK_ORDER = ['stars', 'hunts', 'breeds', 'skills'];
+  M.collectionButton = function (c, key, label, cb, color) {
+    var self = this, row = c.bookRow || (c.bookRow = {});
+    if (row[key] && row[key].btn) row[key].btn.destroy();
+    row[key] = { label: label, cb: cb, color: color };
+    var at = function (k) { var i = BOOK_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+    var keys = Object.keys(row).sort(function (a, b) { return at(a) - at(b); });
+    var gap = 6, n = keys.length, w = Math.min(88, Math.floor((W - 44 - gap * (n - 1)) / n)), x0 = (W - n * w - (n - 1) * gap) / 2 + w / 2;
+    keys.forEach(function (k, i) {
+      var b = row[k];
+      if (b.btn) b.btn.destroy();
+      b.btn = self.button(c, x0 + i * (w + gap), 150, w, 30, b.label, b.cb, b.color);
+    });
   };
 
   // All 23 villagers, a page at a time (the list panel's pager): face, name, hearts, what you did today.

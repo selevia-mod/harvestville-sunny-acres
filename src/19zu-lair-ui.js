@@ -14,6 +14,11 @@
   var needText = function (s, needs) {
     return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
+  // the row's own, shorter: every need fits its card ("40 Ember Shards (12), 3 Scales (0), 5 Obsidian (2)")
+  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian' };
+  var needShort = function (s, needs) {
+    return needs.map(function (n) { return n[1] + ' ' + (SHORT[n[0]] || C.ITEMS[n[0]].name) + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
+  };
   var has = function (s, needs) { return needs.every(function (n) { return L.countItem(s, n[0]) >= n[1]; }); };
 
   // ---------- Kanor's Buy tab ----------
@@ -23,7 +28,7 @@
     // the Fire Charm: its goods, and a word when they are short
     C.GEAR.forEach(function (g, i) {
       if (!g.needs || L.hasGear(s, g.key)) return;
-      rows[i] = { icon: g.icon, name: g.name, desc: g.desc + ' Needs ' + needText(s, g.needs) + '.', buttons: [{ label: g.gold + 'G', color: has(s, g.needs) ? GREEN : GREY, cb: function () {
+      rows[i] = { icon: g.icon, name: g.name, desc: (g.short || g.desc) + ' Needs ' + needShort(s, g.needs) + '.', buttons: [{ label: g.gold + 'G', color: has(s, g.needs) ? GREEN : GREY, cb: function () {
         var r = L.buyGear(s, g.key);
         if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, g.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
         if (r === 'ok' && F.Online && F.Online.retrack && F.Online.on) F.Online.retrack();
@@ -32,7 +37,7 @@
     });
     // the Magma Bow, after the Gold Bow
     if (L.hasBow(s) && L.bowLevel(s) === m.level - 1) {
-      rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Shoots ' + C.WILD.bow.range[m.level] + ' tiles and hits harder than any bow. Needs ' + needText(s, m.needs) + '.',
+      rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Range ' + C.WILD.bow.range[m.level] + '. Needs ' + needShort(s, m.needs) + '.',
         buttons: [{ label: m.gold + 'G', color: has(s, m.needs) ? GREEN : GREY, cb: function () {
           var r = L.makeMagmaBow(s);
           if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, m.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
@@ -74,7 +79,7 @@
         },
       },
       {
-        text: 'Bring Ember Shards and scales to Kanor for the Magma Bow and the Fire Charm. The lift by the way in stops every 10 floors.',
+        text: 'Kanor makes the Magma Bow and the Fire Charm from Ember Shards and scales. The lift stops every 10 floors.',
         draw: function (ui, sc, move) {
           icon(ui, sc, 70, 66, C.ICON.ember_shard, 0.3);
           var bow = icon(ui, sc, 150, 66, C.ICON.bow_4, 0.38);

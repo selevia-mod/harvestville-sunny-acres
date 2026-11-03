@@ -14,6 +14,7 @@
   var T = C.TILE;
   var GREEN = 0x5fa84a, GREY = 0xa08a68;
   var SW = 272, SH = 132, CARD_H = 322;
+  var CAP_ROOM = CARD_H - 76 - 4 - (32 + SH + 14); // the caption's height between the stage and the page dots (3 lines)
   var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
   var still = function () {
     try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
@@ -330,7 +331,9 @@
       sc.removeAll(true);
       var st = tour.steps[step];
       st.draw(self, sc, move);
-      cap.setText(st.text);
+      // three lines at most above the dots: a longer caption gets a smaller font
+      cap.setText(st.text).setFontSize(15);
+      for (var size = 15; cap.height > CAP_ROOM && size > 11;) cap.setFontSize(--size);
       dots.forEach(function (d, k) { d.setAlpha(k === step ? 1 : 0.3); });
       btns.removeAll(true);
       var by = y0 + h - 40;

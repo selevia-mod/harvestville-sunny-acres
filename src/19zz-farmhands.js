@@ -404,8 +404,9 @@
       }
       var left = L.fhToPromote(s, key);
       r.tag = 'Lv ' + lv;
+      r.name = d.name; // (with the Lv tag, "Andoy · Waterer" broke onto two lines: the job opens the description)
       r.progress = [L.fhDoneToday(s, key), L.fhJobs(s, key)];
-      r.desc = L.fhWage(s, key) + 'G a work day. ' + (left > 0 ? 'Lv ' + (lv + 1) + ' in ' + left + (left > 1 ? ' days.' : ' day.') : left === 0 ? 'Ready to promote!' : C.FH.ranks[lv - 1] + '.');
+      r.desc = d.title + '. ' + L.fhWage(s, key) + 'G a work day. ' + (left > 0 ? 'Lv ' + (lv + 1) + ' in ' + left + (left > 1 ? ' days.' : ' day.') : left === 0 ? 'Ready to promote!' : C.FH.ranks[lv - 1] + '.');
       r.buttons = (left === 0 ? [{ label: 'Promote', cb: function () { self.fhAskPromote(key, again); } }] : [])
         .concat([{ label: 'Let go', color: RED, cb: function () { self.fhAskFire(key, again); } }]);
       return r;

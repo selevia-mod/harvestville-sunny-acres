@@ -50,7 +50,7 @@
         };
       }));
       if (rows.length === head.length) rows.push({ icon: C.ICON.exclaim, name: 'No catches yet', desc: on ? 'Nobody has landed a ' + C.ITEMS[k].name + ' today. Be the first!' : 'Nobody landed a ' + C.ITEMS[k].name + ' at Monday\'s Derby.' });
-      show(rows, on ? 'Fish Monday: the Derby is on until midnight. The biggest of each fish wins.' : 'Monday\'s Fishing Derby. The next one is on Monday: catch the biggest!', null);
+      show(rows, on ? 'The Derby is on until midnight!' : 'Monday\'s Derby. Next one: Monday!', null); // (short: one line at the normal size)
     }).catch(function (e) {
       if (off(e)) return show(head.slice(0, 1).concat([{ icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The Fishing Derby is almost here.' }]), '', null);
       fail(e);

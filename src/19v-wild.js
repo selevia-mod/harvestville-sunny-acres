@@ -258,7 +258,11 @@
     a.sh.setPosition(a.x, a.y).setScale(a.scale * (1 - up * 0.5)).setAlpha((1 - up) * seen);
     a.img.setPosition(a.x, a.y - a.lift);
     F.depthTo(a.img, DEPTH.actor + a.y / 1e5);
-    if (a.bar) {
+    if (a.bar && a.bar.big) { // a boss's: just above its head (the frame's first painted row)
+      var hy = a.img.getTopCenter().y + paintTop(a.img) * a.img.displayHeight - 7 * a.bar.k;
+      a.bar.bg.setPosition(a.x, hy);
+      a.bar.fill.setPosition(a.x - a.bar.w / 2, hy).setSize(a.bar.w * Math.max(0, a.hp) / (a.max || a.def.hp), a.bar.h);
+    } else if (a.bar) {
       var by = a.y - a.lift - (0.42 + a.def.w * 0.62) * a.size * T;
       a.bar.bg.setPosition(a.x, by);
       a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / (a.max || a.def.hp), BAR_H);
@@ -579,8 +583,38 @@
     });
   };
 
+  // How far down a frame its picture starts (0..1 of its height; a frame has room above the head), looked up once per
+  // frame from a small copy: a boss's bar sits on the head, not in the air above it.
+  var tops = {};
+  var paintTop = function (img) {
+    var f = img.frame, key = img.texture.key + ':' + f.name;
+    if (tops[key] != null) return tops[key];
+    tops[key] = 0;
+    try {
+      var w = Math.max(1, Math.round(f.cutWidth / 4)), h = Math.max(1, Math.round(f.cutHeight / 4)), cv = document.createElement('canvas');
+      cv.width = w;
+      cv.height = h;
+      var g = cv.getContext('2d'), im = f.source.image, k = (im.naturalWidth || im.width) / f.source.width; // (a sheet may come smaller than its frames say)
+      g.drawImage(im, f.cutX * k, f.cutY * k, f.cutWidth * k, f.cutHeight * k, 0, 0, w, h);
+      var d = g.getImageData(0, 0, w, h).data, y = 0;
+      for (; y < h; y++) {
+        var x = 0;
+        while (x < w && d[(y * w + x) * 4 + 3] < 80) x++;
+        if (x < w) break;
+      }
+      tops[key] = y < h ? y / h : 0;
+    } catch (e) { /* (no copy: the frame's top) */ }
+    return tops[key];
+  };
   P.wildBar = function (a) {
     if (a.bar || a.hp <= 0) return;
+    if (a.def.boss || a.def.great) { // a guard, the Bakunawa, the Great Mammoth: a clear bar over the head, 60 x 6 on screen
+      var k = F.R / this.cameras.main.zoom, bw = 60 * k, bh = 6 * k;
+      a.bar = { big: true, k: k, w: bw, h: bh,
+        bg: this.add.rectangle(a.x, a.y, bw + 4 * k, bh + 4 * k, 0x1a0e06, 0.9).setStrokeStyle(1.5 * k, 0xfff3c4).setDepth(DEPTH.fx),
+        fill: this.add.rectangle(a.x, a.y, bw, bh, 0xf0504a).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
+      return;
+    }
     a.bar = { bg: this.add.rectangle(a.x, a.y, BAR_W + 12, BAR_H + 12, 0x2e1c0c, 0.85).setDepth(DEPTH.fx),
       fill: this.add.rectangle(a.x, a.y, BAR_W, BAR_H, 0xe5484d).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
   };
@@ -600,7 +634,9 @@
       sfx('chop');
       this.cameras.main.shake(70, 0.0016);
     }
-    a.img.setTintFill(0xffffff);
+    // the hit flashes white; a big one only lights up a little (all white, it was a blob for a frame); its colour comes back
+    if (a.def.boss || a.def.great || a.def.w >= 2) a.img.setTint(0xffc8b8);
+    else a.img.setTintFill(0xffffff);
     this.time.delayedCall(90, function () { if (a.img.active) untint(a); });
     a.hitT = HIT_MS;
     if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
@@ -1010,7 +1046,7 @@
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, c = this.modals[this.modals.length - 1].c;
-    this.button(c, 228, 150, 88, 30, 'Hunts', function () { self.closeModal(); self.openBook(mine(), null, function () { self.openCollection(); }); }, GREY_BTN);
+    this.collectionButton(c, 'hunts', 'Hunts', function () { self.closeModal(); self.openBook(mine(), null, function () { self.openCollection(); }); }, GREY_BTN);
   };
 
   U.wildIntro = function () {

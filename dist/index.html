@@ -2509,7 +2509,7 @@
 
   // ---------- the Fire Charm: Hunter's gear, bought with what the Lair gives ----------
   // A charge that reaches you costs less energy (C.GEAR_RULES.charm).
-  C.GEAR.push({ key: 'charm', name: 'Fire Charm', gold: 6000, needs: [['ember_shard', 25], ['santelmo_flame', 3]], desc: 'A charge that reaches you costs 40% less energy.' });
+  C.GEAR.push({ key: 'charm', name: 'Fire Charm', gold: 6000, needs: [['ember_shard', 25], ['santelmo_flame', 3]], desc: 'A charge that reaches you costs 40% less energy.', short: 'Charges cost 40% less.' });
   C.GEAR_RULES.charm = 0.6;
   C.GEAR[C.GEAR.length - 1].icon = C.ICON.gear_charm;
 })(window.Farm = window.Farm || {});
@@ -12649,9 +12649,12 @@
       this.hideToast();
     }
 
+    // Under the top bar; while a panel is open, at the bottom of the screen instead (over the hotbar, which the panel
+    // dims anyway), so it never covers the panel's title or its Back button.
     toast(msg, ms, color) {
       if (!msg) return;
       this.toastText.setText(msg).setVisible(true).setY(this.goalBar && this.goalBar.visible ? 114 : 84);
+      if (this.modals && this.modals.length) this.toastText.setY(C.VIEW_H - 14 - this.toastText.height);
       var b = this.toastText.getBounds();
       this.toastBg.clear().setVisible(true);
       this.toastBg.fillStyle(color || 0x24160b, 0.86).fillRoundedRect(b.x - 12, b.y - 8, b.width + 24, b.height + 16, 10);
@@ -12671,7 +12674,7 @@
     }
 
     floatText(x, y, str) {
-      var t = this.txt(x, y, str, 15, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5).setDepth(250);
+      var t = this.txt(x, y, str, 15, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5).setDepth(99); // (under the panels: 100 and up)
       this.tweens.add({ targets: t, y: y - 34, alpha: { from: 1, to: 0 }, duration: 1000, ease: 'Quad.out', onComplete: function () { t.destroy(); } });
     }
 
@@ -12753,26 +12756,34 @@
       // one line on the ribbon: a long title shrinks instead of wrapping below it
       var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5, 0.5) : null;
       if (titleText && titleText.width > W - 90) titleText.setScale((W - 90) / titleText.width);
-      var body = [], bodyH = 0;
+      var body = [], bodyH = 0, rest = null;
       if (opts.rows) {
-        opts.rows.forEach(function (r, k) {
-          var t = self.txt(84, 0, r[1], 14, INK, { wordWrap: { width: 222 }, lineSpacing: 2 }).setOrigin(0, 0);
-          var rh = Math.max(34, t.height + 10);
-          body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
-          bodyH += rh + 6;
-        });
-        bodyH -= 6;
-        // never taller than the screen (the OK button must stay reachable): rows that don't fit become one line
-        var room = H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18), hidden = 0;
-        while (body.length > 1 && bodyH + (hidden ? 40 : 0) > room) {
-          body.pop().t.destroy();
-          hidden++;
-          bodyH = body[body.length - 1].y + body[body.length - 1].h;
-        }
-        if (hidden) {
-          var more = self.txt(84, 0, '... and ' + hidden + ' more.', 14, INK, { wordWrap: { width: 222 } }).setOrigin(0, 0);
-          body.push({ t: more, icon: C.ICON.letter, y: bodyH + 6, h: 34, line: true });
-          bodyH += 40;
+        // never taller than the screen (the OK button must stay reachable): the whole screen's height is the room; when
+        // the rows do not fit it they get smaller, and when they still do not, the rest go on a next page (Next)
+        var room = C.VIEW_H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18);
+        var layout = function (size) {
+          body.forEach(function (b) { b.t.destroy(); });
+          body = [];
+          bodyH = 0;
+          var small = size < 14, gap = small ? 4 : 6;
+          opts.rows.forEach(function (r, k) {
+            var t = self.txt(84, 0, r[1], size, INK, { wordWrap: { width: 222 }, lineSpacing: small ? 1 : 2 }).setOrigin(0, 0);
+            var rh = Math.max(small ? 30 : 34, t.height + (small ? 6 : 10));
+            body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
+            bodyH += rh + gap;
+          });
+          bodyH -= gap;
+        };
+        layout(14);
+        if (bodyH > room) layout(12);
+        if (bodyH > room && body.length > 1) {
+          var keep = 1;
+          while (keep < body.length && body[keep].y + body[keep].h <= room) keep++;
+          rest = opts.rows.slice(keep);
+          body.splice(keep).forEach(function (b) { b.t.destroy(); });
+          bodyH = body[keep - 1].y + body[keep - 1].h;
+          var all = buttons;
+          buttons = [{ label: 'Next', color: 0x4a90c9, cb: function () { self.dialog(text, all, Object.assign({}, opts, { rows: rest })); } }];
         }
       } else {
         var bt = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 268 }, lineSpacing: 4 }).setOrigin(0.5, 0);
@@ -12783,6 +12794,7 @@
       if (opts.portrait) th = 92;
       var h = Math.round(30 + th + bodyH + 24 + 44 + 18);
       var y0 = Math.round(Math.max(84, (H - h) / 2 - 40));
+      if (y0 + h > H + C.EXTRA / 2 - 10) y0 = Math.round(Math.max(84 - C.EXTRA / 2, H + C.EXTRA / 2 - 10 - h)); // (a tall list on a tall screen)
       this.panelImg(c, 24, y0, W - 48, h);
       if (opts.portrait) {
         F.ensureTexture(this, 'people');
@@ -15319,7 +15331,7 @@
     });
   };
 
-  // Celebration particles over the whole screen for a few seconds.
+  // Celebration particles over the whole screen (under any panel) for a few seconds.
   M.fireworks = function (kind) {
     var self = this, tex = this.bake('ui-spark', 10, 10, function (g) { g.fillStyle(0xffffff, 1).fillCircle(5, 5, 5); });
     var colors = kind === 'stars' ? [0xfff6c0, 0xbfe0ff] : kind === 'petals' ? [0xffb3d1, 0xfff0f6, 0xffd23f] : [0xff5a5a, 0xffd23f, 0x6ad1ff, 0x9cff6a, 0xff8ae0];
@@ -15330,7 +15342,7 @@
         var p = self.add.particles(x, y, tex, {
           speed: kind === 'fireworks' ? { min: 60, max: 170 } : { min: 15, max: 60 }, lifespan: 1100, scale: { start: 0.9 / F.R * 2, end: 0 },
           tint: colors[n++ % colors.length], gravityY: kind === 'fireworks' ? 120 : 30, emitting: false,
-        }).setDepth(260);
+        }).setDepth(99); // under the panels (100 and up): the card that follows reads clearly, and nothing covers a panel
         p.explode(kind === 'fireworks' ? 36 : 14);
         if (kind === 'fireworks') sfx('boom');
         self.time.delayedCall(1300, function () { p.destroy(); });
@@ -15433,6 +15445,23 @@
     if (rec.width > W - 50) rec.setScale((W - 50) / rec.width);
     if (ry + rec.displayHeight > 592) rec.setY(592 - rec.displayHeight);
     c.add(rec);
+  };
+
+  // The Collection's row of books (Crop stars, Hunts, Breeds, Skills, each added by its own file): every add lays the
+  // whole row out again in one fixed order, as wide as fits, so any number of books and any order of files end the same.
+  var BOOK_ORDER = ['stars', 'hunts', 'breeds', 'skills'];
+  M.collectionButton = function (c, key, label, cb, color) {
+    var self = this, row = c.bookRow || (c.bookRow = {});
+    if (row[key] && row[key].btn) row[key].btn.destroy();
+    row[key] = { label: label, cb: cb, color: color };
+    var at = function (k) { var i = BOOK_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+    var keys = Object.keys(row).sort(function (a, b) { return at(a) - at(b); });
+    var gap = 6, n = keys.length, w = Math.min(88, Math.floor((W - 44 - gap * (n - 1)) / n)), x0 = (W - n * w - (n - 1) * gap) / 2 + w / 2;
+    keys.forEach(function (k, i) {
+      var b = row[k];
+      if (b.btn) b.btn.destroy();
+      b.btn = self.button(c, x0 + i * (w + gap), 150, w, 30, b.label, b.cb, b.color);
+    });
   };
 
   // All 23 villagers, a page at a time (the list panel's pager): face, name, hearts, what you did today.
@@ -20471,10 +20500,16 @@
 
   // Reached from the base listPanel (16-panels.js), so the wrappers added by later files (the Woodshop's house row and
   // Outdoor tab) still run first.
+  // o.rowH: taller cards for a panel whose rows say more (What's new); fewer of them on a page.
   U.lookListPanel = function (o) {
+    var h0 = ROW_H, s0 = ROW_STEP;
+    if (o.rowH) { ROW_H = o.rowH; ROW_STEP = o.rowH + 6; }
+    try { return listPanel.call(this, o); } finally { ROW_H = h0; ROW_STEP = s0; }
+  };
+  var listPanel = function (o) {
     var self = this, c = this.openModal();
     // the list's layout first, so a short list gets a shorter panel (a paged one keeps the full height)
-    var rows = o.rows, page = o.page || 0, per = rows.length > 5 ? 4 : 5;
+    var rows = o.rows, page = o.page || 0, per = rows.length * ROW_STEP > 400 ? Math.floor(320 / ROW_STEP) : Math.floor(400 / ROW_STEP);
     var pages = Math.max(1, Math.ceil(rows.length / per)), shown = rows.slice(page * per, page * per + per);
     var y0 = o.tabs ? 178 : 140;
     var bottom = pages > 1 ? y0 + per * ROW_STEP + 48 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
@@ -20514,9 +20549,11 @@
 
   // Pages: one centred bar, the arrows on both ends (the one that can't go further fades), a dot per page between
   // them, the current one lit. Tapping a dot jumps to that page.
+  // Too many pages for a dot each in the screen's width (What's new): the bar says "5 / 20" instead.
   U.pager = function (c, y, page, pages, go) {
-    var self = this, dot = 14, inner = pages * dot + 12, w = inner + 2 * 40;
-    this.canvasImg(c, W / 2 - w / 2, y - 17, 'ui-pager-' + pages, w, 36, function (g) {
+    var self = this, dot = 14, inner = pages * dot + 12, w = inner + 2 * 40, count = w > W - 40;
+    if (count) w = 170;
+    this.canvasImg(c, W / 2 - w / 2, y - 17, 'ui-pager-' + (count ? 'n' : pages), w, 36, function (g) {
       rrect(g, 0, 2, w, 32, 16);
       g.fillStyle = 'rgba(122,77,38,0.18)';
       g.fill();
@@ -20529,6 +20566,7 @@
       var b = self.roundButton(c, W / 2 + d[0] * (w / 2 - 17), y - 1, 15, ok ? BLUE : GREY_BTN, d[1], null, function () { if (ok) go(to); });
       if (!ok) b.setAlpha(0.4);
     });
+    if (count) return c.add(this.txt(W / 2, y - 1, (page + 1) + ' / ' + pages, 15, '#5a3a1a', { fontStyle: 'bold' }).setOrigin(0.5));
     for (var k = 0; k < pages; k++) {
       (function (k) {
         var x = W / 2 - (pages - 1) * dot / 2 + k * dot, on = k === page;
@@ -20653,7 +20691,7 @@
     var self = this, b = row.buttons || [], below = !!row.buttonsBelow && b.length === 1;
     var right = (b.length && !below) || (row.done && !below) ? 96 : 0;
     var textW = W - 52 - 64 - right - 8;
-    this.canvasImg(c, 26, y, 'ui-row3', W - 52, ROW_H + 4, function (g) {
+    this.canvasImg(c, 26, y, 'ui-row3' + (ROW_H === 74 ? '' : '-' + ROW_H), W - 52, ROW_H + 4, function (g) {
       rrect(g, 1, 3, W - 54, ROW_H, 12);
       g.fillStyle = 'rgba(122,77,38,0.2)';
       g.fill();
@@ -21537,7 +21575,7 @@
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, c = this.modals[this.modals.length - 1].c;
-    this.button(c, 132, 150, 88, 30, 'Crop stars', function () { self.closeModal(); self.openMastery(0); }, BLUE);
+    this.collectionButton(c, 'stars', 'Crop stars', function () { self.closeModal(); self.openMastery(0); }, BLUE);
   };
 
   // What's new, once: everything the farm can do now, and where to find it.
@@ -22641,7 +22679,8 @@
     }
     sfx('fanfare');
   };
-  // Confetti falling over the whole screen for a few seconds.
+  // Confetti falling over the whole screen for a few seconds, under any panel (100 and up). Returns it, so a card can
+  // clear it when it closes (19zz-skills.js levelCard).
   U.confetti = function () {
     if (!this.textures.exists('confetti')) {
       var g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -22653,9 +22692,10 @@
       x: { min: 0, max: W }, speedY: { min: 160, max: 320 }, speedX: { min: -60, max: 60 }, rotate: { start: 0, end: 540 },
       scale: { min: 0.8, max: 1.4 }, tint: [0xf25c54, 0xffd23f, 0x5fa84a, 0x4a90c9, 0xd36ad6, 0xffffff], lifespan: 3400,
       frequency: 40, quantity: 3, gravityY: 40,
-    }).setDepth(400);
-    this.time.delayedCall(2600, function () { e.stop(); });
-    this.time.delayedCall(6500, function () { e.destroy(); });
+    }).setDepth(99);
+    this.time.delayedCall(2600, function () { if (e.active) e.stop(); });
+    this.time.delayedCall(6500, function () { if (e.active) e.destroy(); });
+    return e;
   };
 })(window.Farm = window.Farm || {});
 
@@ -22812,6 +22852,7 @@
   var P = F.WorldScene.prototype;
   var U = F.UIScene.prototype;
   var BLUE = 0x4a90c9, GREY = 0xa08a68;
+  var ROW_H = 100; // taller cards than other lists (74), so each line's words show in full
 
   // A line with a tour (its 4th entry, 19ze-tours.js) gets Show me; again() reopens this list after the tour.
   var rowsOf = function (news, header, ui, again) {
@@ -22831,7 +22872,7 @@
   U.openNews = function (page, back) {
     var self = this;
     this.listPanel({
-      title: "What's new", rows: rowsOf(C.NEWS, true, this, function () { self.openNews(page, back); }), page: page || 0,
+      title: "What's new", rows: rowsOf(C.NEWS, true, this, function () { self.openNews(page, back); }), page: page || 0, rowH: ROW_H,
       reopen: function (t, p) { self.openNews(p, back); },
       sub: function () { return 'Harvest Ville v' + C.NEWS_LATEST; },
       corner: back ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); back(); } } : null,
@@ -22842,7 +22883,7 @@
   U.openLatestNews = function (page) {
     var self = this, n = C.NEWS[0];
     this.listPanel({
-      title: "What's new in v" + n.v, rows: rowsOf([n], false, this, function () { self.openLatestNews(page); }), page: page || 0,
+      title: "What's new in v" + n.v, rows: rowsOf([n], false, this, function () { self.openLatestNews(page); }), page: page || 0, rowH: ROW_H,
       reopen: function (t, p) { self.openLatestNews(p); },
       sub: function () { return n.date + '. All updates: pause menu, What\'s new.'; },
       corner: { label: 'All', color: BLUE, cb: function () { self.closeModal(); self.openNews(0, null); } },
@@ -23374,7 +23415,11 @@
     a.sh.setPosition(a.x, a.y).setScale(a.scale * (1 - up * 0.5)).setAlpha((1 - up) * seen);
     a.img.setPosition(a.x, a.y - a.lift);
     F.depthTo(a.img, DEPTH.actor + a.y / 1e5);
-    if (a.bar) {
+    if (a.bar && a.bar.big) { // a boss's: just above its head (the frame's first painted row)
+      var hy = a.img.getTopCenter().y + paintTop(a.img) * a.img.displayHeight - 7 * a.bar.k;
+      a.bar.bg.setPosition(a.x, hy);
+      a.bar.fill.setPosition(a.x - a.bar.w / 2, hy).setSize(a.bar.w * Math.max(0, a.hp) / (a.max || a.def.hp), a.bar.h);
+    } else if (a.bar) {
       var by = a.y - a.lift - (0.42 + a.def.w * 0.62) * a.size * T;
       a.bar.bg.setPosition(a.x, by);
       a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / (a.max || a.def.hp), BAR_H);
@@ -23695,8 +23740,38 @@
     });
   };
 
+  // How far down a frame its picture starts (0..1 of its height; a frame has room above the head), looked up once per
+  // frame from a small copy: a boss's bar sits on the head, not in the air above it.
+  var tops = {};
+  var paintTop = function (img) {
+    var f = img.frame, key = img.texture.key + ':' + f.name;
+    if (tops[key] != null) return tops[key];
+    tops[key] = 0;
+    try {
+      var w = Math.max(1, Math.round(f.cutWidth / 4)), h = Math.max(1, Math.round(f.cutHeight / 4)), cv = document.createElement('canvas');
+      cv.width = w;
+      cv.height = h;
+      var g = cv.getContext('2d'), im = f.source.image, k = (im.naturalWidth || im.width) / f.source.width; // (a sheet may come smaller than its frames say)
+      g.drawImage(im, f.cutX * k, f.cutY * k, f.cutWidth * k, f.cutHeight * k, 0, 0, w, h);
+      var d = g.getImageData(0, 0, w, h).data, y = 0;
+      for (; y < h; y++) {
+        var x = 0;
+        while (x < w && d[(y * w + x) * 4 + 3] < 80) x++;
+        if (x < w) break;
+      }
+      tops[key] = y < h ? y / h : 0;
+    } catch (e) { /* (no copy: the frame's top) */ }
+    return tops[key];
+  };
   P.wildBar = function (a) {
     if (a.bar || a.hp <= 0) return;
+    if (a.def.boss || a.def.great) { // a guard, the Bakunawa, the Great Mammoth: a clear bar over the head, 60 x 6 on screen
+      var k = F.R / this.cameras.main.zoom, bw = 60 * k, bh = 6 * k;
+      a.bar = { big: true, k: k, w: bw, h: bh,
+        bg: this.add.rectangle(a.x, a.y, bw + 4 * k, bh + 4 * k, 0x1a0e06, 0.9).setStrokeStyle(1.5 * k, 0xfff3c4).setDepth(DEPTH.fx),
+        fill: this.add.rectangle(a.x, a.y, bw, bh, 0xf0504a).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
+      return;
+    }
     a.bar = { bg: this.add.rectangle(a.x, a.y, BAR_W + 12, BAR_H + 12, 0x2e1c0c, 0.85).setDepth(DEPTH.fx),
       fill: this.add.rectangle(a.x, a.y, BAR_W, BAR_H, 0xe5484d).setOrigin(0, 0.5).setDepth(DEPTH.fx + 0.01) };
   };
@@ -23716,7 +23791,9 @@
       sfx('chop');
       this.cameras.main.shake(70, 0.0016);
     }
-    a.img.setTintFill(0xffffff);
+    // the hit flashes white; a big one only lights up a little (all white, it was a blob for a frame); its colour comes back
+    if (a.def.boss || a.def.great || a.def.w >= 2) a.img.setTint(0xffc8b8);
+    else a.img.setTintFill(0xffffff);
     this.time.delayedCall(90, function () { if (a.img.active) untint(a); });
     a.hitT = HIT_MS;
     if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
@@ -24126,7 +24203,7 @@
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, c = this.modals[this.modals.length - 1].c;
-    this.button(c, 228, 150, 88, 30, 'Hunts', function () { self.closeModal(); self.openBook(mine(), null, function () { self.openCollection(); }); }, GREY_BTN);
+    this.collectionButton(c, 'hunts', 'Hunts', function () { self.closeModal(); self.openBook(mine(), null, function () { self.openCollection(); }); }, GREY_BTN);
   };
 
   U.wildIntro = function () {
@@ -25256,6 +25333,7 @@
   var T = C.TILE;
   var GREEN = 0x5fa84a, GREY = 0xa08a68;
   var SW = 272, SH = 132, CARD_H = 322;
+  var CAP_ROOM = CARD_H - 76 - 4 - (32 + SH + 14); // the caption's height between the stage and the page dots (3 lines)
   var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
   var still = function () {
     try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
@@ -25572,7 +25650,9 @@
       sc.removeAll(true);
       var st = tour.steps[step];
       st.draw(self, sc, move);
-      cap.setText(st.text);
+      // three lines at most above the dots: a longer caption gets a smaller font
+      cap.setText(st.text).setFontSize(15);
+      for (var size = 15; cap.height > CAP_ROOM && size > 11;) cap.setFontSize(--size);
       dots.forEach(function (d, k) { d.setAlpha(k === step ? 1 : 0.3); });
       btns.removeAll(true);
       var by = y0 + h - 40;
@@ -26802,7 +26882,7 @@
         };
       }));
       if (rows.length === head.length) rows.push({ icon: C.ICON.exclaim, name: 'No catches yet', desc: 'Nobody has hunted a ' + def.name + ' this week. Be the first!' });
-      show(rows, 'The biggest of each animal hunted this week. A new week starts every Monday.', null);
+      show(rows, 'This week\'s biggest. New week Monday.', null); // (short: one line at the normal size)
     }).catch(function (e) {
       if (off(e)) return show(head.slice(0, 1).concat([{ icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The biggest catch of the week is almost here.' }]), '', null);
       fail(e);
@@ -27274,7 +27354,7 @@
         };
       }));
       if (rows.length === head.length) rows.push({ icon: C.ICON.exclaim, name: 'No catches yet', desc: on ? 'Nobody has landed a ' + C.ITEMS[k].name + ' today. Be the first!' : 'Nobody landed a ' + C.ITEMS[k].name + ' at Monday\'s Derby.' });
-      show(rows, on ? 'Fish Monday: the Derby is on until midnight. The biggest of each fish wins.' : 'Monday\'s Fishing Derby. The next one is on Monday: catch the biggest!', null);
+      show(rows, on ? 'The Derby is on until midnight!' : 'Monday\'s Derby. Next one: Monday!', null); // (short: one line at the normal size)
     }).catch(function (e) {
       if (off(e)) return show(head.slice(0, 1).concat([{ icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The Fishing Derby is almost here.' }]), '', null);
       fail(e);
@@ -27651,6 +27731,8 @@
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
     if (to === 'lair' && !this.busy) F.session.lairFloor = Math.max(1, Math.min(LA.floors, Math.floor(floor) || 1));
+    // off this floor: its "gate down is open" note goes too (it stayed up on the next floor)
+    if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && /^The gate down is open/.test(F.ui.toastText.text)) F.ui.hideToast();
     return travel.call(this, to, spawn, floor);
   };
 
@@ -28135,7 +28217,7 @@
     if (!loud) return;
     sfx('found');
     this.cameras.main.shake(220, 0.003);
-    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
+    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr && !self.busy) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
   };
   var sealed = function (w) {
     var n = w.wild ? w.wild.animals.length : 0;
@@ -28232,7 +28314,9 @@
     w.next = rand(WI.arrive[0], WI.arrive[1]);
     if (!friendsHere(this) || !L.bakunawaReady(s)) return;
     var e = L.wildHere(s, 'lair').filter(function (x) { return WI.animals[x.kind].great && !w.animals.some(function (a) { return a.slot === x.slot; }); })[0];
-    var p = e && this.wildEdge(w.zone);
+    // it rises in the middle or upper part of the floor (at the edge it came up under the joystick, bottom left)
+    var z0 = w.zone, qx = Math.floor((z0.x1 - z0.x0) / 4), mid = { x0: z0.x0 + qx, x1: z0.x1 - qx, y0: z0.y0, y1: z0.y0 + Math.floor((z0.y1 - z0.y0) * 0.55) };
+    var p = e && (this.wildSpot(mid, this.feet(), 4) || this.wildSpot(mid) || this.wildEdge(w.zone));
     if (!p) return;
     var a = this.addWildAnimal(e.kind, e.slot, p.x, p.y, 1), z = w.zone, crew = 1 + Object.keys(this.remotes || {}).length;
     a.hp = a.max = a.def.hpEach * crew;
@@ -28340,6 +28424,11 @@
   var needText = function (s, needs) {
     return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
+  // the row's own, shorter: every need fits its card ("40 Ember Shards (12), 3 Scales (0), 5 Obsidian (2)")
+  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian' };
+  var needShort = function (s, needs) {
+    return needs.map(function (n) { return n[1] + ' ' + (SHORT[n[0]] || C.ITEMS[n[0]].name) + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
+  };
   var has = function (s, needs) { return needs.every(function (n) { return L.countItem(s, n[0]) >= n[1]; }); };
 
   // ---------- Kanor's Buy tab ----------
@@ -28349,7 +28438,7 @@
     // the Fire Charm: its goods, and a word when they are short
     C.GEAR.forEach(function (g, i) {
       if (!g.needs || L.hasGear(s, g.key)) return;
-      rows[i] = { icon: g.icon, name: g.name, desc: g.desc + ' Needs ' + needText(s, g.needs) + '.', buttons: [{ label: g.gold + 'G', color: has(s, g.needs) ? GREEN : GREY, cb: function () {
+      rows[i] = { icon: g.icon, name: g.name, desc: (g.short || g.desc) + ' Needs ' + needShort(s, g.needs) + '.', buttons: [{ label: g.gold + 'G', color: has(s, g.needs) ? GREEN : GREY, cb: function () {
         var r = L.buyGear(s, g.key);
         if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, g.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
         if (r === 'ok' && F.Online && F.Online.retrack && F.Online.on) F.Online.retrack();
@@ -28358,7 +28447,7 @@
     });
     // the Magma Bow, after the Gold Bow
     if (L.hasBow(s) && L.bowLevel(s) === m.level - 1) {
-      rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Shoots ' + C.WILD.bow.range[m.level] + ' tiles and hits harder than any bow. Needs ' + needText(s, m.needs) + '.',
+      rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Range ' + C.WILD.bow.range[m.level] + '. Needs ' + needShort(s, m.needs) + '.',
         buttons: [{ label: m.gold + 'G', color: has(s, m.needs) ? GREEN : GREY, cb: function () {
           var r = L.makeMagmaBow(s);
           if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, m.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
@@ -28400,7 +28489,7 @@
         },
       },
       {
-        text: 'Bring Ember Shards and scales to Kanor for the Magma Bow and the Fire Charm. The lift by the way in stops every 10 floors.',
+        text: 'Kanor makes the Magma Bow and the Fire Charm from Ember Shards and scales. The lift stops every 10 floors.',
         draw: function (ui, sc, move) {
           icon(ui, sc, 70, 66, C.ICON.ember_shard, 0.3);
           var bow = icon(ui, sc, 150, 66, C.ICON.bow_4, 0.38);
@@ -28616,18 +28705,14 @@
     });
   };
 
-  // The Collection: Crop stars, Hunts and Breeds side by side.
+  // The Collection: a Breeds button in its row of books (16-panels.js, collectionButton).
   var openCollection = U.openCollection;
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, m = this.modals[this.modals.length - 1], c = m && m.c;
     if (!c) return;
-    var label = function (o) { return o.list && o.list.filter(function (x) { return x.type === 'Text'; }).map(function (x) { return x.text; })[0]; };
-    var btns = c.list.filter(function (o) { return o.type === 'Container' && Math.abs(o.y - 150) < 2 && label(o) !== 'X'; });
-    var xs = btns.length === 2 ? [84, 180] : null;
-    if (xs) btns.forEach(function (b, k) { b.x = xs[k]; });
     var go = function () { self.closeModal(); self.openBreeds('chicken', function () { self.openCollection(); }); };
-    this.button(c, xs ? 276 : K.W / 2, xs ? 150 : 150, 88, 30, 'Breeds', go, L.breedPrizesReady(F.session.state).length ? GOLD : GREEN);
+    this.collectionButton(c, 'breeds', 'Breeds', go, L.breedPrizesReady(F.session.state).length ? GOLD : GREEN);
   };
 
   // ---------- the tour ----------
@@ -29088,7 +29173,7 @@
     title: 'FESTIVAL CONTESTS',
     steps: [
       {
-        text: 'Three festivals have a contest: animals at the Cow Festival, crops at the Harvest Festival, dishes on Starry Night.',
+        text: 'Three festivals have a contest: animals at the Cow Festival, crops at Harvest, dishes on Starry Night.',
         draw: function (ui, sc, move) {
           [[54, C.ANIMALS.cow.icon, 'Nov 20'], [136, C.ITEMS.pumpkin.icon, 'Oct 12'], [218, C.ITEMS.pumpkin_pie.icon, 'Dec 24']].forEach(function (p, k) {
             var i = icon(ui, sc, p[0], 54, p[1], 0.34);
@@ -29530,8 +29615,9 @@
       }
       var left = L.fhToPromote(s, key);
       r.tag = 'Lv ' + lv;
+      r.name = d.name; // (with the Lv tag, "Andoy \u00b7 Waterer" broke onto two lines: the job opens the description)
       r.progress = [L.fhDoneToday(s, key), L.fhJobs(s, key)];
-      r.desc = L.fhWage(s, key) + 'G a work day. ' + (left > 0 ? 'Lv ' + (lv + 1) + ' in ' + left + (left > 1 ? ' days.' : ' day.') : left === 0 ? 'Ready to promote!' : C.FH.ranks[lv - 1] + '.');
+      r.desc = d.title + '. ' + L.fhWage(s, key) + 'G a work day. ' + (left > 0 ? 'Lv ' + (lv + 1) + ' in ' + left + (left > 1 ? ' days.' : ' day.') : left === 0 ? 'Ready to promote!' : C.FH.ranks[lv - 1] + '.');
       r.buttons = (left === 0 ? [{ label: 'Promote', cb: function () { self.fhAskPromote(key, again); } }] : [])
         .concat([{ label: 'Let go', color: RED, cb: function () { self.fhAskFire(key, again); } }]);
       return r;
@@ -30450,11 +30536,12 @@
     c.add(body);
     var z = this.add.zone(W / 2, y0 + ch / 2, cw, ch).setInteractive({ useHandCursor: true });
     c.add(z);
-    var gone = false, close = function (open) {
+    var gone = false, fx = null, close = function (open) {
       if (gone) return;
       gone = true;
       self.tweens.killTweensOf(c);
       c.destroy();
+      if (fx && fx.active) fx.destroy(); // (its confetti goes with it)
       if (open && !self.modals.length) self.openSkills();
       if (then) then();
     };
@@ -30464,7 +30551,7 @@
     c.setAlpha(0);
     c.y += 14;
     this.tweens.add({ targets: c, alpha: 1, y: c.y - 14, duration: 240, ease: 'Back.out' });
-    this.time.delayedCall(200, function () { if (!gone && self.confetti) self.confetti(W / 2, y0 + C.EXTRA / 2 + 20); });
+    this.time.delayedCall(200, function () { if (!gone && self.confetti) fx = self.confetti(W / 2, y0 + C.EXTRA / 2 + 20); });
     this.time.delayedCall(3600, function () {
       if (gone) return;
       self.tweens.add({ targets: c, alpha: 0, duration: 300, onComplete: function () { close(false); } });
@@ -30547,13 +30634,13 @@
     link.sum = sum;
     c.add(link);
   };
-  // the Collection: a small Skills button, left of Crop stars (19k-farm2.js, 132) and Hunts (19v-wild.js, 228)
+  // the Collection: a Skills button in its row of books (16-panels.js, collectionButton)
   var openCollection = U.openCollection;
   U.openCollection = function () {
     openCollection.apply(this, arguments);
     var self = this, m = this.modals[this.modals.length - 1];
     if (!m) return;
-    this.button(m.c, 54, 150, 60, 30, 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
+    this.collectionButton(m.c, 'skills', 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
   };
   // a visit: the player menu says the farmer's levels, on its top line (Farm 4 \u00b7 Mine 2 \u00b7 Fish 7 \u00b7 Hunt 1)
   var listPanel = U.listPanel;

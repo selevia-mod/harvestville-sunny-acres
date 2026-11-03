@@ -795,9 +795,12 @@
       this.hideToast();
     }
 
+    // Under the top bar; while a panel is open, at the bottom of the screen instead (over the hotbar, which the panel
+    // dims anyway), so it never covers the panel's title or its Back button.
     toast(msg, ms, color) {
       if (!msg) return;
       this.toastText.setText(msg).setVisible(true).setY(this.goalBar && this.goalBar.visible ? 114 : 84);
+      if (this.modals && this.modals.length) this.toastText.setY(C.VIEW_H - 14 - this.toastText.height);
       var b = this.toastText.getBounds();
       this.toastBg.clear().setVisible(true);
       this.toastBg.fillStyle(color || 0x24160b, 0.86).fillRoundedRect(b.x - 12, b.y - 8, b.width + 24, b.height + 16, 10);
@@ -817,7 +820,7 @@
     }
 
     floatText(x, y, str) {
-      var t = this.txt(x, y, str, 15, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5).setDepth(250);
+      var t = this.txt(x, y, str, 15, '#fff27a', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5).setDepth(99); // (under the panels: 100 and up)
       this.tweens.add({ targets: t, y: y - 34, alpha: { from: 1, to: 0 }, duration: 1000, ease: 'Quad.out', onComplete: function () { t.destroy(); } });
     }
 
@@ -899,26 +902,34 @@
       // one line on the ribbon: a long title shrinks instead of wrapping below it
       var titleText = title ? this.txt(W / 2, 0, title, 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5, 0.5) : null;
       if (titleText && titleText.width > W - 90) titleText.setScale((W - 90) / titleText.width);
-      var body = [], bodyH = 0;
+      var body = [], bodyH = 0, rest = null;
       if (opts.rows) {
-        opts.rows.forEach(function (r, k) {
-          var t = self.txt(84, 0, r[1], 14, INK, { wordWrap: { width: 222 }, lineSpacing: 2 }).setOrigin(0, 0);
-          var rh = Math.max(34, t.height + 10);
-          body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
-          bodyH += rh + 6;
-        });
-        bodyH -= 6;
-        // never taller than the screen (the OK button must stay reachable): rows that don't fit become one line
-        var room = H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18), hidden = 0;
-        while (body.length > 1 && bodyH + (hidden ? 40 : 0) > room) {
-          body.pop().t.destroy();
-          hidden++;
-          bodyH = body[body.length - 1].y + body[body.length - 1].h;
-        }
-        if (hidden) {
-          var more = self.txt(84, 0, '... and ' + hidden + ' more.', 14, INK, { wordWrap: { width: 222 } }).setOrigin(0, 0);
-          body.push({ t: more, icon: C.ICON.letter, y: bodyH + 6, h: 34, line: true });
-          bodyH += 40;
+        // never taller than the screen (the OK button must stay reachable): the whole screen's height is the room; when
+        // the rows do not fit it they get smaller, and when they still do not, the rest go on a next page (Next)
+        var room = C.VIEW_H - 100 - (30 + (opts.portrait ? 92 : titleText ? 30 : 0) + 24 + 44 + 18);
+        var layout = function (size) {
+          body.forEach(function (b) { b.t.destroy(); });
+          body = [];
+          bodyH = 0;
+          var small = size < 14, gap = small ? 4 : 6;
+          opts.rows.forEach(function (r, k) {
+            var t = self.txt(84, 0, r[1], size, INK, { wordWrap: { width: 222 }, lineSpacing: small ? 1 : 2 }).setOrigin(0, 0);
+            var rh = Math.max(small ? 30 : 34, t.height + (small ? 6 : 10));
+            body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
+            bodyH += rh + gap;
+          });
+          bodyH -= gap;
+        };
+        layout(14);
+        if (bodyH > room) layout(12);
+        if (bodyH > room && body.length > 1) {
+          var keep = 1;
+          while (keep < body.length && body[keep].y + body[keep].h <= room) keep++;
+          rest = opts.rows.slice(keep);
+          body.splice(keep).forEach(function (b) { b.t.destroy(); });
+          bodyH = body[keep - 1].y + body[keep - 1].h;
+          var all = buttons;
+          buttons = [{ label: 'Next', color: 0x4a90c9, cb: function () { self.dialog(text, all, Object.assign({}, opts, { rows: rest })); } }];
         }
       } else {
         var bt = this.txt(W / 2, 0, lines.join('\n'), 15, INK, { align: 'center', wordWrap: { width: 268 }, lineSpacing: 4 }).setOrigin(0.5, 0);
@@ -929,6 +940,7 @@
       if (opts.portrait) th = 92;
       var h = Math.round(30 + th + bodyH + 24 + 44 + 18);
       var y0 = Math.round(Math.max(84, (H - h) / 2 - 40));
+      if (y0 + h > H + C.EXTRA / 2 - 10) y0 = Math.round(Math.max(84 - C.EXTRA / 2, H + C.EXTRA / 2 - 10 - h)); // (a tall list on a tall screen)
       this.panelImg(c, 24, y0, W - 48, h);
       if (opts.portrait) {
         F.ensureTexture(this, 'people');
