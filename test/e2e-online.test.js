@@ -2196,3 +2196,34 @@ test('online: the Barangays tour the first time Online, Friends opens with its r
   assert.deepStrictEqual(a.problems, []);
   await a.context.close();
 });
+
+test('online: a changed game cannot flood the owner\'s phone with server calls or clear a mine floor it was not asked about (4 Nov review)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await host.page.evaluate(() => { window.__claims = 0; const c = Farm.Online.claimHelps; Farm.Online.claimHelps = function () { window.__claims++; return c.apply(this, arguments); }; });
+  await guest.page.evaluate(() => { for (let i = 0; i < 25; i++) Farm.Online.send('help', {}); });
+  await new Promise((r) => setTimeout(r, 2000));
+  assert.strictEqual(await host.page.evaluate(() => window.__claims), 1, 'one call now');
+  await host.page.waitForFunction(() => window.__claims === 2, null, { timeout: 30000 });
+  await new Promise((r) => setTimeout(r, 1000));
+  assert.strictEqual(await host.page.evaluate(() => window.__claims), 2, 'and one after the wait: not 25');
+  // a rocks list nobody asked for is ignored
+  const took = await host.page.evaluate(() => {
+    let n = 0;
+    const w = Farm.world, r = w.remoteRock;
+    w.remoteRock = function () { n++; };
+    Farm.Online.rocksAsked = 0;
+    Farm.Online.onMessage('rocks', { id: Object.keys(Farm.Online.others)[0], fl: Farm.session.mineFloor, l: [1, 2, 3] });
+    w.remoteRock = r;
+    return n;
+  });
+  assert.strictEqual(took, 0);
+  assert.deepStrictEqual(host.problems, []);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
