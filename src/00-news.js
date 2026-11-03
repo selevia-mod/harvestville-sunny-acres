@@ -26,6 +26,7 @@
         ['ribbon', 'Festival contests', 'An Animal Contest at the Cow Festival, a Crop Contest at the Harvest Festival and a Noche Buena Cook-off on Starry Night. Win ribbons, Gold and the year\'s trophy!', 'contest'],
         ['star', 'Skills', 'Get better at farming, mining, fishing and hunting just by doing them: ten levels each, with a small perk now and then. See them on your farmer card.', 'skills'], // (19zz-skills.js)
         ['chicken', 'Animal breeds', 'Hens, cows, pigs and carabaos come in colours, and babies take after their parents. About 1 in 25 is born rare! Find them all in the Breeds book (Collection).', 'breeds'], // (19zz-breeding.js)
+        ['crate', 'Willowbrook Station', 'Up the lane by the Post Office: trains bring visitors and big cargo orders, and your Town Level grows.', 'station'], // 19zz-town.js
       ],
     },
     {

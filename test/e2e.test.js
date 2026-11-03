@@ -3691,3 +3691,162 @@ test('animal breeds: colours in the pen, a rare one twinkles and gives two, the 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Willowbrook Station (src/19zz-town.js, src/19zz-town-ui.js; rules test/station.test.js). Run alone:
+// node build.js && node --test --test-timeout=900000 --test-name-pattern="Willowbrook Station" test/e2e.test.js
+test('Willowbrook Station: its tour, a cargo order filled crate by crate, the Town Level, the train rolling in with visitors, a wish given, and the train leaving with them (owner, 4 Nov)', async () => {
+  const WHEN = [2026, 4, 1, 10, 50];
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.gold = 5000;', WHEN);
+  const { page, problems, context } = await open(save, WHEN);
+  await closeAll(page);
+  const waitText = (re) => page.waitForFunction((src) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    if (!m) return false;
+    const out = [];
+    const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    return new RegExp(src).test(out.join(' | '));
+  }, re.source, SLOW);
+  await go(page, 'town', 'from_farm');
+  // the station, its rails and the cargo stand where the map says, solid; the lane and the platform are open
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const w = Farm.world;
+    return { tw: !!w.tw, lane: w.walkable(39, 8), door: w.walkable(39, 6), station: w.walkable(39, 5), rails: w.walkable(45, 3), platform: w.walkable(45, 5), cargo: w.walkable(47, 4), order: !!Farm.session.state.tw.o };
+  }), { tw: true, lane: true, door: true, station: false, rails: false, platform: true, cargo: false, order: true });
+  // the tour opens the first time you walk up to the station (never while quiet)
+  await teleport(page, 39, 7, 'up');
+  await page.waitForTimeout(1800);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'quiet: no tour');
+  await teleport(page, 30, 12, 'up');
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  for (let quietFor = 0, i = 0; quietFor < 3 && i < 30; i++) {
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => Farm.ui.modals.length)) { await closeAll(page); quietFor = 0; } else quietFor++;
+  }
+  await teleport(page, 39, 7, 'up');
+  for (let i = 0; i < 60; i++) { // (the day's other pop-ups may still come first: closed as they come)
+    await page.waitForTimeout(500);
+    const top = await page.evaluate(() => Farm.ui.modals.length);
+    if (top && /THE TRAIN STATION/.test(await modalText(page))) break;
+    if (top) await closeAll(page);
+  }
+  await waitText(/THE TRAIN STATION.*up the lane by the Post Office.*7 AM, 11 AM, 3 PM and 7 PM.*Skip.*Next/);
+  await shot(page, 'station-tour-1');
+  for (const k of [2, 3, 4]) { await tapButton(page, 'Next'); await page.waitForTimeout(900); await shot(page, 'station-tour-' + k); }
+  await waitText(/Each Town Level brings something new.*Got it/);
+  await tapButton(page, 'Got it');
+  await page.evaluate(() => { window.gameHost.quiet = true; });
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'station_tour')), true);
+  // the station: its Cargo
+  await teleport(page, 39, 6, 'up');
+  assert.strictEqual(await actionLabel(page), 'Station');
+  await shot(page, 'station-front');
+  await tapAction(page);
+  await waitText(/Willowbrook Station.*Fill them by 10:50 AM tomorrow.*Fill all 4 crates.*Prize/);
+  await shot(page, 'station-cargo');
+  const o = await page.evaluate(() => {
+    const s = Farm.session.state;
+    Farm.Logic.addItem(s, s.tw.o.crates[0].id, s.tw.o.crates[0].n);
+    Farm.ui.closeAll();
+    Farm.ui.openStation('cargo');
+    return JSON.parse(JSON.stringify(s.tw.o));
+  });
+  await frames(page, 3);
+  const gold0 = (await state(page)).gold;
+  await tapButton(page, 'Fill');
+  await waitText(/1 \/ 4[\s\S]*FILLED/);
+  let s = await state(page);
+  assert.strictEqual(s.tw.o.crates[0].done, 1);
+  assert.strictEqual(s.gold, gold0 + o.crates[0].pay);
+  assert.strictEqual(s.tw.p, 2);
+  // the other three, and the prize
+  await page.evaluate(() => { const s = Farm.session.state; s.tw.o.crates.forEach((c, i) => { if (i) Farm.Logic.addItem(s, c.id, c.n); }); Farm.ui.closeAll(); Farm.ui.openStation('cargo'); });
+  await frames(page, 3);
+  await shot(page, 'station-cargo-ready');
+  for (const k of [2, 3]) { await tapButton(page, 'Fill'); await waitText(new RegExp(k + ' / 4')); }
+  await tapButton(page, 'Fill');
+  await waitText(/CARGO COMPLETE!.*Sunbeam.*Pet Meal.*Town points.*Hooray!/);
+  await shot(page, 'station-cargo-complete');
+  s = await state(page);
+  assert.ok(s.tw.o.full && s.tw.done === 1 && s.stars >= o.prize.stars);
+  await tapButton(page, 'Hooray!');
+  await waitText(/TOWN LEVEL 2!.*each shelf holds 30.*\+500G/);
+  await shot(page, 'station-level-2');
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(s.tw.p, 4 * 2 + 10);
+  assert.strictEqual(s.gold, gold0 + o.crates.reduce((a, c) => a + c.pay, 0) + o.prize.gold + 500);
+  assert.strictEqual(await page.evaluate(() => Farm.world.tw.level.text), 'Lv 2');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openStation('cargo'); });
+  await waitText(/All filled! The 11:00 AM train takes them away/);
+  await closeAll(page);
+  // 11 AM: the train rolls in, takes the crates, brings the next order, and its visitors step off
+  await teleport(page, 44, 5, 'right');
+  await setClock(page, [2026, 4, 1, 11, 0]);
+  await page.waitForFunction(() => Farm.world.tw.shown && Farm.world.tw.moving === 'in', null, SLOW);
+  await page.waitForTimeout(1600);
+  await shot(page, 'station-train-arriving');
+  await page.waitForFunction(() => Farm.world.tw.shown && !Farm.world.tw.moving, null, SLOW);
+  s = await state(page);
+  assert.ok(s.tw.o && s.tw.o.no === 1 && !s.tw.o.full, 'a new order');
+  assert.ok(s.tw.o.crates.every((c) => !c.done));
+  await page.waitForFunction(() => Farm.world.villagers.tourists.filter((v) => v.visible).length === 2, null, SLOW);
+  await page.waitForTimeout(1200);
+  await shot(page, 'station-visitors-off');
+  // a visitor wishes for something: talk, and Give
+  const wish = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, L = Farm.Logic, T = Farm.Config.TILE;
+    const wish = L.twWishes(s)[0], v = w.villagers.tourists.find((t) => t.who === wish.who);
+    L.addItem(s, wish.id, wish.n);
+    v.dwell = 1e9;
+    w.villagers.put(v, 10.5 * T, 18.6 * T, true);
+    w.setFeet(10.5 * T, 19.6 * T);
+    w.dir = 'up';
+    w.idle();
+    return { ...wish, name: v.def.name };
+  });
+  await frames(page, 4);
+  assert.strictEqual(await actionLabel(page), 'Give');
+  await shot(page, 'station-visitor-bubble');
+  await tapAction(page);
+  await waitText(new RegExp(wish.name.toUpperCase() + '[\\s\\S]*' + wish.n + ' [\\s\\S]*' + wish.gold + 'G[\\s\\S]*You have ' + wish.n + '[\\s\\S]*Give'));
+  await shot(page, 'station-visitor-wish');
+  const gold1 = (await state(page)).gold;
+  await tapButton(page, 'Give');
+  await frames(page, 4);
+  s = await state(page);
+  assert.strictEqual(s.gold, gold1 + wish.gold);
+  assert.strictEqual(s.tw.v.find((w) => w.who === wish.who).done, 1);
+  assert.strictEqual(s.tw.p, 18 + 3);
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openStation('visitors'); });
+  await waitText(/In town until 1:00 PM.*Salamat/);
+  await shot(page, 'station-visitors-tab');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openStation('town'); });
+  await waitText(/Town Level 2.*Level 3 brings.*Flags over the plaza/);
+  await shot(page, 'station-town-tab');
+  // Town Level 2: the stall's shelves take 30
+  await page.evaluate(() => { Farm.ui.closeAll(); const s = Farm.session.state; Farm.Logic.addItem(s, 'turnip', 30); Farm.ui.openSellOptions(0, s.inv.findIndex((x) => x && x.id === 'turnip'), 30); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /Put on a shelf/);
+  assert.doesNotMatch(await modalText(page), /fit on one/);
+  await closeAll(page);
+  // 12:50 the visitors walk back to the platform; at 1 PM the train leaves with them
+  await teleport(page, 44, 5, 'right');
+  await setClock(page, [2026, 4, 1, 12, 50]);
+  await page.waitForFunction(() => Farm.world.villagers.tourists.every((v) => !v.visible || v.leaving), null, SLOW);
+  await setClock(page, [2026, 4, 1, 13, 0]);
+  await page.waitForFunction(() => Farm.world.tw.moving === 'out', null, SLOW);
+  await page.waitForTimeout(1800);
+  await shot(page, 'station-train-leaving');
+  await page.waitForFunction(() => !Farm.world.tw.shown && Farm.world.villagers.tourists.every((v) => !v.visible), null, SLOW);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.Logic.twWishes(Farm.session.state)), []);
+  // saved: all of it is there after closing the game
+  const saved = await page.evaluate(() => { Farm.world.save(); return window.gameHost.saves.slice(-1)[0]; });
+  const again = await open(JSON.parse(saved), [2026, 4, 1, 13, 5]);
+  const s2 = await state(again.page);
+  assert.deepStrictEqual([s2.tw.p, s2.tw.done, s2.tw.o.no, s2.tw.o.crates.length], [21, 1, 1, 4]);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
