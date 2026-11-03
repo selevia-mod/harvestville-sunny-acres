@@ -302,10 +302,11 @@ test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes'
 });
 
 test('the new icons went at the very end, so no older icon moved in the items sheet', () => {
-  // (after them come the deep Mine's ten: mine-bands.test.js; Hunter's gear's three: hunt.test.js; then the Lair's eight)
+  // (after them come the deep Mine's ten: mine-bands.test.js; Hunter's gear's three: hunt.test.js; the Lair's eight; then farm tech's)
   const lair = ['ember_shard', 'santelmo_flame', 'sigbin_horn', 'tikbalang_mane', 'bungisngis_tooth', 'bakunawa_scale', 'bow_4', 'gear_charm'];
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-lair.length)), lair, "the Lair's icons are the last ones");
-  const n = C.ICON_ORDER.length - 10 - 3 - lair.length;
+  const at = C.ICON_ORDER.indexOf('gear_quiver') + 1;
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(at, at + lair.length)), lair, "the Lair's icons right after Hunter's gear");
+  const n = C.ICON_ORDER.indexOf('gear_cloak') - 10;
   assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 16, n - 4)), ['meat_bear', 'fur_bear', 'claw_bear', 'meat_mammoth', 'wool_mammoth', 'tusk_mammoth', 'pelt_tiger', 'claw_tiger', 'hide_rhino', 'horn_rhino', 'kaldereta', 'bistek']);
   assert.deepStrictEqual(plain(C.ICON_ORDER.slice(n - 4, n)), ['leather_soft', 'leather_thick', 'leather_tough', 'great_tusk']);
   assert.strictEqual(C.ICON.wheat, 211);

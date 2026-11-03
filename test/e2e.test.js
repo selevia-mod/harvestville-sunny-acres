@@ -3850,3 +3850,158 @@ test('Willowbrook Station: its tour, a cargo order filled crate by crate, the To
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- farm tech (src/19zz-farmtech.js, rules 01-logicZ-farmtech.js) ----------
+test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler waters a fertilized patch, a Gold crop shows its star', async () => {
+  const save = await makeSave(`s.time = 600; s.gold = 20000;
+    for (let y = 15; y <= 17; y++) for (let x = 9; x <= 11; x++) s.soil[y * 64 + x] = { w: 0, c: null, p: 0, r: 0 };
+    L.addItem(s, 'ore_copper', 3); L.addItem(s, 'sprinkler_silver', 1); L.addItem(s, 'fert_rich', 1); L.addItem(s, 'seed_turnip', 1);
+    s.inv[3] = { id: 'turnip', n: 2, q: 2 }; s.inv[4] = { id: 'tomato', n: 1, q: 1 };`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const idx = (x, y) => y * W + x;
+  let s = await state(page);
+  assert.deepStrictEqual([s.inv[3].q, s.inv[4].q], [2, 1], 'the save kept the Silver and Gold slots');
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.ui.slots[3].star.visible, Farm.ui.slots[4].star.visible, Farm.ui.slots[2].star.visible]), [true, true, false], 'a star on the toolbar');
+
+  // Bram's Forge: the three sprinklers after the tools; Make one
+  await page.evaluate(() => Farm.ui.openForge(1));
+  assert.match(await modalText(page), /Copper Sprinkler[\s\S]*Silver Sprinkler[\s\S]*Gold Sprinkler/);
+  await shot(page, 'farmtech-1-forge');
+  await tapButton(page, 'Make');
+  s = await state(page);
+  assert.strictEqual(count(s, 'sprinkler_copper'), 1);
+  assert.strictEqual(count(s, 'ore_copper'), 0);
+  assert.strictEqual(s.gold, 20000 - 800);
+  await closeAll(page);
+  // Lily's Supplies: both fertilizers, by 1 or 5
+  await page.evaluate(() => Farm.ui.openShop('supplies', 1));
+  assert.match(await modalText(page), /Fertilizer[\s\S]*Rich Fertilizer/);
+  await shot(page, 'farmtech-2-lily');
+  await tapButton(page, 'Buy 5 50G');
+  s = await state(page);
+  assert.strictEqual(count(s, 'fert'), 5);
+  await closeAll(page);
+
+  // Rich Fertilizer on the 3x3, then the Silver Sprinkler in its middle, then seeds: they grow at once
+  await hold(page, 'fert_rich');
+  await teleport(page, 10, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Spread');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[idx(9, 15)].f, 2);
+  await hold(page, 'sprinkler_silver');
+  assert.strictEqual(await actionLabel(page), 'Place');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[idx(10, 16)].sp, 2);
+  assert.strictEqual(count(s, 'sprinkler_silver'), 0);
+  assert.ok([[9, 15], [11, 17], [10, 17]].every(([x, y]) => s.soil[idx(x, y)].w === 1), 'its 8 tiles are wet');
+  assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.ftSp).length), 1, 'it shows on the farm');
+  await hold(page, 'seed_turnip');
+  assert.strictEqual(await actionLabel(page), 'Plant');
+  await tapAction(page);
+  s = await state(page);
+  assert.ok(!s.soil[idx(10, 16)].c, 'no seed on the sprinkler');
+  assert.ok([[9, 15], [11, 17]].every(([x, y]) => s.soil[idx(x, y)].c === 'turnip' && s.soil[idx(x, y)].w === 1), 'planted, and growing');
+  await teleport(page, 10, 19, 'up');
+  await frames(page, 4);
+  await shot(page, 'farmtech-3-sprinkler');
+  // ripe 15 minutes later; picked, the soil is wet again (the sprinkler)
+  await advance(page, 16);
+  await teleport(page, 9, 18, 'up');
+  assert.strictEqual(await actionLabel(page), 'Harvest');
+  await tapAction(page);
+  s = await state(page);
+  assert.ok(!s.soil[idx(9, 17)].c, 'picked');
+  assert.strictEqual(s.soil[idx(9, 17)].w, 1, 'wet again');
+  assert.ok(!s.soil[idx(9, 17)].f, 'the fertilizer is used up');
+  // the sprinkler: tap it to pick it up
+  await hold(page, 'hoe');
+  await teleport(page, 10, 17, 'up');
+  assert.strictEqual(await actionLabel(page), 'Pick up');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(count(s, 'sprinkler_silver'), 1);
+  assert.ok(s.soil[idx(10, 16)] && !s.soil[idx(10, 16)].sp, 'the soil stays tilled');
+  assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.ftSp).length), 0);
+  // the bag: the Gold turnip's name and star
+  await page.evaluate(() => { Farm.session.state.sel = 3; Farm.ui.openInventory(); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /Gold Turnip[\s\S]*Gold: sells for 10G/);
+  await shot(page, 'farmtech-4-bag');
+  await closeAll(page);
+  // the stall: a Silver tomato sells for its price, with its star
+  await page.evaluate(() => Farm.ui.openSellOptions(null, 4));
+  const silver = await page.evaluate(() => Farm.Logic.withQuality(1, () => Farm.Logic.instantPrice('tomato', 1)));
+  assert.ok(silver > await page.evaluate(() => Farm.Logic.instantPrice('tomato', 1)), 'more than a normal tomato');
+  assert.match(await modalText(page), new RegExp('Sell now: ' + silver + 'G'));
+  assert.match(await modalText(page), /Silver Tomato/);
+  await shot(page, 'farmtech-5-sell');
+  await closeAll(page);
+  // the tours draw
+  for (const [name, steps] of [['sprinkler', 3], ['quality', 3]]) {
+    await page.evaluate((n) => Farm.ui.tour(n), name);
+    for (let k = 0; k < steps; k++) {
+      await frames(page, 4);
+      await shot(page, 'farmtech-tour-' + name + '-' + (k + 1));
+      await tapButton(page, k < steps - 1 ? 'Next' : 'Got it');
+    }
+  }
+  // saved and reopened: the sprinkler is back in the bag, the Gold turnip still Gold
+  const saved = await page.evaluate(() => { Farm.world.save(); return window.gameHost.state; });
+  assert.deepStrictEqual(saved.ft.q.slice(0, 2), [3, 2]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('farm tech: the greenhouse from Mira grows a summer melon in spring, watered by itself; its tour', async () => {
+  const save = await makeSave(`s.time = 600; s.gold = 20000;
+    const gh = C.OUTDOOR.index.greenhouse; L.buyYard(s, gh, 1); L.placeYard(s, Farm.farm(), gh, 24, 20);
+    L.addItem(s, 'seed_melon', 2); L.addItem(s, 'hoe', 1);
+    for (let x = 24; x <= 27; x++) L.till(s, 21 * 64 + x);`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  let s = await state(page);
+  const GH = await page.evaluate(() => Farm.Config.OUTDOOR.index.greenhouse);
+  assert.ok(s.yard.items.some((it) => it.t === GH && it.x === 24 && it.y === 20), 'placed');
+  assert.ok(s.soil[21 * W + 25].w, 'its soil is wet');
+  // Mira's catalog: the Greenhouse under More land, one only
+  await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
+  assert.match(await modalText(page), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);
+  await shot(page, 'farmtech-6-mira');
+  await closeAll(page);
+  // with a greenhouse, Lily sells every seed: out of season ones after the rest
+  await page.evaluate(() => Farm.ui.openShop('seeds', 3));
+  assert.match(await modalText(page), /Out of season: for your greenhouse/);
+  await shot(page, 'farmtech-8-lily-seeds');
+  await closeAll(page);
+  // till a tile inside: wet at once
+  await hold(page, 'hoe');
+  await teleport(page, 25, 23, 'up');
+  assert.strictEqual(await actionLabel(page), 'Till');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[22 * W + 25].w, 1);
+  // melon seeds in spring: only inside
+  await hold(page, 'seed_melon');
+  assert.strictEqual(await actionLabel(page), 'Plant');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[22 * W + 25].c, 'melon');
+  assert.strictEqual(s.soil[21 * W + 24].c, 'melon');
+  assert.ok(!s.soil[23 * W + 25], 'nothing outside');
+  await teleport(page, 25, 24, 'up');
+  await frames(page, 4);
+  await shot(page, 'farmtech-7-greenhouse');
+  await teleport(page, 10, 18, 'up');
+  assert.strictEqual(await page.evaluate(() => { const a = Farm.world.resolve(); return a.disabled && /grow only in summer|only grow in Summer/i.test(a.why); }), true, 'out in the field: not in spring');
+  for (let k = 0; k < 3; k++) {
+    if (!k) await page.evaluate(() => Farm.ui.tour('greenhouse'));
+    await frames(page, 4);
+    await shot(page, 'farmtech-tour-greenhouse-' + (k + 1));
+    await tapButton(page, k < 2 ? 'Next' : 'Got it');
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

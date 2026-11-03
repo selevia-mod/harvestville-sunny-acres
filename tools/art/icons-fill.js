@@ -3,7 +3,7 @@
 // art-src/icons/<name>.png and the items sheet, without redrawing every sheet. (30 Oct 2026: the Wild Lands' icons went in
 // ahead of the workshop's, which moved wheat, the fruit and the goods past the end of the sheet. Never in a release.)
 // New icons belong at the very end of C.ICON_ORDER, so nothing moves: src/00-zmagayon.js loads last for that.
-// The sheet grows by rows at the bottom when the order is longer than it (4 Nov 2026: the Lair's 8 took it past 256), and
+// The sheet grows by rows at the bottom when the order is longer than it (4 Nov 2026: the Lair's 8 and farm tech's 5 took it past 256), and
 // items.webp is written 16 columns wide, as squeeze.js does (cheap phones cannot load a side over 4096 px).
 // node tools/art/icons-fill.js
 const fs = require('fs');
@@ -22,7 +22,7 @@ const C = ctx.window.Farm.Config;
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.setContent('<canvas id="x"></canvas>');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js', 'gear-icons.js', 'lair-icons.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js', 'gear-icons.js', 'lair-icons.js', 'farmtech-icons.js']) {
     await p.addScriptTag({ path: path.join(__dirname, f) });
   }
   // pictures a drawing starts from (ART.ICON_FROM, e.g. the Magma Bow from the Gold Bow), loaded before it draws
