@@ -814,7 +814,7 @@
       else if (bdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.gift).setScale(0.15));
       else if (soon) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.WEATHER[L.weather(s, day)].icon).setScale(0.11).setAlpha(0.9));
       if (mine) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  Your birthday!');
-      if (fest) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + fest.name);
+      if (fest) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + fest.name + (L.ctOf && L.ctOf(fest) ? ': ' + L.ctOf(fest).name : '')); // (its contest: 01-logicZ-contests.js)
       bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
     }
     var rows = Math.ceil((lead + n) / 7);
