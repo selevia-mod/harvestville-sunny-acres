@@ -117,6 +117,7 @@
         var t = s.soil[j.idx], crop = C.CROPS[t.c];
         toBasket(s, j.item, 1);
         t.w = 0;
+        delete t.f; // (fertilizer lasts one crop, as when you pick it: 01-logicZ-farmtech.js)
         if (crop.regrow) {
           t.p = m;
           t.r = 1;
@@ -126,6 +127,7 @@
           t.r = 0;
           delete t.h;
         }
+        if (L.autoWater) L.autoWater(s, j.idx, m); // (a sprinkler keeps it wet, as when you pick it)
         return 1;
       },
     },
@@ -151,8 +153,9 @@
       do: function (s, j) {
         var a = s.animals[j.i];
         if (j.collect) {
-          toBasket(s, j.collect, 1);
+          toBasket(s, j.collect, 1 + (a.bx || 0)); // (a rare animal's second one too: 01-logicZ-breeding.js)
           a.ready = 0;
+          a.bx = 0;
           return 0; // (counted as collected, not fed)
         }
         if (!takeFeed(s, j.feed)) return 0;

@@ -252,7 +252,7 @@
         if (!x || !C.ITEMS[x.item]) return;
         var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1)), left = L.addItem(s, x.item, n);
         if (left > 0) { // a full bag: it goes in the shipping box (sold in the morning)
-          var e = s.box.filter(function (b) { return b.id === x.item; })[0];
+          var e = s.box.filter(function (b) { return b.id === x.item && !b.q; })[0]; // (not a Silver/Gold entry: these are normal)
           if (e) e.n += left; else s.box.push({ id: x.item, n: left });
           boxed += left;
         }

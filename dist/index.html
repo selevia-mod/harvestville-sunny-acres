@@ -8511,7 +8511,7 @@
 // ---- src/01-logicN.js
 // Bakunawa's Lair, the rules (content 00-zzzzzzlair.js; the cave 19zt-lair.js). What each floor holds, the deepest floor
 // you reached and the lift's stops, the Bakunawa once a day, the Magma Bow and the Fire Charm. Saved: s.lair = { deep,
-// bk (the day the Bakunawa was last hunted) } as 'lr', the Magma Bow as 'mb' (the bow's level past Gold).
+// bk (the day the Bakunawa was last hunted) } as 'lr', the Magma Bow as 'mgb' (the bow's level past Gold; not 'mb', the music box's).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -8613,7 +8613,7 @@
   L.serialize = function (s) {
     var o = serialize(s);
     if (s.lair && (s.lair.deep || s.lair.bk >= 0)) o.lr = [s.lair.deep, s.lair.bk];
-    if (L.hasMagmaBow(s)) o.mb = 1;
+    if (L.hasMagmaBow(s)) o.mgb = 1; // ('mb' is the music box's day: 01-logic2.js)
     return o;
   };
   var deserialize = L.deserialize;
@@ -8622,7 +8622,7 @@
     if (!s) return s;
     var lr = Array.isArray(o.lr) ? o.lr : [];
     s.lair = { deep: int(lr[0], 0, LA.floors, 0), bk: int(lr[1], -1, 1e7, -1) };
-    if (o.mb && L.hasBow(s) && L.bowLevel(s) === C.MAGMA_BOW.level - 1) s.tools.bow = C.MAGMA_BOW.level; // (saved as Gold by 'wl')
+    if (o.mgb === 1 && L.hasBow(s) && L.bowLevel(s) === C.MAGMA_BOW.level - 1) s.tools.bow = C.MAGMA_BOW.level; // (saved as Gold by 'wl')
     return s;
   };
 })(window.Farm = window.Farm || {});
@@ -9267,6 +9267,7 @@
         var t = s.soil[j.idx], crop = C.CROPS[t.c];
         toBasket(s, j.item, 1);
         t.w = 0;
+        delete t.f; // (fertilizer lasts one crop, as when you pick it: 01-logicZ-farmtech.js)
         if (crop.regrow) {
           t.p = m;
           t.r = 1;
@@ -9276,6 +9277,7 @@
           t.r = 0;
           delete t.h;
         }
+        if (L.autoWater) L.autoWater(s, j.idx, m); // (a sprinkler keeps it wet, as when you pick it)
         return 1;
       },
     },
@@ -9301,8 +9303,9 @@
       do: function (s, j) {
         var a = s.animals[j.i];
         if (j.collect) {
-          toBasket(s, j.collect, 1);
+          toBasket(s, j.collect, 1 + (a.bx || 0)); // (a rare animal's second one too: 01-logicZ-breeding.js)
           a.ready = 0;
+          a.bx = 0;
           return 0; // (counted as collected, not fed)
         }
         if (!takeFeed(s, j.feed)) return 0;
@@ -10517,7 +10520,7 @@
     var out = [], by = (s.wild && s.wild.by) || {};
     C.WILD.order.forEach(function (k) {
       var a = C.WILD.animals[k];
-      if (!a || a.rare || !(by[k] > 0)) return;
+      if (!a || a.rare || a.lair || !(by[k] > 0)) return; // (not the Lair's: a Bakunawa Scale is once a day, for the Magma Bow)
       a.drops.forEach(function (d) { if (d[2] >= 0.5 && out.indexOf(d[0]) < 0) out.push(d[0]); });
     });
     return out;
@@ -21815,7 +21818,7 @@
         if (!x || !C.ITEMS[x.item]) return;
         var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1)), left = L.addItem(s, x.item, n);
         if (left > 0) { // a full bag: it goes in the shipping box (sold in the morning)
-          var e = s.box.filter(function (b) { return b.id === x.item; })[0];
+          var e = s.box.filter(function (b) { return b.id === x.item && !b.q; })[0]; // (not a Silver/Gold entry: these are normal)
           if (e) e.n += left; else s.box.push({ id: x.item, n: left });
           boxed += left;
         }
@@ -23029,14 +23032,14 @@
   P.give = function (p, slot, n) {
     var s = F.session.state, it = s.inv[slot];
     if (this.giving || !it || C.ITEMS[it.id].kind === 'tool') return;
-    var id = it.id, name = L.itemName(s, id), took = L.removeAt(s, slot, n), self = this;
+    var id = it.id, q = it.q || 0, name = L.itemName(s, id), took = L.removeAt(s, slot, n), self = this;
     if (!took) return;
     this.giving = true;
     sfx('pick');
     F.bus.emit('hud');
     if (F.ui) F.ui.refresh();
     var back = function () {
-      var left = L.addItem(s, id, took);
+      var left = q && L.addItemQ ? L.addItemQ(s, id, took, q) : L.addItem(s, id, took); // (a Silver or Gold crop comes back as it was)
       if (left) s.basket[id] = Math.min(999, (s.basket[id] || 0) + left);
       if (F.ui) F.ui.refresh();
     };

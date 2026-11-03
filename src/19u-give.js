@@ -39,14 +39,14 @@
   P.give = function (p, slot, n) {
     var s = F.session.state, it = s.inv[slot];
     if (this.giving || !it || C.ITEMS[it.id].kind === 'tool') return;
-    var id = it.id, name = L.itemName(s, id), took = L.removeAt(s, slot, n), self = this;
+    var id = it.id, q = it.q || 0, name = L.itemName(s, id), took = L.removeAt(s, slot, n), self = this;
     if (!took) return;
     this.giving = true;
     sfx('pick');
     F.bus.emit('hud');
     if (F.ui) F.ui.refresh();
     var back = function () {
-      var left = L.addItem(s, id, took);
+      var left = q && L.addItemQ ? L.addItemQ(s, id, took, q) : L.addItem(s, id, took); // (a Silver or Gold crop comes back as it was)
       if (left) s.basket[id] = Math.min(999, (s.basket[id] || 0) + left);
       if (F.ui) F.ui.refresh();
     };

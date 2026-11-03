@@ -102,7 +102,7 @@
     var out = [], by = (s.wild && s.wild.by) || {};
     C.WILD.order.forEach(function (k) {
       var a = C.WILD.animals[k];
-      if (!a || a.rare || !(by[k] > 0)) return;
+      if (!a || a.rare || a.lair || !(by[k] > 0)) return; // (not the Lair's: a Bakunawa Scale is once a day, for the Magma Bow)
       a.drops.forEach(function (d) { if (d[2] >= 0.5 && out.indexOf(d[0]) < 0) out.push(d[0]); });
     });
     return out;

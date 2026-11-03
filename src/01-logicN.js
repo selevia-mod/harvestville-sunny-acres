@@ -1,6 +1,6 @@
 // Bakunawa's Lair, the rules (content 00-zzzzzzlair.js; the cave 19zt-lair.js). What each floor holds, the deepest floor
 // you reached and the lift's stops, the Bakunawa once a day, the Magma Bow and the Fire Charm. Saved: s.lair = { deep,
-// bk (the day the Bakunawa was last hunted) } as 'lr', the Magma Bow as 'mb' (the bow's level past Gold).
+// bk (the day the Bakunawa was last hunted) } as 'lr', the Magma Bow as 'mgb' (the bow's level past Gold; not 'mb', the music box's).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -102,7 +102,7 @@
   L.serialize = function (s) {
     var o = serialize(s);
     if (s.lair && (s.lair.deep || s.lair.bk >= 0)) o.lr = [s.lair.deep, s.lair.bk];
-    if (L.hasMagmaBow(s)) o.mb = 1;
+    if (L.hasMagmaBow(s)) o.mgb = 1; // ('mb' is the music box's day: 01-logic2.js)
     return o;
   };
   var deserialize = L.deserialize;
@@ -111,7 +111,7 @@
     if (!s) return s;
     var lr = Array.isArray(o.lr) ? o.lr : [];
     s.lair = { deep: int(lr[0], 0, LA.floors, 0), bk: int(lr[1], -1, 1e7, -1) };
-    if (o.mb && L.hasBow(s) && L.bowLevel(s) === C.MAGMA_BOW.level - 1) s.tools.bow = C.MAGMA_BOW.level; // (saved as Gold by 'wl')
+    if (o.mgb === 1 && L.hasBow(s) && L.bowLevel(s) === C.MAGMA_BOW.level - 1) s.tools.bow = C.MAGMA_BOW.level; // (saved as Gold by 'wl')
     return s;
   };
 })(window.Farm = window.Farm || {});
