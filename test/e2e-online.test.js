@@ -21,6 +21,15 @@ const tapVisit = async (page, name) => {
   await page.touchscreen.tap(VISIT_FAN[name][0], VISIT_FAN[name][1]);
 };
 
+// The app's side of the packs (lib/sunny-acres/assets.js): files from dist/packs and assets/looks, as the CDN would serve them.
+const assetFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file) || null, l = /^looks\/v1\/([a-z]+-(?:boy|girl)(?:-archer)?)$/.exec(file);
+  const p = m ? path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp') : l ? path.join(__dirname, '..', 'assets', 'looks', l[1] + '.webp') : null;
+  return p && require('fs').existsSync(p) ? 'data:image/webp;base64,' + require('fs').readFileSync(p).toString('base64') : null;
+};
+const allPackFiles = () => require('fs').readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
@@ -42,10 +51,13 @@ async function open(server) {
   const webViewRef = { current: { injectJavaScript: (code) => { page.evaluate(code).catch(() => {}); } } };
   const bridge = createSunnyAcresBridge({ supabase: server.supabaseFor(uid), webViewRef });
   await context.exposeBinding('__rnPost', (source, data) => { bridge.onMessage({ nativeEvent: { data } }); });
-  await page.addInitScript(() => {
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript((here) => {
     window.ReactNativeWebView = { postMessage: (data) => window.__rnPost(data) };
+    window.__here = here;
     window.gameHost = { state: null, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; } };
-  });
+  }, allPackFiles());
+  await page.addInitScript(HOST_ASSETS);
   await page.addInitScript(bridge.injectedJavaScriptBeforeContentLoaded);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
@@ -699,6 +711,7 @@ test('online: Invite Friends rewards arrive once when the game connects: gold, a
   const server = createServer();
   const me = await open(server);
   await nameFarm(me.page, 'Moon Meadow');
+  await me.page.evaluate(() => Farm.Online.inviteCollect()); // (the game's own collection, when it connected, is over first)
   server.db.invites = { [me.uid]: { harvest_gold: 10000, harvest_energy: 10 } };
   const gold = await me.page.evaluate(() => Farm.session.state.gold);
   await me.page.evaluate(async () => { await Farm.Online.inviteCollect(); });
@@ -1739,4 +1752,49 @@ test('online: the owner\'s farm changes live for a visitor: a weed cut, soil til
   assert.strictEqual(await guest.page.evaluate(() => Farm.world.state !== Farm.session.state), true, 'the visit is its own copy');
   for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, guest]) await p.context.close();
+});
+
+test('online: a Coins look from the Tailor Shop: paid once on the server, yours on every phone, and a friend sees you in it (owner, 3 Nov)', async () => {
+  const fs = require('fs');
+  const server = createServer();
+  const me = await open(server), friend = await open(server);
+  await nameFarm(me.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  server.db.wallets.set(me.uid, { coins: 200, stars: 0 });
+  void fs;
+  for (const p of [me, friend]) {
+    await p.page.evaluate(() => { window.gameHost.shop = true; window.gameHost.spent = () => { window.__spent = (window.__spent || 0) + 1; }; });
+  }
+  await me.page.evaluate(() => Farm.ui.openTailor('shop', 1));
+  await waitModal(me.page, /Santa Claus[\s\S]*150 Coins/);
+  await shot(me.page, 'tailor-online-1');
+  await tapButton(me.page, '150 Coins');
+  await waitModal(me.page, /BUY THIS LOOK\?[\s\S]*Santa Claus for 150 Coins/);
+  await tapButton(me.page, 'Yes');
+  await waitModal(me.page, /IT IS YOURS!/);
+  assert.strictEqual(server.db.wallets.get(me.uid).coins, 50, 'paid once, on the server');
+  assert.deepStrictEqual(server.db.looksOwned.get(me.uid), ['santa']);
+  assert.strictEqual(await me.page.evaluate(() => window.__spent), 1, 'the app refreshes the wallet');
+  await tapButton(me.page, 'Wear it');
+  await me.page.waitForFunction(() => Farm.world.player.texture.key.indexOf('look_santa_') === 0, null, SLOW);
+  // on another phone (a fresh save that never heard of it), the server says it is yours
+  await me.page.evaluate(() => { Farm.session.state.lk = 0; Farm.session.state.cw = ''; Farm.Online.looks = null; });
+  await me.page.evaluate(() => Farm.Online.loadLooks());
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.ownsLook(Farm.session.state, 'santa')), true);
+  // the friend visits: they see the owner in Santa's suit
+  await me.page.evaluate(() => Farm.ui.wearLook('santa'));
+  await friend.page.evaluate((id) => Farm.Online.visit(id), me.uid);
+  await waitWorld(friend.page, true);
+  await waitRemotes(friend.page, ['Moon Meadow (owner)']);
+  await friend.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.spr.texture.key.indexOf('look_santa_') === 0; }, me.uid, SLOW);
+  await shot(friend.page, 'tailor-online-2-friend-sees');
+  // taking it off: they see the farmer's own clothes again
+  await me.page.evaluate(() => Farm.ui.wearLook(''));
+  await friend.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.spr.texture.key.indexOf('look_') !== 0; }, me.uid, SLOW);
+  // buying again is refused by the server, and nothing is taken
+  const again = await me.page.evaluate(() => Farm.Net.rpc('farm_look_buy_v1', { p_look: 'santa', p_currency: 'coins', p_price: 150, p_version: 1, p_request_id: '11111111-1111-4111-8111-111111111111' }));
+  assert.strictEqual(again.code, 'owned');
+  assert.strictEqual(server.db.wallets.get(me.uid).coins, 50);
+  for (const p of [me, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [me, friend]) await p.context.close();
 });

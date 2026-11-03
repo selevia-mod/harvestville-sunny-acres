@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
+fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const list = (dir, ext) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(ext)).sort();
 
@@ -28,13 +29,35 @@ list('assets/props', '.png').forEach((f) => {
     : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', 'props', f)).toString('base64');
 });
 
+// Packs (tools/packs.js): out of the page, each its own file named by what is in it, so a phone never keeps old art.
+const PACKS = require('./tools/packs');
+const crypto = require('crypto');
+const packs = {};
+fs.rmSync(path.join(ROOT, 'dist', 'packs'), { recursive: true, force: true });
+fs.mkdirSync(path.join(ROOT, 'dist', 'packs'), { recursive: true });
+Object.keys(PACKS).forEach((pack) => {
+  packs[pack] = {};
+  PACKS[pack].forEach((key) => {
+    if (!images[key]) throw new Error(`pack ${pack}: no image "${key}"`);
+    if (!images[key].startsWith('data:image/webp')) throw new Error(`pack ${pack}: "${key}" needs a .webp copy`);
+    const data = Buffer.from(images[key].split(',')[1], 'base64'), hash = crypto.createHash('sha256').update(data).digest('hex').slice(0, 8);
+    const file = key.replace('/', '-') + '.' + hash;
+    fs.writeFileSync(path.join(ROOT, 'dist', 'packs', file + '.webp'), data);
+    packs[pack][key] = { file: 'packs/' + file, bytes: data.length };
+    delete images[key];
+  });
+});
+// the Tailor Shop's looks (assets/looks, already on the CDN as looks/v1/<name>.webp): only their sizes, for the Downloads page
+const lookBytes = {};
+if (fs.existsSync(path.join(ROOT, 'assets', 'looks'))) list('assets/looks', '.webp').forEach((f) => { lookBytes[path.basename(f, '.webp')] = fs.statSync(path.join(ROOT, 'assets', 'looks', f)).size; });
+
 const maps = {};
 list('maps', '.json').forEach((f) => {
   const map = JSON.parse(read(path.join('maps', f)));
   map.tilesets.forEach((ts) => {
     if (ts.source) throw new Error(`${f}: tileset "${ts.source}" is external. In Tiled, use "Embed Tileset" so it can be inlined.`);
     if (ts.name === 'props') return;
-    if (!images[ts.name]) throw new Error(`${f}: tileset "${ts.name}" needs a matching assets/${ts.name}.png`);
+    if (!images[ts.name]) throw new Error(`${f}: tileset "${ts.name}" needs a matching assets/${ts.name}.png (and it cannot be in a pack)`);
   });
   maps[path.basename(f, '.json')] = map;
 });
@@ -46,8 +69,9 @@ const phaser = fs.readFileSync(require.resolve('phaser/dist/phaser-arcade-physic
 // WebP copies stored below full size (world art), with the size the game scales each back up to
 const sizesFile = path.join(ROOT, 'assets', 'sizes.json');
 const sizes = fs.existsSync(sizesFile) ? JSON.parse(read('assets/sizes.json')) : {};
-Object.keys(sizes).forEach((k) => { if (!images[k] || !images[k].startsWith('data:image/webp')) delete sizes[k]; });
-const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes }) + ';';
+const packed = (k) => Object.keys(packs).some((p) => packs[p][k]);
+Object.keys(sizes).forEach((k) => { if ((!images[k] || !images[k].startsWith('data:image/webp')) && !packed(k)) delete sizes[k]; });
+const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes, packs, lookBytes }) + ';';
 const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
 
 // Characters outside ASCII in scripts become \uXXXX escapes (the same string at run time).
@@ -82,7 +106,6 @@ const html = `<!DOCTYPE html>
 const odd = html.search(/[^\x00-\x7f]/);
 if (odd >= 0) throw new Error('dist/index.html has a non-ASCII character at ' + odd + ': ' + JSON.stringify(html.slice(odd - 30, odd + 10)));
 
-fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 // Many cheaper phones cannot load a sheet over 4096 px on a side: they draw it black, with no error.
 const webpSize = (f) => {
   const d = fs.readFileSync(f), k = d.toString('latin1', 12, 16);
@@ -101,3 +124,4 @@ const PAGE_LIMIT = 19.5 * 1024 * 1024;
 if (Buffer.byteLength(html) > PAGE_LIMIT) throw new Error(`dist/index.html is ${(Buffer.byteLength(html) / 1048576).toFixed(1)} MiB: Android cannot open that. Keep it under ${PAGE_LIMIT / 1048576} MiB.`);
 fs.writeFileSync(path.join(ROOT, 'dist', 'index.html'), html);
 console.log(`dist/index.html written (${(html.length / 1024).toFixed(0)} KB)`);
+Object.keys(packs).forEach((p) => console.log(`dist/packs: ${p}, ${Object.keys(packs[p]).length} files, ${(Object.values(packs[p]).reduce((a, x) => a + x.bytes, 0) / 1024).toFixed(0)} KB`));

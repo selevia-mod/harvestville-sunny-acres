@@ -15,7 +15,15 @@
     }, function () { return 0; });
   };
 
+  // One collection at a time: two at once (the game connecting, and a second call) would split the rewards over two cards.
+  var collecting = null;
   O.inviteCollect = function () {
+    if (collecting) return collecting;
+    var done = function (v) { collecting = null; return v; };
+    collecting = collect().then(done, function (e) { collecting = null; throw e; });
+    return collecting;
+  };
+  var collect = function () {
     return take('harvest_gold').then(function (gold) {
       return take('harvest_energy').then(function (refills) {
         if (!gold && !refills) return;

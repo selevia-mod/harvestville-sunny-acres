@@ -386,6 +386,7 @@ function town() {
   // the park
   m.prop('gazebo', 31, 22);
   m.prop('playground', 45, 22);
+  m.prop('tailor_shop', 16, 23); // Tita Luz's Tailor Shop (owner, 3 Nov 2026): south of the plaza, its door onto the clinic street
   m.prop('easel', 36, 24);
   m.prop('flowerbed', 38, 21);
   m.prop('flowerbed', 41, 21);
@@ -417,6 +418,7 @@ function town() {
   m.point('from_farm', 'spawn', 15, 1.6, [prop('dir', 'string', 'down')]);
   m.point('from_mine', 'spawn', 28, 11.6, [prop('dir', 'string', 'down')]);
   m.point('from_east', 'place', 53.5, 11.6); // visitors from out of town come along the valley road
+  m.point('tita_luz', 'place', 19.6, 27.3); // beside her door
   m.obj('road_north', 'warp', 14, 0, 2, 1, [prop('to', 'string', 'farm'), prop('spawn', 'string', 'from_town'), prop('walk', 'bool', true)]);
   m.obj('mine_door', 'warp', 27, 10, 2, 1, [prop('to', 'string', 'mine'), prop('spawn', 'string', 'entrance'), prop('label', 'string', 'Enter')]);
   wildRoad(m);

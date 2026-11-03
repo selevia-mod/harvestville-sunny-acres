@@ -484,6 +484,9 @@
     if (row.people) {
       F.ensureTexture(this, 'people');
       c.add(this.add.image(cx, cy + SLOT / 2 - 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
+    } else if (row.sheet) { // a picture from a sheet: { key, frame, scale } (the Tailor Shop's looks)
+      F.ensureTexture(this, row.sheet.key);
+      c.add(this.add.image(cx, cy + SLOT / 2 + 2, row.sheet.key, row.sheet.frame || 0).setOrigin(0.5, 1).setScale(row.sheet.scale || 0.3));
     } else if (row.icon != null) {
       c.add(this.add.image(cx, cy, 'items', row.icon).setScale(ICON));
     }

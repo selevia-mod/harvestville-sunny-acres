@@ -112,6 +112,8 @@ const PROPS = {
   // Magayon Peaks (tools/art/magayon-import.js)
   lava_boulder: { w: 2, h: 2, foot: 1 }, hot_spring: { w: 2, h: 3, foot: 1 }, sulfur_vent: { w: 2, h: 3, foot: 1 },
   ash_fern: { w: 2, h: 2, foot: 1 }, abaca: { w: 2, h: 3, foot: 1 }, charred_log: { w: 3, h: 2, foot: 1 }, pili_tree: { w: 3, h: 5, foot: 1 },
+  // the Tailor Shop in the park (tools/art/tailor-import.js; 160 px a tile). Appended: a prop's place is its tile id.
+  tailor_shop: { w: 5, h: 4, foot: 2, door: [2, 1] },
 };
 
 function blockId(set, name, dx, dy) {

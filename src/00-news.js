@@ -8,10 +8,19 @@
 
   C.NEWS = [
     {
+      v: '2.2', date: 'November 4, 2026', lines: [
+        ['ribbon', 'The Tailor Shop', "Tita Luz's shop is just south of the plaza. Eight looks for your farmer, and the Christmas Elf is free.", 'tailor'],
+        ['heart', 'Play together', "See friends swing, fish and shoot as they do it, hear them nearby, and watch the owner's farm change while you visit."],
+        ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],
+        ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
+        ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
+      ],
+    },
+    {
       v: '2.1', date: 'November 1, 2026', lines: [
         ['tomato', 'Rare goods at Saffron', 'Out of season? Saffron sells tomato, onion and ginger, and their seeds, at a higher price. Her seeds still wait for their season.'],
         ['bow', 'A real shot', 'Tap Shoot and your farmer lifts the bow, draws the string and lets the arrow fly.'],
-        ['gem', 'Deeper in the Mine', 'Past floor 200 the caves change and new ores and gems wait. Each new cave adds 10 to your energy bar, and a lift takes you back there.'],
+        ['gem', 'Deeper in the Mine', 'Past floor 200 the caves change and new ores and gems wait. Each new cave adds 10 to your energy bar, and a lift takes you back there.', 'mine'],
         ['lumber', 'More wood', 'Branches and a stump fall in your meadow each day, and big trees in Makiling Forest can be cut with the Axe.'],
         ['rod', 'Better rods', 'Bram can upgrade your Fishing Rod: a bigger green bar and slower fish.'],
         ['chest', 'A better Storage', 'Tap an item to read about it, choose how many to move, and arrange your storage with Move.'],
@@ -19,8 +28,8 @@
         ['bubble', 'Better chat', 'Smaller bubbles, a small box that shows every line, and the Chat panel keeps what was said.'],
         ['hoe', 'The Back Fields', 'Six new blocks of land past the trees, east along the road. Find the For Sale signs.', 'land'],
         ['chest', 'No more lost chests', 'Past floor 150 each chest now counts on its own. Skip floors by lift and the ones above stay shut until you open them.'],
-        ['calendar', "Today's Event", 'A small bonus for each day of the week. Tap the chip on the left to see today\'s.'],
-        ['sparkle', 'Rare surprises', 'A sparkling rock in the Mine or a golden crop on the farm pays extra. Keep your eyes open!'],
+        ['calendar', "Today's Event", 'A small bonus for each day of the week. Tap the badge on the left to see today\'s.', 'event'],
+        ['sparkle', 'Rare surprises', 'A sparkling rock in the Mine or a golden crop on the farm pays extra. Keep your eyes open!', 'rare'],
         ['turnip', 'Town Goal', 'One target a week for all farms. Give crops or ore in the Town tab of Online, and all who gave share the prize.', 'town'],
         ['star', 'Best Farm of the Week', 'The most liked farm each week wins a prize and a crown in the Online lists.'],
       ],

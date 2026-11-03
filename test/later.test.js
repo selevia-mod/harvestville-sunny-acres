@@ -422,9 +422,20 @@ test('nothing about the town is written to the save', () => {
 });
 
 test('v2.1 names what is live, the two server features included now the script is applied', () => {
-  const news = C.NEWS[0];
-  assert.strictEqual(news.v, '2.1');
+  const news = C.NEWS.filter((n) => n.v === '2.1')[0];
+  assert.ok(news, 'v2.1 is still listed');
   const titles = news.lines.map((l) => l[1]);
   ['No more lost chests', "Today's Event", 'Rare surprises', 'Town Goal', 'Best Farm of the Week'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
+});
+
+test('v2.2 is the newest: the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
+  const news = C.NEWS[0];
+  assert.strictEqual(news.v, '2.2');
+  assert.strictEqual(C.NEWS_LATEST, '2.2');
+  const titles = news.lines.map((l) => l[1]);
+  ['The Tailor Shop', 'Play together', 'Reactions', 'Big moments'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
+  C.NEWS.forEach((n) => n.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2]), l[1]); }));
+  const tours = [].concat(...C.NEWS.map((n) => n.lines.filter((l) => l[3]).map((l) => l[3])));
+  assert.deepStrictEqual(tours.sort(), ['event', 'land', 'mine', 'rare', 'tailor', 'town']);
 });

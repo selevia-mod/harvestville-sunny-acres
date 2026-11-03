@@ -32,7 +32,10 @@
   };
   var FIST = 30; // half the square around the fist that goes over the bow
   var RECOIL = 8; // world units you rock back when you let go
-  var archerKey = function () { return F.session.state.look === 'girl' ? 'archer_girl' : 'archer'; };
+  var archerKey = function () { // (in your look, when you wear one: 19zj-looks.js)
+    var s = F.session.state;
+    return F.archerKeyFor ? F.archerKeyFor(s.look, L.wornLook(s)) : s.look === 'girl' ? 'archer_girl' : 'archer';
+  };
 
   // In the 128x128 bow icons (all four levels line up): where the string ties on at each end, the grip, and the way the
   // bow faces. The icons have a string drawn on, pulled back a little: it is taken off so ours can move.
@@ -182,7 +185,7 @@
     var self = this, p = r.spr;
     if (!p || !p.active || r.horse || r.shot) return false;
     var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
-    var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, r.look === 'girl' ? 'archer_girl' : 'archer');
+    var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, F.archerKeyFor ? F.archerKeyFor(r.look, r.cs) : r.look === 'girl' ? 'archer_girl' : 'archer');
     var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
     var shot = r.shot = {
       remote: true, r: r, who: p, dir: dir, target: null, ang: ang, range: l, pull: 0.1, recoil: 0, nock: null, stage: READY,

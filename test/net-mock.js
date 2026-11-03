@@ -2,9 +2,11 @@
 // supabase/farm_online.sql (kept in memory), and realtime channels with presence and broadcasts, behind a fake
 // of the app's supabase-js client, so the tests run the real app bridge (bridge/sunnyAcresBridge.js).
 const crypto = require('crypto');
+const LOOK_OFFERS = [{ look: 'flower', currency: 'coins', price: 100 }, { look: 'flower', currency: 'stars', price: 150 }, { look: 'santa', currency: 'coins', price: 150 },
+  { look: 'fiesta', currency: 'coins', price: 150 }, { look: 'fiesta', currency: 'stars', price: 200 }, { look: 'bunny', currency: 'coins', price: 150 }, { look: 'bunny', currency: 'stars', price: 200 }];
 
 function createServer() {
-  const db = { players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0 };
+  const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0 };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   db.tracks = []; // every presence update, as the server counts them
   const today = () => new Date().toISOString().slice(0, 10);
@@ -310,6 +312,29 @@ function createServer() {
       if (!uid) throw new Error('not signed in');
       const w = db.wallets.get(uid);
       return { wallet: w ? { coins: w.coins, stars: w.stars } : null, offers: [{ item: 'energy', currency: 'coins', price: 5, amount: 100, version: 1 }, { item: 'energy', currency: 'stars', price: 10, amount: 100, version: 1 }], left: 20 };
+    },
+    // the Tailor Shop's Coins and Stars looks, like supabase/farm_online_13.sql
+    farm_looks_v1(uid) {
+      if (!uid) throw new Error('not signed in');
+      if (db.noLooks) throw new Error('function public.farm_looks_v1() does not exist');
+      const w = db.wallets.get(uid), owned = db.looksOwned.get(uid) || [];
+      return { wallet: w ? { coins: w.coins, stars: w.stars } : null, offers: LOOK_OFFERS.map((o) => Object.assign({ version: 1 }, o)), owned: owned.slice() };
+    },
+    farm_look_buy_v1(uid, a) {
+      if (!uid) throw new Error('not signed in');
+      const key = uid + ':look:' + a.p_request_id, done = db.purchases.get(key), owned = db.looksOwned.get(uid) || [];
+      if (done) return Object.assign({ ok: true, duplicate: true }, done);
+      if (owned.indexOf(a.p_look) >= 0) return { ok: false, code: 'owned', look: a.p_look };
+      const o = LOOK_OFFERS.filter((x) => x.look === a.p_look && x.currency === a.p_currency)[0];
+      if (!o) return { ok: false, code: 'offer-unavailable' };
+      if (a.p_price !== o.price || a.p_version !== 1) return { ok: false, code: 'offer-changed' };
+      const w = db.wallets.get(uid);
+      if (!w) return { ok: false, code: 'wallet-unavailable' };
+      if (w[a.p_currency] < o.price) return { ok: false, code: 'insufficient-' + a.p_currency };
+      w[a.p_currency] -= o.price;
+      db.looksOwned.set(uid, owned.concat([a.p_look]));
+      db.purchases.set(key, { look: a.p_look, currency: a.p_currency, price: o.price });
+      return { ok: true, look: a.p_look, currency: a.p_currency, price: o.price, balance: w[a.p_currency] };
     },
     farm_buy_v1(uid, a) {
       if (!uid) throw new Error('not signed in');

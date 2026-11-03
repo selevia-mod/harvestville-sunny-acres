@@ -19,6 +19,8 @@
     wildshade: { frameWidth: 224, frameHeight: 252, margin: 8, spacing: 16 }, // the shadow under each of those frames
     wildgrass: { frameWidth: 320, frameHeight: 120 }, // grass before their feet: Pulag, Makiling, Magayon, 2 rows (tools/art/grass-import.js)
     kanor: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 }, // Kanor the hunter, like the farmer
+    tita_luz: { frameWidth: 256, frameHeight: 384, margin: 8, spacing: 16 }, // the tailor, like Kanor (tools/art/tailor-import.js)
+    looks_thumbs: { frameWidth: 128, frameHeight: 192, margin: 0, spacing: 0 }, // each look's front pose, boy then girl
     sidebtn: { frameWidth: 144, frameHeight: 144, margin: 8, spacing: 16 }, // the painted Quests, Online, Decorate and Chat buttons
     visitbtn: { frameWidth: 144, frameHeight: 144, margin: 8, spacing: 16 }, // the painted buttons of a visit's fan (19h-online.js)
     archer: { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 }, // the farmer drawing a bow, 3 poses a way (tools/art/archer-import.js)
@@ -75,7 +77,7 @@
 
   // Decodes the big sheets the next map needs off the main thread while the screen fades out (travel), so their first
   // upload is fast; ensureTexture uses the bitmap and closes it.
-  var NEXT_MAP = { town: ['people'], house: ['people', 'indoor'], mine: ['indoor'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'] };
+  var NEXT_MAP = { town: ['people', 'tita_luz'], house: ['people', 'indoor'], mine: ['indoor'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'] };
   F.prewarm = function (map, scene) {
     if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function' || !F.bitmaps) return;
     (NEXT_MAP[map] || []).forEach(function (k) {

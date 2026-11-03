@@ -13,6 +13,15 @@ const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
 const SLOW = { timeout: 90000 }; // headless frames can be slow
 
+// The app's side of the packs (lib/sunny-acres/assets.js): files from dist/packs and assets/looks, as the CDN would serve them.
+const assetFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file) || null, l = /^looks\/v1\/([a-z]+-(?:boy|girl)(?:-archer)?)$/.exec(file);
+  const p = m ? path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp') : l ? path.join(__dirname, '..', 'assets', 'looks', l[1] + '.webp') : null;
+  return p && require('fs').existsSync(p) ? 'data:image/webp;base64,' + require('fs').readFileSync(p).toString('base64') : null;
+};
+const allPackFiles = () => require('fs').readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
@@ -33,8 +42,10 @@ async function open(savedState, when = START, viewport = { width: 360, height: 6
     problems.push('network: ' + url);
     return route.abort();
   });
-  await page.addInitScript(([state, now]) => {
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript(([state, now, here]) => {
     window.__now = now;
+    window.__here = here;
     window.gameHost = {
       state: state,
       quiet: !window.__loud, // no daily-gift popup or quest toasts in the way of the other tests
@@ -42,7 +53,8 @@ async function open(savedState, when = START, viewport = { width: 360, height: 6
       save(s) { this.saves.push(JSON.stringify(s)); this.state = s; },
       now: () => window.__now,
     };
-  }, [savedState || null, at(when)]);
+  }, [savedState || null, at(when), allPackFiles()]);
+  await page.addInitScript(HOST_ASSETS);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; }); // no surprise rain
@@ -2509,6 +2521,7 @@ test('Today\'s Event: one pop-up on the first open of the day, never in quiet mo
   let seen = '';
   for (let i = 0; i < 40 && !/FISH MONDAY/.test(seen); i++) {
     seen = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; if (!m) return ''; const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return out.join(' | '); });
+    if (/Every day of the week has a small bonus/.test(seen)) { await tapButton(page, 'Skip'); seen = ''; continue; } // (its first-time tour, then the card)
     if (seen && !/FISH MONDAY/.test(seen)) { await closeAll(page); seen = ''; }
     await page.waitForTimeout(500);
   }
@@ -2656,17 +2669,17 @@ test('tours: the Back Fields tour opens once when you walk up to the land, Skip 
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'once');
   // What's new: Show me plays it again, then the list comes back
   let p = 0;
-  for (; p < 5; p++) {
-    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openLatestNews(p); }, p);
+  for (; p < 9; p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/The Back Fields/.test(await modalText(page))) break;
   }
-  assert.ok(p < 5, 'the Back Fields line is in the list');
+  assert.ok(p < 9, 'the Back Fields line is in the list');
   await shot(page, 'tour-land-news');
   await tapButton(page, 'Show me');
   await waitText(/THE BACK FIELDS.*Six new blocks/);
   await tapButton(page, 'Skip');
-  await waitText(/What's new in v.*The Back Fields/);
+  await waitText(/What's new[\s\S]*The Back Fields/);
   // Back skips too
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.tour('town'); });
   await waitText(/TOWN GOAL.*one Town Goal/);
@@ -2678,4 +2691,181 @@ test('tours: the Back Fields tour opens once when you walk up to the land, Skip 
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'Back closes it');
   assert.deepStrictEqual(problems, []);
   await context.close();
+});
+
+test('the Tailor Shop: Tita Luz in the park, the Elf for free, a Gold look bought once, worn anywhere, changed from the pause menu (owner, 3 Nov)', async () => {
+  const fs = require('fs');
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.gold = 60000;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  // the app brings a look's pictures when asked (the Costumes pack); ranch is missing on this "CDN"
+  void fs;
+  await page.evaluate(() => { window.__asked = []; const ask = window.gameHost.asset; window.gameHost.asset = function (f, save) { window.__asked.push(f); if (/ranch/.test(f)) return window.__gameAsset(f, null); return ask(f, save); }; });
+  await page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await waitMap(page, 'town');
+  const at = await page.evaluate(() => { const k = Farm.world.tailor; return k && { x: k.x, y: k.y, shown: k.img.visible }; });
+  assert.ok(at && at.shown, 'Tita Luz is at her door in the day');
+  const T = await page.evaluate(() => Farm.Config.TILE);
+  await teleport(page, Math.floor(at.x / T), Math.floor(at.y / T) + 1, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await shot(page, 'tailor-1-door');
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.modals.length, null, SLOW);
+  assert.match(await modalText(page), /Tailor Shop[\s\S]*Christmas Elf[\s\S]*Wear[\s\S]*Straw Farmer[\s\S]*50,000G/);
+  await shot(page, 'tailor-2-shop');
+  // the Elf is everyone's
+  await tapButton(page, 'Wear');
+  await page.waitForFunction(() => Farm.world.player.texture.key === 'look_elf_boy', null, SLOW);
+  assert.deepStrictEqual(await page.evaluate(() => window.__asked), ['looks/v1/elf-boy']);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.wornLook(Farm.session.state)), 'elf');
+  await shot(page, 'tailor-3-elf');
+  // a Gold look: bought once, for its price
+  await page.evaluate(() => Farm.ui.openTailor('shop', 0));
+  await frames(page, 3);
+  await tapButton(page, '50,000G');
+  await frames(page, 3);
+  assert.match(await modalText(page), /BUY THIS LOOK\?[\s\S]*Straw Farmer for 50,000G/);
+  await tapButton(page, 'Yes');
+  await frames(page, 3);
+  assert.match(await modalText(page), /IT IS YOURS!/);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 10000);
+  await tapButton(page, 'Wear it');
+  await page.waitForFunction(() => Farm.world.player.texture.key === 'look_straw_boy', null, SLOW);
+  // the walk works in it
+  await page.evaluate(() => { Farm.input.jx = 1; });
+  await page.waitForTimeout(400);
+  assert.match(await page.evaluate(() => Farm.world.player.anims.currentAnim && Farm.world.player.anims.currentAnim.key), /look_straw_boy/);
+  await page.evaluate(() => { Farm.input.jx = 0; });
+  // the pause menu: Looks shows what you own, and takes it off
+  await page.evaluate(() => Farm.ui.openPause());
+  await frames(page, 3);
+  assert.match(await modalText(page), /Looks/, 'a Looks tile in the pause menu');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.drawTailor('mine', 0); }); // (what the tile opens)
+  await frames(page, 3);
+  const mine = await modalText(page);
+  assert.match(mine, /Christmas Elf[\s\S]*Straw Farmer/);
+  assert.ok(!/Ranch Hand/.test(mine), 'only what you own');
+  await tapButton(page, 'Take off');
+  await page.waitForFunction(() => Farm.world.player.texture.key === 'player', null, SLOW);
+  // it is saved, and a look's picture that never comes leaves your own clothes on
+  await page.evaluate(() => { Farm.Logic.wearLook(Farm.session.state, 'straw'); Farm.world.save(); });
+  const saved = JSON.parse(await page.evaluate(() => window.gameHost.saves.slice(-1)[0]));
+  assert.strictEqual(saved.cw, 1);
+  assert.strictEqual(saved.co & 2, 2);
+  await page.evaluate(() => { Farm.session.state.gold = 1e6; Farm.Logic.buyLookGold(Farm.session.state, 'ranch'); Farm.ui.wearLook('ranch'); });
+  await page.waitForTimeout(500);
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player', 'ranch never came: own clothes');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('four more tours: the Tailor Shop on first meeting Tita Luz, Today\'s Event before its card, and each step of Rare surprises and the deep Mine draws', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const waitText = (re) => page.waitForFunction((src) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    if (!m) return false;
+    const out = [];
+    const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    return new RegExp(src).test(out.join(' | '));
+  }, re.source, SLOW);
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.Logic.eventShown(Farm.session.state); });
+  await page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await waitMap(page, 'town');
+  for (let i = 0; i < 6 && await page.evaluate(() => Farm.ui.modals.length); i++) { await closeAll(page); await page.waitForTimeout(600); } // (the day's gift)
+  await page.evaluate(() => Farm.world.talkTailor());
+  await waitText(/THE TAILOR SHOP[\s\S]*Tita Luz sews a look/);
+  await shot(page, 'tour-tailor-1');
+  for (let k = 0; k < 3; k++) await tapButton(page, 'Next');
+  await waitText(/Friends see your look[\s\S]*Got it/);
+  await tapButton(page, 'Got it');
+  await waitText(/Tailor Shop[\s\S]*Christmas Elf/); // then the shop itself
+  await closeAll(page);
+  await page.evaluate(() => Farm.world.talkTailor());
+  await waitText(/Tailor Shop[\s\S]*Christmas Elf/); // once
+  assert.ok(!/Tita Luz sews/.test(await modalText(page)));
+  await closeAll(page);
+  // Today's Event: the tour first, then its card
+  await page.evaluate(() => Farm.ui.openEvent());
+  await waitText(/TODAY'S EVENT[\s\S]*Every day of the week/);
+  await tapButton(page, 'Skip');
+  await waitText(/WEDNESDAY|MONDAY|TUESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY/);
+  await closeAll(page);
+  // Rare surprises and the deep Mine: every step draws
+  for (const name of ['rare', 'mine']) {
+    await page.evaluate((n) => Farm.ui.tour(n), name);
+    const steps = await page.evaluate((n) => Farm.TOURS[n].steps.length, name);
+    for (let k = 0; k < steps - 1; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
+    await frames(page, 4);
+    await shot(page, 'tour-' + name + '-last');
+    await tapButton(page, 'Got it');
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('downloads: without the Wild Lands you are asked first; a small badge while it comes; the Downloads page; then in you go; and the game opens in town if it is not on the phone (owner, 3 Nov)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; L.addItem(s, 'bow', 1);");
+  // a phone with nothing downloaded yet, on a slow "CDN"
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const page = await context.newPage(), problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript(([s, now]) => {
+    window.__now = now;
+    window.gameHost = { state: s, quiet: true, saves: [], save(x) { this.saves.push(JSON.stringify(x)); this.state = x; }, now: () => window.__now, here: [] };
+    window.gameHost.asset = function (f, save) { setTimeout(function () { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); }, 120); };
+  }, [save, at(START)]);
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
+  await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
+  await closeAll(page);
+  assert.strictEqual(await page.evaluate(() => Farm.packReady('wild') || Farm.packOnPhone('wild')), false);
+  await page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await waitMap(page, 'town');
+  await closeAll(page);
+  await page.evaluate(() => Farm.world.travel('pulag', 'from_town'));
+  await frames(page, 4);
+  const first = await modalText(page);
+  assert.match(first, /WILD LANDS[\s\S]*A one-time download of 1\.\d MB[\s\S]*Not now[\s\S]*Download/);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'town', 'not gone yet');
+  {
+    await shot(page, 'packs-1-ask');
+    await tapButton(page, 'Download');
+    await page.waitForFunction(() => Farm.ui.packBadge.visible, null, SLOW);
+    await shot(page, 'packs-2-badge');
+    await page.evaluate(() => Farm.ui.openDownloads());
+    await frames(page, 3);
+    assert.match(await modalText(page), /Downloads[\s\S]*Wild Lands[\s\S]*Downloading/);
+    await shot(page, 'packs-3-page');
+    await closeAll(page);
+    await page.waitForFunction(() => !Farm.anyDownloading() && Farm.packOnPhone('wild'), null, SLOW);
+    await page.waitForFunction(() => Farm.ui.toastText.visible && /The Wild Lands are ready/.test(Farm.ui.toastText.text), null, SLOW);
+    assert.strictEqual(await page.evaluate(() => Farm.ui.packBadge.visible), false, 'the badge goes when it is done');
+    await page.waitForFunction(() => Farm.packReady('wild'), null, SLOW);
+  }
+  await page.evaluate(() => Farm.world.travel('pulag', 'from_town'));
+  await waitMap(page, 'pulag');
+  await page.waitForFunction(() => Farm.world.kanor && Farm.world.wild && Farm.world.wild.animals.length > 0, null, SLOW);
+  await shot(page, 'packs-4-pulag');
+  // the Downloads page: the Wild Lands on the phone now
+  await page.evaluate(() => Farm.ui.openDownloads());
+  await frames(page, 3);
+  assert.match(await modalText(page), /Wild Lands[\s\S]*On your phone/);
+  await closeAll(page);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  // reopened in Pulag on a phone without the Wild Lands: in town by the west road
+  const wildSave = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag';");
+  const ctx2 = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const p2 = await ctx2.newPage();
+  await ctx2.exposeBinding('__testAsset', () => null);
+  await p2.addInitScript((s) => { window.gameHost = { state: s, quiet: true, saves: [], save(x) { this.state = x; }, here: [] }; window.gameHost.asset = function (f, save) { setTimeout(function () { if (save) window.__gameAssetSaved(f, false); else window.__gameAsset(f, null); }, 50); }; }, wildSave);
+  await p2.goto(PAGE, { timeout: 90000 });
+  await p2.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && !Farm.world.busy, null, { timeout: 90000 });
+  assert.strictEqual(await p2.evaluate(() => Farm.world.mapKey), 'town');
+  await ctx2.close();
 });

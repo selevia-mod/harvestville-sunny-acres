@@ -224,12 +224,14 @@
     tile(0, t2, 'hoe', 'How to play', function () { self.help(); });
     tile(1, t2, 'bag', 'Save now', function () { world().save(); self.toast('Game saved.'); });
     if (canShare) tile(2, t2, 'letter', 'Share farm', function () { self.shareFarm(); });
+    if (this.drawTailor) tile(3, t2, 'ribbon', 'Looks', function () { self.closeModal(); self.drawTailor('mine', 0); }); // what you wear (19zj-looks.js)
     // sounds: a switch each (green = on)
     tile(0, t3, 'note', 'Music: ' + (s.opts.music ? 'on' : 'off'), function () { s.opts.music = s.opts.music ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.music);
     tile(1, t3, 'bubble', 'Sounds: ' + (s.opts.sfx ? 'on' : 'off'), function () { s.opts.sfx = s.opts.sfx ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.sfx);
     // In the app: the phone reminds you when a crop is ripe (the FPS meter stays in the page on its own)
     if (inApp) tile(2, t3, 'exclaim', 'Alerts: ' + (s.opts.alerts !== 0 ? 'on' : 'off'), function () { s.opts.alerts = s.opts.alerts === 0 ? 1 : 0; F.session.dirty = true; world().save(); reopen(); }, s.opts.alerts !== 0);
     else tile(2, t3, 'bolt', 'FPS: ' + (self.fpsText.visible ? 'on' : 'off'), function () { F.showFps = !self.fpsText.visible; self.fpsText.setVisible(F.showFps); reopen(); }, self.fpsText.visible);
+    if (this.openDownloads) tile(3, t3, 'bag', 'Downloads', function () { self.closeModal(); self.openDownloads(); }); // (19zl-packs-ui.js)
     // New game: small, at the bottom, and it asks first
     var fy = t3 + th + 18, ng = this.add.container(0, 0);
     ng.add(this.txt(L0 + 4, fy, 'New game', 13, '#b8402a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
