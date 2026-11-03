@@ -20,7 +20,8 @@
   // The texture for a style's furniture, with a frame per kind of furniture (frame = its index in HOME.types).
   F.furnTexture = function (scene, v) {
     var key = 'furn_' + v;
-    if (scene.textures.exists(key)) return key;
+    // (made already with its frames; the sheet alone may have come up first, on the way into the house: F.prewarm)
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key;
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key);
     H.types.forEach(function (type, t) {
@@ -413,10 +414,16 @@
     this.button(c, 312, y2, 76, 38, 'Done', function () { w.endDecor(); sfx('pick'); }, GREEN);
   };
 
-  // pictures in list rows: a furniture piece, or a wallpaper or floor tile
+  // pictures in list rows: a furniture piece, or a wallpaper or floor tile. A piece's style sheet is only made when its
+  // row is drawn (a list of 10 styles used to upload all 10 sheets, ~80 MB, to show the 4 on its first page).
   U2.furnImg = function (t, v) {
     var type = H.types[t];
-    return { key: F.furnTexture(this, v), frame: t, w: type.w * U, h: type.h * U };
+    return { furn: v, frame: t, w: type.w * U, h: type.h * U };
+  };
+  // a style's armchair, from the small sheet of them (tools/art/cut-sheets.js): no style sheet at all
+  U2.furnThumb = function (v) {
+    if (!F.images.furn_thumbs) return this.furnImg(H.typeIndex.armchair, v);
+    return { key: F.ensureTexture(this, 'furn_thumbs'), frame: v, w: 64, h: 128 };
   };
 
   U2.openStorage = function (page) {
@@ -512,7 +519,7 @@
       rows = H.styles.map(function (st, k) { return k; }).filter(function (k) { return L.styleOnSale(s, k); }).map(function (k) {
         var st = H.styles[k];
         return {
-          img: self.furnImg(H.typeIndex.armchair, k), name: st.name + (st.festival ? ' (festival)' : ''),
+          img: self.furnThumb(k), name: st.name + (st.festival ? ' (festival)' : ''),
           desc: st.look.charAt(0).toUpperCase() + st.look.slice(1) + '.',
           buttons: [{ label: 'See all', color: BLUE, cb: function () { self.closeModal(); self.openCatalog(k, 0); } }],
         };
@@ -559,7 +566,7 @@
     if (img) row = Object.assign({}, row, { icon: null });
     listRow.call(this, c, y, row);
     if (!img) return;
-    var box = 38, scale = Math.min(box / img.w, box / img.h);
-    c.add(this.add.image(34 + 2 + K.SLOT / 2, y + 13 + 2 + K.SLOT / 2, img.key, img.frame).setScale(scale));
+    var box = 38, scale = Math.min(box / img.w, box / img.h), key = img.furn != null ? F.furnTexture(this, img.furn) : img.key;
+    c.add(this.add.image(34 + 2 + K.SLOT / 2, y + 13 + 2 + K.SLOT / 2, key, img.frame).setScale(scale));
   };
 })(window.Farm = window.Farm || {});

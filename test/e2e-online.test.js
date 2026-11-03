@@ -1998,7 +1998,10 @@ test('online: animal breeds: a visitor sees the owner\'s Golden Hen and Moonligh
   await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
   await waitWorld(guest.page, true);
   await guest.page.waitForFunction(() => Farm.world.herd && Farm.world.herd.members.length === 2, null, SLOW);
+  // (a colour is painted after the map's first frame, one a frame: 19zz-breeding.js)
+  await guest.page.waitForFunction(() => !Farm.world.breedQueue, null, SLOW);
   assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals_br_chicken_3', 'animals_br_pig_3']);
+  assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.alpha)), [1, 1], 'shown once painted');
   assert.deepStrictEqual(await guest.page.evaluate(() => [Farm.Logic.breedsFound(Farm.session.state, 'chicken'), Farm.Logic.breedsFound(Farm.session.state, 'pig')]), [1, 0], 'seeing is not finding');
   await shot(guest.page, 'breeds-visit');
   await guest.page.evaluate(() => Farm.Online.leaveVisit());

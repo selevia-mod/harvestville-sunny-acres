@@ -27,8 +27,17 @@
   F.fhTexture = function (scene) {
     var tex = scene.textures;
     if (tex.exists('farmhands')) return 'farmhands';
-    if (F.images.farmhands) {
-      tex.addSpriteSheet('farmhands', F.images.farmhands, { frameWidth: 128, frameHeight: 192 });
+    var cut = F.images.fh_standin; // (the stand-ins below, cut at build time: tools/art/cut-sheets.js)
+    if (F.images.farmhands || cut) {
+      var bmp = !F.images.farmhands && F.bitmaps && F.bitmaps.fh_standin; // decoded off the main thread at boot (20-main.js)
+      tex.addSpriteSheet('farmhands', bmp || F.images.farmhands || cut, { frameWidth: 128, frameHeight: 192 });
+      if (bmp) {
+        var one = tex.get('farmhands').source[0];
+        one.image = cut; // (kept for a GPU context restore)
+        if (one.glTexture) one.glTexture.pixels = cut;
+        bmp.close();
+        delete F.bitmaps.fh_standin;
+      }
     } else {
       // stand-ins: each one's 9 frames from a visitor in the people sheet (128 x 192, margin 8, spacing 16: 10-boot.js)
       var src = F.images.people, cols = Math.floor((src.width + 8) / 144), n = C.VILLAGER_ORDER.length;
@@ -189,38 +198,40 @@
 
   // Each frame: walk, work, wait.
   P.fhUpdate = function (dt) {
-    var self = this, now = Date.now();
-    Object.keys(this.fh.hold).forEach(function (idx) { if (self.fh.hold[idx] < now) { delete self.fh.hold[idx]; self.refreshTile(Number(idx)); } });
-    Object.keys(this.fh.hands).forEach(function (key) {
-      var h = self.fh.hands[key];
-      if (h.wait > 0) { h.wait -= dt; return; }
-      if (h.path.length) return self.fhStep(h, dt);
-      if (h.job) { // there: do it
-        var job = h.job;
-        h.dir = h.face || h.dir;
-        h.job = null;
-        self.fhStand(h);
-        self.fhFinish(h, job, false);
-        h.wait = ACT;
-        return;
-      }
-      if (h.leaving) { // off the farm
-        h.sprite.destroy();
-        delete self.fh.hands[key];
-        return;
-      }
-      if (h.queue.length) {
-        var j = h.queue.shift(), spot = self.fhSpot(j);
-        if (!spot) return self.fhFinish(h, j, true);
-        if (j.job === 'animals' && self.herd) self.herd.members.forEach(function (m) { if (m.i === j.i) m.hold = 6000; }); // it waits for him
-        h.job = j;
-        self.fhGo(h, spot, spot[2]);
-        return;
-      }
-      var r = REST[key];
-      if (Math.abs(h.x - r[0] * T) > 8 || Math.abs(h.y - r[1] * T) > 8) return self.fhGo(h, r, 'down');
-      if (h.dir !== 'down' && !h.chat) { h.dir = 'down'; self.fhStand(h); }
-    });
+    var now = Date.now();
+    for (var idx in this.fh.hold) if (this.fh.hold[idx] < now) { delete this.fh.hold[idx]; this.refreshTile(Number(idx)); }
+    for (var i = 0; i < C.FH_KEYS.length; i++) this.fhTick(C.FH_KEYS[i], dt); // (each frame: no lists made)
+  };
+  P.fhTick = function (key, dt) {
+    var self = this, h = this.fh.hands[key];
+    if (!h) return;
+    if (h.wait > 0) { h.wait -= dt; return; }
+    if (h.path.length) return self.fhStep(h, dt);
+    if (h.job) { // there: do it
+      var job = h.job;
+      h.dir = h.face || h.dir;
+      h.job = null;
+      self.fhStand(h);
+      self.fhFinish(h, job, false);
+      h.wait = ACT;
+      return;
+    }
+    if (h.leaving) { // off the farm
+      h.sprite.destroy();
+      delete self.fh.hands[key];
+      return;
+    }
+    if (h.queue.length) {
+      var j = h.queue.shift(), spot = self.fhSpot(j);
+      if (!spot) return self.fhFinish(h, j, true);
+      if (j.job === 'animals' && self.herd) self.herd.members.forEach(function (m) { if (m.i === j.i) m.hold = 6000; }); // it waits for him
+      h.job = j;
+      self.fhGo(h, spot, spot[2]);
+      return;
+    }
+    var r = REST[key];
+    if (Math.abs(h.x - r[0] * T) > 8 || Math.abs(h.y - r[1] * T) > 8) return self.fhGo(h, r, 'down');
+    if (h.dir !== 'down' && !h.chat) { h.dir = 'down'; self.fhStand(h); }
   };
 
   P.fhStep = function (h, dt) {

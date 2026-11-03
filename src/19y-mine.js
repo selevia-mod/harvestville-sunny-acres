@@ -68,7 +68,7 @@
     if (had === key) return key;
     if (had && tex.exists(had)) tex.remove(had);
     F.ensureTexture(w, 'indoor');
-    var img = F.images.indoor, full = tex.get('indoor').source[0].width, iw = img.naturalWidth || img.width, k = iw / full;
+    var img = (F.bitmaps && F.bitmaps.indoor) || F.images.indoor, full = tex.get('indoor').source[0].width, iw = img.naturalWidth || img.width, k = iw / full;
     var c = document.createElement('canvas');
     c.width = iw;
     c.height = img.naturalHeight || img.height;
