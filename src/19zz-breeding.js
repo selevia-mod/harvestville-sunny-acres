@@ -187,18 +187,14 @@
     });
   };
 
-  // The Collection: Crop stars, Hunts and Breeds side by side.
+  // The Collection: a Breeds button in its row of books (16-panels.js, collectionButton).
   var openCollection = U.openCollection;
   U.openCollection = function () {
     openCollection.call(this);
     var self = this, m = this.modals[this.modals.length - 1], c = m && m.c;
     if (!c) return;
-    var label = function (o) { return o.list && o.list.filter(function (x) { return x.type === 'Text'; }).map(function (x) { return x.text; })[0]; };
-    var btns = c.list.filter(function (o) { return o.type === 'Container' && Math.abs(o.y - 150) < 2 && label(o) !== 'X'; });
-    var xs = btns.length === 2 ? [84, 180] : null;
-    if (xs) btns.forEach(function (b, k) { b.x = xs[k]; });
     var go = function () { self.closeModal(); self.openBreeds('chicken', function () { self.openCollection(); }); };
-    this.button(c, xs ? 276 : K.W / 2, xs ? 150 : 150, 88, 30, 'Breeds', go, L.breedPrizesReady(F.session.state).length ? GOLD : GREEN);
+    this.collectionButton(c, 'breeds', 'Breeds', go, L.breedPrizesReady(F.session.state).length ? GOLD : GREEN);
   };
 
   // ---------- the tour ----------

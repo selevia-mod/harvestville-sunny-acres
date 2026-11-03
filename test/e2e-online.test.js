@@ -1899,13 +1899,13 @@ test('online: the Fishing Derby: on Fish Monday each fish goes to the board, the
   await waitToast(b.page, /#1 in the Fishing Derby for Large Fish!/);
   await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.onlineKind = { visit: 'popular', ranks: 'derby' }; Farm.ui.derbyKind = 'fish_l'; Farm.ui.openOnline('ranks', 0); });
   await waitModal(a.page, /Showing: Fishing Derby[\s\S]*Fish: Large Fish[\s\S]*#1 Ana Acres[\s\S]*Large Fish, 5\.5 kg\.[\s\S]*#2 Moon Meadow \(you\)[\s\S]*Large Fish, 4\.1 kg/);
-  assert.match(await modalText(a.page), /Fish Monday: the Derby is on until midnight/);
+  assert.match(await modalText(a.page), /The Derby is on until midnight/);
   await shot(a.page, 'derby-board');
   await tapButton(a.page, 'Next');
   await waitModal(a.page, /Fish: King Trout[\s\S]*No catches yet/);
   // another day: nothing is sent, and the board is last Monday's
   await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.Logic.derbyOn = () => false; Farm.Online.recordDerby({ id: 'fish_s', kg: 0.3 }); Farm.ui.derbyKind = 'fish_l'; Farm.ui.openOnline('ranks', 0); });
-  await waitModal(a.page, /Monday's Fishing Derby\. The next one is on Monday/);
+  await waitModal(a.page, /Monday's Derby\. Next one: Monday!/);
   assert.ok(!server.db.derby.has('fish_s:' + a.uid));
   for (const who of [a, b]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([a.context.close(), b.context.close()]);

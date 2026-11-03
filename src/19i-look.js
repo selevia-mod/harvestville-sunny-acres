@@ -270,10 +270,16 @@
 
   // Reached from the base listPanel (16-panels.js), so the wrappers added by later files (the Woodshop's house row and
   // Outdoor tab) still run first.
+  // o.rowH: taller cards for a panel whose rows say more (What's new); fewer of them on a page.
   U.lookListPanel = function (o) {
+    var h0 = ROW_H, s0 = ROW_STEP;
+    if (o.rowH) { ROW_H = o.rowH; ROW_STEP = o.rowH + 6; }
+    try { return listPanel.call(this, o); } finally { ROW_H = h0; ROW_STEP = s0; }
+  };
+  var listPanel = function (o) {
     var self = this, c = this.openModal();
     // the list's layout first, so a short list gets a shorter panel (a paged one keeps the full height)
-    var rows = o.rows, page = o.page || 0, per = rows.length > 5 ? 4 : 5;
+    var rows = o.rows, page = o.page || 0, per = rows.length * ROW_STEP > 400 ? Math.floor(320 / ROW_STEP) : Math.floor(400 / ROW_STEP);
     var pages = Math.max(1, Math.ceil(rows.length / per)), shown = rows.slice(page * per, page * per + per);
     var y0 = o.tabs ? 178 : 140;
     var bottom = pages > 1 ? y0 + per * ROW_STEP + 48 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
@@ -313,9 +319,11 @@
 
   // Pages: one centred bar, the arrows on both ends (the one that can't go further fades), a dot per page between
   // them, the current one lit. Tapping a dot jumps to that page.
+  // Too many pages for a dot each in the screen's width (What's new): the bar says "5 / 20" instead.
   U.pager = function (c, y, page, pages, go) {
-    var self = this, dot = 14, inner = pages * dot + 12, w = inner + 2 * 40;
-    this.canvasImg(c, W / 2 - w / 2, y - 17, 'ui-pager-' + pages, w, 36, function (g) {
+    var self = this, dot = 14, inner = pages * dot + 12, w = inner + 2 * 40, count = w > W - 40;
+    if (count) w = 170;
+    this.canvasImg(c, W / 2 - w / 2, y - 17, 'ui-pager-' + (count ? 'n' : pages), w, 36, function (g) {
       rrect(g, 0, 2, w, 32, 16);
       g.fillStyle = 'rgba(122,77,38,0.18)';
       g.fill();
@@ -328,6 +336,7 @@
       var b = self.roundButton(c, W / 2 + d[0] * (w / 2 - 17), y - 1, 15, ok ? BLUE : GREY_BTN, d[1], null, function () { if (ok) go(to); });
       if (!ok) b.setAlpha(0.4);
     });
+    if (count) return c.add(this.txt(W / 2, y - 1, (page + 1) + ' / ' + pages, 15, '#5a3a1a', { fontStyle: 'bold' }).setOrigin(0.5));
     for (var k = 0; k < pages; k++) {
       (function (k) {
         var x = W / 2 - (pages - 1) * dot / 2 + k * dot, on = k === page;
@@ -452,7 +461,7 @@
     var self = this, b = row.buttons || [], below = !!row.buttonsBelow && b.length === 1;
     var right = (b.length && !below) || (row.done && !below) ? 96 : 0;
     var textW = W - 52 - 64 - right - 8;
-    this.canvasImg(c, 26, y, 'ui-row3', W - 52, ROW_H + 4, function (g) {
+    this.canvasImg(c, 26, y, 'ui-row3' + (ROW_H === 74 ? '' : '-' + ROW_H), W - 52, ROW_H + 4, function (g) {
       rrect(g, 1, 3, W - 54, ROW_H, 12);
       g.fillStyle = 'rgba(122,77,38,0.2)';
       g.fill();

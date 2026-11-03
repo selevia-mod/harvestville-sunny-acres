@@ -126,11 +126,12 @@
     c.add(body);
     var z = this.add.zone(W / 2, y0 + ch / 2, cw, ch).setInteractive({ useHandCursor: true });
     c.add(z);
-    var gone = false, close = function (open) {
+    var gone = false, fx = null, close = function (open) {
       if (gone) return;
       gone = true;
       self.tweens.killTweensOf(c);
       c.destroy();
+      if (fx && fx.active) fx.destroy(); // (its confetti goes with it)
       if (open && !self.modals.length) self.openSkills();
       if (then) then();
     };
@@ -140,7 +141,7 @@
     c.setAlpha(0);
     c.y += 14;
     this.tweens.add({ targets: c, alpha: 1, y: c.y - 14, duration: 240, ease: 'Back.out' });
-    this.time.delayedCall(200, function () { if (!gone && self.confetti) self.confetti(W / 2, y0 + C.EXTRA / 2 + 20); });
+    this.time.delayedCall(200, function () { if (!gone && self.confetti) fx = self.confetti(W / 2, y0 + C.EXTRA / 2 + 20); });
     this.time.delayedCall(3600, function () {
       if (gone) return;
       self.tweens.add({ targets: c, alpha: 0, duration: 300, onComplete: function () { close(false); } });
@@ -223,13 +224,13 @@
     link.sum = sum;
     c.add(link);
   };
-  // the Collection: a small Skills button, left of Crop stars (19k-farm2.js, 132) and Hunts (19v-wild.js, 228)
+  // the Collection: a Skills button in its row of books (16-panels.js, collectionButton)
   var openCollection = U.openCollection;
   U.openCollection = function () {
     openCollection.apply(this, arguments);
     var self = this, m = this.modals[this.modals.length - 1];
     if (!m) return;
-    this.button(m.c, 54, 150, 60, 30, 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
+    this.collectionButton(m.c, 'skills', 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
   };
   // a visit: the player menu says the farmer's levels, on its top line (Farm 4 · Mine 2 · Fish 7 · Hunt 1)
   var listPanel = U.listPanel;

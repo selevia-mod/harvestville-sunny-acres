@@ -2677,12 +2677,12 @@ test('tours: the Back Fields tour opens once when you walk up to the land, Skip 
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'once');
   // What's new: Show me plays it again, then the list comes back
   let p = 0;
-  for (; p < 9; p++) {
+  for (; p < 40; p++) {
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/The Back Fields/.test(await modalText(page))) break;
   }
-  assert.ok(p < 9, 'the Back Fields line is in the list');
+  assert.ok(p < 40, 'the Back Fields line is in the list');
   await shot(page, 'tour-land-news');
   await tapButton(page, 'Show me');
   await waitText(/THE BACK FIELDS.*Six new blocks/);
@@ -3098,6 +3098,7 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   assert.strictEqual(await actionLabel(page), 'Go down');
   await teleport(page, 10, 15, 'down'); // walk onto it
   await page.waitForFunction(() => Farm.session.lairFloor === 2 && Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  assert.ok(!(await page.evaluate(() => Farm.ui.toastText.visible && /gate down is open/.test(Farm.ui.toastText.text))), 'the gate note goes with its floor');
   await frames(page, 3);
   assert.deepStrictEqual(await page.evaluate(() => [Farm.session.state.lair.deep, Farm.world.lair.open, Farm.world.wild.animals.length]), [2, false, 3]);
   assert.ok(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'ember_shard')) >= 3, 'what lay on the ground came along');
@@ -3179,7 +3180,7 @@ test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the
   await tapButton(page, 'Hire');
   await page.waitForFunction(() => Farm.Logic.fhHired(Farm.session.state, 'lucing') && Farm.ui.modals.length === 1, null, SLOW);
   text = await modalText(page);
-  assert.match(text, /Lv 1[\s\S]*Andoy · Waterer[\s\S]*0\/20[\s\S]*60G a work day\. Lv 2 in 5 days\.[\s\S]*Let go/);
+  assert.match(text, /Lv 1[\s\S]*Andoy[\s\S]*0\/20[\s\S]*Waterer\. 60G a work day\. Lv 2 in 5 days\.[\s\S]*Let go/);
   await shot(page, 'farmhands-hired');
   await closeAll(page);
   // on the farm they wait by the field; at the next round they walk to the jobs and do them

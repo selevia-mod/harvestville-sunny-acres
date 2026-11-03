@@ -92,6 +92,8 @@
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
     if (to === 'lair' && !this.busy) F.session.lairFloor = Math.max(1, Math.min(LA.floors, Math.floor(floor) || 1));
+    // off this floor: its "gate down is open" note goes too (it stayed up on the next floor)
+    if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && /^The gate down is open/.test(F.ui.toastText.text)) F.ui.hideToast();
     return travel.call(this, to, spawn, floor);
   };
 
@@ -576,7 +578,7 @@
     if (!loud) return;
     sfx('found');
     this.cameras.main.shake(220, 0.003);
-    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
+    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr && !self.busy) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
   };
   var sealed = function (w) {
     var n = w.wild ? w.wild.animals.length : 0;
@@ -673,7 +675,9 @@
     w.next = rand(WI.arrive[0], WI.arrive[1]);
     if (!friendsHere(this) || !L.bakunawaReady(s)) return;
     var e = L.wildHere(s, 'lair').filter(function (x) { return WI.animals[x.kind].great && !w.animals.some(function (a) { return a.slot === x.slot; }); })[0];
-    var p = e && this.wildEdge(w.zone);
+    // it rises in the middle or upper part of the floor (at the edge it came up under the joystick, bottom left)
+    var z0 = w.zone, qx = Math.floor((z0.x1 - z0.x0) / 4), mid = { x0: z0.x0 + qx, x1: z0.x1 - qx, y0: z0.y0, y1: z0.y0 + Math.floor((z0.y1 - z0.y0) * 0.55) };
+    var p = e && (this.wildSpot(mid, this.feet(), 4) || this.wildSpot(mid) || this.wildEdge(w.zone));
     if (!p) return;
     var a = this.addWildAnimal(e.kind, e.slot, p.x, p.y, 1), z = w.zone, crew = 1 + Object.keys(this.remotes || {}).length;
     a.hp = a.max = a.def.hpEach * crew;

@@ -183,7 +183,7 @@
         };
       }));
       if (rows.length === head.length) rows.push({ icon: C.ICON.exclaim, name: 'No catches yet', desc: 'Nobody has hunted a ' + def.name + ' this week. Be the first!' });
-      show(rows, 'The biggest of each animal hunted this week. A new week starts every Monday.', null);
+      show(rows, 'This week\'s biggest. New week Monday.', null); // (short: one line at the normal size)
     }).catch(function (e) {
       if (off(e)) return show(head.slice(0, 1).concat([{ icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The biggest catch of the week is almost here.' }]), '', null);
       fail(e);

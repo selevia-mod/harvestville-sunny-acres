@@ -103,7 +103,8 @@
     }
     sfx('fanfare');
   };
-  // Confetti falling over the whole screen for a few seconds.
+  // Confetti falling over the whole screen for a few seconds, under any panel (100 and up). Returns it, so a card can
+  // clear it when it closes (19zz-skills.js levelCard).
   U.confetti = function () {
     if (!this.textures.exists('confetti')) {
       var g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -115,8 +116,9 @@
       x: { min: 0, max: W }, speedY: { min: 160, max: 320 }, speedX: { min: -60, max: 60 }, rotate: { start: 0, end: 540 },
       scale: { min: 0.8, max: 1.4 }, tint: [0xf25c54, 0xffd23f, 0x5fa84a, 0x4a90c9, 0xd36ad6, 0xffffff], lifespan: 3400,
       frequency: 40, quantity: 3, gravityY: 40,
-    }).setDepth(400);
-    this.time.delayedCall(2600, function () { e.stop(); });
-    this.time.delayedCall(6500, function () { e.destroy(); });
+    }).setDepth(99);
+    this.time.delayedCall(2600, function () { if (e.active) e.stop(); });
+    this.time.delayedCall(6500, function () { if (e.active) e.destroy(); });
+    return e;
   };
 })(window.Farm = window.Farm || {});

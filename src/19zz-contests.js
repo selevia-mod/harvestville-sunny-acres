@@ -377,7 +377,7 @@
     title: 'FESTIVAL CONTESTS',
     steps: [
       {
-        text: 'Three festivals have a contest: animals at the Cow Festival, crops at the Harvest Festival, dishes on Starry Night.',
+        text: 'Three festivals have a contest: animals at the Cow Festival, crops at Harvest, dishes on Starry Night.',
         draw: function (ui, sc, move) {
           [[54, C.ANIMALS.cow.icon, 'Nov 20'], [136, C.ITEMS.pumpkin.icon, 'Oct 12'], [218, C.ITEMS.pumpkin_pie.icon, 'Dec 24']].forEach(function (p, k) {
             var i = icon(ui, sc, p[0], 54, p[1], 0.34);
