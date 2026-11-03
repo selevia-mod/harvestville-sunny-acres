@@ -173,6 +173,15 @@ test('visitors: 2 a train, then 3 and 4 with the Town Level; each wishes for som
   assert.strictEqual(new Set(w.map((x) => x.who)).size, 4, 'four different people');
 });
 
+test('no visitors on festival days: the town is at the festival', () => {
+  const s = fresh();
+  s.day = L.dayOf(new Date(2026, 3, 14, 12).getTime()); // the Flower Festival, 14 April
+  s.time = 11 * 60;
+  L.twTick(s);
+  assert.ok(L.twTrain(s), 'the train still runs');
+  assert.deepStrictEqual(plain(L.twWishes(s)), []);
+});
+
 test('helping a visitor pays and gives Town points; they leave with the train', () => {
   const s = at(fresh(), 11, 0);
   L.twTick(s);

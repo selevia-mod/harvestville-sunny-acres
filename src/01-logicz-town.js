@@ -208,6 +208,7 @@
   };
   // The visitors' wishes for train tn: [{ who (index in TW.visitors, -1 = the Collector), id, n, gold, stars, done }]
   L.twMakeWishes = function (s, tn) {
+    if (L.festivalOn(s.day)) return []; // festival days: the town is at the festival, and no one comes to shop (like 19e-town.js's visitors)
     var out = [], pool = L.twWishPool(s), more = L.twPayMore(s), count = L.twVisitors(s);
     var r = function (a, b) { return L.rand(s.seed, tn, 9200 + a, b || 0); };
     var first = Math.floor(r(1) * TW.visitors.length);

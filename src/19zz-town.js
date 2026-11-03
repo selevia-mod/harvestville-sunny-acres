@@ -413,8 +413,7 @@
     this.add.image(st.x0 * T, (st.y1 + 1) * T, F.twStationTex(this)).setOrigin(0, 1).setDisplaySize((st.x1 - st.x0 + 1) * T, (st.y1 - st.y0 + 1) * T).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5);
     tw.level = this.add.text((st.x0 + 4.2) * T, (st.y1 + 0.2) * T, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '58px', fontStyle: 'bold', color: '#5a3a1e', backgroundColor: '#ffe9a8', padding: { x: 14, y: 4 } })
       .setOrigin(0.5, 1).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5 + 0.0001);
-    var edge = this.add.graphics().setDepth(DEPTH.flat); // the platform's edge: mind the gap
-    edge.fillStyle(0xf2d46a, 1).fillRect(rails.x0 * T, (rails.y1 + 1) * T + 6, (cargo.x1 + 1 - rails.x0) * T, 22);
+    this.add.rectangle(rails.x0 * T, (rails.y1 + 1) * T + 6, (cargo.x1 + 1 - rails.x0) * T, 22, 0xf2d46a).setOrigin(0).setDepth(DEPTH.flat); // the platform's edge: mind the gap
     this.add.image(rails.x0 * T, (rails.y1 + 1) * T, railsTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, T).setDepth(DEPTH.flat);
     this.add.image(rails.x0 * T - 0.2 * T, (rails.y1 + 1) * T - 0.1 * T, bufferTex(this)).setOrigin(0, 1).setDisplaySize(T, T).setDepth(DEPTH.actor + 3 * T / 1e5);
     tw.train = this.add.image(OFF_X * T, (rails.y1 + 1) * T - 0.18 * T, trainTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, TRAIN_H * T).setDepth(DEPTH.actor + (rails.y1 + 1) * T / 1e5).setVisible(false);
@@ -451,59 +450,72 @@
   };
 
   // ---------- decorations with the Town Level ----------
+  // Drawn once into a small texture (a quarter of the world's size) and shown as one picture: a live Graphics would be
+  // drawn again every frame, too much for a low-end phone.
+  var DECO = 0.25;
+  var bakeDeco = function (w, key, x0, y0, wTiles, hTiles, draw) {
+    if (!w.textures.exists(key)) {
+      var g = w.make.graphics({ x: 0, y: 0 }, false);
+      draw(g, function (x, y) { return { x: (x - x0) * DECO, y: (y - y0) * DECO }; });
+      g.generateTexture(key, Math.ceil(wTiles * T * DECO), Math.ceil(hTiles * T * DECO));
+      g.destroy();
+    }
+    return w.add.image(x0, y0, key).setOrigin(0).setScale(1 / DECO).setDepth(DEPTH.Above - 1);
+  };
+  var COLORS = [0xe8503a, 0xffd23f, 0x4a90c9, 0x5fa84a, 0xe85a8a];
+  // a string of little flags between two points, sagging in the middle
+  var flags = function (g, to, x0, y0, x1, y1) {
+    var n = Math.max(4, Math.round(Math.hypot(x1 - x0, y1 - y0) / 110)), sag = 0.35 * T;
+    var at = function (t) { return to(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + Math.sin(Math.PI * t) * sag); };
+    g.lineStyle(7 * DECO, 0x5a3a1e, 1);
+    g.beginPath();
+    for (var k = 0; k <= 16; k++) { var p = at(k / 16); if (k) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y); }
+    g.strokePath();
+    for (var i = 0; i < n; i++) {
+      var a = at((i + 0.25) / n), b = at((i + 0.75) / n), m = at((i + 0.5) / n);
+      g.fillStyle(COLORS[i % COLORS.length], 1);
+      g.fillTriangle(a.x, a.y, b.x, b.y, m.x, m.y + 70 * DECO);
+    }
+  };
   P.twDecorate = function (lv) {
-    var tw = this.tw, self = this;
+    var tw = this.tw;
     tw.deco = lv;
     tw.decos.forEach(function (d) { d.destroy(); });
     tw.decos = [];
-    var COLORS = [0xe8503a, 0xffd23f, 0x4a90c9, 0x5fa84a, 0xe85a8a];
-    // a string of little flags between two points, sagging in the middle
-    var flags = function (g, x0, y0, x1, y1) {
-      var n = Math.max(4, Math.round(Math.hypot(x1 - x0, y1 - y0) / 110)), sag = 0.35 * T;
-      var at = function (t) { return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t + Math.sin(Math.PI * t) * sag }; };
-      g.lineStyle(7, 0x5a3a1e, 1);
-      g.beginPath();
-      for (var k = 0; k <= 16; k++) { var p = at(k / 16); if (k) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y); }
-      g.strokePath();
-      for (var i = 0; i < n; i++) {
-        var a = at((i + 0.25) / n), b = at((i + 0.75) / n), m = at((i + 0.5) / n);
-        g.fillStyle(COLORS[i % COLORS.length], 1);
-        g.fillTriangle(a.x, a.y, b.x, b.y, m.x, m.y + 70);
-      }
-    };
-    if (lv >= TW.flagsAt) { // over the plaza, lamp to lamp
-      var g = this.add.graphics().setDepth(DEPTH.Above - 1);
-      var top = 13.1 * T, bottom = 20.1 * T, left = 8.5 * T, right = 21.5 * T;
-      flags(g, left, top, right, top);
-      flags(g, left, bottom, right, bottom);
-      flags(g, left, top, 14.5 * T, 17 * T);
-      flags(g, right, top, 14.5 * T, 17 * T);
-      tw.decos.push(g);
+    if (lv >= TW.flagsAt) { // over the plaza, lamp to lamp, all round
+      tw.decos.push(bakeDeco(this, 'tw-deco-flags', 8 * T, 12.8 * T, 14, 8.2, function (g, to) {
+        var top = 13.1 * T, bottom = 20.1 * T, left = 8.5 * T, right = 21.5 * T;
+        flags(g, to, left, top, right, top);
+        flags(g, to, left, bottom, right, bottom);
+        flags(g, to, left, top, left, bottom);
+        flags(g, to, right, top, right, bottom);
+      }));
     }
     if (lv >= TW.lanternsAt) { // along Market Street, post to post
-      var h = this.add.graphics().setDepth(DEPTH.Above - 1), posts = [29.5, 35, 40.5, 46, 51.5], y = 11.15 * T;
-      posts.forEach(function (px, i) {
-        h.fillStyle(0x5a3a1e, 1);
-        h.fillRect(px * T - 14, y - 0.2 * T, 28, 1.25 * T);
-        if (!i) return;
-        var x0 = posts[i - 1] * T, x1 = px * T;
-        h.lineStyle(6, 0x3d2614, 1);
-        h.beginPath();
-        for (var k = 0; k <= 12; k++) { var t = k / 12, X = x0 + (x1 - x0) * t, Y = y + Math.sin(Math.PI * t) * 0.3 * T; if (k) h.lineTo(X, Y); else h.moveTo(X, Y); }
-        h.strokePath();
-        [0.25, 0.5, 0.75].forEach(function (t) {
-          var X = x0 + (x1 - x0) * t, Y = y + Math.sin(Math.PI * t) * 0.3 * T;
-          h.fillStyle(0xffb03a, 1);
-          h.fillCircle(X, Y + 46, 38);
-          h.fillStyle(0xfff0b0, 1);
-          h.fillCircle(X - 8, Y + 38, 14);
-          h.fillStyle(0x8e2f22, 1);
-          h.fillRect(X - 22, Y + 4, 44, 12);
+      tw.decos.push(bakeDeco(this, 'tw-deco-lanterns', 29 * T, 10 * T, 23, 2, function (h, to) {
+        var posts = [29.5, 35, 40.5, 46, 51.5], y = 11.15 * T, d = DECO;
+        posts.forEach(function (px, i) {
+          var top = to(px * T - 12, y - 0.85 * T);
+          h.fillStyle(0x5a3a1e, 1);
+          h.fillRect(top.x, top.y, 24 * d, 0.95 * T * d); // (short posts: the road stays clear)
+          if (!i) return;
+          var x0 = posts[i - 1] * T, x1 = px * T;
+          h.lineStyle(6 * d, 0x3d2614, 1);
+          h.beginPath();
+          for (var k = 0; k <= 12; k++) { var q = to(x0 + (x1 - x0) * k / 12, y + Math.sin(Math.PI * k / 12) * 0.3 * T); if (k) h.lineTo(q.x, q.y); else h.moveTo(q.x, q.y); }
+          h.strokePath();
+          [0.25, 0.5, 0.75].forEach(function (t) {
+            var c = to(x0 + (x1 - x0) * t, y + Math.sin(Math.PI * t) * 0.3 * T);
+            h.fillStyle(0xffb03a, 1);
+            h.fillCircle(c.x, c.y + 46 * d, 38 * d);
+            h.fillStyle(0xfff0b0, 1);
+            h.fillCircle(c.x - 8 * d, c.y + 38 * d, 14 * d);
+            h.fillStyle(0x8e2f22, 1);
+            h.fillRect(c.x - 22 * d, c.y + 4 * d, 44 * d, 12 * d);
+          });
         });
-      });
-      tw.decos.push(h);
+      }));
     }
-    void self;
   };
 
   // ---------- the train comes and goes ----------
@@ -732,15 +744,15 @@
       var w = t.visible && wishes.filter(function (x) { return x.who === t.who; })[0], want = w && !w.done;
       if (want && !t.mark) {
         t.mark = {
-          b: self.add.image(0, 0, 'tw-wish').setScale(1.9).setDepth(DEPTH.Above + 1),
-          i: self.add.image(0, 0, 'items', C.ITEMS[w.id].icon).setScale(0.62).setDepth(DEPTH.Above + 1.01),
+          b: self.add.image(0, 0, 'tw-wish').setScale(2.3).setDepth(DEPTH.Above + 1),
+          i: self.add.image(0, 0, 'items', C.ITEMS[w.id].icon).setScale(0.74).setDepth(DEPTH.Above + 1.01),
         };
       }
       if (!want && t.mark) { t.mark.b.destroy(); t.mark.i.destroy(); t.mark = null; }
       if (t.mark) {
-        var y = t.y - 2.45 * T + Math.sin(Date.now() / 300 + t.who) * 14;
+        var y = t.y - 2.55 * T + Math.sin(Date.now() / 300 + t.who) * 14;
         t.mark.b.setPosition(t.x, y);
-        t.mark.i.setPosition(t.x, y - 0.13 * T).setFrame(C.ITEMS[w.id].icon);
+        t.mark.i.setPosition(t.x, y - 0.15 * T).setFrame(C.ITEMS[w.id].icon);
       }
     });
   };

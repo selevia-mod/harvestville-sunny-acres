@@ -8268,6 +8268,7 @@
   };
   // The visitors' wishes for train tn: [{ who (index in TW.visitors, -1 = the Collector), id, n, gold, stars, done }]
   L.twMakeWishes = function (s, tn) {
+    if (L.festivalOn(s.day)) return []; // festival days: the town is at the festival, and no one comes to shop (like 19e-town.js's visitors)
     var out = [], pool = L.twWishPool(s), more = L.twPayMore(s), count = L.twVisitors(s);
     var r = function (a, b) { return L.rand(s.seed, tn, 9200 + a, b || 0); };
     var first = Math.floor(r(1) * TW.visitors.length);
@@ -25175,6 +25176,8 @@
   var timeOf = function (lm) { return L.formatTime(lm % 1440); };
   var trainsText = function () { return TW.trains.map(function (m) { return L.formatTime(m).replace(':00', ''); }).join(', ').replace(/, ([^,]*)$/, ' and $1'); };
   var nextTrain = function (s) { var n = L.twNextTrain(L.twNow(s)); return n ? timeOf(n.arrive) : ''; };
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var dayWord = function (s, lm) { var d = Math.floor(lm / 1440) - s.day; return d <= 0 ? 'today' : d === 1 ? 'tomorrow' : 'on ' + DAYS[L.date(s.day + d).weekday]; };
   var itemName = function (id, n) { var it = C.ITEMS[id]; return n === 1 || !it.plural ? it.name : it.plural; };
 
   U.twTabs = function (s) {
@@ -25214,7 +25217,7 @@
     this.closeButton(c, W - 26, 84, function () { self.closeModal(); });
     var subText = !o ? 'The next order comes with the ' + nextTrain(s) + ' train.'
       : o.full ? 'All filled! The ' + nextTrain(s) + ' train takes them away.'
-        : 'Fill them by ' + timeOf(o.due) + ' ' + (o.due - L.twNow(s) >= 1440 - (L.twNow(s) % 1440) ? 'tomorrow' : 'today') + ' (' + L.formatLeft(L.twLeft(s)) + ' left).';
+        : 'Fill them by ' + timeOf(o.due) + ' ' + dayWord(s, o.due) + ' (' + L.formatLeft(L.twLeft(s)) + ' left).';
     var sub = this.txt(W / 2, 104, subText, 13, '#6a4a2a', { align: 'center' }).setOrigin(0.5, 0);
     if (sub.width > W - 60) sub.setScale((W - 60) / sub.width);
     c.add(sub);
@@ -25241,7 +25244,7 @@
     c.add(this.txt(W - 40, 186, filled + ' / ' + total, 13, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(1, 0));
     this.rewardChips(c, 82, 208, W - 52 - 70, o.prize, o.full ? 'Won' : 'Prize');
     // the crates, two by three
-    var cw = 150, ch = 100, gap = 8, x0 = (W - 2 * cw - gap) / 2, y0 = 252;
+    var cw = 150, ch = 92, gap = 6, x0 = (W - 2 * cw - gap) / 2, y0 = 250;
     o.crates.forEach(function (cr, i) {
       var x = x0 + (i % 2) * (cw + gap), y = y0 + Math.floor(i / 2) * (ch + gap), have = L.countItem(s, cr.id), ready = !cr.done && have >= cr.n;
       self.canvasImg(c, x, y, 'tw-ui-crate-' + (cr.done ? 'done' : ready ? 'ready' : 'open'), cw, ch + 3, function (g) {
@@ -25256,21 +25259,21 @@
         g.stroke();
       });
       c.add(self.txt(x + 10, y + 7, TW.kinds[cr.k].toUpperCase(), 9, '#8a6a42', { fontStyle: 'bold' }));
-      c.add(self.add.image(x + 30, y + 48, 'items', C.ITEMS[cr.id].icon).setScale(ICON * 0.95).setAlpha(cr.done ? 0.55 : 1));
-      var nm = self.txt(x + 58, y + 22, C.ITEMS[cr.id].name, 12, INK, { fontStyle: 'bold' });
+      c.add(self.add.image(x + 30, y + 44, 'items', C.ITEMS[cr.id].icon).setScale(ICON * 0.9).setAlpha(cr.done ? 0.55 : 1));
+      var nm = self.txt(x + 58, y + 20, C.ITEMS[cr.id].name, 12, INK, { fontStyle: 'bold' });
       if (nm.width > cw - 64) nm.setScale((cw - 64) / nm.width);
       c.add(nm);
-      c.add(self.txt(x + 58, y + 39, 'x' + cr.n, 14, '#5a3a1e', { fontStyle: 'bold' }));
+      c.add(self.txt(x + 58, y + 36, 'x' + cr.n, 14, '#5a3a1e', { fontStyle: 'bold' }));
       if (cr.done) {
-        c.add(self.txt(x + cw / 2, y + ch - 20, 'FILLED', 14, '#3f7d22', { fontStyle: 'bold' }).setOrigin(0.5));
+        c.add(self.txt(x + cw / 2, y + ch - 16, 'FILLED', 14, '#3f7d22', { fontStyle: 'bold' }).setOrigin(0.5));
         return;
       }
-      c.add(self.txt(x + 58, y + 58, 'You have ' + Math.min(have, 999), 10, have >= cr.n ? '#2f7a22' : '#7a5a3a', { fontStyle: have >= cr.n ? 'bold' : 'normal' }));
-      c.add(self.txt(x + 10, y + ch - 20, 'Pays ' + fmt(cr.pay) + 'G', 11, '#a8740c', { fontStyle: 'bold' }).setOrigin(0, 0.5));
-      if (ready) self.pillButton(c, x + cw - 36, y + ch - 20, 58, 26, 'Fill', function () { self.twFillCrate(i); }, GREEN);
+      c.add(self.txt(x + 10, y + ch - 16, 'Pays ' + fmt(cr.pay) + 'G', 11, '#a8740c', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      if (ready) self.pillButton(c, x + cw - 36, y + ch - 17, 58, 24, 'Fill', function () { self.twFillCrate(i); }, GREEN);
+      else c.add(self.txt(x + cw - 10, y + ch - 16, 'Have ' + Math.min(have, 999), 10, '#7a5a3a').setOrigin(1, 0.5));
     });
     var tr = L.twTrain(s), rows = Math.ceil(o.crates.length / 2);
-    c.add(this.txt(W / 2, y0 + rows * (ch + gap) + 8, (tr ? 'The ' + timeOf(tr.arrive) + ' train is in until ' + timeOf(tr.leave) + '.' : 'Next train: ' + nextTrain(s) + '.') + ' Trains come in at ' + trainsText() + '.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: W - 70 } }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, y0 + rows * (ch + gap) + 6, tr ? 'The ' + timeOf(tr.arrive) + ' train is in until ' + timeOf(tr.leave) + '.' : 'Next train: ' + nextTrain(s) + '.', 11, '#7a5a3a').setOrigin(0.5, 0));
     return c;
   };
 
@@ -25388,9 +25391,9 @@
         draw: function (ui, sc, move) {
           F.twTextures(ui);
           pic(ui, sc, 52, 122, 'tw-station', 90, 72);
-          var t = pic(ui, sc, 206, 118, 'tw-train', 190, 28).setOrigin(0, 1);
-          t.x = move ? 300 : 104;
-          tw(ui, move, { targets: t, x: 104, duration: 2200, ease: 'Cubic.out', hold: 1400, yoyo: true, repeat: -1, repeatDelay: 300 });
+          var t = pic(ui, sc, 112, 118, 'tw-train', 152, 23).setOrigin(0, 1); // (the stage does not clip: the train stays on it)
+          if (move) { t.x = 118; t.setAlpha(0); }
+          tw(ui, move, { targets: t, x: 106, alpha: 1, duration: 1600, ease: 'Cubic.out', hold: 1600, yoyo: true, repeat: -1, repeatDelay: 300 });
           var p = ui.add.image(116, 84, 'tw-puff').setScale(0.4);
           sc.add(p);
           tw(ui, move, { targets: p, y: 50, alpha: 0, scale: 0.9, duration: 900, repeat: -1 });
@@ -25427,10 +25430,14 @@
         text: 'Crates, visitors and stall sales while a train is in give Town points. Each Town Level brings something new.',
         draw: function (ui, sc, move) {
           words(ui, sc, 136, 26, 'TOWN LEVEL', 13, '#5a3a1e');
-          var bar = ui.add.rectangle(36, 64, 200, 16, 0x6a4a2a).setOrigin(0, 0.5);
-          var fill = ui.add.rectangle(38, 64, 10, 12, 0x3fa535).setOrigin(0, 0.5);
+          var bar = ui.add.rectangle(66, 64, 140, 16, 0x6a4a2a).setOrigin(0, 0.5);
+          var fill = ui.add.rectangle(68, 64, 136, 12, 0x3fa535).setOrigin(0, 0.5);
           sc.add([bar, fill]);
-          tw(ui, move, { targets: fill, width: 196, duration: 1800, repeat: -1, repeatDelay: 500 });
+          words(ui, sc, 40, 64, 'Lv 1', 12, '#5a3a1e');
+          var two = words(ui, sc, 232, 64, 'Lv 2', 12, '#a8740c');
+          if (move) fill.scaleX = 0.05;
+          tw(ui, move, { targets: fill, scaleX: 1, duration: 1800, repeat: -1, repeatDelay: 600 });
+          tw(ui, move, { targets: two, scale: { from: 1, to: 1.25 }, duration: 300, delay: 1700, yoyo: true, repeat: -1, repeatDelay: 2100 });
           [C.ICON.crate, C.ICON.ribbon, C.ICON.star].forEach(function (f, i) { icon(ui, sc, 76 + i * 60, 106, f, 0.22); });
         },
       },
@@ -25871,8 +25878,7 @@
     this.add.image(st.x0 * T, (st.y1 + 1) * T, F.twStationTex(this)).setOrigin(0, 1).setDisplaySize((st.x1 - st.x0 + 1) * T, (st.y1 - st.y0 + 1) * T).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5);
     tw.level = this.add.text((st.x0 + 4.2) * T, (st.y1 + 0.2) * T, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '58px', fontStyle: 'bold', color: '#5a3a1e', backgroundColor: '#ffe9a8', padding: { x: 14, y: 4 } })
       .setOrigin(0.5, 1).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5 + 0.0001);
-    var edge = this.add.graphics().setDepth(DEPTH.flat); // the platform's edge: mind the gap
-    edge.fillStyle(0xf2d46a, 1).fillRect(rails.x0 * T, (rails.y1 + 1) * T + 6, (cargo.x1 + 1 - rails.x0) * T, 22);
+    this.add.rectangle(rails.x0 * T, (rails.y1 + 1) * T + 6, (cargo.x1 + 1 - rails.x0) * T, 22, 0xf2d46a).setOrigin(0).setDepth(DEPTH.flat); // the platform's edge: mind the gap
     this.add.image(rails.x0 * T, (rails.y1 + 1) * T, railsTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, T).setDepth(DEPTH.flat);
     this.add.image(rails.x0 * T - 0.2 * T, (rails.y1 + 1) * T - 0.1 * T, bufferTex(this)).setOrigin(0, 1).setDisplaySize(T, T).setDepth(DEPTH.actor + 3 * T / 1e5);
     tw.train = this.add.image(OFF_X * T, (rails.y1 + 1) * T - 0.18 * T, trainTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, TRAIN_H * T).setDepth(DEPTH.actor + (rails.y1 + 1) * T / 1e5).setVisible(false);
@@ -25909,59 +25915,72 @@
   };
 
   // ---------- decorations with the Town Level ----------
+  // Drawn once into a small texture (a quarter of the world's size) and shown as one picture: a live Graphics would be
+  // drawn again every frame, too much for a low-end phone.
+  var DECO = 0.25;
+  var bakeDeco = function (w, key, x0, y0, wTiles, hTiles, draw) {
+    if (!w.textures.exists(key)) {
+      var g = w.make.graphics({ x: 0, y: 0 }, false);
+      draw(g, function (x, y) { return { x: (x - x0) * DECO, y: (y - y0) * DECO }; });
+      g.generateTexture(key, Math.ceil(wTiles * T * DECO), Math.ceil(hTiles * T * DECO));
+      g.destroy();
+    }
+    return w.add.image(x0, y0, key).setOrigin(0).setScale(1 / DECO).setDepth(DEPTH.Above - 1);
+  };
+  var COLORS = [0xe8503a, 0xffd23f, 0x4a90c9, 0x5fa84a, 0xe85a8a];
+  // a string of little flags between two points, sagging in the middle
+  var flags = function (g, to, x0, y0, x1, y1) {
+    var n = Math.max(4, Math.round(Math.hypot(x1 - x0, y1 - y0) / 110)), sag = 0.35 * T;
+    var at = function (t) { return to(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + Math.sin(Math.PI * t) * sag); };
+    g.lineStyle(7 * DECO, 0x5a3a1e, 1);
+    g.beginPath();
+    for (var k = 0; k <= 16; k++) { var p = at(k / 16); if (k) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y); }
+    g.strokePath();
+    for (var i = 0; i < n; i++) {
+      var a = at((i + 0.25) / n), b = at((i + 0.75) / n), m = at((i + 0.5) / n);
+      g.fillStyle(COLORS[i % COLORS.length], 1);
+      g.fillTriangle(a.x, a.y, b.x, b.y, m.x, m.y + 70 * DECO);
+    }
+  };
   P.twDecorate = function (lv) {
-    var tw = this.tw, self = this;
+    var tw = this.tw;
     tw.deco = lv;
     tw.decos.forEach(function (d) { d.destroy(); });
     tw.decos = [];
-    var COLORS = [0xe8503a, 0xffd23f, 0x4a90c9, 0x5fa84a, 0xe85a8a];
-    // a string of little flags between two points, sagging in the middle
-    var flags = function (g, x0, y0, x1, y1) {
-      var n = Math.max(4, Math.round(Math.hypot(x1 - x0, y1 - y0) / 110)), sag = 0.35 * T;
-      var at = function (t) { return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t + Math.sin(Math.PI * t) * sag }; };
-      g.lineStyle(7, 0x5a3a1e, 1);
-      g.beginPath();
-      for (var k = 0; k <= 16; k++) { var p = at(k / 16); if (k) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y); }
-      g.strokePath();
-      for (var i = 0; i < n; i++) {
-        var a = at((i + 0.25) / n), b = at((i + 0.75) / n), m = at((i + 0.5) / n);
-        g.fillStyle(COLORS[i % COLORS.length], 1);
-        g.fillTriangle(a.x, a.y, b.x, b.y, m.x, m.y + 70);
-      }
-    };
-    if (lv >= TW.flagsAt) { // over the plaza, lamp to lamp
-      var g = this.add.graphics().setDepth(DEPTH.Above - 1);
-      var top = 13.1 * T, bottom = 20.1 * T, left = 8.5 * T, right = 21.5 * T;
-      flags(g, left, top, right, top);
-      flags(g, left, bottom, right, bottom);
-      flags(g, left, top, 14.5 * T, 17 * T);
-      flags(g, right, top, 14.5 * T, 17 * T);
-      tw.decos.push(g);
+    if (lv >= TW.flagsAt) { // over the plaza, lamp to lamp, all round
+      tw.decos.push(bakeDeco(this, 'tw-deco-flags', 8 * T, 12.8 * T, 14, 8.2, function (g, to) {
+        var top = 13.1 * T, bottom = 20.1 * T, left = 8.5 * T, right = 21.5 * T;
+        flags(g, to, left, top, right, top);
+        flags(g, to, left, bottom, right, bottom);
+        flags(g, to, left, top, left, bottom);
+        flags(g, to, right, top, right, bottom);
+      }));
     }
     if (lv >= TW.lanternsAt) { // along Market Street, post to post
-      var h = this.add.graphics().setDepth(DEPTH.Above - 1), posts = [29.5, 35, 40.5, 46, 51.5], y = 11.15 * T;
-      posts.forEach(function (px, i) {
-        h.fillStyle(0x5a3a1e, 1);
-        h.fillRect(px * T - 14, y - 0.2 * T, 28, 1.25 * T);
-        if (!i) return;
-        var x0 = posts[i - 1] * T, x1 = px * T;
-        h.lineStyle(6, 0x3d2614, 1);
-        h.beginPath();
-        for (var k = 0; k <= 12; k++) { var t = k / 12, X = x0 + (x1 - x0) * t, Y = y + Math.sin(Math.PI * t) * 0.3 * T; if (k) h.lineTo(X, Y); else h.moveTo(X, Y); }
-        h.strokePath();
-        [0.25, 0.5, 0.75].forEach(function (t) {
-          var X = x0 + (x1 - x0) * t, Y = y + Math.sin(Math.PI * t) * 0.3 * T;
-          h.fillStyle(0xffb03a, 1);
-          h.fillCircle(X, Y + 46, 38);
-          h.fillStyle(0xfff0b0, 1);
-          h.fillCircle(X - 8, Y + 38, 14);
-          h.fillStyle(0x8e2f22, 1);
-          h.fillRect(X - 22, Y + 4, 44, 12);
+      tw.decos.push(bakeDeco(this, 'tw-deco-lanterns', 29 * T, 10 * T, 23, 2, function (h, to) {
+        var posts = [29.5, 35, 40.5, 46, 51.5], y = 11.15 * T, d = DECO;
+        posts.forEach(function (px, i) {
+          var top = to(px * T - 12, y - 0.85 * T);
+          h.fillStyle(0x5a3a1e, 1);
+          h.fillRect(top.x, top.y, 24 * d, 0.95 * T * d); // (short posts: the road stays clear)
+          if (!i) return;
+          var x0 = posts[i - 1] * T, x1 = px * T;
+          h.lineStyle(6 * d, 0x3d2614, 1);
+          h.beginPath();
+          for (var k = 0; k <= 12; k++) { var q = to(x0 + (x1 - x0) * k / 12, y + Math.sin(Math.PI * k / 12) * 0.3 * T); if (k) h.lineTo(q.x, q.y); else h.moveTo(q.x, q.y); }
+          h.strokePath();
+          [0.25, 0.5, 0.75].forEach(function (t) {
+            var c = to(x0 + (x1 - x0) * t, y + Math.sin(Math.PI * t) * 0.3 * T);
+            h.fillStyle(0xffb03a, 1);
+            h.fillCircle(c.x, c.y + 46 * d, 38 * d);
+            h.fillStyle(0xfff0b0, 1);
+            h.fillCircle(c.x - 8 * d, c.y + 38 * d, 14 * d);
+            h.fillStyle(0x8e2f22, 1);
+            h.fillRect(c.x - 22 * d, c.y + 4 * d, 44 * d, 12 * d);
+          });
         });
-      });
-      tw.decos.push(h);
+      }));
     }
-    void self;
   };
 
   // ---------- the train comes and goes ----------
@@ -26190,15 +26209,15 @@
       var w = t.visible && wishes.filter(function (x) { return x.who === t.who; })[0], want = w && !w.done;
       if (want && !t.mark) {
         t.mark = {
-          b: self.add.image(0, 0, 'tw-wish').setScale(1.9).setDepth(DEPTH.Above + 1),
-          i: self.add.image(0, 0, 'items', C.ITEMS[w.id].icon).setScale(0.62).setDepth(DEPTH.Above + 1.01),
+          b: self.add.image(0, 0, 'tw-wish').setScale(2.3).setDepth(DEPTH.Above + 1),
+          i: self.add.image(0, 0, 'items', C.ITEMS[w.id].icon).setScale(0.74).setDepth(DEPTH.Above + 1.01),
         };
       }
       if (!want && t.mark) { t.mark.b.destroy(); t.mark.i.destroy(); t.mark = null; }
       if (t.mark) {
-        var y = t.y - 2.45 * T + Math.sin(Date.now() / 300 + t.who) * 14;
+        var y = t.y - 2.55 * T + Math.sin(Date.now() / 300 + t.who) * 14;
         t.mark.b.setPosition(t.x, y);
-        t.mark.i.setPosition(t.x, y - 0.13 * T).setFrame(C.ITEMS[w.id].icon);
+        t.mark.i.setPosition(t.x, y - 0.15 * T).setFrame(C.ITEMS[w.id].icon);
       }
     });
   };

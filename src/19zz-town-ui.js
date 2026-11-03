@@ -20,6 +20,8 @@
   var timeOf = function (lm) { return L.formatTime(lm % 1440); };
   var trainsText = function () { return TW.trains.map(function (m) { return L.formatTime(m).replace(':00', ''); }).join(', ').replace(/, ([^,]*)$/, ' and $1'); };
   var nextTrain = function (s) { var n = L.twNextTrain(L.twNow(s)); return n ? timeOf(n.arrive) : ''; };
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var dayWord = function (s, lm) { var d = Math.floor(lm / 1440) - s.day; return d <= 0 ? 'today' : d === 1 ? 'tomorrow' : 'on ' + DAYS[L.date(s.day + d).weekday]; };
   var itemName = function (id, n) { var it = C.ITEMS[id]; return n === 1 || !it.plural ? it.name : it.plural; };
 
   U.twTabs = function (s) {
@@ -59,7 +61,7 @@
     this.closeButton(c, W - 26, 84, function () { self.closeModal(); });
     var subText = !o ? 'The next order comes with the ' + nextTrain(s) + ' train.'
       : o.full ? 'All filled! The ' + nextTrain(s) + ' train takes them away.'
-        : 'Fill them by ' + timeOf(o.due) + ' ' + (o.due - L.twNow(s) >= 1440 - (L.twNow(s) % 1440) ? 'tomorrow' : 'today') + ' (' + L.formatLeft(L.twLeft(s)) + ' left).';
+        : 'Fill them by ' + timeOf(o.due) + ' ' + dayWord(s, o.due) + ' (' + L.formatLeft(L.twLeft(s)) + ' left).';
     var sub = this.txt(W / 2, 104, subText, 13, '#6a4a2a', { align: 'center' }).setOrigin(0.5, 0);
     if (sub.width > W - 60) sub.setScale((W - 60) / sub.width);
     c.add(sub);
@@ -86,7 +88,7 @@
     c.add(this.txt(W - 40, 186, filled + ' / ' + total, 13, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(1, 0));
     this.rewardChips(c, 82, 208, W - 52 - 70, o.prize, o.full ? 'Won' : 'Prize');
     // the crates, two by three
-    var cw = 150, ch = 100, gap = 8, x0 = (W - 2 * cw - gap) / 2, y0 = 252;
+    var cw = 150, ch = 92, gap = 6, x0 = (W - 2 * cw - gap) / 2, y0 = 250;
     o.crates.forEach(function (cr, i) {
       var x = x0 + (i % 2) * (cw + gap), y = y0 + Math.floor(i / 2) * (ch + gap), have = L.countItem(s, cr.id), ready = !cr.done && have >= cr.n;
       self.canvasImg(c, x, y, 'tw-ui-crate-' + (cr.done ? 'done' : ready ? 'ready' : 'open'), cw, ch + 3, function (g) {
@@ -101,21 +103,21 @@
         g.stroke();
       });
       c.add(self.txt(x + 10, y + 7, TW.kinds[cr.k].toUpperCase(), 9, '#8a6a42', { fontStyle: 'bold' }));
-      c.add(self.add.image(x + 30, y + 48, 'items', C.ITEMS[cr.id].icon).setScale(ICON * 0.95).setAlpha(cr.done ? 0.55 : 1));
-      var nm = self.txt(x + 58, y + 22, C.ITEMS[cr.id].name, 12, INK, { fontStyle: 'bold' });
+      c.add(self.add.image(x + 30, y + 44, 'items', C.ITEMS[cr.id].icon).setScale(ICON * 0.9).setAlpha(cr.done ? 0.55 : 1));
+      var nm = self.txt(x + 58, y + 20, C.ITEMS[cr.id].name, 12, INK, { fontStyle: 'bold' });
       if (nm.width > cw - 64) nm.setScale((cw - 64) / nm.width);
       c.add(nm);
-      c.add(self.txt(x + 58, y + 39, 'x' + cr.n, 14, '#5a3a1e', { fontStyle: 'bold' }));
+      c.add(self.txt(x + 58, y + 36, 'x' + cr.n, 14, '#5a3a1e', { fontStyle: 'bold' }));
       if (cr.done) {
-        c.add(self.txt(x + cw / 2, y + ch - 20, 'FILLED', 14, '#3f7d22', { fontStyle: 'bold' }).setOrigin(0.5));
+        c.add(self.txt(x + cw / 2, y + ch - 16, 'FILLED', 14, '#3f7d22', { fontStyle: 'bold' }).setOrigin(0.5));
         return;
       }
-      c.add(self.txt(x + 58, y + 58, 'You have ' + Math.min(have, 999), 10, have >= cr.n ? '#2f7a22' : '#7a5a3a', { fontStyle: have >= cr.n ? 'bold' : 'normal' }));
-      c.add(self.txt(x + 10, y + ch - 20, 'Pays ' + fmt(cr.pay) + 'G', 11, '#a8740c', { fontStyle: 'bold' }).setOrigin(0, 0.5));
-      if (ready) self.pillButton(c, x + cw - 36, y + ch - 20, 58, 26, 'Fill', function () { self.twFillCrate(i); }, GREEN);
+      c.add(self.txt(x + 10, y + ch - 16, 'Pays ' + fmt(cr.pay) + 'G', 11, '#a8740c', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      if (ready) self.pillButton(c, x + cw - 36, y + ch - 17, 58, 24, 'Fill', function () { self.twFillCrate(i); }, GREEN);
+      else c.add(self.txt(x + cw - 10, y + ch - 16, 'Have ' + Math.min(have, 999), 10, '#7a5a3a').setOrigin(1, 0.5));
     });
     var tr = L.twTrain(s), rows = Math.ceil(o.crates.length / 2);
-    c.add(this.txt(W / 2, y0 + rows * (ch + gap) + 8, (tr ? 'The ' + timeOf(tr.arrive) + ' train is in until ' + timeOf(tr.leave) + '.' : 'Next train: ' + nextTrain(s) + '.') + ' Trains come in at ' + trainsText() + '.', 11, '#7a5a3a', { align: 'center', wordWrap: { width: W - 70 } }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, y0 + rows * (ch + gap) + 6, tr ? 'The ' + timeOf(tr.arrive) + ' train is in until ' + timeOf(tr.leave) + '.' : 'Next train: ' + nextTrain(s) + '.', 11, '#7a5a3a').setOrigin(0.5, 0));
     return c;
   };
 
@@ -233,9 +235,9 @@
         draw: function (ui, sc, move) {
           F.twTextures(ui);
           pic(ui, sc, 52, 122, 'tw-station', 90, 72);
-          var t = pic(ui, sc, 206, 118, 'tw-train', 190, 28).setOrigin(0, 1);
-          t.x = move ? 300 : 104;
-          tw(ui, move, { targets: t, x: 104, duration: 2200, ease: 'Cubic.out', hold: 1400, yoyo: true, repeat: -1, repeatDelay: 300 });
+          var t = pic(ui, sc, 112, 118, 'tw-train', 152, 23).setOrigin(0, 1); // (the stage does not clip: the train stays on it)
+          if (move) { t.x = 118; t.setAlpha(0); }
+          tw(ui, move, { targets: t, x: 106, alpha: 1, duration: 1600, ease: 'Cubic.out', hold: 1600, yoyo: true, repeat: -1, repeatDelay: 300 });
           var p = ui.add.image(116, 84, 'tw-puff').setScale(0.4);
           sc.add(p);
           tw(ui, move, { targets: p, y: 50, alpha: 0, scale: 0.9, duration: 900, repeat: -1 });
@@ -272,10 +274,14 @@
         text: 'Crates, visitors and stall sales while a train is in give Town points. Each Town Level brings something new.',
         draw: function (ui, sc, move) {
           words(ui, sc, 136, 26, 'TOWN LEVEL', 13, '#5a3a1e');
-          var bar = ui.add.rectangle(36, 64, 200, 16, 0x6a4a2a).setOrigin(0, 0.5);
-          var fill = ui.add.rectangle(38, 64, 10, 12, 0x3fa535).setOrigin(0, 0.5);
+          var bar = ui.add.rectangle(66, 64, 140, 16, 0x6a4a2a).setOrigin(0, 0.5);
+          var fill = ui.add.rectangle(68, 64, 136, 12, 0x3fa535).setOrigin(0, 0.5);
           sc.add([bar, fill]);
-          tw(ui, move, { targets: fill, width: 196, duration: 1800, repeat: -1, repeatDelay: 500 });
+          words(ui, sc, 40, 64, 'Lv 1', 12, '#5a3a1e');
+          var two = words(ui, sc, 232, 64, 'Lv 2', 12, '#a8740c');
+          if (move) fill.scaleX = 0.05;
+          tw(ui, move, { targets: fill, scaleX: 1, duration: 1800, repeat: -1, repeatDelay: 600 });
+          tw(ui, move, { targets: two, scale: { from: 1, to: 1.25 }, duration: 300, delay: 1700, yoyo: true, repeat: -1, repeatDelay: 2100 });
           [C.ICON.crate, C.ICON.ribbon, C.ICON.star].forEach(function (f, i) { icon(ui, sc, 76 + i * 60, 106, f, 0.22); });
         },
       },
