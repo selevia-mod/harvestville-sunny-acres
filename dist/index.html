@@ -6394,9 +6394,12 @@
     return list.indexOf(me) < max;
   };
 
-  // A name typed by a player (a farm name, a message): one line, no control characters, trimmed.
+  // A name typed by a player (a farm name, a message): one line, no control characters, no invisible ones (soft hyphen,
+  // zero-width spaces and joiners, direction marks and overrides, word joiners, byte-order mark: they let a rude word
+  // or a look-alike name past the checks, and the server takes them out too), trimmed.
+  var INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
   L.cleanText = function (v, max) {
-    return typeof v === 'string' ? str(v.replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
+    return typeof v === 'string' ? str(v.replace(INVISIBLE, '').replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
   };
 
   // ---------- the others walking on this phone ----------
@@ -30888,8 +30891,9 @@
 //   Online, Friends: a Barangay row (yours, or Find). Find lists your friends' barangays first, then the busiest; Make
 //     your own (a name, a badge, open or with a code); Code joins a closed one.
 //   The Barangay panel: Cup (this week's 8 tasks; Pick one, do it in your game, and it is turned in by itself when it is
-//     done), League (your group of 10 barangays your size, and the prizes), Members (who is online, what each did; the
-//     code; Leave; the leader opens or closes it and can take a member out) and News (short lines, and who did what).
+//     done), League (your group of 10 barangays your size, and the prizes), Members (who is online, what each did;
+//     Leave; the leader sees the code, makes a new one, opens or closes it and can take a member out, who then cannot
+//     come back for 7 days) and News (short lines, and who did what). Guests see the Cup but cannot pick a task.
 //   When the game connects: last weeks' Cup prizes, once (the server pays what it says).
 // Before part 16 is applied all of it hides quietly (O.nbOff): no row, no panel, no message.
 (function (F) {
@@ -31067,7 +31071,9 @@
   U.cupRows = function (nb) {
     var self = this, s = F.session.state, p = L.nbProgress(s), rows = [];
     var full = nb.doneWeek >= nb.maxWeek ? 'week' : nb.doneToday >= nb.maxDay ? 'day' : '';
-    if (p) {
+    if (!nb.canWin) {
+      rows.push({ icon: C.ICON.ribbon, name: 'Sign in to play the Cup', desc: 'Guests can be in a barangay, but Cup tasks need a Selebox account.' });
+    } else if (p) {
       var t = nb.pick || { points: 0 };
       rows.push({
         icon: L.nbTaskIcon(p.kind), name: 'Your task: ' + L.nbTaskText(p.kind, p.goal), progress: [p.n, p.goal], tag: 'NOW',
@@ -31086,7 +31092,7 @@
       rows.push({
         icon: L.nbTaskIcon(t.kind), name: L.nbTaskText(t.kind, t.goal), done: t.done,
         desc: t.done ? 'You did this one this week.' : '+' + t.points + ' points.' + (t.minutes ? ' Takes at least ' + L.formatLeft(t.minutes) + '.' : ''),
-        buttons: t.done ? [] : [{ label: 'Pick', color: p || full ? GREY : GREEN, cb: function () { self.pickTask(t); } }],
+        buttons: t.done || !nb.canWin ? [] : [{ label: 'Pick', color: p || full ? GREY : GREEN, cb: function () { self.pickTask(t); } }],
       });
     });
     return rows;
@@ -31115,11 +31121,18 @@
 
   U.memberRows = function (nb, list) {
     var self = this, h = nb.hood, rows = [];
-    rows.push({
-      icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Code: ' + h.code,
-      desc: h.open ? 'Anyone can join. Or give friends the code ' + h.code + '.' : 'Closed: only farms with the code can join.',
-      buttons: h.leader ? [{ label: h.open ? 'Close' : 'Open', color: GREY, cb: function () { self.setHoodOpen(!h.open); } }] : [],
-    });
+    if (h.leader && h.code) {
+      rows.push({
+        icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Code: ' + h.code,
+        desc: h.open ? 'Anyone can join. Or give friends the code ' + h.code + '.' : 'Closed: only farms with the code can join.',
+        buttons: [{ label: 'New code', color: GREY, cb: function () { self.newHoodCode(); } }, { label: h.open ? 'Close' : 'Open', color: GREY, cb: function () { self.setHoodOpen(!h.open); } }],
+      });
+    } else {
+      rows.push({
+        icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Closed',
+        desc: h.open ? 'Any farm can join.' : 'Only farms with the code can join. The leader has it.',
+      });
+    }
     (Array.isArray(list) ? list : []).forEach(function (m) {
       if (!m || !m.id || O.blocked[String(m.id)]) return;
       var id = String(m.id), n = name(m.farm_name), tasks = Math.max(0, Math.floor(Number(m.tasks)) || 0), pts = Math.max(0, Math.floor(Number(m.points)) || 0);
@@ -31172,7 +31185,8 @@
       sfx('nope');
       var code = r && r.code;
       self.toast({ busy: 'You have a task already.', done: 'You did that one this week.', week: 'That is ' + nb.maxWeek + ' tasks this week. Thank you!',
-        day: 'That is ' + nb.maxDay + ' tasks today. More tomorrow!', out: 'You are not in a barangay now.' }[code] || 'That task is not there any more.', 2600);
+        day: 'That is ' + nb.maxDay + ' tasks today. More tomorrow!', out: 'You are not in a barangay now.',
+        guest: 'Cup tasks need a Selebox account. Sign in to play!' }[code] || 'That task is not there any more.', 2600);
       if (code === 'busy' || code === 'out') O.nbLoad();
     }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
   };
@@ -31199,9 +31213,18 @@
       again(self, 'members', r === 'ok' ? (open ? 'Open: anyone can join now.' : 'Closed: only farms with the code can join.') : 'Only the leader can change that.');
     }).catch(function () { self.toast(net); });
   };
+  U.newHoodCode = function () {
+    var self = this;
+    this.confirm('MAKE A NEW CODE?\nThe old code stops working. Farms already in stay in.', function () {
+      F.Net.rpc('farm_nb_code_v1', {}).then(function (r) {
+        var code = r && r.ok && /^[A-Z0-9]{6}$/.test(String(r.join_code || '')) ? String(r.join_code) : '';
+        again(self, 'members', code ? 'The new code is ' + code + '.' : 'Only the leader can change that.');
+      }).catch(function (e) { self.toast(off(e) ? 'Coming soon!' : net); });
+    });
+  };
   U.kickMember = function (id, who) {
     var self = this;
-    this.confirm('REMOVE ' + who.toUpperCase() + '?\nThey leave your barangay. What they did this week still counts.', function () {
+    this.confirm('REMOVE ' + who.toUpperCase() + '?\nThey leave your barangay and cannot come back for 7 days. What they did this week still counts.', function () {
       F.Net.rpc('farm_nb_kick_v1', { p_user: id }).then(function (r) {
         again(self, 'members', r === 'ok' ? who + ' is out of your barangay.' : 'That did not work.');
       }).catch(function () { self.toast(net); });
@@ -31240,7 +31263,7 @@
       if (self.swapGone(ticket)) return;
       var rows = [
         { icon: C.ICON.sparkle, name: 'Make your own', desc: 'Pick a name and a badge. You lead it.', buttons: [{ label: 'Make', color: GREEN, cb: function () { self.makeHood(); } }] },
-        { icon: C.ICON.tag, name: 'Have a code?', desc: 'Join a closed barangay with the code a member gave you.', buttons: [{ label: 'Code', color: BLUE, cb: function () { self.joinByCode(); } }] },
+        { icon: C.ICON.tag, name: 'Have a code?', desc: 'Join a closed barangay with the code its leader gave you.', buttons: [{ label: 'Code', color: BLUE, cb: function () { self.joinByCode(); } }] },
       ];
       (Array.isArray(list) ? list : []).forEach(function (h) {
         if (!h || h.id == null) return;
@@ -31307,7 +31330,8 @@
         });
       }
       sfx('nope');
-      self.toast({ word: 'That name is not allowed. Please pick a kinder one.', taken: 'That name is taken. Try another!', in: 'Leave your barangay first.', limit: 'That is 3 barangays today. Try again tomorrow.' }[r && r.code] || 'That name will not do. ' + NB.nameMin + ' to ' + NB.nameMax + ' letters, please.', 2800);
+      self.toast({ word: 'That name is not allowed. Please pick a kinder one.', taken: 'That name is taken. Try another!', in: 'Leave your barangay first.', limit: 'That is 3 barangays today. Try again tomorrow.',
+        snap: 'Your farm is still going online. Try again in a moment.' }[r && r.code] || 'That name will not do. ' + NB.nameMin + ' to ' + NB.nameMax + ' letters, please.', 2800);
     }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
   };
   U.joinByCode = function () {
@@ -31315,7 +31339,7 @@
     this.askText('The barangay\'s code', '', 6, function (code) {
       code = code.replace(/\s+/g, '').toUpperCase();
       if (code) self.joinHood(null, code);
-    }, { hint: '6 letters and numbers, from a member\'s Members tab.', ok: 'Join' });
+    }, { hint: '6 letters and numbers, from the barangay\'s leader.', ok: 'Join' });
   };
   U.joinHood = function (id, code) {
     var self = this;
@@ -31333,7 +31357,9 @@
       }
       sfx('nope');
       if (r && r.code === 'code') return self.joinByCode();
-      self.toast({ full: 'That barangay is full: ' + NB.max + ' farms.', gone: code ? 'No barangay has that code.' : 'That barangay is not there any more.', in: 'Leave your barangay first.' }[r && r.code] || 'That did not work.', 2600);
+      self.toast({ full: 'That barangay is full: ' + NB.max + ' farms.', gone: code ? 'No barangay has that code.' : 'That barangay is not there any more.', in: 'Leave your barangay first.',
+        banned: 'You were taken out of that barangay. You can join it again in a few days.', slow: 'That is a lot of tries. Wait a minute, then try again.',
+        snap: 'Your farm is still going online. Try again in a moment.' }[r && r.code] || 'That did not work.', 2600);
     }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
   };
 

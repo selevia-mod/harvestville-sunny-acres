@@ -2069,6 +2069,16 @@ test('online: barangays: make one, a friend finds and joins it, a Cup task done 
   await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
   await waitModal(b.page, /Open to all[\s\S]*Ana Acres \(you\)[\s\S]*1 task, \d+ points this week[\s\S]*Moon Meadow \(leader\)/);
   await shot(b.page, 'nb-8-members');
+  assert.ok(!/Code:|New code|give friends the code/.test(await modalText(b.page)), 'only the leader is shown the code');
+  // the leader makes a new code (a kicked member's old code stops working)
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
+  await waitModal(a.page, /Open to all[\s\S]*Or give friends the code [A-Z0-9]{6}/);
+  const oldCode = [...server.db.hoods.values()][0].code;
+  await tapButton(a.page, 'New code');
+  await waitModal(a.page, /MAKE A NEW CODE\?/);
+  await tapButton(a.page, 'Yes');
+  await waitToast(a.page, /The new code is [A-Z0-9]{6}\./);
+  assert.notStrictEqual([...server.db.hoods.values()][0].code, oldCode);
   // News: a line from the friend; the leader reads it, with who joined and the task
   await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('news', 0); });
   await waitModal(b.page, /Write/);

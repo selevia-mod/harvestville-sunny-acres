@@ -131,6 +131,7 @@ test('typed names and messages are cleaned', () => {
   assert.strictEqual(L.cleanText('  Moon\n\tMeadow \u0007 ', 24), 'Moon Meadow');
   assert.strictEqual(L.cleanText('x'.repeat(50), 24).length, 24);
   assert.strictEqual(L.cleanText(42, 24), '');
+  assert.strictEqual(L.cleanText('Fu\u200bck\u00ad Town\u202e\u2060\ufeff', 24), 'Fuck Town', 'invisible characters go (the word filter then sees the word)');
 });
 
 test('weeds, stones and stumps show on a visited farm too', () => {

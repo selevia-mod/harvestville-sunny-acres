@@ -143,9 +143,12 @@
     return list.indexOf(me) < max;
   };
 
-  // A name typed by a player (a farm name, a message): one line, no control characters, trimmed.
+  // A name typed by a player (a farm name, a message): one line, no control characters, no invisible ones (soft hyphen,
+  // zero-width spaces and joiners, direction marks and overrides, word joiners, byte-order mark: they let a rude word
+  // or a look-alike name past the checks, and the server takes them out too), trimmed.
+  var INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
   L.cleanText = function (v, max) {
-    return typeof v === 'string' ? str(v.replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
+    return typeof v === 'string' ? str(v.replace(INVISIBLE, '').replace(/\s+/g, ' '), 1000).trim().slice(0, max) : '';
   };
 
   // ---------- the others walking on this phone ----------
