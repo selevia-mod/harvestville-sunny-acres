@@ -25,7 +25,12 @@ $P -d t -1 -f "$ROOT/supabase/farm_online_9.sql"
 $P -d t -1 -f "$ROOT/supabase/farm_online_13.sql" # (the Tailor Shop's looks: needs only parts 1-4)
 $P -d t -1 -f "$ROOT/supabase/farm_online_14.sql" # (hunting together: needs parts 1-3)
 $P -d t -1 -f "$ROOT/supabase/farm_online_15.sql" # (the Fishing Derby)
+$P -d t -1 -f "$ROOT/supabase/farm_online_16.sql" # (barangays and the Bayanihan Cup: needs parts 1-3)
+$P -d t -1 -f "$ROOT/supabase/farm_online_16.sql" # (twice: safe to run again)
+$P -d t -1 -f "$ROOT/supabase/farm_online_17.sql" # (the Market board: needs part 7)
+$P -d t -1 -f "$ROOT/supabase/farm_online_17.sql"
 $P -d t -f "$ROOT/test/sql/checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/looks-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/hunt-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/derby-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+$P -d t -f "$ROOT/test/sql/social-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'

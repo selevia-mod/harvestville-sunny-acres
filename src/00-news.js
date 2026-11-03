@@ -27,6 +27,8 @@
         ['star', 'Skills', 'Get better at farming, mining, fishing and hunting just by doing them: ten levels each, with a small perk now and then. See them on your farmer card.', 'skills'], // (19zz-skills.js)
         ['chicken', 'Animal breeds', 'Hens, cows, pigs and carabaos come in colours, and babies take after their parents. About 1 in 25 is born rare! Find them all in the Breeds book (Collection).', 'breeds'], // (19zz-breeding.js)
         ['crate', 'Willowbrook Station', 'Up the lane by the Post Office: trains bring visitors and big cargo orders, and your Town Level grows.', 'station'], // 19zz-town.js
+        ['carabao', 'Barangays', 'Team up with up to 30 farms under Online, Friends. Every week the Bayanihan Cup gives each barangay the same tasks: points, places and prizes for all who help.', 'nb'],
+        ['crate', 'The Market board', 'Advertise your stall for 4 hours, free once a day. See who is selling and buy from their stall, in Online, Market.', 'ads'],
       ],
     },
     {

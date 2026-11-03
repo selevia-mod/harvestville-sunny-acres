@@ -358,7 +358,7 @@ function createServer() {
       return { ok: true, item: 'energy', amount: 100, currency: a.p_currency, price, balance: w[a.p_currency] };
     },
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
-    farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
+    farm_leave_v1(uid) { need(uid); hoodGone(uid); db.cupPicks.delete(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
     // part 14 (supabase/farm_online_14.sql): hunting together. db.noHunt: as before it is applied (the functions are not there).
     farm_hunt_here_v1(uid, a) {
       huntPart(); need(uid);
@@ -467,6 +467,222 @@ function createServer() {
       return townRpc[name](uid, a);
     };
   });
+
+  // parts 16 and 17 (supabase/farm_online_16.sql, _17.sql): barangays and the Bayanihan Cup, and the Market board.
+  // db.noHood / db.noAds: as before they are applied (the functions are not there). db.cupFast: a task can be turned in
+  // straight away (the real server waits its least minutes; tests can also move a pick's .at back).
+  Object.assign(db, { hoods: new Map(), hoodOf: new Map(), hoodId: 0, hoodPosts: [], postId: 0, cupPicks: new Map(), cupDone: [], cupHoods: new Map(), cupClaims: new Set(), ads: new Map() });
+  const NB_KINDS = [['harvest', 80, 120, 12], ['fish', 12, 100, 10], ['hunt', 4, 120, 10], ['order', 3, 100, 15], ['collect', 15, 80, 10],
+    ['care', 25, 60, 8], ['cooked', 5, 80, 8], ['plant', 60, 60, 8], ['forage', 10, 80, 10], ['request', 2, 100, 15]];
+  const NB_BADGES = ['carabao', 'mango', 'sunflower', 'fish_k', 'star', 'heart', 'cow', 'gem'];
+  const ph = () => new Date(Date.now() + 8 * 3600e3);
+  const nbDay = () => ph().toISOString().slice(0, 10);
+  const nbWeek = () => { const t = ph(); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
+  const cupTasks = (wk) => NB_KINDS.map(([kind, goal, points, minutes]) => ({ kind, goal, points, minutes, h: crypto.createHash('md5').update(wk + ':' + kind).digest('hex') }))
+    .sort((x, y) => (x.h < y.h ? -1 : 1)).slice(0, 8);
+  const members = (hid) => [...db.hoodOf.entries()].filter(([, m]) => m.hood === hid).sort((x, y) => x[1].joined - y[1].joined);
+  const hoodPost = (hood, uid, kind, body) => {
+    if ((kind === 'join' || kind === 'left') && db.hoodPosts.some((p) => p.hood === hood && p.uid === uid && p.kind === kind && Date.now() - p.at < 864e5)) return; // (farm.hood_note: once a day)
+    db.hoodPosts.push({ id: ++db.postId, hood, uid, kind, body: body || '', at: Date.now() });
+  };
+  const hoodGone = (uid) => { // (the trigger: the longest member leads; nobody left, it is gone)
+    const m = db.hoodOf.get(uid);
+    if (!m) return;
+    db.hoodOf.delete(uid);
+    const h = db.hoods.get(m.hood), rest = members(m.hood);
+    if (!rest.length) db.hoods.delete(m.hood);
+    else if (h.leader === uid) h.leader = rest[0][0];
+  };
+  const cupPlace = (wk, hid) => {
+    const h = db.cupHoods.get(wk + ':' + hid);
+    if (!h) return null;
+    return 1 + [...db.cupHoods.values()].filter((o) => o.week === wk && o.league === h.league && o.grp === h.grp && o.hood !== hid && (o.score > h.score || (o.score === h.score && o.last < h.last))).length;
+  };
+  const nbPrize = (place, score) => (score >= 400 && place <= 3 ? { gold: [3000, 2000, 1200][place - 1], stars: 4 - place } : { gold: 500, stars: 0 });
+  const nbRpc = {
+    farm_nb_v1(uid) {
+      need(uid);
+      db.players.get(uid).seen = Date.now();
+      const wk = nbWeek(), today = nbDay(), m = db.hoodOf.get(uid), mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
+      let hood = null, cup = null, pick = null;
+      if (m) {
+        const h = db.hoods.get(m.hood), list = members(m.hood);
+        hood = { id: h.id, name: h.name, badge: h.badge, open: h.open, code: h.code, leader: h.leader === uid, members: list.length, online: list.filter(([id]) => online(db.players.get(id))).length, max: 30 };
+        const ch = db.cupHoods.get(wk + ':' + h.id);
+        if (ch) {
+          const group = [...db.cupHoods.values()].filter((g) => g.week === wk && g.league === ch.league && g.grp === ch.grp).sort((x, y) => y.score - x.score || x.last - y.last);
+          cup = { league: ch.league, score: ch.score, place: cupPlace(wk, h.id), group: group.map((g) => ({ name: g.name, badge: g.badge, score: g.score, me: g.hood === h.id })) };
+        }
+      }
+      const pk = db.cupPicks.get(uid);
+      if (pk && pk.week === wk && m && pk.hood === m.hood) pick = { kind: pk.kind, goal: pk.goal, points: pk.points, minutes: pk.minutes, ago: Math.floor((Date.now() - pk.at) / 1000) };
+      const end = new Date(wk + 'T00:00:00+08:00').getTime() + 7 * 864e5;
+      return { hood, week: wk, ends_in: Math.floor((end - Date.now()) / 1000), tasks: cupTasks(wk).map((t) => ({ kind: t.kind, goal: t.goal, points: t.points, minutes: t.minutes, done: mine.some((d) => d.kind === t.kind) })),
+        pick, cup, done_week: mine.length, done_today: mine.filter((d) => d.day === today).length, max_week: 6, max_day: 3, min_place: 400, base_gold: 500,
+        prizes: [[3000, 3], [2000, 2], [1200, 1]], can_win: true };
+    },
+    farm_nb_create_v1(uid, a) {
+      need(uid);
+      const nm = String(a.p_name || '').trim().replace(/\s+/g, ' ');
+      if (nm.length < 3 || nm.length > 20 || !NB_BADGES.includes(a.p_badge)) return { ok: false, code: 'bad' };
+      if (/shit|fuck|puta/i.test(nm)) return { ok: false, code: 'word' };
+      if (db.hoodOf.has(uid)) return { ok: false, code: 'in' };
+      if ([...db.hoods.values()].some((h) => h.name.toLowerCase() === nm.toLowerCase())) return { ok: false, code: 'taken' };
+      const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) code += abc[crypto.randomInt(32)];
+      const h = { id: ++db.hoodId, name: nm, badge: a.p_badge, open: a.p_open !== false, code, leader: uid };
+      db.hoods.set(h.id, h);
+      db.hoodOf.set(uid, { hood: h.id, joined: Date.now() });
+      hoodPost(h.id, uid, 'made');
+      return { ok: true, id: h.id, name: nm, code };
+    },
+    farm_nb_find_v1(uid, a) {
+      need(uid);
+      const wk = nbWeek(), q = String(a.p_q || '').trim().toLowerCase();
+      return [...db.hoods.values()].filter((h) => (q.length < 2 || h.name.toLowerCase().includes(q)) && !blocked(uid, h.leader))
+        .map((h) => { const list = members(h.id); return { id: h.id, name: h.name, badge: h.badge, open: h.open, members: list.length, friends: list.filter(([id]) => coded(uid, id)).length, score: (db.cupHoods.get(wk + ':' + h.id) || {}).score || 0 }; })
+        .filter((h) => h.members >= 1 && h.members < 30).sort((x, y) => y.friends - x.friends || y.open - x.open || y.score - x.score || y.members - x.members).slice(0, 20);
+    },
+    farm_nb_join_v1(uid, a) {
+      need(uid);
+      if (db.hoodOf.has(uid)) return { ok: false, code: 'in' };
+      const c = String(a.p_code || '').trim().toUpperCase();
+      const h = c ? [...db.hoods.values()].find((x) => x.code === c) : db.hoods.get(Number(a.p_id));
+      if (!h || blocked(uid, h.leader)) return { ok: false, code: 'gone' };
+      if (!c && !h.open) return { ok: false, code: 'code' };
+      if (members(h.id).length >= 30) return { ok: false, code: 'full' };
+      db.hoodOf.set(uid, { hood: h.id, joined: Date.now() });
+      db.cupPicks.delete(uid);
+      hoodPost(h.id, uid, 'join');
+      return { ok: true, id: h.id, name: h.name };
+    },
+    farm_nb_leave_v1(uid) {
+      need(uid);
+      const m = db.hoodOf.get(uid);
+      if (!m) return 'out';
+      db.cupPicks.delete(uid);
+      hoodPost(m.hood, uid, 'left');
+      hoodGone(uid);
+      return 'ok';
+    },
+    farm_nb_set_v1(uid, a) {
+      need(uid);
+      const m = db.hoodOf.get(uid), h = m && db.hoods.get(m.hood);
+      if (!h || h.leader !== uid) return 'leader';
+      h.open = !!a.p_open;
+      return 'ok';
+    },
+    farm_nb_kick_v1(uid, a) {
+      need(uid);
+      const m = db.hoodOf.get(uid), h = m && db.hoods.get(m.hood);
+      if (!h || h.leader !== uid) return 'leader';
+      const o = db.hoodOf.get(a.p_user);
+      if (a.p_user === uid || !o || o.hood !== h.id) return 'none';
+      db.cupPicks.delete(a.p_user);
+      hoodPost(h.id, a.p_user, 'left');
+      hoodGone(a.p_user);
+      return 'ok';
+    },
+    farm_nb_members_v1(uid) {
+      need(uid);
+      const m = db.hoodOf.get(uid), wk = nbWeek();
+      if (!m) return [];
+      const h = db.hoods.get(m.hood);
+      return members(m.hood).filter(([id]) => !blocked(uid, id)).map(([id]) => {
+        const done = db.cupDone.filter((d) => d.uid === id && d.week === wk && d.hood === m.hood);
+        return { id, farm_name: db.players.get(id).farm_name, leader: h.leader === id, online: online(db.players.get(id)), tasks: done.length, points: done.reduce((n, d) => n + d.points, 0), me: id === uid };
+      }).sort((x, y) => y.points - x.points);
+    },
+    farm_nb_post_v1(uid, a) {
+      need(uid);
+      const m = db.hoodOf.get(uid), msg = String(a.p_body || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      if (!m) return 'out';
+      if (!msg) return 'empty';
+      if (/shit|fuck|puta/i.test(msg)) return 'word';
+      if (db.hoodPosts.filter((p) => p.uid === uid && p.kind === 'say' && Date.now() - p.at < 864e5).length >= 30) return 'limit';
+      hoodPost(m.hood, uid, 'say', msg);
+      return 'ok';
+    },
+    farm_nb_posts_v1(uid) {
+      need(uid);
+      const m = db.hoodOf.get(uid);
+      if (!m) return [];
+      return db.hoodPosts.filter((p) => p.hood === m.hood && !blocked(uid, p.uid)).sort((x, y) => y.id - x.id).slice(0, 40)
+        .map((p) => ({ id: p.id, who: p.uid, farm_name: (db.players.get(p.uid) || {}).farm_name, kind: p.kind, body: p.body, ago: Math.floor((Date.now() - p.at) / 1000), mine: p.uid === uid }));
+    },
+    farm_cup_pick_v1(uid, a) {
+      need(uid);
+      const m = db.hoodOf.get(uid), wk = nbWeek(), today = nbDay();
+      if (!m) return { ok: false, code: 'out' };
+      const t = cupTasks(wk).find((x) => x.kind === a.p_kind);
+      if (!t) return { ok: false, code: 'bad' };
+      const pk = db.cupPicks.get(uid), mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
+      if (pk && pk.week === wk && pk.hood === m.hood) return { ok: false, code: 'busy', kind: pk.kind };
+      if (mine.some((d) => d.kind === t.kind)) return { ok: false, code: 'done' };
+      if (mine.length >= 6) return { ok: false, code: 'week' };
+      if (mine.filter((d) => d.day === today).length >= 3) return { ok: false, code: 'day' };
+      db.cupPicks.set(uid, { week: wk, kind: t.kind, goal: t.goal, points: t.points, minutes: t.minutes, hood: m.hood, at: Date.now() });
+      return { ok: true, kind: t.kind, goal: t.goal, points: t.points, minutes: t.minutes };
+    },
+    farm_cup_drop_v1(uid) { need(uid); return db.cupPicks.delete(uid) ? 'ok' : 'none'; },
+    farm_cup_done_v1(uid) {
+      need(uid);
+      const pk = db.cupPicks.get(uid), wk = nbWeek(), today = nbDay();
+      if (!pk) return { ok: false, code: 'none' };
+      if (pk.week !== wk) { db.cupPicks.delete(uid); return { ok: false, code: 'late' }; }
+      const m = db.hoodOf.get(uid);
+      if (!m || m.hood !== pk.hood) { db.cupPicks.delete(uid); return { ok: false, code: 'out' }; }
+      const wait = Math.ceil(pk.minutes * 60 - (Date.now() - pk.at) / 1000);
+      if (wait > 0 && !db.cupFast) return { ok: false, code: 'soon', wait };
+      const mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
+      if (mine.filter((d) => d.day === today).length >= 3) return { ok: false, code: 'day' };
+      db.cupPicks.delete(uid);
+      db.cupDone.push({ uid, week: wk, kind: pk.kind, hood: pk.hood, points: pk.points, day: today });
+      const key = wk + ':' + pk.hood;
+      if (!db.cupHoods.has(key)) {
+        const h = db.hoods.get(pk.hood), n = members(pk.hood).length, league = n <= 5 ? 's' : n <= 15 ? 'm' : 'l';
+        db.cupHoods.set(key, { week: wk, hood: pk.hood, name: h.name, badge: h.badge, league, grp: Math.floor([...db.cupHoods.values()].filter((x) => x.week === wk && x.league === league).length / 10), score: 0, last: 0 });
+      }
+      const ch = db.cupHoods.get(key);
+      ch.score += pk.points;
+      ch.last = Date.now();
+      hoodPost(pk.hood, uid, 'task', pk.kind + ':' + pk.points);
+      return { ok: true, kind: pk.kind, points: pk.points, score: ch.score, place: cupPlace(wk, pk.hood) };
+    },
+    farm_cup_claim_v1(uid) {
+      need(uid);
+      const wk = nbWeek(), by = {};
+      db.cupDone.filter((d) => d.uid === uid && d.week < wk).forEach((d) => { const k = d.week; by[k] = by[k] || {}; by[k][d.hood] = (by[k][d.hood] || 0) + d.points; });
+      return Object.keys(by).sort().filter((w) => !db.cupClaims.has(uid + ':' + w)).map((w) => {
+        const hid = Number(Object.keys(by[w]).sort((x, y) => by[w][y] - by[w][x])[0]), ch = db.cupHoods.get(w + ':' + hid), place = cupPlace(w, hid);
+        db.cupClaims.add(uid + ':' + w);
+        return Object.assign({ week: w, place, name: ch.name }, nbPrize(place, ch.score));
+      });
+    },
+  };
+  const adsRpc = {
+    farm_market_ad_v1(uid) {
+      need(uid);
+      const today = nbDay(), a = db.ads.get(uid), next_s = 3600;
+      if (!db.market.some((m) => m.seller === uid && !m.buyer && m.expires > Date.now())) return { ok: false, code: 'empty' };
+      if (a && a.day === today) return { ok: false, code: 'used', until_s: Math.max(0, Math.floor((a.until - Date.now()) / 1000)), next_s };
+      db.ads.set(uid, { day: today, at: Date.now(), until: Date.now() + 4 * 3600e3 });
+      return { ok: true, until_s: 4 * 3600, next_s };
+    },
+    farm_market_ads_v1(uid) {
+      need(uid);
+      const open = (id) => db.market.filter((m) => m.seller === id && !m.buyer && m.expires > Date.now());
+      const ads = [...db.ads.entries()].filter(([id, a]) => a.until > Date.now() && id !== uid && db.players.has(id) && !blocked(uid, id) && (db.players.get(id).listed || areFriends(uid, id)) && open(id).length)
+        .map(([id, a]) => ({ id, farm_name: db.players.get(id).farm_name, friend: areFriends(uid, id), at: a.at, left_s: Math.floor((a.until - Date.now()) / 1000), lots: open(id).length,
+          items: open(id).sort((x, y) => x.price / x.qty - y.price / y.qty || x.id - y.id).slice(0, 3).map((m) => ({ item: m.item, qty: m.qty, price: m.price })) }))
+        .sort((x, y) => (y.friend - x.friend) || y.at - x.at).slice(0, 30);
+      const a = db.ads.get(uid);
+      return { ads, mine: { on: !!a && a.until > Date.now(), until_s: a ? Math.max(0, Math.floor((a.until - Date.now()) / 1000)) : 0, used: !!a && a.day === nbDay(), hours: 4, next_s: 3600 } };
+    },
+  };
+  Object.keys(nbRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noHood) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return nbRpc[n](uid, a); }; });
+  Object.keys(adsRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noAds) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return adsRpc[n](uid, a); }; });
 
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels

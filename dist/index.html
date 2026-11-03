@@ -889,6 +889,8 @@
         ['star', 'Skills', 'Get better at farming, mining, fishing and hunting just by doing them: ten levels each, with a small perk now and then. See them on your farmer card.', 'skills'], // (19zz-skills.js)
         ['chicken', 'Animal breeds', 'Hens, cows, pigs and carabaos come in colours, and babies take after their parents. About 1 in 25 is born rare! Find them all in the Breeds book (Collection).', 'breeds'], // (19zz-breeding.js)
         ['crate', 'Willowbrook Station', 'Up the lane by the Post Office: trains bring visitors and big cargo orders, and your Town Level grows.', 'station'], // 19zz-town.js
+        ['carabao', 'Barangays', 'Team up with up to 30 farms under Online, Friends. Every week the Bayanihan Cup gives each barangay the same tasks: points, places and prizes for all who help.', 'nb'],
+        ['crate', 'The Market board', 'Advertise your stall for 4 hours, free once a day. See who is selling and buy from their stall, in Online, Market.', 'ads'],
       ],
     },
     {
@@ -2829,6 +2831,49 @@
       },
     },
   };
+})(window.Farm = window.Farm || {});
+
+// ---- src/00-zzzzzzz-social.js
+// Barangays, the weekly Bayanihan Cup and the Market board (owner, 4 Nov 2026: "Neighborhoods with a weekly Derby;
+// ads for your market stall"). A barangay is a team of up to 30 farms; each week every barangay gets the same tasks,
+// and the points its members score rank it in a group of barangays its size. Rules 01-logicZ-social.js; on screen
+// 19zz-social.js (barangays and the Cup), 19zz-social-ads.js (the Market board), 19zz-social-tours.js; the server
+// supabase/farm_online_16.sql and _17.sql (the numbers there decide; the ones here only show them).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+
+  C.NB = {
+    max: 30, // members
+    nameMin: 3,
+    nameMax: 20,
+    postMax: 80, // letters in a line on the news board (the server cuts a longer one there too)
+    // the badges a barangay can pick (existing item icons; the server checks the same 8 names)
+    badges: ['carabao', 'mango', 'sunflower', 'fish_k', 'star', 'heart', 'cow', 'gem'],
+    badgeNames: { carabao: 'Carabao', mango: 'Mango', sunflower: 'Sunflower', fish_k: 'Big Fish', star: 'Star', heart: 'Heart', cow: 'Cow', gem: 'Gem' },
+    // the Cup's kinds of task: the game's own counter (L.count), an icon, and the words
+    tasks: {
+      harvest: { counter: 'harvest', icon: 'turnip', text: 'Harvest {n} crops' },
+      fish: { counter: 'fish', icon: 'fish_m', text: 'Catch {n} fish' },
+      hunt: { counter: 'hunt', icon: 'bow', text: 'Hunt {n} animals' },
+      order: { counter: 'order', icon: 'crate', text: 'Fill {n} orders' },
+      collect: { counter: 'collect', icon: 'egg', text: 'Collect {n} eggs or milk' },
+      care: { counter: 'care', icon: 'brush', text: 'Care for animals {n} times' },
+      cooked: { counter: 'cooked', icon: 'veggie_stew', text: 'Cook {n} dishes' },
+      plant: { counter: 'plant', icon: 'seed_turnip', text: 'Plant {n} seeds' },
+      forage: { counter: 'forage', icon: 'mushroom', text: 'Forage {n} wild things' },
+      request: { counter: 'request', icon: 'letter', text: 'Finish {n} villager requests' },
+    },
+    leagues: { s: ['Small league', '1 to 5 farms'], m: ['Middle league', '6 to 15 farms'], l: ['Big league', '16 to 30 farms'] },
+    // shown before the server says (farm_nb_v1 sends the real ones)
+    prizes: [[3000, 3], [2000, 2], [1200, 1]],
+    baseGold: 500,
+    minPlace: 400,
+    weekTasks: 6,
+    dayTasks: 3,
+  };
+
+  C.ADS = { hours: 4 }; // the Market board: how long a stall stays on it (free once a day)
 })(window.Farm = window.Farm || {});
 
 // ---- src/00-zzzzzzz-town.js
@@ -10197,6 +10242,172 @@
     var s = visitState(snap, me), lv = snap && Array.isArray(snap.sk2) ? snap.sk2 : null; // (`snap` is untrusted)
     s.sk2 = {};
     if (lv) SK.order.forEach(function (k, i) { var n = int(lv[i], 1, SK.max, 1); if (n > 1) s.sk2[k] = SK.need[n]; });
+    return s;
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZ-social.js
+// Barangays and the Bayanihan Cup: the rules the game keeps (00-zzzzzzz-social.js). The server keeps the barangays,
+// the tasks picked and done, the points and the prizes (supabase/farm_online_16.sql); the game counts how far your task
+// has got: s.nb = { w: the week (its Monday), k: the kind, g: the goal, b: the counter when it was picked } (saved 'nb').
+// Progress is the counter now less b, so the work only counts from the pick. Also: reading the server's answers
+// (never trusting their shape), and the Market board's (supabase/farm_online_17.sql).
+// (Named 01-logicZ-... so it loads after 01-logicM.js: '01-logic-' would sort before 01-logic.js.)
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var NB = C.NB;
+
+  // the tours for barangays and the Market board (19zz-social-tours.js). Appended last.
+  C.TIPS.push({ key: 'nb_tour', text: 'BARANGAYS' }, { key: 'ads_tour', text: 'THE MARKET BOARD' });
+
+  var int = function (v, lo, hi, d) { var n = Math.floor(Number(v)); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
+  var str = function (v, max) { return L.cleanText(v, max); };
+  var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  var WEEK = /^\d{4}-\d{2}-\d{2}$/;
+
+  // ---------- tasks ----------
+  L.nbTaskText = function (kind, goal) {
+    var t = NB.tasks[kind];
+    return t ? t.text.replace('{n}', fmt(goal)) : '';
+  };
+  L.nbTaskIcon = function (kind) { var t = NB.tasks[kind]; return t && C.ICON[t.icon] != null ? C.ICON[t.icon] : C.ICON.star; };
+  L.nbBadgeIcon = function (badge) { return NB.badges.indexOf(badge) >= 0 && C.ICON[badge] != null ? C.ICON[badge] : C.ICON.carabao; };
+  var counter = function (s, kind) { return L.count(s, NB.tasks[kind].counter) || 0; };
+
+  // A task picked: progress counts from now.
+  L.nbStart = function (s, week, kind, goal) {
+    if (!NB.tasks[kind] || !WEEK.test(String(week))) return null;
+    s.nb = { w: String(week), k: kind, g: int(goal, 1, 1000, 1), b: counter(s, kind) };
+    return s.nb;
+  };
+  // { kind, goal, n, done } for the task now, or null
+  L.nbProgress = function (s) {
+    var t = s.nb;
+    if (!t || !NB.tasks[t.k]) return null;
+    var n = Math.max(0, counter(s, t.k) - t.b);
+    return { kind: t.k, goal: t.g, n: Math.min(n, t.g), done: n >= t.g };
+  };
+  // The server says what my task is (pick: { kind, goal } or null, in that week). Another phone, or a pick the save
+  // missed, starts counting from now; a task the server no longer has is gone. True when s.nb changed.
+  L.nbSync = function (s, pick, week) {
+    var t = s.nb;
+    if (!pick) { if (t) { s.nb = null; return true; } return false; }
+    if (t && t.k === pick.kind && t.w === String(week) && t.g === pick.goal) return false;
+    L.nbStart(s, week, pick.kind, pick.goal);
+    return true;
+  };
+
+  // ---------- the server's answers ----------
+  var task = function (t) {
+    if (!t || !NB.tasks[t.kind]) return null;
+    return { kind: t.kind, goal: int(t.goal, 1, 1000, 1), points: int(t.points, 0, 1000, 0), minutes: int(t.minutes, 0, 600, 0), done: !!t.done };
+  };
+  // farm_nb_v1 -> { hood: { id, name, badge, open, code, leader, members, online, max } | null, week, endsIn, tasks,
+  //   pick: { kind, goal, points, minutes, ago } | null, cup: { league, score, place, group: [{ name, badge, score, me }] } | null,
+  //   doneWeek, doneToday, maxWeek, maxDay, minPlace, baseGold, prizes, canWin }, or null if it makes no sense
+  L.nbRead = function (r) {
+    if (!r || typeof r !== 'object' || !WEEK.test(String(r.week || ''))) return null;
+    var h = r.hood && typeof r.hood === 'object' && r.hood.id != null ? r.hood : null, cup = r.cup && typeof r.cup === 'object' ? r.cup : null;
+    var pick = task(r.pick);
+    return {
+      hood: h && {
+        id: String(h.id), name: str(h.name, NB.nameMax) || 'Barangay', badge: NB.badges.indexOf(h.badge) >= 0 ? h.badge : 'carabao', open: h.open !== false,
+        code: /^[A-Z0-9]{6}$/.test(String(h.code || '')) ? String(h.code) : '', leader: !!h.leader, members: int(h.members, 0, NB.max, 1),
+        online: int(h.online, 0, NB.max, 0), max: int(h.max, 1, 100, NB.max),
+      },
+      week: String(r.week), endsIn: int(r.ends_in, 0, 8 * 86400, 0),
+      tasks: (Array.isArray(r.tasks) ? r.tasks : []).map(task).filter(Boolean).slice(0, 12),
+      pick: pick && { kind: pick.kind, goal: pick.goal, points: pick.points, minutes: pick.minutes, ago: int(r.pick.ago, 0, 1e7, 0) },
+      cup: cup && C.NB.leagues[cup.league] ? {
+        league: cup.league, score: int(cup.score, 0, 1e7, 0), place: int(cup.place, 1, 1000, 1),
+        group: (Array.isArray(cup.group) ? cup.group : []).slice(0, 10).map(function (g) {
+          return { name: str(g && g.name, NB.nameMax) || 'Barangay', badge: NB.badges.indexOf(g && g.badge) >= 0 ? g.badge : 'carabao', score: int(g && g.score, 0, 1e7, 0), me: !!(g && g.me) };
+        }),
+      } : null,
+      doneWeek: int(r.done_week, 0, 100, 0), doneToday: int(r.done_today, 0, 100, 0),
+      maxWeek: int(r.max_week, 1, 100, NB.weekTasks), maxDay: int(r.max_day, 1, 100, NB.dayTasks),
+      minPlace: int(r.min_place, 0, 1e6, NB.minPlace), baseGold: int(r.base_gold, 0, 1e5, NB.baseGold),
+      prizes: (Array.isArray(r.prizes) ? r.prizes : NB.prizes).slice(0, 3).map(function (p, i) {
+        return [int(p && p[0], 0, 1e5, NB.prizes[i][0]), int(p && p[1], 0, 20, NB.prizes[i][1])];
+      }),
+      canWin: r.can_win !== false,
+    };
+  };
+
+  // The prize a place would win (1-based), as the server pays it.
+  L.nbPrize = function (nb, place, score) {
+    var p = nb.prizes[place - 1];
+    if (p && score >= nb.minPlace) return { gold: p[0], stars: p[1] };
+    return { gold: nb.baseGold, stars: 0 };
+  };
+
+  // A line on the news board, as the game shows it: { name, text, say }
+  L.nbPostText = function (p) {
+    var who = str(p && p.farm_name, 24) || 'A farmer', kind = p && p.kind;
+    if (kind === 'say') return { name: who, text: str(p.body, 120), say: true };
+    if (kind === 'task') {
+      var m = /^([a-z]+):(\d+)$/.exec(String(p.body || '')), t = m && NB.tasks[m[1]];
+      return { name: who, text: t ? 'Finished a Cup task: +' + int(m[2], 0, 1000, 0) + ' points!' : 'Finished a Cup task!' };
+    }
+    return { name: who, text: { made: 'Started this barangay.', join: 'Joined the barangay. Welcome!', left: 'Left the barangay.' }[kind] || '' };
+  };
+  // "5 min ago", "3 h ago", "2 days ago"
+  L.nbAgo = function (sec) {
+    sec = int(sec, 0, 1e9, 0);
+    if (sec < 60) return 'just now';
+    return L.formatLeft(sec / 60) + ' ago';
+  };
+
+  // Cup prizes from farm_cup_claim_v1: [{ gold, stars, place, name }] (at most 4 weeks; the same caps as the server)
+  L.cupClaimRead = function (list) {
+    return (Array.isArray(list) ? list : []).slice(0, 4).map(function (p) {
+      return { gold: int(p && p.gold, 0, 3000, 0), stars: int(p && p.stars, 0, 3, 0), place: int(p && p.place, 1, 1000, 1), name: str(p && p.name, NB.nameMax) || 'your barangay' };
+    }).filter(function (p) { return p.gold || p.stars; });
+  };
+
+  // The Market board (farm_market_ads_v1): { ads: [{ id, name, friend, leftMin, lots, items: [{ item, qty, price }] }], mine: { on, leftMin, used, nextMin } }
+  L.adsRead = function (r) {
+    if (!r || typeof r !== 'object') return null;
+    var mine = r.mine && typeof r.mine === 'object' ? r.mine : {};
+    return {
+      ads: (Array.isArray(r.ads) ? r.ads : []).slice(0, 30).filter(function (a) { return a && a.id; }).map(function (a) {
+        return {
+          id: String(a.id), name: str(a.farm_name, 24) || 'Farmer', friend: !!a.friend, leftMin: int(a.left_s, 0, 86400, 0) / 60, lots: int(a.lots, 0, 99, 0),
+          items: (Array.isArray(a.items) ? a.items : []).filter(function (x) { return x && C.ITEMS[x.item]; }).slice(0, 3).map(function (x) {
+            return { item: x.item, qty: int(x.qty, 1, C.MARKET.most, 1), price: int(x.price, 1, 100000, 1) };
+          }),
+        };
+      }).filter(function (a) { return a.items.length; }),
+      mine: { on: !!mine.on, leftMin: int(mine.until_s, 0, 86400, 0) / 60, used: !!mine.used, nextMin: int(mine.next_s, 0, 86400, 0) / 60, hours: int(mine.hours, 1, 24, C.ADS.hours) },
+    };
+  };
+  // "10 Turnip for 300G, 5 Eggs for 150G" (as the Market names a lot)
+  L.adItems = function (items) {
+    return items.map(function (x) { var it = C.ITEMS[x.item]; return x.qty + ' ' + (x.qty > 1 && it.plural ? it.plural.charAt(0).toUpperCase() + it.plural.slice(1) : it.name) + ' for ' + fmt(x.price) + 'G'; }).join(', ');
+  };
+
+  // ---------- the save ----------
+  var newState = L.newState;
+  L.newState = function (info) {
+    var s = newState(info);
+    s.nb = null;
+    return s;
+  };
+  var serialize = L.serialize;
+  L.serialize = function (s) {
+    var o = serialize(s), t = s.nb;
+    if (t && NB.tasks[t.k]) o.nb = [t.w, t.k, t.g, t.b];
+    return o;
+  };
+  var deserialize = L.deserialize;
+  L.deserialize = function (o) {
+    var s = deserialize(o);
+    if (!s) return s;
+    s.nb = null;
+    var a = o && o.nb;
+    if (Array.isArray(a) && WEEK.test(String(a[0])) && NB.tasks[a[1]]) s.nb = { w: String(a[0]), k: a[1], g: int(a[2], 1, 1000, 1), b: int(a[3], 0, 1e9, 0) };
     return s;
   };
 })(window.Farm = window.Farm || {});
@@ -30420,6 +30631,710 @@
       },
     ],
   };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zz-social-ads.js
+// The Market board (owner, 4 Nov 2026: "ads for your market stall"; server supabase/farm_online_17.sql). In the Market
+// tab of the Online panel: Advertise puts your stall on the board for 4 hours, free once a day, with what you sell; Look
+// opens the board: the farms on it now (friends first), each with its cheapest lots, Stall to buy (the Market's own
+// buying, U.marketBuy) and Visit to go to their farm. Before part 17 is applied it hides quietly (O.adsOff).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var U = F.UIScene.prototype;
+  var M = C.MARKET;
+  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68, INK_GREEN = 0x2f5a22;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  var lot = function (id, n) { var it = C.ITEMS[id]; return n + ' ' + (n > 1 && it.plural ? it.plural.charAt(0).toUpperCase() + it.plural.slice(1) : it.name); };
+  var missing = function (e) { return /does not exist|schema cache|PGRST202|could not find the function/i.test((e && e.message) || String(e || '')); };
+  var off = function (e) { if (missing(e)) O.adsOff = true; return O.adsOff; };
+  var net = 'Could not reach the online world. Check your connection.';
+
+  O.ads = null; // the last farm_market_ads_v1, read (L.adsRead), and when
+  var at = 0;
+  O.adsLoad = function () {
+    if (!O.on || O.adsOff) return Promise.resolve(null);
+    return F.Net.rpc('farm_market_ads_v1', {}).then(function (r) {
+      var a = L.adsRead(r);
+      if (a) { O.ads = a; at = Date.now(); }
+      return O.ads;
+    }, function (e) { off(e); return null; });
+  };
+  F.bus.on('online', function () { if (!O.on) O.ads = null; });
+  // how mine stands now (the minutes count down from when it was read)
+  var mine = function () {
+    var m = O.ads && O.ads.mine, gone = (Date.now() - at) / 60000;
+    if (!m) return null;
+    return { on: m.on && m.leftMin - gone > 0, leftMin: m.leftMin - gone, used: m.used && m.nextMin - gone > 0, nextMin: m.nextMin - gone, hours: m.hours };
+  };
+
+  // The Market tab waits for the board the first time (so its row is there), and refreshes it after.
+  var openMarket = U.openMarket;
+  U.openMarket = function (page, then) {
+    var self = this, args = arguments, go = function () { openMarket.apply(self, args); };
+    if (O.ads || O.adsOff || !O.on) {
+      if (O.ads && Date.now() - at > 30000) O.adsLoad();
+      if (self.adsTour && self.adsTour(go)) return;
+      return go();
+    }
+    O.adsLoad().then(function () { if (!(self.adsTour && self.adsTour(go))) go(); });
+  };
+
+  U.adsRow = function () {
+    var self = this, m = mine();
+    if (!O.on || O.adsOff || !m) return null;
+    var n = O.ads.ads.length, b = [{ label: 'Look', color: BLUE, cb: function () { self.swapTo(function () { self.openAds(); }); } }];
+    if (!m.on && !m.used) b.push({ label: 'Advertise', color: GREEN, cb: function () { self.advertise(); } });
+    return {
+      icon: C.ICON.crate, name: 'Market board',
+      desc: m.on ? 'Your stall is on it: ' + L.formatLeft(m.leftMin) + ' left.' : (n ? n + (n > 1 ? ' farms' : ' farm') + ' on it now.' : 'See who is selling today.') +
+        (m.used ? ' Yours again in ' + L.formatLeft(m.nextMin) + '.' : ' Show your stall: free once a day.'),
+      buttons: b,
+    };
+  };
+  var listPanel = U.listPanel;
+  U.listPanel = function (o) {
+    if (o && o.title === 'Online' && o.tab === 'market' && Array.isArray(o.rows) && !o.adsDone) {
+      o.adsDone = true;
+      var row = this.adsRow();
+      if (row) o.rows = o.rows.slice(0, 2).concat([row], o.rows.slice(2));
+    }
+    return listPanel.call(this, o);
+  };
+
+  U.advertise = function () {
+    var self = this;
+    if (this.adBusy) return;
+    this.adBusy = true;
+    F.Net.rpc('farm_market_ad_v1', {}).then(function (r) {
+      self.adBusy = false;
+      var code = r && r.code;
+      if (r && r.ok) {
+        sfx('coin');
+        var hours = Math.round((Number(r.until_s) || C.ADS.hours * 3600) / 3600);
+        return O.adsLoad().then(function () {
+          self.swapTo(function () { self.openMarket(0, function () { self.toast('Your stall is on the Market board for ' + hours + ' hours!', 2800, INK_GREEN); }); });
+        });
+      }
+      sfx('nope');
+      if (code === 'used') return self.toast('You used today\'s. Free again in ' + L.formatLeft((Number(r.next_s) || 3600) / 60) + '.', 2600);
+      self.toast(code === 'empty' ? 'Put something up for sale first: Sell at your stall.' : 'That did not work.', 2600);
+    }).catch(function (e) { self.adBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
+  };
+
+  // ---------- the board ----------
+  U.openAds = function (then) {
+    var self = this, ticket = this.swapping;
+    O.adsLoad().then(function (a) {
+      if (self.swapGone(ticket)) return;
+      if (!a) { self.swapping = null; return self.toast(O.adsOff ? 'Coming soon!' : net); }
+      var rows = a.ads.filter(function (x) { return !O.blocked[x.id]; }).map(function (x) {
+        var more = x.lots - x.items.length;
+        return {
+          id: x.id, icon: C.ITEMS[x.items[0].item].icon, name: x.name + (x.friend ? '  (friend)' : ''),
+          desc: L.adItems(x.items) + (more > 0 ? ', and ' + more + ' more' : '') + '.',
+          buttons: [{ label: 'Stall', color: GREEN, cb: function () { self.swapTo(function () { self.openAdStall(x.id, x.name); }); } },
+            { label: 'Visit', color: BLUE, cb: function () { O.visit(x.id); } }],
+        };
+      });
+      self.listPanel({
+        title: 'Market board', rows: rows, page: 0,
+        reopen: function () { self.openAds(); },
+        sub: function () { return 'Farms showing off their stalls today. Tap Stall to buy.'; },
+        empty: 'No stalls on the board right now.\nPut yours on it: Advertise, in your Market.',
+        corner: { label: 'Back', color: GREY, cb: function () { self.swapTo(function () { self.openMarket(0); }); } },
+      });
+      if (then) then();
+    });
+  };
+
+  // One farm's stall from the board: buy with the Market's own buying; Back to the board.
+  U.openAdStall = function (id, who, then) {
+    var self = this, s = F.session.state, ticket = this.swapping;
+    F.Net.rpc('farm_market_of_v1', { p_host: id }).then(function (list) {
+      if (self.swapGone(ticket)) return;
+      var rows = (Array.isArray(list) ? list : []).filter(function (r) { return r && C.ITEMS[r.item]; }).map(function (r) {
+        var n = Math.max(1, Math.min(M.most, Number(r.qty) || 1)), price = Math.max(1, Number(r.price) || 1);
+        return {
+          icon: C.ITEMS[r.item].icon, name: lot(r.item, n), desc: fmt(price) + 'G (' + Math.round(price / n) + 'G each). You have ' + L.countItem(s, r.item) + '.',
+          buttons: [{ label: 'Buy', color: s.gold >= price ? GREEN : GREY, cb: function () { self.marketBuy(r, r.item, n, price, function (t) { self.openAdStall(id, who, t); }); } }],
+        };
+      });
+      self.listPanel({
+        title: who + "'s stall", rows: rows, page: 0,
+        reopen: function () { self.openAdStall(id, who); },
+        sub: function () { return 'You have ' + fmt(s.gold) + 'G.'; },
+        empty: who + ' sold everything already!',
+        corner: { label: 'Back', color: GREY, cb: function () { self.swapTo(function () { self.openAds(); }); } },
+      });
+      if (then) then();
+    }).catch(function () { self.swapping = null; self.toast(net); });
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zz-social-tours.js
+// First-time tours for barangays and the Market board (owner, 4 Oct 2026: every feature gets one; the card:
+// 19ze-tours.js). Barangays the first time Online, Friends opens with the Barangay row there (part 16 applied); the
+// Market board the first time the Market tab opens with it (part 17). Each shows once (s.tips / s.tq, 01-logicL.js),
+// and again from What's new (Show me).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var U = F.UIScene.prototype;
+  var O = F.Online;
+  var K = F.UI_CONST, INK = K.INK;
+
+  var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+  var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+  var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
+
+  F.TOURS.nb = {
+    title: 'BARANGAYS',
+    steps: [
+      {
+        text: 'A barangay is a team of up to 30 farms. Find one, or make your own, under Online, Friends.',
+        draw: function (ui, sc, move) {
+          ['carabao', 'mango', 'sunflower'].forEach(function (b, i) {
+            var g = icon(ui, sc, 76 + i * 60, 58, C.ICON[b], 0.32);
+            tw(ui, move, { targets: g, y: 48, duration: 380, yoyo: true, repeat: -1, delay: i * 160, ease: 'Sine.inOut' });
+          });
+          words(ui, sc, 136, 108, 'Barangay Mabuhay', 15, '#5a3a1e');
+        },
+      },
+      {
+        text: 'Every week, the Bayanihan Cup: the same tasks for all. Pick one and do it on your farm.',
+        draw: function (ui, sc, move) {
+          icon(ui, sc, 54, 66, C.ICON.turnip, 0.34);
+          words(ui, sc, 160, 46, 'Harvest 80 crops', 14);
+          sc.add(ui.add.rectangle(100, 78, 120, 12, 0x6a4a2a).setOrigin(0, 0.5));
+          var bar = ui.add.rectangle(102, 78, 10, 8, 0x3fa535).setOrigin(0, 0.5);
+          sc.add(bar);
+          tw(ui, move, { targets: bar, width: 116, duration: 1800, repeat: -1, hold: 500 });
+          if (!move) bar.width = 80;
+          words(ui, sc, 160, 104, '+120 points', 13, '#2f7a22');
+        },
+      },
+      {
+        text: 'Points rank your barangay in a group its size. Prizes every Monday, for everyone who helped!',
+        draw: function (ui, sc, move) {
+          words(ui, sc, 124, 40, '#1  Mabuhay   1,240', 14, '#a8740c');
+          words(ui, sc, 124, 70, '#2  Ilog   980', 13);
+          var g = icon(ui, sc, 236, 96, C.ICON.gift, 0.3);
+          tw(ui, move, { targets: g, scale: 0.36, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+    ],
+  };
+
+  F.TOURS.ads = {
+    title: 'THE MARKET BOARD',
+    steps: [
+      {
+        text: 'Advertise puts your Market stall on the board for 4 hours, with what you sell. Free once a day!',
+        draw: function (ui, sc, move) {
+          var n = icon(ui, sc, 70, 66, C.ICON.crate, 0.36);
+          tw(ui, move, { targets: n, angle: { from: -6, to: 6 }, duration: 500, yoyo: true, repeat: -1 });
+          icon(ui, sc, 150, 54, C.ICON.turnip, 0.26);
+          icon(ui, sc, 196, 54, C.ICON.egg, 0.26);
+          words(ui, sc, 172, 96, '4 hours', 15, '#a8740c');
+        },
+      },
+      {
+        text: 'Others find it on the board in their Market: Stall to buy from you, or Visit your farm.',
+        draw: function (ui, sc, move) {
+          words(ui, sc, 136, 40, 'Moon Meadow', 15, '#5a3a1e');
+          words(ui, sc, 136, 68, '10 Turnip for 300G', 13);
+          var b = words(ui, sc, 136, 100, 'Stall', 15, '#2f5a22');
+          tw(ui, move, { targets: b, scale: 1.15, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+    ],
+  };
+
+  // ---------- when each opens ----------
+  var take = function (key) {
+    var s = F.session && F.session.state;
+    if (!s || F.session.visit || L.tipSeen(s, key) || (window.gameHost && window.gameHost.quiet)) return false;
+    L.takeTip(s, key);
+    F.Host.save(s);
+    return true;
+  };
+  var openOnline = U.openOnline;
+  U.openOnline = function (tab, page, then) {
+    var self = this, args = arguments;
+    if (tab === 'friends' && O.on && O.nb && !O.nbOff && F.session.state.net.named && take('nb_tour')) {
+      return this.tour('nb', function () { openOnline.apply(self, args); });
+    }
+    return openOnline.apply(this, args);
+  };
+  // (19zz-social-ads.js asks, once the board has loaded: true when the tour opens, then() after it)
+  U.adsTour = function (then) {
+    if (!O.on || !O.ads || O.adsOff || !take('ads_tour')) return false;
+    this.tour('ads', then);
+    return true;
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zz-social.js
+// Barangays and the weekly Bayanihan Cup on screen (owner, 4 Nov 2026: "Neighborhoods with a weekly Derby"; rules
+// 01-logicZ-social.js, server supabase/farm_online_16.sql).
+//   Online, Friends: a Barangay row (yours, or Find). Find lists your friends' barangays first, then the busiest; Make
+//     your own (a name, a badge, open or with a code); Code joins a closed one.
+//   The Barangay panel: Cup (this week's 8 tasks; Pick one, do it in your game, and it is turned in by itself when it is
+//     done), League (your group of 10 barangays your size, and the prizes), Members (who is online, what each did; the
+//     code; Leave; the leader opens or closes it and can take a member out) and News (short lines, and who did what).
+//   When the game connects: last weeks' Cup prizes, once (the server pays what it says).
+// Before part 16 is applied all of it hides quietly (O.nbOff): no row, no panel, no message.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var U = F.UIScene.prototype;
+  var NB = C.NB;
+  var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68, RED = 0xc0503a, GOLD = 0xe9a91c, INK_GREEN = 0x2f5a22;
+  var RETRY = 300000; // a load that failed (not "missing") is tried again this long after
+  var TABS = [['cup', 'Cup'], ['league', 'League'], ['members', 'Members'], ['news', 'News']];
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var noop = function () {};
+  var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  var name = function (n) { return L.cleanText(n, 24) || 'Farmer'; };
+  var missing = function (e) { return /does not exist|schema cache|PGRST202|could not find the function/i.test((e && e.message) || String(e || '')); };
+  var off = function (e) { if (missing(e)) O.nbOff = true; return O.nbOff; };
+  var net = 'Could not reach the online world. Check your connection.';
+  var save = function () { F.Host.save(F.session.state); };
+
+  O.nb = null; // the last farm_nb_v1, read (L.nbRead)
+  var tried = 0;
+
+  // ---------- loading ----------
+  O.nbLoad = function () {
+    if (!O.on || O.nbOff) return Promise.resolve(null);
+    tried = Date.now();
+    return F.Net.rpc('farm_nb_v1', {}).then(function (r) {
+      var nb = L.nbRead(r), s = F.session.state;
+      if (!nb) return O.nb;
+      O.nb = nb;
+      if (L.nbSync(s, nb.hood ? nb.pick : null, nb.week)) save();
+      return nb;
+    }, function (e) { off(e); return null; });
+  };
+  F.bus.on('online', function () { if (!O.on) O.nb = null; });
+
+  // Last weeks' prizes, when the game connects (after the rank and town prizes).
+  O.cupClaim = function () {
+    if (!O.on || O.nbOff) return Promise.resolve([]);
+    return F.Net.rpc('farm_cup_claim_v1', {}).then(function (list) {
+      var won = L.cupClaimRead(list);
+      if (!won.length) return won;
+      var s = F.session.state;
+      L.payClaims(s, won);
+      save();
+      F.bus.emit('hud');
+      sfx('coin');
+      var rows = won.map(function (p) {
+        return [C.ICON.ribbon, (p.place <= 3 && p.stars ? '#' + p.place + ' in your group! ' : 'Thank you for taking part! ') + p.name + ': +' + fmt(p.gold) + 'G' + (p.stars ? ' and ' + p.stars + (p.stars > 1 ? ' Sunbeams' : ' Sunbeam') : '') + '.'];
+      });
+      var show = function () {
+        if (!F.ui || F.ui.modals.length) return setTimeout(show, 1500);
+        F.ui.dialog('BAYANIHAN CUP PRIZES', null, { rows: rows });
+      };
+      show();
+      return won;
+    }, function (e) { off(e); return []; });
+  };
+  var prizes = O.prizes;
+  O.prizes = function () {
+    return prizes.call(O).then(function (won) {
+      return O.cupClaim().then(O.nbLoad).then(function () { return won; }, function () { return won; });
+    });
+  };
+
+  // ---------- your task: turned in by itself when it is done ----------
+  var retryAt = 0, turning = false, saidDay = '';
+  O.cupDone = function (byHand) {
+    var s = F.session.state, p = L.nbProgress(s);
+    if (!O.on || O.nbOff || turning || !p || !p.done) return Promise.resolve(null);
+    turning = true;
+    return F.Net.rpc('farm_cup_done_v1', {}).then(function (r) {
+      turning = false;
+      var code = r && r.code, ui = F.ui;
+      if (r && r.ok) {
+        s.nb = null;
+        save();
+        sfx('found');
+        var hood = O.nb && O.nb.hood ? O.nb.hood.name : 'your barangay';
+        var text = 'Bayanihan Cup: ' + L.nbTaskText(p.kind, p.goal) + ' done! +' + (Math.floor(Number(r.points)) || 0) + ' points for ' + hood + '.';
+        return O.nbLoad().then(function () { if (ui && !byHand) ui.toast(text, 3400, INK_GREEN); return text; });
+      }
+      if (code === 'soon') {
+        var wait = Math.max(10, Math.floor(Number(r.wait)) || 60);
+        retryAt = Date.now() + wait * 1000 + 1000;
+        return 'Almost! A Cup task can be turned in ' + L.formatLeft(wait / 60) + ' from now.';
+      }
+      if (code === 'day') {
+        retryAt = Date.now() + 30 * 60000;
+        var today = F.today ? F.today() : '';
+        if (!byHand && saidDay === today) return null;
+        saidDay = today;
+        var t = 'That is ' + ((O.nb && O.nb.maxDay) || NB.dayTasks) + ' Cup tasks today. This one counts tomorrow!';
+        if (ui && !byHand) ui.toast(t, 3000);
+        return t;
+      }
+      // gone: last week's, or not in that barangay now
+      s.nb = null;
+      save();
+      O.nbLoad();
+      return code === 'late' ? 'A new week of the Cup has started. Pick a new task!' : 'That task is not there any more.';
+    }, function (e) { turning = false; off(e); retryAt = Date.now() + 60000; return byHand ? net : null; });
+  };
+  setInterval(function () {
+    var s = F.session && F.session.state;
+    if (!s || !s.nb || !O.on || O.nbOff || Date.now() < retryAt || F.Host.sleeping) return;
+    var p = L.nbProgress(s);
+    if (p && p.done) O.cupDone(false);
+  }, 3000);
+
+  // ---------- the row in Online, Friends ----------
+  U.hoodRow = function () {
+    var self = this, nb = O.nb;
+    if (!O.on || O.nbOff || !nb) return null;
+    var h = nb.hood;
+    if (!h) {
+      return {
+        icon: C.ICON.carabao, name: 'Barangays', desc: 'Team up with up to ' + NB.max + ' farms for the weekly Bayanihan Cup.',
+        buttons: [{ label: 'Find', color: BLUE, cb: function () { self.swapTo(function () { self.openFindHood(); }); } }],
+      };
+    }
+    var p = L.nbProgress(F.session.state);
+    return {
+      icon: L.nbBadgeIcon(h.badge), name: h.name, online: h.online > 0,
+      desc: h.members + (h.members === 1 ? ' farm' : ' farms') + '. ' + (nb.cup ? 'Cup: #' + nb.cup.place + ', ' + fmt(nb.cup.score) + ' points.' : 'Bayanihan Cup this week!') +
+        (p ? ' Your task: ' + p.n + '/' + p.goal + '.' : ''),
+      buttons: [{ label: 'Open', color: BLUE, cb: function () { self.swapTo(function () { self.openHood('cup', 0); }); } }],
+    };
+  };
+  var listPanel = U.listPanel;
+  U.listPanel = function (o) {
+    if (o && o.title === 'Online' && o.tab === 'friends' && Array.isArray(o.rows) && !o.nbDone) {
+      o.nbDone = true;
+      var row = this.hoodRow();
+      if (row) o.rows = o.rows.slice(0, 1).concat([row], o.rows.slice(1));
+      else if (O.on && !O.nbOff && !O.nb && Date.now() - tried > RETRY) O.nbLoad();
+    }
+    return listPanel.call(this, o);
+  };
+
+  // ---------- the Barangay panel ----------
+  // tab: 'cup' | 'league' | 'members' | 'news'; then(): once it is up (a toast)
+  U.openHood = function (tab, page, then) {
+    var self = this, ticket = this.swapping;
+    if (O.nbOff) return null;
+    O.nbLoad().then(function (nb) {
+      if (self.swapGone(ticket)) return;
+      if (!nb) { self.swapping = null; return self.toast(net); }
+      if (!nb.hood) return self.openFindHood(then);
+      var done = function (rows, sub, empty) {
+        if (self.swapGone(ticket)) return;
+        self.listPanel({
+          title: nb.hood.name, tab: tab, tabs: TABS, page: Math.min(page || 0, Math.max(0, Math.ceil(rows.length / (rows.length > 5 ? 4 : 5)) - 1)), rows: rows, empty: empty,
+          sub: function () { return sub; },
+          reopen: function (t, p) { self.openHood(t, p); },
+          corner: { label: 'Back', color: GREY, cb: function () { self.swapTo(function () { self.openOnline('friends', 0); }); } },
+        });
+        if (then) then();
+      };
+      var fail = function (e) { self.swapping = null; self.toast(off(e) ? 'Coming soon!' : net); };
+      if (tab === 'league') return done(self.leagueRows(nb), 'Groups of 10 barangays your size. Prizes every Monday!');
+      if (tab === 'members') {
+        return F.Net.rpc('farm_nb_members_v1', {}).then(function (list) { done(self.memberRows(nb, list), nb.hood.members + ' of ' + nb.hood.max + ' farms. ' + nb.hood.online + ' online now.'); }).catch(fail);
+      }
+      if (tab === 'news') {
+        return F.Net.rpc('farm_nb_posts_v1', {}).then(function (list) { done(self.newsRows(nb, list), 'News from your barangay.', null); }).catch(fail);
+      }
+      done(self.cupRows(nb), 'Ends in ' + L.formatLeft(nb.endsIn / 60) + '. ' + nb.doneWeek + ' of ' + nb.maxWeek + ' tasks this week, ' + nb.doneToday + ' of ' + nb.maxDay + ' today.');
+    });
+  };
+
+  // The Cup tab: your task now, then the week's tasks.
+  U.cupRows = function (nb) {
+    var self = this, s = F.session.state, p = L.nbProgress(s), rows = [];
+    var full = nb.doneWeek >= nb.maxWeek ? 'week' : nb.doneToday >= nb.maxDay ? 'day' : '';
+    if (p) {
+      var t = nb.pick || { points: 0 };
+      rows.push({
+        icon: L.nbTaskIcon(p.kind), name: 'Your task: ' + L.nbTaskText(p.kind, p.goal), progress: [p.n, p.goal], tag: 'NOW',
+        desc: p.done ? 'Done! Turn it in for +' + t.points + ' points.' : '+' + t.points + ' points for your barangay.',
+        buttons: [p.done ? { label: 'Turn in', color: GOLD, cb: function () { self.turnIn(); } } : { label: 'Drop', color: GREY, cb: function () { self.dropTask(); } }],
+      });
+    } else {
+      rows.push({
+        icon: C.ICON.ribbon, name: full ? 'All done for ' + (full === 'week' ? 'this week' : 'today') + '!' : 'Pick a task',
+        desc: full === 'week' ? 'Thank you! A new Cup starts on Monday.' : full === 'day' ? 'Come back tomorrow for more.' : 'One at a time. Do it in your game: it counts from when you pick it.',
+      });
+    }
+    nb.tasks.slice().sort(function (a, b) { return a.done - b.done; }).forEach(function (t) {
+      var mine = p && p.kind === t.kind;
+      if (mine) return;
+      rows.push({
+        icon: L.nbTaskIcon(t.kind), name: L.nbTaskText(t.kind, t.goal), done: t.done,
+        desc: t.done ? 'You did this one this week.' : '+' + t.points + ' points.' + (t.minutes ? ' Takes at least ' + L.formatLeft(t.minutes) + '.' : ''),
+        buttons: t.done ? [] : [{ label: 'Pick', color: p || full ? GREY : GREEN, cb: function () { self.pickTask(t); } }],
+      });
+    });
+    return rows;
+  };
+
+  U.leagueRows = function (nb) {
+    var cup = nb.cup, rows = [], lg = cup ? NB.leagues[cup.league] : null;
+    if (!cup) {
+      rows.push({ icon: C.ICON.ribbon, name: 'Not in the Cup yet', desc: 'Finish a task: your barangay joins a group of 10 barangays its size.' });
+    } else {
+      rows.push({ icon: C.ICON.calendar, name: lg[0], desc: 'Barangays of ' + lg[1] + '. You are #' + cup.place + ' of ' + cup.group.length + '.' });
+      cup.group.forEach(function (g, i) {
+        var prize = L.nbPrize(nb, i + 1, g.score);
+        rows.push({
+          icon: L.nbBadgeIcon(g.badge), name: '#' + (i + 1) + ' ' + g.name + (g.me ? ' (you)' : ''), desc: fmt(g.score) + ' points.',
+          reward: prize, rewardPrefix: 'Prize',
+        });
+      });
+    }
+    rows.push({
+      icon: C.ICON.gift, name: 'Prizes', reward: { gold: nb.prizes[0][0], stars: nb.prizes[0][1] }, rewardPrefix: '1st',
+      desc: '1st to 3rd need ' + fmt(nb.minPlace) + ' points. Everyone who did a task gets ' + fmt(nb.baseGold) + 'G or more.',
+    });
+    return rows;
+  };
+
+  U.memberRows = function (nb, list) {
+    var self = this, h = nb.hood, rows = [];
+    rows.push({
+      icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Code: ' + h.code,
+      desc: h.open ? 'Anyone can join. Or give friends the code ' + h.code + '.' : 'Closed: only farms with the code can join.',
+      buttons: h.leader ? [{ label: h.open ? 'Close' : 'Open', color: GREY, cb: function () { self.setHoodOpen(!h.open); } }] : [],
+    });
+    (Array.isArray(list) ? list : []).forEach(function (m) {
+      if (!m || !m.id || O.blocked[String(m.id)]) return;
+      var id = String(m.id), n = name(m.farm_name), tasks = Math.max(0, Math.floor(Number(m.tasks)) || 0), pts = Math.max(0, Math.floor(Number(m.points)) || 0);
+      var back = function (then) { self.openHood('members', 0, then); };
+      rows.push({
+        id: id, icon: C.ICON.heart, name: n + (m.leader ? ' (leader)' : '') + (m.me ? ' (you)' : ''), online: !!m.online && !m.me,
+        desc: tasks ? tasks + (tasks > 1 ? ' tasks, ' : ' task, ') + fmt(pts) + ' points this week.' : 'No Cup tasks yet this week.',
+        buttons: m.me ? [] : [{ label: 'Visit', cb: function () { O.visit(id); } },
+          h.leader ? { label: 'Remove', color: RED, cb: function () { self.kickMember(id, n); } } : { label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, back); } }],
+      });
+    });
+    rows.push({ icon: C.ICON.exclaim, name: 'Leave', desc: 'The tasks you finished still count for it this week.', buttons: [{ label: 'Leave', color: RED, cb: function () { self.leaveHood(); } }] });
+    return rows;
+  };
+
+  U.newsRows = function (nb, list) {
+    var self = this, rows = [{
+      icon: C.ICON.bubble, name: 'Write', desc: 'A short line for your barangay. Keep it kind!',
+      buttons: [{ label: 'Write', color: BLUE, cb: function () { self.writeHood(); } }],
+    }];
+    (Array.isArray(list) ? list : []).forEach(function (p) {
+      if (!p || (p.who && O.blocked[String(p.who)])) return;
+      var t = L.nbPostText(p), id = p.who ? String(p.who) : '';
+      if (!t.text) return;
+      rows.push({
+        icon: t.say ? C.ICON.bubble : p.kind === 'task' ? C.ICON.ribbon : C.ICON.heart, name: t.name, desc: (t.say ? '"' + t.text + '"' : t.text) + ' (' + L.nbAgo(p.ago) + ')',
+        buttons: t.say && id && !p.mine ? [{ label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, t.name, function (then) { self.openHood('news', 0, then); }); } }] : [],
+      });
+    });
+    return rows;
+  };
+
+  // ---------- doing things ----------
+  var again = function (self, tab, text, color) {
+    self.swapTo(function () { self.openHood(tab, 0, text ? function () { self.toast(text, 2600, color); } : null); });
+  };
+  U.pickTask = function (t) {
+    var self = this, s = F.session.state, nb = O.nb;
+    if (this.nbBusy || !nb) return;
+    if (L.nbProgress(s)) { sfx('nope'); return this.toast('One task at a time. Finish or drop yours first.'); }
+    this.nbBusy = true;
+    F.Net.rpc('farm_cup_pick_v1', { p_kind: t.kind }).then(function (r) {
+      self.nbBusy = false;
+      if (r && r.ok && r.kind === t.kind) {
+        L.nbStart(s, nb.week, t.kind, Math.floor(Number(r.goal)) || t.goal);
+        save();
+        sfx('pick');
+        return again(self, 'cup', 'Your task: ' + L.nbTaskText(t.kind, s.nb.g) + '. Go for it!', INK_GREEN);
+      }
+      sfx('nope');
+      var code = r && r.code;
+      self.toast({ busy: 'You have a task already.', done: 'You did that one this week.', week: 'That is ' + nb.maxWeek + ' tasks this week. Thank you!',
+        day: 'That is ' + nb.maxDay + ' tasks today. More tomorrow!', out: 'You are not in a barangay now.' }[code] || 'That task is not there any more.', 2600);
+      if (code === 'busy' || code === 'out') O.nbLoad();
+    }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
+  };
+  U.dropTask = function () {
+    var self = this, s = F.session.state;
+    this.confirm('DROP THIS TASK?\nWhat you did for it so far will not count. You can pick it again later.', function () {
+      F.Net.rpc('farm_cup_drop_v1', {}).then(function () {
+        s.nb = null;
+        save();
+        again(self, 'cup', 'Task dropped. Pick another!');
+      }).catch(function () { self.toast(net); });
+    });
+  };
+  U.turnIn = function () {
+    var self = this;
+    O.cupDone(true).then(function (text) {
+      if (!text) return;
+      again(self, 'cup', text, /done!/.test(text) ? INK_GREEN : undefined);
+    });
+  };
+  U.setHoodOpen = function (open) {
+    var self = this;
+    F.Net.rpc('farm_nb_set_v1', { p_open: open }).then(function (r) {
+      again(self, 'members', r === 'ok' ? (open ? 'Open: anyone can join now.' : 'Closed: only farms with the code can join.') : 'Only the leader can change that.');
+    }).catch(function () { self.toast(net); });
+  };
+  U.kickMember = function (id, who) {
+    var self = this;
+    this.confirm('REMOVE ' + who.toUpperCase() + '?\nThey leave your barangay. What they did this week still counts.', function () {
+      F.Net.rpc('farm_nb_kick_v1', { p_user: id }).then(function (r) {
+        again(self, 'members', r === 'ok' ? who + ' is out of your barangay.' : 'That did not work.');
+      }).catch(function () { self.toast(net); });
+    });
+  };
+  U.leaveHood = function () {
+    var self = this, s = F.session.state, h = O.nb && O.nb.hood;
+    this.confirm('LEAVE ' + (h ? h.name.toUpperCase() : 'YOUR BARANGAY') + '?\nYour task now is dropped. The tasks you finished still count for it this week.' + (h && h.members === 1 ? '\nYou are the last one: the barangay closes.' : ''), function () {
+      F.Net.rpc('farm_nb_leave_v1', {}).then(function () {
+        s.nb = null;
+        save();
+        return O.nbLoad();
+      }).then(function () {
+        self.closeAll();
+        self.openOnline('friends', 0, function () { self.toast('You left the barangay.', 2400); });
+      }).catch(function () { self.toast(net); });
+    });
+  };
+  U.writeHood = function () {
+    var self = this;
+    this.askText('News for your barangay', '', NB.postMax, function (body) {
+      body = L.cleanText(body, NB.postMax);
+      if (!body) return;
+      F.Net.rpc('farm_nb_post_v1', { p_body: body }).then(function (r) {
+        if (r === 'ok') return again(self, 'news');
+        self.toast({ word: 'Please keep it kind: that has a word that is not allowed.', limit: 'That is a lot of news today. More tomorrow!', out: 'You are not in a barangay now.' }[r] || 'That could not be sent.', 2600);
+      }).catch(function () { self.toast(net); });
+    }, { ok: 'Post', hint: 'Every member sees it.' });
+  };
+
+  // ---------- finding, making and joining ----------
+  U.openFindHood = function (then, q) {
+    var self = this, ticket = this.swapping;
+    if (O.nbOff) return null;
+    F.Net.rpc('farm_nb_find_v1', { p_q: q || null }).then(function (list) {
+      if (self.swapGone(ticket)) return;
+      var rows = [
+        { icon: C.ICON.sparkle, name: 'Make your own', desc: 'Pick a name and a badge. You lead it.', buttons: [{ label: 'Make', color: GREEN, cb: function () { self.makeHood(); } }] },
+        { icon: C.ICON.tag, name: 'Have a code?', desc: 'Join a closed barangay with the code a member gave you.', buttons: [{ label: 'Code', color: BLUE, cb: function () { self.joinByCode(); } }] },
+      ];
+      (Array.isArray(list) ? list : []).forEach(function (h) {
+        if (!h || h.id == null) return;
+        var id = String(h.id), n = L.cleanText(h.name, NB.nameMax) || 'Barangay', members = Math.max(1, Math.floor(Number(h.members)) || 1), fr = Math.max(0, Math.floor(Number(h.friends)) || 0);
+        var score = Math.max(0, Math.floor(Number(h.score)) || 0);
+        rows.push({
+          icon: L.nbBadgeIcon(h.badge), name: n,
+          desc: members + ' of ' + NB.max + ' farms' + (fr ? ', ' + fr + (fr > 1 ? ' friends' : ' friend') : '') + '.' + (score ? ' ' + fmt(score) + ' Cup points.' : '') + (h.open === false ? ' Needs its code.' : ''),
+          buttons: [h.open === false ? { label: 'Code', color: BLUE, cb: function () { self.joinByCode(); } } : { label: 'Join', color: GREEN, cb: function () { self.joinHood(id, null); } }],
+        });
+      });
+      self.listPanel({
+        title: q ? 'Barangays: "' + q + '"' : 'Barangays', rows: rows, page: 0,
+        reopen: function () { self.openFindHood(null, q); },
+        sub: function () { return 'Team up for the weekly Bayanihan Cup.'; },
+        corner: { label: 'Search', color: BLUE, cb: function () {
+          self.askText('Find a barangay', q || '', NB.nameMax, function (t) {
+            t = L.cleanText(t, NB.nameMax);
+            self.swapTo(function () { self.openFindHood(null, t.length >= 2 ? t : null); });
+          }, { ok: 'Find', hint: 'A part of its name.' });
+        } },
+      });
+      if (then) then();
+    }).catch(function (e) { self.swapping = null; self.toast(off(e) ? 'Coming soon!' : net); });
+  };
+
+  U.makeHood = function () {
+    var self = this;
+    this.askText('Name your barangay', '', NB.nameMax, function (n) {
+      n = L.cleanText(n, NB.nameMax);
+      if (n.length < NB.nameMin) return self.toast('A name of ' + NB.nameMin + ' to ' + NB.nameMax + ' letters, please.', 2400);
+      self.closeAll();
+      self.pickBadge(n);
+    }, { hint: NB.nameMin + ' to ' + NB.nameMax + ' letters. Every farm sees it.', ok: 'Next' });
+  };
+  U.pickBadge = function (n, page) {
+    var self = this;
+    this.listPanel({
+      title: 'A badge for ' + n, page: page || 0, sub: function () { return 'It shows by your barangay\'s name.'; },
+      reopen: function (t, p) { self.pickBadge(n, p); },
+      rows: NB.badges.map(function (b) {
+        return { icon: C.ICON[b], name: NB.badgeNames[b] || b, desc: '', buttons: [{ label: 'Choose', color: GREEN, cb: function () { self.closeModal(); self.askOpen(n, b); } }] };
+      }),
+    });
+  };
+  U.askOpen = function (n, badge) {
+    var self = this;
+    this.dialog('WHO CAN JOIN?\nOpen: any farm can join ' + n + '.\nWith a code: only farms you give the code to.', [
+      { label: 'With a code', color: GREY, cb: function () { self.createHood(n, badge, false); } },
+      { label: 'Open', cb: function () { self.createHood(n, badge, true); } },
+    ]);
+  };
+  U.createHood = function (n, badge, open) {
+    var self = this;
+    if (this.nbBusy) return;
+    this.nbBusy = true;
+    F.Net.rpc('farm_nb_create_v1', { p_name: n, p_badge: badge, p_open: open }).then(function (r) {
+      self.nbBusy = false;
+      if (r && r.ok) {
+        sfx('found');
+        return O.nbLoad().then(function () {
+          self.closeAll();
+          self.openHood('cup', 0, function () { self.toast(n + ' is yours! ' + (open ? 'Anyone can join.' : 'Give friends the code ' + (O.nb && O.nb.hood ? O.nb.hood.code : '') + '.'), 3200, INK_GREEN); });
+        });
+      }
+      sfx('nope');
+      self.toast({ word: 'That name is not allowed. Please pick a kinder one.', taken: 'That name is taken. Try another!', in: 'Leave your barangay first.', limit: 'That is 3 barangays today. Try again tomorrow.' }[r && r.code] || 'That name will not do. ' + NB.nameMin + ' to ' + NB.nameMax + ' letters, please.', 2800);
+    }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
+  };
+  U.joinByCode = function () {
+    var self = this;
+    this.askText('The barangay\'s code', '', 6, function (code) {
+      code = code.replace(/\s+/g, '').toUpperCase();
+      if (code) self.joinHood(null, code);
+    }, { hint: '6 letters and numbers, from a member\'s Members tab.', ok: 'Join' });
+  };
+  U.joinHood = function (id, code) {
+    var self = this;
+    if (this.nbBusy) return;
+    this.nbBusy = true;
+    F.Net.rpc('farm_nb_join_v1', { p_id: id ? Number(id) : null, p_code: code || null }).then(function (r) {
+      self.nbBusy = false;
+      if (r && r.ok) {
+        sfx('found');
+        var n = L.cleanText(r.name, NB.nameMax) || 'the barangay';
+        return O.nbLoad().then(function () {
+          self.closeAll();
+          self.openHood('cup', 0, function () { self.toast('Welcome to ' + n + '! Pick a Cup task.', 2800, INK_GREEN); });
+        });
+      }
+      sfx('nope');
+      if (r && r.code === 'code') return self.joinByCode();
+      self.toast({ full: 'That barangay is full: ' + NB.max + ' farms.', gone: code ? 'No barangay has that code.' : 'That barangay is not there any more.', in: 'Leave your barangay first.' }[r && r.code] || 'That did not work.', 2600);
+    }).catch(function (e) { self.nbBusy = false; self.toast(off(e) ? 'Coming soon!' : net); });
+  };
+
+  void noop;
 })(window.Farm = window.Farm || {});
 
 // ---- src/19zz-town-ui.js

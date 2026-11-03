@@ -2008,3 +2008,191 @@ test('online: animal breeds: a visitor sees the owner\'s Golden Hen and Moonligh
   assert.deepStrictEqual(host.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+// ---------- barangays and the Bayanihan Cup (supabase/farm_online_16.sql), the Market board (_17.sql) ----------
+// Does the picked Cup task in the game (the counter it counts), as playing would.
+const doCupTask = (page) => page.evaluate(() => {
+  const s = Farm.session.state, c = Farm.Config.NB.tasks[s.nb.k].counter;
+  if (c === 'fish' || c === 'cooked') s.stats[c] += s.nb.g; else Farm.Logic.bump(s, c, s.nb.g);
+});
+
+test('online: barangays: make one, a friend finds and joins it, a Cup task done counts by itself, the League, Members and News; last week\'s prize, once (owner, 4 Nov)', async () => {
+  const server = createServer();
+  server.db.cupFast = true; // (the real server waits a task's least minutes: test/sql/social-checks.sql)
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await nameFarm(b.page, 'Ana Acres');
+  for (const p of [a, b]) await p.page.evaluate(() => Farm.Online.nbLoad());
+  // Online, Friends: the Barangays row; Find; Make your own
+  await a.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(a.page, /Barangays[\s\S]*Team up with up to 30 farms/);
+  await shot(a.page, 'nb-1-friends-row');
+  await tapButton(a.page, 'Find');
+  await waitModal(a.page, /Make your own[\s\S]*Have a code\?/);
+  await tapButton(a.page, 'Make');
+  await type(a.page, 'Barangay Mabuhay');
+  await waitModal(a.page, /A badge for Barangay Mabuhay/);
+  await shot(a.page, 'nb-2-badge');
+  await tapButton(a.page, 'Choose', 0);
+  await waitModal(a.page, /WHO CAN JOIN\?/);
+  await tapButton(a.page, 'Open');
+  await waitModal(a.page, /Barangay Mabuhay[\s\S]*Pick a task/);
+  await waitToast(a.page, /Barangay Mabuhay is yours! Anyone can join/);
+  await shot(a.page, 'nb-3-cup-tab');
+  assert.strictEqual([...server.db.hoods.values()][0].leader, a.uid);
+  // the friend finds it and joins
+  await b.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(b.page, /Barangays/);
+  await tapButton(b.page, 'Find');
+  await waitModal(b.page, /Barangay Mabuhay[\s\S]*1 of 30 farms/);
+  await shot(b.page, 'nb-4-find');
+  await tapButton(b.page, 'Join');
+  await waitToast(b.page, /Welcome to Barangay Mabuhay! Pick a Cup task/);
+  // pick a task: it counts only from now, and turns itself in when it is done
+  const kind = await b.page.evaluate(() => Farm.Online.nb.tasks[0].kind);
+  await b.page.evaluate(() => { const s = Farm.session.state; Farm.Logic.bump(s, 'harvest', 500); s.stats.fish += 99; });
+  await tapButton(b.page, 'Pick');
+  await waitToast(b.page, /Your task: .*\. Go for it!/);
+  assert.strictEqual(await b.page.evaluate(() => Farm.Logic.nbProgress(Farm.session.state).n), 0, 'what was done before the pick does not count');
+  assert.strictEqual(server.db.cupPicks.get(b.uid).kind, kind);
+  await shot(b.page, 'nb-5-picked');
+  await b.page.evaluate(() => Farm.ui.closeAll());
+  await doCupTask(b.page);
+  await waitToast(b.page, /Bayanihan Cup: .* done! \+\d+ points for Barangay Mabuhay\./);
+  await shot(b.page, 'nb-6-done-toast');
+  assert.strictEqual(server.db.cupDone.length, 1);
+  assert.strictEqual(await b.page.evaluate(() => Farm.session.state.nb), null);
+  // the League tab: the barangay is #1 of its group; the Members tab: who did what; the friend's save keeps nothing extra
+  await b.page.evaluate(() => Farm.ui.openHood('league', 0));
+  await waitModal(b.page, /Small league[\s\S]*#1 Barangay Mabuhay \(you\)[\s\S]*\d+ points/);
+  await shot(b.page, 'nb-7-league');
+  await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
+  await waitModal(b.page, /Open to all[\s\S]*Ana Acres \(you\)[\s\S]*1 task, \d+ points this week[\s\S]*Moon Meadow \(leader\)/);
+  await shot(b.page, 'nb-8-members');
+  // News: a line from the friend; the leader reads it, with who joined and the task
+  await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('news', 0); });
+  await waitModal(b.page, /Write/);
+  await tapButton(b.page, 'Write');
+  await type(b.page, 'Kumusta, mga kapitbahay!');
+  await waitModal(b.page, /"Kumusta, mga kapitbahay!"/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('news', 0); });
+  await waitModal(a.page, /Ana Acres[\s\S]*"Kumusta, mga kapitbahay!"[\s\S]*Finished a Cup task: \+\d+ points![\s\S]*Joined the barangay/);
+  await shot(a.page, 'nb-9-news');
+  // the Friends tab says how the barangay stands
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.Online.nbLoad().then(() => Farm.ui.openOnline('friends', 0)); });
+  await waitModal(a.page, /Barangay Mabuhay[\s\S]*2 farms\. Cup: #1, \d+ points\./);
+  // the week ends: the friend's prize when the game connects, once
+  for (const d of server.db.cupDone) d.week = '2026-01-05';
+  for (const [k, v] of [...server.db.cupHoods]) { server.db.cupHoods.delete(k); v.week = '2026-01-05'; server.db.cupHoods.set('2026-01-05:' + v.hood, v); }
+  const gold = await b.page.evaluate(() => Farm.session.state.gold);
+  await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.Online.cupClaim(); });
+  await waitModal(b.page, /BAYANIHAN CUP PRIZES[\s\S]*Thank you for taking part! Barangay Mabuhay: \+500G\./);
+  await shot(b.page, 'nb-10-prize');
+  assert.strictEqual(await b.page.evaluate(() => Farm.session.state.gold), gold + 500);
+  assert.strictEqual((await b.page.evaluate(() => Farm.Online.cupClaim())).length, 0, 'paid once');
+  // leaving: the friend is out; the leader alone
+  await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
+  await waitModal(b.page, /Leave/);
+  await b.page.evaluate(() => Farm.ui.openHood('members', 1));
+  await waitModal(b.page, /The tasks you finished still count/);
+  await tapButton(b.page, 'Leave');
+  await waitModal(b.page, /LEAVE BARANGAY MABUHAY\?/);
+  await tapButton(b.page, 'Yes');
+  await waitToast(b.page, /You left the barangay/);
+  assert.ok(!server.db.hoodOf.has(b.uid));
+  for (const p of [a, b]) assert.deepStrictEqual(p.problems, []);
+  await Promise.all([a.context.close(), b.context.close()]);
+});
+
+test('online: the Market board: Advertise puts your stall on it for 4 hours, once a day; a friend Looks, opens the stall and buys (owner, 4 Nov)', async () => {
+  const server = createServer();
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await nameFarm(b.page, 'Ana Acres');
+  // nothing for sale yet: Advertise says so
+  await a.page.evaluate(() => Farm.ui.openOnline('market', 0));
+  await waitModal(a.page, /Market board[\s\S]*Show your stall: free once a day/);
+  await tapButton(a.page, 'Advertise');
+  await waitToast(a.page, /Put something up for sale first/);
+  // a lot at the stall, then Advertise
+  await a.page.evaluate(() => { Farm.Logic.addItem(Farm.session.state, 'turnip', 10); });
+  await a.page.evaluate(() => Farm.Net.rpc('farm_market_list_v1', { p_item: 'turnip', p_qty: 10, p_price: 300 }).then(() => { Farm.Logic.removeItem(Farm.session.state, 'turnip', 10); }));
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /Market board/);
+  await tapButton(a.page, 'Advertise');
+  await waitToast(a.page, /Your stall is on the Market board for 4 hours!/);
+  await waitModal(a.page, /Your stall is on it: 4 h left/);
+  await shot(a.page, 'ads-1-advertised');
+  assert.ok(!/Advertise/.test(await modalText(a.page)), 'once a day');
+  assert.strictEqual((await a.page.evaluate(() => Farm.Net.rpc('farm_market_ad_v1', {}))).code, 'used');
+  // the friend: the board, the stall, Buy
+  const turnips = await b.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip'));
+  await b.page.evaluate(() => { Farm.session.state.gold = 1000; Farm.ui.openOnline('market', 0); });
+  await waitModal(b.page, /Market board[\s\S]*1 farm on it now/);
+  await shot(b.page, 'ads-2-market-tab');
+  await tapButton(b.page, 'Look');
+  await waitModal(b.page, /Market board[\s\S]*Moon Meadow[\s\S]*10 Turnip for 300G\./);
+  await shot(b.page, 'ads-3-board');
+  assert.match(await modalText(b.page), /Visit/);
+  await tapButton(b.page, 'Stall');
+  await waitModal(b.page, /Moon Meadow's stall[\s\S]*10 Turnip[\s\S]*300G \(30G each\)/);
+  await tapButton(b.page, 'Buy');
+  await waitToast(b.page, /Bought 10 Turnip from Moon Meadow for 300G/);
+  await waitModal(b.page, /Moon Meadow sold everything already!/);
+  await shot(b.page, 'ads-4-bought');
+  assert.strictEqual(await b.page.evaluate(() => Farm.session.state.gold), 700);
+  assert.strictEqual(await b.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip')), turnips + 10);
+  // Back to the board: sold out, off it
+  await tapButton(b.page, 'Back');
+  await waitModal(b.page, /No stalls on the board right now/);
+  for (const p of [a, b]) assert.deepStrictEqual(p.problems, []);
+  await Promise.all([a.context.close(), b.context.close()]);
+});
+
+test('online: before parts 16 and 17 are applied, barangays and the Market board hide quietly', async () => {
+  const server = createServer();
+  server.db.noHood = true;
+  server.db.noAds = true;
+  const a = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await a.page.waitForFunction(() => Farm.Online.nbOff === true, null, SLOW);
+  await a.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(a.page, /Your code/);
+  assert.ok(!/Barangay/.test(await modalText(a.page)), 'no Barangays row');
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /Shopping list/);
+  assert.ok(!/Market board/.test(await modalText(a.page)), 'no Market board row');
+  assert.strictEqual(await a.page.evaluate(() => Farm.Online.adsOff), true);
+  assert.deepStrictEqual(a.problems, []);
+  await a.context.close();
+});
+
+test('online: the Barangays tour the first time Online, Friends opens with its row, the Market board tour the first time the Market tab opens; each once (owner, 4 Nov)', async () => {
+  const server = createServer();
+  const a = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await a.page.evaluate(() => Farm.Online.nbLoad());
+  await a.page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.openOnline('friends', 0); });
+  await waitModal(a.page, /BARANGAYS[\s\S]*A barangay is a team of up to 30 farms/);
+  await shot(a.page, 'nb-tour-1');
+  await tapButton(a.page, 'Next');
+  await waitModal(a.page, /Bayanihan Cup: the same tasks for all/);
+  await tapButton(a.page, 'Next');
+  await waitModal(a.page, /Prizes every Monday/);
+  await tapButton(a.page, 'Got it');
+  await waitModal(a.page, /Your code[\s\S]*Barangays/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('friends', 0); });
+  await waitModal(a.page, /Your code[\s\S]*Barangays/);
+  assert.ok(!/A barangay is a team/.test(await modalText(a.page)), 'once');
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /THE MARKET BOARD[\s\S]*Advertise puts your Market stall on the board/);
+  await shot(a.page, 'ads-tour-1');
+  await tapButton(a.page, 'Next');
+  await tapButton(a.page, 'Got it');
+  await waitModal(a.page, /Shopping list[\s\S]*Market board/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /Shopping list[\s\S]*Market board/);
+  assert.ok(!/THE MARKET BOARD/.test(await modalText(a.page)), 'once');
+  assert.deepStrictEqual(a.problems, []);
+  await a.context.close();
+});
