@@ -20,6 +20,7 @@
         ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],
         ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
         ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
+        ['ribbon', 'Festival contests', 'An Animal Contest at the Cow Festival, a Crop Contest at the Harvest Festival and a Noche Buena Cook-off on Starry Night. Win ribbons, Gold and the year\'s trophy!', 'contest'],
       ],
     },
     {

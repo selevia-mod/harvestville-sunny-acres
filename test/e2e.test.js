@@ -3041,3 +3041,115 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('festival contests: told the day before and on the day, the calendar says so; the Animal Contest at the Cow Festival with its judging card and prize; Ribbons in the Collection; the Noche Buena Cook-off on Starry Night next to the evening, and its tour (contests)', async () => {
+  const NOV18 = [2026, 11, 18, 10, 0];
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.animals = []; L.addAnimal(s, 'cow'); s.animals[0].love = 100;", NOV18);
+  const { page, problems, context } = await open(save, NOV18);
+  await closeAll(page);
+  // the morning before, and the day itself
+  let report = await nextMorning(page);
+  assert.match(report, /The Animal Contest at the Cow Festival is tomorrow! Get ready: feed, pet and brush your best animal first\./);
+  await page.evaluate(() => Farm.ui.openCalendar(0));
+  assert.match(await modalText(page), /Nov 20 {2}Cow Festival: Animal Contest/);
+  await shot(page, 'contest-calendar');
+  await closeAll(page);
+  report = await nextMorning(page);
+  assert.match(report, /Today is the Cow Festival! Bring your best-loved animal[\s\S]*The Animal Contest is on at the Cow Festival today, 8:00 AM to 9:00 PM: talk to Mayor Hollis/);
+  await page.evaluate(() => { const a = Farm.session.state.animals[0]; a.love = 100; a.fed = 1; a.pet = 1; a.brushed = 1; });
+  // Mayor Hollis in the plaza: the entry list
+  await go(page, 'town', 'from_farm');
+  await page.waitForFunction(() => Farm.world.villagers.list.every((v) => !v.path.length), null, SLOW);
+  await teleport(page, 14, 18, 'down');
+  assert.strictEqual(await actionLabel(page), 'Festival');
+  await tapAction(page);
+  let text = await modalText(page);
+  assert.match(text, /Animal Contest[\s\S]*Judge: Owen, veterinarian\. 1st 1,500G and the trophy[\s\S]*Daisy[\s\S]*5 hearts\. 92 points\.\nFed ✓ {2}Petted ✓ {2}Brushed ✓/);
+  await shot(page, 'contest-list');
+  const gold = (await state(page)).gold;
+  await tapButton(page, 'Enter');
+  assert.match(await modalText(page), /Enter Daisy \(it comes home after\)\? You can enter once a year\./);
+  await tapButton(page, 'Enter');
+  assert.match(await modalText(page), /Welcome to the Animal Contest![\s\S]*This year Tomas, Pip and Pearl entered too\./);
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /Fed, petted and brushed today\? I can tell\./);
+  await tapButton(page, 'Next');
+  // the card: 4th place first, then up
+  await page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; return m && m.c.list.some((o) => o.type === 'Container' && o.alpha === 1 && o.list.some((t) => t.type === 'Text' && /Snowball/.test(t.text))); }, null, SLOW);
+  await shot(page, 'contest-judging');
+  await page.waitForFunction(() => { let hit = false; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === 'Hooray!') hit = true; if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return hit; }, null, SLOW);
+  text = await modalText(page);
+  assert.match(text, /ANIMAL CONTEST[\s\S]*Daisy the cow {2}\(you\)[\s\S]*92[\s\S]*Father Tomas' cow Bella[\s\S]*83[\s\S]*Pip's pig Bubbles[\s\S]*64[\s\S]*Grandma Pearl's chicken Snowball[\s\S]*48[\s\S]*1st place! Blue ribbon and 1,500G, and the 2026 trophy!/);
+  await shot(page, 'contest-card');
+  await tapButton(page, 'Hooray!');
+  assert.match(await modalText(page), /1ST PLACE![\s\S]*See it in the Collection: tap Ribbons\./);
+  await page.waitForTimeout(600);
+  await shot(page, 'contest-prize');
+  await tapButton(page, 'OK');
+  let s = await state(page);
+  assert.strictEqual(s.gold, gold + 1500);
+  assert.deepStrictEqual(s.cn.r, [{ c: 'animal', y: 2026, p: 1, w: 'Daisy' }]);
+  assert.strictEqual(s.fest.cowfest, 2026);
+  assert.strictEqual(s.animals[0].love, 100);
+  assert.match(JSON.stringify(await page.evaluate(() => Farm.Logic.serialize(Farm.session.state).cn)), /\[\[0,2026,1,"Daisy"\]\]/, 'saved');
+  // once a year
+  await closeAll(page);
+  await tapAction(page);
+  assert.match(await modalText(page), /Thank you for entering the Animal Contest! 1st place with Daisy: well done!/);
+  await closeAll(page);
+  // Ribbons, from the Collection
+  await page.evaluate(() => Farm.ui.openCollection());
+  await tapButton(page, 'Ribbons');
+  assert.match(await modalText(page), /RIBBONS & TROPHIES[\s\S]*Trophies 1 {4}Ribbons 1[\s\S]*Animal 2026[\s\S]*Daisy/);
+  await shot(page, 'contest-ribbons');
+  await tapButton(page, 'Close');
+  assert.match(await modalText(page), /Collection/);
+  await closeAll(page);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+
+  // Starry Night: the evening, or the Cook-off (the tour first, the first time)
+  const DEC24 = [2026, 12, 24, 19, 0];
+  const save2 = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.inv = s.inv.map(() => null); L.addItem(s, 'pumpkin_pie', 1); L.addItem(s, 'sandwich', 1); L.addItem(s, 'boiled_egg', 1); s.map = 'town';", DEC24);
+  const b = await open(save2, DEC24);
+  await waitMap(b.page, 'town');
+  await closeAll(b.page);
+  await b.page.waitForFunction(() => Farm.world.villagers.list.every((v) => !v.path.length), null, SLOW);
+  await teleport(b.page, 14, 18, 'down');
+  assert.strictEqual(await actionLabel(b.page), 'Festival');
+  await b.page.evaluate(() => { window.gameHost.quiet = false; });
+  await tapAction(b.page);
+  assert.match(await modalText(b.page), /Mayor Hollis[\s\S]*Tonight there is something for everyone![\s\S]*Noche Buena Cook-off\. Why not both\?/);
+  await shot(b.page, 'contest-starry-choice');
+  await tapButton(b.page, 'Cook-off');
+  assert.match(await modalText(b.page), /FESTIVAL CONTESTS[\s\S]*Three festivals have a contest/);
+  await tapButton(b.page, 'Next');
+  await tapButton(b.page, 'Next');
+  await frames(b.page, 6);
+  await shot(b.page, 'contest-tour-last');
+  await tapButton(b.page, 'Got it');
+  text = await modalText(b.page);
+  assert.match(text, /Noche Buena Cook-off[\s\S]*Judge: Rosa, innkeeper\.[\s\S]*Pumpkin Pie[\s\S]*90 points\. 3 things in it, 110 energy\.[\s\S]*Boiled Egg/);
+  assert.ok(!/Sandwich/.test(text), 'bought at the inn: not on the list');
+  await shot(b.page, 'contest-cook-list');
+  await b.page.evaluate(() => { Farm.Logic.ctRivals('cook', 2026); }); // (Pearl's pie scores 84: the pie wins)
+  await tapButton(b.page, 'Enter');
+  await tapButton(b.page, 'Enter');
+  await tapButton(b.page, 'Next');
+  await tapButton(b.page, 'Next');
+  await b.page.waitForFunction(() => { let hit = false; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === 'Hooray!') hit = true; if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return hit; }, null, SLOW);
+  assert.match(await modalText(b.page), /NOCHE BUENA COOK-OFF[\s\S]*Your Pumpkin Pie {2}\(you\)[\s\S]*1st place!/);
+  await shot(b.page, 'contest-cook-card');
+  await tapButton(b.page, 'Hooray!');
+  await tapButton(b.page, 'OK');
+  s = await state(b.page);
+  assert.strictEqual(count(s, 'pumpkin_pie'), 0, 'the judges keep the pie');
+  assert.strictEqual(s.fest.starry, undefined);
+  // the evening is still there
+  await closeAll(b.page);
+  await tapAction(b.page);
+  assert.ok(!/STARRY NIGHT\n/.test(await modalText(b.page)) && /Starry Night/.test(await modalText(b.page)), 'the evening list');
+  await closeAll(b.page);
+  assert.deepStrictEqual(b.problems, []);
+  await b.context.close();
+});
