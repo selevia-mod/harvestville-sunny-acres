@@ -45,7 +45,7 @@
     sprinkler_silver: { name: 'Silver Sprinkler', kind: 'sprinkler', tier: 1, desc: 'Place it on tilled soil: it keeps the 8 tiles around it watered.' },
     sprinkler_gold: { name: 'Gold Sprinkler', kind: 'sprinkler', tier: 2, desc: 'Place it on tilled soil: it keeps the 5x5 around it watered.' },
     fert: { name: 'Fertilizer', kind: 'fert', level: 1, price: 10, desc: 'Spread it on a 3x3 tilled patch. Better odds of Silver and Gold crops.', shop: 'One bag: a 3x3 patch, until its crops are picked. Better odds of Silver and Gold crops.' },
-    fert_rich: { name: 'Rich Fertilizer', kind: 'fert', level: 2, price: 30, desc: 'Spread it on a 3x3 tilled patch. The best odds of Silver and Gold crops.', shop: 'Rich Fertilizer: the best odds of Silver and Gold crops, a 3x3 patch a bag.' },
+    fert_rich: { name: 'Rich Fertilizer', kind: 'fert', level: 2, price: 30, desc: 'Spread it on a 3x3 tilled patch. The best odds of Silver and Gold crops.', shop: 'The best odds of Silver and Gold crops. One bag: a 3x3 patch, until its crops are picked.' },
   };
   // appended: icon numbers are saved, so the sheet only grows at its end
   Object.keys(ITEMS).forEach(function (id) {
@@ -68,6 +68,6 @@
   if (news) news.lines.push(
     ['sprinkler_silver', 'Sprinklers', 'Bram makes Copper, Silver and Gold Sprinklers. Place one on tilled soil and its tiles stay watered.', 'sprinkler'],
     ['fert', 'Silver and Gold crops', 'Spread Fertilizer from Lily for better odds of Silver and Gold crops. They sell for 1.5 and 2 times the price.', 'quality'],
-    ['seed_tulip', 'The Greenhouse', 'Buy one from Mira (Outdoor, More land). Any crop grows inside in any season, and it waters itself.', 'greenhouse']
+    ['seed_tulip', 'The Greenhouse', 'Buy one from Mira (Outdoor, More land). Any crop grows inside in any season, and it waters itself. Lily then sells every seed.', 'greenhouse']
   );
 })(window.Farm = window.Farm || {});
