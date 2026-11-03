@@ -8,11 +8,16 @@
   var U = F.UIScene.prototype;
   var BLUE = 0x4a90c9, GREY = 0xa08a68;
 
-  var rowsOf = function (news, header) {
+  // A line with a tour (its 4th entry, 19ze-tours.js) gets Show me; again() reopens this list after the tour.
+  var rowsOf = function (news, header, ui, again) {
     var rows = [];
     news.forEach(function (n, i) {
       if (header) rows.push({ icon: C.ICON.star, name: 'Version ' + n.v + (i === 0 ? '  (latest)' : ''), desc: n.date });
-      n.lines.forEach(function (l) { rows.push({ icon: C.ICON[l[0]] != null ? C.ICON[l[0]] : C.ICON.note, name: l[1], desc: l[2] }); });
+      n.lines.forEach(function (l) {
+        var row = { icon: C.ICON[l[0]] != null ? C.ICON[l[0]] : C.ICON.note, name: l[1], desc: l[2] };
+        if (l[3] && ui.tour && F.TOURS && F.TOURS[l[3]]) row.buttons = [{ label: 'Show me', color: BLUE, cb: function () { ui.closeModal(); ui.tour(l[3], again); } }];
+        rows.push(row);
+      });
     });
     return rows;
   };
@@ -21,7 +26,7 @@
   U.openNews = function (page, back) {
     var self = this;
     this.listPanel({
-      title: "What's new", rows: rowsOf(C.NEWS, true), page: page || 0,
+      title: "What's new", rows: rowsOf(C.NEWS, true, this, function () { self.openNews(page, back); }), page: page || 0,
       reopen: function (t, p) { self.openNews(p, back); },
       sub: function () { return 'Harvest Ville v' + C.NEWS_LATEST; },
       corner: back ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); back(); } } : null,
@@ -32,7 +37,7 @@
   U.openLatestNews = function (page) {
     var self = this, n = C.NEWS[0];
     this.listPanel({
-      title: "What's new in v" + n.v, rows: rowsOf([n], false), page: page || 0,
+      title: "What's new in v" + n.v, rows: rowsOf([n], false, this, function () { self.openLatestNews(page); }), page: page || 0,
       reopen: function (t, p) { self.openLatestNews(p); },
       sub: function () { return n.date + '. All updates: pause menu, What\'s new.'; },
       corner: { label: 'All', color: BLUE, cb: function () { self.closeModal(); self.openNews(0, null); } },

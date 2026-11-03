@@ -1345,6 +1345,31 @@ test('online: the Town Goal: give from the bag, the server takes only 40 a day, 
   await me.context.close();
 });
 
+test('online: the Town Goal tour opens once, the first time the Town tab opens, and then the tab', async () => {
+  const server = createServer();
+  server.db.town = { kind: 'crop', target: 100, total: 45 };
+  const me = await open(server);
+  await nameFarm(me.page, 'Tour Farm');
+  await me.page.evaluate(() => Farm.Online.townLoad());
+  await me.page.evaluate(() => { window.gameHost.quiet = false; });
+  await me.page.evaluate(() => Farm.ui.openOnline('visit', 0));
+  await waitModal(me.page, /Online/);
+  await me.page.evaluate(() => Farm.ui.swapTo(() => Farm.ui.openOnline('town', 0)));
+  await waitModal(me.page, /TOWN GOAL.*Each week all farms work together.*Skip.*Next/);
+  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 1, 'in place of the Online panel, not over it');
+  await me.page.waitForTimeout(600); // the picture fades in
+  assert.ok(await me.page.evaluate(() => { let n = 0; const walk = (l) => l.forEach((o) => { if (o.texture && o.texture.key === 'items' && o.alpha > 0 && o.parentContainer && o.parentContainer.alpha === 1) n++; if (o.list) walk(o.list); }); walk(Farm.ui.modals[0].c.list); return n >= 3; }), 'the picture is drawn');
+  await shot(me.page, 'town-tour-1');
+  await tapButton(me.page, 'Skip');
+  await waitModal(me.page, /Town Goal: crops.*45\/100/);
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  await me.page.evaluate(() => Farm.ui.openOnline('town', 0));
+  await waitModal(me.page, /Town Goal: crops.*45\/100/);
+  assert.ok(!/TOWN GOAL/.test(await modalText(me.page)), 'once');
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
 test('online: Best Farm of the Week: last week\'s winner wears a crown in the Online lists', async () => {
   const server = createServer();
   server.db.town = {};

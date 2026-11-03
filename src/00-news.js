@@ -1,7 +1,7 @@
 // What's new in Harvest Ville, newest first (owner, 29 Oct 2026: "in menu add button there for what's new or latest
 // update ... v1 for major update and vX.1 for minor update"). v1 is the game as it opened to everyone; the next big
 // set of features is v2, smaller rounds v1.1, v1.2 ... Shown once after an update, and any time from the pause menu
-// (19s-news.js). Each line: [icon (a C.ICON key), title, a short line].
+// (19s-news.js). Each line: [icon (a C.ICON key), title, a short line, and optionally a tour: F.TOURS key, 19ze-tours.js].
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -17,11 +17,11 @@
         ['chest', 'A better Storage', 'Tap an item to read about it, choose how many to move, and arrange your storage with Move.'],
         ['hoe', 'Three toolbars', 'Swipe your toolbar left or right for 18 slots in all. The Bag button stays where it is.'],
         ['bubble', 'Better chat', 'Smaller bubbles, a small box that shows every line, and the Chat panel keeps what was said.'],
-        ['hoe', 'The Back Fields', 'Six new blocks of land past the trees, east along the road. Find the For Sale signs.'],
+        ['hoe', 'The Back Fields', 'Six new blocks of land past the trees, east along the road. Find the For Sale signs.', 'land'],
         ['chest', 'No more lost chests', 'Past floor 150 each chest now counts on its own. Skip floors by lift and the ones above stay shut until you open them.'],
         ['calendar', "Today's Event", 'A small bonus for each day of the week. Tap the chip on the left to see today\'s.'],
         ['sparkle', 'Rare surprises', 'A sparkling rock in the Mine or a golden crop on the farm pays extra. Keep your eyes open!'],
-        ['turnip', 'Town Goal', 'One target a week for all farms. Give crops or ore in the Town tab of Online, and all who gave share the prize.'],
+        ['turnip', 'Town Goal', 'One target a week for all farms. Give crops or ore in the Town tab of Online, and all who gave share the prize.', 'town'],
         ['star', 'Best Farm of the Week', 'The most liked farm each week wins a prize and a crown in the Online lists.'],
       ],
     },

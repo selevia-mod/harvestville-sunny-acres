@@ -2597,3 +2597,76 @@ test('Gem Sunday: a gem from a rock comes in twos, and says so', async () => {
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('tours: the Back Fields tour opens once when you walk up to the land, Skip / Next / Got it, and What\'s new shows it again', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const waitText = (re) => page.waitForFunction((src) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    if (!m) return false;
+    const out = [];
+    const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    return new RegExp(src).test(out.join(' | '));
+  }, re.source, SLOW);
+  // quiet (the tests): never
+  await teleport(page, 36, 30, 'right');
+  await page.waitForTimeout(2000);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'quiet: no tour');
+  await teleport(page, 10, 30, 'down');
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  // the day's other pop-ups (the Daily Gift) come first: close them until it stays clear
+  for (let quietFor = 0, i = 0; quietFor < 3 && i < 30; i++) {
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => Farm.ui.modals.length)) { assert.ok(!/BACK FIELDS/.test(await modalText(page)), 'not before you reach the land'); await closeAll(page); quietFor = 0; } else quietFor++;
+  }
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
+  await teleport(page, 36, 30, 'right');
+  await waitText(/THE BACK FIELDS.*Six new blocks of land wait past the trees.*Skip.*Next/);
+  await shot(page, 'tour-land-1');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'land_tour')), true, 'marked at once');
+  assert.ok(JSON.parse((await page.evaluate(() => window.gameHost.saves.slice(-1)[0])) || '{}').tp > 0, 'and saved');
+  await tapButton(page, 'Next');
+  await waitText(/For Sale sign with a coin over it/);
+  await shot(page, 'tour-land-2');
+  await tapButton(page, 'Next');
+  await waitText(/10,000G.*20,000G.*40,000G.*80,000G.*160,000G.*320,000G/);
+  await shot(page, 'tour-land-3');
+  await tapButton(page, 'Next');
+  await waitText(/loses its fence and turns into field.*Got it/);
+  assert.ok(!/Skip/.test(await modalText(page)), 'the last step has only Got it');
+  await shot(page, 'tour-land-4');
+  await tapButton(page, 'Got it');
+  await frames(page, 4);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
+  // once
+  await teleport(page, 10, 30, 'down');
+  await teleport(page, 36, 30, 'right');
+  await page.waitForTimeout(2000);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'once');
+  // What's new: Show me plays it again, then the list comes back
+  let p = 0;
+  for (; p < 5; p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openLatestNews(p); }, p);
+    await frames(page, 3);
+    if (/The Back Fields/.test(await modalText(page))) break;
+  }
+  assert.ok(p < 5, 'the Back Fields line is in the list');
+  await shot(page, 'tour-land-news');
+  await tapButton(page, 'Show me');
+  await waitText(/THE BACK FIELDS.*Six new blocks/);
+  await tapButton(page, 'Skip');
+  await waitText(/What's new in v.*The Back Fields/);
+  // Back skips too
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.tour('town'); });
+  await waitText(/TOWN GOAL.*one Town Goal/);
+  for (const k of [0, 1, 2]) { await shot(page, 'tour-town-' + (k + 1)); await tapButton(page, 'Next'); }
+  await waitText(/Best Farm of the Week and a crown.*Got it/);
+  await shot(page, 'tour-town-4');
+  await page.evaluate(() => window.__gameBack());
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'Back closes it');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
