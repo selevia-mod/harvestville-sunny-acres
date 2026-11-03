@@ -20,6 +20,7 @@
         ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],
         ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
         ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
+        ['crate', 'Willowbrook Station', 'Up the lane by the Post Office: trains bring visitors and big cargo orders, and your Town Level grows.', 'station'], // 19zz-town.js
       ],
     },
     {
