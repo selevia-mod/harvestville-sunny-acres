@@ -19,8 +19,9 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 
 test("Hunter's gear: three pieces at Kanor's prices, their icons at the very end of the items sheet", () => {
   assert.deepStrictEqual(plain(C.GEAR.map((g) => [g.key, g.gold])), [['cloak', 3000], ['boots', 2500], ['quiver', 4000]]);
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-3)), ['gear_cloak', 'gear_boots', 'gear_quiver']);
-  assert.strictEqual(C.ICON_ORDER.length, 256, 'the items sheet is full now: 32 rows of 8 (a new icon needs a bigger sheet)');
+  const at = C.ICON_ORDER.indexOf('gear_cloak'); // (farm tech's icons come after them: farmtech.test.js)
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(at, at + 3)), ['gear_cloak', 'gear_boots', 'gear_quiver']);
+  assert.strictEqual(at, 253, 'after every icon before them');
   C.GEAR.forEach((g) => assert.strictEqual(g.icon, C.ICON['gear_' + g.key]));
 });
 

@@ -437,5 +437,5 @@ test('v2.2 is the newest: the Tailor Shop and playing together, every line with 
   ['The Tailor Shop', 'Play together', 'Reactions', 'Big moments'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   C.NEWS.forEach((n) => n.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2]), l[1]); }));
   const tours = [].concat(...C.NEWS.map((n) => n.lines.filter((l) => l[3]).map((l) => l[3])));
-  assert.deepStrictEqual(tours.sort(), ['derby', 'event', 'gear', 'hunt_dog', 'hunt_together', 'land', 'mine', 'photo', 'rare', 'tailor', 'town']);
+  assert.deepStrictEqual(tours.sort(), ['derby', 'event', 'gear', 'greenhouse', 'hunt_dog', 'hunt_together', 'land', 'mine', 'photo', 'quality', 'rare', 'sprinkler', 'tailor', 'town']);
 });
