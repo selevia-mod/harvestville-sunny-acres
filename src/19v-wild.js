@@ -27,7 +27,10 @@
   // step, step), 9 facing you (alert; the wolf howls), 10 eating or sniffing, 11 running or flying away. 6-8, 10 and 11
   // face left: flipped for the right.
   var FACING = { down: 0, up: 3, side: 6 }, STEPS = [1, 0, 2, 0];
-  var frameOf = function (kind, k) { return WI.order.indexOf(kind) * 12 + k; };
+  // (Bakunawa's Lair, 4 Nov 2026: a creature with no row of its own yet borrows another's, sheetRow, in its own colour,
+  // tint: 00-zzzzzzlair.js. The colour is on the animal only, not its shadow; a hit flashes white and it comes back.)
+  var frameOf = function (kind, k) { var def = WI.animals[kind]; return WI.order.indexOf((def && def.sheetRow) || kind) * 12 + k; };
+  var untint = function (a) { if (a.def.tint) a.img.setTint(a.def.tint); else a.img.clearTint(); };
 
   // Standing on the ground (owner, 30 Oct: "they look like they are floating"): assets/wildshade has the shadow of each
   // frame, a dark patch under every foot and a soft shape joining them (the feet are not on one line in this view: the
@@ -238,6 +241,7 @@
     };
     a.img.setFlipX(!a.left);
     a.sh.setFlipX(!a.left);
+    if (def.tint) a.img.setTint(def.tint); // (the Lair)
     this.wild.animals.push(a);
     this.drawWild(a);
     return a;
@@ -487,7 +491,7 @@
   // A charge reached you: energy lost, a bump, and it backs off a while.
   P.wildHit = function (a) {
     var s = this.state, f = this.feet(), dx = f.x - a.x, dy = f.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
-    var lost = Math.ceil((a.def.hit || 0) / (L.power(s, 'charge') ? 2 : 1));
+    var lost = L.chargeLoss(s, a.def.hit); // (a dish's power halves it; the Fire Charm takes 40% off: 01-logicN.js)
     s.energy = Math.max(0, s.energy - lost);
     this.floatTextAt(f.x, f.y - 1.6 * T, '-' + lost + ' energy');
     this.cameras.main.shake(160, 0.004);
@@ -597,7 +601,7 @@
       this.cameras.main.shake(70, 0.0016);
     }
     a.img.setTintFill(0xffffff);
-    this.time.delayedCall(90, function () { if (a.img.active) a.img.clearTint(); });
+    this.time.delayedCall(90, function () { if (a.img.active) untint(a); });
     a.hitT = HIT_MS;
     if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
     this.wildBar(a);
@@ -638,14 +642,14 @@
     L.huntDrops(a.kind, Math.random).forEach(function (d) {
       for (var k = 0; k < d[1]; k++) self.dropWild(d[0], a.x + rand(-0.6, 0.6) * T, a.y + rand(-0.3, 0.4) * T);
     });
-    if (a.def.great && L.greatTusk(s)) this.dropWild('great_tusk', a.x, a.y);
+    if (a.def.great && !a.def.lair && L.greatTusk(s)) this.dropWild('great_tusk', a.x, a.y); // (the Mammoth's: the Bakunawa leaves its scales)
     var r = L.hunted(s, this.mapKey, a.slot, a.kind, a.size);
     var big = a.def.rare ? '' : L.wildGiant(a.size) ? 'Giant ' : '', soon = L.wildNext(s);
     if (a.def.rare) sfx('found');
     this.floatTextAt(a.x, a.y - T, r.kg + ' kg');
     F.ui.toast(r.record ? 'New record! ' + big + a.def.name + ', ' + r.kg + ' kg. In your Hunter\'s Book.'
       : big + a.def.name + ' hunted! Pick up what it left.' + (soon ? ' (' + s.wild.n + '/' + WI.areas[soon].unlock + ' hunts)' : ''), 2400, r.record ? 0x7a5a12 : 0x2f5a22);
-    if (!this.wild.animals.length && !r.opened) this.time.delayedCall(2600, function () { if (F.ui) F.ui.toast('That was the last one nearby. More will wander in soon.', 3000); });
+    if (!this.wild.animals.length && !r.opened && !this.lair) this.time.delayedCall(2600, function () { if (F.ui) F.ui.toast('That was the last one nearby. More will wander in soon.', 3000); }); // (the Lair: its gate opens, 19zt-lair.js)
     if (r.opened) this.time.delayedCall(2400, function () { F.ui.dialog(WI.areas[r.opened].opened); });
     this.changed();
     this.save();
@@ -738,7 +742,7 @@
   P.wildFollowing = function () {
     if (!O.on || !O.me) return null;
     var list = [{ id: O.me.id, sn: O.mapAt }], map = this.mapKey;
-    Object.keys(O.others).forEach(function (id) { var p = O.others[id]; if (p.map === map) list.push(p); });
+    Object.keys(O.others).forEach(function (id) { var p = O.others[id]; if (p.map === map && p.fl === O.floorHere(map)) list.push(p); }); // (in the Lair: on this floor)
     var lead = L.wildLead(list);
     return lead && lead !== O.me.id ? lead : null;
   };
@@ -809,7 +813,7 @@
   O.onMessage = function (event, payload) {
     if (!HUNT_NEWS[event]) return onMessage.call(O, event, payload);
     var p = payload && typeof payload === 'object' ? payload : {}, w = F.world, who = typeof p.id === 'string' ? O.others[p.id] : null;
-    if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey) return;
+    if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey || who.fl !== O.floorHere(w.mapKey)) return; // (the Lair: the same floor)
     var lead = w.wildFollowing(), a = w.wild.animals.filter(function (x) { return x.slot === p.s; })[0];
     if (event === 'wa') { if (lead === p.id) w.wildHear(Number(p.t) || Date.now(), p.l); return; }
     if (event === 'ar') {

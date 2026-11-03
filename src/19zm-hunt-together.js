@@ -26,6 +26,7 @@
   O.tellHunt = function () {
     if (!O.on || O.huntOff || !F.Net.available()) return;
     var w = F.world, map = w && w.mapKey && !F.session.visit && L.isWildMap(w.mapKey) ? w.mapKey : null;
+    if (map === 'lair') map = 'magayon'; // (the server knows the three Wild Lands: the Lair is under Magayon, and Join walks there)
     if (map === told) return;
     told = map;
     F.Net.rpc('farm_hunt_here_v1', { p_map: map }).catch(function (e) { if (!off(e) && told === map) told = undefined; }); // (tried again on the next map)
@@ -142,7 +143,7 @@
 
   // ---------- the biggest catch of the week ----------
   O.recordCatch = function (kind, kg) {
-    if (!O.on || O.huntOff || !WI.animals[kind]) return;
+    if (!O.on || O.huntOff || !WI.animals[kind] || WI.animals[kind].lair) return; // (the Lair's creatures are not on the board: the server knows the Wild Lands' 12)
     var kg10 = Math.round(kg * 10);
     F.Net.rpc('farm_catch_v1', { p_kind: kind, p_kg10: kg10 }).then(function (r) {
       if (!r || !r.ok || Number(r.best) !== kg10) return; // (not bigger than this week's)
@@ -166,7 +167,7 @@
 
   // Online, Ranks, Biggest catch (19h-online.js asks for it): the top 10 for one animal; Next for another.
   U.openCatchBoard = function (show, fail, kindRow, more) {
-    var self = this, kinds = WI.order, k = this.catchKind || F.session.lastHunt || 'boar';
+    var self = this, kinds = WI.order.filter(function (x) { return !WI.animals[x].lair; }), k = this.catchKind || F.session.lastHunt || 'boar';
     if (kinds.indexOf(k) < 0) k = 'boar';
     this.catchKind = k;
     var def = WI.animals[k], head = [kindRow('ranks'), {

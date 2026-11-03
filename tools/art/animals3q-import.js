@@ -41,8 +41,15 @@ const MAG = { bear: { line: 350 }, mammoth: { line: 350 }, greatmammoth: { line:
 const BARN = { front: 11, lying: 10, ground: true };
 const FARM = [['farm_chicken', BARN], ['farm_cow', BARN], ['farm_pig', BARN], ['farm_carabao', BARN],
   ['pet_dog', { front: 9, lying: 10, ground: true }], ['pet_cat', { front: 9, lying: 10, ground: true }], ['horse', { front: 9, ground: true }]];
+// Bakunawa's Lair's creatures (4 Nov 2026; art-src/LAIR-PROMPTS.md) come from art-src/lair/. Until theirs come they borrow
+// another animal's row (sheetRow in src/00-zzzzzzlair.js) and get no row of their own here. They sit at the end of
+// C.WILD.order, so leaving them out moves no other animal; but one left out in front of one that is in would move that
+// one: they come in together.
+const LAIR = (a) => C.WILD.animals[a].lair;
+const WILD_ROWS = C.WILD.order.filter((a) => !(LAIR(a) && C.WILD.animals[a].sheetRow && !fs.existsSync(path.join(ROOT, 'art-src', 'lair', 'wild_' + a + '.png'))));
+WILD_ROWS.forEach((a, i) => { if (C.WILD.order[i] !== a) throw new Error('wild_' + C.WILD.order[i] + '.png is missing from art-src/lair/ (the Lair\'s creatures come in together)'); });
 const SETS = [
-  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: C.WILD.order.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, Object.assign({ front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }, MAG[a] ? { dir: 'magayon' } : {}, MAG[a])]) },
+  { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: WILD_ROWS.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, Object.assign({ front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }, MAG[a] ? { dir: 'magayon' } : {}, LAIR(a) ? { dir: 'lair', fit: true } : {}, MAG[a])]) },
   { name: 'animals', shade: 'animalshade', dir: 'farm-3q', ground: 352, store: 0.75, rows: FARM },
 ];
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');

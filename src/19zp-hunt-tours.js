@@ -105,10 +105,11 @@
     title: "HUNTER'S GEAR",
     steps: [
       {
-        text: 'Kanor sells three pieces of gear, once each. They are always on when you hunt.',
+        text: 'Kanor sells Hunter\'s gear, each piece once. It is always on when you hunt.',
         draw: function (ui, sc, move) {
+          var gap = Math.min(70, 240 / Math.max(1, C.GEAR.length - 1)); // (four pieces since the Fire Charm: 19zu-lair-ui.js)
           C.GEAR.forEach(function (g, n) {
-            var i = icon(ui, sc, 66 + n * 70, 66, g.icon, 0.36);
+            var i = icon(ui, sc, 136 - gap * (C.GEAR.length - 1) / 2 + n * gap, 66, g.icon, C.GEAR.length > 3 ? 0.3 : 0.36);
             tw(ui, move, { targets: i, y: 58, duration: 420, delay: n * 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
           });
         },

@@ -2945,7 +2945,7 @@ test('your dog comes hunting: it follows you, points at a hidden animal, fetches
   // the tours: Hunter's gear before Kanor's Buy tab, once
   await page.evaluate(() => { window.gameHost.quiet = false; Farm.Logic.takeTip(Farm.session.state, 'wild'); Farm.ui.openKanor('buy', 0); });
   await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
-  assert.match(await modalText(page), /HUNTER'S GEAR[\s\S]*three pieces of gear/);
+  assert.match(await modalText(page), /HUNTER'S GEAR[\s\S]*Hunter's gear, each piece once/);
   for (let k = 0; k < 2; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
   await shot(page, 'tour-gear-last');
   await tapButton(page, 'Got it');
@@ -3040,4 +3040,104 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   await tapButton(page, 'Got it');
   assert.deepStrictEqual(problems, []);
   await context.close();
+});
+
+test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in borrowed colours, the gate opens when they are down, the guard of floor 10, the lift, the ladder out, and a reopened game lands at the mouth (owner, 4 Nov)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'magayon'; s.wild.n = 50; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'magayon');
+  const T = 256;
+  // the mouth stands at the head of the trail, its rock solid, its door open
+  const mouth = await page.evaluate(() => { const w = Farm.world, p = w.points.lair_mouth; return { pic: w.children.list.some((o) => o.texture && o.texture.key === 'fx-lairmouth'), rock: !!w.blocked[w.idx(19, 2)], door: !w.blocked[w.idx(20, 3)], x: p.x, y: p.y }; });
+  assert.deepStrictEqual([mouth.pic, mouth.rock, mouth.door], [true, true, true]);
+  await page.evaluate(() => { const w = Farm.world, p = w.points.from_lair; w.setFeet(p.x, p.y); w.dir = 'down'; w.idle(); });
+  await frames(page, 3);
+  await shot(page, 'lair-mouth');
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(20.5 * 256, 3.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'lair');
+  // floor 1: three Santelmo, in the labuyo's row with their own colour (not on the shadow), and nobody walks in
+  const here = await page.evaluate(() => {
+    const w = Farm.world, WI = Farm.Config.WILD, row = WI.order.indexOf('labuyo');
+    return { fl: Farm.session.lairFloor, deep: Farm.session.state.lair.deep, list: w.wild.animals.map((a) => [a.kind, Math.floor(a.img.frame.name / 12) === row, a.img.tintTopLeft === WI.animals.santelmo.tint, a.sh.tintTopLeft === 0xffffff, !!a.halo]) };
+  });
+  assert.deepStrictEqual(here, { fl: 1, deep: 1, list: [0, 1, 2].map(() => ['santelmo', true, true, true, true]) });
+  await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 40; i++) { w.wild.next = 0; w.wildArrive(0); } });
+  assert.strictEqual(await page.evaluate(() => Farm.world.wild.animals.length), 3, 'none walk in from the edges');
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.open), false);
+  await shot(page, 'lair-floor-1');
+  // the gate is sealed while they are about
+  await teleport(page, 9, 13, 'down');
+  assert.strictEqual(await actionLabel(page), 'Sealed');
+  await teleport(page, 9, 14, 'down');
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /sealed\. 3 creatures/.test(Farm.ui.toastText.text), null, SLOW);
+  // one real arrow: it holds still beside you, and the Bow takes it down (2 hits)
+  const spot = await page.evaluate(() => {
+    const w = Farm.world, a = w.wild.animals[0], T = 256;
+    a.def = Object.assign({}, a.def, { shy: 0 });
+    for (let tx = 2; tx < 16; tx++) for (let ty = 5; ty < 16; ty++) if (w.wildFree(tx, ty) && w.wildFree(tx + 1, ty) && w.wildFree(tx + 2, ty)) { a.x = (tx + 2.5) * T; a.y = (ty + 0.7) * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; return [tx, ty, a.x, a.y]; }
+    return null;
+  });
+  assert.ok(spot, 'a clear spot');
+  await teleport(page, spot[0], spot[1], 'right');
+  assert.strictEqual(await actionLabel(page), 'Shoot');
+  for (let k = 0; k < 2; k++) {
+    await tapAction(page);
+    await page.waitForTimeout(500);
+    await page.evaluate(([x, y]) => { const a = Farm.world.wild.animals.find((b) => b.def.shy === 0); if (a) { a.x = x; a.y = y; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; } }, [spot[2], spot[3]]);
+  }
+  await page.waitForFunction(() => Farm.world.wild.animals.length === 2, null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.wildDrops.some((d) => d.id === 'ember_shard')), 'it left an Ember Shard');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.wild.gone['lair:0']), undefined, 'no slot waits in the Lair');
+  // the rest (their hits counted as yours), and the gate glows open
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open && Farm.world.lair.gate.img.texture.key === 'fx-lairgate1' && Farm.world.lair.gate.glow.visible, null, SLOW);
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /gate down is open/.test(Farm.ui.toastText.text), null, SLOW);
+  await teleport(page, 9, 13, 'down');
+  await shot(page, 'lair-gate-open');
+  assert.strictEqual(await actionLabel(page), 'Go down');
+  await teleport(page, 10, 15, 'down'); // walk onto it
+  await page.waitForFunction(() => Farm.session.lairFloor === 2 && Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.session.state.lair.deep, Farm.world.lair.open, Farm.world.wild.animals.length]), [2, false, 3]);
+  assert.ok(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'ember_shard')) >= 3, 'what lay on the ground came along');
+  // floor 10: the Bungisngis guards it, as tough as the floor, with its bar from the start
+  await page.evaluate(() => Farm.world.travel('lair', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  const guard = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bungisngis'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
+  assert.deepStrictEqual(guard, { hp: 29, max: 29, bar: true });
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'bungisngis'), T = 256; a.x = 7.5 * T; a.y = 6.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; a.def = Object.assign({}, a.def, { angry: 0 }); w.wildStruck(a); w.setFeet(6.5 * T, 9.5 * T); });
+  await frames(page, 6);
+  await shot(page, 'lair-floor-10-guard');
+  // the lift: once you have been past floor 20, it stops at 1, 11 and 21
+  await page.evaluate(() => { Farm.session.state.lair.deep = 25; Farm.world.travel('lair', 'entrance', 1); });
+  await page.waitForFunction(() => Farm.session.lairFloor === 1 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await teleport(page, 4, 3, 'left');
+  assert.strictEqual(await actionLabel(page), 'Lift', 'even with the Bow in your hands');
+  await tapAction(page);
+  assert.match(await modalText(page), /Lair Lift[\s\S]*Floor 21[\s\S]*Floor 11[\s\S]*Floor 1/);
+  await shot(page, 'lair-lift');
+  await tapButton(page, 'Go');
+  await page.waitForFunction(() => Farm.session.lairFloor === 21 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // the ladder climbs out to the mouth
+  await teleport(page, 5, 3, 'up');
+  assert.strictEqual(await actionLabel(page), 'Climb out');
+  await tapAction(page);
+  await waitMap(page, 'magayon');
+  const out = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_lair; return Math.hypot(f.x - p.x, f.y - p.y) / 256; });
+  assert.ok(out < 1, 'at the mouth');
+  // in again, and the game is closed there: it opens at the mouth, not in the cave
+  await page.evaluate(() => Farm.world.travel('lair', 'entrance', 11));
+  await page.waitForFunction(() => Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  const closed = await page.evaluate(() => { Farm.world.save(); return gameHost.saves[gameHost.saves.length - 1]; });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  const again = await open(JSON.parse(closed));
+  await closeAll(again.page);
+  await waitMap(again.page, 'magayon');
+  const back = await again.page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_lair; return { far: Math.hypot(f.x - p.x, f.y - p.y) / 256, deep: Farm.session.state.lair.deep }; });
+  assert.ok(back.far < 1, 'at the mouth');
+  assert.strictEqual(back.deep, 25);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
 });

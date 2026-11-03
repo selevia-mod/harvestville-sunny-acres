@@ -91,6 +91,13 @@ window.W = {
     g.drawImage(c, b.x, b.y, b.w, b.h, cx - w / 2, base != null ? base - h : cy - h / 2, w, h);
   },
   out: (c, q) => ({ png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', q || 0.8) }),
+  // the items sheet: the PNG stays 8 columns (for the importers), the WebP the game loads goes out 16 columns wide, so
+  // no side is over 4096 px (cheap phones show black icons past that; squeeze.js). Icons keep their numbers.
+  itemsOut(sheet, q) {
+    const n = Math.round(sheet.height / 144) * 8, cols = 16, wide = W.canvas(8 * 2 + cols * 144 - 16, 8 * 2 + Math.ceil(n / cols) * 144 - 16), g = wide.getContext('2d');
+    for (let i = 0; i < n; i++) g.drawImage(sheet, 8 + (i % 8) * 144, 8 + Math.floor(i / 8) * 144, 128, 128, 8 + (i % cols) * 144, 8 + Math.floor(i / cols) * 144, 128, 128);
+    return { png: sheet.toDataURL('image/png'), webp: wide.toDataURL('image/webp', q || 0.8) };
+  },
   // the bright fringe the picture generator leaves round a cut-out (it shows as yellow, red or green specks): the faintest
   // pixels go, and the soft edge that is left takes its colour from the solid picture beside it
   dehalo(c) {

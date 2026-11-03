@@ -17,10 +17,11 @@ const fresh = () => { clock.set(2026, 11, 4, 10, 0); const s = L.newState(); s.s
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 const plain = (x) => JSON.parse(JSON.stringify(x));
 
-test("Hunter's gear: three pieces at Kanor's prices, their icons at the very end of the items sheet", () => {
-  assert.deepStrictEqual(plain(C.GEAR.map((g) => [g.key, g.gold])), [['cloak', 3000], ['boots', 2500], ['quiver', 4000]]);
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-3)), ['gear_cloak', 'gear_boots', 'gear_quiver']);
-  assert.strictEqual(C.ICON_ORDER.length, 256, 'the items sheet is full now: 32 rows of 8 (a new icon needs a bigger sheet)');
+test("Hunter's gear: four pieces at Kanor's prices (the Fire Charm from the Lair: lair.test.js), their icons appended", () => {
+  assert.deepStrictEqual(plain(C.GEAR.map((g) => [g.key, g.gold])), [['cloak', 3000], ['boots', 2500], ['quiver', 4000], ['charm', 6000]]);
+  const at = C.ICON_ORDER.indexOf('gear_cloak');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(at, at + 3)), ['gear_cloak', 'gear_boots', 'gear_quiver']);
+  assert.strictEqual(at, 253, 'after every icon before them');
   C.GEAR.forEach((g) => assert.strictEqual(g.icon, C.ICON['gear_' + g.key]));
 });
 
@@ -66,7 +67,7 @@ test("Hunter's gear: the save keeps it, an old save has none, junk is dropped", 
   delete o.hg;
   assert.strictEqual(L.deserialize(o).hg, 0, 'an old save');
   o.hg = 255;
-  assert.strictEqual(L.deserialize(o).hg, 7, 'only the three pieces');
+  assert.strictEqual(L.deserialize(o).hg, 15, 'only the four pieces');
   o.hg = 'x';
   assert.strictEqual(L.deserialize(o).hg, 0);
 });

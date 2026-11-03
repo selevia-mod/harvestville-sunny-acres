@@ -1910,3 +1910,72 @@ test('online: the Fishing Derby: on Fish Monday each fish goes to the board, the
   for (const who of [a, b]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([a.context.close(), b.context.close()]);
 });
+
+test('online: Bakunawa\'s Lair: two hunters on floor 50, the Bakunawa rises only for two, a shared hunt pays both, it does not rise again that day, and a visitor is asked to follow the owner to another floor (owner, 4 Nov)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 50; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const down50 = async (who) => {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; Farm.world.travel('town', 'from_farm'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('lair', 'entrance', 50); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'lair' && Farm.session.lairFloor === 50 && !Farm.world.busy && Farm.world.wild, null, SLOW);
+    await who.page.evaluate(() => Farm.ui.closeAll());
+  };
+  await down50(host);
+  const arrive = (page) => page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 60; i++) { w.wild.next = 0; w.wildArrive(0); } return w.wild.animals.some((a) => a.kind === 'bakunawa'); });
+  assert.deepStrictEqual(await host.page.evaluate(() => Farm.world.wild.animals.map((a) => a.kind)), ['tikbalang', 'tikbalang'], 'it sleeps: only its two Tikbalang');
+  assert.strictEqual(await arrive(host.page), false, 'not for one hunter');
+  // the guest comes down to the same floor: they see each other and hunt together (the owner, there first, runs it)
+  await down50(guest);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 50);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), host.uid);
+  await host.page.waitForFunction(() => { const w = Farm.world; w.wild.next = 0; w.wildArrive(0); return w.wild.animals.some((a) => a.kind === 'bakunawa'); }, null, SLOW);
+  const bk = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bakunawa'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar, tint: a.img.tintTopLeft === a.def.tint } : null; });
+  assert.deepStrictEqual(await bk(host.page), { hp: 40, max: 40, bar: true, tint: true }, '20 for each of the 2 hunters');
+  await guest.page.waitForFunction(() => Farm.world.wild.animals.some((a) => a.kind === 'bakunawa'), null, SLOW);
+  await waitToast(guest.page, /The Bakunawa rises/);
+  await shot(guest.page, 'lair-bakunawa');
+  // the guest lands 3 hits and the owner the rest: a hunt for both, with its scales, and no Great Tusk
+  await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'bakunawa'); for (let i = 0; i < 3; i++) w.wildStruck(a); });
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bakunawa'); return a && a.hp === 37; }, null, SLOW);
+  await host.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'bakunawa'); w.wildStruck(a); w.wildStruck(a); a.hp = 1; w.wildStruck(a); });
+  for (const who of [host, guest]) await who.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.kind === 'bakunawa'), null, SLOW);
+  const paid = (who) => who.page.evaluate(() => {
+    const s = Farm.session.state, have = (id) => Farm.world.wildDrops.filter((d) => d.id === id).length + Farm.Logic.countItem(s, id);
+    return { scales: have('bakunawa_scale'), tusk: have('great_tusk'), today: s.lair.bk === s.day, ready: Farm.Logic.bakunawaReady(s) };
+  });
+  for (const who of [host, guest]) await who.page.waitForFunction(() => Farm.session.state.lair.bk === Farm.session.state.day, null, SLOW);
+  assert.deepStrictEqual(await paid(guest), { scales: 2, tusk: 0, today: true, ready: false });
+  assert.deepStrictEqual(await paid(host), { scales: 2, tusk: 0, today: true, ready: false });
+  // not again today, whoever runs the floor
+  assert.strictEqual(await arrive(host.page), false);
+  await host.page.evaluate(() => Farm.ui.closeAll());
+  await host.page.evaluate(() => Farm.world.travel('lair', 'entrance', 50));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitRemotes(host.page, ['Ana Acres']);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), null, 'the guest was there first now');
+  assert.strictEqual(await arrive(guest.page), false);
+  // the owner takes the lift up to floor 41: the guest, still on 50, is asked to follow, and goes straight there
+  await guest.page.evaluate(() => Farm.ui.closeAll());
+  await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('lair', 'entrance', 41); });
+  await host.page.waitForFunction(() => Farm.session.lairFloor === 41 && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitRemotes(guest.page, []);
+  for (let i = 0; i < 20 && !/WENT UP/.test(await modalText(guest.page)); i++) { if (await modalText(guest.page)) await guest.page.evaluate(() => Farm.ui.closeModal()); await new Promise((r) => setTimeout(r, 500)); }
+  assert.match(await modalText(guest.page), /MOON MEADOW WENT UP[\s\S]*floor 41 of the Lair\. Follow them\?/);
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.session.lairFloor === 41 && Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  assert.ok(await guest.page.evaluate(() => Farm.session.state.lair.deep < 41), 'a floor reached behind a friend is not yours');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});

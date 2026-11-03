@@ -42,7 +42,7 @@ const save = (name, r) => {
       g.clearRect(8 + (i % 8) * 144, 8 + Math.floor(i / 8) * 144, 128, 128);
       g.drawImage(ic, 8 + (i % 8) * 144, 8 + Math.floor(i / 8) * 144);
     }
-    return W.out(sheet, 0.86);
+    return W.itemsOut(sheet, 0.86);
   }, [data(path.join(OUT, 'items.png')), C.ICON_ORDER.map((n) => (icons[n] ? icons[n].png : null))]);
   save('items', items);
   const home = await p.evaluate(async (src) => {

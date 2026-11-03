@@ -94,7 +94,7 @@ window.tone = (img, kind) => {
       g.clearRect(x, y, 128, 128);
       g.drawImage(ic, x, y);
     }
-    return { png: sheet.toDataURL('image/png'), webp: sheet.toDataURL('image/webp', 0.86) };
+    return W.itemsOut(sheet, 0.86);
   }, [data(path.join(OUT, 'items.png')), order.map((n) => (n === 'white_antler' ? white : n === 'gold_tusk' ? gold : null))]);
   fs.writeFileSync(path.join(OUT, 'items.png'), Buffer.from(items.png.split(',')[1], 'base64'));
   fs.writeFileSync(path.join(OUT, 'items.webp'), Buffer.from(items.webp.split(',')[1], 'base64'));

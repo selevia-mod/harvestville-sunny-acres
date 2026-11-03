@@ -590,10 +590,53 @@ function magayon() {
   m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
   const free = (x, y) => !onTrail(m, x, y) && !(x >= 14 && x <= 20 && y >= 24);
   scatter(m, r, [['pili_tree', 6], ['hot_spring', 3], ['sulfur_vent', 4], ['lava_boulder', 7], ['charred_log', 4], ['abaca', 7], ['ash_fern', 12]], free);
+  lairMouth(m);
   return m.json();
 }
 
-const MAPS = { farm, town, mine, pulag, makiling, magayon };
+// Bakunawa's Lair (owner, 4 Nov 2026: "Use agent and build this"; docs/lair-design.md). Its mouth is cut into the slope
+// at the north edge of Magayon, at the head of the trail, where the props scattered above left the ground free. Added
+// after them so nothing else on Magayon moves. The mouth itself is drawn by the game (src/19zt-lair.js) over the
+// 'lair_mouth' point, which blocks the rock around the door.
+function lairMouth(m) {
+  m.rect('Ground', 20, 4, 21, 5, 'tiles', T.wild_trail); // a short spur off the trail, up to the door
+  m.point('from_lair', 'spawn', 20.5, 4.7, [prop('dir', 'string', 'down')]);
+  m.point('lair_mouth', 'place', 20.5, 4);
+  m.obj('lair_door', 'warp', 20, 3, 1, 1, [prop('to', 'string', 'lair'), prop('spawn', 'string', 'entrance'), prop('walk', 'bool', true)]);
+  m.prop('trail_sign', 16, 4);
+  m.obj('sign_lair', 'sign', 16, 5, 1, 1, [prop('text', 'string', "BAKUNAWA'S LAIR\nA cave down into the volcano, floor after floor of fire creatures. Clear a floor with your Bow and its gate down opens.")]);
+}
+
+// ---------- Bakunawa's Lair: one lava cave, used for every floor (src/19zt-lair.js) ----------
+// The mine's cave tiles, painted red and orange by the game, with pools of lava (the 'void' tile, also repainted: it
+// is solid). The way in is at the top left: the ladder up to Magayon, the lift beside it (drawn by the game once it has
+// a second stop), and the gate down at the bottom (drawn by the game, closed until the floor is clear).
+function lair() {
+  const m = new MapBuilder('lair', 20, 18, ['indoor', 'props'], ['Ground', 'Walls']);
+  const r = rng(1104);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'indoor', () => (r() < 0.5 ? I.cave : I.cave2));
+  m.rect('Walls', 0, 0, m.W - 1, 0, 'indoor', I.cave_top);
+  m.rect('Walls', 1, 1, m.W - 2, 1, 'indoor', I.cave_wall);
+  m.rect('Walls', 0, 0, 0, m.H - 1, 'indoor', I.cave_top);
+  m.rect('Walls', m.W - 1, 0, m.W - 1, m.H - 1, 'indoor', I.cave_top);
+  m.rect('Walls', 0, m.H - 1, m.W - 1, m.H - 1, 'indoor', I.cave_top);
+  // two rock pillars (the top, and its face below)
+  [[5, 8], [13, 9]].forEach(([x, y]) => { m.rect('Walls', x, y, x + 1, y, 'indoor', I.cave_top); m.rect('Walls', x, y + 1, x + 1, y + 1, 'indoor', I.cave_wall); });
+  // lava pools
+  [[14, 3, 17, 4], [15, 5, 16, 5], [2, 12, 3, 14], [4, 13, 4, 13], [15, 13, 17, 14], [9, 7, 10, 7]].forEach(([x0, y0, x1, y1]) => m.rect('Walls', x0, y0, x1, y1, 'indoor', I.void));
+  m.put('Walls', 5, 2, 'indoor', I.ladder_up);
+  m.point('entrance', 'spawn', 5.5, 3.6, [prop('dir', 'string', 'down')]);
+  m.obj('exit', 'warp', 5, 2, 1, 1, [prop('to', 'string', 'magayon'), prop('spawn', 'string', 'from_lair'), prop('label', 'string', 'Climb out')]);
+  m.obj('lair_gate', 'lair_gate', 9, 14, 2, 2);
+  m.prop('sulfur_vent', 10, 2);
+  m.prop('lava_boulder', 1, 6);
+  m.prop('lava_boulder', 17, 8);
+  m.prop('lava_boulder', 6, 14);
+  m.obj('wild', 'wild', 1, 4, m.W - 2, m.H - 5);
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling, magayon, lair };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

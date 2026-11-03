@@ -14,7 +14,7 @@
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
   var FADE_MS = 260; // a friend arriving or leaving
-  var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1 };
+  var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1, lair: 1 }; // (lair: Bakunawa's Lair, 19zt-lair.js)
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};
@@ -170,12 +170,17 @@
   };
 
   // The name over your head: your farmer's (01-logicA.js), or your farm's until you name them.
+  // Which floor of the mine or of Bakunawa's Lair we are on (0 elsewhere): two players on one map but on different
+  // floors are not together (they do not see each other, and do not hunt together).
+  O.floorHere = function (map) { return map === 'mine' ? F.session.mineFloor : map === 'lair' ? F.session.lairFloor || 1 : 0; };
+  var FLOORS = { mine: 9999, lair: 50 };
+
   O.myName = function () { return (F.session.state && F.session.state.name) || (O.me && O.me.name) || 'Farmer'; };
 
   O.myState = function () {
     var w = F.world, f = w && w.player ? w.feet() : { x: 0, y: 0 };
     return {
-      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w && w.mapKey === 'mine' ? F.session.mineFloor : 0,
+      id: O.me.id, name: O.myName(), look: F.session.state.look === 'girl' ? 'girl' : 'boy', map: w ? w.mapKey : 'farm', fl: w ? O.floorHere(w.mapKey) : 0,
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
       pt: F.myParty() ? 1 : 0, // your birthday: they see you in the party hat
       cs: L.wornLook ? L.wornLook(F.session.state) : '', // the look you wear (19zj-looks.js)
@@ -269,8 +274,8 @@
       id: p.id, name: (L.cleanName ? L.cleanName(p.name) : L.cleanText(p.name, 24)) || 'Farmer', look: p.look === 'girl' ? 'girl' : 'boy', map: MAPS[p.map] ? p.map : 'town',
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       cs: C.LOOK_INDEX && typeof p.cs === 'string' && C.LOOK_INDEX[p.cs] != null ? p.cs : '', // their look
-      fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
-      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(7, Math.floor(Number(p.hg)) || 0)),
+      fl: FLOORS[p.map] ? Math.max(1, Math.min(FLOORS[p.map], Math.floor(Number(p.fl)) || 1)) : 0, // which floor of the mine or the Lair
+      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)), // (4 pieces of Hunter's gear with the Fire Charm)
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -447,7 +452,7 @@
   O.tellPlace = function () {
     var w = F.world;
     if (!w || !w.player || w.busy) return;
-    var f = w.feet(), fl = w.mapKey === 'mine' ? F.session.mineFloor : 0;
+    var f = w.feet(), fl = O.floorHere(w.mapKey);
     this.send('mv', { map: w.mapKey, fl: fl, x: Math.round(f.x), y: Math.round(f.y), dir: w.dir, m: 0, t: Date.now(), rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0 });
     O.chan.track(O.myState());
   };
@@ -463,7 +468,7 @@
     var want = {};
     Object.keys(O.others).forEach(function (id) {
       var p = O.others[id];
-      if (p.map === w.mapKey && (w.mapKey !== 'mine' || p.fl === F.session.mineFloor)) want[id] = p; // (the town and the mine too: visitors follow the owner there)
+      if (p.map === w.mapKey && p.fl === O.floorHere(w.mapKey)) want[id] = p; // (the town and the mine too: visitors follow the owner there; the same floor of the mine or the Lair)
     });
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
@@ -580,7 +585,7 @@
     if (!this.chan || w.busy) return;
     // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
     var alone = true;
-    var fl = w.mapKey === 'mine' ? F.session.mineFloor : 0;
+    var fl = O.floorHere(w.mapKey);
     for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
     if (alone && !(Object.keys(this.others).length && this.last && (this.last.map !== w.mapKey || this.last.fl !== fl))) return;
     var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir || !!last.rd !== !!F.session.riding;
@@ -648,6 +653,7 @@
       mine.player = { x: null, y: null, dir: 'down' };
       F.session.spawn = spawn;
       if (to === 'mine') F.session.mineFloor = floor || 1;
+      if (to === 'lair') F.session.lairFloor = floor || 1;
     }
     O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);
