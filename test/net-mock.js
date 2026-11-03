@@ -5,8 +5,11 @@ const crypto = require('crypto');
 const LOOK_OFFERS = [{ look: 'flower', currency: 'coins', price: 100 }, { look: 'flower', currency: 'stars', price: 150 }, { look: 'santa', currency: 'coins', price: 150 },
   { look: 'fiesta', currency: 'coins', price: 150 }, { look: 'fiesta', currency: 'stars', price: 200 }, { look: 'bunny', currency: 'coins', price: 150 }, { look: 'bunny', currency: 'stars', price: 200 }];
 
+// each animal's usual weight (supabase/farm_online_14.sql, farm.catch_kinds)
+const CATCH_KG = { rabbit: 2, labuyo: 1.4, deer: 60, boar: 90, wolf: 40, whitedeer: 75, goldboar: 120, bear: 180, mammoth: 4000, tiger: 200, rhino: 1500, greatmammoth: 7000 };
+
 function createServer() {
-  const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0 };
+  const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0, hunting: new Map(), catches: new Map() };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   db.tracks = []; // every presence update, as the server counts them
   const today = () => new Date().toISOString().slice(0, 10);
@@ -353,7 +356,47 @@ function createServer() {
     },
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
     farm_leave_v1(uid) { need(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
+    // part 14 (supabase/farm_online_14.sql): hunting together. db.noHunt: as before it is applied (the functions are not there).
+    farm_hunt_here_v1(uid, a) {
+      huntPart(); need(uid);
+      db.players.get(uid).seen = Date.now();
+      if (a.p_map == null) { db.hunting.delete(uid); return null; }
+      if (!['pulag', 'makiling', 'magayon'].includes(a.p_map)) throw new Error('bad map');
+      const old = db.hunting.get(uid);
+      db.hunting.set(uid, { map: a.p_map, since: old && old.map === a.p_map ? old.since : Date.now() });
+      return null;
+    },
+    farm_hunting_v1(uid) {
+      huntPart(); need(uid);
+      return [...db.hunting.entries()].filter(([id]) => id !== uid && db.players.has(id) && online(db.players.get(id)) && !blocked(uid, id) && (areFriends(uid, id) || db.players.get(id).listed))
+        .map(([id, h]) => ({ id, farm_name: db.players.get(id).farm_name, map: h.map, friend: areFriends(uid, id), minutes: Math.floor((Date.now() - h.since) / 60000) }))
+        .sort((x, y) => (y.friend - x.friend) || ((y.map === 'magayon') - (x.map === 'magayon')));
+    },
+    farm_friend_ask_v1(uid, a) {
+      huntPart(); need(uid);
+      const o = db.players.get(a.p_other);
+      if (!o || blocked(uid, a.p_other)) return 'nocode';
+      return rpc.farm_friend_add_v1(uid, { p_code: o.friend_code });
+    },
+    farm_catch_v1(uid, a) {
+      huntPart(); need(uid);
+      const base = CATCH_KG[a.p_kind];
+      if (!base) return { ok: false, code: 'bad-kind' };
+      if (!(a.p_kg10 >= Math.floor(base * 9) && a.p_kg10 <= Math.ceil(base * 13.5))) return { ok: false, code: 'bad-weight' };
+      const key = a.p_kind + ':' + uid, old = db.catches.get(key) || 0;
+      if (a.p_kg10 > old) db.catches.set(key, a.p_kg10);
+      const best = db.catches.get(key);
+      return { ok: true, best, rank: 1 + [...db.catches.entries()].filter(([k, v]) => k.startsWith(a.p_kind + ':') && v > best).length };
+    },
+    farm_catch_board_v1(uid, a) {
+      huntPart(); need(uid);
+      const rows = [...db.catches.entries()].filter(([k]) => k.startsWith(a.p_kind + ':')).map(([k, kg10]) => ({ id: k.split(':')[1], kg10 }))
+        .filter((r) => db.players.has(r.id) && !blocked(uid, r.id));
+      return rows.map((r) => ({ rank: 1 + rows.filter((o) => o.kg10 > r.kg10).length, id: r.id, farm_name: db.players.get(r.id).farm_name, kg10: r.kg10, me: r.id === uid }))
+        .sort((x, y) => x.rank - y.rank).filter((r) => r.rank <= 10 || r.me);
+    },
   };
+  function huntPart() { if (db.noHunt) throw new Error('Could not find the function in the schema cache'); }
 
   // part 12 (supabase/farm_online_12.sql): the Town Goal and Best Farm of the Week. Like the real thing before it is
   // applied, these do not exist until a test sets server.db.town = {} (see townRpc): the game must then hide them quietly.

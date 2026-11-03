@@ -1033,7 +1033,17 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await shootAt(guest, second, at2);
   await gone(host.page, second);
   await guest.page.waitForFunction(() => Farm.session.state.wild.n === 2, null, SLOW);
-  await host.page.waitForFunction(() => Farm.session.state.wild.n === 1 && Farm.world.wildDrops.length > 0, null, SLOW);
+  await host.page.waitForFunction(() => Farm.session.state.wild.n === 1, null, SLOW);
+  // not friends yet: after a hunt together, each is asked once (owner, 3 Nov: "i like the hunting ideas")
+  await waitModal(guest.page, /HUNTED TOGETHER[\s\S]*You and Moon Meadow hunted the (Rabbit|Deer) together/);
+  await tapButton(guest.page, 'Add friend');
+  await waitToast(guest.page, /Friend request sent to Moon Meadow/);
+  await waitModal(host.page, /HUNTED TOGETHER[\s\S]*Add Ana Acres as a friend\?/);
+  await tapButton(host.page, 'Add friend');
+  await waitToast(host.page, /You and Ana Acres are friends now!/);
+  assert.ok(server.db.friends.some((f) => f.accepted && [f.a, f.b].sort().join() === [host.uid, guest.uid].sort().join()), 'friends on the server');
+  // and each hunt went to the server's biggest catch of the week
+  assert.ok([...server.db.catches.keys()].some((k) => k.endsWith(':' + guest.uid)) && [...server.db.catches.keys()].some((k) => k.endsWith(':' + host.uid)));
   // a charge at a friend costs THEM the energy, when it reaches them on THEIR screen, and it backs off on both phones
   const stand = await guest.page.evaluate(() => {
     const w = Farm.world, z = w.wild.zone;
@@ -1097,6 +1107,9 @@ test('online: the Great Mammoth: only with two hunters, strength for the crew; 3
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
   await host.page.evaluate(() => Farm.world.travel('magayon', 'trail_south'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'magayon' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  // alone on a weekend: find someone to hunt with? (19zm-hunt-together.js)
+  await waitModal(host.page, /THE GREAT MAMMOTH[\s\S]*never shows for one hunter alone/);
+  await tapButton(host.page, 'Not now');
   // alone: it never comes
   const arrive = (page) => page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 60; i++) { w.wild.next = 0; w.wildArrive(0); } return w.wild.animals.some((a) => a.def.great); });
   assert.strictEqual(await arrive(host.page), false, 'not for one hunter');
@@ -1797,4 +1810,71 @@ test('online: a Coins look from the Tailor Shop: paid once on the server, yours 
   assert.strictEqual(server.db.wallets.get(me.uid).coins, 50);
   for (const p of [me, friend]) assert.deepStrictEqual(p.problems, []);
   for (const p of [me, friend]) await p.context.close();
+});
+
+test('online: Hunting now: whoever is out hunting shows, with Join; Join walks you there without asking; home again, off the list; the Biggest catch board (owner, 3 Nov)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  // the owner goes hunting in their own game: the server knows
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await host.page.waitForFunction(() => true, null, SLOW);
+  for (let i = 0; i < 50 && !(server.db.hunting.get(host.uid) || {}).map; i++) await new Promise((r) => setTimeout(r, 100));
+  assert.strictEqual(server.db.hunting.get(host.uid).map, 'pulag');
+  // the guest finds them under Online, Friends: Hunting now
+  await guest.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(guest.page, /Hunting now/);
+  await tapButton(guest.page, 'See');
+  await waitModal(guest.page, /Hunting now[\s\S]*Moon Meadow[\s\S]*Pulag Grassland\. (Just went in|\d+ min so far)\./);
+  await shot(guest.page, 'hunting-now');
+  await tapButton(guest.page, 'Join');
+  // to their farm, to town and on to Pulag, with no "hunt together?" on the way
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild && Farm.session.visit, null, SLOW);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  assert.ok(!(await guest.page.evaluate(() => Farm.ui.modals.length)), 'nothing to answer on the way');
+  assert.ok(!server.db.hunting.has(guest.uid), 'on a visit you are not listed: the owner is');
+  // their dogs: yours follows you, and the owner's follows them on your screen
+  await guest.page.waitForFunction((id) => Farm.world.huntDog && Farm.world.friendDogs[id], host.uid, SLOW);
+  // the Biggest catch: the guest's hunt is on the week's board for that animal
+  await guest.page.evaluate(() => { Farm.Online.recordCatch('deer', 66.1); });
+  await host.page.evaluate(() => { Farm.Online.recordCatch('deer', 59.4); });
+  for (let i = 0; i < 50 && server.db.catches.size < 2; i++) await new Promise((r) => setTimeout(r, 100));
+  await waitToast(guest.page, /#1 this week for the biggest Deer/);
+  await guest.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.onlineKind = { visit: 'popular', ranks: 'catch' }; Farm.ui.catchKind = 'deer'; Farm.ui.openOnline('ranks', 0); });
+  await waitModal(guest.page, /Showing: Biggest catch[\s\S]*Animal: Deer[\s\S]*#1 Ana Acres \(you\)[\s\S]*Deer, 66\.1 kg\.[\s\S]*#2 Moon Meadow[\s\S]*Deer, 59\.4 kg/);
+  await shot(guest.page, 'biggest-catch');
+  await tapButton(guest.page, 'Next');
+  await waitModal(guest.page, /Animal: Wild Boar[\s\S]*No catches yet/);
+  // home again: off the list
+  await guest.page.evaluate(() => Farm.ui.closeAll());
+  await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.wildKeep(); Farm.Online.follow('town'); });
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  for (let i = 0; i < 50 && server.db.hunting.has(host.uid); i++) await new Promise((r) => setTimeout(r, 100));
+  assert.ok(!server.db.hunting.has(host.uid));
+  assert.deepStrictEqual(guest.problems, []);
+  assert.deepStrictEqual(host.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+test('online: before part 14 is applied, Hunting now, the friend card and the Biggest catch hide quietly', async () => {
+  const server = createServer();
+  server.db.noHunt = true;
+  const host = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await host.page.waitForFunction(() => Farm.Online.huntOff === true, null, SLOW);
+  await host.page.evaluate(() => Farm.ui.openOnline('friends', 0));
+  await waitModal(host.page, /Your code/);
+  assert.ok(!/Hunting now/.test(await modalText(host.page)), 'no Hunting now row');
+  await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.onlineKind = { visit: 'popular', ranks: 'catch' }; Farm.ui.openOnline('ranks', 0); });
+  await waitModal(host.page, /Coming soon/);
+  assert.deepStrictEqual(host.problems, []);
+  await host.context.close();
 });

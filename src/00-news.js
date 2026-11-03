@@ -9,6 +9,9 @@
   C.NEWS = [
     {
       v: '2.2', date: 'November 4, 2026', lines: [
+        ['bow', 'Hunting now', 'See who is out hunting and tap Join. Add a new hunting partner as a friend, and try for the Biggest catch of the week in Online, Ranks.', 'hunt_together'],
+        ['heart', 'Your dog comes hunting', 'Your farm dog follows you in the Wild Lands, points at hidden animals and fetches what a hunt leaves behind.', 'hunt_dog'],
+        ['gear_cloak', "Hunter's gear", 'Kanor sells a Camo Cloak, Quiet Boots and a Big Quiver. Buy each once: always on when you hunt.', 'gear'],
         ['ribbon', 'The Tailor Shop', "Tita Luz's shop is just south of the plaza. Eight looks for your farmer, and the Christmas Elf is free.", 'tailor'],
         ['heart', 'Play together', "See friends swing, fish and shoot as they do it, hear them nearby, and watch the owner's farm change while you visit."],
         ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],

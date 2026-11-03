@@ -83,7 +83,10 @@
     F.ensureTexture(this, 'wild');
     F.ensureTexture(this, 'wildshade');
     F.ensureTexture(this, 'wildgrass');
-    if (L.weekendMarket(s.day) && this.mapKey === 'magayon' && !friendsHere(this)) this.time.delayedCall(2200, function () { if (F.ui) F.ui.toast('The Great Mammoth is about, but it never shows for one hunter alone. Bring a friend!', 3200, 0x7a5a12); });
+    if (L.weekendMarket(s.day) && this.mapKey === 'magayon' && !friendsHere(this)) this.time.delayedCall(2200, function () {
+      if (!F.ui || friendsHere(self)) return;
+      if (!(F.ui.modals.length === 0 && F.ui.greatAlone && F.ui.greatAlone())) F.ui.toast('The Great Mammoth is about, but it never shows for one hunter alone. Bring a friend!', 3200, 0x7a5a12); // (or: find one, 19zm-hunt-together.js)
+    });
     softShadow(this);
     printTexture(this);
     arrowTexture(this);
@@ -362,12 +365,13 @@
     });
     f = f || this.feet();
     var dx = a.x - f.x, dy = a.y - f.y, d = Math.hypot(dx, dy) / T, def = a.def;
-    var sneaking = (f.speed || 0) < C.SPEED * 0.6 || (f.id ? (O.others[f.id] || {}).sk : L.power(this.state, 'sneak'));
+    var gear = f.id ? (O.others[f.id] || {}).hg || 0 : L.gearBits(this.state), notice = L.gearNotice(gear); // Hunter's gear (19zo-gear.js)
+    var sneaking = (f.speed || 0) < C.SPEED * L.gearSneak(gear) || (f.id ? (O.others[f.id] || {}).sk : L.power(this.state, 'sneak'));
     a.t -= dt;
     a.cool = Math.max(0, a.cool - dt);
     if (!frozen) {
-      if (def.shy && a.mode !== 'flee' && d < def.shy * (sneaking ? 0.55 : 1) && !(a.mode === 'eat' && d > 1.4)) this.wildFlee(a, f);
-      else if (def.angry && a.mode !== 'charge' && !a.cool && d < def.angry) this.wildCharge(a);
+      if (def.shy && a.mode !== 'flee' && d < def.shy * (sneaking ? 0.55 : 1) * notice && !(a.mode === 'eat' && d > 1.4)) this.wildFlee(a, f);
+      else if (def.angry && a.mode !== 'charge' && !a.cool && d < def.angry * notice) this.wildCharge(a);
       if (a.mode === 'charge') {
         var len = Math.max(1, Math.hypot(dx, dy));
         a.vx = -dx / len * def.run * T;
@@ -564,6 +568,7 @@
         self.tweens.add({ targets: ar.img, y: ar.y + 0.16 * T, rotation: ar.img.rotation + (Math.cos(ar.img.rotation) < 0 ? -0.5 : 0.5), duration: 90, ease: 'Quad.in' });
         self.tweens.add({ targets: ar.img, alpha: 0, delay: 420, duration: 220, onComplete: function () { ar.img.destroy(); } });
         if (self.bits) self.bits.dust.explode(2, ar.x, ar.y + 0.16 * T);
+        if (!ar.shown && self.arrowBack && L.arrowBack(self.state, Math.random)) self.arrowBack(ar); // the Big Quiver (19zo-gear.js)
         return false;
       }
       return true;
@@ -935,6 +940,7 @@
         buttons: [{ label: 'Buy ' + I.arrows.price + 'G', cb: function () { done(L.buyWild(s, 'arrows'), WI.arrowPack + ' arrows.'); } }] });
       rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.',
         buttons: [{ label: 'Buy ' + I.bait.price + 'G', cb: function () { done(L.buyWild(s, 'bait'), 'Berry Bait.'); } }] });
+      if (self.gearRows) self.gearRows(s, done).forEach(function (r) { rows.push(r); }); // Hunter's gear (19zo-gear.js)
     } else if (tab === 'sell') {
       L.wildGoods(s).forEach(function (id) {
         var n = L.countItem(s, id);
@@ -952,6 +958,8 @@
           done('ok', 'Salamat! ' + j.gold + 'G from Kanor.');
         } }] });
       L.wildNews(s).forEach(function (line) { rows.push({ icon: C.ICON.sparkle, name: 'Kanor says', desc: line }); });
+      var hunt = self.huntRow && self.huntRow(function () { self.openKanor('job', 0); }); // (19zm-hunt-together.js)
+      if (hunt) rows.push(hunt);
     } else {
       WI.trophies.forEach(function (t, k) {
         var ti = C.HOME.typeIndex[t.type], type = C.HOME.types[ti];

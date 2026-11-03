@@ -179,7 +179,8 @@
       x: Math.round(f.x), y: Math.round(f.y), dir: w ? w.dir || 'down' : 'down', m: 0, host: !F.session.visit, at: O.joinedAt, t: Date.now(),
       pt: F.myParty() ? 1 : 0, // your birthday: they see you in the party hat
       cs: L.wornLook ? L.wornLook(F.session.state) : '', // the look you wear (19zj-looks.js)
-      sk: L.power(F.session.state, 'sneak') ? 1 : 0, rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
+      sk: L.power(F.session.state, 'sneak') ? 1 : 0, hg: L.gearBits ? L.gearBits(F.session.state) : 0, // Hunter's gear (19zo-gear.js)
+      rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
     };
   };
 
@@ -269,7 +270,7 @@
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       cs: C.LOOK_INDEX && typeof p.cs === 'string' && C.LOOK_INDEX[p.cs] != null ? p.cs : '', // their look
       fl: p.map === 'mine' ? Math.max(1, Math.min(9999, Math.floor(Number(p.fl)) || 1)) : 0, // which mine floor
-      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0,
+      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(7, Math.floor(Number(p.hg)) || 0)),
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -989,7 +990,7 @@
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = O.TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']]; // (19l-market.js adds Market)
-  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done']] };
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch']] }; // (Biggest catch: 19zm-hunt-together.js)
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -1043,6 +1044,8 @@
           icon: C.ICON.letter, name: 'Your code: ' + O.me.code, desc: 'Give your code to a friend, or add theirs.',
           buttons: [{ label: 'Add', cb: function () { self.addFriend(); } }],
         }];
+        var hunt = self.huntRow && self.huntRow(function () { self.openOnline('friends', 0); }); // (19zm-hunt-together.js)
+        if (hunt) rows.push(hunt);
         (list || []).forEach(function (f) {
           var id = String(f.id), n = name(f.farm_name), unread = Number(f.unread) || 0;
           var answer = function (yes) {
@@ -1067,6 +1070,7 @@
       }).catch(fail);
     } else if (tab === 'ranks') {
       var k = this.onlineKind.ranks;
+      if (k === 'catch' && self.openCatchBoard) return self.openCatchBoard(show, fail, kindRow, more);
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
           var mine = !!r.me, rk = Number(r.rank) || 0;

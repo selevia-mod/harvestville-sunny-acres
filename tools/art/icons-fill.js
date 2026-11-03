@@ -20,7 +20,7 @@ const C = ctx.window.Farm.Config;
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.setContent('<canvas id="x"></canvas>');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js', 'gear-icons.js']) {
     await p.addScriptTag({ path: path.join(__dirname, f) });
   }
   const r = await p.evaluate(async ([old, order, crops]) => {

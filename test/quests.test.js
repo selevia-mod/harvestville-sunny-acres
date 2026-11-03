@@ -353,7 +353,7 @@ test('rare goods: nobody can buy from her and sell for a profit', () => {
 });
 
 test('rare goods: the tip is new, so the tips already seen keep their places', () => {
-  assert.ok(C.TIPS.length <= 31, 'a tip is one bit of a saved number');
+  assert.ok(C.TIPS.findIndex((t) => t.key === 'rare') < 31, 'a bit of the first saved number (the ones after 31: s.tq, hunt.test.js)');
   assert.ok(C.TIPS.findIndex((t) => t.key === 'rare') >= C.TIPS.findIndex((t) => t.key === 'kanor'), 'added after the others');
   const s = fresh();
   assert.match(L.takeTip(s, 'rare'), /Saffron/);

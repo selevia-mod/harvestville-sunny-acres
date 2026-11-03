@@ -2869,3 +2869,105 @@ test('downloads: without the Wild Lands you are asked first; a small badge while
   assert.strictEqual(await p2.evaluate(() => Farm.world.mapKey), 'town');
   await ctx2.close();
 });
+
+test('your dog comes hunting: it follows you, points at a hidden animal, fetches a drop into your bag; Hunter\'s gear from Kanor; the Big Quiver brings a missed arrow back; the three tours (owner, 3 Nov)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag';");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.world.mapKey === 'pulag' && Farm.world.wild && Farm.world.huntDog, null, SLOW);
+  const T = 256;
+  const dog = () => page.evaluate(() => { const d = Farm.world.huntDog, f = Farm.world.feet(); return { mode: d.mode, mark: !!d.mark, far: Math.hypot(d.x - f.x, d.y - f.y) / 256 }; });
+  // no animals running about for this part
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.forEach((a) => { a.img.destroy(); a.sh.destroy(); }); w.wild.animals = []; w.wild.next = 1e9; });
+  // it follows: walk off five tiles and it catches up
+  const spot = await page.evaluate(() => {
+    const w = Farm.world, z = w.wild.zone;
+    for (let x = z.x0 + 3; x < z.x1 - 12; x++) for (let y = z.y0 + 3; y < z.y1 - 3; y++) {
+      let ok = true;
+      for (let k = 0; k <= 9 && ok; k++) ok = w.walkable(x + k, y);
+      if (ok) return [x, y];
+    }
+    return null;
+  });
+  assert.ok(spot, 'open ground');
+  await page.evaluate(([x, y]) => Farm.world.setFeet((x + 0.5) * 256, (y + 0.5) * 256), spot);
+  await page.waitForFunction(() => { const d = Farm.world.huntDog, f = Farm.world.feet(); return Math.hypot(d.x - f.x, d.y - f.y) < 1.6 * 256; }, null, SLOW);
+  await page.waitForTimeout(1500);
+  assert.strictEqual(await page.evaluate(() => Farm.world.huntDog.sprite.frame.name - Farm.Config.DOG.frame0), 9, 'it sits when you stop');
+  // it points: an animal six tiles off, out in the grass
+  await page.evaluate(([x, y]) => {
+    const w = Farm.world, a = w.addWildAnimal('deer', 0, (x + 6.5) * 256, (y + 0.5) * 256, 1);
+    a.def = Object.assign({}, a.def, { shy: 0 }); a.mode = 'idle'; a.t = 1e9;
+    w.huntDog.sniffIn = 0;
+  }, spot);
+  await page.waitForFunction(() => Farm.world.huntDog.mode === 'point' && Farm.world.huntDog.mark, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.world.huntDog.flip), true, 'it faces the deer (to the right)');
+  await page.waitForTimeout(400); // (it pops up)
+  assert.ok(await page.evaluate(() => Farm.world.huntDog.mark.scale) > 0.9);
+  await shot(page, 'dog-points');
+  await page.waitForFunction(() => Farm.world.huntDog.mode === 'follow' && !Farm.world.huntDog.mark, null, SLOW);
+  // it fetches: venison four tiles away goes in your bag, and it brings it back
+  const before = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'venison'));
+  await page.evaluate(([x, y]) => { const w = Farm.world; w.wild.animals.forEach((a) => { a.img.destroy(); a.sh.destroy(); }); w.wild.animals = []; w.dropWild('venison', (x + 4.5) * 256, (y + 0.5) * 256); }, spot);
+  assert.strictEqual((await dog()).mode, 'follow', 'not at once: it lets it land');
+  await page.waitForFunction(() => Farm.world.huntDog.mode === 'carry', null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'venison')), before + 1, 'in your bag as it picks it up');
+  assert.strictEqual(await page.evaluate(() => Farm.world.wildDrops.length), 0);
+  await shot(page, 'dog-fetches');
+  await page.waitForFunction(() => Farm.world.huntDog.mode === 'follow' && !Farm.world.huntDog.carry, null, SLOW);
+  assert.ok((await dog()).far < 1.2, 'brought back to you');
+  // Hunter's gear at Kanor's: bought once, for Gold
+  await page.evaluate(() => { const s = Farm.session.state; s.gold = 20000; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 10); Farm.ui.openKanor('buy', 0); });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await modalText(page), /Camo Cloak[\s\S]*Animals notice you later/);
+  await tapButton(page, '3000G');
+  await page.waitForFunction(() => Farm.Logic.hasGear(Farm.session.state, 'cloak'), null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 17000);
+  assert.match(await modalText(page), /Camo Cloak \(yours\)/);
+  await shot(page, 'kanor-gear');
+  await closeAll(page);
+  // the Big Quiver: a miss comes back (made sure here: 2 in 5 in the game)
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.buyGear(s, 'quiver'); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); Farm.world.dir = 'right'; Farm.world.idle(); window.__back = Farm.Logic.arrowBack; Farm.Logic.arrowBack = () => true; });
+  await frames(page, 3);
+  const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
+  await page.evaluate(() => Farm.world.shoot());
+  await page.waitForFunction((n) => Farm.Logic.countItem(Farm.session.state, 'arrows') === n - 1, arrows, SLOW);
+  await page.waitForFunction((n) => Farm.Logic.countItem(Farm.session.state, 'arrows') === n, arrows, SLOW);
+  await page.evaluate(() => { Farm.Logic.arrowBack = window.__back; });
+  // the tours: Hunter's gear before Kanor's Buy tab, once
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.Logic.takeTip(Farm.session.state, 'wild'); Farm.ui.openKanor('buy', 0); });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await modalText(page), /HUNTER'S GEAR[\s\S]*three pieces of gear/);
+  for (let k = 0; k < 2; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
+  await shot(page, 'tour-gear-last');
+  await tapButton(page, 'Got it');
+  assert.match(await modalText(page), /Kanor's Lodge/);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openKanor('buy', 0));
+  assert.doesNotMatch(await modalText(page), /HUNTER'S GEAR/);
+  await closeAll(page);
+  // the dog's tour on the next trip into the Wild Lands
+  await page.evaluate(() => Farm.world.travel('town', 'from_pulag'));
+  await waitMap(page, 'town');
+  for (let i = 0; i < 6 && await page.evaluate(() => Farm.ui.modals.length); i++) { await closeAll(page); await page.waitForTimeout(600); } // (the day's gift)
+  await page.evaluate(() => Farm.world.travel('pulag', 'from_town'));
+  await waitMap(page, 'pulag');
+  // (the day's own pop-ups come first: the tour waits for them)
+  const top = async () => ((await page.evaluate(() => Farm.ui.modals.length)) ? modalText(page) : '');
+  for (let i = 0; i < 60 && !/YOUR DOG COMES HUNTING/.test(await top()); i++) {
+    if (await top()) await closeAll(page);
+    await page.waitForTimeout(500);
+  }
+  assert.match(await modalText(page), /YOUR DOG COMES HUNTING[\s\S]*follows you in the Wild Lands/);
+  for (let k = 0; k < 2; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
+  await shot(page, 'tour-dog-last');
+  await tapButton(page, 'Got it');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'hunt_dog_tour')), true);
+  // Hunting together's tour (it opens online): every step draws
+  await page.evaluate(() => Farm.ui.tour('hunt_together'));
+  for (let k = 0; k < 3; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
+  await shot(page, 'tour-hunt-together-last');
+  await tapButton(page, 'Got it');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
