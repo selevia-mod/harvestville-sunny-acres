@@ -871,7 +871,10 @@ test('the deeper Mine: the lift stops at a band you reached, its cave has its ow
   assert.strictEqual(await actionLabel(page), 'Lift');
   await tapAction(page);
   assert.match(await modalText(page), /Mine Lift/);
-  await tapButton(page, 'Go', 0); // floor 1 is where we are: the first Go is the Crystal Caves
+  // the deepest first: 201, 151, 101, 51, then floor 1 (Here) on the next page
+  assert.match(await modalText(page), /Floor 201 \| Purple Crystal Caves: its first floor[\s\S]*Floor 151 \| The Mine/);
+  await shot(page, 'mine-lift');
+  await tapButton(page, 'Go', 0);
   await page.waitForFunction(() => Farm.session.mineFloor === 201 && Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   assert.strictEqual(await sheet(), 'indoor-crystal');
@@ -898,7 +901,9 @@ test('the deeper Mine: the lift stops at a band you reached, its cave has its ow
   // back to the top by the lift, and the cave is the old one again
   await teleport(page, 4, 3, 'left');
   await tapAction(page);
-  assert.match(await modalText(page), /Green Jade Deep/);
+  assert.match(await modalText(page), /Floor 401 \| Green Jade Deep: its first floor/);
+  await page.evaluate(() => { Farm.ui.closeModal(); Farm.ui.openLift(2); }); // (9 stops, 4 a page: floor 1 is on the last)
+  assert.match(await modalText(page), /Floor 1 \| The Mine: its first floor/);
   await tapButton(page, 'Go', 0);
   await page.waitForFunction(() => Farm.session.mineFloor === 1 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   assert.strictEqual(await sheet(), 'indoor');

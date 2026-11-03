@@ -9,6 +9,9 @@
 
   // ids: the four things after stone, from most to least common. look: how the cave is recoloured, dark to light, for
   // the floor, the walls and the rocks; shard: the colours of the crystals growing out of a rock, dark to light.
+  // The lift stops every 50 floors you have reached: 1, 51, 101 ... (owner, 4 Nov 2026: "every floor for now is risky. We
+  // want players to spend time"; 50 or 100 to be tried on the phone). Each cave's first floor is one of them.
+  C.MINE.liftEvery = 50;
   C.MINE.bands = [
     { from: 1, key: 'cave', name: 'The Mine', ids: ['ore_copper', 'ore_silver', 'ore_gold', 'gem'] },
     { from: 201, key: 'crystal', name: 'Purple Crystal Caves', ids: ['ore_silver', 'ore_gold', 'crystal', 'amethyst'], look: {

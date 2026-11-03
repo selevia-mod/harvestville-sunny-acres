@@ -210,6 +210,8 @@
       this.time.delayedCall(700, function () {
         if (F.ui) F.ui.toast(B[band].name + '! Your energy bar grew by 10, and the lift now stops here.', 4500, 0x4a2f7a);
       });
+    } else if (me.stats.deepest > before && floor > 1 && (floor - 1) % C.MINE.liftEvery === 0 && !F.session.visit) {
+      this.time.delayedCall(700, function () { if (F.ui) F.ui.toast('Floor ' + floor.toLocaleString('en-US') + '! The lift now stops here.', 3200, 0x4a2f7a); });
     }
   };
 
@@ -219,12 +221,12 @@
     return extraObjectAction.call(this, o, held, def);
   };
 
-  U.openLift = function () {
+  U.openLift = function (page) {
     var self = this, s = F.session.state, here = F.session.mineFloor;
-    var rows = L.liftStops(s).map(function (floor) {
+    var rows = L.liftStops(s).slice().reverse().map(function (floor) { // (the deepest first)
       var band = B[L.mineBand(floor)], at = here === floor;
       return {
-        icon: C.ITEMS[band.ids[3]].icon, name: band.name, desc: 'Floor ' + floor.toLocaleString('en-US'),
+        icon: C.ITEMS[band.ids[3]].icon, name: 'Floor ' + floor.toLocaleString('en-US'), desc: band.name + (floor === band.from ? ': its first floor' : ''),
         buttons: [{ label: at ? 'Here' : 'Go', color: at ? HERE : GO, cb: function () {
           if (at) return;
           self.closeModal();
@@ -233,6 +235,7 @@
         } }],
       };
     });
-    this.listPanel({ title: 'Mine Lift', rows: rows, sub: function () { return 'Takes you to the start of any cave you have reached.'; } });
+    this.listPanel({ title: 'Mine Lift', rows: rows, page: page || 0, reopen: function (t, p) { self.openLift(p); },
+      sub: function () { return 'Stops every ' + C.MINE.liftEvery + ' floors you have reached.'; } });
   };
 })(window.Farm = window.Farm || {});

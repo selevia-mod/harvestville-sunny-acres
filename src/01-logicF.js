@@ -15,9 +15,13 @@
   };
   // Each band reached for the first time: +10 energy on the bar. It adds nothing to how fast energy comes back.
   L.bandBonus = function (s) { return s.stats ? L.mineBand(s.stats.deepest || 0) * 10 : 0; };
-  // Where the lift goes: the first floor of every band you have reached.
+  // Where the lift goes: every C.MINE.liftEvery floors you have reached (1, 51, 101 ...), the first floor of every band
+  // among them.
   L.liftStops = function (s) {
-    return B.slice(0, L.mineBand(s.stats.deepest || 0) + 1).map(function (b) { return b.from; });
+    var every = C.MINE.liftEvery, deepest = (s.stats && s.stats.deepest) || 0, out = [];
+    for (var f = 1; f <= Math.max(1, deepest); f += every) out.push(f);
+    B.forEach(function (b) { if (b.from <= deepest && out.indexOf(b.from) < 0) out.push(b.from); }); // (if the step is ever changed)
+    return out.sort(function (a, b) { return a - b; });
   };
   // What a chest holds instead of the plain Gem, floor 201 and down.
   L.chestGem = function (floor) { return B[L.mineBand(floor)].ids[3]; };

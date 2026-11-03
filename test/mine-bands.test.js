@@ -79,13 +79,21 @@ test('the bar grows by 10 for each band first reached, comes from the deepest fl
   assert.strictEqual(L.regenEvery(s), C.ENERGY_EVERY, 'it comes back no faster');
 });
 
-test('the lift stops at the first floor of each band you reached', () => {
+test('the lift stops every 50 floors you reached (owner, 4 Nov 2026), each band\'s first floor among them', () => {
   const s = fresh();
+  assert.strictEqual(C.MINE.liftEvery, 50);
   assert.deepStrictEqual(Array.from(L.liftStops(s)), [1]);
-  s.stats.deepest = 200;
-  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1]);
+  s.stats.deepest = 50;
+  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1], 'floor 51 not reached yet');
+  s.stats.deepest = 160;
+  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1, 51, 101, 151]);
   s.stats.deepest = 450;
-  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1, 201, 401]);
+  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1, 51, 101, 151, 201, 251, 301, 351, 401]);
+  C.MINE.bands.forEach((b) => { s.stats.deepest = b.from; assert.ok(L.liftStops(s).includes(b.from), b.name); });
+  C.MINE.liftEvery = 100; // (if it is changed to 100, each band's first floor still is one)
+  s.stats.deepest = 450;
+  assert.deepStrictEqual(Array.from(L.liftStops(s)), [1, 101, 201, 301, 401]);
+  C.MINE.liftEvery = 50;
 });
 
 test('every new thing can be sold, Saffron buys them, and her wanted list stays what anyone can bring', () => {
