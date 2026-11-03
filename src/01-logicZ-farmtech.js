@@ -179,8 +179,14 @@
     var ch = L.qualityChance(s, t), u = L.rand(s.seed, idx, Math.floor(t.p), 91);
     return u < ch[1] ? 2 : u < ch[1] + ch[0] ? 1 : 0;
   };
-  // For later (contests): the best quality of an item in the bag (0 if none of it is Silver or Gold, -1 if none at all).
-  L.cropQuality = function (s, item) {
+  // For contests (feat/contests calls L.cropQuality(slot, s, slotIndex)): the quality of a bag slot { id, n, q } as a
+  // number of stars, 0 normal, 1 Silver, 2 Gold. (Also takes a slot's index: L.cropQuality(null, s, 4).)
+  L.cropQuality = function (slot, s, slotIndex) {
+    if (!slot && s && s.inv && slotIndex != null) slot = s.inv[slotIndex];
+    return slot && typeof slot === 'object' ? Math.max(0, Math.min(Q.names.length - 1, Math.floor(Number(slot.q)) || 0)) : 0;
+  };
+  // The best quality of an item in the bag (0 if none of it is Silver or Gold, -1 if none at all).
+  L.bestQuality = function (s, item) {
     var best = -1;
     s.inv.forEach(function (x) { if (x && x.id === item) best = Math.max(best, x.q || 0); });
     return best;

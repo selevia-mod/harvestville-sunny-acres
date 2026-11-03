@@ -201,8 +201,15 @@ test('a Gold crop goes into the bag on its own stack with a mark; a normal one s
   const slots = s.inv.filter((x) => x && x.id === 'turnip');
   assert.deepStrictEqual(plain(slots.map((x) => [x.n, x.q || 0])), [[1, 0], [1, 2]]);
   assert.deepStrictEqual(plain(L.takeFtNotes()), [{ idx: g, item: 'turnip', q: 2 }]);
-  assert.strictEqual(L.cropQuality(s, 'turnip'), 2);
-  assert.strictEqual(L.cropQuality(s, 'potato'), -1);
+  assert.strictEqual(L.bestQuality(s, 'turnip'), 2);
+  assert.strictEqual(L.bestQuality(s, 'potato'), -1);
+  // the contests' call: L.cropQuality(slot, s, slotIndex) -> stars 0, 1, 2
+  const gi = s.inv.findIndex((x) => x && x.q === 2), ni = s.inv.findIndex((x) => x && x.id === 'turnip' && !x.q);
+  assert.strictEqual(L.cropQuality(s.inv[gi], s, gi), 2);
+  assert.strictEqual(L.cropQuality(s.inv[ni], s, ni), 0);
+  assert.strictEqual(L.cropQuality({ id: 'tomato', n: 1, q: 1 }, s), 1);
+  assert.strictEqual(L.cropQuality(null, s, gi), 2, 'by its index');
+  assert.strictEqual(L.cropQuality(null, s), 0);
   L.addItem(s, 'turnip', 3);
   assert.deepStrictEqual(plain(s.inv.filter((x) => x && x.id === 'turnip').map((x) => [x.n, x.q || 0])), [[4, 0], [1, 2]], 'normal ones stack apart');
   assert.strictEqual(L.addItemQ(s, 'turnip', 2, 2), 0);
@@ -265,7 +272,7 @@ test('the bag and Storage: qualities never stack together when moved; Storage ke
   assert.deepStrictEqual(plain(t.store.filter(Boolean).filter((x) => x.id === 'turnip').map((x) => [x.n, x.q || 0])), [[1, 2], [2, 0]]);
   const k = s.store.findIndex((x) => x && x.q === 2);
   assert.strictEqual(L.storeOut(s, k), 1);
-  assert.strictEqual(L.cropQuality(s, 'turnip'), 2);
+  assert.strictEqual(L.bestQuality(s, 'turnip'), 2);
 });
 
 test('the greenhouse: one, 12,000G; any crop in any season inside, misters water it, no weeds, no sprinkler inside', () => {
