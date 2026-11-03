@@ -223,13 +223,13 @@
     link.sum = sum;
     c.add(link);
   };
-  // the Collection: a Skills button beside Hunts
+  // the Collection: a small Skills button, left of Crop stars (19k-farm2.js, 132) and Hunts (19v-wild.js, 228)
   var openCollection = U.openCollection;
   U.openCollection = function () {
     openCollection.apply(this, arguments);
     var self = this, m = this.modals[this.modals.length - 1];
     if (!m) return;
-    this.button(m.c, 132, 150, 88, 30, 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
+    this.button(m.c, 54, 150, 60, 30, 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
   };
   // a visit: the player menu says the farmer's levels, on its top line (Farm 4 · Mine 2 · Fish 7 · Hunt 1)
   var listPanel = U.listPanel;
