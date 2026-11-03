@@ -693,7 +693,9 @@
           if (got === '!full') return F.ui.toast('Your bag is full!');
           sfx('catch');
           self.flyItem(bx, by, C.ITEMS[got].icon);
-          F.ui.toast('You caught a ' + C.ITEMS[got].name + '!' + (got === 'fish_k' ? ' The legendary King Trout!' : ''));
+          var lf = s.lastFish; // its weight (01-logicM.js); on Fish Monday it goes to the Derby (19zq-derby.js)
+          F.ui.toast((lf && lf.record ? 'New record! ' : 'You caught a ') + (lf && lf.giant ? 'giant ' : '') + C.ITEMS[got].name + (lf ? ', ' + lf.kg + ' kg' : '') + '!' + (got === 'fish_k' ? ' The legendary King Trout!' : ''), 2600, lf && lf.record ? 0x7a5a12 : undefined);
+          if (lf && F.Online && F.Online.recordDerby) F.Online.recordDerby(lf);
           self.changed();
         });
       } else if (f.state === 'game') {

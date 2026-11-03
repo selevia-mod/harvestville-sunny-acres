@@ -871,6 +871,9 @@
   C.NEWS = [
     {
       v: '2.2', date: 'November 4, 2026', lines: [
+        ['fish_l', 'The Fishing Derby', 'Every fish has its own weight now. On Fish Monday the biggest of each fish goes on the Derby board in Online, Ranks.', 'derby'],
+        ['calendar', 'A Daily gift calendar', 'See the whole week of gifts at a glance. Day 7 is a big chest: 2 Sunbeams, 1,500G and a Power-Up.'],
+        ['letter', 'Farm photos', 'Share farm opens photo mode: a frame with your farm\'s name, a Hi! from your farmer, then Snap to post it on Selebox.', 'photo'],
         ['bow', 'Hunting now', 'See who is out hunting and tap Join. Add a new hunting partner as a friend, and try for the Biggest catch of the week in Online, Ranks.', 'hunt_together'],
         ['heart', 'Your dog comes hunting', 'Your farm dog follows you in the Wild Lands, points at hidden animals and fetches what a hunt leaves behind.', 'hunt_dog'],
         ['gear_cloak', "Hunter's gear", 'Kanor sells a Camo Cloak, Quiet Boots and a Big Quiver. Buy each once: always on when you hunt.', 'gear'],
@@ -2395,6 +2398,27 @@
     fetch: [1.6, 9], // a drop this far from you (tiles): it runs, picks it up and brings it back
     settle: 1500, // ms a drop lies before it fetches it
   };
+})(window.Farm = window.Farm || {});
+
+// ---- src/00-zzzzzmore.js
+// Three quick wins (owner, 4 Nov 2026: "Lets do this"): the Fishing Derby on Fish Monday, the Daily gift as a calendar
+// with a bigger day 7, and a photo mode for sharing the farm. Rules 01-logicM.js; on screen 19zq-derby.js,
+// 19zr-calendar.js and 19zs-photo.js; the Derby's server side supabase/farm_online_15.sql.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+
+  // ---------- every fish has a weight ----------
+  // A fish is 0.8 to 1.2 times its kind's usual weight; 1 in 15 is a giant, 1.4 to 1.6 times.
+  C.FISH_KG = { fish_s: 0.3, fish_m: 1.2, fish_l: 3.5, fish_k: 12 };
+  C.FISH_ORDER = ['fish_s', 'fish_m', 'fish_l', 'fish_k']; // (the save keeps each one's biggest in this order: appended only)
+  C.FISH_SIZE = { usual: [0.8, 1.2], giant: { odds: 1 / 15, size: [1.4, 1.6] } };
+
+  // Fish Monday says so (Today's Event, 00-zzzlater.js).
+  C.EVENTS.forEach(function (e) { if (e.key === 'fish') e.text = 'Fish sell for 25% more, and the Fishing Derby is on!'; });
+
+  // ---------- the Daily gift: day 7 is a chest ----------
+  C.LOGIN[6] = { stars: 2, gold: 1500, item: 'power_up', n: 1 };
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logic.js
@@ -7898,6 +7922,65 @@
   };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicM.js
+// The Fishing Derby's rules (00-zzzzzmore.js): every fish landed has a weight, and the biggest of each kind is kept
+// (s.fb: kind -> grams, saved 'fb' in C.FISH_ORDER). On Fish Monday each catch goes to the Derby (19zq-derby.js).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var FS = C.FISH_SIZE;
+
+  // the tours for the Derby and photo mode (19zq-derby.js, 19zs-photo.js). Appended last.
+  C.TIPS.push({ key: 'derby_tour', text: 'THE FISHING DERBY' }, { key: 'photo_tour', text: 'FARM PHOTOS' });
+
+  L.fishSize = function (rnd) {
+    if (rnd() < FS.giant.odds) return FS.giant.size[0] + rnd() * (FS.giant.size[1] - FS.giant.size[0]);
+    return FS.usual[0] + rnd() * (FS.usual[1] - FS.usual[0]);
+  };
+  L.fishGiant = function (size) { return size >= FS.giant.size[0]; };
+  // kg, to a tenth (0.1 kg at the least)
+  L.fishKg = function (id, size) { return Math.max(0.1, Math.round((C.FISH_KG[id] || 1) * size * 10) / 10); };
+  L.derbyOn = function () { return L.eventOn('fish'); };
+
+  // Landing a fish also weighs it: s.lastFish = { id, kg, giant, record } (a record: bigger than the biggest before).
+  var landFish = L.landFish;
+  L.landFish = function (s, id, rnd) {
+    var got = landFish(s, id);
+    s.lastFish = null;
+    if (got === '!full' || !C.FISH_KG[got]) return got;
+    var size = L.fishSize(rnd || Math.random), kg = L.fishKg(got, size), g = Math.round(kg * 1000), old = (s.fb || {})[got] || 0;
+    s.fb = s.fb || {};
+    if (g > old) s.fb[got] = g;
+    s.lastFish = { id: got, kg: kg, giant: L.fishGiant(size), record: !!old && g > old };
+    return got;
+  };
+
+  var newState = L.newState;
+  L.newState = function (info) {
+    var s = newState(info);
+    s.fb = {};
+    return s;
+  };
+  var serialize = L.serialize;
+  L.serialize = function (s) {
+    var o = serialize(s), fb = s.fb || {};
+    if (C.FISH_ORDER.some(function (k) { return fb[k]; })) o.fb = C.FISH_ORDER.map(function (k) { return fb[k] || 0; });
+    return o;
+  };
+  var deserialize = L.deserialize;
+  L.deserialize = function (o) {
+    var s = deserialize(o);
+    if (!s) return s;
+    s.fb = {};
+    (Array.isArray(o.fb) ? o.fb : []).forEach(function (g, i) {
+      var k = C.FISH_ORDER[i], n = Math.floor(Number(g)) || 0;
+      if (k && n > 0) s.fb[k] = Math.min(n, Math.round(C.FISH_KG[k] * FS.giant.size[1] * 1000));
+    });
+    return s;
+  };
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 // Bridge to the app shell: window.gameHost (save/load), window.__gameSleep, window.__gameBack.
 (function (F) {
@@ -11017,7 +11100,9 @@
           if (got === '!full') return F.ui.toast('Your bag is full!');
           sfx('catch');
           self.flyItem(bx, by, C.ITEMS[got].icon);
-          F.ui.toast('You caught a ' + C.ITEMS[got].name + '!' + (got === 'fish_k' ? ' The legendary King Trout!' : ''));
+          var lf = s.lastFish; // its weight (01-logicM.js); on Fish Monday it goes to the Derby (19zq-derby.js)
+          F.ui.toast((lf && lf.record ? 'New record! ' : 'You caught a ') + (lf && lf.giant ? 'giant ' : '') + C.ITEMS[got].name + (lf ? ', ' + lf.kg + ' kg' : '') + '!' + (got === 'fish_k' ? ' The legendary King Trout!' : ''), 2600, lf && lf.record ? 0x7a5a12 : undefined);
+          if (lf && F.Online && F.Online.recordDerby) F.Online.recordDerby(lf);
           self.changed();
         });
       } else if (f.state === 'game') {
@@ -11915,7 +12000,7 @@
     if (this.openNews) tile(3, t1, 'sparkle', "What's new", function () { self.closeModal(); self.openNews(0, function () { self.openPause(); }); });
     tile(0, t2, 'hoe', 'How to play', function () { self.help(); });
     tile(1, t2, 'bag', 'Save now', function () { world().save(); self.toast('Game saved.'); });
-    if (canShare) tile(2, t2, 'letter', 'Share farm', function () { self.shareFarm(); });
+    if (canShare) tile(2, t2, 'letter', 'Farm photo', function () { self.shareFarm(); }); // (photo mode: 19zs-photo.js)
     if (this.drawTailor) tile(3, t2, 'ribbon', 'Looks', function () { self.closeModal(); self.drawTailor('mine', 0); }); // what you wear (19zj-looks.js)
     // sounds: a switch each (green = on)
     tile(0, t3, 'note', 'Music: ' + (s.opts.music ? 'on' : 'off'), function () { s.opts.music = s.opts.music ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.music);
@@ -16932,7 +17017,7 @@
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = O.TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']]; // (19l-market.js adds Market)
-  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch']] }; // (Biggest catch: 19zm-hunt-together.js)
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch'], ['derby', 'Fishing Derby']] }; // (Biggest catch: 19zm-hunt-together.js; the Derby: 19zq-derby.js)
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -17013,6 +17098,7 @@
     } else if (tab === 'ranks') {
       var k = this.onlineKind.ranks;
       if (k === 'catch' && self.openCatchBoard) return self.openCatchBoard(show, fail, kindRow, more);
+      if (k === 'derby' && self.openDerbyBoard) return self.openDerbyBoard(show, fail, kindRow, more);
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
           var mine = !!r.me, rk = Number(r.rank) || 0;
@@ -24285,6 +24371,338 @@
     var self = this, s = F.session && F.session.state;
     if (tab === 'buy' && s && L.hasBow(s) && !L.tipSeen(s, 'gear_tour') && take('gear_tour')) return this.tour('gear', function () { openKanor.call(self, tab, page); });
     return openKanor.call(this, tab, page);
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zq-derby.js
+// The Fishing Derby (owner, 4 Nov 2026: "Fishing Derby on Mondays: the Biggest catch board, but for fish"; rules
+// 01-logicM.js, server supabase/farm_online_15.sql). Every fish you land is weighed (14-actions.js says how heavy). On
+// Fish Monday, while you are online, each one goes to the server, and the biggest of each kind is on that Monday's board:
+// Online, Ranks, Fishing Derby (Next for another fish). The board stays up all week. A tour the first time you land a
+// fish on a Fish Monday. Before part 15 is applied it hides quietly (O.derbyOff).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var U = F.UIScene.prototype;
+  var GREY = 0xa08a68, GOLD_INK = 0x7a5a12;
+  var name = function (n) { return L.cleanText(n, 24) || 'Farmer'; };
+  var missing = function (e) { return /does not exist|schema cache|PGRST202|could not find the function/i.test((e && e.message) || String(e || '')); };
+  var off = function (e) { if (missing(e)) O.derbyOff = true; return O.derbyOff; };
+  var kg = function (g) { return (Math.round(g / 100) / 10) + ' kg'; };
+
+  // A fish just landed ({ id, kg }): on Fish Monday, to the Derby.
+  O.recordDerby = function (lf) {
+    F.session.lastFish = lf.id;
+    if (L.derbyOn()) F.ui.derbyTour();
+    if (!O.on || O.derbyOff || !L.derbyOn()) return;
+    var g = Math.round(lf.kg * 1000);
+    F.Net.rpc('farm_derby_v1', { p_kind: lf.id, p_g: g }).then(function (r) {
+      if (!r || !r.ok || Number(r.best) !== g) return; // (not bigger than today's)
+      var rank = Math.floor(Number(r.rank)) || 0;
+      if (rank < 1 || rank > 10) return;
+      setTimeout(function () {
+        if (F.ui) F.ui.toast('#' + rank + ' in the Fishing Derby for ' + C.ITEMS[lf.id].name + '! See Online, Ranks.', 3000, GOLD_INK);
+      }, 2800);
+    }).catch(off);
+  };
+
+  // Online, Ranks, Fishing Derby (19h-online.js asks for it): the top 10 for one fish; Next for another.
+  U.openDerbyBoard = function (show, fail, kindRow, more) {
+    var self = this, kinds = C.FISH_ORDER, k = this.derbyKind || F.session.lastFish || 'fish_l';
+    if (kinds.indexOf(k) < 0) k = 'fish_l';
+    this.derbyKind = k;
+    var head = [kindRow('ranks'), {
+      icon: C.ITEMS[k].icon, name: 'Fish: ' + C.ITEMS[k].name, desc: 'Tap Next to see another fish.',
+      buttons: [{ label: 'Next', color: GREY, cb: function () { self.derbyKind = kinds[(kinds.indexOf(k) + 1) % kinds.length]; self.swapTo(function () { self.openOnline('ranks', 0); }); } }],
+    }];
+    var on = L.derbyOn();
+    F.Net.rpc('farm_derby_board_v1', { p_kind: k }).then(function (list) {
+      var rows = head.concat((Array.isArray(list) ? list : []).map(function (r) {
+        var id = String(r.id), n = name(r.farm_name), mineRow = !!r.me, rk = Math.floor(Number(r.rank)) || 0;
+        return {
+          id: id, icon: C.ICON.ribbon, name: '#' + rk + ' ' + n + (mineRow ? ' (you)' : ''), desc: C.ITEMS[k].name + ', ' + kg(Math.max(0, Number(r.g) || 0)) + '.',
+          buttons: mineRow ? [] : [{ label: 'Visit', cb: function () { O.visit(id); } }, more(id, n, 'ranks')],
+        };
+      }));
+      if (rows.length === head.length) rows.push({ icon: C.ICON.exclaim, name: 'No catches yet', desc: on ? 'Nobody has landed a ' + C.ITEMS[k].name + ' today. Be the first!' : 'Nobody landed a ' + C.ITEMS[k].name + ' at Monday\'s Derby.' });
+      show(rows, on ? 'Fish Monday: the Derby is on until midnight. The biggest of each fish wins.' : 'Monday\'s Fishing Derby. The next one is on Monday: catch the biggest!', null);
+    }).catch(function (e) {
+      if (off(e)) return show(head.slice(0, 1).concat([{ icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The Fishing Derby is almost here.' }]), '', null);
+      fail(e);
+    });
+  };
+
+  // ---------- its tour: the first fish you land on a Fish Monday ----------
+  var K = F.UI_CONST, INK = K.INK;
+  var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+  var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+  var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
+  F.TOURS.derby = {
+    title: 'THE FISHING DERBY',
+    steps: [
+      {
+        text: 'Every fish you catch has its own weight now. A giant one is rare!',
+        draw: function (ui, sc, move) {
+          var f = icon(ui, sc, 100, 66, C.ICON.fish_l, 0.4);
+          tw(ui, move, { targets: f, angle: { from: -10, to: 10 }, duration: 400, yoyo: true, repeat: -1 });
+          words(ui, sc, 190, 66, '3.9 kg', 18, '#a8740c');
+        },
+      },
+      {
+        text: 'On Fish Monday the Derby is on: the biggest of each fish goes on the board.',
+        draw: function (ui, sc, move) {
+          icon(ui, sc, 70, 66, C.ICON.calendar, 0.34);
+          words(ui, sc, 180, 66, 'Monday', 16);
+          var r = icon(ui, sc, 236, 40, C.ICON.ribbon, 0.24);
+          tw(ui, move, { targets: r, scale: 0.3, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+      {
+        text: 'See who caught the biggest under Online, Ranks, Fishing Derby. It stays up all week.',
+        draw: function (ui, sc) {
+          words(ui, sc, 136, 46, '#1  King Trout  17.2 kg', 14, '#a8740c');
+          words(ui, sc, 136, 80, '#2  King Trout  14.0 kg', 13);
+        },
+      },
+    ],
+  };
+  U.derbyTour = function () {
+    var self = this, s = F.session && F.session.state;
+    if (!s || F.session.visit || L.tipSeen(s, 'derby_tour') || (window.gameHost && window.gameHost.quiet)) return;
+    var tries = 0, open = function () {
+      if (L.tipSeen(s, 'derby_tour')) return;
+      if ((self.modals.length || (F.world && F.world.busy)) && tries++ < 30) return setTimeout(open, 1500);
+      L.takeTip(s, 'derby_tour');
+      F.Host.save(s);
+      self.tour('derby');
+    };
+    setTimeout(open, 2800); // (after the catch's own words)
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zr-calendar.js
+// The Daily gift as a calendar (owner, 4 Nov 2026: "a small prize each day, and a bigger one on day 7"). The same rules
+// as before (01-logic7.js: a gift a day, seven in a row, back to Day 1 after a day missed), now shown as a week of tiles:
+// the days already got ticked, today's glowing, the ones to come, and day 7 a chest (00-zzzzzmore.js). Claim drops
+// today's gift into your bag with a little pop.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var U = F.UIScene.prototype;
+  var K = F.UI_CONST, W = K.W, H = K.H, INK = K.INK;
+  var GREEN = 0x5fa84a;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var world = function () { return F.world; };
+  var TW = 70, TH = 92, GAP = 8;
+
+  var iconOf = function (r) { return r.stars && !r.gold ? C.ICON.sunbeam : r.item && !r.gold ? C.ITEMS[r.item].icon : r.gold && (r.item || r.stars) ? C.ICON.chest : C.ICON.coin; };
+  var shortLabel = function (r) {
+    if (r.gold && (r.item || r.stars)) return 'Big chest';
+    if (r.gold) return r.gold + 'G';
+    if (r.stars) return r.stars + ' Sunbeam' + (r.stars > 1 ? 's' : '');
+    return (r.n > 1 ? r.n + ' ' : '') + C.ITEMS[r.item].name;
+  };
+
+  U.showLoginGift = function () {
+    var self = this, s = F.session.state, g = L.loginGift(s, F.today());
+    if (!g) return;
+    var c = this.openModal(function () { self.closeModal(); });
+    var h = 30 + 36 + TH * 2 + GAP + 54 + 44 + 26, y0 = Math.round(Math.max(84, (H - h) / 2 - 30));
+    this.panelImg(c, 24, y0, W - 48, h);
+    var title = this.txt(W / 2, y0 + 4, 'DAILY GIFT', 16, '#ffe9a8', { fontStyle: 'bold', align: 'center', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+    this.ribbon(c, W / 2, y0 + 4, 190);
+    c.add(title);
+    c.add(this.txt(W / 2, y0 + 30, g.day > 1 ? 'Day ' + g.day + ' in a row! Come back tomorrow for the next one.' : 'Come back every day! Miss a day and it starts again at Day 1.', 13, INK,
+      { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0));
+    // the week: days 1-4 on top, 5-7 under them (day 7 twice as wide)
+    var top = y0 + 70, today = null;
+    C.LOGIN.forEach(function (r, k) {
+      var day = k + 1, row = k < 4 ? 0 : 1, col = row ? k - 4 : k, big = day === C.LOGIN.length;
+      var w = big ? TW * 2 + GAP : TW, n = row ? 3 : 4, rowW = row ? TW * 4 + GAP * 3 : n * TW + (n - 1) * GAP;
+      var x = Math.round((W - rowW) / 2 + col * (TW + GAP)), y = top + row * (TH + GAP);
+      var got = day < g.day, now = day === g.day;
+      var tile = self.add.container(x, y);
+      c.add(tile);
+      self.baked(tile, 0, 0, 'ui-cal-' + (now ? 'now' : got ? 'got' : 'next') + (big ? '-big' : ''), w, TH, function (gr) {
+        gr.fillStyle(now ? 0xfff3c4 : got ? 0xd9c79a : 0xf2e2b6, 1).fillRoundedRect(0, 0, w, TH, 10);
+        gr.lineStyle(now ? 4 : 2, now ? 0x5fa84a : 0xc9a26b, 1).strokeRoundedRect(1, 1, w - 2, TH - 2, 10);
+      });
+      tile.add(self.txt(w / 2, 6, 'Day ' + day, 12, now ? '#2f5a22' : '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      var ic = self.add.image(w / 2, 46, 'items', iconOf(r)).setScale(big ? 0.42 : 0.34);
+      tile.add(ic);
+      tile.add(self.txt(w / 2, TH - 8, shortLabel(r), 10, INK, { align: 'center', wordWrap: { width: w - 8 } }).setOrigin(0.5, 1));
+      if (got) {
+        ic.setAlpha(0.45);
+        tile.add(self.txt(w - 14, 10, '\u2713', 18, '#2f5a22', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      }
+      if (now) { today = { tile: tile, icon: ic, w: w }; self.tweens.add({ targets: ic, scale: ic.scale * 1.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' }); }
+    });
+    var last = C.LOGIN[C.LOGIN.length - 1];
+    c.add(this.txt(W / 2, top + TH * 2 + GAP + 10, 'Day 7: ' + L.rewardLabel(last), 12, '#7a5a12', { fontStyle: 'bold', align: 'center', wordWrap: { width: 290 } }).setOrigin(0.5, 0));
+    var claimed = false;
+    this.button(c, W / 2, y0 + h - 40, 150, 42, 'Claim', function () {
+      if (claimed) return;
+      var r = L.claimLogin(s, F.today());
+      if (r === 'full') { self.closeModal(); return self.toast('Your bag is full! Make room, then open Quests to claim it.'); }
+      if (typeof r !== 'object') return self.closeModal();
+      claimed = true;
+      sfx('coin');
+      world().changed();
+      world().save();
+      // the card goes at once (the next tap is yours), and today's gift pops up where its tile was
+      var at = today ? { x: today.tile.x + today.w / 2, y: today.tile.y + 46, frame: today.icon.frame.name, scale: today.icon.scale } : null;
+      self.closeModal();
+      if (at) {
+        var pop = self.add.image(at.x, at.y, 'items', at.frame).setScale(at.scale).setDepth(60);
+        self.tweens.add({ targets: pop, y: at.y - 60, scale: at.scale * 1.6, alpha: 0, duration: 700, ease: 'Quad.out', onComplete: function () { pop.destroy(); } });
+      }
+      self.toast('Day ' + r.day + ' gift: ' + L.rewardLabel(r.reward) + '!', 2600, 0x7a4d12);
+    }, GREEN);
+    return c;
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zs-photo.js
+// Farm photos (owner, 4 Nov 2026: "a picture of your farm and farmer, shared to your Selebox feed"). Share farm (pause
+// menu, and Online, Me) opens photo mode instead of taking the screen as it is: the buttons and bars go, a frame with your
+// farm's name and the date comes, your farmer can say Hi!, Yay! or show a heart, and Snap sends the picture to the Selebox
+// post box (19j-social.js, the app opens it). The game keeps going behind it: animals walk, friends move.
+// The UI's own camera is hidden (and takes no taps) while a second camera shows only the photo's frame and its buttons.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var U = F.UIScene.prototype;
+  var K = F.UI_CONST, W = K.W, INK = K.INK;
+  var T = C.TILE;
+  var GREEN = 0x5fa84a, GREY = 0xa08a68, BLUE = 0x4a90c9, RED = 0xc0503a;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var WORDS = { wave: 'Hi!', yay: 'Yay!' };
+
+  var snapShare = U.shareFarm; // the picture of the screen, to the app (19j-social.js)
+  U.shareFarm = function () {
+    if (typeof (window.gameHost || {}).share !== 'function') return;
+    if (F.session.visit) return this.toast('Go home to take a photo of your own farm.');
+    this.photoMode();
+  };
+
+  // Your farmer says it, over their head (online, friends here see it too).
+  var pose = function (kind) {
+    var w = F.world;
+    if (!w || !w.player) return;
+    if (O && O.on && O.me && O.react) return O.react(kind);
+    var at = w.feet();
+    sfx('talk');
+    if (kind === 'heart') return w.emote({ x: at.x, y: at.y }, C.ICON.heart);
+    var t = w.add.text(at.x, at.y - 1.6 * T, WORDS[kind] || 'Hi!', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '84px', fontStyle: 'bold', color: '#fff27a', stroke: '#3d2614', strokeThickness: 15 })
+      .setOrigin(0.5, 1).setDepth(F.WorldScene.DEPTH.Above + 3).setScale(1.3);
+    w.tweens.add({ targets: t, y: t.y - 60, angle: { from: -8, to: 8 }, duration: 260, yoyo: true, repeat: 2 });
+    w.tweens.add({ targets: t, alpha: 0, delay: 1500, duration: 300, onComplete: function () { t.destroy(); } });
+  };
+
+  U.photoMode = function () {
+    var self = this, s = F.session.state, main = this.cameras.main, VH = C.VIEW_H;
+    if (this.photo) return;
+    this.closeAll();
+    var farm = (O && O.on && O.me && O.me.name) || s.name || 'My farm';
+    var frame = this.add.container(0, 0).setDepth(9000), bar = this.add.container(0, 0).setDepth(9001);
+    // the frame: a white edge and a strip along the bottom with the farm's name and the date
+    var g = this.add.graphics();
+    g.lineStyle(6, 0xfff8e6, 1).strokeRect(6, 6, W - 12, VH - 12);
+    g.fillStyle(0x24160b, 0.72).fillRoundedRect(18, VH - 70, W - 36, 50, 12);
+    frame.add(g);
+    frame.add(this.txt(34, VH - 62, L.cleanText(farm, 24) || 'My farm', 17, '#ffe9a8', { fontStyle: 'bold' }));
+    frame.add(this.txt(34, VH - 40, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  \u00b7  Harvest Ville on Selebox', 11, '#f3e2b8'));
+    frame.add(this.add.image(W - 46, VH - 45, 'items', C.ICON.sunbeam).setScale(0.3));
+    // the buttons (not in the picture), over a zone that takes every other tap
+    var zone = this.add.zone(W / 2, VH / 2, W, VH).setInteractive();
+    bar.add(zone);
+    var by = VH - 110;
+    this.button(bar, 60, by, 74, 38, 'Hi!', function () { pose('wave'); }, BLUE);
+    this.button(bar, 140, by, 74, 38, 'Yay!', function () { pose('yay'); }, BLUE);
+    this.button(bar, 220, by, 74, 38, 'Love', function () { pose('heart'); }, BLUE);
+    this.button(bar, W - 56, by, 84, 38, 'Snap', function () { snap(); }, GREEN);
+    this.button(bar, W - 40, 34, 46, 34, 'X', function () { done(); }, RED);
+    bar.add(this.txt(W / 2, 30, 'Farm photo', 15, '#fff8e6', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 4 }).setOrigin(0.5));
+    // only these show: a camera of their own, the UI's own hidden
+    var cam = this.cameras.add(main.x, main.y, main.width, main.height).setZoom(main.zoom).setScroll(main.scrollX, main.scrollY);
+    cam.setOrigin(main.originX, main.originY);
+    this.children.list.forEach(function (o) { if (o !== frame && o !== bar) cam.ignore(o); });
+    main.setVisible(false);
+    main.inputEnabled = false;
+    var later = function (o) { if (self.photo && o !== frame && o !== bar && o.parentContainer !== frame && o.parentContainer !== bar && !frame.exists(o) && !bar.exists(o)) cam.ignore(o); };
+    this.sys.events.on('addedtoscene', later);
+    this.photo = { frame: frame, bar: bar, cam: cam };
+    sfx('pick');
+    var snap = function () {
+      if (!self.photo || self.photo.busy) return;
+      self.photo.busy = true;
+      bar.setVisible(false);
+      sfx('found');
+      var flash = self.add.rectangle(W / 2, VH / 2, W, VH, 0xffffff, 0.9).setDepth(9002);
+      self.time.delayedCall(60, function () {
+        flash.setVisible(false);
+        snapShare.call(self); // (after its own 80 ms, the picture, then the app opens the post box)
+        self.time.delayedCall(600, function () { flash.destroy(); done(); });
+      });
+    };
+    var done = function () {
+      if (!self.photo) return;
+      self.sys.events.off('addedtoscene', later);
+      self.cameras.remove(cam);
+      frame.destroy();
+      bar.destroy();
+      main.setVisible(true);
+      main.inputEnabled = true;
+      self.photo = null;
+    };
+    this.time.delayedCall(500, function () { if (self.photoTour) self.photoTour(); });
+  };
+
+  // ---------- its tour, the first time ----------
+  var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+  var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+  F.TOURS.photo = {
+    title: 'FARM PHOTOS',
+    steps: [
+      {
+        text: 'Photo mode hides the buttons and frames your farm with its name and the date.',
+        draw: function (ui, sc, move) {
+          var r = ui.add.rectangle(136, 66, 200, 110).setStrokeStyle(4, 0xfff8e6);
+          sc.add(r);
+          words(ui, sc, 136, 100, 'Moon Meadow', 13, '#6a4a2a');
+          var sun = icon(ui, sc, 136, 52, C.ICON.sunbeam, 0.3);
+          if (move) ui.tweens.add({ targets: sun, angle: 360, duration: 3000, repeat: -1 });
+        },
+      },
+      {
+        text: 'Make your farmer say Hi! or Yay!, then tap Snap to post it on your Selebox feed.',
+        draw: function (ui, sc, move) {
+          var a = words(ui, sc, 90, 66, 'Hi!', 20, '#a8740c'), b = words(ui, sc, 180, 66, 'Snap', 18, '#2f5a22');
+          if (move) ui.tweens.add({ targets: [a, b], scale: 1.15, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+    ],
+  };
+  U.photoTour = function () {
+    var s = F.session && F.session.state;
+    if (!s || !this.photo || F.session.visit || L.tipSeen(s, 'photo_tour') || (window.gameHost && window.gameHost.quiet)) return;
+    L.takeTip(s, 'photo_tour');
+    F.Host.save(s);
+    var self = this, bar = this.photo.bar;
+    bar.setVisible(false); // (the tour's card over the frame; its buttons back after)
+    this.cameras.main.setVisible(true);
+    this.cameras.main.inputEnabled = true;
+    this.tour('photo', function () {
+      if (!self.photo) return;
+      self.cameras.main.setVisible(false);
+      self.cameras.main.inputEnabled = false;
+      bar.setVisible(true);
+    });
   };
 })(window.Farm = window.Farm || {});
 

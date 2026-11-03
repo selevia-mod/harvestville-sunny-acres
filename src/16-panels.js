@@ -223,7 +223,7 @@
     if (this.openNews) tile(3, t1, 'sparkle', "What's new", function () { self.closeModal(); self.openNews(0, function () { self.openPause(); }); });
     tile(0, t2, 'hoe', 'How to play', function () { self.help(); });
     tile(1, t2, 'bag', 'Save now', function () { world().save(); self.toast('Game saved.'); });
-    if (canShare) tile(2, t2, 'letter', 'Share farm', function () { self.shareFarm(); });
+    if (canShare) tile(2, t2, 'letter', 'Farm photo', function () { self.shareFarm(); }); // (photo mode: 19zs-photo.js)
     if (this.drawTailor) tile(3, t2, 'ribbon', 'Looks', function () { self.closeModal(); self.drawTailor('mine', 0); }); // what you wear (19zj-looks.js)
     // sounds: a switch each (green = on)
     tile(0, t3, 'note', 'Music: ' + (s.opts.music ? 'on' : 'off'), function () { s.opts.music = s.opts.music ? 0 : 1; if (F.Audio) F.Audio.apply(s.opts); F.session.dirty = true; reopen(); }, !!s.opts.music);

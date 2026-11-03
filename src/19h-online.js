@@ -990,7 +990,7 @@
 
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = O.TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']]; // (19l-market.js adds Market)
-  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch']] }; // (Biggest catch: 19zm-hunt-together.js)
+  var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch'], ['derby', 'Fishing Derby']] }; // (Biggest catch: 19zm-hunt-together.js; the Derby: 19zq-derby.js)
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -1071,6 +1071,7 @@
     } else if (tab === 'ranks') {
       var k = this.onlineKind.ranks;
       if (k === 'catch' && self.openCatchBoard) return self.openCatchBoard(show, fail, kindRow, more);
+      if (k === 'derby' && self.openDerbyBoard) return self.openDerbyBoard(show, fail, kindRow, more);
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
           var mine = !!r.me, rk = Number(r.rank) || 0;

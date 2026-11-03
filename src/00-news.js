@@ -9,6 +9,9 @@
   C.NEWS = [
     {
       v: '2.2', date: 'November 4, 2026', lines: [
+        ['fish_l', 'The Fishing Derby', 'Every fish has its own weight now. On Fish Monday the biggest of each fish goes on the Derby board in Online, Ranks.', 'derby'],
+        ['calendar', 'A Daily gift calendar', 'See the whole week of gifts at a glance. Day 7 is a big chest: 2 Sunbeams, 1,500G and a Power-Up.'],
+        ['letter', 'Farm photos', 'Share farm opens photo mode: a frame with your farm\'s name, a Hi! from your farmer, then Snap to post it on Selebox.', 'photo'],
         ['bow', 'Hunting now', 'See who is out hunting and tap Join. Add a new hunting partner as a friend, and try for the Biggest catch of the week in Online, Ranks.', 'hunt_together'],
         ['heart', 'Your dog comes hunting', 'Your farm dog follows you in the Wild Lands, points at hidden animals and fetches what a hunt leaves behind.', 'hunt_dog'],
         ['gear_cloak', "Hunter's gear", 'Kanor sells a Camo Cloak, Quiet Boots and a Big Quiver. Buy each once: always on when you hunt.', 'gear'],

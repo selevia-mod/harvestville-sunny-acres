@@ -1485,7 +1485,11 @@ test('online: Selebox follows count as friends; staff review a report; share my 
   await shot(a.page, 'online-14-staff-stats');
   // share: a picture of the farm and the words go to the app
   await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openPause(); });
-  await tapButton(a.page, 'Share farm');
+  await tapButton(a.page, 'Farm photo');
+  // photo mode (19zs-photo.js): the frame, then Snap
+  await a.page.waitForFunction(() => Farm.ui.photo, null, SLOW);
+  const snapAt = await a.page.evaluate(() => { let b = null; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === 'Snap') b = o.getBounds(); if (o.list) walk(o.list); }); walk(Farm.ui.photo.bar.list); return { x: b.centerX, y: b.centerY }; });
+  await a.page.touchscreen.tap(snapAt.x, snapAt.y);
   await a.page.waitForFunction(() => window.__shared, null, SLOW);
   const shared = await a.page.evaluate(() => ({ text: window.__shared.text, image: String(window.__shared.image).slice(0, 23), modals: Farm.ui.modals.length }));
   assert.match(shared.text, /^My farm in Harvest Ville! Home Beauty \d+, house level 1\. Visit me with my friend code [A-Z0-9]{8}\.$/);
@@ -1877,4 +1881,32 @@ test('online: before part 14 is applied, Hunting now, the friend card and the Bi
   await waitModal(host.page, /Coming soon/);
   assert.deepStrictEqual(host.problems, []);
   await host.context.close();
+});
+
+test('online: the Fishing Derby: on Fish Monday each fish goes to the board, the biggest of each kind; Next for another fish; not on other days (owner, 4 Nov)', async () => {
+  const server = createServer();
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await nameFarm(b.page, 'Ana Acres');
+  for (const who of [a, b]) await who.page.evaluate(() => { Farm.Logic.derbyOn = () => true; });
+  // two fish each: only the bigger counts
+  await a.page.evaluate(() => { Farm.Online.recordDerby({ id: 'fish_l', kg: 3.2 }); Farm.Online.recordDerby({ id: 'fish_l', kg: 4.1 }); });
+  await b.page.evaluate(() => { Farm.Online.recordDerby({ id: 'fish_l', kg: 5.5 }); });
+  for (let i = 0; i < 50 && server.db.derby.size < 2; i++) await new Promise((r) => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.strictEqual(server.db.derby.get('fish_l:' + a.uid), 4100);
+  assert.strictEqual(server.db.derby.get('fish_l:' + b.uid), 5500);
+  await waitToast(b.page, /#1 in the Fishing Derby for Large Fish!/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.onlineKind = { visit: 'popular', ranks: 'derby' }; Farm.ui.derbyKind = 'fish_l'; Farm.ui.openOnline('ranks', 0); });
+  await waitModal(a.page, /Showing: Fishing Derby[\s\S]*Fish: Large Fish[\s\S]*#1 Ana Acres[\s\S]*Large Fish, 5\.5 kg\.[\s\S]*#2 Moon Meadow \(you\)[\s\S]*Large Fish, 4\.1 kg/);
+  assert.match(await modalText(a.page), /Fish Monday: the Derby is on until midnight/);
+  await shot(a.page, 'derby-board');
+  await tapButton(a.page, 'Next');
+  await waitModal(a.page, /Fish: King Trout[\s\S]*No catches yet/);
+  // another day: nothing is sent, and the board is last Monday's
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.Logic.derbyOn = () => false; Farm.Online.recordDerby({ id: 'fish_s', kg: 0.3 }); Farm.ui.derbyKind = 'fish_l'; Farm.ui.openOnline('ranks', 0); });
+  await waitModal(a.page, /Monday's Fishing Derby\. The next one is on Monday/);
+  assert.ok(!server.db.derby.has('fish_s:' + a.uid));
+  for (const who of [a, b]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([a.context.close(), b.context.close()]);
 });

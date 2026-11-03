@@ -1512,6 +1512,9 @@ test('fishing at the pond and foraging', async () => {
   let s = await state(page);
   assert.strictEqual(['fish_s', 'fish_m', 'fish_l'].reduce((n, id) => n + count(s, id), 0), 1, 'caught a fish');
   assert.strictEqual(s.energy, 100 - 2);
+  // weighed (the Fishing Derby, 01-logicM.js), and kept as the biggest of its kind
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /^You caught a (giant )?(Small|Medium|Large) Fish, \d+(\.\d)? kg!$/);
+  assert.strictEqual(Object.keys(s.fb).length, 1);
 
   // forage: pick one of today's herbs
   const spot = await page.evaluate(() => Number(Object.keys(Farm.world.forage)[0]));
@@ -2967,6 +2970,66 @@ test('your dog comes hunting: it follows you, points at a hidden animal, fetches
   await page.evaluate(() => Farm.ui.tour('hunt_together'));
   for (let k = 0; k < 3; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
   await shot(page, 'tour-hunt-together-last');
+  await tapButton(page, 'Got it');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Claim pays once. Farm photo: a frame, Hi!, Snap sends the picture, and the buttons come back (owner, 4 Nov)', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  // day 3 of a streak
+  await page.evaluate(() => { const s = Farm.session.state, dn = Farm.Logic.dayNum(Farm.today()); s.lg = { last: dn - 1, streak: 2, claimed: dn - 1 }; Farm.ui.showLoginGift(); });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  const text = await modalText(page);
+  assert.match(text, /DAILY GIFT[\s\S]*Day 3 in a row![\s\S]*Day 1[\s\S]*Day 7[\s\S]*Big chest[\s\S]*Day 7: 1500G \+ 2 Sunbeams \+ Power-Up/);
+  assert.strictEqual((text.match(/✓/g) || []).length, 2, 'days 1 and 2 ticked');
+  await shot(page, 'daily-calendar');
+  const gold = await page.evaluate(() => Farm.session.state.gold);
+  await tapButton(page, 'Claim');
+  await page.waitForFunction(() => !Farm.ui.modals.length, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), gold + 500, 'day 3: 500G');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.loginGift(Farm.session.state, Farm.today())), null, 'once a day');
+  // photo mode
+  await page.evaluate(() => { window.__shared = null; window.gameHost.share = (p) => { window.__shared = p; }; Farm.ui.shareFarm(); });
+  await page.waitForFunction(() => Farm.ui.photo, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.cameras.main.visible), false, 'the buttons and bars are hidden');
+  const inFrame = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.photo.frame.list); return out.join(' | '); });
+  assert.match(inFrame, /Harvest Ville on Selebox/);
+  const tap = async (label) => {
+    const pos = await page.evaluate((label) => { let b = null; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === label) b = o.getBounds(); if (o.list) walk(o.list); }); walk(Farm.ui.photo.bar.list); return b && { x: b.centerX, y: b.centerY }; }, label);
+    assert.ok(pos, label);
+    await page.touchscreen.tap(pos.x, pos.y);
+    await frames(page, 3);
+  };
+  const before = await page.evaluate(() => { const f = Farm.world.feet(); return [f.x, f.y]; });
+  await tap('Hi!');
+  await page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Hi!'), null, SLOW);
+  await page.touchscreen.tap(60, 400); // (a tap on the picture does not walk the farmer)
+  await frames(page, 6);
+  assert.deepStrictEqual(await page.evaluate(() => { const f = Farm.world.feet(); return [f.x, f.y]; }), before);
+  await shot(page, 'farm-photo');
+  await tap('Snap');
+  await page.waitForFunction(() => window.__shared, null, SLOW);
+  const shared = await page.evaluate(() => ({ jpeg: window.__shared.image.startsWith('data:image/jpeg;base64,'), w: window.__shared.width, text: window.__shared.text }));
+  assert.ok(shared.jpeg && shared.w > 0);
+  assert.match(shared.text, /My farm in Harvest Ville/);
+  await page.waitForFunction(() => !Farm.ui.photo && Farm.ui.cameras.main.visible && Farm.ui.cameras.cameras.length === 1, null, SLOW);
+  // the tours: photo mode's, once
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.shareFarm(); });
+  await page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; return m && Farm.ui.photo; }, null, SLOW);
+  assert.match(await modalText(page), /FARM PHOTOS[\s\S]*Photo mode hides the buttons/);
+  await tapButton(page, 'Next');
+  await shot(page, 'tour-photo-last');
+  await tapButton(page, 'Got it');
+  await page.waitForFunction(() => Farm.ui.photo && !Farm.ui.cameras.main.visible && Farm.ui.photo.bar.visible, null, SLOW);
+  await tap('X');
+  await page.waitForFunction(() => !Farm.ui.photo && Farm.ui.cameras.main.visible, null, SLOW);
+  // the Derby's tour draws
+  await page.evaluate(() => Farm.ui.tour('derby'));
+  for (let k = 0; k < 2; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
+  await shot(page, 'tour-derby-last');
   await tapButton(page, 'Got it');
   assert.deepStrictEqual(problems, []);
   await context.close();

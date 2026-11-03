@@ -8,8 +8,11 @@ const LOOK_OFFERS = [{ look: 'flower', currency: 'coins', price: 100 }, { look: 
 // each animal's usual weight (supabase/farm_online_14.sql, farm.catch_kinds)
 const CATCH_KG = { rabbit: 2, labuyo: 1.4, deer: 60, boar: 90, wolf: 40, whitedeer: 75, goldboar: 120, bear: 180, mammoth: 4000, tiger: 200, rhino: 1500, greatmammoth: 7000 };
 
+// each fish's usual weight (supabase/farm_online_15.sql, farm.derby_fish)
+const DERBY_KG = { fish_s: 0.3, fish_m: 1.2, fish_l: 3.5, fish_k: 12 };
+
 function createServer() {
-  const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0, hunting: new Map(), catches: new Map() };
+  const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0, hunting: new Map(), catches: new Map(), derby: new Map() };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   db.tracks = []; // every presence update, as the server counts them
   const today = () => new Date().toISOString().slice(0, 10);
@@ -395,7 +398,27 @@ function createServer() {
       return rows.map((r) => ({ rank: 1 + rows.filter((o) => o.kg10 > r.kg10).length, id: r.id, farm_name: db.players.get(r.id).farm_name, kg10: r.kg10, me: r.id === uid }))
         .sort((x, y) => x.rank - y.rank).filter((r) => r.rank <= 10 || r.me);
     },
+    // part 15 (supabase/farm_online_15.sql): the Fishing Derby. db.derbyDay false: not a Monday; db.noDerby: not applied.
+    farm_derby_v1(uid, a) {
+      derbyPart(); need(uid);
+      if (db.derbyDay === false) return { ok: false, code: 'not-monday' };
+      const base = DERBY_KG[a.p_kind];
+      if (!base) return { ok: false, code: 'bad-kind' };
+      if (!(a.p_g >= Math.floor(base * 800) && a.p_g <= Math.ceil(base * 1600))) return { ok: false, code: 'bad-weight' };
+      const key = a.p_kind + ':' + uid, old = db.derby.get(key) || 0;
+      if (a.p_g > old) db.derby.set(key, a.p_g);
+      const best = db.derby.get(key);
+      return { ok: true, best, rank: 1 + [...db.derby.entries()].filter(([k, v]) => k.startsWith(a.p_kind + ':') && v > best).length };
+    },
+    farm_derby_board_v1(uid, a) {
+      derbyPart(); need(uid);
+      const rows = [...db.derby.entries()].filter(([k]) => k.startsWith(a.p_kind + ':')).map(([k, g]) => ({ id: k.split(':')[1], g }))
+        .filter((r) => db.players.has(r.id) && !blocked(uid, r.id));
+      return rows.map((r) => ({ rank: 1 + rows.filter((o) => o.g > r.g).length, id: r.id, farm_name: db.players.get(r.id).farm_name, g: r.g, me: r.id === uid }))
+        .sort((x, y) => x.rank - y.rank).filter((r) => r.rank <= 10 || r.me);
+    },
   };
+  function derbyPart() { if (db.noDerby) throw new Error('Could not find the function in the schema cache'); }
   function huntPart() { if (db.noHunt) throw new Error('Could not find the function in the schema cache'); }
 
   // part 12 (supabase/farm_online_12.sql): the Town Goal and Best Farm of the Week. Like the real thing before it is
