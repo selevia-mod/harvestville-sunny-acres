@@ -1962,7 +1962,7 @@ test('the bigger town: new villagers and visitors, the bakery, the chapel, the s
   await go(page, 'town', 'from_farm');
   const town = await page.evaluate(() => ({
     w: Farm.world.map.width, h: Farm.world.map.height,
-    people: Farm.world.villagers.list.filter((v) => !v.shopper).length,
+    people: Farm.world.villagers.list.filter((v) => !v.shopper && !v.tourist).length, // (tourist: off the train, 19zz-town.js)
     visitors: Farm.world.villagers.list.filter((v) => v.shopper && v.visible).length,
   }));
   assert.deepStrictEqual([town.w, town.h, town.people], [54, 52, 23]);
