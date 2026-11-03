@@ -24,6 +24,7 @@
         ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
         ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
         ['ribbon', 'Festival contests', 'An Animal Contest at the Cow Festival, a Crop Contest at the Harvest Festival and a Noche Buena Cook-off on Starry Night. Win ribbons, Gold and the year\'s trophy!', 'contest'],
+        ['star', 'Skills', 'Get better at farming, mining, fishing and hunting just by doing them: ten levels each, with a small perk now and then. See them on your farmer card.', 'skills'], // (19zz-skills.js)
       ],
     },
     {
