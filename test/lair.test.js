@@ -98,7 +98,7 @@ test('the Magma Bow: after the Gold Bow, for gold and the Lair\'s goods; range 7
   const back = roundTrip(s);
   assert.strictEqual(L.bowLevel(back), 4, 'kept by the save');
   const o = plain(L.serialize(s));
-  delete o.mb;
+  delete o.mgb;
   assert.strictEqual(L.bowLevel(L.deserialize(o)), 3, 'an old save reads it as the Gold Bow');
   assert.strictEqual(L.itemName(fresh(), 'hoe'), 'Hoe', 'the other tools as before');
 });
