@@ -2472,7 +2472,16 @@ test('Today\'s Event: a small chip you can tap, clear of the goal banner, the si
   const c = await page.evaluate(() => Farm.Config.EXTRA);
   assert.ok(apart(chip, { x0: 8, y0: 402 + c, x1: 204, y1: 458 + c }), 'not on the chat box');
   assert.ok(apart(chip, { x0: 8, y0: 225, x1: 82, y1: 281 }), 'over the dish and Power-Up chips, not on them');
-  await page.touchscreen.tap(chip.x0 + 40, (chip.y0 + chip.y1) / 2);
+  // the name shows beside it for a few seconds, then only the small round badge stays (owner, 3 Nov: "blocking the view")
+  assert.strictEqual(await page.evaluate(() => Farm.ui.eventTag.visible && Farm.ui.eventTag.alpha > 0.5), true, 'the name at first');
+  await page.waitForFunction(() => !Farm.ui.eventTag.visible, null, SLOW);
+  const small = await page.evaluate(() => { // what shows: the badge and its icon
+    const seen = Farm.ui.eventChipBox.list.filter((o) => o.visible && o.type !== 'Zone' && o.alpha > 0).map((o) => o.getBounds());
+    return { x0: Math.min(...seen.map((b) => b.x)), y0: Math.min(...seen.map((b) => b.y)), x1: Math.max(...seen.map((b) => b.x + b.width)), y1: Math.max(...seen.map((b) => b.y + b.height)) };
+  });
+  assert.ok(small.x1 - small.x0 <= 48 && small.y1 - small.y0 <= 48, 'a small badge: ' + JSON.stringify(small));
+  await shot(page, 'event-badge');
+  await page.touchscreen.tap((small.x0 + small.x1) / 2, (small.y0 + small.y1) / 2);
   await frames(page, 3);
   assert.match(await modalText(page), /FISH MONDAY.*Fish sell for 25% more.*Tomorrow: Timber Tuesday/);
   await shot(page, 'event-panel');

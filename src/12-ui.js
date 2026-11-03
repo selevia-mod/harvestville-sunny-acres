@@ -541,17 +541,19 @@
         if (Math.abs(dx) >= HOT_SWIPE) self.hotTurn(dx < 0 ? 1 : -1);
         else self.select(self.hotPage * C.HOTBAR + d.i);
       });
-      // the dots above the bar: which one you are on, and a tap goes there
-      var dx0 = x0 + (C.HOTBAR * (SLOT + GAP) - GAP) / 2, dotY = HOTBAR_Y - 37;
-      this.hotPill = this.add.graphics({ x: dx0, y: dotY });
-      this.hotPill.fillStyle(0x24160b, 0.78).fillRoundedRect(-30, -7, 60, 14, 7);
-      this.hotPill.lineStyle(1, 0xffd23f, 0.8).strokeRoundedRect(-30, -7, 60, 14, 7);
+      // the dots above the bar: which one you are on, and a tap goes there. Simple and quiet (owner, 3 Nov 2026: "make it
+      // simple and minimalist"): no pill, small soft dots, the one you are on a short cream bar, each with a faint shadow so
+      // they read on grass, snow and the dark mine.
+      var dx0 = x0 + (C.HOTBAR * (SLOT + GAP) - GAP) / 2, dotY = HOTBAR_Y - 34;
+      var dotTex = this.bake('ui-hot-dot', 8, 8, function (g) { g.fillStyle(0x000000, 0.22).fillCircle(4, 4.6, 3.2); g.fillStyle(0xffffff, 1).fillCircle(4, 4, 2.6); });
+      var onTex = this.bake('ui-hot-on', 18, 8, function (g) { g.fillStyle(0x000000, 0.22).fillRoundedRect(1, 1.6, 16, 6, 3); g.fillStyle(0xfff6dc, 1).fillRoundedRect(1, 1, 16, 6, 3); });
+      this.hotDotTex = { off: dotTex, on: onTex };
       this.hotDots = [];
       for (var k = 0; k < C.HOTBAR_PAGES; k++) {
         (function (k) {
-          var x = dx0 + (k - (C.HOTBAR_PAGES - 1) / 2) * 16;
-          self.hotDots.push(self.add.circle(x, dotY, 4, 0xffffff));
-          F.tapOn(self.add.zone(x, dotY, 18, 26).setInteractive({ useHandCursor: true }), function () { if (!self.modals.length) self.hotTo(k); });
+          var x = dx0 + (k - (C.HOTBAR_PAGES - 1) / 2) * 14;
+          self.hotDots.push(self.add.image(x, dotY, dotTex).setScale(1 / F.R));
+          F.tapOn(self.add.zone(x, dotY, 14, 26).setInteractive({ useHandCursor: true }), function () { if (!self.modals.length) self.hotTo(k); });
         })(k);
       }
       var bx = x0 + C.HOTBAR * (SLOT + GAP);
@@ -566,7 +568,7 @@
         if (!tip) return;
         F.session.dirty = true;
         self.toast(tip, 5000, 0x2f5a22);
-        self.tweens.add({ targets: self.hotDots.concat(self.hotPill), scale: 1.5, duration: 260, yoyo: true, repeat: 3, ease: 'Sine.inOut' });
+        self.tweens.add({ targets: self.hotDots, scale: 1.5 / F.R, duration: 260, yoyo: true, repeat: 3, ease: 'Sine.inOut' });
       });
     }
 
@@ -591,7 +593,8 @@
 
     drawHotDots() {
       var page = this.hotPage;
-      this.hotDots.forEach(function (d, k) { d.setFillStyle(k === page ? 0xffd23f : 0xc8b89a).setRadius(k === page ? 4.5 : 3); });
+      var tex = this.hotDotTex;
+      this.hotDots.forEach(function (d, k) { d.setTexture(k === page ? tex.on : tex.off).setAlpha(k === page ? 1 : 0.7); });
     }
 
     select(i) {

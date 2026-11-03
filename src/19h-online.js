@@ -13,6 +13,7 @@
   var DEPTH = F.WorldScene.DEPTH;
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
+  var FADE_MS = 260; // a friend arriving or leaving
   var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1 };
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
@@ -426,7 +427,7 @@
       var vv = F.session.visit;
       if (changedMap && vv && q.id === vv.host) O.hostMoved(vv, q);
     } else if (event === 'emote') {
-      O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
+      O.showEmote(who.id, String(p.k || 'wave')); // (showEmote knows the kinds; anything else is a wave)
     } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
       O.showEmote(who.id, 'heart');
       if (F.ui) F.ui.toast(who.name + ' liked your farm!', 2400, 0x2f5a22);
@@ -469,10 +470,14 @@
         return;
       }
       O.dropHorse(r);
-      r.spr.destroy();
-      r.shadow.destroy();
-      r.tag.destroy();
+      if (w.remoteFishEnd) w.remoteFishEnd(r, -1); // (their bobber goes with them, 19zf-swing.js)
+      if (r.tool) r.tool.destroy();
       delete w.remotes[id];
+      // Gone from here (home, indoors, another map): they fade with a little puff (owner, 3 Nov 2026). A new look just swaps.
+      var parts = [r.spr, r.shadow, r.tag];
+      if (want[id]) { parts.forEach(function (o) { o.destroy(); }); return; }
+      if (w.puff) w.puff({ x: Math.floor(r.x / T), y: Math.floor(r.y / T) }, 0xe8e0d0, 2);
+      w.tweens.add({ targets: parts, alpha: 0, duration: FADE_MS, onComplete: function () { parts.forEach(function (o) { o.destroy(); }); } });
     });
     Object.keys(want).forEach(function (id) {
       if (w.remotes[id]) return;
@@ -482,6 +487,10 @@
       r.spr = w.add.sprite(p.x, p.y - FEET_OFFSET, key, IDLE_FRAME[p.dir]).setFlipX(p.dir === 'right').setDepth(DEPTH.actor + p.y / 1e5);
       r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
       w.remotes[id] = r;
+      // and arrive the same way: a fade in where they stand
+      [r.spr, r.shadow, r.tag].forEach(function (o) { o.setAlpha(0); });
+      w.tweens.add({ targets: [r.spr, r.shadow, r.tag], alpha: 1, duration: FADE_MS });
+      if (w.puff) w.puff({ x: Math.floor(p.x / T), y: Math.floor(p.y / T) }, 0xe8e0d0, 2);
     });
   };
 
@@ -515,7 +524,7 @@
     else if (w.remotes[id]) at = { x: w.remotes[id].x, y: w.remotes[id].y };
     if (!at) return;
     if (kind === 'heart') { w.emote({ x: at.x, y: at.y }, C.ICON.heart); return; }
-    var t = w.add.text(at.x, at.y - 1.6 * T, 'Hi!', tagStyle(false)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 3).setScale(1.3);
+    var t = w.add.text(at.x, at.y - 1.6 * T, O.REACT_WORDS[kind] || 'Hi!', tagStyle(false)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 3).setScale(1.3);
     w.tweens.add({ targets: t, y: t.y - 60, angle: { from: -8, to: 8 }, duration: 260, yoyo: true, repeat: 2 });
     w.tweens.add({ targets: t, alpha: 0, delay: 1500, duration: 300, onComplete: function () { t.destroy(); } });
   };
@@ -769,10 +778,7 @@
   var resolve = P.resolve;
   P.resolve = function () {
     var pt = this.front(0.7), r = this.remoteAt(pt.x, pt.y);
-    if (r) {
-      var p = O.others[r.id];
-      return { label: 'Wave', icon: C.ICON.heart, run: function () { O.wave(); if (p) F.ui.toast('You waved at ' + p.name + '.', 1600); } };
-    }
+    if (r) return { label: 'Wave', icon: C.ICON.heart, run: function () { O.wave(); } }; // (a reaction to pick, 19zi-react.js)
     var a = resolve.call(this);
     if (!visiting(this) || !a) return a;
     var t = this.facing(), o = this.inMap(t.x, t.y) ? this.objectAt(t.x, t.y) : null;
@@ -780,12 +786,16 @@
     return { label: a.label, icon: a.icon, disabled: true, why: 'This is ' + F.session.visit.name + "'s farm: look, but don't touch! Wave, like or leave a gift instead." };
   };
 
-  O.wave = function () {
+  // Reactions (owner, 3 Nov 2026: more than a wave): what each says over your farmer. 'heart' is the heart bubble.
+  O.REACT_WORDS = { wave: 'Hi!', laugh: 'Haha!', wow: 'Wow!', yay: 'Yay!', aww: 'Aww...' };
+  O.react = function (kind) {
     if (!O.me) return;
-    O.send('emote', { k: 'wave' });
-    O.showEmote(O.me.id, 'wave');
+    kind = kind === 'heart' || O.REACT_WORDS[kind] ? kind : 'wave';
+    O.send('emote', { k: kind });
+    O.showEmote(O.me.id, kind);
     sfx('talk');
   };
+  O.wave = function () { if (F.ui && F.ui.openReact) F.ui.openReact(); else O.react('wave'); };
 
   // ---------- the UI ----------
   var K = F.UI_CONST, W = K.W, H = K.H, INK = K.INK;

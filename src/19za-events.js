@@ -14,20 +14,31 @@
     this.dialog(ev.name.toUpperCase(), null, { rows: [[C.ICON[ev.icon], ev.text], [C.ICON.calendar, 'Tomorrow: ' + next.name + '.']] });
   };
 
-  // Drawn when the day changes (the name decides its width), then only shown, hidden and moved.
+  // Drawn when the day changes, then only shown, hidden and moved. A small round badge with the day's icon (owner, 3 Nov 2026:
+  // "Timber Tuesday is kinda blocking the view"): its name slides out beside it for a few seconds when the day's event is
+  // new on screen, then tucks away. A tap opens what it does.
+  var NAME_MS = 4000;
   U.drawEventChip = function (ev) {
-    var self = this, h = CHIP.h, c = this.eventChipBox;
+    var self = this, d = CHIP.h + 4, r = d / 2, c = this.eventChipBox;
     if (c) c.removeAll(true);
     else c = this.eventChipBox = this.add.container(CHIP.x, CHIP.y).setDepth(45);
-    var text = this.txt(27, h / 2, ev.name, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
-    var w = 27 + text.width + CHIP.pad, bg = this.add.graphics();
-    bg.fillStyle(0x24160b, 0.78).fillRoundedRect(0, 0, w, h, h / 2);
-    bg.lineStyle(1.5, 0xffd23f, 0.9).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, h / 2 - 1);
-    var icon = this.add.image(14, h / 2, 'items', C.ICON[ev.icon]).setScale(0.17);
-    var zone = this.add.zone(w / 2, h / 2, w + 8, h + 12).setInteractive({ useHandCursor: true }); // a fair size for a thumb
+    var badge = this.add.image(r, r, this.bake('ui-event-badge', d + 2, d + 3, function (g) {
+      g.fillStyle(0x000000, 0.25).fillCircle(r + 1, r + 2, r);
+      g.fillStyle(0xfff3cf, 0.95).fillCircle(r + 1, r + 1, r);
+      g.lineStyle(1.5, 0xc9a26b, 1).strokeCircle(r + 1, r + 1, r - 0.75);
+    })).setScale(1 / F.R);
+    var icon = this.add.image(r, r, 'items', C.ICON[ev.icon]).setScale(0.18);
+    var text = this.txt(d + 8, r, ev.name, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    var tag = this.add.container(0, 0), tw = text.width + 16, back = this.add.graphics();
+    back.fillStyle(0x24160b, 0.72).fillRoundedRect(d, 3, tw, d - 6, (d - 6) / 2);
+    tag.add([back, text]);
+    var zone = this.add.zone(r + 4, r, d + 16, d + 2).setInteractive({ useHandCursor: true }); // a fair size for a thumb, short of the chips under it
     F.tapOn(zone, function () { if (!self.modals.length) self.openEvent(); });
-    c.add([bg, icon, text, zone]);
+    c.add([tag, badge, icon, zone]);
     this.eventChipFor = ev.key;
+    this.eventTag = tag;
+    tag.setAlpha(1).setX(0);
+    this.tweens.add({ targets: tag, alpha: 0, x: -12, delay: NAME_MS, duration: 350, ease: 'Quad.in', onComplete: function () { tag.setVisible(false); } });
   };
 
   U.eventChip = function () {

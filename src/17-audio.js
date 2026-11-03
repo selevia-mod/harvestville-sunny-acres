@@ -81,6 +81,7 @@
   };
 
   // ---------- building blocks ----------
+  var route = null; // where the next sounds go when not told (A.sfxSoft: a friend's, quieter)
   function tone(freq, dur, type, vol, slideTo, delay, out) {
     var ctx = A.ctx, t = ctx.currentTime + (delay || 0);
     var o = ctx.createOscillator(), g = ctx.createGain();
@@ -91,7 +92,7 @@
     g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
-    g.connect(out || A.sfxGain);
+    g.connect(out || route || A.sfxGain);
     o.start(t);
     o.stop(t + dur + 0.05);
   }
@@ -106,7 +107,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(out || A.sfxGain);
+    g.connect(out || route || A.sfxGain);
     src.start(t, Math.random());
     src.stop(t + dur + 0.05);
   }
@@ -168,6 +169,15 @@
   A.sfx = function (name) {
     if (!A.ctx || !A.opts.sfx || A.ctx.state !== 'running' || !SFX[name]) return;
     SFX[name]();
+  };
+
+  // A friend's sound (owner, 3 Nov 2026): the same effect, quieter, by how near they are (level 0..1).
+  A.sfxSoft = function (name, level) {
+    if (!A.ctx || !A.opts.sfx || A.ctx.state !== 'running' || !SFX[name] || !(level > 0.02)) return;
+    if (!A.softGain) { A.softGain = A.ctx.createGain(); A.softGain.connect(A.sfxGain); }
+    A.softGain.gain.value = Math.min(1, level);
+    route = A.softGain;
+    try { SFX[name](); } finally { route = null; }
   };
 
   // ---------- music ----------

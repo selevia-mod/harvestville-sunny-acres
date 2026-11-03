@@ -9155,17 +9155,19 @@
         if (Math.abs(dx) >= HOT_SWIPE) self.hotTurn(dx < 0 ? 1 : -1);
         else self.select(self.hotPage * C.HOTBAR + d.i);
       });
-      // the dots above the bar: which one you are on, and a tap goes there
-      var dx0 = x0 + (C.HOTBAR * (SLOT + GAP) - GAP) / 2, dotY = HOTBAR_Y - 37;
-      this.hotPill = this.add.graphics({ x: dx0, y: dotY });
-      this.hotPill.fillStyle(0x24160b, 0.78).fillRoundedRect(-30, -7, 60, 14, 7);
-      this.hotPill.lineStyle(1, 0xffd23f, 0.8).strokeRoundedRect(-30, -7, 60, 14, 7);
+      // the dots above the bar: which one you are on, and a tap goes there. Simple and quiet (owner, 3 Nov 2026: "make it
+      // simple and minimalist"): no pill, small soft dots, the one you are on a short cream bar, each with a faint shadow so
+      // they read on grass, snow and the dark mine.
+      var dx0 = x0 + (C.HOTBAR * (SLOT + GAP) - GAP) / 2, dotY = HOTBAR_Y - 34;
+      var dotTex = this.bake('ui-hot-dot', 8, 8, function (g) { g.fillStyle(0x000000, 0.22).fillCircle(4, 4.6, 3.2); g.fillStyle(0xffffff, 1).fillCircle(4, 4, 2.6); });
+      var onTex = this.bake('ui-hot-on', 18, 8, function (g) { g.fillStyle(0x000000, 0.22).fillRoundedRect(1, 1.6, 16, 6, 3); g.fillStyle(0xfff6dc, 1).fillRoundedRect(1, 1, 16, 6, 3); });
+      this.hotDotTex = { off: dotTex, on: onTex };
       this.hotDots = [];
       for (var k = 0; k < C.HOTBAR_PAGES; k++) {
         (function (k) {
-          var x = dx0 + (k - (C.HOTBAR_PAGES - 1) / 2) * 16;
-          self.hotDots.push(self.add.circle(x, dotY, 4, 0xffffff));
-          F.tapOn(self.add.zone(x, dotY, 18, 26).setInteractive({ useHandCursor: true }), function () { if (!self.modals.length) self.hotTo(k); });
+          var x = dx0 + (k - (C.HOTBAR_PAGES - 1) / 2) * 14;
+          self.hotDots.push(self.add.image(x, dotY, dotTex).setScale(1 / F.R));
+          F.tapOn(self.add.zone(x, dotY, 14, 26).setInteractive({ useHandCursor: true }), function () { if (!self.modals.length) self.hotTo(k); });
         })(k);
       }
       var bx = x0 + C.HOTBAR * (SLOT + GAP);
@@ -9180,7 +9182,7 @@
         if (!tip) return;
         F.session.dirty = true;
         self.toast(tip, 5000, 0x2f5a22);
-        self.tweens.add({ targets: self.hotDots.concat(self.hotPill), scale: 1.5, duration: 260, yoyo: true, repeat: 3, ease: 'Sine.inOut' });
+        self.tweens.add({ targets: self.hotDots, scale: 1.5 / F.R, duration: 260, yoyo: true, repeat: 3, ease: 'Sine.inOut' });
       });
     }
 
@@ -9205,7 +9207,8 @@
 
     drawHotDots() {
       var page = this.hotPage;
-      this.hotDots.forEach(function (d, k) { d.setFillStyle(k === page ? 0xffd23f : 0xc8b89a).setRadius(k === page ? 4.5 : 3); });
+      var tex = this.hotDotTex;
+      this.hotDots.forEach(function (d, k) { d.setTexture(k === page ? tex.on : tex.off).setAlpha(k === page ? 1 : 0.7); });
     }
 
     select(i) {
@@ -12542,6 +12545,7 @@
   };
 
   // ---------- building blocks ----------
+  var route = null; // where the next sounds go when not told (A.sfxSoft: a friend's, quieter)
   function tone(freq, dur, type, vol, slideTo, delay, out) {
     var ctx = A.ctx, t = ctx.currentTime + (delay || 0);
     var o = ctx.createOscillator(), g = ctx.createGain();
@@ -12552,7 +12556,7 @@
     g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
-    g.connect(out || A.sfxGain);
+    g.connect(out || route || A.sfxGain);
     o.start(t);
     o.stop(t + dur + 0.05);
   }
@@ -12567,7 +12571,7 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(out || A.sfxGain);
+    g.connect(out || route || A.sfxGain);
     src.start(t, Math.random());
     src.stop(t + dur + 0.05);
   }
@@ -12629,6 +12633,15 @@
   A.sfx = function (name) {
     if (!A.ctx || !A.opts.sfx || A.ctx.state !== 'running' || !SFX[name]) return;
     SFX[name]();
+  };
+
+  // A friend's sound (owner, 3 Nov 2026): the same effect, quieter, by how near they are (level 0..1).
+  A.sfxSoft = function (name, level) {
+    if (!A.ctx || !A.opts.sfx || A.ctx.state !== 'running' || !SFX[name] || !(level > 0.02)) return;
+    if (!A.softGain) { A.softGain = A.ctx.createGain(); A.softGain.connect(A.sfxGain); }
+    A.softGain.gain.value = Math.min(1, level);
+    route = A.softGain;
+    try { SFX[name](); } finally { route = null; }
   };
 
   // ---------- music ----------
@@ -12910,6 +12923,13 @@
   // ---------- a friend's farmer swings a tool (owner, 3 Nov 2026: "users are smashing the rock but I can't see how") ----------
   // r = their farmer on this map (19h-online.js). The same raise and strike as yours, with the tool in their hands; their
   // walk waits until it is done (r.useUntil). Sent and heard in 19zf-swing.js.
+  // A friend's work sounds as yours does, softer, and fading out by 9 tiles away (owner, 3 Nov 2026).
+  var SOUND = { hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut', rod: 'cast' };
+  M.remoteSound = function (r, name) {
+    if (!name || !F.Audio || !F.Audio.sfxSoft || !this.player) return;
+    var f = this.feet(), d = Math.hypot(f.x - r.x, f.y - r.y) / T;
+    F.Audio.sfxSoft(name, 0.6 * Math.max(0, 1 - d / 9));
+  };
   M.remoteUse = function (r, dir, frame, kind) {
     var self = this, u = USE[dir] || USE.down, p = r.spr, g = gripOf(frame), flip = !!u.flip;
     if (!p || !p.active || r.horse) return;
@@ -12933,8 +12953,10 @@
       this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
         place('strike', 'strike');
         if (self.swoosh && tool.active) self.swoosh(tool, from);
+        self.remoteSound(r, SOUND[(C.ICON_ORDER[frame] || '').replace(/_\d$/, '')]);
       });
     }
+    if (kind === 'pour') this.remoteSound(r, g === GRIP.can ? 'water' : null);
     this.time.delayedCall(ms, function () {
       tool.destroy();
       if (r.tool === tool) r.tool = null;
@@ -15576,6 +15598,7 @@
   var DEPTH = F.WorldScene.DEPTH;
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
+  var FADE_MS = 260; // a friend arriving or leaving
   var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1 };
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
@@ -15989,7 +16012,7 @@
       var vv = F.session.visit;
       if (changedMap && vv && q.id === vv.host) O.hostMoved(vv, q);
     } else if (event === 'emote') {
-      O.showEmote(who.id, p.k === 'heart' ? 'heart' : 'wave');
+      O.showEmote(who.id, String(p.k || 'wave')); // (showEmote knows the kinds; anything else is a wave)
     } else if (event === 'like' && !F.session.visit && once(who.id, 'like')) {
       O.showEmote(who.id, 'heart');
       if (F.ui) F.ui.toast(who.name + ' liked your farm!', 2400, 0x2f5a22);
@@ -16032,10 +16055,14 @@
         return;
       }
       O.dropHorse(r);
-      r.spr.destroy();
-      r.shadow.destroy();
-      r.tag.destroy();
+      if (w.remoteFishEnd) w.remoteFishEnd(r, -1); // (their bobber goes with them, 19zf-swing.js)
+      if (r.tool) r.tool.destroy();
       delete w.remotes[id];
+      // Gone from here (home, indoors, another map): they fade with a little puff (owner, 3 Nov 2026). A new look just swaps.
+      var parts = [r.spr, r.shadow, r.tag];
+      if (want[id]) { parts.forEach(function (o) { o.destroy(); }); return; }
+      if (w.puff) w.puff({ x: Math.floor(r.x / T), y: Math.floor(r.y / T) }, 0xe8e0d0, 2);
+      w.tweens.add({ targets: parts, alpha: 0, duration: FADE_MS, onComplete: function () { parts.forEach(function (o) { o.destroy(); }); } });
     });
     Object.keys(want).forEach(function (id) {
       if (w.remotes[id]) return;
@@ -16045,6 +16072,10 @@
       r.spr = w.add.sprite(p.x, p.y - FEET_OFFSET, key, IDLE_FRAME[p.dir]).setFlipX(p.dir === 'right').setDepth(DEPTH.actor + p.y / 1e5);
       r.tag = w.add.text(p.x, p.y - 1.45 * T, p.name + (p.host ? ' (owner)' : ''), tagStyle(p.host)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 2);
       w.remotes[id] = r;
+      // and arrive the same way: a fade in where they stand
+      [r.spr, r.shadow, r.tag].forEach(function (o) { o.setAlpha(0); });
+      w.tweens.add({ targets: [r.spr, r.shadow, r.tag], alpha: 1, duration: FADE_MS });
+      if (w.puff) w.puff({ x: Math.floor(p.x / T), y: Math.floor(p.y / T) }, 0xe8e0d0, 2);
     });
   };
 
@@ -16078,7 +16109,7 @@
     else if (w.remotes[id]) at = { x: w.remotes[id].x, y: w.remotes[id].y };
     if (!at) return;
     if (kind === 'heart') { w.emote({ x: at.x, y: at.y }, C.ICON.heart); return; }
-    var t = w.add.text(at.x, at.y - 1.6 * T, 'Hi!', tagStyle(false)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 3).setScale(1.3);
+    var t = w.add.text(at.x, at.y - 1.6 * T, O.REACT_WORDS[kind] || 'Hi!', tagStyle(false)).setOrigin(0.5, 1).setDepth(DEPTH.Above + 3).setScale(1.3);
     w.tweens.add({ targets: t, y: t.y - 60, angle: { from: -8, to: 8 }, duration: 260, yoyo: true, repeat: 2 });
     w.tweens.add({ targets: t, alpha: 0, delay: 1500, duration: 300, onComplete: function () { t.destroy(); } });
   };
@@ -16332,10 +16363,7 @@
   var resolve = P.resolve;
   P.resolve = function () {
     var pt = this.front(0.7), r = this.remoteAt(pt.x, pt.y);
-    if (r) {
-      var p = O.others[r.id];
-      return { label: 'Wave', icon: C.ICON.heart, run: function () { O.wave(); if (p) F.ui.toast('You waved at ' + p.name + '.', 1600); } };
-    }
+    if (r) return { label: 'Wave', icon: C.ICON.heart, run: function () { O.wave(); } }; // (a reaction to pick, 19zi-react.js)
     var a = resolve.call(this);
     if (!visiting(this) || !a) return a;
     var t = this.facing(), o = this.inMap(t.x, t.y) ? this.objectAt(t.x, t.y) : null;
@@ -16343,12 +16371,16 @@
     return { label: a.label, icon: a.icon, disabled: true, why: 'This is ' + F.session.visit.name + "'s farm: look, but don't touch! Wave, like or leave a gift instead." };
   };
 
-  O.wave = function () {
+  // Reactions (owner, 3 Nov 2026: more than a wave): what each says over your farmer. 'heart' is the heart bubble.
+  O.REACT_WORDS = { wave: 'Hi!', laugh: 'Haha!', wow: 'Wow!', yay: 'Yay!', aww: 'Aww...' };
+  O.react = function (kind) {
     if (!O.me) return;
-    O.send('emote', { k: 'wave' });
-    O.showEmote(O.me.id, 'wave');
+    kind = kind === 'heart' || O.REACT_WORDS[kind] ? kind : 'wave';
+    O.send('emote', { k: kind });
+    O.showEmote(O.me.id, kind);
     sfx('talk');
   };
+  O.wave = function () { if (F.ui && F.ui.openReact) F.ui.openReact(); else O.react('wave'); };
 
   // ---------- the UI ----------
   var K = F.UI_CONST, W = K.W, H = K.H, INK = K.INK;
@@ -19398,12 +19430,13 @@
   var breakRock = P.breakRock;
   P.breakRock = function (idx, t, items) {
     var r = breakRock.call(this, idx, t, items);
-    if (r && O.on && O.chan) O.send('rock', { fl: F.session.mineFloor, i: idx });
+    var got = Object.keys(items)[0], icon = got === 'stone' ? C.ICON.stone : got && C.ITEMS[got] ? C.ITEMS[got].icon : -1; // (what came out of it, for the others to see)
+    if (r && O.on && O.chan) O.send('rock', { fl: F.session.mineFloor, i: idx, it: icon });
     return r;
   };
   // by = their farmer, when it happened just now: the rock pops with dust and a crack, as yours does, when their hammer
   // lands (owner, 3 Nov 2026: "it looks like lagging then suddenly the rock gone"). A floor's list on arrival just goes.
-  P.remoteRock = function (idx, by) {
+  P.remoteRock = function (idx, by, icon) {
     var self = this, m = this.mine;
     if (!m || m.broken[idx] || m.rocks.indexOf(idx) < 0) return;
     m.broken[idx] = 1;
@@ -19416,8 +19449,8 @@
       self.recollide();
       if (!by) return;
       self.impact('hammer', { kind: 'debris', debris: 'stone' }, t, true);
-      var f = self.feet();
-      if (F.Audio && Math.hypot(f.x - (x + 0.5) * T, f.y - (y + 0.5) * T) < 8 * T) F.Audio.sfx('stonebreak');
+      if (icon >= 0 && self.floatIcon) self.floatIcon((x + 0.5) * T, (y + 0.3) * T, icon);
+      self.remoteSound({ x: (x + 0.5) * T, y: (y + 0.5) * T }, 'stonebreak');
     };
     if (by && by.useUntil > this.time.now) this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, gone);
     else gone();
@@ -19435,7 +19468,11 @@
   O.onMessage = function (event, payload) {
     var p = payload && typeof payload === 'object' ? payload : {}, w = F.world, who = typeof p.id === 'string' ? O.others[p.id] : null;
     var here = who && inMine(w) && Number(p.fl) === F.session.mineFloor;
-    if (event === 'rock') { if (here) w.remoteRock(Math.floor(Number(p.i)), (w.remotes && w.remotes[p.id]) || {}); return; }
+    if (event === 'rock') {
+      var it = Math.floor(Number(p.it));
+      if (here) w.remoteRock(Math.floor(Number(p.i)), (w.remotes && w.remotes[p.id]) || {}, it >= 0 && it < C.ICON_ORDER.length ? it : -1);
+      return;
+    }
     if (event === 'rocksq') {
       if (here) {
         var gone = Object.keys(w.mine.broken).map(Number).filter(function (i) { return w.mine.rocks.indexOf(i) >= 0; }).slice(0, 400);
@@ -20596,7 +20633,13 @@
     if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey) return;
     var lead = w.wildFollowing(), a = w.wild.animals.filter(function (x) { return x.slot === p.s; })[0];
     if (event === 'wa') { if (lead === p.id) w.wildHear(Number(p.t) || Date.now(), p.l); return; }
-    if (event === 'ar') { if (isFinite(p.x) && isFinite(p.y) && isFinite(p.a)) { w.wildArrow(Number(p.x), Number(p.y), Number(p.a), Math.min(8 * T, Number(p.l) || 0), true); w.bowFlash(Number(p.x), Number(p.y), Number(p.a), Number(p.b) || 0); } return; }
+    if (event === 'ar') {
+      if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.a)) return;
+      var ax = Number(p.x), ay = Number(p.y), ang = Number(p.a), range = Math.min(8 * T, Number(p.l) || 0), lv = Number(p.b) || 0, shooter = w.remotes && w.remotes[p.id];
+      // their farmer draws and lets go (19w-bow.js remoteShot); if it can't, just their arrow and a flash of their bow
+      if (!(shooter && w.remoteShot(shooter, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+      return;
+    }
     if (event === 'bt') { if (isFinite(p.x) && isFinite(p.y) && !w.wildBait) w.layBait(Number(p.x), Number(p.y)); return; }
     if (!a) return;
     if (event === 'wh' && !lead && a.hp > 0) {
@@ -20874,7 +20917,7 @@
 
   // The bow turned to what you aim at, the string, the arrow on it, and the farmer's pose.
   var pose = function (w, shot) {
-    var p = w.player, at = POSE[w.dir], side = at.flip ? -1 : 1, grip = at.grip[shot.stage];
+    var p = shot.who || w.player, at = POSE[shot.dir || w.dir], side = at.flip ? -1 : 1, grip = at.grip[shot.stage];
     var bx = p.x - Math.cos(shot.ang) * shot.recoil, by = p.y - Math.sin(shot.ang) * shot.recoil;
     var x = bx + (grip[0] - 144) * side, y = by + grip[1] - 192;
     var a = shot.target;
@@ -20901,13 +20944,14 @@
 
   var loose = function (w, shot) {
     var s = w.state, cx = Math.cos(shot.ang), cy = Math.sin(shot.ang), x = shot.nock.x + cx * ARROW_W / 2, y = shot.nock.y + cy * ARROW_W / 2;
-    var range = L.bowRange(s) * T;
+    var range = shot.remote ? shot.range : L.bowRange(s) * T;
     shot.arrow.destroy();
     shot.arrow = null;
     shot.stage = LET_GO;
-    w.wildArrow(x, y, shot.ang, range, false);
-    if (Object.keys(w.remotes || {}).length) O.send('ar', { x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
-    sfx('bowshot');
+    w.wildArrow(x, y, shot.ang, range, !!shot.remote);
+    if (!shot.remote && Object.keys(w.remotes || {}).length) O.send('ar', { x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
+    if (shot.remote) w.remoteSound(shot.r, 'bowshot');
+    else sfx('bowshot');
     w.tweens.addCounter({
       from: 1, to: 0, duration: AFTER_MS,
       onUpdate: function (tw) {
@@ -20921,6 +20965,7 @@
         shot.string.destroy();
         shot.body.destroy();
         if (shot.fist) shot.fist.destroy();
+        if (shot.remote) return shot.done();
         w.player.setVisible(true);
         w.shot = null;
         w.idle();
@@ -20974,7 +21019,45 @@
     this.changed();
   };
 
-  // A friend's shot: their bow, there for a moment where the arrow starts.
+  // A friend's shot (owner, 3 Nov 2026: what the other player does should show, not just its result). Heard when their arrow
+  // leaves (19v-wild.js 'ar'), their farmer plays the same shot a little quicker: bow up, a pull to the cheek, and the arrow
+  // goes from their string. r = their farmer (19h-online.js); x, y = where their arrow started; l = its range.
+  P.remoteShot = function (r, x, y, ang, l, level) {
+    var self = this, p = r.spr;
+    if (!p || !p.active || r.horse || r.shot) return false;
+    var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
+    var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, r.look === 'girl' ? 'archer_girl' : 'archer');
+    var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
+    var shot = r.shot = {
+      remote: true, r: r, who: p, dir: dir, target: null, ang: ang, range: l, pull: 0.1, recoil: 0, nock: null, stage: READY,
+      body: this.add.image(p.x, p.y, key, 0).setDepth(p.depth),
+      bow: bowImage(this, icon, p.x, p.y, 0, at.scale).setDepth(depth),
+      string: this.add.graphics().setDepth(depth + 0.0002),
+      arrow: this.add.image(p.x, p.y, F.ensureTexture(this, 'props/arrow_fly')).setOrigin(0, 0.5).setDisplaySize(ARROW_W, ARROW_H).setDepth(depth + 0.0001),
+      fist: at.behind ? null : this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003),
+      done: function () { if (r.shot === shot) r.shot = null; r.useUntil = 0; if (p.active) p.setVisible(true); },
+    };
+    var quick = { ready: 60, draw: 100 };
+    r.useUntil = this.time.now + quick.ready + quick.draw + AFTER_MS + 40;
+    r.anim = null;
+    p.anims.stop();
+    p.setVisible(false);
+    pose(this, shot);
+    this.remoteSound(r, 'bowdraw');
+    this.time.delayedCall(quick.ready, function () {
+      if (r.shot !== shot || !p.active) return;
+      shot.stage = FULL;
+      self.tweens.addCounter({
+        from: 0.72, to: 1, duration: quick.draw, ease: 'Quad.out',
+        onUpdate: function (tw) { if (r.shot === shot) { shot.pull = tw.getValue(); pose(self, shot); } },
+        onComplete: function () { if (r.shot === shot) loose(self, shot); },
+      });
+    });
+    void x; void y;
+    return true;
+  };
+
+  // A friend's shot when their farmer can't play it (on a horse, already shooting): their bow, there for a moment where the arrow starts.
   P.bowFlash = function (x, y, ang, level) {
     var icon = level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow';
     var img = bowImage(this, C.ICON[icon], x - Math.cos(ang) * ARROW_W * 0.5, y - Math.sin(ang) * ARROW_W * 0.5, ang).setDepth(F.WorldScene.DEPTH.fx);
@@ -21414,20 +21497,31 @@
     this.dialog(ev.name.toUpperCase(), null, { rows: [[C.ICON[ev.icon], ev.text], [C.ICON.calendar, 'Tomorrow: ' + next.name + '.']] });
   };
 
-  // Drawn when the day changes (the name decides its width), then only shown, hidden and moved.
+  // Drawn when the day changes, then only shown, hidden and moved. A small round badge with the day's icon (owner, 3 Nov 2026:
+  // "Timber Tuesday is kinda blocking the view"): its name slides out beside it for a few seconds when the day's event is
+  // new on screen, then tucks away. A tap opens what it does.
+  var NAME_MS = 4000;
   U.drawEventChip = function (ev) {
-    var self = this, h = CHIP.h, c = this.eventChipBox;
+    var self = this, d = CHIP.h + 4, r = d / 2, c = this.eventChipBox;
     if (c) c.removeAll(true);
     else c = this.eventChipBox = this.add.container(CHIP.x, CHIP.y).setDepth(45);
-    var text = this.txt(27, h / 2, ev.name, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
-    var w = 27 + text.width + CHIP.pad, bg = this.add.graphics();
-    bg.fillStyle(0x24160b, 0.78).fillRoundedRect(0, 0, w, h, h / 2);
-    bg.lineStyle(1.5, 0xffd23f, 0.9).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, h / 2 - 1);
-    var icon = this.add.image(14, h / 2, 'items', C.ICON[ev.icon]).setScale(0.17);
-    var zone = this.add.zone(w / 2, h / 2, w + 8, h + 12).setInteractive({ useHandCursor: true }); // a fair size for a thumb
+    var badge = this.add.image(r, r, this.bake('ui-event-badge', d + 2, d + 3, function (g) {
+      g.fillStyle(0x000000, 0.25).fillCircle(r + 1, r + 2, r);
+      g.fillStyle(0xfff3cf, 0.95).fillCircle(r + 1, r + 1, r);
+      g.lineStyle(1.5, 0xc9a26b, 1).strokeCircle(r + 1, r + 1, r - 0.75);
+    })).setScale(1 / F.R);
+    var icon = this.add.image(r, r, 'items', C.ICON[ev.icon]).setScale(0.18);
+    var text = this.txt(d + 8, r, ev.name, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    var tag = this.add.container(0, 0), tw = text.width + 16, back = this.add.graphics();
+    back.fillStyle(0x24160b, 0.72).fillRoundedRect(d, 3, tw, d - 6, (d - 6) / 2);
+    tag.add([back, text]);
+    var zone = this.add.zone(r + 4, r, d + 16, d + 2).setInteractive({ useHandCursor: true }); // a fair size for a thumb, short of the chips under it
     F.tapOn(zone, function () { if (!self.modals.length) self.openEvent(); });
-    c.add([bg, icon, text, zone]);
+    c.add([tag, badge, icon, zone]);
     this.eventChipFor = ev.key;
+    this.eventTag = tag;
+    tag.setAlpha(1).setX(0);
+    this.tweens.add({ targets: tag, alpha: 0, x: -12, delay: NAME_MS, duration: 350, ease: 'Quad.in', onComplete: function () { tag.setVisible(false); } });
   };
 
   U.eventChip = function () {
@@ -21574,8 +21668,8 @@
     };
   };
   var remoteRock = P.remoteRock;
-  P.remoteRock = function (idx, by) {
-    remoteRock.call(this, idx, by);
+  P.remoteRock = function (idx, by, icon) {
+    remoteRock.call(this, idx, by, icon);
     if (this.mine && this.mine.broken[idx]) rockGone(this, idx);
   };
 
@@ -22222,15 +22316,20 @@
 
 // ---- src/19zf-swing.js
 // Friends see each other work (owner, 3 Nov 2026: "users are walking or smashing the rock but I can't see how they doing
-// that. It looks like lagging then suddenly the rock gone"). Each tool swing is told to the others on the same map (and
-// mine floor), and their farmer swings it on your screen (18-polish.js remoteUse). A rock they break pops when their
-// hammer lands (19r-follow.js remoteRock).
+// that. It looks like lagging then suddenly the rock gone"; "we need to polish how users can see what the other player is
+// doing"). Each tool swing is told to the others on the same map (and mine floor), and their farmer swings it on your
+// screen (18-polish.js remoteUse). A rock they break pops when their hammer lands (19r-follow.js remoteRock); a friend's
+// bow shot is drawn in 19w-bow.js remoteShot. Fishing: their bobber in the water, the bite, and the fish they land.
 (function (F) {
   'use strict';
   var C = F.Config;
   var O = F.Online;
   var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var T = C.TILE;
+  var DEPTH = F.WorldScene.DEPTH;
   var EVERY = 180; // ms: the quickest swings are told (a held, charged swing is one message)
+  var FISH_MAX = 60000; // a friend's bobber that never hears the end (they left, the line dropped) goes after this
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sent = 0;
 
@@ -22240,24 +22339,336 @@
     for (var k in O.others) if (O.others[k].map === w.mapKey && (O.others[k].fl || 0) === fl) return true;
     return false;
   };
+  var tell = function (w, event, payload) {
+    if (O.on && O.chan && !w.busy && near(w)) O.send(event, Object.assign({ map: w.mapKey, fl: floorOf(w) }, payload));
+  };
 
   var animateUse = P.animateUse;
   P.animateUse = function (frame, kind) {
     animateUse.call(this, frame, kind);
     var now = Date.now();
-    if (!O.on || !O.chan || this.busy || now - sent < EVERY || !near(this)) return;
+    if (now - sent < EVERY) return;
     sent = now;
-    O.send('use', { map: this.mapKey, fl: floorOf(this), f: frame, k: kind === 'pour' ? 'pour' : 'swing', d: this.dir });
+    tell(this, 'use', { f: frame, k: kind === 'pour' ? 'pour' : 'swing', d: this.dir });
+  };
+
+  // ---------- fishing ----------
+  var startFishing = P.startFishing;
+  P.startFishing = function (t) {
+    startFishing.call(this, t);
+    if (this.fishing && this.fishing.bob) tell(this, 'fish', { k: 'cast', x: Math.round(this.fishing.bob.x), y: Math.round(this.fishing.bob.y) });
+  };
+  var updateFishing = P.updateFishing;
+  P.updateFishing = function (time) {
+    var before = this.fishing && this.fishing.state;
+    updateFishing.call(this, time);
+    if (before === 'wait' && this.fishing && this.fishing.state === 'bite') tell(this, 'fish', { k: 'bite' });
+  };
+  var endFishing = P.endFishing;
+  P.endFishing = function () {
+    var had = !!this.fishing;
+    endFishing.call(this);
+    if (had && !this.fishLanding) tell(this, 'fish', { k: 'end' });
+  };
+  // A fish landed: told with its picture, so it jumps out of their water.
+  var startFishGame = U.startFishGame;
+  U.startFishGame = function (fishId, done) {
+    return startFishGame.call(this, fishId, function (ok) {
+      var w = F.world;
+      if (w) w.fishLanding = true;
+      try { done(ok); } finally { if (w) w.fishLanding = false; }
+      if (w) tell(w, 'fish', { k: 'end', ok: ok ? 1 : 0, i: ok && C.ITEMS[fishId] ? C.ITEMS[fishId].icon : -1 });
+    });
+  };
+
+  // What a friend got, floating up where they got it (owner, 3 Nov 2026): ore from a rock, a crop they picked, a fish.
+  P.floatIcon = function (x, y, frame) {
+    var img = this.add.image(x, y, 'items', frame).setScale(0.45).setDepth(DEPTH.Above);
+    this.tweens.add({ targets: img, y: y - 1.3 * T, scale: 0.6, duration: 420, ease: 'Quad.out' });
+    this.tweens.add({ targets: img, alpha: 0, delay: 750, duration: 300, onComplete: function () { img.destroy(); } });
+  };
+
+  P.remoteFishEnd = function (r, icon) {
+    var f = r.fish;
+    if (!f) return;
+    r.fish = null;
+    this.tweens.killTweensOf(f.bob);
+    if (f.mark) { this.tweens.killTweensOf(f.mark); f.mark.destroy(); }
+    if (f.timer) f.timer.remove();
+    var x = f.bob.x, y = f.bob.y;
+    f.bob.destroy();
+    if (!(icon >= 0)) return;
+    if (this.puff) this.puff({ x: Math.floor(x / T), y: Math.floor(y / T) }, 0xbfe6f0, 2);
+    var fish = this.add.image(x, y, 'items', icon).setScale(0.6).setDepth(DEPTH.Above);
+    this.tweens.add({ targets: fish, y: y - 1.6 * T, scale: 0.9, angle: { from: -25, to: 15 }, duration: 380, ease: 'Quad.out' });
+    this.tweens.add({ targets: fish, alpha: 0, delay: 900, duration: 300, onComplete: function () { fish.destroy(); } });
+  };
+  P.remoteFish = function (r, p) {
+    var self = this;
+    if (p.k === 'cast') {
+      var x = Number(p.x), y = Number(p.y);
+      if (!isFinite(x) || !isFinite(y) || Math.hypot(x - r.x, y - r.y) > 6 * T) return; // (their line is only so long)
+      this.remoteFishEnd(r, -1);
+      var bob = this.add.image(x, y, 'items', C.ICON.bobber).setDepth(DEPTH.fx);
+      this.tweens.add({ targets: bob, y: y + 16, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      r.fish = { bob: bob, mark: null, timer: this.time.delayedCall(FISH_MAX, function () { self.remoteFishEnd(r, -1); }) };
+    } else if (p.k === 'bite' && r.fish && !r.fish.mark) {
+      var f = r.fish;
+      f.mark = this.add.image(r.x, r.y - 2.4 * T, 'items', C.ICON.exclaim).setScale(1.3).setDepth(DEPTH.Above + 1);
+      this.tweens.killTweensOf(f.bob);
+      this.tweens.add({ targets: f.bob, y: f.bob.y + 40, duration: 90, yoyo: true, repeat: 4 });
+      this.remoteSound(r, 'bite');
+    } else if (p.k === 'end') {
+      var icon = Math.floor(Number(p.i));
+      var got = p.ok && icon >= 0 && icon < C.ICON_ORDER.length;
+      this.remoteFishEnd(r, got ? icon : -1);
+      if (got) this.remoteSound(r, 'catch');
+    }
   };
 
   var onMessage = O.onMessage;
   O.onMessage = function (event, payload) {
-    if (event !== 'use') return onMessage.call(O, event, payload);
+    if (event !== 'use' && event !== 'fish') return onMessage.call(O, event, payload);
     var p = payload && typeof payload === 'object' ? payload : {}, w = F.world;
-    var r = w && w.remotes && typeof p.id === 'string' ? w.remotes[p.id] : null, frame = Math.floor(Number(p.f));
+    var r = w && w.remotes && typeof p.id === 'string' ? w.remotes[p.id] : null;
     if (!r || !w.sys || !w.sys.isActive() || w.busy || p.map !== w.mapKey || (Number(p.fl) || 0) !== floorOf(w)) return;
+    if (event === 'fish') return w.remoteFish(r, p);
+    var frame = Math.floor(Number(p.f));
     if (!(frame >= 0 && frame < C.ICON_ORDER.length) || !DIRS[p.d]) return;
     w.remoteUse(r, p.d, frame, p.k === 'pour' ? 'pour' : 'swing');
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zg-live-farm.js
+// The owner's farm, live for its visitors (owner, 3 Nov 2026: "polish how users can see what the other player is doing").
+// A visit used to load the farm once (farm_visit_v1, up to a minute old) and never again, so a visitor saw the owner
+// swing and nothing happen. Now the owner's phone tells its visitors which field tiles changed, just after each action
+// (and the whole field once when someone arrives), and the visitor's phone redraws them with the same pop, dirt, splash
+// or leaves as your own work. Only the soil, crops and debris travel; the visit stays look-only.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var P = F.WorldScene.prototype;
+  var T = C.TILE;
+  var AFTER = 130; // ms after an action: its tool has landed (19b-feel.js IMPACT)
+  var EVERY = 2000; // and a quiet look this often, for what changes without an action (a crop withering, a new day)
+  var MAX_TILES = 64 * 64;
+
+  // ---------- the owner's side ----------
+  var sentSoil = null, sentDebris = null, known = {}, soon = null;
+  var packSoil = function (t) { return t ? [t.w ? 1 : 0, t.c || '', Math.round(t.p || 0), Math.round(t.r || 0)] : 0; };
+  var same = function (a, b) { return a === b || (a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]); };
+  var ownFarm = function (w) { return w && w.mapKey === 'farm' && w.state && !w.state.isVisit && !F.session.visit && w.sys && w.sys.isActive(); };
+  var visitors = function () { return Object.keys(O.others).filter(function (k) { return O.others[k].map === 'farm'; }); };
+
+  var tellFarm = function (w) {
+    soon = null;
+    if (!ownFarm(w) || !O.on || !O.chan) return;
+    var here = visitors();
+    if (!here.length) { sentSoil = sentDebris = null; known = {}; return; }
+    var s = w.state, soil = {}, debris = {};
+    Object.keys(s.soil || {}).forEach(function (k) { soil[k] = packSoil(s.soil[k]); });
+    Object.keys(s.debris || {}).forEach(function (k) { debris[k] = s.debris[k]; });
+    var fresh = here.some(function (id) { return !known[id]; });
+    known = {};
+    here.forEach(function (id) { known[id] = 1; });
+    if (fresh || !sentSoil) { // someone new: the whole field, as it is now
+      O.send('farm', { full: 1, s: Object.keys(soil).map(function (k) { return [Number(k)].concat(soil[k]); }), d: Object.keys(debris).map(function (k) { return [Number(k), debris[k]]; }) });
+    } else {
+      var ds = [], dd = [];
+      Object.keys(soil).forEach(function (k) { if (!same(soil[k], sentSoil[k])) ds.push([Number(k)].concat(soil[k])); });
+      Object.keys(sentSoil).forEach(function (k) { if (!(k in soil)) ds.push([Number(k), 0]); });
+      Object.keys(debris).forEach(function (k) { if (debris[k] !== sentDebris[k]) dd.push([Number(k), debris[k]]); });
+      Object.keys(sentDebris).forEach(function (k) { if (!(k in debris)) dd.push([Number(k), 0]); });
+      if (ds.length || dd.length) O.send('farm', { s: ds, d: dd });
+    }
+    sentSoil = soil;
+    sentDebris = debris;
+  };
+
+  var changed = P.changed;
+  P.changed = function () {
+    changed.call(this);
+    var self = this;
+    if (ownFarm(this) && O.on && O.chan && !soon && visitors().length) soon = setTimeout(function () { tellFarm(self); }, AFTER);
+  };
+  var create = P.create;
+  P.create = function () {
+    create.call(this);
+    var self = this;
+    sentSoil = sentDebris = null;
+    known = {};
+    if (this.mapKey === 'farm' && !this.state.isVisit) this.time.addEvent({ delay: EVERY, loop: true, callback: function () { if (!soon) tellFarm(self); } });
+  };
+
+  // ---------- the visitor's side ----------
+  var tileOf = function (w, idx) { return { x: idx % w.map.width, y: Math.floor(idx / w.map.width) }; };
+  var readSoil = function (row) {
+    if (!Array.isArray(row) || row.length < 5) return null; // [idx, 0]: the soil is gone
+    var c = typeof row[2] === 'string' && C.CROPS[row[2]] ? row[2] : null;
+    return { w: row[1] ? 1 : 0, c: c, p: Number(row[3]) || 0, r: Number(row[4]) || 0 };
+  };
+  var okIdx = function (w, i) { return Number.isInteger(i) && i >= 0 && i < Math.min(MAX_TILES, w.map.width * w.map.height); };
+
+  P.liveFarm = function (p) {
+    var self = this, s = this.state, full = !!p.full;
+    s.soil = s.soil || {};
+    s.debris = s.debris || {};
+    var soil = Array.isArray(p.s) ? p.s.slice(0, MAX_TILES) : [], debris = Array.isArray(p.d) ? p.d.slice(0, MAX_TILES) : [];
+    if (full) {
+      var wantSoil = {}, wantDebris = {};
+      soil.forEach(function (row) { var i = Math.floor(Number(row && row[0])), t = readSoil(row); if (okIdx(self, i) && t) wantSoil[i] = t; });
+      debris.forEach(function (row) { var i = Math.floor(Number(row && row[0])); if (okIdx(self, i) && C.DEBRIS[row[1]]) wantDebris[i] = row[1]; });
+      Object.keys(s.debris || {}).forEach(function (k) { if (!wantDebris[k]) self.removeDebrisTile(Number(k)); });
+      Object.keys(wantDebris).forEach(function (k) { var t = tileOf(self, Number(k)); self.putTile('Debris', self.gids['debris_' + wantDebris[k]], t.x, t.y); });
+      s.soil = wantSoil;
+      s.debris = wantDebris;
+      this.refreshAllSoil();
+      if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true });
+      return;
+    }
+    debris.forEach(function (row) {
+      var i = Math.floor(Number(row && row[0])), kind = row && row[1];
+      if (!okIdx(self, i)) return;
+      var t = tileOf(self, i), was = s.debris[i];
+      if (kind && C.DEBRIS[kind]) {
+        s.debris[i] = kind;
+        self.putTile('Debris', self.gids['debris_' + kind], t.x, t.y);
+      } else if (was) {
+        delete s.debris[i];
+        self.popOut('Debris', t);
+        self.removeDebrisTile(i);
+        self.impact('hammer', { kind: 'debris', debris: was }, t, true);
+      }
+    });
+    soil.forEach(function (row) {
+      var i = Math.floor(Number(row && row[0]));
+      if (!okIdx(self, i)) return;
+      var t = tileOf(self, i), was = s.soil[i] || null, now = readSoil(row), spr = self.crops[i];
+      if (now && !was) self.impact('hoe', { kind: 'till' }, t, false);
+      else if (!now && was) self.impact('hoe', { kind: 'untill' }, t, false);
+      else if (now && was) {
+        if (now.w && !was.w) self.puff(t, 0x9fd3ea, 2); // watered
+        if (now.c && !was.c) self.puff(t, 0xd9b98a, 1); // planted
+        if (was.c && (!now.c || now.p !== was.p) && spr) { // picked: the crop pops up and goes, and leaves fly
+          var pop = self.add.image(spr.x, spr.y, 'crops', spr.frame.name).setOrigin(0.5, 1).setDepth(spr.depth + 0.01);
+          self.tweens.add({ targets: pop, y: spr.y - 0.8 * T, alpha: 0, duration: 360, ease: 'Quad.out', onComplete: function () { pop.destroy(); } });
+          self.burst('leaf', spr.x, spr.y - 40, 4);
+          var crop = C.CROPS[was.c], item = crop && C.ITEMS[crop.item];
+          if (item) self.floatIcon(spr.x, spr.y - 0.6 * T, item.icon); // what they picked (a crop that grows back too)
+        }
+      }
+      if (now) s.soil[i] = now;
+      else delete s.soil[i];
+      self.refreshTile(i);
+    });
+    if (debris.length && this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true });
+  };
+
+  var onMessage = O.onMessage;
+  O.onMessage = function (event, payload) {
+    if (event !== 'farm') return onMessage.call(O, event, payload);
+    var p = payload && typeof payload === 'object' ? payload : {}, w = F.world;
+    if (!w || !w.sys || !w.sys.isActive() || w.busy || w.mapKey !== 'farm' || !w.state || !w.state.isVisit) return;
+    if (!F.session.visit || p.id !== F.session.visit.host) return; // only the owner, about their own farm
+    w.liveFarm(p);
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zh-news.js
+// Big moments, shared (owner, 3 Nov 2026): the friends you are playing with hear when you find the ladder down, catch the
+// King Trout, hunt a rare animal, or find a sparkling rock or a golden crop, as a short note on their screen. Only a key
+// travels (and which animal); each phone writes the words itself, so nobody can put their own text on yours.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var O = F.Online;
+  var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var GOLD = 0x7a5a12;
+  var GAP = 3000; // ms: one note at a time from a friend
+  var heard = {};
+
+  var SAY = {
+    ladder: function () { return 'found the ladder down!'; },
+    trout: function () { return 'caught the legendary King Trout!'; },
+    rare: function (p) { var a = C.WILD.animals[p.a]; return a && a.rare ? 'hunted a ' + a.name + '!' : null; },
+    sparkle: function () { return 'found a sparkling rock!'; },
+    golden: function () { return 'found a golden crop!'; },
+  };
+
+  var tell = function (k, extra) {
+    if (O.on && O.chan && Object.keys(O.others).length) O.send('news', Object.assign({ k: k }, extra || {}));
+  };
+
+  // ---------- telling ----------
+  var breakRock = P.breakRock;
+  P.breakRock = function (idx, t, items) {
+    var stairs = this.mine && idx === this.mine.stairs, r = breakRock.call(this, idx, t, items);
+    if (r && stairs) tell('ladder');
+    return r;
+  };
+  var rareBurst = P.rareBurst;
+  P.rareBurst = function (x, y, frame, text) {
+    rareBurst.call(this, x, y, frame, text);
+    if (/^Sparkling rock/.test(text)) tell('sparkle');
+    else if (/^Golden /.test(text)) tell('golden');
+  };
+  var hunted = L.hunted;
+  L.hunted = function (s, area, slot, kind, size) {
+    var r = hunted.apply(L, arguments);
+    if (s === F.session.state && C.WILD.animals[kind] && C.WILD.animals[kind].rare) tell('rare', { a: kind });
+    return r;
+  };
+  var startFishGame = U.startFishGame;
+  U.startFishGame = function (fishId, done) {
+    return startFishGame.call(this, fishId, function (ok) {
+      done(ok);
+      if (ok && fishId === 'fish_k') tell('trout');
+    });
+  };
+
+  // ---------- hearing ----------
+  var onMessage = O.onMessage;
+  O.onMessage = function (event, payload) {
+    if (event !== 'news') return onMessage.call(O, event, payload);
+    var p = payload && typeof payload === 'object' ? payload : {}, who = typeof p.id === 'string' ? O.others[p.id] : null;
+    var say = who && Object.prototype.hasOwnProperty.call(SAY, p.k) ? SAY[p.k](p) : null, now = Date.now();
+    if (!say || !F.ui || now - (heard[p.id] || 0) < GAP) return;
+    heard[p.id] = now;
+    F.ui.toast(who.name + ' ' + say, 3000, GOLD);
+    if (F.Audio) F.Audio.sfx('found');
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zi-react.js
+// Reactions (owner, 3 Nov 2026: "more reactions"): Wave opens a small centred card of six, and what you pick shows over
+// your farmer for everyone here (O.react, 19h-online.js). A friend on an older game sees a plain "Hi!".
+(function (F) {
+  'use strict';
+  var O = F.Online;
+  var U = F.UIScene.prototype;
+  var K = F.UI_CONST, W = K.W, H = K.H;
+  var BLUE = 0x4a90c9, PINK = 0xd86a8a, GOLD = 0xd9a62a, GREEN = 0x5fa84a, VIOLET = 0x8a6ac9, GREY = 0xa08a68;
+  var CHOICES = [['wave', 'Hi!', BLUE], ['heart', 'Love', PINK], ['laugh', 'Haha!', GOLD], ['wow', 'Wow!', VIOLET], ['yay', 'Yay!', GREEN], ['aww', 'Aww...', GREY]];
+
+  U.openReact = function () {
+    var self = this;
+    if (this.modals.length) return;
+    var c = this.openModal(), h = 196, y0 = Math.round((H - h) / 2 - 30);
+    this.panelImg(c, 36, y0, W - 72, h);
+    var title = this.txt(W / 2, y0 + 4, 'SAY SOMETHING', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+    this.ribbon(c, W / 2, y0 + 4, Math.max(170, title.width + 44));
+    c.add(title);
+    CHOICES.forEach(function (ch, i) {
+      var x = W / 2 + (i % 3 - 1) * 92, y = y0 + 62 + Math.floor(i / 3) * 56;
+      self.button(c, x, y, 84, 42, ch[1], function () { self.closeModal(); O.react(ch[0]); }, ch[2]);
+    });
+    this.button(c, W / 2, y0 + h - 28, 110, 34, 'Close', function () { self.closeModal(); }, GREY);
+    return c;
   };
 })(window.Farm = window.Farm || {});
 

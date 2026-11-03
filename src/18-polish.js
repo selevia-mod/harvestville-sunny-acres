@@ -213,6 +213,13 @@
   // ---------- a friend's farmer swings a tool (owner, 3 Nov 2026: "users are smashing the rock but I can't see how") ----------
   // r = their farmer on this map (19h-online.js). The same raise and strike as yours, with the tool in their hands; their
   // walk waits until it is done (r.useUntil). Sent and heard in 19zf-swing.js.
+  // A friend's work sounds as yours does, softer, and fading out by 9 tiles away (owner, 3 Nov 2026).
+  var SOUND = { hoe: 'till', can: 'water', axe: 'chop', hammer: 'smash', sickle: 'cut', rod: 'cast' };
+  M.remoteSound = function (r, name) {
+    if (!name || !F.Audio || !F.Audio.sfxSoft || !this.player) return;
+    var f = this.feet(), d = Math.hypot(f.x - r.x, f.y - r.y) / T;
+    F.Audio.sfxSoft(name, 0.6 * Math.max(0, 1 - d / 9));
+  };
   M.remoteUse = function (r, dir, frame, kind) {
     var self = this, u = USE[dir] || USE.down, p = r.spr, g = gripOf(frame), flip = !!u.flip;
     if (!p || !p.active || r.horse) return;
@@ -236,8 +243,10 @@
       this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
         place('strike', 'strike');
         if (self.swoosh && tool.active) self.swoosh(tool, from);
+        self.remoteSound(r, SOUND[(C.ICON_ORDER[frame] || '').replace(/_\d$/, '')]);
       });
     }
+    if (kind === 'pour') this.remoteSound(r, g === GRIP.can ? 'water' : null);
     this.time.delayedCall(ms, function () {
       tool.destroy();
       if (r.tool === tool) r.tool = null;

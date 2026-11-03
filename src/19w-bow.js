@@ -73,7 +73,7 @@
 
   // The bow turned to what you aim at, the string, the arrow on it, and the farmer's pose.
   var pose = function (w, shot) {
-    var p = w.player, at = POSE[w.dir], side = at.flip ? -1 : 1, grip = at.grip[shot.stage];
+    var p = shot.who || w.player, at = POSE[shot.dir || w.dir], side = at.flip ? -1 : 1, grip = at.grip[shot.stage];
     var bx = p.x - Math.cos(shot.ang) * shot.recoil, by = p.y - Math.sin(shot.ang) * shot.recoil;
     var x = bx + (grip[0] - 144) * side, y = by + grip[1] - 192;
     var a = shot.target;
@@ -100,13 +100,14 @@
 
   var loose = function (w, shot) {
     var s = w.state, cx = Math.cos(shot.ang), cy = Math.sin(shot.ang), x = shot.nock.x + cx * ARROW_W / 2, y = shot.nock.y + cy * ARROW_W / 2;
-    var range = L.bowRange(s) * T;
+    var range = shot.remote ? shot.range : L.bowRange(s) * T;
     shot.arrow.destroy();
     shot.arrow = null;
     shot.stage = LET_GO;
-    w.wildArrow(x, y, shot.ang, range, false);
-    if (Object.keys(w.remotes || {}).length) O.send('ar', { x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
-    sfx('bowshot');
+    w.wildArrow(x, y, shot.ang, range, !!shot.remote);
+    if (!shot.remote && Object.keys(w.remotes || {}).length) O.send('ar', { x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
+    if (shot.remote) w.remoteSound(shot.r, 'bowshot');
+    else sfx('bowshot');
     w.tweens.addCounter({
       from: 1, to: 0, duration: AFTER_MS,
       onUpdate: function (tw) {
@@ -120,6 +121,7 @@
         shot.string.destroy();
         shot.body.destroy();
         if (shot.fist) shot.fist.destroy();
+        if (shot.remote) return shot.done();
         w.player.setVisible(true);
         w.shot = null;
         w.idle();
@@ -173,7 +175,45 @@
     this.changed();
   };
 
-  // A friend's shot: their bow, there for a moment where the arrow starts.
+  // A friend's shot (owner, 3 Nov 2026: what the other player does should show, not just its result). Heard when their arrow
+  // leaves (19v-wild.js 'ar'), their farmer plays the same shot a little quicker: bow up, a pull to the cheek, and the arrow
+  // goes from their string. r = their farmer (19h-online.js); x, y = where their arrow started; l = its range.
+  P.remoteShot = function (r, x, y, ang, l, level) {
+    var self = this, p = r.spr;
+    if (!p || !p.active || r.horse || r.shot) return false;
+    var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
+    var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, r.look === 'girl' ? 'archer_girl' : 'archer');
+    var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
+    var shot = r.shot = {
+      remote: true, r: r, who: p, dir: dir, target: null, ang: ang, range: l, pull: 0.1, recoil: 0, nock: null, stage: READY,
+      body: this.add.image(p.x, p.y, key, 0).setDepth(p.depth),
+      bow: bowImage(this, icon, p.x, p.y, 0, at.scale).setDepth(depth),
+      string: this.add.graphics().setDepth(depth + 0.0002),
+      arrow: this.add.image(p.x, p.y, F.ensureTexture(this, 'props/arrow_fly')).setOrigin(0, 0.5).setDisplaySize(ARROW_W, ARROW_H).setDepth(depth + 0.0001),
+      fist: at.behind ? null : this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003),
+      done: function () { if (r.shot === shot) r.shot = null; r.useUntil = 0; if (p.active) p.setVisible(true); },
+    };
+    var quick = { ready: 60, draw: 100 };
+    r.useUntil = this.time.now + quick.ready + quick.draw + AFTER_MS + 40;
+    r.anim = null;
+    p.anims.stop();
+    p.setVisible(false);
+    pose(this, shot);
+    this.remoteSound(r, 'bowdraw');
+    this.time.delayedCall(quick.ready, function () {
+      if (r.shot !== shot || !p.active) return;
+      shot.stage = FULL;
+      self.tweens.addCounter({
+        from: 0.72, to: 1, duration: quick.draw, ease: 'Quad.out',
+        onUpdate: function (tw) { if (r.shot === shot) { shot.pull = tw.getValue(); pose(self, shot); } },
+        onComplete: function () { if (r.shot === shot) loose(self, shot); },
+      });
+    });
+    void x; void y;
+    return true;
+  };
+
+  // A friend's shot when their farmer can't play it (on a horse, already shooting): their bow, there for a moment where the arrow starts.
   P.bowFlash = function (x, y, ang, level) {
     var icon = level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow';
     var img = bowImage(this, C.ICON[icon], x - Math.cos(ang) * ARROW_W * 0.5, y - Math.sin(ang) * ARROW_W * 0.5, ang).setDepth(F.WorldScene.DEPTH.fx);

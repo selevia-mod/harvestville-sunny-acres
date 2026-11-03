@@ -238,9 +238,17 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
   await waitToast(ana.page, /You left Moon Meadow a 100G gift!/);
   await waitToast(owner.page, /Ana Acres left you a gift!/);
   await tapVisit(ben.page, 'Wave');
+  await waitModal(ben.page, /SAY SOMETHING[\s\S]*Hi![\s\S]*Love[\s\S]*Haha![\s\S]*Wow![\s\S]*Yay![\s\S]*Aww/); // (owner, 3 Nov: more than a wave)
+  await shot(ben.page, 'online-6-react');
+  await tapButton(ben.page, 'Hi!');
   await ben.page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Hi!'), null, SLOW);
   await owner.page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Hi!'), null, SLOW);
   await shot(ben.page, 'online-6-wave');
+  await ben.page.waitForTimeout(2200);
+  await tapVisit(ben.page, 'Wave');
+  await waitModal(ben.page, /SAY SOMETHING/);
+  await tapButton(ben.page, 'Haha!');
+  await owner.page.waitForFunction(() => Farm.world.children.list.some((o) => o.type === 'Text' && o.text === 'Haha!'), null, SLOW);
   const gold0 = await owner.page.evaluate(() => Farm.session.state.gold);
   await owner.page.evaluate(() => Farm.Online.collect(false));
   assert.strictEqual(await owner.page.evaluate(() => Farm.session.state.gold), gold0 + 100, 'the gift is 100G');
@@ -987,6 +995,14 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await guest.page.waitForFunction((slot) => { const a = Farm.world.wild.animals.filter((x) => x.slot === slot)[0]; return a && a.mode === 'idle' && a.path; }, first, SLOW);
   await new Promise((r) => setTimeout(r, 900)); // (it has come to rest on the guest's phone)
   await shootAt(guest, first, at);
+  // the owner sees the guest draw and let go, not just an arrow coming out of a farmer standing still (owner, 3 Nov)
+  const theirShot = await host.page.waitForFunction((id) => {
+    const r = Farm.world.remotes[id], s = r && r.shot;
+    return s && s.body.active ? { body: s.body.texture.key, hidden: !r.spr.visible, bow: !!s.bow.active } : null;
+  }, guest.uid, { ...SLOW, polling: 10 }).then((h) => h.jsonValue());
+  assert.deepStrictEqual(theirShot, { body: 'archer', hidden: true, bow: true });
+  await shot(host.page, 'hunt-friend-shoots');
+  await host.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && !r.shot && r.spr.visible; }, guest.uid, SLOW);
   const gone = (page, slot) => page.waitForFunction((slot) => !Farm.world.wild.animals.some((x) => x.slot === slot), slot, SLOW);
   await gone(host.page, first);
   await gone(guest.page, first);
@@ -1636,6 +1652,91 @@ test('online: a friend\'s hammer swing plays on your screen, and the rock pops w
   await guest.page.waitForFunction((i) => Farm.world.mine.broken[i] === 1, idx, SLOW);
   // when it is done, their hammer goes and they stand as before
   await guest.page.waitForFunction((hostId) => { const w = Farm.world, r = w.remotes[hostId]; return r && !r.tool && !(r.useUntil > w.time.now); }, host.uid, SLOW);
+  // a big moment is shared: the owner finds the ladder down, and the guest hears it (owner, 3 Nov)
+  await host.page.evaluate(() => { const w = Farm.world, i = w.mine.stairs; w.breakRock(i, { x: i % w.map.width, y: Math.floor(i / w.map.width) }, {}); });
+  await waitToast(guest.page, /Moon Meadow found the ladder down!/);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
+});
+
+test('online: a friend fishing: their bobber in the water, the bite, and the fish they land (owner, 3 Nov)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await guest.page.evaluate(() => { const P = Farm.WorldScene.prototype, end = P.remoteFishEnd; window.__landed = []; P.remoteFishEnd = function (r, icon) { if (r.fish) window.__landed.push(icon); return end.call(this, r, icon); }; });
+  // the owner casts at the pond
+  await host.page.evaluate(() => {
+    const w = Farm.world, T = Farm.Config.TILE, s = Farm.session.state;
+    Farm.Logic.addItem(s, 'rod', 1); Farm.Config.FISH_WINDOW = 1e9;
+    w.setFeet(14 * T + T / 2, 4 * T + T / 2); w.dir = 'right'; w.idle(); Farm.Online.tellPlace();
+  });
+  await new Promise((r) => setTimeout(r, 800));
+  await host.page.evaluate(() => Farm.world.startFishing({ x: 15, y: 4 }));
+  const bob = await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.fish && r.fish.bob.active ? { x: Math.round(r.fish.bob.x), y: Math.round(r.fish.bob.y) } : null; }, host.uid, SLOW).then((h) => h.jsonValue());
+  const T = await host.page.evaluate(() => Farm.Config.TILE);
+  assert.deepStrictEqual([Math.floor(bob.x / T), Math.floor(bob.y / T)], [15, 4], 'their bobber, where they cast');
+  // a bite: the guest sees the "!" over them
+  await host.page.evaluate(() => { Farm.world.fishing.biteAt = 0; });
+  await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.fish && r.fish.mark; }, host.uid, SLOW);
+  await shot(guest.page, 'fish-1-friend-bite');
+  // they reel it in: it jumps out of the water on the guest's phone, and the bobber goes
+  await host.page.evaluate(() => { const G = Farm.Config.FISH_GAME; ['fish_s', 'fish_m', 'fish_l', 'fish_k'].forEach((k) => { G[k].zone = 1; }); G.fill = 50; G.drain = 0; Farm.input.action = true; });
+  await host.page.waitForFunction(() => !Farm.world.fishing && !Farm.ui.game2, null, SLOW);
+  await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && !r.fish && window.__landed.length; }, host.uid, SLOW);
+  const landed = await guest.page.evaluate(() => window.__landed);
+  assert.strictEqual(landed.length, 1);
+  assert.ok(landed[0] >= 0, 'a fish, with its picture');
+  // a cast that ends without a fish just takes the bobber away
+  await host.page.evaluate(() => Farm.world.startFishing({ x: 15, y: 4 }));
+  await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.fish; }, host.uid, SLOW);
+  await host.page.evaluate(() => Farm.world.endFishing());
+  await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && !r.fish; }, host.uid, SLOW);
+  assert.deepStrictEqual((await guest.page.evaluate(() => window.__landed)).slice(1), [-1]);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
+});
+
+test('online: the owner\'s farm changes live for a visitor: a weed cut, soil tilled and watered, and today\'s field on arrival (owner, 3 Nov)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  // before the visit: the owner tills a tile (the published copy does not have it yet)
+  const plan = await host.page.evaluate(() => {
+    const w = Farm.world, s = w.state, W = w.map.width;
+    s.energy = 100;
+    const weeds = Object.keys(s.debris).map(Number).filter((i) => s.debris[i] === 'weed');
+    const early = weeds[0], weed = weeds[1];
+    w.useTool('sickle', { x: early % W, y: Math.floor(early / W) }, 0);
+    return { early, weed, W };
+  });
+  await host.page.waitForTimeout(400);
+  const tillEarly = await host.page.evaluate((p) => { const w = Farm.world; w.useTool('hoe', { x: p.early % p.W, y: Math.floor(p.early / p.W) }, 0); return !!w.state.soil[p.early]; }, plan);
+  assert.ok(tillEarly, 'the owner tilled it');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await guest.page.waitForFunction((i) => !!Farm.world.state.soil[i] && !Farm.world.state.debris[i], plan.early, SLOW);
+  // while the guest watches: a weed cut, then tilled, then watered
+  const at = (page, i) => page.evaluate((i) => ({ weed: Farm.world.state.debris[i] || null, soil: Farm.world.state.soil[i] ? { w: Farm.world.state.soil[i].w } : null, debrisTile: !!Farm.world.layers.Debris.getTileAt(i % Farm.world.map.width, Math.floor(i / Farm.world.map.width)) }), i);
+  assert.deepStrictEqual(await at(guest.page, plan.weed), { weed: 'weed', soil: null, debrisTile: true });
+  await host.page.evaluate((p) => Farm.world.useTool('sickle', { x: p.weed % p.W, y: Math.floor(p.weed / p.W) }, 0), plan);
+  await guest.page.waitForFunction((i) => !Farm.world.state.debris[i] && !Farm.world.layers.Debris.getTileAt(i % Farm.world.map.width, Math.floor(i / Farm.world.map.width)), plan.weed, SLOW);
+  await host.page.waitForTimeout(300);
+  await host.page.evaluate((p) => Farm.world.useTool('hoe', { x: p.weed % p.W, y: Math.floor(p.weed / p.W) }, 0), plan);
+  await guest.page.waitForFunction((i) => !!Farm.world.state.soil[i], plan.weed, SLOW);
+  await host.page.waitForTimeout(300);
+  await host.page.evaluate((p) => { Farm.world.state.water = 10; Farm.world.useTool('can', { x: p.weed % p.W, y: Math.floor(p.weed / p.W) }, 0); }, plan);
+  await guest.page.waitForFunction((i) => Farm.world.state.soil[i] && Farm.world.state.soil[i].w === 1, plan.weed, SLOW);
+  await shot(guest.page, 'live-farm-1-guest');
+  // the guest's own farm is never touched
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.state !== Farm.session.state), true, 'the visit is its own copy');
   for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, guest]) await p.context.close();
 });

@@ -807,7 +807,13 @@
     if (!who || !w || !w.wild || w.busy || !w.sys || !w.sys.isActive() || who.map !== w.mapKey) return;
     var lead = w.wildFollowing(), a = w.wild.animals.filter(function (x) { return x.slot === p.s; })[0];
     if (event === 'wa') { if (lead === p.id) w.wildHear(Number(p.t) || Date.now(), p.l); return; }
-    if (event === 'ar') { if (isFinite(p.x) && isFinite(p.y) && isFinite(p.a)) { w.wildArrow(Number(p.x), Number(p.y), Number(p.a), Math.min(8 * T, Number(p.l) || 0), true); w.bowFlash(Number(p.x), Number(p.y), Number(p.a), Number(p.b) || 0); } return; }
+    if (event === 'ar') {
+      if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.a)) return;
+      var ax = Number(p.x), ay = Number(p.y), ang = Number(p.a), range = Math.min(8 * T, Number(p.l) || 0), lv = Number(p.b) || 0, shooter = w.remotes && w.remotes[p.id];
+      // their farmer draws and lets go (19w-bow.js remoteShot); if it can't, just their arrow and a flash of their bow
+      if (!(shooter && w.remoteShot(shooter, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+      return;
+    }
     if (event === 'bt') { if (isFinite(p.x) && isFinite(p.y) && !w.wildBait) w.layBait(Number(p.x), Number(p.y)); return; }
     if (!a) return;
     if (event === 'wh' && !lead && a.hp > 0) {
