@@ -1,4 +1,4 @@
-// Willowbrook Station in town (rules: 01-logicz-town.js; panels and the tour: 19zz-town-ui.js). The station, the rails,
+// Willowbrook Station in town (rules: 01-logicZ-town.js; panels and the tour: 19zz-town-ui.js). The station, the rails,
 // the train and the crates on the platform are drawn here on canvases (stand-ins until the art in
 // art-src/TOWN-PROMPTS.md comes); the map holds their places (tools/town-station.js). The train rolls in with a whistle
 // and steam, its visitors step off and walk about town (the villagers' walking, 15-villagers.js) with what they wish for

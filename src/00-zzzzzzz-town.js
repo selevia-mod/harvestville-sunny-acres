@@ -1,5 +1,5 @@
 // Willowbrook Station (owner, 4 Nov 2026: "a train station in town that brings visitors and big timed orders, and a town
-// that grows"). Content only; the rules are 01-logicz-town.js, the station and the train in town 19zz-town.js, the panels
+// that grows"). Content only; the rules are 01-logicZ-town.js, the station and the train in town 19zz-town.js, the panels
 // and the tour 19zz-town-ui.js. The station stands up the lane by the Post Office, north of Market Street
 // (tools/town-station.js puts its ground and places on maps/town.json).
 (function (F) {

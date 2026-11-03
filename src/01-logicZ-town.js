@@ -4,8 +4,8 @@
 // a little, all of them a big prize; the next train takes the crates and brings a new order (or takes what was filled
 // when the time runs out). Visitors get off every train and ask for pasalubong. Crates, visitors and sales while a train
 // is in give Town points; the Town Level they make unlocks things (C.TW.levels).
-// (Named 01-logicz-…: '01-logic-town.js' would load before 01-logic.js, as '-' sorts before '.'.)
-// Saved as 'tw': [points, last train, sales counted this train, orders made, orders filled, order or 0, wishes, kiosk].
+// (Named 01-logicZ-…: '01-logic-town.js' would load before 01-logic.js, as '-' sorts before '.'.)
+// Saved as 'tn' ('tw' is the chapel and school days, 01-logic5.js); in the state as s.tw: [points, last train, sales counted this train, orders made, orders filled, order or 0, wishes, kiosk].
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -321,7 +321,7 @@
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s), tw = s.tw || blank(), od = tw.o;
-    o.tw = [tw.p, tw.t, tw.ts, tw.n, tw.done,
+    o.tn = [tw.p, tw.t, tw.ts, tw.n, tw.done,
       od ? [od.at, od.due, od.no, od.full, od.prize.gold, od.prize.stars, od.prize.item || '', od.prize.n || 0,
         od.crates.map(function (c) { return [c.id, c.n, KINDS.indexOf(c.k), c.pay, c.done]; })] : 0,
       tw.v.map(function (w) { return [w.who, w.id, w.n, w.gold, w.stars, w.done]; }),
@@ -345,7 +345,7 @@
     // shelves of a bigger stall (Town Level 2) keep their 30 on the way in
     var s = L.twWithShelf(Math.max(BASE_SHELF, TW.shelfMore), function () { return deserialize(o); });
     if (!s) return s;
-    var a = o && Array.isArray(o.tw) ? o.tw : [];
+    var a = o && Array.isArray(o.tn) ? o.tn : [];
     s.tw = blank();
     s.tw.p = int(a[0], 0, 1e6, 0);
     s.tw.t = int(a[1], -1, 1e9, -1);

@@ -1,4 +1,4 @@
-// Willowbrook Station's panels (rules: 01-logicz-town.js; the station in town: 19zz-town.js): Cargo (the crates as
+// Willowbrook Station's panels (rules: 01-logicZ-town.js; the station in town: 19zz-town.js): Cargo (the crates as
 // cards, the prize on top), Visitors (what the people off the train wish for), Town (the Town Level, what the next one
 // brings, every level), and the Kiosk from Town Level 4. The first-time tour, opened by the first visit to the
 // station or from What's new, and the bigger stall's shelves (Town Level 2) in the stall's panel.

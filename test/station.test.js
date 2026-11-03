@@ -1,4 +1,4 @@
-// Unit tests for Willowbrook Station (src/00-zzzzzzz-town.js, src/01-logicz-town.js; the map: tools/town-station.js):
+// Unit tests for Willowbrook Station (src/00-zzzzzzz-town.js, src/01-logicZ-town.js; the map: tools/town-station.js):
 // the trains by the clock, cargo orders (crates from every part of the game, a deadline, the prize), visitors and their
 // wishes, the Town Level and what it unlocks (the bigger stall, the kiosk, the Collector), the save, and the town map.
 const test = require('node:test');
@@ -298,20 +298,38 @@ test('the save: everything comes back; old saves and junk start the station afre
   s.tw.up = null;
   const b = roundTrip(s);
   assert.deepStrictEqual(plain(b.tw), plain(s.tw));
-  assert.ok(JSON.stringify(L.serialize(s).tw).length < 500, 'small');
+  assert.ok(JSON.stringify(L.serialize(s).tn).length < 500, 'small');
   const old = L.serialize(fresh());
-  delete old.tw;
+  delete old.tn;
   const o = L.deserialize(JSON.parse(JSON.stringify(old)));
   assert.deepStrictEqual(plain(o.tw), plain(fresh().tw));
   L.twTick(at(o, 10));
   assert.ok(o.tw.o, 'an old farm gets its first order too');
   const junk = L.serialize(fresh());
-  junk.tw = [-5, 'x', 99, 1e12, null, [1, 2, 3, 0, 'a', 'b', 'nope', 1, [['nope', 3, 0, 1, 0], ['turnip', 1e9, 99, -4, 1]]], [[9, 'turnip', 2, 50, 7, 0], 'x'], 'k'];
+  junk.tn = [-5, 'x', 99, 1e12, null, [1, 2, 3, 0, 'a', 'b', 'nope', 1, [['nope', 3, 0, 1, 0], ['turnip', 1e9, 99, -4, 1]]], [[9, 'turnip', 2, 50, 7, 0], 'x'], 'k'];
   const j = L.deserialize(JSON.parse(JSON.stringify(junk))).tw;
   assert.deepStrictEqual([j.p, j.t, j.ts, j.n], [0, -1, 99, 1e6]);
   assert.strictEqual(j.o, null, 'a crate of an unknown kind is dropped, and an order with none is no order');
   assert.deepStrictEqual(plain(j.v), [{ who: TW.visitors.length - 1, id: 'turnip', n: 2, gold: 50, stars: 3, done: 0 }]);
   assert.deepStrictEqual(plain(j.k), [0, []]);
+});
+
+test('saved under its own key: the chapel and school days (saved as tw, 01-logic5.js) survive next to the station', () => {
+  const s = at(rich(), 11, 0);
+  L.twTick(s);
+  s.chapelDay = s.day;
+  s.schoolDay = s.day; // (only today's are kept)
+  s.animals[0].treat = 1;
+  const o = L.serialize(s);
+  assert.ok(Array.isArray(o.tw) && Array.isArray(o.tn), 'two keys');
+  assert.deepStrictEqual(plain(o.tw.slice(0, 2)), [s.day, s.day]);
+  const b = L.deserialize(JSON.parse(JSON.stringify(o)));
+  assert.deepStrictEqual([b.chapelDay, b.schoolDay, b.animals[0].treat], [s.day, s.day, 1]);
+  assert.deepStrictEqual(plain(b.tw.o), plain(s.tw.o));
+  // a save from before the station: its chapel and school days come through, and the station starts afresh
+  delete o.tn;
+  const c = L.deserialize(JSON.parse(JSON.stringify(o)));
+  assert.deepStrictEqual([c.chapelDay, c.schoolDay, c.tw.p, c.tw.o], [s.day, s.day, 0, null]);
 });
 
 test('the tour has its own tip, once', () => {
