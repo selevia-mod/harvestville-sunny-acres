@@ -9,6 +9,13 @@ fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const list = (dir, ext) => fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(ext)).sort();
 
+// Small sheets cut from big ones (the furniture styles' thumbnails, the farmhands' stand-ins): cut again whenever what
+// they are cut from changes (tools/art/cut-sheets.js keeps a hash of it in assets/cut-sheets.json).
+{
+  const r = require('child_process').spawnSync(process.execPath, [path.join(ROOT, 'tools', 'art', 'cut-sheets.js'), '--if-changed'], { stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('tools/art/cut-sheets.js failed');
+}
+
 // Each sheet is inlined from its .webp copy when there is one (about 6x smaller than the PNG,
 // which stays in assets/ for Tiled), otherwise from the PNG.
 const images = {};

@@ -26,7 +26,8 @@
       var def = C.ANIMALS[kind], paint = L.breedDef(kind, b).paint;
       if (!def || !paint) return base;
       try {
-        var src = tex.get(base), img = src.getSourceImage(), ratio = img.width / src.source[0].width;
+        // (from the animals bitmap while it is kept, 10-boot.js: an <img> is decoded on the main thread when first drawn)
+        var src = tex.get(base), img = (F.bitmaps && F.bitmaps.animals) || src.getSourceImage(), ratio = img.width / src.source[0].width;
         var gl = scene.game.renderer.type === Phaser.WEBGL, out = gl ? 0.5 : 1; // stored at half size, like the world art
         var cv = document.createElement('canvas');
         cv.width = Math.ceil(ROW_W * out);
@@ -52,12 +53,41 @@
   };
 
   // ---------- in the pen ----------
+  // A colour not painted yet is painted after the map's first frame, one a frame, the ones on screen first (painting them
+  // all in the farm's first frame cost ~0.35 s of boot on a slow phone). Until then that animal and its shadow are hidden.
+  F.keepBitmap = F.keepBitmap || {};
+  F.keepBitmap.animals = true; // (the herd paints from it; F.dropBitmaps lets it go a few seconds into the map)
+  var paintLater = function (sc, m, kind, b) {
+    m.sprite.setAlpha(0);
+    m.sh.setAlpha(0);
+    var q = sc.breedQueue;
+    if (!q) {
+      q = sc.breedQueue = { list: [], frame: sc.game.loop.frame };
+      var step = function () {
+        if (sc.game.loop.frame <= q.frame + 1 || !q.list.length) return;
+        var cam = sc.cameras.main, cx = cam.midPoint.x, cy = cam.midPoint.y;
+        q.list.sort(function (p, r) { return Math.hypot(p.m.x - cx, p.m.y - cy) - Math.hypot(r.m.x - cx, r.m.y - cy); });
+        var job = q.list.shift(), key = F.Breeds.texture(sc, job.kind, job.b);
+        q.list.filter(function (o) { return o.kind === job.kind && o.b === job.b; }).concat([job]).forEach(function (o) {
+          if (o.m.sprite.active) o.m.sprite.setTexture(key, o.m.sprite.frame.name).setAlpha(1);
+          if (o.m.sh.active) o.m.sh.setAlpha(1);
+        });
+        q.list = q.list.filter(function (o) { return !(o.kind === job.kind && o.b === job.b); });
+        if (!q.list.length) done();
+      };
+      var done = function () { sc.events.off('postupdate', step); sc.events.off('shutdown', done); if (sc.breedQueue === q) sc.breedQueue = null; };
+      sc.events.on('postupdate', step);
+      sc.events.once('shutdown', done);
+    }
+    q.list.push({ m: m, kind: kind, b: b });
+  };
   var add = F.Herd.prototype.add;
   F.Herd.prototype.add = function (i) {
     var m = add.call(this, i), sc = this.scene, a = sc.state.animals[i], b = L.breedOf(a);
     m.rare = L.isRare(a);
     m.twinkle = 1500 + Math.random() * 3000;
-    if (b) m.sprite.setTexture(F.Breeds.texture(sc, a.kind, b), m.sprite.frame.name);
+    if (b && !sc.textures.exists(F.Breeds.key(a.kind, b)) && C.ANIMALS[a.kind] && L.breedDef(a.kind, b).paint) paintLater(sc, m, a.kind, b);
+    else if (b) m.sprite.setTexture(F.Breeds.texture(sc, a.kind, b), m.sprite.frame.name);
     // a new colour from Lily's shop (a newborn's is in the morning report)
     if (a.brNew && this.live && !(F.session && F.session.visit)) {
       delete a.brNew;

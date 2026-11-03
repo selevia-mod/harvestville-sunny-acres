@@ -740,8 +740,10 @@
   P.twWishMarks = function () {
     var v = this.villagers, wishes = L.twWishes(me()), self = this;
     if (!v || !v.tourists) return;
-    v.tourists.forEach(function (t) {
-      var w = t.visible && wishes.filter(function (x) { return x.who === t.who; })[0], want = w && !w.done;
+    for (var k = 0; k < v.tourists.length; k++) { // (each frame: plain loops, nothing made)
+      var t = v.tourists[k], w = null;
+      if (t.visible) for (var j = 0; j < wishes.length && !w; j++) if (wishes[j].who === t.who) w = wishes[j];
+      var want = w && !w.done;
       if (want && !t.mark) {
         t.mark = {
           b: self.add.image(0, 0, 'tw-wish').setScale(2.3).setDepth(DEPTH.Above + 1),
@@ -754,7 +756,7 @@
         t.mark.b.setPosition(t.x, y);
         t.mark.i.setPosition(t.x, y - 0.15 * T).setFrame(C.ITEMS[w.id].icon);
       }
-    });
+    }
   };
 
   // Talking to a visitor: what they would like, and Give when you have it.

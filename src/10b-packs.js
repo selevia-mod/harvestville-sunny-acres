@@ -83,7 +83,7 @@
     return ask(f.file, false).then(function (url) {
       if (!url) return null;
       if (!f.key) return url;
-      return decode(url).then(function (img) { if (!img) return null; F.images[f.key] = img; return true; });
+      return decode(url).then(function (img) { if (!img) return null; F.images[f.key] = img; (F.packUrls = F.packUrls || {})[f.key] = url; return true; });
     });
   };
   F.saveFile = function (f) { return here[f.file] ? Promise.resolve(true) : ask(f.file, true); };

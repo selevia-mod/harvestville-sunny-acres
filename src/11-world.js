@@ -13,6 +13,7 @@
   // Sets a depth only when it changes: Phaser re-sorts the whole map on every depth set, even to the same value.
   F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
   var OUTDOORS = { farm: true, town: true, pulag: true, makiling: true, magayon: true };
+  var PREWARM_WAIT = 1500; // ms a travel waits, after its fade, for the next map's pictures to be decoded
 
   function propsOf(list) {
     var out = {};
@@ -108,6 +109,7 @@
       cam.fadeIn(350);
       // a finished fade-in keeps drawing an invisible full-screen quad every frame: drop it once done
       cam.once('camerafadeincomplete', function () { cam.fadeEffect.reset(); });
+      this.time.delayedCall(6000, function () { if (F.dropBitmaps) F.dropBitmaps(self); });
 
       this.keys = this.input.keyboard ? this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') : null;
       F.bus.emit('map', this.mapKey);
@@ -496,7 +498,11 @@
     // Walk-through warps (the road between the farm and town, the house door).
     checkWalkWarp() {
       var f = this.feet(), tx = Math.floor(f.x / T), ty = Math.floor(f.y / T);
-      var o = this.objects.filter(function (w) { return w.type === 'warp' && w.props.walk && tx >= w.x0 && tx <= w.x1 && ty >= w.y0 && ty <= w.y1; })[0];
+      var o = null; // (each frame: a plain loop, nothing made)
+      for (var i = 0; i < this.objects.length && !o; i++) {
+        var w = this.objects[i];
+        if (w.type === 'warp' && w.props.walk && tx >= w.x0 && tx <= w.x1 && ty >= w.y0 && ty <= w.y1) o = w;
+      }
       if (!o) return false;
       this.travel(o.props.to, o.props.spawn);
       return true;
@@ -514,14 +520,25 @@
       F.input.reset();
       if (to === 'mine') F.session.mineFloor = floor || 1;
       if (F.Audio) F.Audio.sfx(to === this.mapKey ? 'ladder' : 'door');
-      if (F.prewarm) F.prewarm(to, this);
+      // the next map's pictures are decoded off the main thread during the fade; the screen stays dark until they are
+      // (at most PREWARM_WAIT more), so the new map does not freeze on its first frame
+      var ready = false, faded = false, go = function () {
+        if (!faded || !ready || !self.sys.isActive()) return;
+        faded = false;
+        self.scene.restart();
+      };
+      var warm = F.prewarm ? F.prewarm(to, this) : null;
+      if (warm) warm.then(function () { ready = true; go(); });
+      else ready = true;
       this.cameras.main.fadeOut(250, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', function () {
         s.map = to;
         s.player = { x: null, y: null, dir: 'down' };
         F.session.spawn = spawn;
         self.save();
-        self.scene.restart();
+        faded = true;
+        if (!ready) self.time.delayedCall(PREWARM_WAIT, function () { ready = true; go(); });
+        go();
       });
     }
 

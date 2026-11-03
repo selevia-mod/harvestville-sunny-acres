@@ -30,6 +30,8 @@
   // the cave tiles' places in the indoor sheet (tools/tiles.js INDOOR)
   var ID = { void: 5, cave: 6, cave2: 7, cave_wall: 8, cave_top: 9 };
   var SHEET = 'indoor-lair', CROP = 1024; // (the cave tiles are in the sheet's top two rows: only its top quarter is copied)
+  F.keepBitmap = F.keepBitmap || {};
+  F.keepBitmap.indoor = true; // (the Lair and the mine bands paint from it; F.dropBitmaps lets it go a few seconds in)
   var LOOK = {
     floor: ['#220b07', '#561f13', '#9a4a2c'],
     wall: ['#170707', '#5e2216', '#b8642e'],
@@ -124,13 +126,14 @@
     }
     g.putImageData(d, x, y);
   };
-  // The top of the indoor sheet in the Lair's colours, with lava painted into the 'void' tile: made on the way in, kept
-  // while you go from floor to floor, dropped when you leave.
+  // The top of the indoor sheet in the Lair's colours, with lava painted into the 'void' tile: made the first time in, and
+  // kept for the session.
   var lairSheet = function (w) {
     var tex = w.textures;
     if (tex.exists(SHEET)) return SHEET;
     F.ensureTexture(w, 'indoor');
-    var img = F.images.indoor, full = tex.get('indoor').source[0].width, iw = img.naturalWidth || img.width, k = iw / full;
+    // (from the bitmap decoded on the way in when there is one, 10-boot.js F.prewarm: the <img> is decoded on the spot)
+    var img = (F.bitmaps && F.bitmaps.indoor) || F.images.indoor, full = tex.get('indoor').source[0].width, iw = img.naturalWidth || img.width, k = iw / full;
     var c = document.createElement('canvas');
     c.width = iw;
     c.height = Math.round(CROP * k);
@@ -476,8 +479,7 @@
     create.call(this);
     if (this.mapKey === 'magayon') this.setupLairMouth();
     if (!this.lair || this.mapKey !== 'lair') {
-      this.lair = null;
-      if (this.textures.exists(SHEET)) this.textures.remove(SHEET); // (out of the Lair: its colours are not kept)
+      this.lair = null; // (its painted sheet is kept for the session: 2 MB, and painting it again cost ~0.2 s each time in)
       return;
     }
     var self = this, lr = this.lair;
