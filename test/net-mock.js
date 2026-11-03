@@ -471,7 +471,9 @@ function createServer() {
   // parts 16 and 17 (supabase/farm_online_16.sql, _17.sql): barangays and the Bayanihan Cup, and the Market board.
   // db.noHood / db.noAds: as before they are applied (the functions are not there). db.cupFast: a task can be turned in
   // straight away (the real server waits its least minutes; tests can also move a pick's .at back).
-  Object.assign(db, { hoods: new Map(), hoodOf: new Map(), hoodId: 0, hoodPosts: [], postId: 0, cupPicks: new Map(), cupDone: [], cupHoods: new Map(), cupClaims: new Set(), ads: new Map() });
+  // db.guests: user ids that are guests (profiles.is_guest: no Cup tasks); db.banned: ids banned or suspended (gone for leading, Find, the board).
+  Object.assign(db, { hoods: new Map(), hoodOf: new Map(), hoodId: 0, hoodPosts: [], postId: 0, cupPicks: new Map(), cupDone: [], cupHoods: new Map(), cupClaims: new Set(), ads: new Map(),
+    hoodBans: new Map(), nbLog: [], guests: new Set(), banned: new Set() });
   const NB_KINDS = [['harvest', 80, 120, 12], ['fish', 12, 100, 10], ['hunt', 4, 120, 10], ['order', 3, 100, 15], ['collect', 15, 80, 10],
     ['care', 25, 60, 8], ['cooked', 5, 80, 8], ['plant', 60, 60, 8], ['forage', 10, 80, 10], ['request', 2, 100, 15]];
   const NB_BADGES = ['carabao', 'mango', 'sunflower', 'fish_k', 'star', 'heart', 'cow', 'gem'];
@@ -481,17 +483,41 @@ function createServer() {
   const cupTasks = (wk) => NB_KINDS.map(([kind, goal, points, minutes]) => ({ kind, goal, points, minutes, h: crypto.createHash('md5').update(wk + ':' + kind).digest('hex') }))
     .sort((x, y) => (x.h < y.h ? -1 : 1)).slice(0, 8);
   const members = (hid) => [...db.hoodOf.entries()].filter(([, m]) => m.hood === hid).sort((x, y) => x[1].joined - y[1].joined);
+  const INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g; // (farm.nb_clean)
+  const nbOk = (id) => db.players.has(id) && !db.players.get(id).hidden && !db.banned.has(id); // (farm.nb_ok)
+  const hoodLead = (hid) => { // (farm.hood_lead: the leader if still in and in good standing, else the longest member who is)
+    const h = db.hoods.get(hid), list = members(hid);
+    if (h && list.some(([id]) => id === h.leader) && nbOk(h.leader)) return h.leader;
+    const next = list.find(([id]) => nbOk(id));
+    return next ? next[0] : null;
+  };
+  const fixLead = (hid) => { const l = hoodLead(hid), h = db.hoods.get(hid); if (h && l) h.leader = l; };
+  const banned = (hid, uid) => (db.hoodBans.get(hid + ':' + uid) || 0) > Date.now();
+  const league = (n) => (n <= 5 ? 's' : n <= 15 ? 'm' : 'l');
+  const cupSeat = (wk, hid, size, isNew) => { // (farm.cup_seat: a barangay's size only grows; past its league's top it moves up)
+    const key = wk + ':' + hid, ch = db.cupHoods.get(key);
+    if (!ch && !isNew) return;
+    if (ch && size <= ch.most) return;
+    const lg = league(Math.max(size, ch ? ch.most : 0));
+    if (ch && lg === ch.league) { ch.most = size; return; }
+    const grps = {};
+    [...db.cupHoods.values()].filter((x) => x.week === wk && x.league === lg && x.hood !== hid).forEach((x) => { grps[x.grp] = (grps[x.grp] || 0) + 1; });
+    const open = Object.keys(grps).map(Number).filter((g) => grps[g] < 10).sort((x, y) => x - y);
+    const grp = open.length ? open[0] : Object.keys(grps).length ? Math.max(...Object.keys(grps).map(Number)) + 1 : 0;
+    if (ch) Object.assign(ch, { league: lg, grp, most: size });
+    else { const h = db.hoods.get(hid); db.cupHoods.set(key, { week: wk, hood: hid, name: h.name, badge: h.badge, league: lg, grp, most: Math.max(size, 1), score: 0, last: 0 }); }
+  };
   const hoodPost = (hood, uid, kind, body) => {
+    db.hoodPosts = db.hoodPosts.filter((p) => p.hood !== hood || Date.now() - p.at < 14 * 864e5); // (farm.hood_prune: any new line)
     if ((kind === 'join' || kind === 'left') && db.hoodPosts.some((p) => p.hood === hood && p.uid === uid && p.kind === kind && Date.now() - p.at < 864e5)) return; // (farm.hood_note: once a day)
     db.hoodPosts.push({ id: ++db.postId, hood, uid, kind, body: body || '', at: Date.now() });
   };
-  const hoodGone = (uid) => { // (the trigger: the longest member leads; nobody left, it is gone)
+  const hoodGone = (uid) => { // (the trigger: nobody left, it is gone; else the lead passes on if the leader went)
     const m = db.hoodOf.get(uid);
     if (!m) return;
     db.hoodOf.delete(uid);
-    const h = db.hoods.get(m.hood), rest = members(m.hood);
-    if (!rest.length) db.hoods.delete(m.hood);
-    else if (h.leader === uid) h.leader = rest[0][0];
+    if (!members(m.hood).length) db.hoods.delete(m.hood);
+    else fixLead(m.hood);
   };
   const cupPlace = (wk, hid) => {
     const h = db.cupHoods.get(wk + ':' + hid);
@@ -506,8 +532,8 @@ function createServer() {
       const wk = nbWeek(), today = nbDay(), m = db.hoodOf.get(uid), mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
       let hood = null, cup = null, pick = null;
       if (m) {
-        const h = db.hoods.get(m.hood), list = members(m.hood);
-        hood = { id: h.id, name: h.name, badge: h.badge, open: h.open, code: h.code, leader: h.leader === uid, members: list.length, online: list.filter(([id]) => online(db.players.get(id))).length, max: 30 };
+        const h = db.hoods.get(m.hood), list = members(m.hood), lead = hoodLead(m.hood);
+        hood = { id: h.id, name: h.name, badge: h.badge, open: h.open, code: lead === uid ? h.code : null, leader: lead === uid, members: list.length, online: list.filter(([id]) => online(db.players.get(id))).length, max: 30 };
         const ch = db.cupHoods.get(wk + ':' + h.id);
         if (ch) {
           const group = [...db.cupHoods.values()].filter((g) => g.week === wk && g.league === ch.league && g.grp === ch.grp).sort((x, y) => y.score - x.score || x.last - y.last);
@@ -519,14 +545,16 @@ function createServer() {
       const end = new Date(wk + 'T00:00:00+08:00').getTime() + 7 * 864e5;
       return { hood, week: wk, ends_in: Math.floor((end - Date.now()) / 1000), tasks: cupTasks(wk).map((t) => ({ kind: t.kind, goal: t.goal, points: t.points, minutes: t.minutes, done: mine.some((d) => d.kind === t.kind) })),
         pick, cup, done_week: mine.length, done_today: mine.filter((d) => d.day === today).length, max_week: 6, max_day: 3, min_place: 400, base_gold: 500,
-        prizes: [[3000, 3], [2000, 2], [1200, 1]], can_win: true };
+        prizes: [[3000, 3], [2000, 2], [1200, 1]], can_win: !db.guests.has(uid) };
     },
     farm_nb_create_v1(uid, a) {
       need(uid);
-      const nm = String(a.p_name || '').trim().replace(/\s+/g, ' ');
+      const nm = String(a.p_name || '').replace(INVISIBLE, '').trim().replace(/\s+/g, ' ');
       if (nm.length < 3 || nm.length > 20 || !NB_BADGES.includes(a.p_badge)) return { ok: false, code: 'bad' };
       if (/shit|fuck|puta/i.test(nm)) return { ok: false, code: 'word' };
       if (db.hoodOf.has(uid)) return { ok: false, code: 'in' };
+      if (!db.snaps.has(uid)) return { ok: false, code: 'snap' };
+      if (db.nbLog.filter((l) => l.uid === uid && l.kind === 'make' && Date.now() - l.at < 864e5).length >= 3) return { ok: false, code: 'limit' };
       if ([...db.hoods.values()].some((h) => h.name.toLowerCase() === nm.toLowerCase())) return { ok: false, code: 'taken' };
       const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = '';
@@ -535,26 +563,37 @@ function createServer() {
       db.hoods.set(h.id, h);
       db.hoodOf.set(uid, { hood: h.id, joined: Date.now() });
       hoodPost(h.id, uid, 'made');
+      db.nbLog.push({ uid, kind: 'make', at: Date.now() });
       return { ok: true, id: h.id, name: nm, code };
     },
     farm_nb_find_v1(uid, a) {
       need(uid);
-      const wk = nbWeek(), q = String(a.p_q || '').trim().toLowerCase();
-      return [...db.hoods.values()].filter((h) => (q.length < 2 || h.name.toLowerCase().includes(q)) && !blocked(uid, h.leader))
+      const wk = nbWeek(), q = String(a.p_q || '').replace(INVISIBLE, '').trim().toLowerCase();
+      return [...db.hoods.values()].filter((h) => { const l = hoodLead(h.id); return (q.length < 2 || h.name.toLowerCase().includes(q)) && l && !blocked(uid, l) && !banned(h.id, uid); })
         .map((h) => { const list = members(h.id); return { id: h.id, name: h.name, badge: h.badge, open: h.open, members: list.length, friends: list.filter(([id]) => coded(uid, id)).length, score: (db.cupHoods.get(wk + ':' + h.id) || {}).score || 0 }; })
         .filter((h) => h.members >= 1 && h.members < 30).sort((x, y) => y.friends - x.friends || y.open - x.open || y.score - x.score || y.members - x.members).slice(0, 20);
     },
     farm_nb_join_v1(uid, a) {
       need(uid);
+      if (db.nbLog.filter((l) => l.uid === uid && l.kind === 'join' && Date.now() - l.at < 60e3).length >= 10) return { ok: false, code: 'slow' };
+      db.nbLog.push({ uid, kind: 'join', at: Date.now() });
       if (db.hoodOf.has(uid)) return { ok: false, code: 'in' };
+      if (!db.snaps.has(uid)) return { ok: false, code: 'snap' };
       const c = String(a.p_code || '').trim().toUpperCase();
       const h = c ? [...db.hoods.values()].find((x) => x.code === c) : db.hoods.get(Number(a.p_id));
-      if (!h || blocked(uid, h.leader)) return { ok: false, code: 'gone' };
+      if (!h) return { ok: false, code: 'gone' };
+      const n = members(h.id).length;
+      if (!n) { db.hoods.delete(h.id); return { ok: false, code: 'gone' }; }
+      const lead = hoodLead(h.id);
+      if (lead && blocked(uid, lead)) return { ok: false, code: 'gone' };
+      if (banned(h.id, uid)) return { ok: false, code: 'banned' };
       if (!c && !h.open) return { ok: false, code: 'code' };
-      if (members(h.id).length >= 30) return { ok: false, code: 'full' };
+      if (n >= 30) return { ok: false, code: 'full' };
       db.hoodOf.set(uid, { hood: h.id, joined: Date.now() });
       db.cupPicks.delete(uid);
       hoodPost(h.id, uid, 'join');
+      fixLead(h.id);
+      cupSeat(nbWeek(), h.id, n + 1, false);
       return { ok: true, id: h.id, name: h.name };
     },
     farm_nb_leave_v1(uid) {
@@ -569,16 +608,30 @@ function createServer() {
     farm_nb_set_v1(uid, a) {
       need(uid);
       const m = db.hoodOf.get(uid), h = m && db.hoods.get(m.hood);
-      if (!h || h.leader !== uid) return 'leader';
+      if (!h || hoodLead(h.id) !== uid) return 'leader';
+      fixLead(h.id);
       h.open = !!a.p_open;
       return 'ok';
+    },
+    farm_nb_code_v1(uid) {
+      need(uid);
+      const m = db.hoodOf.get(uid), h = m && db.hoods.get(m.hood);
+      if (!h || hoodLead(h.id) !== uid) return { ok: false, code: 'leader' };
+      fixLead(h.id);
+      const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) code += abc[crypto.randomInt(32)];
+      h.code = code;
+      return { ok: true, join_code: code };
     },
     farm_nb_kick_v1(uid, a) {
       need(uid);
       const m = db.hoodOf.get(uid), h = m && db.hoods.get(m.hood);
-      if (!h || h.leader !== uid) return 'leader';
+      if (!h || hoodLead(h.id) !== uid) return 'leader';
       const o = db.hoodOf.get(a.p_user);
       if (a.p_user === uid || !o || o.hood !== h.id) return 'none';
+      fixLead(h.id);
+      db.hoodBans.set(h.id + ':' + a.p_user, Date.now() + 7 * 864e5);
       db.cupPicks.delete(a.p_user);
       hoodPost(h.id, a.p_user, 'left');
       hoodGone(a.p_user);
@@ -588,15 +641,15 @@ function createServer() {
       need(uid);
       const m = db.hoodOf.get(uid), wk = nbWeek();
       if (!m) return [];
-      const h = db.hoods.get(m.hood);
+      const lead = hoodLead(m.hood);
       return members(m.hood).filter(([id]) => !blocked(uid, id)).map(([id]) => {
         const done = db.cupDone.filter((d) => d.uid === id && d.week === wk && d.hood === m.hood);
-        return { id, farm_name: db.players.get(id).farm_name, leader: h.leader === id, online: online(db.players.get(id)), tasks: done.length, points: done.reduce((n, d) => n + d.points, 0), me: id === uid };
+        return { id, farm_name: db.players.get(id).farm_name, leader: lead === id, online: online(db.players.get(id)), tasks: done.length, points: done.reduce((n, d) => n + d.points, 0), me: id === uid };
       }).sort((x, y) => y.points - x.points);
     },
     farm_nb_post_v1(uid, a) {
       need(uid);
-      const m = db.hoodOf.get(uid), msg = String(a.p_body || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      const m = db.hoodOf.get(uid), msg = String(a.p_body || '').replace(INVISIBLE, '').trim().replace(/\s+/g, ' ').slice(0, 80);
       if (!m) return 'out';
       if (!msg) return 'empty';
       if (/shit|fuck|puta/i.test(msg)) return 'word';
@@ -615,6 +668,7 @@ function createServer() {
       need(uid);
       const m = db.hoodOf.get(uid), wk = nbWeek(), today = nbDay();
       if (!m) return { ok: false, code: 'out' };
+      if (db.guests.has(uid)) return { ok: false, code: 'guest' };
       const t = cupTasks(wk).find((x) => x.kind === a.p_kind);
       if (!t) return { ok: false, code: 'bad' };
       const pk = db.cupPicks.get(uid), mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
@@ -633,6 +687,7 @@ function createServer() {
       if (pk.week !== wk) { db.cupPicks.delete(uid); return { ok: false, code: 'late' }; }
       const m = db.hoodOf.get(uid);
       if (!m || m.hood !== pk.hood) { db.cupPicks.delete(uid); return { ok: false, code: 'out' }; }
+      if (db.guests.has(uid)) { db.cupPicks.delete(uid); return { ok: false, code: 'guest' }; }
       const wait = Math.ceil(pk.minutes * 60 - (Date.now() - pk.at) / 1000);
       if (wait > 0 && !db.cupFast) return { ok: false, code: 'soon', wait };
       const mine = db.cupDone.filter((d) => d.uid === uid && d.week === wk);
@@ -640,10 +695,7 @@ function createServer() {
       db.cupPicks.delete(uid);
       db.cupDone.push({ uid, week: wk, kind: pk.kind, hood: pk.hood, points: pk.points, day: today });
       const key = wk + ':' + pk.hood;
-      if (!db.cupHoods.has(key)) {
-        const h = db.hoods.get(pk.hood), n = members(pk.hood).length, league = n <= 5 ? 's' : n <= 15 ? 'm' : 'l';
-        db.cupHoods.set(key, { week: wk, hood: pk.hood, name: h.name, badge: h.badge, league, grp: Math.floor([...db.cupHoods.values()].filter((x) => x.week === wk && x.league === league).length / 10), score: 0, last: 0 });
-      }
+      cupSeat(wk, pk.hood, Math.max(members(pk.hood).length, new Set(db.cupDone.filter((d) => d.week === wk && d.hood === pk.hood).map((d) => d.uid)).size), true);
       const ch = db.cupHoods.get(key);
       ch.score += pk.points;
       ch.last = Date.now();
@@ -673,7 +725,7 @@ function createServer() {
     farm_market_ads_v1(uid) {
       need(uid);
       const open = (id) => db.market.filter((m) => m.seller === id && !m.buyer && m.expires > Date.now());
-      const ads = [...db.ads.entries()].filter(([id, a]) => a.until > Date.now() && id !== uid && db.players.has(id) && !blocked(uid, id) && (db.players.get(id).listed || areFriends(uid, id)) && open(id).length)
+      const ads = [...db.ads.entries()].filter(([id, a]) => a.until > Date.now() && id !== uid && nbOk(id) && !blocked(uid, id) && (db.players.get(id).listed || areFriends(uid, id)) && open(id).length)
         .map(([id, a]) => ({ id, farm_name: db.players.get(id).farm_name, friend: areFriends(uid, id), at: a.at, left_s: Math.floor((a.until - Date.now()) / 1000), lots: open(id).length,
           items: open(id).sort((x, y) => x.price / x.qty - y.price / y.qty || x.id - y.id).slice(0, 3).map((m) => ({ item: m.item, qty: m.qty, price: m.price })) }))
         .sort((x, y) => (y.friend - x.friend) || y.at - x.at).slice(0, 30);

@@ -1,6 +1,6 @@
 -- Plays farm_online_16.sql (barangays and the Bayanihan Cup) and farm_online_17.sql (the Market board) as signed-in
 -- players on the local Postgres (test/sql/run.sh). Its own players: 10 to 45 (10 Ana, 11 Ben, 12 Cara, 13 Dan (a guest),
--- 14 Eli; 15 to 45 fill a barangay to its limit). Time is moved by hand (picked_at, week) as postgres.
+-- 14 Eli; 15 to 45 fill a barangay to its limit), and 49 to 99 for the review's checks near the end. Time is moved by hand (picked_at, week) as postgres.
 \set ON_ERROR_STOP 1
 set role postgres;
 create function pg_temp.id(n int) returns uuid language sql as $$ select ('00000000-0000-4000-a000-0000000000' || lpad(n::text, 2, '0'))::uuid $$;
@@ -19,7 +19,7 @@ create function pg_temp.as_(n int) returns void language sql as $$ select set_co
 create function pg_temp.ok(c boolean, what text) returns void language plpgsql as $$ begin if not coalesce(c, false) then raise exception 'FAILED: %', what; end if; raise notice 'ok: %', what; end $$;
 
 do $$ declare r json; n int; begin
-  for n in 10..45 loop perform pg_temp.as_(n); perform farm_join_v1('Farm ' || n); end loop;
+  for n in 10..45 loop perform pg_temp.as_(n); perform farm_join_v1('Farm ' || n); perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0); end loop;
 
   -- ---------- making a barangay ----------
   perform pg_temp.as_(10);
@@ -293,6 +293,241 @@ do $$ begin
   perform pg_temp.as_(10);
   perform pg_temp.ok((farm_market_ad_v1() ->> 'ok')::boolean, 'a new day: a new free one');
 end $$;
+
+-- ---------- the review of 4 Nov: each check fails on the first version of parts 16-17 ----------
+-- Players 49 to 99 (49 never publishes a farm; 80 is a guest).
+set role postgres;
+do $$ begin
+  insert into auth.users select pg_temp.id(n) from generate_series(49, 99) n;
+  insert into public.profiles (auth_user_id, is_banned, suspended_until, display_name, username)
+    select pg_temp.id(n), false, null, 'Farmer ' || n, 'f' || n from generate_series(49, 99) n;
+  update public.profiles set is_guest = true where auth_user_id = pg_temp.id(80);
+  raise notice 'ok: (players 49 to 99)';
+end $$;
+set role authenticated;
+do $$ declare n int; begin
+  for n in 49..99 loop
+    perform pg_temp.as_(n); perform farm_join_v1('Farm ' || n);
+    if n > 49 then perform farm_publish_v1('{}'::jsonb, 1, 1, 0, 0); end if;
+  end loop;
+end $$;
+
+-- 1. leagues follow the size; guests do not play the Cup
+do $$ declare hid bigint; n int; t text; r json; begin
+  perform pg_temp.as_(50);
+  hid := (farm_nb_create_v1('Solo Start', 'star', true) ->> 'id')::bigint;
+  t := farm_nb_v1() -> 'tasks' -> 0 ->> 'kind';
+  perform farm_cup_pick_v1(t); perform pg_temp.later(); perform farm_cup_done_v1();
+  perform pg_temp.ok(farm_nb_v1() -> 'cup' ->> 'league' = 's', 'a barangay of one starts in the small league');
+  for n in 51..79 loop perform pg_temp.as_(n); perform farm_nb_join_v1(hid, null); end loop;
+  perform pg_temp.as_(50);
+  r := farm_nb_v1();
+  perform pg_temp.ok((r -> 'hood' ->> 'members')::int = 30 and r -> 'cup' ->> 'league' = 'l', 'filled to 30 after its first task: it moves up to the big league');
+end $$;
+do $$ declare hid bigint; n int; t text; begin
+  -- one that stays small at any moment, but six different players score for it
+  perform pg_temp.as_(82);
+  t := farm_nb_v1() -> 'tasks' -> 0 ->> 'kind';
+  hid := (farm_nb_create_v1('Rotate', 'gem', true) ->> 'id')::bigint;
+  for n in 83..88 loop
+    perform pg_temp.as_(n); perform farm_nb_join_v1(hid, null);
+    perform farm_cup_pick_v1(t); perform pg_temp.later(); perform farm_cup_done_v1(); perform farm_nb_leave_v1();
+  end loop;
+  perform pg_temp.as_(82);
+  perform pg_temp.ok(farm_nb_v1() -> 'cup' ->> 'league' = 'm', 'two members at a time, six who scored: the middle league');
+end $$;
+do $$ declare t text; begin
+  perform pg_temp.as_(80);
+  t := farm_nb_v1() -> 'tasks' -> 0 ->> 'kind';
+  perform farm_nb_create_v1('Guest Field', 'cow', true);
+  perform pg_temp.ok(farm_cup_pick_v1(t) ->> 'code' = 'guest' and farm_cup_done_v1() ->> 'code' = 'none', 'a guest cannot pick a Cup task');
+  perform pg_temp.ok(not (farm_nb_v1() ->> 'can_win')::boolean, 'and the panel knows');
+end $$;
+
+-- 2. only the leader sees the code, can make a new one, and a kick keeps them out; join tries are limited
+do $$ declare c1 text; c2 text; hid bigint; i int; r json; begin
+  perform pg_temp.as_(89);
+  hid := (farm_nb_create_v1('Quiet Corner', 'heart', false) ->> 'id')::bigint;
+  c1 := farm_nb_v1() -> 'hood' ->> 'code';
+  perform pg_temp.as_(90);
+  perform pg_temp.ok((farm_nb_join_v1(null, c1) ->> 'ok')::boolean, 'joined with the code');
+  r := farm_nb_v1() -> 'hood';
+  perform pg_temp.ok(r ->> 'code' is null and not (r ->> 'leader')::boolean, 'a member is not shown the code');
+  perform pg_temp.ok(farm_nb_code_v1() ->> 'code' = 'leader', 'nor can make a new one');
+  perform pg_temp.as_(89);
+  perform pg_temp.ok(farm_nb_kick_v1(pg_temp.id(90)) = 'ok', 'the leader takes them out');
+  perform pg_temp.as_(90);
+  perform pg_temp.ok(farm_nb_join_v1(null, c1) ->> 'code' = 'banned', 'they cannot walk back in with the code');
+  perform pg_temp.ok(not exists (select 1 from farm_nb_find_v1('quiet')), 'nor find it');
+  perform pg_temp.as_(89);
+  r := farm_nb_code_v1();
+  c2 := r ->> 'join_code';
+  perform pg_temp.ok((r ->> 'ok')::boolean and c2 ~ '^[A-HJ-NP-Z2-9]{6}$' and c2 <> c1 and farm_nb_v1() -> 'hood' ->> 'code' = c2, 'the leader makes a new code');
+  perform pg_temp.as_(91);
+  perform pg_temp.ok(farm_nb_join_v1(null, c1) ->> 'code' = 'gone' and (farm_nb_join_v1(null, c2) ->> 'ok')::boolean, 'the old code is dead, the new one works');
+end $$;
+do $$ declare i int; begin
+  perform pg_temp.as_(92);
+  for i in 1..10 loop perform farm_nb_join_v1(null, 'ZZZZZ' || i); end loop;
+  perform pg_temp.ok(farm_nb_join_v1(null, 'ZZZZZZ') ->> 'code' = 'slow', '10 join tries a minute, then wait');
+end $$;
+set role postgres;
+do $$ begin
+  update farm.nb_log set at = at - interval '2 minutes' where user_id = pg_temp.id(92);
+  raise notice 'ok: (a minute later)';
+end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(92);
+  perform pg_temp.ok(farm_nb_join_v1(null, 'ZZZZZZ') ->> 'code' = 'gone', 'a minute later: tries again');
+end $$;
+
+-- 4. Find skips full ones before it counts: 31 full, busy barangays and a quiet one with room
+set role postgres;
+create function pg_temp.idx(n int) returns uuid language sql as $$ select ('00000000-0000-4000-d000-' || lpad(n::text, 12, '0'))::uuid $$;
+do $$ begin
+  insert into auth.users select pg_temp.idx(n) from generate_series(1, 930) n;
+  insert into farm.players (user_id, farm_name, friend_code)
+    select pg_temp.idx(n), 'X' || n, translate(lpad(n::text, 8, '0'), '0123456789', 'ABCDEFGHJK') from generate_series(1, 930) n;
+  insert into farm.hoods (name, badge, open, code, leader, made_by)
+    select 'Full ' || g, 'star', true, translate(lpad(g::text, 6, '0'), '0123456789', 'MNPQRSTUVW'), pg_temp.idx(g * 30 - 29), pg_temp.idx(g * 30 - 29)
+    from generate_series(1, 31) g;
+  insert into farm.hood_members (user_id, hood_id) select pg_temp.idx(n), h.id from generate_series(1, 930) n join farm.hoods h on h.name = 'Full ' || ((n - 1) / 30 + 1);
+  insert into farm.cup_hoods (week, hood_id, name, badge, league, grp, score)
+    select farm.nb_week(now()), h.id, h.name, h.badge, 'l', 9, 5000 + h.id from farm.hoods h where h.name like 'Full %';
+  raise notice 'ok: (31 full barangays, busier than any other)';
+end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(93);
+  perform pg_temp.ok(exists (select 1 from farm_nb_find_v1(null) where name = 'Rotate'), 'Find still shows one with room');
+  perform pg_temp.ok(not exists (select 1 from farm_nb_find_v1(null) where members >= 30 or members < 1), 'and no full (or empty) one');
+end $$;
+set role postgres;
+do $$ begin
+  delete from farm.cup_hoods where name like 'Full %';
+  delete from auth.users where id::text like '00000000-0000-4000-d000-%';
+  perform pg_temp.ok(not exists (select 1 from farm.hoods where name like 'Full %'), '(their accounts deleted: the barangays went with them)');
+end $$;
+
+-- 5. a barangay left empty, or led by someone no longer in it, is put right on the next join
+do $$ begin
+  insert into farm.hoods (name, badge, open, code, leader, made_by) values ('Ghost Town', 'cow', true, 'GHQSTA', pg_temp.id(94), pg_temp.id(94));
+  insert into farm.hoods (name, badge, open, code, leader, made_by) values ('Lost Lead', 'cow', true, 'LQSTAB', pg_temp.id(94), pg_temp.id(94));
+  insert into farm.hood_members (user_id, hood_id) select pg_temp.id(96), id from farm.hoods where name = 'Lost Lead';
+  raise notice 'ok: (an empty barangay, and one whose leader is not in it)';
+end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(95);
+  perform pg_temp.ok(farm_nb_join_v1(null, 'GHQSTA') ->> 'code' = 'gone', 'an empty barangay cannot be joined');
+  perform pg_temp.ok(not exists (select 1 from farm_nb_find_v1('ghost')), 'nor found');
+  perform pg_temp.ok((farm_nb_create_v1('Ghost Town', 'cow', true) ->> 'ok')::boolean, 'and its name is free again');
+  perform pg_temp.as_(97);
+  perform pg_temp.ok((farm_nb_join_v1(null, 'LQSTAB') ->> 'ok')::boolean, 'joined the one led by someone gone');
+  perform pg_temp.as_(96);
+  perform pg_temp.ok((farm_nb_v1() -> 'hood' ->> 'leader')::boolean, 'its longest member leads it now');
+end $$;
+set role postgres;
+do $$ begin
+  perform pg_temp.ok((select leader from farm.hoods where name = 'Lost Lead') = pg_temp.id(96), '(written down)');
+end $$;
+
+-- 6. a banned or hidden leader does not lead; a banned seller is off the board
+set role authenticated;
+do $$ declare hid bigint; begin
+  perform pg_temp.as_(98);
+  hid := (farm_nb_create_v1('Banned Lead', 'cow', true) ->> 'id')::bigint;
+  perform farm_market_list_v1('turnip', 2, 50); perform farm_market_ad_v1();
+  perform pg_temp.as_(99); perform farm_nb_join_v1(hid, null);
+  perform pg_temp.ok(exists (select 1 from json_array_elements(farm_market_ads_v1() -> 'ads') a where a ->> 'id' = pg_temp.id(98)::text), '(98 is on the board)');
+end $$;
+set role postgres;
+do $$ begin update public.profiles set is_banned = true where auth_user_id = pg_temp.id(98); raise notice 'ok: (98 is banned)'; end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(99);
+  perform pg_temp.ok((farm_nb_v1() -> 'hood' ->> 'leader')::boolean and farm_nb_set_v1(false) = 'ok', 'a banned leader does not lead: the next member does');
+  perform pg_temp.ok(not exists (select 1 from farm_nb_members_v1() where leader and id = pg_temp.id(98)), 'Members says so');
+  perform pg_temp.ok(not exists (select 1 from json_array_elements(farm_market_ads_v1() -> 'ads') a where a ->> 'id' = pg_temp.id(98)::text), 'a banned seller is off the board');
+  perform pg_temp.ok(farm_nb_kick_v1(pg_temp.id(98)) = 'ok', 'and can be taken out');
+  perform farm_nb_set_v1(true);
+end $$;
+set role postgres;
+do $$ begin
+  update public.profiles set is_banned = false where auth_user_id = pg_temp.id(98);
+  update farm.players set hidden = true where user_id = pg_temp.id(99);
+  raise notice 'ok: (98 is back; 99, now the only member, is hidden after reports)';
+end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(93);
+  perform pg_temp.ok(not exists (select 1 from farm_nb_find_v1('banned')), 'a barangay with nobody in good standing to lead it is not in Find');
+end $$;
+set role postgres;
+do $$ begin update farm.players set hidden = false where user_id = pg_temp.id(99); raise notice 'ok: (99 cleared)'; end $$;
+
+-- 7. invisible characters are taken out before the checks
+set role authenticated;
+do $$ declare r json; begin
+  perform pg_temp.as_(93);
+  perform pg_temp.ok(farm_nb_create_v1('Fu' || U&'\200B' || 'ck Town', 'star', true) ->> 'code' = 'word', 'a rude name with a zero-width space');
+  perform pg_temp.ok(farm_nb_create_v1('Barangay Mabuhay' || U&'\2060', 'star', true) ->> 'code' = 'taken', 'a copy of a name with a word joiner');
+  perform pg_temp.ok(farm_nb_create_v1(U&'\202E' || 'T' || U&'\00AD' || 'a' || U&'\FEFF', 'star', true) ->> 'code' = 'bad', 'what is left is too short');
+  perform pg_temp.as_(99);
+  perform pg_temp.ok(farm_nb_post_v1('you are a f' || U&'\200C' || 'uck' || U&'\200C' || 'ing pu' || U&'\00AD' || 'ta') = 'word', 'a rude line with invisible marks');
+  perform pg_temp.ok(farm_nb_post_v1('Hi' || U&'\200D' || ' all' || U&'\202E') = 'ok', 'a line with invisible marks in a kind line');
+  perform pg_temp.ok((select body from farm_nb_posts_v1() where kind = 'say' limit 1) = 'Hi all', 'is stored without them');
+end $$;
+
+-- 8. making or joining needs a published farm, so leaving online play always leaves the barangay
+do $$ begin
+  perform pg_temp.as_(49);
+  perform pg_temp.ok(farm_nb_create_v1('No Snap', 'heart', true) ->> 'code' = 'snap', 'no farm published: cannot make one');
+  perform pg_temp.ok(farm_nb_join_v1((select id from farm_nb_find_v1('rotate')), null) ->> 'code' = 'snap', 'or join one');
+  perform pg_temp.as_(97); perform farm_leave_v1();
+  perform pg_temp.as_(96);
+  perform pg_temp.ok((farm_nb_v1() -> 'hood' ->> 'members')::int = 1, 'a member who leaves online play leaves the barangay');
+end $$;
+
+-- 9. 3 barangays made a day, however many were left since
+do $$ declare i int; begin
+  perform pg_temp.as_(81);
+  for i in 1..3 loop perform pg_temp.ok((farm_nb_create_v1('Churn ' || i, 'mango', true) ->> 'ok')::boolean and farm_nb_leave_v1() = 'ok', 'made and left #' || i); end loop;
+  perform pg_temp.ok(farm_nb_create_v1('Churn 4', 'mango', true) ->> 'code' = 'limit', 'a 4th the same day: no');
+end $$;
+
+-- 10. the indexes behind the deletes and the board; old news goes with any new line
+set role postgres;
+do $$ begin
+  perform pg_temp.ok(exists (select 1 from pg_indexes where schemaname = 'farm' and tablename = 'hood_posts' and indexdef ~ '\(user_id' and indexdef !~ 'WHERE'), 'hood_posts: an index on user_id');
+  perform pg_temp.ok(exists (select 1 from pg_indexes where schemaname = 'farm' and tablename = 'cup_picks' and indexdef ~ '\(hood_id\)'), 'cup_picks: an index on hood_id');
+  perform pg_temp.ok(exists (select 1 from pg_indexes where schemaname = 'farm' and tablename = 'hoods' and indexdef ~ '\(leader\)'), 'hoods: an index on leader');
+  perform pg_temp.ok(exists (select 1 from pg_indexes where schemaname = 'farm' and tablename = 'market' and indexdef ~ '\(seller\) WHERE \(buyer IS NULL\)'), 'market: open lots by seller');
+  insert into farm.hood_posts (hood_id, user_id, kind, body, created_at)
+    select id, pg_temp.id(82), 'say', 'an old line', now() - interval '20 days' from farm.hoods where name = 'Rotate';
+end $$;
+set role authenticated;
+do $$ begin
+  perform pg_temp.as_(93); perform pg_temp.ok((farm_nb_join_v1((select id from farm_nb_find_v1('rotate')), null) ->> 'ok')::boolean, '(93 joins Rotate)');
+end $$;
+set role postgres;
+do $$ begin
+  perform pg_temp.ok(exists (select 1 from farm.hoods where name = 'Rotate') and not exists (select 1 from farm.hood_posts where body = 'an old line'),
+    'a join line prunes the 14-day-old news');
+end $$;
+
+-- 11. running part 16 again takes no exclusive lock on the busy farm.snapshots
+set role postgres;
+set client_min_messages = warning;
+begin;
+\ir ../../supabase/farm_online_16.sql
+set client_min_messages = notice;
+do $$ begin
+  perform pg_temp.ok(not exists (select 1 from pg_locks where relation = 'farm.snapshots'::regclass and pid = pg_backend_pid() and mode = 'AccessExclusiveLock'),
+    'running part 16 again takes no exclusive lock on farm.snapshots');
+end $$;
+rollback;
 
 -- ---------- who can reach what ----------
 set role anon;
