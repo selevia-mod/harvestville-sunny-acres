@@ -1590,3 +1590,52 @@ test('online: on a visit the rain sound follows the weather you see (29 Oct, OPP
   assert.deepStrictEqual(host.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+test('online: a friend\'s hammer swing plays on your screen, and the rock pops when it lands (owner, 3 Nov)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await host.page.evaluate(() => Farm.Online.follow('town'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /WENT TO TOWN[\s\S]*Follow them\?/);
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await host.page.evaluate(() => Farm.world.travel('mine', 'entrance', 2));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /IS IN THE MINE[\s\S]*Follow them\?/);
+  await tapButton(guest.page, 'Follow');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.session.mineFloor === 2, null, SLOW);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await waitRemotes(host.page, ['Ana Acres']);
+  // the owner hammers a rock (the guest knows which, to see it still there as the swing starts)
+  const pick = await host.page.evaluate(() => { const w = Farm.world; return w.mine.rocks.filter((r) => r !== w.mine.stairs && !w.mine.broken[r])[0]; });
+  await guest.page.evaluate((i) => { window.__rock = i; }, pick);
+  const idx = await host.page.evaluate(() => {
+    const w = Farm.world, T = Farm.Config.TILE, i = w.mine.rocks.filter((r) => r !== w.mine.stairs && !w.mine.broken[r])[0];
+    const t = { x: i % w.map.width, y: Math.floor(i / w.map.width) };
+    w.setFeet((t.x + 0.5) * T, (t.y + 1.5) * T); w.dir = 'up'; w.idle();
+    Farm.Online.tellPlace();
+    return new Promise((r) => setTimeout(() => { w.useTool('hammer', t, 0); r(i); }, 600));
+  });
+  // the guest sees them raise and strike it, with the hammer in hand, and the rock is still there as it starts
+  const swing = await guest.page.waitForFunction((hostId) => {
+    const w = Farm.world, r = w.remotes[hostId];
+    if (!r || !r.tool || !(r.useUntil > w.time.now)) return null;
+    const i = window.__rock, t = { x: i % w.map.width, y: Math.floor(i / w.map.width) };
+    return { frame: Number(r.spr.frame.name), tool: r.tool.texture.key, rock: !!w.layers.Walls.getTileAt(t.x, t.y) };
+  }, host.uid, { ...SLOW, polling: 10 }).then((h) => h.jsonValue()).catch(() => null);
+  void idx;
+  assert.ok(swing, 'their swing shows');
+  assert.ok(swing.frame >= 9 && swing.frame <= 14, 'a tool pose, not the walk: ' + swing.frame);
+  assert.strictEqual(swing.tool, 'items');
+  await shot(guest.page, 'swing-1-friend-strikes');
+  await guest.page.waitForFunction((i) => Farm.world.mine.broken[i] === 1, idx, SLOW);
+  // when it is done, their hammer goes and they stand as before
+  await guest.page.waitForFunction((hostId) => { const w = Farm.world, r = w.remotes[hostId]; return r && !r.tool && !(r.useUntil > w.time.now); }, host.uid, SLOW);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
+});

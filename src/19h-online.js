@@ -545,7 +545,8 @@
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended
       r.speed = at ? at.speed : 0;
       var anim = moving && !p.rd ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
-      if (anim !== r.anim) {
+      var swinging = r.useUntil > w.time.now; // (a tool swing plays out first, 18-polish.js remoteUse)
+      if (!swinging && anim !== r.anim) {
         r.anim = anim;
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
@@ -555,7 +556,7 @@
       if (p.rd) O.drawRider(w, r, dir, moving, w.time.now);
       else {
         O.dropHorse(r);
-        F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
+        F.depthTo(r.spr.setFlipX(swinging ? r.spr.flipX : dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       }
       r.tag.setPosition(r.x, r.y - (p.rd ? 2.2 : 1.45) * T);
     });

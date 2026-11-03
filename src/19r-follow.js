@@ -4,6 +4,7 @@
 (function (F) {
   'use strict';
   var C = F.Config;
+  var T = C.TILE;
   var O = F.Online;
   var P = F.WorldScene.prototype;
   var noop = function () {};
@@ -30,14 +31,26 @@
     if (r && O.on && O.chan) O.send('rock', { fl: F.session.mineFloor, i: idx });
     return r;
   };
-  P.remoteRock = function (idx) {
-    var m = this.mine;
+  // by = their farmer, when it happened just now: the rock pops with dust and a crack, as yours does, when their hammer
+  // lands (owner, 3 Nov 2026: "it looks like lagging then suddenly the rock gone"). A floor's list on arrival just goes.
+  P.remoteRock = function (idx, by) {
+    var self = this, m = this.mine;
     if (!m || m.broken[idx] || m.rocks.indexOf(idx) < 0) return;
     m.broken[idx] = 1;
-    var x = idx % this.map.width, y = Math.floor(idx / this.map.width);
-    if (idx === m.stairs) this.putTile('Walls', this.gids.ladder_down, x, y);
-    else this.layers.Walls.removeTileAt(x, y);
-    this.recollide();
+    var x = idx % this.map.width, y = Math.floor(idx / this.map.width), t = { x: x, y: y };
+    var gone = function () {
+      if (!self.mine || self.mine !== m) return;
+      if (by) self.popOut('Walls', t);
+      if (idx === m.stairs) self.putTile('Walls', self.gids.ladder_down, x, y);
+      else self.layers.Walls.removeTileAt(x, y);
+      self.recollide();
+      if (!by) return;
+      self.impact('hammer', { kind: 'debris', debris: 'stone' }, t, true);
+      var f = self.feet();
+      if (F.Audio && Math.hypot(f.x - (x + 0.5) * T, f.y - (y + 0.5) * T) < 8 * T) F.Audio.sfx('stonebreak');
+    };
+    if (by && by.useUntil > this.time.now) this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, gone);
+    else gone();
   };
 
   // Walking onto a floor: ask the others there which rocks are gone already.
@@ -52,7 +65,7 @@
   O.onMessage = function (event, payload) {
     var p = payload && typeof payload === 'object' ? payload : {}, w = F.world, who = typeof p.id === 'string' ? O.others[p.id] : null;
     var here = who && inMine(w) && Number(p.fl) === F.session.mineFloor;
-    if (event === 'rock') { if (here) w.remoteRock(Math.floor(Number(p.i))); return; }
+    if (event === 'rock') { if (here) w.remoteRock(Math.floor(Number(p.i)), (w.remotes && w.remotes[p.id]) || {}); return; }
     if (event === 'rocksq') {
       if (here) {
         var gone = Object.keys(w.mine.broken).map(Number).filter(function (i) { return w.mine.rocks.indexOf(i) >= 0; }).slice(0, 400);

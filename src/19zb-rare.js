@@ -102,8 +102,8 @@
     };
   };
   var remoteRock = P.remoteRock;
-  P.remoteRock = function (idx) {
-    remoteRock.call(this, idx);
+  P.remoteRock = function (idx, by) {
+    remoteRock.call(this, idx, by);
     if (this.mine && this.mine.broken[idx]) rockGone(this, idx);
   };
 

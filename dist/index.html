@@ -12907,6 +12907,40 @@
     });
   };
 
+  // ---------- a friend's farmer swings a tool (owner, 3 Nov 2026: "users are smashing the rock but I can't see how") ----------
+  // r = their farmer on this map (19h-online.js). The same raise and strike as yours, with the tool in their hands; their
+  // walk waits until it is done (r.useUntil). Sent and heard in 19zf-swing.js.
+  M.remoteUse = function (r, dir, frame, kind) {
+    var self = this, u = USE[dir] || USE.down, p = r.spr, g = gripOf(frame), flip = !!u.flip;
+    if (!p || !p.active || r.horse) return;
+    if (r.tool) r.tool.destroy();
+    var ms = kind === 'pour' ? (g === GRIP.can ? 620 : 420) : 320;
+    r.useUntil = this.time.now + ms;
+    r.anim = null;
+    p.anims.stop();
+    var tool = r.tool = this.add.image(0, 0, 'items', frame);
+    var place = function (pose, use) {
+      if (!p.active || !tool.active) return;
+      p.setFrame(u[pose]).setFlipX(flip);
+      var h = u.hand[use] || u.hand[pose];
+      hold(tool, g, p.x - 128 + h[0], p.y - 192 + h[1], u.aim[use], u.face[use]);
+      tool.setDepth(u.behind && use !== 'pour' ? p.depth - 0.001 : p.depth + 0.001);
+    };
+    if (kind === 'pour') place('strike', 'pour');
+    else {
+      place('raise', 'raise');
+      var from = { x: tool.x, y: tool.y, angle: tool.angle };
+      this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
+        place('strike', 'strike');
+        if (self.swoosh && tool.active) self.swoosh(tool, from);
+      });
+    }
+    this.time.delayedCall(ms, function () {
+      tool.destroy();
+      if (r.tool === tool) r.tool = null;
+    });
+  };
+
   // ---------- items fly from the world into the bag ----------
   M.flyItem = function (wx, wy, frame) {
     var cam = this.cameras.main;
@@ -16074,7 +16108,8 @@
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended
       r.speed = at ? at.speed : 0;
       var anim = moving && !p.rd ? 'walk-' + (dir === 'left' || dir === 'right' ? 'side' : dir) + F.walkSuffix(key) : '';
-      if (anim !== r.anim) {
+      var swinging = r.useUntil > w.time.now; // (a tool swing plays out first, 18-polish.js remoteUse)
+      if (!swinging && anim !== r.anim) {
         r.anim = anim;
         if (anim) r.spr.anims.play(anim, true);
         else { r.spr.anims.stop(); r.spr.setFrame(IDLE_FRAME[dir]); }
@@ -16084,7 +16119,7 @@
       if (p.rd) O.drawRider(w, r, dir, moving, w.time.now);
       else {
         O.dropHorse(r);
-        F.depthTo(r.spr.setFlipX(dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
+        F.depthTo(r.spr.setFlipX(swinging ? r.spr.flipX : dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       }
       r.tag.setPosition(r.x, r.y - (p.rd ? 2.2 : 1.45) * T);
     });
@@ -19339,6 +19374,7 @@
 (function (F) {
   'use strict';
   var C = F.Config;
+  var T = C.TILE;
   var O = F.Online;
   var P = F.WorldScene.prototype;
   var noop = function () {};
@@ -19365,14 +19401,26 @@
     if (r && O.on && O.chan) O.send('rock', { fl: F.session.mineFloor, i: idx });
     return r;
   };
-  P.remoteRock = function (idx) {
-    var m = this.mine;
+  // by = their farmer, when it happened just now: the rock pops with dust and a crack, as yours does, when their hammer
+  // lands (owner, 3 Nov 2026: "it looks like lagging then suddenly the rock gone"). A floor's list on arrival just goes.
+  P.remoteRock = function (idx, by) {
+    var self = this, m = this.mine;
     if (!m || m.broken[idx] || m.rocks.indexOf(idx) < 0) return;
     m.broken[idx] = 1;
-    var x = idx % this.map.width, y = Math.floor(idx / this.map.width);
-    if (idx === m.stairs) this.putTile('Walls', this.gids.ladder_down, x, y);
-    else this.layers.Walls.removeTileAt(x, y);
-    this.recollide();
+    var x = idx % this.map.width, y = Math.floor(idx / this.map.width), t = { x: x, y: y };
+    var gone = function () {
+      if (!self.mine || self.mine !== m) return;
+      if (by) self.popOut('Walls', t);
+      if (idx === m.stairs) self.putTile('Walls', self.gids.ladder_down, x, y);
+      else self.layers.Walls.removeTileAt(x, y);
+      self.recollide();
+      if (!by) return;
+      self.impact('hammer', { kind: 'debris', debris: 'stone' }, t, true);
+      var f = self.feet();
+      if (F.Audio && Math.hypot(f.x - (x + 0.5) * T, f.y - (y + 0.5) * T) < 8 * T) F.Audio.sfx('stonebreak');
+    };
+    if (by && by.useUntil > this.time.now) this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, gone);
+    else gone();
   };
 
   // Walking onto a floor: ask the others there which rocks are gone already.
@@ -19387,7 +19435,7 @@
   O.onMessage = function (event, payload) {
     var p = payload && typeof payload === 'object' ? payload : {}, w = F.world, who = typeof p.id === 'string' ? O.others[p.id] : null;
     var here = who && inMine(w) && Number(p.fl) === F.session.mineFloor;
-    if (event === 'rock') { if (here) w.remoteRock(Math.floor(Number(p.i))); return; }
+    if (event === 'rock') { if (here) w.remoteRock(Math.floor(Number(p.i)), (w.remotes && w.remotes[p.id]) || {}); return; }
     if (event === 'rocksq') {
       if (here) {
         var gone = Object.keys(w.mine.broken).map(Number).filter(function (i) { return w.mine.rocks.indexOf(i) >= 0; }).slice(0, 400);
@@ -21526,8 +21574,8 @@
     };
   };
   var remoteRock = P.remoteRock;
-  P.remoteRock = function (idx) {
-    remoteRock.call(this, idx);
+  P.remoteRock = function (idx, by) {
+    remoteRock.call(this, idx, by);
     if (this.mine && this.mine.broken[idx]) rockGone(this, idx);
   };
 
@@ -22169,6 +22217,47 @@
     var self = this;
     if (!(F.Online.town || F.Online.best) || !take('town_tour')) return openTown.call(this, page, then);
     this.tour('town', function () { self.openOnline('town', page, then); });
+  };
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zf-swing.js
+// Friends see each other work (owner, 3 Nov 2026: "users are walking or smashing the rock but I can't see how they doing
+// that. It looks like lagging then suddenly the rock gone"). Each tool swing is told to the others on the same map (and
+// mine floor), and their farmer swings it on your screen (18-polish.js remoteUse). A rock they break pops when their
+// hammer lands (19r-follow.js remoteRock).
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var O = F.Online;
+  var P = F.WorldScene.prototype;
+  var EVERY = 180; // ms: the quickest swings are told (a held, charged swing is one message)
+  var DIRS = { down: 1, up: 1, left: 1, right: 1 };
+  var sent = 0;
+
+  var floorOf = function (w) { return w.mapKey === 'mine' ? F.session.mineFloor : 0; };
+  var near = function (w) {
+    var fl = floorOf(w);
+    for (var k in O.others) if (O.others[k].map === w.mapKey && (O.others[k].fl || 0) === fl) return true;
+    return false;
+  };
+
+  var animateUse = P.animateUse;
+  P.animateUse = function (frame, kind) {
+    animateUse.call(this, frame, kind);
+    var now = Date.now();
+    if (!O.on || !O.chan || this.busy || now - sent < EVERY || !near(this)) return;
+    sent = now;
+    O.send('use', { map: this.mapKey, fl: floorOf(this), f: frame, k: kind === 'pour' ? 'pour' : 'swing', d: this.dir });
+  };
+
+  var onMessage = O.onMessage;
+  O.onMessage = function (event, payload) {
+    if (event !== 'use') return onMessage.call(O, event, payload);
+    var p = payload && typeof payload === 'object' ? payload : {}, w = F.world;
+    var r = w && w.remotes && typeof p.id === 'string' ? w.remotes[p.id] : null, frame = Math.floor(Number(p.f));
+    if (!r || !w.sys || !w.sys.isActive() || w.busy || p.map !== w.mapKey || (Number(p.fl) || 0) !== floorOf(w)) return;
+    if (!(frame >= 0 && frame < C.ICON_ORDER.length) || !DIRS[p.d]) return;
+    w.remoteUse(r, p.d, frame, p.k === 'pour' ? 'pour' : 'swing');
   };
 })(window.Farm = window.Farm || {});
 

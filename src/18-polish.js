@@ -210,6 +210,40 @@
     });
   };
 
+  // ---------- a friend's farmer swings a tool (owner, 3 Nov 2026: "users are smashing the rock but I can't see how") ----------
+  // r = their farmer on this map (19h-online.js). The same raise and strike as yours, with the tool in their hands; their
+  // walk waits until it is done (r.useUntil). Sent and heard in 19zf-swing.js.
+  M.remoteUse = function (r, dir, frame, kind) {
+    var self = this, u = USE[dir] || USE.down, p = r.spr, g = gripOf(frame), flip = !!u.flip;
+    if (!p || !p.active || r.horse) return;
+    if (r.tool) r.tool.destroy();
+    var ms = kind === 'pour' ? (g === GRIP.can ? 620 : 420) : 320;
+    r.useUntil = this.time.now + ms;
+    r.anim = null;
+    p.anims.stop();
+    var tool = r.tool = this.add.image(0, 0, 'items', frame);
+    var place = function (pose, use) {
+      if (!p.active || !tool.active) return;
+      p.setFrame(u[pose]).setFlipX(flip);
+      var h = u.hand[use] || u.hand[pose];
+      hold(tool, g, p.x - 128 + h[0], p.y - 192 + h[1], u.aim[use], u.face[use]);
+      tool.setDepth(u.behind && use !== 'pour' ? p.depth - 0.001 : p.depth + 0.001);
+    };
+    if (kind === 'pour') place('strike', 'pour');
+    else {
+      place('raise', 'raise');
+      var from = { x: tool.x, y: tool.y, angle: tool.angle };
+      this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
+        place('strike', 'strike');
+        if (self.swoosh && tool.active) self.swoosh(tool, from);
+      });
+    }
+    this.time.delayedCall(ms, function () {
+      tool.destroy();
+      if (r.tool === tool) r.tool = null;
+    });
+  };
+
   // ---------- items fly from the world into the bag ----------
   M.flyItem = function (wx, wy, frame) {
     var cam = this.cameras.main;
