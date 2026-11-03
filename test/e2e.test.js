@@ -371,12 +371,7 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.strictEqual(count(s, 'turnip'), 0);
   await page.evaluate(() => Farm.ui.closeAll());
   const goldBefore = s.gold;
-  const day = (await state(page)).day;
-  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
-  const report = await modalText(page);
-  await shot(page, 'farmhands-report');
-  await tapButton(page, 'OK');
+  const report = await nextMorning(page);
   assert.match(report, new RegExp('1 lot sold\\. Collect ' + P.fair + 'G'));
   await clearAround(page, 11, 14); // (villagers stroll the plaza in the morning)
   await teleport(page, 11, 15, 'up');
@@ -1416,12 +1411,7 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   await tapAction(page);
   assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, null, 'tomato refused in spring');
 
-  const day = (await state(page)).day;
-  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
-  const report = await modalText(page);
-  await shot(page, 'farmhands-report');
-  await tapButton(page, 'OK');
+  const report = await nextMorning(page);
   assert.match(report, /Summer has arrived/);
   let s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
@@ -1490,12 +1480,7 @@ test('upgraded tools charge: hold the button to till a 3x3 patch; rain waters th
 
   // tomorrow it rains: the forecast says so, the crops get watered, and rain falls on the farm
   await page.evaluate(() => { Farm.Logic.weather = (s, day) => (day === s.day + 1 || day > 1 ? 'rain' : 'sunny'); });
-  const day = (await state(page)).day;
-  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
-  const report = await modalText(page);
-  await shot(page, 'farmhands-report');
-  await tapButton(page, 'OK');
+  const report = await nextMorning(page);
   assert.match(report, /Rain/);
   s = await state(page);
   assert.strictEqual(s.soil[12 * W + 5].w, 1, 'rain watered the soil');
@@ -1709,12 +1694,7 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   // the wedding is three days later; then she lives at the farmhouse
   await nextMorning(page);
   await nextMorning(page);
-  const day = (await state(page)).day;
-  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
-  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
-  const report = await modalText(page);
-  await shot(page, 'farmhands-report');
-  await tapButton(page, 'OK');
+  const report = await nextMorning(page);
   assert.match(report, /married Lily/);
   s = await state(page);
   assert.strictEqual(s.spouse, 'lily');

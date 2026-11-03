@@ -136,8 +136,9 @@
     jobs.forEach(function (j) {
       var h = self.fh.hands[j.key];
       if (!h || h.leaving || h.queue.length >= QUEUE) return self.fhFinish(h, j, true);
-      if (j.idx != null) self.fh.hold[j.idx] = now + 60000;
-      if (j.collect && self.herd) self.herd.members.forEach(function (m) { if (m.i === j.i) m.fhShow = now + 60000; });
+      var until = now + 30000 + h.queue.length * 6000; // (a slow phone: shown done anyway if they take too long)
+      if (j.idx != null) self.fh.hold[j.idx] = until;
+      if (j.collect && self.herd) self.herd.members.forEach(function (m) { if (m.i === j.i) m.fhShow = until; });
       h.queue.push(j);
     });
     if (this.drawBasket) this.drawBasket();
