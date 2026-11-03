@@ -20,7 +20,8 @@
   // The texture for a style's furniture, with a frame per kind of furniture (frame = its index in HOME.types).
   F.furnTexture = function (scene, v) {
     var key = 'furn_' + v;
-    if (scene.textures.exists(key)) return key;
+    // (made already with its frames; the sheet alone may have come up first, on the way into the house: F.prewarm)
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key;
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key);
     H.types.forEach(function (type, t) {

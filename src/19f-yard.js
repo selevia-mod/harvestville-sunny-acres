@@ -25,7 +25,7 @@
   // The yard sheet, with a frame per piece (fences: 'key:h', 'key:v', 'key:p').
   F.yardTexture = function (scene) {
     var key = 'yard';
-    if (scene.textures.exists(key)) return key;
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key; // (F.prewarm may put the sheet up alone)
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key), k = 0;
     O.types.forEach(function (t) {

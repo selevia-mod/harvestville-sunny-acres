@@ -17044,7 +17044,8 @@
   // The texture for a style's furniture, with a frame per kind of furniture (frame = its index in HOME.types).
   F.furnTexture = function (scene, v) {
     var key = 'furn_' + v;
-    if (scene.textures.exists(key)) return key;
+    // (made already with its frames; the sheet alone may have come up first, on the way into the house: F.prewarm)
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key;
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key);
     H.types.forEach(function (type, t) {
@@ -18050,7 +18051,7 @@
   // The yard sheet, with a frame per piece (fences: 'key:h', 'key:v', 'key:p').
   F.yardTexture = function (scene) {
     var key = 'yard';
-    if (scene.textures.exists(key)) return key;
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key; // (F.prewarm may put the sheet up alone)
     F.ensureTexture(scene, key);
     var tex = scene.textures.get(key), k = 0;
     O.types.forEach(function (t) {
