@@ -1,7 +1,7 @@
 -- Harvest Ville online, part 14 (3 Nov 2026). Run AFTER parts 1-13. Hunting together (owner, 3 Nov: "i like the hunting
 -- ideas"): who is out hunting right now (so a player on their own can find a partner for the Great Mammoth), a friend
 -- request to someone you just hunted with, and the biggest catch of the week for each animal.
--- Additive: two new tables and five new functions; nothing that exists changes. The friend request by id uses the same
+-- Additive: three new tables and five new functions; nothing that exists changes. The friend request by id uses the same
 -- rules as adding a friend code (it looks the code up and calls farm_friend_add_v1).
 set lock_timeout = '5s';
 
