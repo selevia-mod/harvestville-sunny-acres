@@ -9,6 +9,7 @@
   C.NEWS = [
     {
       v: '2.2', date: 'November 4, 2026', lines: [
+        ['can', 'Farmhands', 'Andoy, Lucing, Berto and Kiko look for work at the Sunny Inn. They water, pick crops, feed animals and pick fruit for a daily wage, even while you are away.', 'farmhands'], // (19zz-farmhands.js)
         ['fish_l', 'The Fishing Derby', 'Every fish has its own weight now. On Fish Monday the biggest of each fish goes on the Derby board in Online, Ranks.', 'derby'],
         ['calendar', 'A Daily gift calendar', 'See the whole week of gifts at a glance. Day 7 is a big chest: 2 Sunbeams, 1,500G and a Power-Up.'],
         ['letter', 'Farm photos', 'Share farm opens photo mode: a frame with your farm\'s name, a Hi! from your farmer, then Snap to post it on Selebox.', 'photo'],

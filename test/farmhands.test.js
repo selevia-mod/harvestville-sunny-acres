@@ -38,7 +38,7 @@ const seeds = (s, idxs, crop) => idxs.forEach((i) => { s.soil[i] = { w: 0, c: cr
 const ripe = (s, idx, crop) => { s.soil[idx] = { w: 1, c: crop, p: L.nowMin() - C.CROPS[crop].mins - 1, r: 0, h: 1 }; };
 
 test('four farmhands, each with a name, a job, a stand-in face, three levels of jobs and wages; they come once the farm has earned enough', () => {
-  assert.deepStrictEqual(plain(C.FH_KEYS), ['andoy', 'lucing', 'berto', 'ditas']);
+  assert.deepStrictEqual(plain(C.FH_KEYS), ['andoy', 'lucing', 'berto', 'kiko']);
   const faces = C.SHOPPERS.map((x) => x.key);
   C.FH_KEYS.forEach((k) => {
     const d = C.FARMHANDS[k];
@@ -204,7 +204,7 @@ test('the fruit picker picks ripe fruit trees into the basket; a tree out of sea
   L.buyYard(s, ix.apple_tree, 1);
   const m = L.placeYard(s, FARM, ix.mango_tree, 25, 14);
   L.placeYard(s, FARM, ix.apple_tree, 30, 14);
-  L.fhHire(s, 'ditas');
+  L.fhHire(s, 'kiko');
   const gold = s.gold;
   tick(s, 20 * 60 + 10); // the mango is ripe at 10 PM, after hours: picked at 6 AM
   assert.deepStrictEqual(plain(s.basket), { mango: 3 });
@@ -307,7 +307,7 @@ test('the save keeps them (and what they did for the report); old saves load wit
 
 test('a long time away: 40 days with everyone hired catches up quickly and charges only the days with work', () => {
   const s = fresh();
-  ['andoy', 'lucing', 'berto', 'ditas'].forEach((k) => L.fhHire(s, k));
+  ['andoy', 'lucing', 'berto', 'kiko'].forEach((k) => L.fhHire(s, k));
   for (let i = 0; i < 300; i++) seeds(s, [1000 + i], 'turnip');
   L.addAnimal(s, 'chicken');
   L.addItem(s, 'chicken_feed', 10);
@@ -319,7 +319,7 @@ test('a long time away: 40 days with everyone hired catches up quickly and charg
   // 300 turnips at 20 a day: 15 days of watering; the chicken fed for 10 days
   assert.strictEqual(s.fh.hands.andoy.days, 15);
   assert.strictEqual(s.fh.hands.berto.days >= 10, true);
-  assert.strictEqual(s.fh.hands.ditas.days, 0, 'no trees: never paid');
+  assert.strictEqual(s.fh.hands.kiko.days, 0, 'no trees: never paid');
 });
 
 test("Rosa writes when the first farmhand checks in at her inn, then once for each new one (one letter for a farm that earned enough for several)", () => {
@@ -339,4 +339,14 @@ test("Rosa writes when the first farmhand checks in at her inn, then once for ea
   assert.deepStrictEqual(s.mail.filter((k) => /^fh_/.test(k)), ['fh_inn', 'fh_berto']);
   assert.match(L.letter('fh_berto').text, /Berto just checked in at my inn, looking for work as an animal hand/);
   assert.deepStrictEqual(plain(roundTrip(s).sent.filter((k) => /^fh_/.test(k))), ['fh_inn', 'fh_andoy', 'fh_lucing', 'fh_berto'], 'saved');
+});
+
+test('the report line: everyone in one sentence with the wages, then any notes; nothing when they did nothing', () => {
+  assert.strictEqual(L.fhReport(null), '');
+  assert.strictEqual(L.fhReport({ andoy: { a: 0, b: 0, g: 0, u: 0, nf: 0 } }), '');
+  assert.strictEqual(L.fhReport({
+    andoy: { a: 1, b: 0, g: 60, u: 0, nf: 0 }, lucing: { a: 12, b: 0, g: 80, u: 0, nf: 0 },
+    berto: { a: 4, b: 1, g: 60, u: 0, nf: 1 }, kiko: { a: 6, b: 0, g: 0, u: 2, nf: 0 },
+  }), 'Your farmhands: Andoy watered 1 crop, Lucing picked 12 crops into the basket, Berto fed the animals 4 times and put 1 thing they made in the basket, ' +
+    'Kiko picked 6 fruit into the basket. Wages: 200G. Berto ran out of animal feed. Keep some in your Storage or bag. Kiko did not work: there was not enough gold for the wage.');
 });

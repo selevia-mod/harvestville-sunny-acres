@@ -371,7 +371,12 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.strictEqual(count(s, 'turnip'), 0);
   await page.evaluate(() => Farm.ui.closeAll());
   const goldBefore = s.gold;
-  const report = await nextMorning(page);
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
+  const report = await modalText(page);
+  await shot(page, 'farmhands-report');
+  await tapButton(page, 'OK');
   assert.match(report, new RegExp('1 lot sold\\. Collect ' + P.fair + 'G'));
   await clearAround(page, 11, 14); // (villagers stroll the plaza in the morning)
   await teleport(page, 11, 15, 'up');
@@ -1411,7 +1416,12 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   await tapAction(page);
   assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, null, 'tomato refused in spring');
 
-  const report = await nextMorning(page);
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
+  const report = await modalText(page);
+  await shot(page, 'farmhands-report');
+  await tapButton(page, 'OK');
   assert.match(report, /Summer has arrived/);
   let s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
@@ -1480,7 +1490,12 @@ test('upgraded tools charge: hold the button to till a 3x3 patch; rain waters th
 
   // tomorrow it rains: the forecast says so, the crops get watered, and rain falls on the farm
   await page.evaluate(() => { Farm.Logic.weather = (s, day) => (day === s.day + 1 || day > 1 ? 'rain' : 'sunny'); });
-  const report = await nextMorning(page);
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
+  const report = await modalText(page);
+  await shot(page, 'farmhands-report');
+  await tapButton(page, 'OK');
   assert.match(report, /Rain/);
   s = await state(page);
   assert.strictEqual(s.soil[12 * W + 5].w, 1, 'rain watered the soil');
@@ -1694,7 +1709,12 @@ test('home life: kitchen, TV, the Flower Festival, a proposal and a wedding', as
   // the wedding is three days later; then she lives at the farmhouse
   await nextMorning(page);
   await nextMorning(page);
-  const report = await nextMorning(page);
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
+  const report = await modalText(page);
+  await shot(page, 'farmhands-report');
+  await tapButton(page, 'OK');
   assert.match(report, /married Lily/);
   s = await state(page);
   assert.strictEqual(s.spouse, 'lily');
@@ -3038,6 +3058,98 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   for (let k = 0; k < 2; k++) { await frames(page, 4); await tapButton(page, 'Next'); }
   await shot(page, 'tour-derby-last');
   await tapButton(page, 'Got it');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the farm, wait by the field to talk, the morning report says what they did, and you can let them go (4 Nov)', async () => {
+  const save = await makeSave(`s.stats.earned = 4000; s.gold = 5000; s.goal = 99; s.wv = C.NEWS_LATEST;
+    for (let y = 11; y <= 16; y++) for (let x = 3; x <= 12; x++) delete s.debris[y * 64 + x];
+    const now = L.nowMin();
+    for (let x = 4; x <= 9; x++) s.soil[12 * 64 + x] = { w: 0, c: 'potato', p: now, r: 0, h: 1 };
+    for (let x = 4; x <= 6; x++) s.soil[15 * 64 + x] = { w: 1, c: 'turnip', p: now - 20, r: 0, h: 1 };`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const idx = (x, y) => y * W + x;
+  // the Sunny Inn has a Farmhands tab; the first time, its tour comes first
+  await go(page, 'town', 'from_farm');
+  await closeAll(page);
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.openBuilding('inn'); });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await modalText(page), /Sunny Inn[\s\S]*Menu[\s\S]*Farmhands[\s\S]*Sandwich/);
+  await tapButton(page, 'Farmhands');
+  await page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; return m && /FARMHANDS/.test(JSON.stringify(m.c.list.filter((o) => o.type === 'Text').map((o) => o.text))); }, null, SLOW);
+  assert.match(await modalText(page), /FARMHANDS[\s\S]*stay at the Sunny Inn/);
+  await shot(page, 'farmhands-tour-1');
+  for (let k = 0; k < 3; k++) { await frames(page, 4); await tapButton(page, 'Next'); await frames(page, 4); await shot(page, 'farmhands-tour-' + (k + 2)); }
+  await tapButton(page, 'Got it');
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  await page.evaluate(() => { window.gameHost.quiet = true; });
+  let text = await modalText(page);
+  assert.match(text, /Andoy · Waterer[\s\S]*Waters your seeds\. 20 a day, 60G a work day\.[\s\S]*Hire/);
+  assert.match(text, /Berto · Animal hand[\s\S]*Comes once your farm has earned 6,000G/);
+  await shot(page, 'farmhands-inn');
+  // hire Andoy, then Lucing
+  await tapButton(page, 'Hire');
+  assert.match(await modalText(page), /ANDOY, WATERER[\s\S]*Up to 20 crops a day, for 60G on each day there is work/);
+  await shot(page, 'farmhands-hire');
+  await tapButton(page, 'Hire');
+  await page.waitForFunction(() => Farm.Logic.fhHired(Farm.session.state, 'andoy') && Farm.ui.modals.length === 1, null, SLOW);
+  await tapButton(page, 'Hire');
+  await tapButton(page, 'Hire');
+  await page.waitForFunction(() => Farm.Logic.fhHired(Farm.session.state, 'lucing') && Farm.ui.modals.length === 1, null, SLOW);
+  text = await modalText(page);
+  assert.match(text, /Lv 1[\s\S]*Andoy · Waterer[\s\S]*0\/20[\s\S]*60G a work day\. Lv 2 in 5 days\.[\s\S]*Let go/);
+  await shot(page, 'farmhands-hired');
+  await closeAll(page);
+  // on the farm they wait by the field; at the next round they walk to the jobs and do them
+  await go(page, 'farm', 'from_town');
+  await closeAll(page);
+  assert.deepStrictEqual(await page.evaluate(() => Object.keys(Farm.world.fh.hands).sort()), ['andoy', 'lucing']);
+  await teleport(page, 7, 11, 'down');
+  await advance(page, 10);
+  await page.waitForFunction(() => Farm.world.fh.hands.andoy.queue.length + (Farm.world.fh.hands.andoy.job ? 1 : 0) > 0, null, SLOW);
+  let s = await state(page);
+  assert.deepStrictEqual([4, 5, 6, 7, 8, 9].map((x) => s.soil[idx(x, 12)].w), [1, 1, 1, 1, 1, 1], 'the rules did the work');
+  assert.strictEqual(s.basket.turnip, 3);
+  assert.strictEqual(s.gold, 5000 - 60 - 80, 'a wage each');
+  assert.ok(await page.evaluate((i) => !!Farm.world.fh.hold[i], idx(9, 12)), 'the field shows it as they get there');
+  assert.ok(await page.evaluate((i) => !!Farm.world.crops[i], idx(4, 15)), 'the turnip stays until Lucing picks it');
+  await page.waitForTimeout(2500);
+  await shot(page, 'farmhands-working');
+  await page.waitForFunction(() => Object.values(Farm.world.fh.hands).every((h) => !h.queue.length && !h.job && !h.path.length), null, { timeout: 240000 });
+  assert.deepStrictEqual(await page.evaluate(() => Object.keys(Farm.world.fh.hold)), [], 'every tile shows what was done');
+  assert.strictEqual(await page.evaluate((i) => Farm.world.layers.Soil.getTileAt(i % 64, Math.floor(i / 64)).index === Farm.world.gids.tilled_wet, idx(9, 12)), true);
+  assert.strictEqual(await page.evaluate(() => Farm.world.basket.badge.text), '3');
+  // talk to Andoy while he waits
+  await teleport(page, 12, 9, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text === 'Talk', null, SLOW);
+  await shot(page, 'farmhands-resting');
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await modalText(page), /ANDOY, WATERER[\s\S]*Dry soil\?[\s\S]*Today: 6 of 20 jobs done\. Lv 1, New\./);
+  await closeAll(page);
+  // the morning report: what they did yesterday (Lucing picked the potatoes at 4:10 PM)
+  const day = (await state(page)).day;
+  await page.evaluate(() => { Farm.ui.closeAll(); const d = new Date(window.__now); window.__now = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8, 0).getTime(); Farm.world.clockMs = 1000; });
+  await page.waitForFunction((d) => Farm.session.state.day === d + 1 && Farm.world && !Farm.world.busy && Farm.world.player.active && Farm.ui.modals.length === 1, day, SLOW);
+  const report = await modalText(page);
+  await shot(page, 'farmhands-report');
+  await tapButton(page, 'OK');
+  assert.match(report, /Your farmhands: Andoy watered 6 crops, Lucing picked 9 crops into the basket\. Wages: 140G\./);
+  s = await state(page);
+  assert.strictEqual(s.basket.potato, 6);
+  // letting one go, at the inn
+  await page.evaluate(() => Farm.ui.openFarmhands());
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await tapButton(page, 'Let go');
+  assert.match(await modalText(page), /LET ANDOY GO\?/);
+  await tapButton(page, 'Let go');
+  await page.waitForFunction(() => !Farm.Logic.fhHired(Farm.session.state, 'andoy'), null, SLOW);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.world.fh.hands.andoy && Farm.world.fh.hands.andoy.leaving, null, SLOW);
+  // What's new has the line, with the tour behind Show me
+  assert.ok(await page.evaluate(() => Farm.Config.NEWS[0].lines.some((l) => l[1] === 'Farmhands' && l[3] === 'farmhands')));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

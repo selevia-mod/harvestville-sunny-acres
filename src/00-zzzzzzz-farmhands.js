@@ -41,15 +41,15 @@
       line: 'Animals know a kind hand. Leave the feeding to me.',
       what: 'Feeds your animals from your Storage or bag, and puts what they made in the basket.', brief: 'Feeds and collects.',
     },
-    ditas: {
-      name: 'Ditas', job: 'fruit', title: 'Fruit picker', face: 'visitor_student', unlock: 10000,
+    kiko: {
+      name: 'Kiko', job: 'fruit', title: 'Fruit picker', face: 'visitor_student', unlock: 10000,
       jobs: [2, 4, 8], wage: [50, 110, 200],
-      look: 'a quick young woman with short hair, a red headscarf, a striped shirt and a cloth sling bag for fruit',
+      look: 'a wiry teenage boy with messy hair, round glasses, a green shirt with rolled sleeves and a cloth sling bag for fruit',
       line: 'I can climb any tree in the valley. Show me where they are!',
       what: 'Picks ripe fruit trees into the basket.', brief: 'Picks ripe fruit.',
     },
   };
-  C.FH_KEYS = ['andoy', 'lucing', 'berto', 'ditas']; // (the save keeps them by their place here: append only)
+  C.FH_KEYS = ['andoy', 'lucing', 'berto', 'kiko']; // (the save keeps them by their place here: append only)
 
   // Rosa writes when the first one checks in at her inn, then when each new one comes (01-logicZ-farmhands.js).
   C.LETTERS.fh_inn = { from: 'rosa', text: 'Good news, farmer! A hard worker is staying at my inn and asking for farm work. Come by the Sunny Inn and look under Farmhands. - Rosa' };
