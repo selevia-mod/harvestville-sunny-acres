@@ -20,6 +20,8 @@
         ['bubble', 'Reactions', 'Wave now has Hi!, Love, Haha!, Wow!, Yay! and Aww.'],
         ['star', 'Big moments', 'Friends hear when you find the ladder down, catch the King Trout or hunt a rare animal.'],
         ['calendar', 'A smaller badge', "Today's Event is a small badge on the left now. Tap it to read today's bonus."],
+        ['carabao', 'Barangays', 'Team up with up to 30 farms under Online, Friends. Every week the Bayanihan Cup gives each barangay the same tasks: points, places and prizes for all who help.', 'nb'],
+        ['crate', 'The Market board', 'Advertise your stall for 4 hours, free once a day. See who is selling and buy from their stall, in Online, Market.', 'ads'],
       ],
     },
     {

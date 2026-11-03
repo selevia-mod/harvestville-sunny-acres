@@ -395,10 +395,10 @@ language sql stable security definer set search_path = '' as $$
   limit 30;
 $$;
 
--- Write on the news board. 'ok' | 'empty' | 'word' | 'limit' | 'out'
+-- Write on the news board (80 letters at most: a longer line is cut). 'ok' | 'empty' | 'word' | 'limit' | 'out'
 create or replace function public.farm_nb_post_v1(p_body text)
 returns text language plpgsql security definer set search_path = '' as $$
-declare uid uuid := farm.me(); hid bigint := farm.my_hood(uid); msg text := left(regexp_replace(btrim(coalesce(p_body, '')), '\s+', ' ', 'g'), 120); r record := farm.nb_rules();
+declare uid uuid := farm.me(); hid bigint := farm.my_hood(uid); msg text := left(regexp_replace(btrim(coalesce(p_body, '')), '\s+', ' ', 'g'), 80); r record := farm.nb_rules();
 begin
   if hid is null then return 'out'; end if;
   if msg = '' then return 'empty'; end if;
