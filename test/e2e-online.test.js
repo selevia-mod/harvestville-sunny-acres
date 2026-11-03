@@ -2068,3 +2068,33 @@ test('online: before parts 16 and 17 are applied, barangays and the Market board
   assert.deepStrictEqual(a.problems, []);
   await a.context.close();
 });
+
+test('online: the Barangays tour the first time Online, Friends opens with its row, the Market board tour the first time the Market tab opens; each once (owner, 4 Nov)', async () => {
+  const server = createServer();
+  const a = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await a.page.evaluate(() => Farm.Online.nbLoad());
+  await a.page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.openOnline('friends', 0); });
+  await waitModal(a.page, /BARANGAYS[\s\S]*A barangay is a team of up to 30 farms/);
+  await shot(a.page, 'nb-tour-1');
+  await tapButton(a.page, 'Next');
+  await waitModal(a.page, /Bayanihan Cup: the same tasks for all/);
+  await tapButton(a.page, 'Next');
+  await waitModal(a.page, /Prizes every Monday/);
+  await tapButton(a.page, 'Got it');
+  await waitModal(a.page, /Your code[\s\S]*Barangays/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('friends', 0); });
+  await waitModal(a.page, /Your code[\s\S]*Barangays/);
+  assert.ok(!/A barangay is a team/.test(await modalText(a.page)), 'once');
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /THE MARKET BOARD[\s\S]*Advertise puts your Market stall on the board/);
+  await shot(a.page, 'ads-tour-1');
+  await tapButton(a.page, 'Next');
+  await tapButton(a.page, 'Got it');
+  await waitModal(a.page, /Shopping list[\s\S]*Market board/);
+  await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openOnline('market', 0); });
+  await waitModal(a.page, /Shopping list[\s\S]*Market board/);
+  assert.ok(!/THE MARKET BOARD/.test(await modalText(a.page)), 'once');
+  assert.deepStrictEqual(a.problems, []);
+  await a.context.close();
+});

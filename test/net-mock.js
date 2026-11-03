@@ -481,7 +481,10 @@ function createServer() {
   const cupTasks = (wk) => NB_KINDS.map(([kind, goal, points, minutes]) => ({ kind, goal, points, minutes, h: crypto.createHash('md5').update(wk + ':' + kind).digest('hex') }))
     .sort((x, y) => (x.h < y.h ? -1 : 1)).slice(0, 8);
   const members = (hid) => [...db.hoodOf.entries()].filter(([, m]) => m.hood === hid).sort((x, y) => x[1].joined - y[1].joined);
-  const hoodPost = (hood, uid, kind, body) => db.hoodPosts.push({ id: ++db.postId, hood, uid, kind, body: body || '', at: Date.now() });
+  const hoodPost = (hood, uid, kind, body) => {
+    if ((kind === 'join' || kind === 'left') && db.hoodPosts.some((p) => p.hood === hood && p.uid === uid && p.kind === kind && Date.now() - p.at < 864e5)) return; // (farm.hood_note: once a day)
+    db.hoodPosts.push({ id: ++db.postId, hood, uid, kind, body: body || '', at: Date.now() });
+  };
   const hoodGone = (uid) => { // (the trigger: the longest member leads; nobody left, it is gone)
     const m = db.hoodOf.get(uid);
     if (!m) return;

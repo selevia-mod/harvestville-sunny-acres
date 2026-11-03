@@ -183,7 +183,7 @@ declare hid bigint := farm.my_hood(old.user_id);
 begin
   if hid is null then return null; end if;
   delete from farm.cup_picks where user_id = old.user_id;
-  insert into farm.hood_posts (hood_id, user_id, kind) values (hid, old.user_id, 'left');
+  perform farm.hood_note(hid, old.user_id, 'left');
   delete from farm.hood_members where user_id = old.user_id;
   return null;
 exception
@@ -215,8 +215,17 @@ language sql stable security definer set search_path = '' as $$
   select hood_id from farm.hood_members where user_id = p_user;
 $$;
 
+-- A line the server writes on the news board (joined, left). Once a day per player and kind, so joining and leaving
+-- over and over cannot fill the board.
+create or replace function farm.hood_note(p_hood bigint, p_user uuid, p_kind text) returns void
+language sql security definer set search_path = '' as $$
+  insert into farm.hood_posts (hood_id, user_id, kind)
+  select p_hood, p_user, p_kind where not exists (select 1 from farm.hood_posts p
+    where p.hood_id = p_hood and p.user_id = p_user and p.kind = p_kind and p.created_at > now() - interval '1 day');
+$$;
+
 revoke all on function farm.nb_rules(), farm.nb_prize(int, int), farm.nb_week(timestamptz), farm.nb_prize_ok(uuid), farm.hood_member_gone(), farm.snapshot_gone_leave_hood(),
-  farm.cup_tasks(date), farm.cup_place(date, bigint), farm.my_hood(uuid) from public, anon, authenticated;
+  farm.cup_tasks(date), farm.cup_place(date, bigint), farm.my_hood(uuid), farm.hood_note(bigint, uuid, text) from public, anon, authenticated;
 
 -- ---------- the functions the game calls ----------
 
@@ -339,7 +348,7 @@ begin
   if (select count(*) from farm.hood_members where hood_id = h.id) >= r.max_members then return json_build_object('ok', false, 'code', 'full'); end if;
   insert into farm.hood_members (user_id, hood_id) values (uid, h.id);
   delete from farm.cup_picks where user_id = uid;
-  insert into farm.hood_posts (hood_id, user_id, kind) values (h.id, uid, 'join');
+  perform farm.hood_note(h.id, uid, 'join');
   return json_build_object('ok', true, 'id', h.id, 'name', h.name);
 end $$;
 
@@ -350,7 +359,7 @@ declare uid uuid := farm.me(); hid bigint := farm.my_hood(uid);
 begin
   if hid is null then return 'out'; end if;
   delete from farm.cup_picks where user_id = uid;
-  insert into farm.hood_posts (hood_id, user_id, kind) values (hid, uid, 'left');
+  perform farm.hood_note(hid, uid, 'left');
   delete from farm.hood_members where user_id = uid; -- (the trigger passes on the lead, or closes an empty barangay)
   return 'ok';
 end $$;
@@ -537,4 +546,5 @@ reset lock_timeout;
 -- drop trigger if exists snapshot_gone_leave_hood on farm.snapshots;
 -- drop table if exists farm.cup_claims, farm.cup_hoods, farm.cup_done, farm.cup_picks, farm.cup_kinds, farm.hood_posts, farm.hood_members, farm.hoods;
 -- drop function if exists farm.hood_member_gone(), farm.snapshot_gone_leave_hood(), farm.cup_tasks(date), farm.cup_place(date, bigint), farm.my_hood(uuid),
+--   farm.hood_note(bigint, uuid, text),
 --   farm.nb_rules(), farm.nb_prize(int, int), farm.nb_week(timestamptz), farm.nb_prize_ok(uuid);

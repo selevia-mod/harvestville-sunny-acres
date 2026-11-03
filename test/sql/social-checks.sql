@@ -78,6 +78,9 @@ do $$ declare hm bigint; n int; r json; begin
   for n in 15..42 loop perform pg_temp.as_(n); perform farm_nb_leave_v1(); end loop;
   perform pg_temp.as_(10);
   perform pg_temp.ok((select count(*) from farm_nb_members_v1()) = 2, 'members: back to 2');
+  perform pg_temp.as_(15); perform farm_nb_join_v1(hm, null); perform farm_nb_leave_v1();
+  perform pg_temp.as_(10);
+  perform pg_temp.ok((select count(*) from farm_nb_posts_v1() where who = pg_temp.id(15)) = 1, 'joining and leaving again the same day: no new lines on the board');
 end $$;
 
 -- ---------- the news board ----------
