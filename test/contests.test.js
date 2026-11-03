@@ -72,7 +72,10 @@ test('the villagers\' entries come from the year alone: three, the same every ti
   assert.match(plain(L.ctRivals('crop', 2027))[0].name, /'s? [A-Z]/);
 });
 
-test('the animal\'s score: love, then fed, petted and brushed today; young ones cannot enter', () => {
+test('the animal\'s score: love, then fed, petted and brushed today; young ones cannot enter', (t) => {
+  const breed = L.animalBreed; // (breeds have their own test below: here a bought cow may come in a colour)
+  L.animalBreed = undefined;
+  t.after(() => { L.animalBreed = breed; });
   const s = on(11, 20);
   const i = cow(s, 100, true), j = cow(s, 50, false);
   assert.strictEqual(L.ctAnimalScore(s, i).score, 92);

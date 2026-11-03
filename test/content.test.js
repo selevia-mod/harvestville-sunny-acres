@@ -305,10 +305,10 @@ test('pigs and carabaos live in the barn, eat fodder and give truffles and carab
   L.addItem(s, 'milker', 1);
   assert.strictEqual(L.collect(s, cara), 'carabao_milk');
   assert.ok(L.discovered(s, 'truffle') && L.discovered(s, 'carabao_milk'), 'both go in the collection');
-  // a miracle potion is for cows only
+  // a miracle potion works on a carabao too (since breeds: 01-logicZ-breeding.js)
   L.addItem(s, 'miracle', 1);
   s.animals[cara].love = 100;
-  assert.strictEqual(L.givePotion(s, cara, slotOf(s, 'miracle')), 'notcow');
+  assert.strictEqual(L.givePotion(s, cara, slotOf(s, 'miracle')), 'ok');
   // they survive a save
   const back = roundTrip(s);
   assert.deepStrictEqual(plain(back.animals.map((a) => a.kind)), plain(s.animals.map((a) => a.kind)));

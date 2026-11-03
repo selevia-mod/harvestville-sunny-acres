@@ -1979,3 +1979,32 @@ test('online: Bakunawa\'s Lair: two hunters on floor 50, the Bakunawa rises only
   for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+// ---------- animal breeds (src/19zz-breeding.js) ----------
+test('online: animal breeds: a visitor sees the owner\'s Golden Hen and Moonlight Pig in their own colours, and nothing new goes in the visitor\'s Breeds book', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await host.page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic;
+    s.gold = 9999;
+    L.buyAnimal(s, 'pig');
+    s.animals[0].br = 3;
+    s.animals[1].br = 3;
+    return Farm.Online.publish(true);
+  });
+  await guest.page.waitForTimeout(1500);
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await guest.page.waitForFunction(() => Farm.world.herd && Farm.world.herd.members.length === 2, null, SLOW);
+  assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals_br_chicken_3', 'animals_br_pig_3']);
+  assert.deepStrictEqual(await guest.page.evaluate(() => [Farm.Logic.breedsFound(Farm.session.state, 'chicken'), Farm.Logic.breedsFound(Farm.session.state, 'pig')]), [1, 0], 'seeing is not finding');
+  await shot(guest.page, 'breeds-visit');
+  await guest.page.evaluate(() => Farm.Online.leaveVisit());
+  await waitWorld(guest.page, false);
+  assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals']);
+  assert.deepStrictEqual(guest.problems, []);
+  assert.deepStrictEqual(host.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});

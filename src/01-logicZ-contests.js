@@ -40,6 +40,7 @@
     try { b = L.animalBreed(a, s, i); } catch (e) { return null; }
     if (!b) return null;
     if (typeof b === 'string') return { name: b, rare: false };
+    if (b.index === 0) return null; // (feat/breeding gives every animal its breed: the first colour is the plain one, no points)
     return { name: String(b.name || b.key || ''), rare: !!(b.rare === true || Number(b.rare) > 0 || Number(b.tier) > 0 || Number(b.rarity) > 0) };
   };
   // feat/farmtech: L.cropQuality(slot, s, slotIndex) -> 0 to 3 stars, or { stars } / { level } / { q }.
