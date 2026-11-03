@@ -33,9 +33,10 @@
   L.commonBreeds = function (kind) { return list(kind).map(function (d, i) { return d.rare ? -1 : i; }).filter(function (i) { return i >= 0; }); };
   L.rareBreeds = function (kind) { return list(kind).map(function (d, i) { return d.rare ? i : -1; }).filter(function (i) { return i >= 0; }); };
 
-  // For other features (contests, ...): animal i's breed, or null.
-  L.animalBreed = function (s, i) {
-    var a = s && s.animals && s.animals[i];
+  // For other features (contests, ...): an animal's breed { kind, index, key, name, rare }, or null. Called as
+  // L.animalBreed(animal, s, i) (the record first: the contests' call) or L.animalBreed(s, i).
+  L.animalBreed = function (x, y, z) {
+    var a = x && x.kind ? x : x && x.animals ? x.animals[y] : y && y.animals ? y.animals[z] : null;
     if (!a || !C.ANIMALS[a.kind]) return null;
     var b = L.breedOf(a), d = L.breedDef(a.kind, b);
     return { kind: a.kind, index: b, key: d.key, name: d.name, rare: !!d.rare };
@@ -112,14 +113,12 @@
     } else birth = null;
     var i = addAnimal.call(this, s, kind, young), a = s.animals[i], b;
     if (birth) {
-      var mother = birth.mother || null, others = adults(s, kind, mother), father = null;
-      if (!mother) { // a chick: from the hens in the coop
-        var hens = adults(s, kind, a);
+      var mother = birth.mother || null;
+      if (!mother) { // a chick from the incubator: one of the hens in the coop
+        var hens = adults(s, kind, null);
         mother = hens.length ? pick(hens, L.brRandom) : null;
-        others = adults(s, kind, mother).filter(function (x) { return x !== a; });
       }
-      others = others.filter(function (x) { return x !== a; });
-      father = others.length ? pick(others, L.brRandom) : null;
+      var others = adults(s, kind, mother), father = others.length ? pick(others, L.brRandom) : null; // (the newborn is young: not one)
       b = L.pickBreed(kind, mother ? L.breedOf(mother) : null, father ? L.breedOf(father) : null, L.brRandom);
     } else {
       b = L.shopBreed(s, kind, L.brRandom);

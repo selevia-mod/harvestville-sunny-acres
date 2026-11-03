@@ -49,6 +49,11 @@ test('a new game: Clucky is a White Hen, the first in the Breeds book; L.animalB
   assert.strictEqual(s.animals[0].br, undefined, 'breed 0 is no property at all');
   assert.deepStrictEqual(plain(L.animalBreed(s, 0)), { kind: 'chicken', index: 0, key: 'white', name: 'White Hen', rare: false });
   assert.strictEqual(L.animalBreed(s, 5), null);
+  assert.deepStrictEqual(plain(L.animalBreed(s.animals[0], s, 0)), plain(L.animalBreed(s, 0)), 'the contests\' call: the record first');
+  s.animals[0].br = B('chicken', 'golden');
+  assert.deepStrictEqual(plain(L.animalBreed(s.animals[0], s, 0)), { kind: 'chicken', index: 3, key: 'golden', name: 'Golden Hen', rare: true });
+  assert.strictEqual(L.animalBreed(null, s, 9), null);
+  delete s.animals[0].br;
   assert.strictEqual(L.breedFound(s, 'chicken', 0), true);
   assert.strictEqual(L.breedsFound(s, 'chicken'), 1);
   assert.strictEqual(L.breedsFound(s, 'cow'), 0);
