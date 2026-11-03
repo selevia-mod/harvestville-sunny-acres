@@ -13,7 +13,7 @@
     max: 10,
     skills: {
       farm: {
-        name: 'Farming', icon: 'hoe', verb: 'Till, water, plant and pick crops.',
+        name: 'Farming', short: 'Farm', icon: 'hoe', verb: 'Till, water, plant and pick crops.',
         // till, water and plant: 1 a tile; pick a crop 2; cut grass 1
         xp: { till: 1, water: 1, plant: 1, harvest: 2, cut: 1 },
         perks: [
@@ -24,7 +24,7 @@
         ],
       },
       mine: {
-        name: 'Mining', icon: 'hammer', verb: 'Smash rocks in the Mine.',
+        name: 'Mining', short: 'Mine', icon: 'hammer', verb: 'Smash rocks in the Mine.',
         // a rock 3, and 2 more when it held ore or a gem
         xp: { rock: 3, ore: 2 },
         perks: [
@@ -35,7 +35,7 @@
         ],
       },
       fish: {
-        name: 'Fishing', icon: 'rod', verb: 'Catch fish in the pond and the river.',
+        name: 'Fishing', short: 'Fish', icon: 'rod', verb: 'Catch fish in the pond and the river.',
         // by the fish; a giant 4 more; one that got away still teaches you a little
         xp: { fish_s: 4, fish_m: 6, fish_l: 8, fish_k: 30, other: 5, giant: 4, miss: 1 },
         perks: [
@@ -46,7 +46,7 @@
         ],
       },
       hunt: {
-        name: 'Hunting', icon: 'bow', verb: 'Hunt in the Wild Lands.',
+        name: 'Hunting', short: 'Hunt', icon: 'bow', verb: 'Hunt in the Wild Lands.',
         // 5 for each arrow it takes to bring down (60 at most); a giant 5 more; a rare one 20 more
         xp: { hp: 5, most: 60, giant: 5, rare: 20 },
         perks: [

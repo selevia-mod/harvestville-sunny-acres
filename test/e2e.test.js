@@ -3041,3 +3041,237 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- Skills (src/19zz-skills.js) ----------
+// Taps the centre of a Phaser object found by `find` (run in the page: (o) => bool) in the top modal, or in `where`.
+async function tapWhere(page, find, where) {
+  const pos = await page.evaluate(([src, where]) => {
+    const f = eval(src), root = where ? eval(where) : Farm.ui.modals[Farm.ui.modals.length - 1].c; // eslint-disable-line no-eval
+    let b = null;
+    const walk = (list) => list.forEach((o) => { if (!b && f(o)) b = o.getBounds(); if (o.list) walk(o.list); });
+    walk(root.list);
+    return b && { x: b.centerX, y: b.centerY };
+  }, [find, where || null]);
+  assert.ok(pos, 'found ' + find);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page);
+}
+
+test('skills: a till levels up Farming, its card opens Skills; the farmer card and the Collection open it too; the perks; a smashed rock; the reel bar; a caught and a lost fish', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.sk2 = { farm: 99 }; L.addItem(s, "rod", 1);');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const xp = (k) => page.evaluate((k) => Farm.Logic.skillXp(Farm.session.state, k), k);
+  // one tilled tile: 100 XP, Farming level 2, and its card
+  await teleport(page, 5, 11, 'down');
+  await hold(page, 'hoe');
+  assert.strictEqual(await actionLabel(page), 'Till');
+  await tapAction(page);
+  assert.strictEqual(await xp('farm'), 100);
+  await page.waitForFunction(() => Farm.ui.skCard && Farm.ui.skCard.active, null, SLOW);
+  const card = await page.evaluate(() => { const out = []; Farm.ui.skCard.list.forEach((o) => { if (o.type === 'Text') out.push(o.text); }); return out.join(' | '); });
+  assert.match(card, /LEVEL UP! \| Farming {2}Level 2 \| Next perk at level 3\./);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'the card is not a panel: you keep playing');
+  await page.waitForTimeout(400);
+  await shot(page, 'skills-levelup');
+  // tap it: the Skills panel
+  await tapWhere(page, "(o) => o.type === 'Zone'", 'Farm.ui.skCard');
+  await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
+  let text = await modalText(page);
+  assert.match(text, /Skills \| X \| Tap a skill to see all of its perks\. \| Farming \| Level 2 \| 0 \/ 200 XP to level 3 \| Level 3: Your Watering Can holds 5 more water\./);
+  assert.match(text, /Mining \| Level 1 \| 0 \/ 100 XP to level 2 \| Level 3: Rocks take 15% less energy to smash\./);
+  assert.match(text, /Fishing \| Level 1 .*Hunting \| Level 1/);
+  await shot(page, 'skills-panel');
+  // a skill: all of its perks
+  await tapWhere(page, "(o) => o.type === 'Text' && o.text === 'Farming'");
+  text = await modalText(page);
+  assert.match(text, /FARMING {2}LEVEL 2 .*Level 3: {2}Your Watering Can holds 5 more water\. .*Level 10: {2}A 1 in 10 chance of one more crop when you pick\./);
+  await tapButton(page, 'OK');
+  assert.match(await modalText(page), /^Skills/);
+  await tapButton(page, 'X');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
+  // the farmer card in the pause menu: Skills, and X goes back to the menu
+  await page.evaluate(() => Farm.ui.openPause());
+  await frames(page, 2);
+  await shot(page, 'skills-pause');
+  await tapWhere(page, "(o) => o.name === 'skills-link'");
+  assert.match(await modalText(page), /^Skills .*Farming \| Level 2/);
+  await tapButton(page, 'X');
+  assert.match(await modalText(page), /Paused/);
+  // the Collection: Skills beside Hunts
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openCollection());
+  await frames(page, 2);
+  await tapButton(page, 'Skills');
+  assert.match(await modalText(page), /^Skills/);
+  await tapButton(page, 'X');
+  assert.match(await modalText(page), /Collection/);
+  await closeAll(page);
+  // the bigger can at Farming 3, and the Hoe's energy at Farming 5
+  const can = await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic, a = L.canCapacity(s); s.sk2.farm = Farm.Config.SKILLS.need[3]; return [a, L.canCapacity(s)]; });
+  assert.strictEqual(can[1], can[0] + 5);
+  await page.waitForFunction(() => Farm.ui.skCard == null || !Farm.ui.skCard.active, null, SLOW);
+  // the mine: a smashed rock is Mining XP; at Mining 3 it takes 15% less energy
+  await page.evaluate(() => { Farm.session.state.sk2.mine = Farm.Config.SKILLS.need[3]; Farm.world.travel('mine', 'entrance', 40); });
+  await waitMap(page, 'mine');
+  const rock = await page.evaluate(() => {
+    const w = Farm.world, W = w.map.width; // a plain rock with open floor above it
+    const ok = w.mine.rocks.filter((i) => i !== w.mine.stairs && !w.mine.broken[i] && !(w.mine.spark || []).includes(i) && i >= W && !w.tileAt('Walls', i % W, Math.floor(i / W) - 1));
+    return ok.length ? [ok[0] % W, Math.floor(ok[0] / W)] : null;
+  });
+  assert.ok(rock, 'a rock with room in front');
+  await teleport(page, rock[0], rock[1] - 1, 'down');
+  await hold(page, 'hammer');
+  assert.strictEqual(await actionLabel(page), 'Smash');
+  const before = await page.evaluate(() => { const s = Farm.session.state; s.energy = 100; return { e: s.energy, xp: Farm.Logic.skillXp(s, 'mine'), cost: Farm.Logic.mineEnergy(s, 40), plain: (() => { const x = s.sk2.mine; s.sk2.mine = 0; const c = Farm.Logic.mineEnergy(s, 40); s.sk2.mine = x; return c; })() }; });
+  assert.strictEqual(before.cost, Math.round(before.plain * 0.85), 'Mining 3: 15% less');
+  await tapAction(page);
+  const after = await page.evaluate(() => ({ e: Farm.session.state.energy, xp: Farm.Logic.skillXp(Farm.session.state, 'mine') }));
+  assert.strictEqual(after.e, before.e - before.cost);
+  assert.ok(after.xp - before.xp === 3 || after.xp - before.xp === 5, 'a rock: 3, or 5 with ore: ' + (after.xp - before.xp));
+  await go(page, 'farm', 'from_town');
+  // fishing at Fishing 3: a 10% bigger green bar; the table is the plain one again after
+  await page.evaluate(() => { Farm.Config.FISH_WINDOW = 1e9; Farm.session.state.sk2.fish = Farm.Config.SKILLS.need[3]; });
+  await hold(page, 'rod');
+  await teleport(page, 14, 4, 'right');
+  assert.strictEqual(await actionLabel(page), 'Fish');
+  await tapAction(page);
+  await page.evaluate(() => { Farm.world.fishing.biteAt = 0; });
+  await page.waitForFunction(() => Farm.world.fishing && Farm.world.fishing.state === 'bite', null, SLOW);
+  await page.evaluate(() => { const G = Farm.Config.FISH_GAME; window.__plain = JSON.stringify(G); ['fish_s', 'fish_m', 'fish_l', 'fish_k'].forEach((k) => { G[k].zone = 0.5; G[k].speed = 0.0001; }); });
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.game2, null, SLOW);
+  const bar = await page.evaluate(() => { let h = 0; const walk = (l) => l.forEach((o) => { if (o.type === 'Rectangle' && o.width === 38) h = o.height; if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return h; });
+  assert.ok(Math.abs(bar - 0.5 * 1.1 * 320) < 0.01, 'the green bar: ' + bar);
+  assert.strictEqual(await page.evaluate(() => Farm.Config.FISH_GAME.fish_l.zone), 0.5, 'the real table is untouched');
+  await shot(page, 'skills-reel');
+  // it lands (the fish keeps still in the bar), and that is Fishing XP
+  const fx = await xp('fish');
+  await page.evaluate(() => { Farm.Config.FISH_GAME.fill = 50; Farm.Config.FISH_GAME.drain = 0; });
+  await page.waitForFunction(() => !Farm.ui.game2 && !Farm.world.fishing, null, SLOW);
+  const fish = await page.evaluate(() => Farm.session.state.lastFish);
+  assert.ok(fish && fish.id, 'caught');
+  const X = await page.evaluate(() => Farm.Config.SKILLS.skills.fish.xp);
+  assert.strictEqual(await xp('fish'), fx + X[fish.id] + (fish.giant ? X.giant : 0));
+  // one that gets away (Back in the reel game) still teaches a little
+  await tapAction(page);
+  await page.evaluate(() => { Farm.world.fishing.biteAt = 0; });
+  await page.waitForFunction(() => Farm.world.fishing && Farm.world.fishing.state === 'bite', null, SLOW);
+  await page.evaluate(() => { const G = Farm.Config.FISH_GAME; G.fill = 0.0001; });
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.game2, null, SLOW);
+  const fx2 = await xp('fish');
+  await page.evaluate(() => window.__gameBack());
+  await page.waitForFunction(() => !Farm.ui.game2 && !Farm.world.fishing, null, SLOW);
+  assert.strictEqual(await xp('fish'), fx2 + 1);
+  await page.evaluate(() => { const p = JSON.parse(window.__plain); Object.assign(Farm.Config.FISH_GAME, p); });
+  // the save keeps it all
+  await page.evaluate(() => Farm.world.save());
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  const st = await state(page);
+  assert.deepStrictEqual(saved.sk2, ['farm', 'mine', 'fish', 'hunt'].map((k) => st.sk2[k] || 0));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('skills: a hunted deer is Hunting XP and a strong shot says so; the Skills tour after the first level-up and from What\'s new; a friend\'s levels on their player menu', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.gold = 5000; L.addItem(s, "bow", 1); L.addItem(s, "arrows", 20); s.sk2 = { hunt: Farm.Config.SKILLS.need[10] - 10 };');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  // the day's other pop-ups first
+  for (let quietFor = 0, i = 0; quietFor < 3 && i < 30; i++) {
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => Farm.ui.modals.length)) { await closeAll(page); quietFor = 0; } else quietFor++;
+  }
+  await go(page, 'town', 'from_farm');
+  await page.evaluate(() => Farm.world.travel('pulag', 'from_town'));
+  await waitMap(page, 'pulag');
+  await page.waitForTimeout(1500);
+  await closeAll(page); // (Pulag's own first-time words)
+  const d = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, T = Farm.Config.TILE;
+    s.sel = s.inv.findIndex((x) => x && x.id === 'bow');
+    w.wild.animals.filter((a) => a.kind !== 'deer').forEach((a) => { a.img.destroy(); a.sh.destroy(); });
+    w.wild.animals = w.wild.animals.filter((a) => a.kind === 'deer').slice(0, 1);
+    w.wild.next = 1e9;
+    const a = w.wild.animals[0];
+    a.def = Object.assign({}, a.def, { shy: 0 });
+    a.size = 1;
+    a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9;
+    for (let tx = 4; tx < 26; tx++) for (let ty = 4; ty < 22; ty++) if (w.wildFree(tx, ty) && w.wildFree(tx + 2, ty)) { a.x = (tx + 2.5) * T; a.y = (ty + 0.7) * T; return [tx, ty]; }
+    return null;
+  });
+  assert.ok(d, 'a clear spot');
+  await teleport(page, d[0], d[1], 'right');
+  assert.strictEqual(await actionLabel(page), 'Shoot');
+  // Hunting 9 (level 10 is 10 XP away): 1 in 10 shots is strong. This one is: the deer (2 hits) goes down to one arrow
+  await page.evaluate(() => { Farm.Logic.skillRnd = () => 0; window.__floats = []; const f = Farm.ui.floatText; Farm.ui.floatText = function (x, y, t) { window.__floats.push(t); return f.apply(this, arguments); }; });
+  const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.world.wild.animals.length === 0, null, SLOW);
+  assert.ok((await page.evaluate(() => window.__floats)).includes('Strong shot!'), 'it says so');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows')), arrows, 'Hunting 3+: that arrow was not used up');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.skillXp(Farm.session.state, 'hunt')), await page.evaluate(() => Farm.Config.SKILLS.need[10]), 'a deer: 10 XP (2 arrows x 5)');
+  await page.evaluate(() => { Farm.Logic.skillRnd = Math.random; });
+  // the level-up card, then the tour (not in quiet mode)
+  await page.waitForFunction(() => Farm.ui.skCard && Farm.ui.skCard.active, null, SLOW);
+  assert.match(await page.evaluate(() => Farm.ui.skCard.list.filter((o) => o.type === 'Text').map((o) => o.text).join(' | ')), /Hunting {2}Level 10 \| 1 in 5 shots is a strong shot\./);
+  await shot(page, 'skills-levelup-hunt');
+  await page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; return m && m.c.list.some((o) => o.type === 'Text' && o.text === 'SKILLS'); }, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'skills_tour')), true);
+  assert.match(await modalText(page), /SKILLS .*you get better at each just by doing it/);
+  await shot(page, 'tour-skills-1');
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /LEVEL UP! .*Fishing {2}Level 3/);
+  await shot(page, 'tour-skills-2');
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /on your farmer card in the pause menu.*Got it/);
+  await shot(page, 'tour-skills-3');
+  await tapButton(page, 'Got it');
+  if (await page.evaluate(() => Farm.ui.modals.length)) assert.ok(!/SKILLS/.test(await modalText(page)), 'the tour is gone (another first-time card may follow: ' + (await modalText(page)).slice(0, 60) + ')');
+  await closeAll(page);
+  // once: Skills opens straight away now
+  await page.evaluate(() => Farm.ui.openSkills());
+  await frames(page, 2);
+  assert.match(await modalText(page), /^Skills .*Hunting \| Level 10 \| Top level! 7,200 XP \| All of its perks are yours\./);
+  await closeAll(page);
+  // What's new: the Skills line, and Show me plays it again
+  let p = 0;
+  for (; p < 9; p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
+    await frames(page, 3);
+    if (/Skills \| Get better at farming/.test(await modalText(page))) break;
+  }
+  assert.ok(p < 9, 'the Skills line is in What\'s new');
+  await shot(page, 'skills-news');
+  const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
+  const nth = row.slice(0, row.indexOf('Skills')).filter((t) => t === 'Show me').length;
+  await tapButton(page, 'Show me', nth);
+  assert.match(await modalText(page), /SKILLS .*just by doing it/);
+  await tapButton(page, 'Skip');
+  assert.match(await modalText(page), /What's new/);
+  await closeAll(page);
+  // a friend's levels: on a visit, their player menu says them (from their snapshot; checked on the way in)
+  const menu = await page.evaluate(() => {
+    const L = Farm.Logic, mine = Farm.session.state, st = L.visitState({ sk2: [4, 2, 7, 1] }, mine);
+    Farm.session.visit = { host: 'aaaaaaaa-1111-2222-3333-444444444444', name: 'Mara', state: st };
+    try {
+      Farm.ui.playerMenu('aaaaaaaa-1111-2222-3333-444444444444', 'Mara');
+      const out = [];
+      const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+      walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list);
+      Farm.ui.closeAll();
+      Farm.ui.playerMenu('bbbbbbbb-1111-2222-3333-444444444444', 'Someone else');
+      const other = [];
+      walk.call(null, Farm.ui.modals[Farm.ui.modals.length - 1].c.list);
+      Farm.ui.modals[Farm.ui.modals.length - 1].c.list.forEach((o) => { if (o.type === 'Text') other.push(o.text); });
+      return { mara: out.join(' | '), other: other.join(' | '), own: Farm.ui.listPanel === Farm.UIScene.prototype.listPanel };
+    } finally { Farm.ui.closeAll(); Farm.session.visit = null; }
+  });
+  assert.match(menu.mara, /Mara \| .*Farm 4 · Mine 2 · Fish 7 · Hunt 1/);
+  assert.match(menu.other, /Keep Harvest Ville friendly\./, 'not someone else\'s menu');
+  assert.strictEqual(menu.own, true, 'the list panel is the usual one again');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

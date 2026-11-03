@@ -154,7 +154,8 @@
   L.skillFishMiss = function (s) { return L.skillAdd(s, 'fish', SK.skills.fish.xp.miss); };
   // The reel game for this fish: a bigger bar and a slower fish with the perks ({ speed, zone } in, a copy out).
   L.skillReel = function (s, base) {
-    return { speed: base.speed * (1 - L.skillPerk(s, 'fish', 'slow')), zone: Math.min(0.9, base.zone * (L.skillPerk(s, 'fish', 'bar') || 1)) };
+    var bar = L.skillPerk(s, 'fish', 'bar') || 1;
+    return { speed: base.speed * (1 - L.skillPerk(s, 'fish', 'slow')), zone: bar > 1 ? Math.min(0.9, base.zone * bar) : base.zone };
   };
 
   // ---------- hunting ----------

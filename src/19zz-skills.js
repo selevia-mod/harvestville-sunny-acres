@@ -45,9 +45,12 @@
   U.startFishGame = function (fishId, done) {
     var w = F.world, s = w && w.state, G = C.FISH_GAME;
     if (!s || s.isVisit) return startFishGame.apply(this, arguments);
-    var mine = Object.assign({}, G);
-    mine[fishId] = L.skillReel(s, G[fishId] || G.fish_m);
-    C.FISH_GAME = mine; // read once as the game starts
+    var base = G[fishId] || G.fish_m, reel = L.skillReel(s, base);
+    if (reel.zone !== base.zone || reel.speed !== base.speed) {
+      var mine = Object.create(G); // (the rest still read through to the real table)
+      mine[fishId] = reel;
+      C.FISH_GAME = mine; // read once as the game starts
+    }
     try {
       return startFishGame.call(this, fishId, function (ok) {
         if (!ok) { L.skillFishMiss(s); if (w.changed) w.changed(); return done(ok); }
@@ -109,7 +112,7 @@
     var self = this, def = SK.skills[up.key], perk = def.perks.filter(function (p) { return p.at === up.level; })[0];
     var nxt = def.perks.filter(function (p) { return p.at > up.level; })[0];
     var line = perk ? perk.text : nxt ? 'Next perk at level ' + nxt.at + '.' : '';
-    var cw = 292, x0 = (W - cw) / 2, y0 = 168;
+    var cw = 292, x0 = (W - cw) / 2, y0 = 178;
     var c = this.add.container(0, C.EXTRA / 2).setDepth(95);
     var body = this.txt(W / 2 + 26, 0, line, 13, INK, { align: 'center', wordWrap: { width: cw - 92 }, lineSpacing: 2 }).setOrigin(0.5, 0);
     var ch = Math.max(104, 64 + body.height + 14);
@@ -228,7 +231,7 @@
     if (!m) return;
     this.button(m.c, 132, 150, 88, 30, 'Skills', function () { self.closeModal(); self.openSkills(null, null, function () { self.openCollection(); }); }, GREY);
   };
-  // a visit: the player menu says the farmer's levels
+  // a visit: the player menu says the farmer's levels, on its top line (Farm 4 · Mine 2 · Fish 7 · Hunt 1)
   var listPanel = U.listPanel;
   var playerMenu = U.playerMenu;
   U.playerMenu = function (id, who) {
@@ -237,7 +240,7 @@
     var self = this;
     this.listPanel = function (o) {
       delete self.listPanel;
-      var line = SK.order.map(function (k) { return SK.skills[k].name + ' ' + L.skillLevel(st, k); }).join('  ·  ');
+      var line = SK.order.map(function (k) { return SK.skills[k].short + ' ' + L.skillLevel(st, k); }).join(' · ');
       o.sub = function () { return line; };
       return listPanel.call(self, o);
     };
@@ -297,7 +300,7 @@
         },
       },
       {
-        text: 'See your four bars and the next perk in Skills, on your farmer card in the pause menu. Friends see your levels too.',
+        text: 'Find Skills on your farmer card in the pause menu. Friends can see your levels too.',
         draw: function (ui, sc, move) {
           words(ui, sc, 70, 40, 'Farming', 13);
           words(ui, sc, 226, 40, 'Level 4', 13, '#2f5a22');
