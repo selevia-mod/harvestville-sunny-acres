@@ -22,7 +22,9 @@ const C = ctx.window.Farm.Config;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const CELL = 384, U = 128, GAP = 16;
 const ICON_OF = { trophy_antler: 'antler', trophy_tusk: 'tusk', wolf_rug: 'pelt_wolf', trophy_stag: 'white_antler', trophy_goldboar: 'gold_tusk',
-  trophy_rhino: 'horn_rhino', bear_rug: 'fur_bear', tiger_rug: 'pelt_tiger', trophy_mammoth: 'tusk_mammoth', trophy_great_mammoth: 'great_tusk' };
+  trophy_rhino: 'horn_rhino', bear_rug: 'fur_bear', tiger_rug: 'pelt_tiger', trophy_mammoth: 'tusk_mammoth', trophy_great_mammoth: 'great_tusk',
+  // the Lair's Volcano set (00-zzzzzzlair.js): pictures of their own; the icon is only the stand-in if one goes missing
+  volcano_lamp: 'santelmo_flame', volcano_model: 'ember_shard', volcano_armchair: 'sigbin_horn', volcano_fireplace: 'ember_shard', bakunawa_rug: 'bakunawa_scale' };
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();

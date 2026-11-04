@@ -1005,7 +1005,7 @@
         var ti = C.HOME.typeIndex[t.type], type = C.HOME.types[ti];
         rows.push({ img: self.furnImg(ti, 0), name: type.name,
           desc: t.needs.map(function (n) { return n[1] + ' ' + I[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ') + '. +' + type.beauty + ' beauty.',
-          buttons: [{ label: t.gold + 'G', cb: function () {
+          buttons: [{ label: String(t.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', cb: function () { // (200,000G: the Lair's pieces are dear)
             var r = L.makeTrophy(s, k);
             if (r === 'short') { sfx('nope'); return self.toast('You need more for that one. Hunt some more!'); }
             done(r, type.name + ' done! Find it in your furniture storage: Decorate at home.');

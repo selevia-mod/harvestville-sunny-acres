@@ -21,14 +21,15 @@ const T = (key) => H.typeIndex[key];
 const fresh = () => { const s = L.newState(); s.seed = 3; return s; };
 const sleep = (s, n = 1) => { let r; for (let i = 0; i < n; i++) r = L.endDay(s, false, {}); return r; };
 
-test('the home data: 10 levels that only grow, 27 kinds of furniture in 10 styles, 5 trophies', () => {
+test('the home data: 10 levels that only grow, 27 kinds of furniture in 10 styles, 10 trophies and the Lair\'s 5 Volcano pieces', () => {
   assert.strictEqual(H.levels.length, 10);
   for (let i = 1; i < H.levels.length; i++) {
     const a = H.levels[i - 1], b = H.levels[i];
     assert.ok(b.map[0] >= a.map[0] && b.map[1] >= a.map[1] && b.gold > a.gold, b.name);
   }
   assert.strictEqual(H.types.filter((t) => !t.trophy).length, 27);
-  assert.strictEqual(H.types.filter((t) => t.trophy).length, 10);
+  assert.strictEqual(H.types.filter((t) => t.trophy && !t.lair).length, 10, 'the hunting trophies');
+  assert.deepStrictEqual(H.types.filter((t) => t.lair).map((t) => t.key).join(), ['volcano_lamp', 'volcano_model', 'volcano_armchair', 'volcano_fireplace', 'bakunawa_rug'].join(), 'the Lair\'s Volcano set (made by Kanor too)');
   assert.strictEqual(H.styles.length, 10);
   assert.strictEqual(H.styles.filter((st) => st.festival).length, 5);
   H.styles.forEach((st) => { if (st.festival) assert.ok(C.FESTIVALS.some((f) => f.key === st.festival), st.key); });

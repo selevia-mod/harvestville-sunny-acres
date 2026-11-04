@@ -455,7 +455,7 @@ test('the Great Mammoth: at weekends, one Great Tusk a week each, 3 make the tro
   const back = L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
   assert.ok(!L.greatTusk(back), 'kept in the save');
   assert.strictEqual(C.WILD.animals.greatmammoth.minHits, 3);
-  assert.deepStrictEqual(plain(C.WILD.trophies[C.WILD.trophies.length - 1]), { type: 'trophy_great_mammoth', needs: [['great_tusk', 3]], gold: 5000 });
+  assert.deepStrictEqual(plain(C.WILD.trophies.find((t) => t.type === 'trophy_great_mammoth')), { type: 'trophy_great_mammoth', needs: [['great_tusk', 3]], gold: 5000 });
   const row = L.wildUnpack(JSON.parse(JSON.stringify(L.wildPack({ slot: 12, kind: 'greatmammoth', x: 10, y: 10, dir: 'side', left: true, mode: 'walk', hp: 20, size: 1, look: false, max: 24 }))));
   assert.strictEqual(row.hp, 20);
   assert.strictEqual(row.max, 24);

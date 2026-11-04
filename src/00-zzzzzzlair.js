@@ -72,6 +72,29 @@
   WI.bow.damage.push(3);
   C.MAGMA_BOW = { name: 'Magma Bow', level: 4, gold: 25000, needs: [['ember_shard', 40], ['bakunawa_scale', 3], ['obsidian', 5]] };
 
+  // ---------- the Volcano set: furniture Kanor makes from what the Lair gives (owner, 5 Nov 2026) ----------
+  // Made like the hunting trophies (C.WILD.trophies: his Trophies tab, never in the catalog), and dear: they are rare. The
+  // Bakunawa Rug is the rarest thing in the house: its scales only come from floor 50, two hunters or more, once a day.
+  // Pictures: art-src/trophies/<key>.png (cut from art-src/furniture/volcano.png), painted into furn_0 by
+  // tools/art/trophies-import.js.
+  var H = C.HOME;
+  [
+    { key: 'volcano_lamp', name: 'Lava Lamp', w: 1, h: 2, foot: 1, place: 'floor', beauty: 20, what: 'a tall lava lamp, orange wax glowing in red glass',
+      gold: 30000, needs: [['ember_shard', 15], ['santelmo_flame', 2]] },
+    { key: 'volcano_model', name: 'Little Volcano', w: 1, h: 1, foot: 1, place: 'floor', beauty: 24, what: 'a little smoking volcano on a red side table',
+      gold: 40000, needs: [['ember_shard', 10], ['tikbalang_mane', 1]] },
+    { key: 'volcano_armchair', name: 'Magma Armchair', w: 2, h: 2, foot: 1, place: 'floor', beauty: 28, what: 'a big red velvet armchair framed in black lava rock',
+      gold: 50000, needs: [['ember_shard', 20], ['sigbin_horn', 2]] },
+    { key: 'volcano_fireplace', name: 'Lava-Rock Fireplace', w: 2, h: 2, foot: 0, place: 'wall', beauty: 40, what: 'a fireplace of black lava rock with glowing cracks',
+      gold: 80000, needs: [['ember_shard', 30], ['obsidian', 4]] },
+    { key: 'bakunawa_rug', name: 'Bakunawa Rug', w: 2, h: 2, foot: 0, place: 'flat', beauty: 100, what: 'a round navy rug with the silver Bakunawa and the moon',
+      gold: 200000, needs: [['bakunawa_scale', 2], ['bungisngis_tooth', 1]] },
+  ].forEach(function (t) {
+    H.types.push({ key: t.key, name: t.name, w: t.w, h: t.h, foot: t.foot, place: t.place, price: 0, beauty: t.beauty, trophy: true, lair: true, what: t.what });
+    H.typeIndex[t.key] = H.types.length - 1;
+    WI.trophies.push({ type: t.key, needs: t.needs, gold: t.gold });
+  });
+
   // ---------- the Fire Charm: Hunter's gear, bought with what the Lair gives ----------
   // A charge that reaches you costs less energy (C.GEAR_RULES.charm).
   C.GEAR.push({ key: 'charm', name: 'Fire Charm', gold: 6000, needs: [['ember_shard', 25], ['santelmo_flame', 3]], desc: 'A charge that reaches you costs 40% less energy.', short: 'Charges cost 40% less.' });

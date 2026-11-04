@@ -133,3 +133,27 @@ test('the Lair in the save: the deepest floor and the Bakunawa\'s day; an old sa
   o.lr = [9999, 'x'];
   assert.deepStrictEqual(plain(L.deserialize(o).lair), { deep: 50, bk: -1 });
 });
+
+// Owner, 5 Nov 2026: the Volcano set, made by Kanor from what the Lair gives, dear because it is rare.
+test('the Volcano set: five pieces Kanor makes for Gold and Lair drops, the Bakunawa Rug the dearest and most beautiful', () => {
+  const want = { volcano_lamp: 30000, volcano_model: 40000, volcano_armchair: 50000, volcano_fireplace: 80000, bakunawa_rug: 200000 };
+  Object.keys(want).forEach((k) => {
+    const t = C.WILD.trophies.find((x) => x.type === k), type = C.HOME.types[C.HOME.typeIndex[k]];
+    assert.ok(t && type && type.trophy && type.lair && type.price === 0, k + ' is made by Kanor, never sold in the catalog');
+    assert.strictEqual(t.gold, want[k], k + ' costs ' + want[k] + 'G');
+    t.needs.forEach((n) => assert.ok(C.ITEMS[n[0]], k + ': ' + n[0]));
+  });
+  const beauty = (k) => C.HOME.types[C.HOME.typeIndex[k]].beauty;
+  assert.ok(C.HOME.types.every((t) => t.key === 'bakunawa_rug' || t.beauty < beauty('bakunawa_rug')), 'nothing in the house is more beautiful than the Bakunawa Rug');
+  // made like a trophy: it costs the Gold and the drops, and goes into the furniture bag
+  const s = L.newState();
+  const i = C.WILD.trophies.findIndex((x) => x.type === 'volcano_lamp');
+  s.gold = 29999;
+  L.addItem(s, 'ember_shard', 15); L.addItem(s, 'santelmo_flame', 2);
+  assert.strictEqual(L.makeTrophy(s, i), 'gold');
+  s.gold = 30000;
+  assert.strictEqual(L.makeTrophy(s, i), 'ok');
+  assert.strictEqual(s.gold, 0);
+  assert.strictEqual(L.countItem(s, 'ember_shard'), 0);
+  assert.strictEqual(s.home.bag[L.furnKey(C.HOME.typeIndex.volcano_lamp, 0)], 1);
+});

@@ -5,7 +5,7 @@
 // Many cheaper phones cannot load a sheet over 4096 px on a side (the icons turned black on a test emulator, 31 Oct): the
 // items sheet is 8 columns in items.png, for the importers, and goes out as 16 columns in items.webp. Icons keep their
 // numbers, because a sheet's frames are counted across its rows.
-// node tools/art/squeeze.js
+// node tools/art/squeeze.js [sheet ...]   (names, e.g. furn_0: only those; none: every sheet)
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -26,7 +26,8 @@ const FURN = 0.68, PROP = 0.68, PROP_MIN = 30000;
     if (fs.statSync(path.join(OUT, n + '.webp')).size > PROP_MIN) list.push([n, PROP]);
   });
   let saved = 0;
-  for (const [n, q] of list) {
+  const only = process.argv.slice(2);
+  for (const [n, q] of list.filter(([n]) => !only.length || only.includes(n))) {
     const src = 'data:image/webp;base64,' + fs.readFileSync(path.join(OUT, n + '.webp')).toString('base64');
     const png = 'data:image/png;base64,' + fs.readFileSync(path.join(OUT, n + '.png')).toString('base64');
     const url = await p.evaluate(async ([src, png, q, wide]) => {
