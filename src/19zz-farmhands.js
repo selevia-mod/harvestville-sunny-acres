@@ -2,8 +2,8 @@
 // Farmhands tab), seeing them on the farm (they come up the road at 6 AM, wait by the field, walk to each job and do it:
 // a splash, a crop into the basket, a fed hen; at 9 PM they go home), talking to one while they wait, their line in the
 // morning report, the first-time tour and the basket's own words for them.
-// Their pictures are stand-ins cut from the visitors in the people sheet until art-src/FARMHANDS-PROMPTS.md is drawn:
-// a 'farmhands' sheet (9 frames of 128 x 192 for each, in C.FH_KEYS order) replaces them when it is in the assets.
+// Their pictures: the 'farmhands' sheet (art-src/characters/fh_*.png, cut by tools/art/farmhands-import.js: 9 frames
+// of 128 x 192 for each, in C.FH_KEYS order). Without it, stand-ins cut from the visitors in the people sheet.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -27,16 +27,17 @@
   F.fhTexture = function (scene) {
     var tex = scene.textures;
     if (tex.exists('farmhands')) return 'farmhands';
-    var cut = F.images.fh_standin; // (the stand-ins below, cut at build time: tools/art/cut-sheets.js)
-    if (F.images.farmhands || cut) {
-      var bmp = !F.images.farmhands && F.bitmaps && F.bitmaps.fh_standin; // decoded off the main thread at boot (20-main.js)
-      tex.addSpriteSheet('farmhands', bmp || F.images.farmhands || cut, { frameWidth: 128, frameHeight: 192 });
+    // the real pictures, else the stand-ins below cut at build time (tools/art/cut-sheets.js, only made without them)
+    var name = F.images.farmhands ? 'farmhands' : 'fh_standin', img = F.images[name];
+    if (img) {
+      var bmp = F.bitmaps && F.bitmaps[name]; // decoded off the main thread at boot (20-main.js)
+      tex.addSpriteSheet('farmhands', bmp || img, { frameWidth: 128, frameHeight: 192 });
       if (bmp) {
         var one = tex.get('farmhands').source[0];
-        one.image = cut; // (kept for a GPU context restore)
-        if (one.glTexture) one.glTexture.pixels = cut;
+        one.image = img; // (kept for a GPU context restore)
+        if (one.glTexture) one.glTexture.pixels = img;
         bmp.close();
-        delete F.bitmaps.fh_standin;
+        delete F.bitmaps[name];
       }
     } else {
       // stand-ins: each one's 9 frames from a visitor in the people sheet (128 x 192, margin 8, spacing 16: 10-boot.js)

@@ -22,7 +22,7 @@
   // The first map's sheets are also decoded off the main thread (ImageBitmap), which makes their upload ~10x faster.
   var EAGER = ['player', 'fx', 'crops', 'items', 'animals', 'tiles', 'ranch', 'seasons'];
   F.bitmaps = {};
-  var bitmaps = typeof createImageBitmap === 'function' && typeof fetch === 'function' ? EAGER.concat(['fh_standin']).filter(function (k) { return F.ASSETS.images[k]; }).map(function (k) {
+  var bitmaps = typeof createImageBitmap === 'function' && typeof fetch === 'function' ? EAGER.concat(['farmhands', 'fh_standin']).filter(function (k) { return F.ASSETS.images[k]; }).map(function (k) {
     return fetch(F.ASSETS.images[k]).then(function (r) { return r.blob(); })
       .then(function (b) { return createImageBitmap(b, { premultiplyAlpha: 'premultiply' }); })
       .then(function (b) { F.bitmaps[k] = b; }, function () { /* the <img> is used instead */ });
