@@ -4006,3 +4006,67 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the Lair\'s Fire look: not in the shop until it is yours, then the walk, every tool swing and the Bow in it, for the boy and the girl (5 Nov 2026)', async () => {
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => { window.__asked = []; const ask = window.gameHost.asset; window.gameHost.asset = function (f, save) { window.__asked.push(f); return ask(f, save); }; });
+  // no price yet (the owner's to say): the shop does not offer it, and it is in My looks once the server gives it
+  await page.evaluate(() => Farm.ui.drawTailor('shop', 0));
+  await frames(page, 3);
+  for (let p = 0; p < 3; p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.drawTailor('shop', p); }, p);
+    await frames(page, 2);
+    assert.ok(!/Lair Fire/.test(await modalText(page)), 'not on sale: not listed (page ' + p + ')');
+  }
+  await page.evaluate(() => { Farm.Logic.ownLooks(Farm.session.state, ['fire']); Farm.ui.closeAll(); Farm.ui.drawTailor('mine', 0); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /Lair Fire[\s\S]*Wear/);
+  await shot(page, 'fire-look-1-mine');
+  await page.evaluate(() => Farm.ui.wearLook('fire'));
+  for (const who of ['boy', 'girl']) {
+    if (who === 'girl') { await page.evaluate(() => { Farm.session.state.look = 'girl'; Farm.world.applyLook(); }); }
+    const key = 'look_fire_' + who;
+    await page.waitForFunction((key) => Farm.world.player.texture.key === key, key, SLOW);
+    // its real picture: 15 frames of the farmer's own layout (9 walking, 6 swinging)
+    assert.strictEqual(await page.evaluate((key) => Farm.world.textures.get(key).frameTotal - 1, key), 15);
+    await page.evaluate(() => { Farm.input.jx = 1; });
+    await page.waitForTimeout(400);
+    assert.match(await page.evaluate(() => Farm.world.player.anims.currentAnim && Farm.world.player.anims.currentAnim.key), new RegExp(key));
+    await page.evaluate(() => { Farm.input.jx = 0; Farm.world.idle(); });
+    await frames(page, 2);
+    // every swing, every way: the raise and the strike come from the look's own frames
+    for (const dir of ['down', 'up', 'left', 'right']) {
+      const poses = await page.evaluate((dir) => new Promise((done) => {
+        const w = Farm.world, out = [];
+        w.dir = dir; w.idle();
+        w.animateUse(Farm.Config.ICON.hoe, 'swing');
+        out.push([w.player.texture.key, w.player.frame.name]);
+        setTimeout(() => { out.push([w.player.texture.key, w.player.frame.name]); done(out); }, 200);
+      }), dir);
+      poses.forEach(([k, f]) => { assert.strictEqual(k, key, dir); assert.ok(f >= 9 && f <= 14, dir + ' frame ' + f); });
+      if (dir === 'left') await shot(page, 'fire-look-2-swing-' + who);
+      await page.waitForFunction(() => !(Farm.world.acting > 0), null, SLOW);
+    }
+  }
+  // the Bow: each way draws from the look's archer sheet
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  await go(page, 'pulag', 'from_town');
+  for (const who of ['girl', 'boy']) {
+    // (the archer sheet is asked for on the way into a wild map, or by the first shot: here, the look was just changed)
+    await page.evaluate((who) => { Farm.session.state.look = who; Farm.world.applyLook(); Farm.lookReady('fire', who, true); }, who);
+    const arch = 'look_fire_' + who + '_archer';
+    await page.waitForFunction((arch) => Farm.world.textures.exists(arch), arch, SLOW);
+    for (const dir of ['down', 'up', 'left', 'right']) {
+      await page.waitForFunction(() => !Farm.world.shot && Farm.world.wildArrows.length === 0, null, SLOW);
+      const k = await page.evaluate((dir) => { const w = Farm.world; w.wild.next = 1e9; w.wild.animals.forEach((a) => { a.x = a.y = -9999; }); w.dir = dir; w.idle(); w.shoot(); return w.shot.body.texture.key; }, dir);
+      assert.strictEqual(k, arch, who + ' ' + dir);
+      if (dir === 'right') { await page.waitForTimeout(250); await shot(page, 'fire-look-3-bow-' + who); }
+    }
+  }
+  assert.deepStrictEqual((await page.evaluate(() => window.__asked)).filter((f) => /fire/.test(f)).sort(),
+    ['looks/v1/fire-boy', 'looks/v1/fire-boy-archer', 'looks/v1/fire-girl', 'looks/v1/fire-girl-archer']);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

@@ -176,6 +176,8 @@
     C.LOOKS.forEach(function (d, i) {
       var owned = L.ownsLook(s, d.key);
       if (tab === 'mine' && !owned) return;
+      // a reward look (the Lair's Fire look) is not in the window until it is yours or the server sells it
+      if (d.reward && !owned && !(O.looks && O.looks.offers[d.key] && O.looks.offers[d.key].length)) return;
       var row = { sheet: { key: 'looks_thumbs', frame: i * 2 + (s.look === 'girl' ? 1 : 0), scale: 0.36 }, name: d.name, desc: d.desc, buttons: [] };
       if (owned) {
         row.desc = (worn === d.key ? 'Wearing it now. ' : d.free ? 'A gift for everyone. ' : 'Yours. ') + d.desc;
