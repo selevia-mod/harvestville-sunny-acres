@@ -17,10 +17,10 @@ instead of see-through, that's okay too. The creatures must all come together (t
 | 4 | wild_bungisngis.png | 1024x1536 | same |
 | 5 | wild_bakunawa.png | 1024x1536 | same |
 | 6 | icons_lair.png | 1024x1024 | `node tools/art/lair-import.js` |
-| 7 | lair_mouth.png | 1024x1024 | importer to come (drawn by the game today) |
-| 8 | lair_gate.png | 1536x1024 | importer to come (drawn by the game today) |
-| 9-12 | cave_floor.png, cave_lava.png, cave_rock_top.png, cave_rock_face.png | 1024x1024 | importer to come (the game repaints the Mine's cave tiles today) |
-| 13 | furniture/volcano.png | 1024x1024 | importer to come (5 new pieces) |
+| 7 | lair_mouth.png | 1024x1024 | `node tools/art/lair-world-import.js` |
+| 8 | lair_gate.png | 1536x1024 | same |
+| 9-12 | cave_floor.png, cave_lava.png, cave_rock_top.png, cave_rock_face.png | 1024x1024 | same |
+| 13 | furniture/volcano.png | 1024x1024 | same cuts the 5 pieces into art-src/furniture/volcano_*.png; not in the game until the Volcano set exists (names, prices, where sold) |
 | 14-19 | fire-boy-walk.png ... fire-girl-archer.png | as the other looks | the looks cutter, then `node tools/art/tailor-import.js` (add 'fire' to LOOKS) |
 
 ## The creatures (12 poses each, like every wild animal)

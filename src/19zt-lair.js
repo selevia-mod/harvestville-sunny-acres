@@ -6,8 +6,11 @@
 // a lift beside it stops at 1, 11, 21 ... once you have reached them. Floor 50 is the bottom: the Bakunawa rises there,
 // like the Great Mammoth, only for two hunters or more, once a day. It is a wild map (L.isWildMap), so the Bow, the dog,
 // Hunter's gear and hunting with friends all work as in the Wild Lands; with friends, only those on the same floor are
-// together (19h-online.js O.floorHere). The cave is the mine's tiles painted red and orange here, as 19y-mine.js does
-// for its bands; the mouth, the gate and the lift are drawn here too, until their own pictures come.
+// together (19h-online.js O.floorHere). The cave's tiles, its lava, the mouth and the gate are the owner's pictures
+// (5 Nov 2026; art-src/LAIR-PROMPTS.md 7-12, made into the game's sizes by tools/art/lair-world-import.js), painted over
+// the Mine's cave tiles in the Lair's own copy of the indoor sheet, so the Mine and its bands keep theirs. Without them
+// (an old page) the cave is the Mine's tiles painted red and orange, and the mouth and the gate are drawn, as before.
+// The lift is drawn here.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -26,9 +29,16 @@
   var ADD = Phaser.BlendModes.ADD;
   var GO = 0x5fa84a, HERE = 0xa08a68, FIRE = 0x8a2a12;
   var LIFT = { x0: 2, y0: 2, x1: 3, y1: 3, w: 2.1, h: 2.75 }; // the tiles it stands on, left of the ladder; its picture, in tiles
-  var MOUTH = { w: 3.7, h: 3.5 }; // its picture, in tiles, standing on Magayon's 'lair_mouth' point
+  var MOUTH = { w: 3.7, h: 3.5 }; // its picture, in tiles, standing on Magayon's 'lair_mouth' point (the real one is as tall as its shape says)
+  // The gate's picture is drawn in the game's three-quarter view, a little taller than its 2 x 2 tiles of floor: it is
+  // squashed this much so it lies on the floor, and stands this far below its tiles' bottom edge.
+  var GATE = { squash: 0.85, drop: 0.08 };
+  var ART = { mouth: 'props/lair_mouth', gate: 'props/lair_gate', cave: 'lair_cave' }; // (tools/art/lair-world-import.js)
+  var real = function (key) { return !!(F.images && F.images[key]); };
   // the cave tiles' places in the indoor sheet (tools/tiles.js INDOOR)
   var ID = { void: 5, cave: 6, cave2: 7, cave_wall: 8, cave_top: 9 };
+  // ...and their places in the Lair's own tiles (assets/lair_cave: 128 px tiles in a row, then the lava at 192 px)
+  var CAVE = { cave: 0, cave2: 1, cave_wall: 2, cave_top: 3, void: 4, tile: 128, lava: 640, lavaSize: 192 };
   var SHEET = 'indoor-lair', CROP = 1024; // (the cave tiles are in the sheet's top two rows: only its top quarter is copied)
   F.keepBitmap = F.keepBitmap || {};
   F.keepBitmap.indoor = true; // (the Lair and the mine bands paint from it; F.dropBitmaps lets it go a few seconds in)
@@ -128,8 +138,23 @@
     }
     g.putImageData(d, x, y);
   };
-  // The top of the indoor sheet in the Lair's colours, with lava painted into the 'void' tile: made the first time in, and
-  // kept for the session.
+  // One of the Lair's own tiles into its cell of the sheet, its edge pixels drawn out into the gap round the cell (what a
+  // tile's edge blends with when drawn smaller), as the sheet's own tiles have.
+  var putTile = function (g, at, id) {
+    var img = F.images[ART.cave], t = at, pad = t.pad, s = t.s - pad * 2, c = document.createElement('canvas');
+    c.width = c.height = t.s;
+    var cg = c.getContext('2d');
+    cg.imageSmoothingQuality = 'high';
+    cg.drawImage(img, CAVE[id] * CAVE.tile, 0, CAVE.tile, CAVE.tile, pad, pad, s, s);
+    cg.drawImage(c, pad, pad, 1, s, 0, pad, pad, s);
+    cg.drawImage(c, pad + s - 1, pad, 1, s, pad + s, pad, pad, s);
+    cg.drawImage(c, 0, pad, t.s, 1, 0, 0, t.s, pad);
+    cg.drawImage(c, 0, pad + s - 1, t.s, 1, 0, pad + s, t.s, pad);
+    g.clearRect(t.x, t.y, t.s, t.s);
+    g.drawImage(c, t.x, t.y);
+  };
+  // The top of the indoor sheet with the Lair's tiles in the cave's cells (lava in the 'void' one, under the pools; without
+  // the pictures, the Mine's in the Lair's colours): made the first time in, and kept for the session.
   var lairSheet = function (w) {
     var tex = w.textures;
     if (tex.exists(SHEET)) return SHEET;
@@ -141,23 +166,26 @@
     c.height = Math.round(CROP * k);
     var g = c.getContext('2d', { willReadFrequently: true }), ts = w.map.getTileset('indoor'), pad = Math.round(8 * k);
     g.drawImage(img, 0, 0);
-    var at = function (id) { var q = ts.getTileTextureCoordinates(ts.firstgid + id); return { x: Math.round(q.x * k) - pad, y: Math.round(q.y * k) - pad, s: Math.round(ts.tileWidth * k) + pad * 2 }; };
-    var paint = function (id, cols) { var t = at(id); recolour(g, t.x, t.y, t.s, t.s, cols); };
-    var from = at(ID.cave2), to = at(ID.void);
-    g.clearRect(to.x, to.y, to.s, to.s);
-    g.drawImage(c, from.x, from.y, from.s, from.s, to.x, to.y, to.s, to.s);
-    paint(ID.void, LOOK.crust);
-    paint(ID.cave, LOOK.floor);
-    paint(ID.cave2, LOOK.floor);
-    paint(ID.cave_wall, LOOK.wall);
-    paint(ID.cave_top, LOOK.top);
+    var at = function (id) { var q = ts.getTileTextureCoordinates(ts.firstgid + id); return { x: Math.round(q.x * k) - pad, y: Math.round(q.y * k) - pad, s: Math.round(ts.tileWidth * k) + pad * 2, pad: pad }; };
+    if (real(ART.cave)) ['void', 'cave', 'cave2', 'cave_wall', 'cave_top'].forEach(function (id) { putTile(g, at(ID[id]), id); });
+    else {
+      var paint = function (id, cols) { var t = at(id); recolour(g, t.x, t.y, t.s, t.s, cols); };
+      var from = at(ID.cave2), to = at(ID.void);
+      g.clearRect(to.x, to.y, to.s, to.s);
+      g.drawImage(c, from.x, from.y, from.s, from.s, to.x, to.y, to.s, to.s);
+      paint(ID.void, LOOK.crust);
+      paint(ID.cave, LOOK.floor);
+      paint(ID.cave2, LOOK.floor);
+      paint(ID.cave_wall, LOOK.wall);
+      paint(ID.cave_top, LOOK.top);
+    }
     var t = tex.create(SHEET, c, full, CROP), gt = t.source[0].glTexture;
     if (gt) { gt.width = full; gt.height = CROP; }
     Phaser.Textures.Parsers.Image(t, 0);
     return SHEET;
   };
 
-  // ---------- pictures drawn here until their own art comes ----------
+  // ---------- pictures drawn here (the mouth and the gate only when their own art is missing) ----------
   var canvasTex = function (w, key, W, H, draw) {
     if (w.textures.exists(key)) return key;
     var c = w.textures.createCanvas(key, W, H), g = c.getContext();
@@ -176,28 +204,53 @@
     });
   };
   // A pool of lava over its tiles (cells: [x, y] in tiles; x0, y0 the top left of their box): round at the edges, with a
-  // dark rim, plates of cooling crust and the glow between them. The same pools on every floor: kept while you stay.
+  // dark rim. Inside, the owner's lava picture (one repeat every 2 tiles), darker toward the rim where it cools; without
+  // it, plates of cooling crust drawn with the glow between them. The same pools on every floor: kept while you stay.
   var PX = 96, EDGE = 0.3; // canvas pixels a tile; how far the rim reaches past the pool, in tiles
   var poolTexture = function (w, key, cells, x0, y0, cw, ch) {
     return canvasTex(w, key, Math.ceil((cw + EDGE * 2) * PX), Math.ceil((ch + EDGE * 2) * PX), function (g, W, H) {
       var seed = cells.length * 7 + x0 * 13 + y0 * 29, rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
       var has = {}, at = function (c) { return [(c[0] - x0 + 0.5 + EDGE) * PX, (c[1] - y0 + 0.5 + EDGE) * PX]; };
       cells.forEach(function (c) { has[c[0] + ',' + c[1]] = 1; });
-      var shape = function (r, half) { // circles on each tile, joined where tiles touch
-        g.beginPath();
+      var shape = function (r, half, ctx) { // circles on each tile, joined where tiles touch
+        var q = ctx || g;
+        q.beginPath();
         cells.forEach(function (c) {
           var p = at(c);
-          g.moveTo(p[0] + r * PX, p[1]);
-          g.arc(p[0], p[1], r * PX, 0, Math.PI * 2);
-          if (has[(c[0] + 1) + ',' + c[1]]) g.rect(p[0], p[1] - half * PX, PX, half * 2 * PX);
-          if (has[c[0] + ',' + (c[1] + 1)]) g.rect(p[0] - half * PX, p[1], half * 2 * PX, PX);
-          if (has[(c[0] + 1) + ',' + c[1]] && has[c[0] + ',' + (c[1] + 1)] && has[(c[0] + 1) + ',' + (c[1] + 1)]) g.rect(p[0], p[1], PX, PX);
+          q.moveTo(p[0] + r * PX, p[1]);
+          q.arc(p[0], p[1], r * PX, 0, Math.PI * 2);
+          if (has[(c[0] + 1) + ',' + c[1]]) q.rect(p[0], p[1] - half * PX, PX, half * 2 * PX);
+          if (has[c[0] + ',' + (c[1] + 1)]) q.rect(p[0] - half * PX, p[1], half * 2 * PX, PX);
+          if (has[(c[0] + 1) + ',' + c[1]] && has[c[0] + ',' + (c[1] + 1)] && has[(c[0] + 1) + ',' + (c[1] + 1)]) q.rect(p[0], p[1], PX, PX);
         });
       };
       shape(0.5 + EDGE * 0.8, 0.5 + EDGE * 0.7);
       g.fillStyle = '#2a0b05';
       g.fill('nonzero');
       shape(0.56, 0.5);
+      if (real(ART.cave)) {
+        var pc = document.createElement('canvas');
+        pc.width = pc.height = PX * 2;
+        pc.getContext('2d').drawImage(F.images[ART.cave], CAVE.lava, 0, CAVE.lavaSize, CAVE.lavaSize, 0, 0, PX * 2, PX * 2);
+        g.fillStyle = g.createPattern(pc, 'repeat');
+        g.fill('nonzero');
+        // the cooler edge: everything outside the pool, dark, casts its shadow in over the lava's edge
+        var out = document.createElement('canvas'), og = out.getContext('2d');
+        out.width = W;
+        out.height = H;
+        og.fillStyle = '#2a0b05';
+        og.fillRect(0, 0, W, H);
+        og.globalCompositeOperation = 'destination-out';
+        shape(0.56, 0.5, og);
+        og.fill('nonzero');
+        g.save();
+        g.clip('nonzero');
+        g.shadowColor = 'rgba(42,11,5,0.9)';
+        g.shadowBlur = PX * 0.2;
+        g.drawImage(out, 0, 0);
+        g.restore();
+        return;
+      }
       var hot = g.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, Math.max(W, H) * 0.6);
       hot.addColorStop(0, '#ffbc48');
       hot.addColorStop(0.45, '#f2761c');
@@ -228,8 +281,10 @@
       g.restore();
     });
   };
-  // The cave mouth: a mound of dark rock with a glowing way in, two amber eyes and fangs over it (a serpent's lair).
+  // The cave mouth: the owner's picture, or (without it) a mound of dark rock with a glowing way in, two amber eyes and
+  // fangs over it (a serpent's lair).
   var mouthTexture = function (w) {
+    if (real(ART.mouth)) return F.ensureTexture(w, ART.mouth);
     return canvasTex(w, 'fx-lairmouth', 384, 364, function (g, W, H) {
       var line = '#1e1210', cx = W / 2, base = H - 6;
       g.lineJoin = 'round';
@@ -316,7 +371,18 @@
       });
     });
   };
-  // The gate down: a round stone seal in the floor with the moon the Bakunawa eats; open, a glowing stair going down.
+  // The gate down: the owner's picture, its two halves (shut, open) as two frames of one texture; without it, a round
+  // stone seal in the floor with the moon the Bakunawa eats, and open, a glowing stair going down. Gives [key, frame].
+  var gateFrame = function (w, open) {
+    if (!real(ART.gate)) return [gateTexture(w, open), undefined];
+    var key = F.ensureTexture(w, ART.gate), t = w.textures.get(key);
+    if (!t.has('open')) { // (again after it was let go elsewhere and came back: 19zzzz-perf.js)
+      var src = t.source[0], fw = Math.floor((src.width - 4) / 2); // (side by side, 4 px apart: the importer)
+      t.add('shut', 0, 0, 0, fw, src.height);
+      t.add('open', 0, src.width - fw, 0, fw, src.height);
+    }
+    return [key, open ? 'open' : 'shut'];
+  };
   var gateTexture = function (w, open) {
     return canvasTex(w, open ? 'fx-lairgate1' : 'fx-lairgate0', 256, 256, function (g) {
       var cx = 128, cy = 128;
@@ -457,7 +523,8 @@
     var p = this.points.lair_mouth;
     if (!p || this.lairMouth) return;
     this.lairMouth = true;
-    var img = this.add.image(p.x, p.y + 0.08 * T, mouthTexture(this)).setOrigin(0.5, 1).setDisplaySize(MOUTH.w * T, MOUTH.h * T);
+    var img = this.add.image(p.x, p.y + 0.08 * T, mouthTexture(this)).setOrigin(0.5, 1);
+    img.setDisplaySize(MOUTH.w * T, real(ART.mouth) ? MOUTH.w * T * img.height / img.width : MOUTH.h * T);
     F.depthTo(img, DEPTH.actor + p.y / 1e5);
     var glow = this.add.image(p.x, p.y - 0.3 * T, glowTexture(this)).setDisplaySize(1.6 * T, 1.2 * T).setBlendMode(ADD).setAlpha(0.5).setDepth(img.depth + 0.00001);
     this.tweens.add({ targets: glow, alpha: 0.85, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -561,9 +628,14 @@
       this.objects = this.objects.filter(function (o) { return o.type !== 'lair_gate'; });
       return;
     }
-    var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T;
+    var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false);
+    var img = this.add.image(x, y, tf[0], tf[1]).setDisplaySize(size, size).setDepth(DEPTH.flat);
+    if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
+      img.setOrigin(0.5, 1).setPosition(x, (g.y1 + 1 + GATE.drop) * T).setDisplaySize(size, size * img.height / img.width * GATE.squash);
+      y = img.y - img.displayHeight * 0.48;
+    }
     lr.gate = {
-      img: this.add.image(x, y, gateTexture(this, false)).setDisplaySize(size, size).setDepth(DEPTH.flat),
+      img: img,
       glow: this.add.image(x, y, glowTexture(this)).setDisplaySize(size * 1.5, size * 1.5).setBlendMode(ADD).setDepth(DEPTH.flat + 0.01).setVisible(false),
       x: x, y: y,
     };
@@ -572,7 +644,8 @@
     var lr = this.lair, self = this;
     if (!lr || !lr.gate || lr.open) return;
     lr.open = true;
-    lr.gate.img.setTexture(gateTexture(this, true));
+    var tf = gateFrame(this, true);
+    lr.gate.img.setTexture(tf[0], tf[1]);
     lr.gate.glow.setVisible(true).setAlpha(0);
     this.tweens.add({ targets: lr.gate.glow, alpha: 0.8, duration: 700, onComplete: function () {
       if (lr.gate.glow.active) self.tweens.add({ targets: lr.gate.glow, alpha: 0.45, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });

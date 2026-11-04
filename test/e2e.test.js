@@ -3048,9 +3048,9 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   await closeAll(page);
   await waitMap(page, 'magayon');
   const T = 256;
-  // the mouth stands at the head of the trail, its rock solid, its door open
-  const mouth = await page.evaluate(() => { const w = Farm.world, p = w.points.lair_mouth; return { pic: w.children.list.some((o) => o.texture && o.texture.key === 'fx-lairmouth'), rock: !!w.blocked[w.idx(19, 2)], door: !w.blocked[w.idx(20, 3)], x: p.x, y: p.y }; });
-  assert.deepStrictEqual([mouth.pic, mouth.rock, mouth.door], [true, true, true]);
+  // the mouth stands at the head of the trail (the owner's picture, not the drawn one), its rock solid, its door open
+  const mouth = await page.evaluate(() => { const w = Farm.world, p = w.points.lair_mouth, has = (k) => w.children.list.some((o) => o.texture && o.texture.key === k); return { pic: has('props/lair_mouth'), drawn: has('fx-lairmouth'), rock: !!w.blocked[w.idx(19, 2)], door: !w.blocked[w.idx(20, 3)], x: p.x, y: p.y }; });
+  assert.deepStrictEqual([mouth.pic, mouth.drawn, mouth.rock, mouth.door], [true, false, true, true]);
   await page.evaluate(() => { const w = Farm.world, p = w.points.from_lair; w.setFeet(p.x, p.y); w.dir = 'down'; w.idle(); });
   await frames(page, 3);
   await shot(page, 'lair-mouth');
@@ -3065,7 +3065,15 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 40; i++) { w.wild.next = 0; w.wildArrive(0); } });
   assert.strictEqual(await page.evaluate(() => Farm.world.wild.animals.length), 3, 'none walk in from the edges');
   assert.strictEqual(await page.evaluate(() => Farm.world.lair.open), false);
+  // the cave is the owner's tiles (painted into the Lair's copy of the indoor sheet), its lava pools filled with the
+  // lava picture, the gate shut in its picture
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const w = Farm.world, ts = w.map.getTileset('indoor'), g = w.lair.gate.img;
+    return [ts.image.key, w.textures.exists('fx-lairgate0'), g.texture.key, g.frame.name, w.children.list.filter((o) => o.texture && /^fx-lairpool/.test(o.texture.key)).length > 0];
+  }), ['indoor-lair', false, 'props/lair_gate', 'shut', true]);
   await shot(page, 'lair-floor-1');
+  await teleport(page, 9, 12, 'down');
+  await shot(page, 'lair-gate-shut');
   // the gate is sealed while they are about
   await teleport(page, 9, 13, 'down');
   assert.strictEqual(await actionLabel(page), 'Sealed');
@@ -3091,7 +3099,7 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   assert.strictEqual(await page.evaluate(() => Farm.session.state.wild.gone['lair:0']), undefined, 'no slot waits in the Lair');
   // the rest (their hits counted as yours), and the gate glows open
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
-  await page.waitForFunction(() => Farm.world.lair.open && Farm.world.lair.gate.img.texture.key === 'fx-lairgate1' && Farm.world.lair.gate.glow.visible, null, SLOW);
+  await page.waitForFunction(() => Farm.world.lair.open && Farm.world.lair.gate.img.texture.key === 'props/lair_gate' && Farm.world.lair.gate.img.frame.name === 'open' && Farm.world.lair.gate.glow.visible, null, SLOW);
   await page.waitForFunction(() => Farm.ui.toastText.visible && /gate down is open/.test(Farm.ui.toastText.text), null, SLOW);
   await teleport(page, 9, 13, 'down');
   await shot(page, 'lair-gate-open');
