@@ -1,8 +1,8 @@
 // Farm tech on the farm and in the shops (rules 01-logicZ-farmtech.js, content 00-zzzzzzz-farmtech.js): sprinklers you
 // place on tilled soil and pick up again (a little spray turns on each), fertilizer spread on a 3x3 patch (a speckle on
 // the soil), the star of a Silver or Gold crop on its bag slot, Bram's sprinklers at the Forge, Lily's fertilizer under
-// Supplies, and the greenhouse (a plot of soil under a glass frame) from Mira. The greenhouse and the spray are drawn on
-// canvases here until there is art (art-src/FARMTECH-PROMPTS.md). The tours: 19zz-farmtech-tours.js.
+// Supplies, and the greenhouse (a plot of soil under a glass frame) from Mira. The greenhouse and the icons are pictures
+// (art-src/FARMTECH-PROMPTS.md); the spray and the fertilizer's speckle are drawn on canvases here. The tours: 19zz-farmtech-tours.js.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -55,80 +55,12 @@
       }
     });
   };
-  // The greenhouse, 128 px a tile: the floor under the soil (a stone edge), the glass frame over it (corner posts, thin
-  // mullions, a peaked roof standing above its top row), and both together for lists and Decorate.
-  var GW = 4 * 128, GHH = 3 * 128, ROOF = 112;
-  var ghFloor = function (g) {
-    g.fillStyle = '#9a917f'; // a gravel floor
-    g.fillRect(0, 0, GW, GHH);
-    g.fillStyle = 'rgba(70,60,48,0.25)';
-    for (var k = 0; k < 160; k++) g.fillRect((k * 97) % GW, (k * 61) % GHH, 5, 4);
-    // a bed of soil on every tile, edged with boards
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 4; c++) {
-      g.fillStyle = '#7a5230';
-      g.fillRect(c * 128 + 14, r * 128 + 14, 100, 100);
-      g.fillStyle = '#5a3a20';
-      g.fillRect(c * 128 + 22, r * 128 + 22, 84, 84);
-    }
-  };
-  var ghFrame = function (g, top) {
-    var y0 = top; // the glass box from y0 to y0 + GHH
-    // the roof: a low peak of glass panes above the top row
-    g.beginPath();
-    g.moveTo(-2, y0 + 6);
-    g.lineTo(GW / 2, y0 - ROOF + 10);
-    g.lineTo(GW + 2, y0 + 6);
-    g.closePath();
-    g.fillStyle = 'rgba(200,236,255,0.55)';
-    g.fill();
-    g.strokeStyle = '#f6f2e8';
-    g.lineWidth = 10;
-    g.stroke();
-    g.lineWidth = 5;
-    for (var k = 1; k < 4; k++) { g.beginPath(); g.moveTo(GW * k / 4, y0 + 6); g.lineTo(GW / 2, y0 - ROOF + 10); g.stroke(); }
-    // a light sheen of glass on the walls, kept clear over the soil
-    g.fillStyle = 'rgba(200,236,255,0.22)';
-    g.fillRect(0, y0, 18, GHH);
-    g.fillRect(GW - 18, y0, 18, GHH);
-    g.fillRect(0, y0, GW, 16);
-    // the frame
-    g.strokeStyle = '#3b2312';
-    g.lineWidth = 14;
-    g.strokeRect(7, y0 + 7, GW - 14, GHH - 14);
-    g.strokeStyle = '#f6f2e8';
-    g.lineWidth = 9;
-    g.strokeRect(7, y0 + 7, GW - 14, GHH - 14);
-    g.lineWidth = 4;
-    g.strokeStyle = 'rgba(246,242,232,0.8)';
-    for (var x = 128; x < GW; x += 128) { g.beginPath(); g.moveTo(x, y0 + 4); g.lineTo(x, y0 + 18); g.moveTo(x, y0 + GHH - 18); g.lineTo(x, y0 + GHH - 4); g.stroke(); }
-    // corner posts
-    [[0, y0], [GW - 22, y0], [0, y0 + GHH - 30], [GW - 22, y0 + GHH - 30]].forEach(function (p) {
-      g.fillStyle = '#f6f2e8';
-      g.strokeStyle = '#3b2312';
-      g.lineWidth = 4;
-      g.beginPath();
-      g.rect(p[0] + 2, p[1] + 2, 20, 26);
-      g.fill();
-      g.stroke();
-    });
-    // a little sign: a sprout
-    g.fillStyle = '#6fbf4a';
-    g.beginPath();
-    g.ellipse(GW / 2 - 10, y0 - 34, 12, 6, -0.5, 0, Math.PI * 2);
-    g.ellipse(GW / 2 + 10, y0 - 38, 12, 6, 0.5, 0, Math.PI * 2);
-    g.fill();
-  };
-  var ghFloorTex = function (scene) { return canvasTex(scene, 'ft-gh-floor', GW, GHH, ghFloor); };
-  var ghFrameTex = function (scene) { return canvasTex(scene, 'ft-gh-frame', GW, GHH + ROOF, function (g) { ghFrame(g, ROOF); }); };
-  var ghWholeTex = function (scene) {
-    return canvasTex(scene, 'ft-gh-whole', GW, GHH + ROOF, function (g) {
-      g.save();
-      g.translate(0, ROOF);
-      ghFloor(g);
-      g.restore();
-      ghFrame(g, ROOF);
-    });
-  };
+  // The greenhouse's pictures (tools/art/farmtech-import.js), 128 px a tile: the floor under the soil, the glass frame
+  // over it (its roof standing ROOF px above the top row), and the whole greenhouse for lists, the tour and Decorate.
+  var ROOF = 112;
+  var ghFloorTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_floor'); };
+  var ghFrameTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_frame'); };
+  var ghWholeTex = function (scene) { return F.ensureTexture(scene, 'props/ws_greenhouse'); };
   // A list row or Decorate shows the whole greenhouse; the farm draws its floor here and its frame over the crops.
   var yardImg = F.yardImg;
   F.yardImg = function (scene, t, shape) {
