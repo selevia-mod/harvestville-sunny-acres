@@ -366,5 +366,93 @@
  "wild": [
   2880,
   4556
+ ],
+ "breedshade_chicken_brown": [
+  2880,
+  268
+ ],
+ "breed_chicken_brown": [
+  2880,
+  268
+ ],
+ "breedshade_chicken_black": [
+  2880,
+  268
+ ],
+ "breed_chicken_black": [
+  2880,
+  268
+ ],
+ "breedshade_chicken_golden": [
+  2880,
+  268
+ ],
+ "breed_chicken_golden": [
+  2880,
+  268
+ ],
+ "breedshade_cow_brown": [
+  2880,
+  268
+ ],
+ "breed_cow_brown": [
+  2880,
+  268
+ ],
+ "breedshade_cow_tan": [
+  2880,
+  268
+ ],
+ "breed_cow_tan": [
+  2880,
+  268
+ ],
+ "breedshade_cow_highland": [
+  2880,
+  268
+ ],
+ "breed_cow_highland": [
+  2880,
+  268
+ ],
+ "breedshade_pig_black": [
+  2880,
+  268
+ ],
+ "breed_pig_black": [
+  2880,
+  268
+ ],
+ "breedshade_pig_ginger": [
+  2880,
+  268
+ ],
+ "breed_pig_ginger": [
+  2880,
+  268
+ ],
+ "breedshade_pig_moon": [
+  2880,
+  268
+ ],
+ "breed_pig_moon": [
+  2880,
+  268
+ ],
+ "breedshade_carabao_mud": [
+  2880,
+  268
+ ],
+ "breed_carabao_mud": [
+  2880,
+  268
+ ],
+ "breedshade_carabao_albino": [
+  2880,
+  268
+ ],
+ "breed_carabao_albino": [
+  2880,
+  268
  ]
 }

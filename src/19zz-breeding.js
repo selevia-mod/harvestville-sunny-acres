@@ -1,6 +1,9 @@
-// Animal breeds on the farm (rules: 01-logicZ-breeding.js, colours: 00-zzzzzzz-breeding.js). A breed's picture is the
-// animal's own 12 frames recoloured once, on a small canvas (half size, like the world art: about 0.8 MB for each colour
-// in use), so no new art is needed to play. Rare ones twinkle now and then. The animal's info says its breed; the
+// Animal breeds on the farm (rules: 01-logicZ-breeding.js, colours: 00-zzzzzzz-breeding.js). A breed with a real
+// picture (5 Nov 2026: all of them; assets/breed_<animal>_<key>, one row of 12 frames cut like the animals sheet's, with
+// its own shadows in breedshade_<animal>_<key>: tools/art/animals3q-import.js) shows that, put on the GPU only when an
+// animal of that colour is on the farm (about 2 MB a colour: a row at the animals sheet's 0.75, its shadows at 1/3). A
+// colour without one is the animal's own 12 frames recoloured once, on a small canvas (half size, like the world art:
+// about 0.8 MB). Rare ones twinkle now and then. The animal's info says its breed; the
 // morning report names a newborn's colour; the Breeds book is in the Collection; a first-time tour on the farm.
 (function (F) {
   'use strict';
@@ -15,14 +18,44 @@
   var FW = 224, FH = 252, PAD = 8, GAP = 16; // a frame of the animals sheet (10-boot.js SHEETS), in full-size pixels
   var ROW_W = PAD * 2 + 12 * FW + 11 * GAP, ROW_H = PAD * 2 + FH;
 
+  // A breed's own picture as a texture, from the bitmap decoded off the main thread when there is one (paintLater) or
+  // the <img>. Stored small, told its full size, so its frames are in full-size pixels like the animals sheet's
+  // (10-boot.js, F.ensureTexture), and numbered like that sheet's (frame0 + 0..11).
+  var fromPicture = function (tex, key, img, kind) {
+    var full = F.sizes && F.sizes[img], bmp = F.bitmaps && F.bitmaps[img], def = C.ANIMALS[kind];
+    if (!full || !def) return false;
+    var t = tex.create(key, bmp || F.images[img], full[0], full[1]), src = t.source[0], gt = src.glTexture;
+    if (gt) { gt.width = full[0]; gt.height = full[1]; }
+    t.add('__BASE', 0, 0, 0, full[0], full[1]);
+    for (var n = 0; n < 12; n++) t.add(def.frame0 + n, 0, PAD + n * (FW + GAP), PAD, FW, FH);
+    if (bmp) { // (the <img> stays for a GPU context restore, as ensureTexture does)
+      src.image = F.images[img];
+      if (gt) gt.pixels = F.images[img];
+      bmp.close();
+      delete F.bitmaps[img];
+    }
+    return true;
+  };
+
   // ---------- the pictures ----------
   F.Breeds = {
     key: function (kind, b) { return b ? 'animals_br_' + kind + '_' + b : 'animals'; },
+    shadeKey: function (kind, b) { return b && F.Breeds.picture(kind, b) ? 'animalshade_br_' + kind + '_' + b : 'animalshade'; },
+    // the breed's own picture (its image key), if it has one
+    picture: function (kind, b) {
+      var d = b && C.BREEDS[kind] && C.BREEDS[kind][b], k = d && 'breed_' + kind + '_' + d.key;
+      return k && F.images && F.images[k] && F.images['breedshade_' + kind + '_' + d.key] ? k : null;
+    },
     // The texture for a breed (made the first time): its frames are numbered as in the animals sheet (frame0 + 0..11),
-    // so the herd's poses work on it unchanged. Breed 0 is the animals sheet itself.
+    // so the herd's poses work on it unchanged. Breed 0 is the animals sheet itself. Its picture if it has one, else
+    // the animal's frames recoloured.
     texture: function (scene, kind, b) {
       var base = F.ensureTexture(scene, 'animals'), key = F.Breeds.key(kind, b), tex = scene.textures;
       if (!b || tex.exists(key)) return key;
+      var pic = F.Breeds.picture(kind, b);
+      try {
+        if (pic && fromPicture(tex, key, pic, kind)) return key;
+      } catch (e) { if (tex.exists(key)) tex.remove(key); } // (painted instead)
       var def = C.ANIMALS[kind], paint = L.breedDef(kind, b).paint;
       if (!def || !paint) return base;
       try {
@@ -50,27 +83,45 @@
         return base; // (never worse than the plain picture)
       }
     },
+    // its shadows: a picture's own (made with it), else the animal's
+    shade: function (scene, kind, b) {
+      var key = F.Breeds.shadeKey(kind, b), tex = scene.textures;
+      if (key !== 'animalshade' && !tex.exists(key)) {
+        try { fromPicture(tex, key, 'breedshade_' + kind + '_' + C.BREEDS[kind][b].key, kind); } catch (e) { if (tex.exists(key)) tex.remove(key); }
+      }
+      return tex.exists(key) ? key : F.ensureTexture(scene, 'animalshade');
+    },
   };
 
   // ---------- in the pen ----------
-  // A colour not painted yet is painted after the map's first frame, one a frame, the ones on screen first (painting them
-  // all in the farm's first frame cost ~0.35 s of boot on a slow phone). Until then that animal and its shadow are hidden.
+  // A colour not on the GPU yet is put up after the map's first frame, one a frame, the ones on screen first (painting
+  // them all in the farm's first frame cost ~0.35 s of boot on a slow phone). A colour with a picture waits for it to be
+  // decoded off the main thread first (F.prewarmKey, 10-boot.js: a few ms of upload then, not a decode). Until then that
+  // animal and its shadow are hidden. A farm with no breed animal decodes and uploads nothing more.
   F.keepBitmap = F.keepBitmap || {};
   F.keepBitmap.animals = true; // (the herd paints from it; F.dropBitmaps lets it go a few seconds into the map)
   var paintLater = function (sc, m, kind, b) {
     m.sprite.setAlpha(0);
     m.sh.setAlpha(0);
-    var q = sc.breedQueue;
+    var q = sc.breedQueue, pic = F.Breeds.picture(kind, b), job = { m: m, kind: kind, b: b, ready: true };
+    if (pic && F.prewarmKey) {
+      var wait = [F.prewarmKey(pic, null), F.prewarmKey(pic.replace(/^breed_/, 'breedshade_'), null)].filter(Boolean);
+      if (wait.length) {
+        job.ready = false;
+        Promise.all(wait).then(function () { job.ready = true; });
+      }
+    }
     if (!q) {
       q = sc.breedQueue = { list: [], frame: sc.game.loop.frame };
       var step = function () {
         if (sc.game.loop.frame <= q.frame + 1 || !q.list.length) return;
-        var cam = sc.cameras.main, cx = cam.midPoint.x, cy = cam.midPoint.y;
-        q.list.sort(function (p, r) { return Math.hypot(p.m.x - cx, p.m.y - cy) - Math.hypot(r.m.x - cx, r.m.y - cy); });
-        var job = q.list.shift(), key = F.Breeds.texture(sc, job.kind, job.b);
-        q.list.filter(function (o) { return o.kind === job.kind && o.b === job.b; }).concat([job]).forEach(function (o) {
+        var cam = sc.cameras.main, cx = cam.midPoint.x, cy = cam.midPoint.y, ready = q.list.filter(function (o) { return o.ready; });
+        if (!ready.length) return;
+        ready.sort(function (p, r) { return Math.hypot(p.m.x - cx, p.m.y - cy) - Math.hypot(r.m.x - cx, r.m.y - cy); });
+        var job = ready[0], key = F.Breeds.texture(sc, job.kind, job.b), shade = F.Breeds.shade(sc, job.kind, job.b);
+        q.list.filter(function (o) { return o.kind === job.kind && o.b === job.b; }).forEach(function (o) {
           if (o.m.sprite.active) o.m.sprite.setTexture(key, o.m.sprite.frame.name).setAlpha(1);
-          if (o.m.sh.active) o.m.sh.setAlpha(1);
+          if (o.m.sh.active) o.m.sh.setTexture(shade, o.m.sh.frame.name).setAlpha(1);
         });
         q.list = q.list.filter(function (o) { return !(o.kind === job.kind && o.b === job.b); });
         if (!q.list.length) done();
@@ -79,7 +130,7 @@
       sc.events.on('postupdate', step);
       sc.events.once('shutdown', done);
     }
-    q.list.push({ m: m, kind: kind, b: b });
+    q.list.push(job);
   };
   var add = F.Herd.prototype.add;
   F.Herd.prototype.add = function (i) {
@@ -87,7 +138,10 @@
     m.rare = L.isRare(a);
     m.twinkle = 1500 + Math.random() * 3000;
     if (b && !sc.textures.exists(F.Breeds.key(a.kind, b)) && C.ANIMALS[a.kind] && L.breedDef(a.kind, b).paint) paintLater(sc, m, a.kind, b);
-    else if (b) m.sprite.setTexture(F.Breeds.texture(sc, a.kind, b), m.sprite.frame.name);
+    else if (b) {
+      m.sprite.setTexture(F.Breeds.texture(sc, a.kind, b), m.sprite.frame.name);
+      m.sh.setTexture(F.Breeds.shade(sc, a.kind, b), m.sh.frame.name);
+    }
     // a new colour from Lily's shop (a newborn's is in the morning report)
     if (a.brNew && this.live && !(F.session && F.session.visit)) {
       delete a.brNew;
@@ -97,6 +151,18 @@
       });
     }
     return m;
+  };
+  // Colours no animal here has (a friend's, seen on a visit; one sold) are let go a little after the farm is in, so
+  // visits do not pile them up on the GPU. The Breeds book makes one again when it shows it (and F.freeTexture,
+  // 19zzzz-perf.js, keeps whatever is still on screen).
+  var release = function (w) {
+    if (!w.sys || !w.sys.isActive() || w.busy || !w.herd || !F.freeTexture) return;
+    var want = {};
+    w.state.animals.forEach(function (a) {
+      var b = L.breedOf(a);
+      if (b) want[F.Breeds.key(a.kind, b)] = want['animalshade_br_' + a.kind + '_' + b] = true;
+    });
+    Object.keys(w.textures.list).forEach(function (k) { if (/^animal(s|shade)_br_/.test(k) && !want[k]) F.freeTexture(k); });
   };
   var update = F.Herd.prototype.update;
   F.Herd.prototype.update = function (dt, time, minutes) {
@@ -292,6 +358,7 @@
   P.create = function () {
     create.apply(this, arguments);
     var self = this, s = F.session && F.session.state;
+    if (this.herd) this.time.delayedCall(1500, function () { release(self); });
     if (!s || this.mapKey !== 'farm' || F.session.visit || (this.state && this.state.isVisit) || quiet() || L.tipSeen(s, 'breeds_tour')) return;
     if (!(s.animals.length > 1 || s.day > s.start)) return;
     this.time.delayedCall(3200, function () {

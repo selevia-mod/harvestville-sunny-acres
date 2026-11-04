@@ -3591,8 +3591,25 @@ test('animal breeds: colours in the pen, a rare one twinkles and gives two, the 
   await closeAll(page);
   let s = await state(page);
   assert.deepStrictEqual(s.animals.map((a) => a.kind + ':' + (a.br || 0)), ['chicken:3', 'chicken:2', 'cow:0', 'cow:3', 'pig:3', 'carabao:2']);
+  await page.waitForFunction(() => !Farm.world.breedQueue, null, SLOW); // (each colour's picture decoded, then put up)
   const keys = await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key));
   assert.deepStrictEqual(keys, ['animals_br_chicken_3', 'animals_br_chicken_2', 'animals', 'animals_br_cow_3', 'animals_br_pig_3', 'animals_br_carabao_2']);
+  // each colour is its own picture (art-src/breeds), with its own shadows, not the animal recoloured
+  const pics = await page.evaluate(() => Farm.world.herd.members.map((m) => {
+    const img = m.sprite.texture.source[0].image, sh = m.sh.texture;
+    return [Object.keys(Farm.images).find((k) => Farm.images[k] === img) || '?', sh.key, Object.keys(Farm.images).find((k) => Farm.images[k] === sh.source[0].image) || '?', m.sprite.alpha, m.sh.alpha];
+  }));
+  assert.deepStrictEqual(pics, [
+    ['breed_chicken_golden', 'animalshade_br_chicken_3', 'breedshade_chicken_golden', 1, 1],
+    ['breed_chicken_black', 'animalshade_br_chicken_2', 'breedshade_chicken_black', 1, 1],
+    ['animals', 'animalshade', 'animalshade', 1, 1],
+    ['breed_cow_highland', 'animalshade_br_cow_3', 'breedshade_cow_highland', 1, 1],
+    ['breed_pig_moon', 'animalshade_br_pig_3', 'breedshade_pig_moon', 1, 1],
+    ['breed_carabao_albino', 'animalshade_br_carabao_2', 'breedshade_carabao_albino', 1, 1],
+  ]);
+  // only the colours on this farm are on the GPU (the other six pictures are not)
+  assert.deepStrictEqual(await page.evaluate(() => Object.keys(Farm.game.textures.list).filter((k) => /^animals_br_/.test(k)).sort()),
+    ['animals_br_carabao_2', 'animals_br_chicken_2', 'animals_br_chicken_3', 'animals_br_cow_3', 'animals_br_pig_3']);
   assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.rare)), [true, false, false, true, true, true]);
   // they walk in their own colours: the frames keep their numbers
   await page.waitForFunction(() => Farm.world.herd.members.some((m) => m.pose === 'walk'), null, SLOW);

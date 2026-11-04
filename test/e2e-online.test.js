@@ -2002,11 +2002,16 @@ test('online: animal breeds: a visitor sees the owner\'s Golden Hen and Moonligh
   await guest.page.waitForFunction(() => !Farm.world.breedQueue, null, SLOW);
   assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals_br_chicken_3', 'animals_br_pig_3']);
   assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.alpha)), [1, 1], 'shown once painted');
+  // the owner's colours are their pictures (art-src/breeds), shadows too
+  assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => { const kind = Farm.world.state.animals[m.i].kind; return [m.sprite.texture.source[0].image === Farm.images['breed_' + kind + '_' + Farm.Config.BREEDS[kind][3].key], m.sh.texture.key]; })),
+    [[true, 'animalshade_br_chicken_3'], [true, 'animalshade_br_pig_3']]);
   assert.deepStrictEqual(await guest.page.evaluate(() => [Farm.Logic.breedsFound(Farm.session.state, 'chicken'), Farm.Logic.breedsFound(Farm.session.state, 'pig')]), [1, 0], 'seeing is not finding');
   await shot(guest.page, 'breeds-visit');
   await guest.page.evaluate(() => Farm.Online.leaveVisit());
   await waitWorld(guest.page, false);
   assert.deepStrictEqual(await guest.page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals']);
+  // and the owner's colours are let go again on the guest's own farm
+  await guest.page.waitForFunction(() => !Object.keys(Farm.game.textures.list).some((k) => /^animal(s|shade)_br_/.test(k)), null, SLOW);
   assert.deepStrictEqual(guest.problems, []);
   assert.deepStrictEqual(host.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);

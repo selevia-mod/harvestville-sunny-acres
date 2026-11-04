@@ -16,7 +16,13 @@
 // nothing: a soft oval below; so does a body lying down. Shadows are stored at 1/SHADE of the size (they are all soft);
 // assets/sizes.json holds the full sizes. The farm sheet is stored at `store` of its size: it is on the GPU from the
 // start. SHOW=<folder> saves a picture of each set on grass.
-// node tools/art/animals3q-import.js
+// The breeds (art-src/BREEDING-PROMPTS.md, C.BREEDS in src/00-zzzzzzz-breeding.js): a colour's picture in art-src/breeds
+// (the same 3 x 4 poses as its animal's) is cut exactly like that animal's row, on the same ground line, into a sheet of
+// its own: assets/breed_<animal>_<key> and its shadows assets/breedshade_<animal>_<key>, one row of 12 each. One sheet a
+// colour, not one for them all: a farm puts on the GPU only the colours it has (19zz-breeding.js), and most have one or
+// two. The picture generator left a faint glow round some of them: `clean` takes it away.
+// node tools/art/animals3q-import.js            (everything)
+// node tools/art/animals3q-import.js breeds     (only the breeds)
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -52,13 +58,19 @@ const SETS = [
   { name: 'wild', shade: 'wildshade', dir: 'wild-3q', ground: 358, store: 0.75, rows: WILD_ROWS.map((a) => [RARE[a] ? RARE[a][0] : 'wild_' + a, Object.assign({ front: 9, ground: !!C.WILD.animals[a].ground, tone: RARE[a] && RARE[a][1] }, MAG[a] ? { dir: 'magayon' } : {}, LAIR(a) ? { dir: 'lair', fit: true } : {}, MAG[a])]) },
   { name: 'animals', shade: 'animalshade', dir: 'farm-3q', ground: 352, store: 0.75, rows: FARM },
 ];
+// (stored like the farm sheet, so a colour is as sharp as the plain animal beside it)
+Object.keys(C.BREEDS).forEach((kind) => C.BREEDS[kind].forEach((d) => {
+  const f = 'breed_' + kind + '_' + d.key;
+  if (fs.existsSync(path.join(ROOT, 'art-src', 'breeds', f + '.png'))) SETS.push({ name: f, shade: 'breedshade_' + kind + '_' + d.key, dir: 'breeds', ground: 352, store: 0.75, rows: [[f, Object.assign({ clean: true }, BARN)]] });
+}));
+const RUN = process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: require('./wild-lib') });
   const sizes = JSON.parse(fs.readFileSync(path.join(OUT, 'sizes.json'), 'utf8'));
-  for (const set of SETS) {
+  for (const set of RUN) {
   const r = await p.evaluate(async ([list, FW, FH, M, G, K, GROUND, FEET, SHADE, store]) => {
     const load = (s) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('bad image')); i.src = s; });
     const sheet = document.createElement('canvas');
@@ -186,6 +198,18 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
         if (cl) g.drawImage(cl[i].c, x + FW / 2 - cl[i].w * K / 2, y + FEET - (base[i] - cl[i].top) * K, cl[i].w * K, cl[i].h * K);
         else g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - line * K, cw * K, ch * K);
         g.restore();
+        if (opt.clean) { // the faint glow: what is all but clear, and soft specks with nothing solid within 3 px
+          const px = g.getImageData(x, y, FW, FH), d = px.data, solid = new Uint8Array(FW * FH);
+          for (let k = 0; k < FW * FH; k++) solid[k] = d[k * 4 + 3] >= 200;
+          for (let v = 0; v < FH; v++) for (let u = 0; u < FW; u++) {
+            const k = v * FW + u, a = d[k * 4 + 3];
+            if (!a || a >= 32) continue;
+            let near = false;
+            if (a > 10) for (let dv = -3; dv <= 3 && !near; dv++) for (let du = -3; du <= 3; du++) if (solid[(v + dv) * FW + u + du] && u + du >= 0 && u + du < FW) { near = true; break; }
+            if (!near) d[k * 4 + 3] = 0;
+          }
+          g.putImageData(px, x, y);
+        }
         if (opt.tone) {
           const px = g.getImageData(x, y, FW, FH);
           recolour(px.data, opt.tone);
