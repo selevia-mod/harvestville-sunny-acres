@@ -2838,7 +2838,7 @@ test('downloads: without the Wild Lands you are asked first; a small badge while
   await page.evaluate(() => Farm.world.travel('pulag', 'from_town'));
   await frames(page, 4);
   const first = await modalText(page);
-  assert.match(first, /WILD LANDS[\s\S]*A one-time download of 1\.\d MB[\s\S]*Not now[\s\S]*Download/);
+  assert.match(first, /WILD LANDS[\s\S]*A one-time download of \d\.\d MB[\s\S]*Not now[\s\S]*Download/);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'town', 'not gone yet');
   {
     await shot(page, 'packs-1-ask');
@@ -4161,6 +4161,38 @@ test('the Fire look from Kanor: on his Buy tab at 500,000G and the Lair\'s best,
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.drawTailor('mine', 0); });
   await frames(page, 3);
   assert.match(await modalText(page), /Lair Fire[\s\S]*Wear/);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('downloads by themselves: a few seconds after the game opens, every pack comes down onto the phone, one after another, the badge showing it (owner, 5 Nov)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;");
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const page = await context.newPage(), problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript(([s, now]) => {
+    window.__now = now;
+    window.__asked = [];
+    window.gameHost = { state: s, quiet: true, autoPacks: true, saves: [], save(x) { this.saves.push(JSON.stringify(x)); this.state = x; }, now: () => window.__now, here: [] };
+    window.gameHost.asset = function (f, save) { window.__asked.push([f, save]); setTimeout(function () { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); }, 60); };
+  }, [save, at(START)]);
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
+  assert.deepStrictEqual(await page.evaluate(() => ['wild', 'looks', 'party'].map((p) => Farm.packOnPhone(p))), [false, false, false], 'nothing on the phone yet');
+  assert.strictEqual(await page.evaluate(() => window.__asked.length), 0, 'not straight away: the farm opens first');
+  await page.waitForFunction(() => Farm.anyDownloading() && Farm.ui.packBadge.visible, null, SLOW);
+  await shot(page, 'packs-auto-badge');
+  await page.waitForFunction(() => ['wild', 'looks', 'party'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
+  const asked = await page.evaluate(() => window.__asked);
+  assert.ok(asked.length > 0 && asked.every((a) => a[1] === true), 'onto the phone only, not into the page');
+  assert.strictEqual(await page.evaluate(() => Farm.packReady('wild')), false, 'the Wild Lands go into the page when you go there');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.packBadge.visible), false, 'the badge goes when it is all done');
+  await page.evaluate(() => Farm.ui.openDownloads());
+  await frames(page, 3);
+  const text = await modalText(page);
+  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 3, text);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

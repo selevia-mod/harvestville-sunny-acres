@@ -26727,6 +26727,10 @@
 // that fills (tap it for the details); the pause menu's Downloads page lists every pack with its size, what is on the
 // phone, a bar while it comes, and Download / Get all. The Wild Lands ask first: walking out of town to Pulag without
 // them opens a small centred card (Download / Not now), and you go on in when it is done.
+// Owner, 5 Nov 2026: "download should be automatic ... It is necessary so it should be automatically". So a few seconds
+// after the game opens, every pack not on the phone yet comes down by itself, one after another (the badge shows it),
+// onto the phone only: a pack goes into the page when its place or its look needs it. Downloads and Get all stay, for
+// one that failed (it is tried again the next time the game opens).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -26845,6 +26849,29 @@
       self.swapTo(function () { self.openDownloads(); });
     };
     if (F.anyDownloading()) F.bus.on('packs', tick);
+  };
+
+  // ---------- every pack, by itself ----------
+  var AUTO_AFTER = 6000; // (the farm's first frames and its own pictures come first)
+  var autoStarted = false;
+  var autoPacks = function () {
+    var h = window.gameHost || {};
+    if (autoStarted || !F.canFetch()) return;
+    if (h.quiet && !h.autoPacks) return; // (the tests' quiet phone, unless a test asks for it)
+    autoStarted = true;
+    ORDER.reduce(function (chain, p) {
+      return chain.then(function (ok) {
+        if (!ok) return false; // offline or the CDN is down: stop, and try again next time
+        if (F.packOnPhone(p)) return true;
+        return F.downloadPack(p);
+      });
+    }, Promise.resolve(true));
+  };
+  var uiCreate = U.create;
+  U.create = function () {
+    var r = uiCreate.apply(this, arguments);
+    this.time.delayedCall(AUTO_AFTER, autoPacks);
+    return r;
   };
 
   // ---------- opening the game where you left it, in the wild ----------
