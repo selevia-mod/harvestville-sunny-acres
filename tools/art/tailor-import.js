@@ -5,8 +5,10 @@
 //   assets/tita_luz.png/.webp          her 3x3 walking frames of 256x384, like Kanor (in the page)
 //   assets/props/tailor_shop.*         the shop at 160 px a tile, 5 by 4 (in the page)
 //   assets/looks_thumbs.png/.webp      each look's front pose, boy then girl, 128 x 192 (in the page: the shop's list)
-//   assets/looks/<look>-<boy|girl>.webp and -archer.webp   the 32 look sheets: NOT in the page (6 MB). They go on the
+//   assets/looks/<look>-<boy|girl>.webp and -archer.webp   the 36 look sheets: NOT in the page (6 MB). They go on the
 //                                      CDN (app-assets/looks/v1/) and come in through the app (19zj-looks.js).
+// The Fire look (the Lair's, 5 Nov 2026) was cut in this repo, not in harvest-hat-art: tools/art/fire-look-cut.cjs writes
+// art-src/looks/cut/, the same layout as looks-cutter/out, and a look found there is taken from there.
 // node tools/art/tailor-import.js
 const fs = require('fs');
 const os = require('os');
@@ -17,7 +19,11 @@ const { PROPS } = require('../tiles');
 const ROOT = path.join(__dirname, '..', '..');
 const ART = path.join(os.homedir(), 'Documents', 'harvest-hat-art');
 const OUT = path.join(ROOT, 'assets');
-const LOOKS = ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny'];
+const LOOKS = ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire'];
+const cutOf = (name) => {
+  const here = path.join(ROOT, 'art-src', 'looks', 'cut', name + '.png');
+  return fs.existsSync(here) ? here : path.join(ART, 'looks-cutter', 'out', name + '.png');
+};
 const PPT = 160;
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
@@ -55,7 +61,7 @@ const LIB = require('./wild-lib');
   fs.mkdirSync(path.join(OUT, 'looks'), { recursive: true });
   for (const look of LOOKS) for (const who of ['boy', 'girl']) for (const part of ['', '-archer']) {
     const r = await p.evaluate(async (src) => { const i = await W.load(src), c = W.canvas(i.width, i.height); c.getContext('2d').drawImage(i, 0, 0); return W.out(c, 0.82); },
-      data(path.join(ART, 'looks-cutter', 'out', look + '-' + who + part + '.png')));
+      data(cutOf(look + '-' + who + part)));
     save('looks/' + look + '-' + who + part, r, false);
   }
   // ---------- the shop's pictures of each look: the front pose, boy then girl, 128 x 192 each (in the page) ----------
@@ -63,7 +69,7 @@ const LIB = require('./wild-lib');
     const sheet = W.canvas(list.length * 128, 192), g = sheet.getContext('2d');
     for (let i = 0; i < list.length; i++) { const im = await W.load(list[i]); g.imageSmoothingQuality = 'high'; g.drawImage(im, 8, 8, 256, 384, i * 128, 0, 128, 192); }
     return W.out(sheet, 0.86);
-  }, LOOKS.flatMap((l) => ['boy', 'girl'].map((who) => data(path.join(ART, 'looks-cutter', 'out', l + '-' + who + '.png')))));
+  }, LOOKS.flatMap((l) => ['boy', 'girl'].map((who) => data(cutOf(l + '-' + who)))));
   save('looks_thumbs', thumbs);
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });

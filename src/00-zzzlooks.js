@@ -17,6 +17,10 @@
     { key: 'santa', name: 'Santa Claus', coins: 150, desc: 'The red suit with white trim, the hat and the big black boots.' },
     { key: 'fiesta', name: 'Barrio Fiesta', coins: 150, stars: 200, desc: 'A salakot, with a barong for him and a blue Filipiniana for her.' },
     { key: 'bunny', name: 'Bunny Hop', coins: 150, stars: 200, desc: 'A soft pink suit and a hood with bunny ears.' },
+    // The Fire look, from Bakunawa's Lair (art: art-src/LAIR-PROMPTS.md 14-19, 5 Nov 2026). How it is won or sold is the
+    // owner's to say; until then it has no price here, and the shop shows it only to a player who owns it (given by the
+    // server's farm.looks_owned) or when the server puts it on sale (19zj-looks.js).
+    { key: 'fire', name: 'Lair Fire', reward: 'lair', desc: 'A red bandana and a flame vest for him, a flame dress for her.' },
   ];
   C.LOOK_INDEX = {};
   C.LOOKS.forEach(function (l, i) { C.LOOK_INDEX[l.key] = i; });

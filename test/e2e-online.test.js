@@ -2245,3 +2245,36 @@ test('online: a changed game cannot flood the owner\'s phone with server calls o
   assert.deepStrictEqual(guest.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+test('online: the Lair\'s Fire look, given by the server, is worn, and a visiting friend sees it, swinging a tool in it too (5 Nov 2026)', async () => {
+  const server = createServer();
+  const me = await open(server), friend = await open(server);
+  await nameFarm(me.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  // (how it is won is the owner's to say; here the server simply says it is yours)
+  server.db.looksOwned.set(me.uid, ['fire']);
+  await me.page.evaluate(() => Farm.Online.loadLooks());
+  assert.strictEqual(await me.page.evaluate(() => Farm.Logic.ownsLook(Farm.session.state, 'fire')), true);
+  await me.page.evaluate(() => Farm.ui.wearLook('fire'));
+  await me.page.waitForFunction(() => Farm.world.player.texture.key === 'look_fire_boy', null, SLOW);
+  await friend.page.evaluate((id) => Farm.Online.visit(id), me.uid);
+  await waitWorld(friend.page, true);
+  await waitRemotes(friend.page, ['Moon Meadow (owner)']);
+  await friend.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.spr.texture.key === 'look_fire_boy'; }, me.uid, SLOW);
+  await waitRemotes(me.page, ['Ana Acres']);
+  // the owner swings the hoe: the friend sees the raise and strike from the Fire look's own frames
+  await me.page.evaluate(() => { const w = Farm.world; w.dir = 'left'; w.idle(); Farm.Online.tellPlace(); });
+  await me.page.waitForTimeout(600);
+  await me.page.evaluate(() => Farm.world.animateUse(Farm.Config.ICON.hoe, 'swing'));
+  const swing = await friend.page.waitForFunction((id) => {
+    const w = Farm.world, r = w.remotes[id];
+    if (!r || !r.tool || !(r.useUntil > w.time.now)) return null;
+    return { key: r.spr.texture.key, frame: Number(r.spr.frame.name) };
+  }, me.uid, { ...SLOW, polling: 10 }).then((h) => h.jsonValue()).catch(() => null);
+  assert.ok(swing, 'their swing shows');
+  assert.strictEqual(swing.key, 'look_fire_boy');
+  assert.ok(swing.frame >= 9 && swing.frame <= 14, 'a tool pose: ' + swing.frame);
+  await shot(friend.page, 'fire-look-online-friend-sees');
+  for (const p of [me, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [me, friend]) await p.context.close();
+});
