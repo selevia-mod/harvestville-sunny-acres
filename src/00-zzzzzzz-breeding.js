@@ -4,8 +4,8 @@
 // or calf takes after its parents, and now and then one is born in a rare colour. The Breeds book (in the Collection)
 // shows what you have found, with a prize for each kind found in full.
 // A breed's paint: which pixels of the art are its coat (sel), and the colours they become, dark to light (ramp),
-// by how light they were (range: the lightness the ramp spans). Real pictures can replace them later
-// (art-src/BREEDING-PROMPTS.md).
+// by how light they were (range: the lightness the ramp spans). A colour with a real picture (art-src/breeds, by its
+// key: breed_<animal>_<key>.png; all of them since 5 Nov 2026) shows that instead; the paint stays as its fallback.
 (function (F) {
   'use strict';
   var C = F.Config;
