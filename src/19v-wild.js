@@ -263,7 +263,7 @@
       a.bar.bg.setPosition(a.x, hy);
       a.bar.fill.setPosition(a.x - a.bar.w / 2, hy).setSize(a.bar.w * Math.max(0, a.hp) / (a.max || a.def.hp), a.bar.h);
     } else if (a.bar) {
-      var by = a.y - a.lift - (0.42 + a.def.w * 0.62) * a.size * T;
+      var by = a.y - a.lift - (a.def.bar || 0.42 + a.def.w * 0.62) * a.size * T; // (bar: one taller than it is wide, the Tikbalang)
       a.bar.bg.setPosition(a.x, by);
       a.bar.fill.setPosition(a.x - BAR_W / 2, by).setSize(BAR_W * Math.max(0, a.hp) / (a.max || a.def.hp), BAR_H);
     }

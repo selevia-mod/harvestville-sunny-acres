@@ -18,7 +18,8 @@
       drops: [['ember_shard', 1, 1], ['santelmo_flame', 1, 0.5]] },
     sigbin: { name: 'Sigbin', px: 162, w: 1, kg: 12, hp: 3, walk: 0.8, run: 4.4, angry: 3, hit: 8, ground: true,
       drops: [['ember_shard', 2, 1], ['sigbin_horn', 1, 0.5]] },
-    tikbalang: { name: 'Tikbalang', px: 110, w: 1.6, kg: 140, hp: 6, walk: 0.9, run: 4.8, angry: 4, hit: 12, ground: true,
+    // upright and tall, so narrower than its height: bar puts its health bar over its head, not at the width's height
+    tikbalang: { name: 'Tikbalang', px: 110, w: 1.1, bar: 2.05, kg: 140, hp: 6, walk: 0.9, run: 4.8, angry: 4, hit: 12, ground: true,
       drops: [['ember_shard', 2, 1], ['tikbalang_mane', 1, 0.5], ['obsidian', 1, 0.4]] },
     // guards every 10th floor: tougher the deeper (C.LAIR.bossHpPer)
     bungisngis: { name: 'Bungisngis', px: 164, w: 2.4, kg: 600, hp: 24, walk: 0.6, run: 3.4, angry: 5, hit: 16, ground: true, boss: true,

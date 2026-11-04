@@ -3042,7 +3042,7 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   await context.close();
 });
 
-test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in borrowed colours, the gate opens when they are down, the guard of floor 10, the lift, the ladder out, and a reopened game lands at the mouth (owner, 4 Nov)', async () => {
+test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in their own pictures, the gate opens when they are down, the guard of floor 10, the lift, the ladder out, and a reopened game lands at the mouth (owner, 4 Nov)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'magayon'; s.wild.n = 50; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
   const { page, problems, context } = await open(save);
   await closeAll(page);
