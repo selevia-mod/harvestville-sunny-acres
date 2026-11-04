@@ -3274,10 +3274,14 @@ test('festival contests: told the day before and on the day, the calendar says s
   text = await modalText(page);
   assert.match(text, /ANIMAL CONTEST[\s\S]*Daisy the cow {2}\(you\)[\s\S]*92[\s\S]*Father Tomas' cow Bella[\s\S]*83[\s\S]*Pip's pig Bubbles[\s\S]*64[\s\S]*Grandma Pearl's chicken Snowball[\s\S]*48[\s\S]*1st place! Blue ribbon and 1,500G, and the 2026 trophy!/);
   await shot(page, 'contest-card');
+  // the ribbons are the pictures (assets/contests), not the drawn stand-ins
+  const painted = (keys) => page.evaluate((keys) => keys.map((k) => Farm.ui.textures.exists(k)), keys);
+  assert.deepStrictEqual(await painted(['ct-rosp-1-40', 'ct-rosp-2-40', 'ct-rosp-3-40', 'ct-ros-1-40']), [true, true, true, false]);
   await tapButton(page, 'Hooray!');
   assert.match(await modalText(page), /1ST PLACE![\s\S]*See it in the Collection: tap Ribbons\./);
   await page.waitForTimeout(600);
   await shot(page, 'contest-prize');
+  assert.deepStrictEqual(await painted(['ct-rosp-1-76', 'ct-cupp-80', 'ct-ros-1-76', 'ct-cup-80']), [true, true, false, false], 'the prize: the picture ribbon and cup');
   await tapButton(page, 'OK');
   let s = await state(page);
   assert.strictEqual(s.gold, gold + 1500);
@@ -3295,6 +3299,7 @@ test('festival contests: told the day before and on the day, the calendar says s
   await tapButton(page, 'Ribbons');
   assert.match(await modalText(page), /RIBBONS & TROPHIES[\s\S]*Trophies 1 {4}Ribbons 1[\s\S]*Animal 2026[\s\S]*Daisy/);
   await shot(page, 'contest-ribbons');
+  assert.deepStrictEqual(await painted(['ct-rosp-1-32', 'ct-cupp-38', 'ct-cup-38']), [true, true, false]);
   await tapButton(page, 'Close');
   assert.match(await modalText(page), /Collection/);
   await closeAll(page);
@@ -3320,6 +3325,13 @@ test('festival contests: told the day before and on the day, the calendar says s
   await tapButton(b.page, 'Next');
   await frames(b.page, 6);
   await shot(b.page, 'contest-tour-last');
+  assert.deepStrictEqual(await b.page.evaluate(() => ['ct-rosp-1-48', 'ct-rosp-2-40', 'ct-rosp-3-36', 'ct-cupp-50', 'ct-cup-50'].map((k) => Farm.ui.textures.exists(k))), [true, true, true, true, false]);
+  assert.deepStrictEqual(await b.page.evaluate(() => { // without the sheet, the drawn ones
+    const had = Farm.images.contests;
+    delete Farm.images.contests;
+    try { Farm.ui.ctRosette(null, 0, 0, 2, 44).destroy(); Farm.ui.ctCup(null, 0, 0, 44).destroy(); } finally { Farm.images.contests = had; }
+    return ['ct-ros-2-44', 'ct-cup-44', 'ct-rosp-2-44'].map((k) => Farm.ui.textures.exists(k));
+  }), [true, true, false]);
   await tapButton(b.page, 'Got it');
   text = await modalText(b.page);
   assert.match(text, /Noche Buena Cook-off[\s\S]*Judge: Rosa, innkeeper\.[\s\S]*Pumpkin Pie[\s\S]*90 points\. 3 things in it, 110 energy\.[\s\S]*Boiled Egg/);

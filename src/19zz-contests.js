@@ -4,7 +4,9 @@
 // judging: the host and the judge say a word, and the four entries are shown from 4th place up, each score filling its
 // bar, a ribbon on the top three. 1st place is that year's trophy. Ribbons and trophies: Collection, Ribbons.
 // The morning report says so the day before and on the day; so does the calendar. A tour the first time.
-// The ribbons and the cup are drawn here (no icons in the items sheet: it is full) until their pictures come.
+// The ribbons and the cup are the owner's pictures (assets/contests: tools/art/contests-import.js), not item icons (the
+// items sheet is full); each size is painted once from that small sheet, with the place written on the ribbon's centre.
+// The drawn ones stay for when the sheet is not there.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -22,41 +24,22 @@
   };
   var who = function (k) { return C.VILLAGERS[k].name; };
 
-  // ---------- the drawn ribbons and the cup ----------
+  // ---------- the ribbons and the cup ----------
+  // The sheet's frames (the same numbers as tools/art/contests-import.js): the 4 ribbons, 1st to 4th, each fw x fh and
+  // fw + gap apart, its cream centre at (fw / 2, cy); then the cup in a cup x cup square. Painted at each size it is shown
+  // (with the browser's good downscaling, sharper than the GPU shrinking a big frame), so no sheet stays on the GPU.
+  var ART = { fw: 176, fh: 288, cy: 100, gap: 4, cup: 240 };
+  var sheet = function () { var i = F.images && F.images.contests; return i && i.naturalWidth ? i : null; };
   // A rosette for a place (1 blue, 2 red, 3 yellow, 4 green "thanks"), size px across.
   U.ctRosette = function (parent, x, y, place, size) {
-    var col = KC.colors[place] || KC.colors[4], S = size;
-    return this.canvasImg(parent, x, y, 'ct-ros-' + place + '-' + S, S, S * 1.25, function (g) {
+    var col = KC.colors[place] || KC.colors[4], S = size, pic = sheet();
+    return this.canvasImg(parent, x, y, (pic ? 'ct-rosp-' : 'ct-ros-') + place + '-' + S, S, S * 1.25, function (g) {
       var r = S * 0.3, cx = S / 2, cy = S * 0.42;
-      [-1, 1].forEach(function (d) { // the two tails
-        g.beginPath();
-        g.moveTo(cx + d * r * 0.2, cy);
-        g.lineTo(cx + d * r * 1.05, cy + r * 2.3);
-        g.lineTo(cx + d * r * 0.62, cy + r * 1.95);
-        g.lineTo(cx + d * r * 0.3, cy + r * 2.4);
-        g.lineTo(cx - d * r * 0.25, cy + r * 0.4);
-        g.closePath();
-        g.fillStyle = col[1];
-        g.fill();
-        g.lineWidth = 1.5;
-        g.strokeStyle = '#3d2614';
-        g.stroke();
-      });
-      for (var i = 0; i < 14; i++) { // the pleated edge
-        var a = i * Math.PI / 7;
-        D.circle(g, cx + Math.cos(a) * r * 1.02, cy + Math.sin(a) * r * 1.02, r * 0.38);
-        g.fillStyle = i % 2 ? col[0] : col[1];
-        g.fill();
-      }
-      D.circle(g, cx, cy, r * 1.06);
-      g.lineWidth = 1.5;
-      g.strokeStyle = 'rgba(61,38,20,0.5)';
-      g.stroke();
-      D.circle(g, cx, cy, r * 0.72);
-      g.fillStyle = '#fff6d8';
-      g.fill();
-      g.strokeStyle = '#3d2614';
-      g.stroke();
+      if (pic) { // the picture, its cream centre where the drawn one has its centre
+        var q = cy / ART.cy, w = ART.fw * q;
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(pic, (Math.min(place, 4) - 1) * (ART.fw + ART.gap), 0, ART.fw, ART.fh, cx - w / 2, 0, w, ART.fh * q);
+      } else drawn(g, r, cx, cy, col);
       g.fillStyle = '#3d2614';
       g.font = 'bold ' + Math.round(r * 0.95) + 'px "Trebuchet MS", Verdana, sans-serif';
       g.textAlign = 'center';
@@ -64,10 +47,46 @@
       g.fillText(place <= 3 ? String(place) : '♥', cx, cy + 1);
     }).setOrigin(0.5, 0.42 / 1.25); // (x, y) is the middle of the rosette
   };
+  // The drawn rosette (no picture): a pleated circle, two tails, a cream centre.
+  var drawn = function (g, r, cx, cy, col) {
+    [-1, 1].forEach(function (d) { // the two tails
+      g.beginPath();
+      g.moveTo(cx + d * r * 0.2, cy);
+      g.lineTo(cx + d * r * 1.05, cy + r * 2.3);
+      g.lineTo(cx + d * r * 0.62, cy + r * 1.95);
+      g.lineTo(cx + d * r * 0.3, cy + r * 2.4);
+      g.lineTo(cx - d * r * 0.25, cy + r * 0.4);
+      g.closePath();
+      g.fillStyle = col[1];
+      g.fill();
+      g.lineWidth = 1.5;
+      g.strokeStyle = '#3d2614';
+      g.stroke();
+    });
+    for (var i = 0; i < 14; i++) { // the pleated edge
+      var a = i * Math.PI / 7;
+      D.circle(g, cx + Math.cos(a) * r * 1.02, cy + Math.sin(a) * r * 1.02, r * 0.38);
+      g.fillStyle = i % 2 ? col[0] : col[1];
+      g.fill();
+    }
+    D.circle(g, cx, cy, r * 1.06);
+    g.lineWidth = 1.5;
+    g.strokeStyle = 'rgba(61,38,20,0.5)';
+    g.stroke();
+    D.circle(g, cx, cy, r * 0.72);
+    g.fillStyle = '#fff6d8';
+    g.fill();
+    g.strokeStyle = '#3d2614';
+    g.stroke();
+  };
   // The year's trophy: a little gold cup on a wooden base.
   U.ctCup = function (parent, x, y, size) {
-    var S = size;
-    return this.canvasImg(parent, x, y, 'ct-cup-' + S, S, S, function (g) {
+    var S = size, pic = sheet();
+    return this.canvasImg(parent, x, y, (pic ? 'ct-cupp-' : 'ct-cup-') + S, S, S, function (g) {
+      if (pic) {
+        g.imageSmoothingQuality = 'high';
+        return g.drawImage(pic, 4 * (ART.fw + ART.gap), 0, ART.cup, ART.cup, 0, 0, S, S);
+      }
       var u = S / 48;
       g.save();
       g.scale(u, u);
