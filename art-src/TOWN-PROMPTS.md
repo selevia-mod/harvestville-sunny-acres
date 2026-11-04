@@ -293,8 +293,9 @@ A seamless, tileable square texture seen from directly above that fills the whol
 # Willowbrook Station art (4 Nov 2026)
 
 The train station up the lane by the Post Office, the train, the crates on the platform and the people who come by train.
-Until these pictures come, the game draws stand-ins on canvases (`src/19zz-town.js`: `F.twTextures`), so nothing waits on
-them. Save each under `art-src/station/` with the name shown. Sizes in tiles are the game's: the station is 5 wide by 4
+These are in the game (5 Nov 2026): `node tools/art/station-import.js` makes them into the town's own sheets
+(`assets/tw_*`, 128 px a tile), which `src/19zz-town.js` shows.
+Save each under `art-src/station/` with the name shown. Sizes in tiles are the game's: the station is 5 wide by 4
 tall, the train 12 long (engine 3, two coaches 3 each, the van 3) by about 1.75 tall, a crate under 1 tile.
 
 ## 1. `station/station.png` (1280x1024)
@@ -329,7 +330,7 @@ Cozy farming game art in a smooth, hand-painted cartoon style like FarmVille and
 
 ## Visitors off the train (walking sheets, like the villagers)
 
-The game shows them with the visitors' pictures for now (`C.SHOPPERS` looks). Each is the villagers' walking sheet:
+Each walks in their own row of `assets/tw_people` (cut like the villagers' sheet). Each is the villagers' walking sheet:
 3 columns by 3 rows (rows: facing the camera, facing away, facing left; columns: standing, left step, right step).
 
 ### 7. `station/tw_daytrip.png` (1024x1536)

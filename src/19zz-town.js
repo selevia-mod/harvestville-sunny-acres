@@ -1,6 +1,7 @@
 // Willowbrook Station in town (rules: 01-logicZ-town.js; panels and the tour: 19zz-town-ui.js). The station, the rails,
-// the train and the crates on the platform are drawn here on canvases (stand-ins until the art in
-// art-src/TOWN-PROMPTS.md comes); the map holds their places (tools/town-station.js). The train rolls in with a whistle
+// the train, the crates on the platform and the visitors are painted pictures (art-src/station/, made into the town's own
+// sheets by tools/art/station-import.js); the buffer stop, the steam and the wish bubble are still drawn here on canvases.
+// The map holds their places (tools/town-station.js). The train rolls in with a whistle
 // and steam, its visitors step off and walk about town (the villagers' walking, 15-villagers.js) with what they wish for
 // in a bubble, and walk back before it leaves. Flags over the plaza and lanterns along Market Street come with the
 // Town Level.
@@ -13,8 +14,11 @@
   var DEPTH = F.WorldScene.DEPTH;
   var P = F.WorldScene.prototype;
   var V = F.Villagers.prototype;
-  var PX = 128; // canvas px per tile for the stand-in pictures
-  var TRAIN_TILES = 12, TRAIN_H = 1.75, STOP_X = 42.9, OFF_X = 56.5; // the train: its length, height, where it stops, where it is out of sight
+  // the painted sheets (tools/art/station-import.js): the train is one picture of 12 x 2 tiles, its chimney 0.82 tiles from
+  // the front; its wheels stand on the near rail, 0.3 tiles above the bottom of the track's picture
+  var TW_ART = ['tw_station', 'tw_rails', 'tw_train', 'tw_crates', 'tw_people'];
+  var CRATE = 0, CRATE_FULL = 1, PALLET = 2; // the frames of tw_crates
+  var TRAIN_TILES = 12, TRAIN_H = 2, CHIMNEY = 0.82, ON_RAIL = 0.3, STOP_X = 42.9, OFF_X = 56.5; // (where it stops, where it is out of sight)
   var ARRIVE_MS = 5200, LEAVE_MS = 4600;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var quiet = function () { return !!(window.gameHost && window.gameHost.quiet); };
@@ -61,7 +65,7 @@
     return sfxOf.apply(A, arguments);
   };
 
-  // ---------- the pictures (drawn once) ----------
+  // ---------- the pictures still drawn (once) ----------
   var canvas = function (w, key, cw, ch, draw) {
     if (!w.textures.exists(key)) {
       var t = w.textures.createCanvas(key, cw, ch);
@@ -90,138 +94,9 @@
     g.stroke();
   };
 
-  // The station: 5 x 4 tiles. A red tiled roof with a clock, cream walls with timber, a green door and a sign.
-  F.twStationTex = function (w) {
-    return canvas(w, 'tw-station', 5 * PX, 4 * PX, function (g, W, H) {
-      // shadow on the ground
-      g.fillStyle = 'rgba(30,20,10,0.25)';
-      g.beginPath();
-      g.ellipse(W / 2, H - 14, W / 2 - 10, 18, 0, 0, Math.PI * 2);
-      g.fill();
-      // stone base and the walls
-      box(g, 34, H - 52, W - 68, 40, grad(g, H - 52, H - 12, '#b7aa94', '#857a68'), 6);
-      box(g, 40, 214, W - 80, H - 262, grad(g, 214, H - 48, '#fbf1d8', '#e8d3a6'), 4);
-      // timber frame
-      g.fillStyle = '#7a4a24';
-      [40, W / 2 - 66, W / 2 + 58, W - 52].forEach(function (x) { g.fillRect(x, 214, 12, H - 262); });
-      g.fillRect(40, 214, W - 80, 12);
-      // two arched windows
-      [[92, 268], [W - 172, 268]].forEach(function (p) {
-        g.beginPath();
-        g.moveTo(p[0], p[1] + 110);
-        g.lineTo(p[0], p[1] + 40);
-        g.arc(p[0] + 40, p[1] + 40, 40, Math.PI, 0);
-        g.lineTo(p[0] + 80, p[1] + 110);
-        g.closePath();
-        g.fillStyle = grad(g, p[1], p[1] + 110, '#bfe3f2', '#6aa3c2');
-        g.fill();
-        g.lineWidth = 7;
-        g.strokeStyle = '#5a3a1e';
-        g.stroke();
-        g.lineWidth = 4;
-        g.beginPath();
-        g.moveTo(p[0] + 40, p[1]);
-        g.lineTo(p[0] + 40, p[1] + 110);
-        g.moveTo(p[0], p[1] + 58);
-        g.lineTo(p[0] + 80, p[1] + 58);
-        g.stroke();
-        box(g, p[0] - 8, p[1] + 108, 96, 16, '#a0703e', 4, 4); // the sill, with flowers
-        ['#e85a8a', '#ffd23f', '#e85a8a', '#ffffff', '#ffd23f'].forEach(function (col, i) {
-          g.fillStyle = col;
-          g.beginPath();
-          g.arc(p[0] + 6 + i * 17, p[1] + 104, 7, 0, Math.PI * 2);
-          g.fill();
-        });
-      });
-      // the door: green, two leaves, a little roof over it
-      box(g, W / 2 - 46, H - 168, 92, 120, grad(g, H - 168, H - 48, '#4f9a5a', '#2f6a3a'), 8);
-      g.lineWidth = 4;
-      g.strokeStyle = LINE;
-      g.beginPath();
-      g.moveTo(W / 2, H - 164);
-      g.lineTo(W / 2, H - 50);
-      g.stroke();
-      g.fillStyle = '#ffe08a';
-      g.beginPath();
-      g.arc(W / 2 - 10, H - 104, 5, 0, Math.PI * 2);
-      g.arc(W / 2 + 10, H - 104, 5, 0, Math.PI * 2);
-      g.fill();
-      // the roof: red tiles in rows, over the walls
-      g.beginPath();
-      g.moveTo(6, 232);
-      g.lineTo(70, 70);
-      g.lineTo(W - 70, 70);
-      g.lineTo(W - 6, 232);
-      g.closePath();
-      g.fillStyle = grad(g, 70, 232, '#d2553c', '#8e2f22');
-      g.fill();
-      g.lineWidth = 6;
-      g.strokeStyle = LINE;
-      g.stroke();
-      g.strokeStyle = 'rgba(60,15,8,0.45)';
-      g.lineWidth = 3;
-      for (var k = 1; k < 5; k++) {
-        var y = 70 + k * 32, inset = 70 - (y - 70) * 64 / 162;
-        g.beginPath();
-        g.moveTo(inset, y);
-        g.lineTo(W - inset, y);
-        g.stroke();
-      }
-      // the gable with the clock
-      g.beginPath();
-      g.moveTo(W / 2 - 92, 150);
-      g.lineTo(W / 2, 18);
-      g.lineTo(W / 2 + 92, 150);
-      g.closePath();
-      g.fillStyle = grad(g, 18, 150, '#fbf1d8', '#e2c995');
-      g.fill();
-      g.lineWidth = 6;
-      g.strokeStyle = LINE;
-      g.stroke();
-      g.fillStyle = '#fffdf2';
-      g.beginPath();
-      g.arc(W / 2, 98, 34, 0, Math.PI * 2);
-      g.fill();
-      g.lineWidth = 6;
-      g.stroke();
-      g.lineWidth = 5;
-      g.beginPath();
-      g.moveTo(W / 2, 98);
-      g.lineTo(W / 2, 74);
-      g.moveTo(W / 2, 98);
-      g.lineTo(W / 2 + 16, 106);
-      g.stroke();
-      // the sign over the door
-      box(g, W / 2 - 150, 236, 300, 52, grad(g, 236, 288, '#5a3a1e', '#3d2614'), 10);
-      g.fillStyle = '#ffe9a8';
-      g.font = 'bold 34px "Trebuchet MS", Verdana, sans-serif';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText('STATION', W / 2, 263);
-    });
-  };
-
-  // The rails: a gravel bed, sleepers and two rails, 12 tiles long and one tall.
-  var railsTex = function (w) {
-    return canvas(w, 'tw-rails', TRAIN_TILES * PX, PX, function (g, W) {
-      g.fillStyle = grad(g, 34, 124, '#a49a8a', '#7d7466');
-      rr(g, 0, 34, W, 90, 10);
-      g.fill();
-      for (var i = 0; i < 260; i++) { // pebbles
-        g.fillStyle = i % 3 ? 'rgba(60,52,44,0.35)' : 'rgba(230,222,206,0.5)';
-        g.fillRect((i * 97) % W, 40 + ((i * 53) % 78), 5, 4);
-      }
-      for (var x = 8; x < W; x += 34) box(g, x, 52, 18, 66, grad(g, 52, 118, '#8a5a30', '#5c371a'), 3, 3);
-      [64, 100].forEach(function (y) {
-        g.fillStyle = '#5d6168';
-        g.fillRect(0, y, W, 10);
-        g.fillStyle = '#c9ccd2';
-        g.fillRect(0, y, W, 4);
-      });
-    });
-  };
+  // the buffer stop at the end of the line (no painted one yet): a red and white beam on two posts
   var bufferTex = function (w) {
-    return canvas(w, 'tw-buffer', PX, PX, function (g) {
+    return canvas(w, 'tw-buffer', 128, 128, function (g) {
       box(g, 24, 46, 16, 72, '#5c371a', 3, 4);
       box(g, 88, 46, 16, 72, '#5c371a', 3, 4);
       box(g, 14, 40, 100, 30, grad(g, 40, 70, '#e04a3a', '#a02a20'), 6, 5);
@@ -230,129 +105,6 @@
     });
   };
 
-  // The train, facing west: the engine, two coaches and a van, 12 tiles long.
-  var trainTex = function (w) {
-    return canvas(w, 'tw-train', TRAIN_TILES * PX, Math.round(TRAIN_H * PX), function (g, W, H) {
-      var base = H - 30; // the top of the wheels' rail
-      var wheel = function (x, r, spokes) {
-        g.fillStyle = '#c0362a';
-        g.beginPath();
-        g.arc(x, base + 30 - r, r, 0, Math.PI * 2);
-        g.fill();
-        g.lineWidth = 5;
-        g.strokeStyle = LINE;
-        g.stroke();
-        g.fillStyle = '#3a2a22';
-        g.beginPath();
-        g.arc(x, base + 30 - r, r * 0.3, 0, Math.PI * 2);
-        g.fill();
-        if (spokes) {
-          g.lineWidth = 3;
-          for (var a = 0; a < 6; a++) {
-            g.beginPath();
-            g.moveTo(x, base + 30 - r);
-            g.lineTo(x + Math.cos(a) * r * 0.85, base + 30 - r + Math.sin(a) * r * 0.85);
-            g.stroke();
-          }
-        }
-      };
-      // ---- the engine (0 .. 3 tiles): cowcatcher, boiler, chimney, dome, cab
-      var e0 = 6, e1 = 3 * PX - 8;
-      g.fillStyle = '#3a2a22';
-      g.beginPath();
-      g.moveTo(e0, base + 26);
-      g.lineTo(e0 + 34, base - 14);
-      g.lineTo(e0 + 46, base + 26);
-      g.closePath();
-      g.fill();
-      box(g, e0 + 30, base - 112, 200, 92, grad(g, base - 112, base - 20, '#3f8a5a', '#1f5a34'), 30); // the boiler
-      g.fillStyle = '#d9a62a';
-      [80, 140, 196].forEach(function (x) { g.fillRect(e0 + x, base - 112, 8, 92); });
-      box(g, e0 + 48, base - 182, 38, 74, grad(g, base - 182, base - 108, '#4a4a4a', '#1e1e1e'), 6); // the chimney
-      box(g, e0 + 40, base - 192, 54, 16, '#2a2a2a', 5);
-      box(g, e0 + 126, base - 140, 44, 32, grad(g, base - 140, base - 108, '#ffd96a', '#c9901e'), 14); // the dome
-      box(g, e0 + 14, base - 96, 26, 26, '#ffe98a', 13); // the lamp
-      box(g, e0 + 222, base - 170, e1 - e0 - 222, 152, grad(g, base - 170, base - 18, '#c0442e', '#7e2418'), 8); // the cab
-      box(g, e0 + 210, base - 186, e1 - e0 - 198, 22, '#3a2a22', 6);
-      box(g, e0 + 244, base - 150, 66, 54, grad(g, base - 150, base - 96, '#cfeefa', '#7ab4d2'), 6);
-      box(g, e0 + 20, base - 26, e1 - e0 - 20, 18, '#3a2a22', 4); // the frame
-      wheel(e0 + 92, 34, true);
-      wheel(e0 + 176, 34, true);
-      wheel(e0 + 300, 24, false);
-      g.lineWidth = 8;
-      g.strokeStyle = '#d0d4da';
-      g.beginPath();
-      g.moveTo(e0 + 92, base - 4);
-      g.lineTo(e0 + 176, base - 4);
-      g.stroke();
-      // ---- two coaches (3 .. 6, 6 .. 9) and the van (9 .. 12)
-      var car = function (x0, x1, body, top, windows) {
-        g.fillStyle = '#3a2a22';
-        g.fillRect(x0 - 10, base - 60, 14, 12); // the coupling
-        box(g, x0 + 6, base - 156, x1 - x0 - 12, 138, grad(g, base - 156, base - 18, body, top), 10);
-        box(g, x0, base - 172, x1 - x0, 22, '#4a3326', 10); // the roof
-        if (windows) {
-          for (var k = 0; k < 4; k++) box(g, x0 + 26 + k * 86, base - 136, 62, 56, grad(g, base - 136, base - 80, '#d6f1fb', '#82bcd8'), 8, 4);
-          g.fillStyle = '#d9a62a';
-          g.fillRect(x0 + 8, base - 62, x1 - x0 - 16, 10);
-        } else { // the van: planks, a sliding door
-          g.strokeStyle = 'rgba(40,20,8,0.45)';
-          g.lineWidth = 3;
-          for (var p = x0 + 30; p < x1 - 10; p += 34) { g.beginPath(); g.moveTo(p, base - 150); g.lineTo(p, base - 24); g.stroke(); }
-          box(g, (x0 + x1) / 2 - 56, base - 140, 112, 110, grad(g, base - 140, base - 30, '#a8743e', '#7a4f25'), 6);
-          g.fillStyle = '#ffe9a8';
-          g.font = 'bold 30px "Trebuchet MS", Verdana, sans-serif';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText('CARGO', (x0 + x1) / 2, base - 84);
-        }
-        wheel(x0 + 56, 24, false);
-        wheel(x0 + 104, 24, false);
-        wheel(x1 - 104, 24, false);
-        wheel(x1 - 56, 24, false);
-      };
-      car(3 * PX, 6 * PX, '#2f6fa0', '#1f4a70', true);
-      car(6 * PX, 9 * PX, '#2f6fa0', '#1f4a70', true);
-      car(9 * PX, 12 * PX, '#9a5a2c', '#6a3a1a', false);
-    });
-  };
-
-  var crateTex = function (w, full) {
-    return canvas(w, full ? 'tw-crate-full' : 'tw-crate', 112, 112, function (g) {
-      g.fillStyle = 'rgba(30,20,10,0.25)';
-      g.beginPath();
-      g.ellipse(56, 104, 48, 8, 0, 0, Math.PI * 2);
-      g.fill();
-      box(g, 8, 26, 96, 78, grad(g, 26, 104, '#d29a58', '#9a6430'), 6);
-      g.strokeStyle = 'rgba(70,40,15,0.55)';
-      g.lineWidth = 4;
-      [52, 78].forEach(function (y) { g.beginPath(); g.moveTo(10, y); g.lineTo(102, y); g.stroke(); });
-      if (full) { // the lid nailed on, and a green stamp
-        box(g, 2, 14, 108, 20, grad(g, 14, 34, '#e2ae6a', '#b07a3a'), 5);
-        g.fillStyle = '#3f9a35';
-        g.beginPath();
-        g.arc(56, 66, 22, 0, Math.PI * 2);
-        g.fill();
-        g.lineWidth = 7;
-        g.strokeStyle = '#ffffff';
-        g.beginPath();
-        g.moveTo(44, 66);
-        g.lineTo(53, 76);
-        g.lineTo(70, 56);
-        g.stroke();
-      } else { // open: the inside shows
-        g.fillStyle = '#5c371a';
-        g.fillRect(14, 28, 84, 10);
-      }
-    });
-  };
-  var palletTex = function (w) {
-    return canvas(w, 'tw-pallet', 112, 112, function (g) {
-      box(g, 8, 82, 96, 20, grad(g, 82, 102, '#c08a4a', '#8a5a2a'), 4, 4);
-      g.fillStyle = 'rgba(60,30,10,0.5)';
-      [30, 56, 82].forEach(function (x) { g.fillRect(x - 3, 84, 6, 16); });
-    });
-  };
   var puffTex = function (w) {
     return canvas(w, 'tw-puff', 64, 64, function (g) {
       var r = g.createRadialGradient(32, 32, 4, 32, 32, 30);
@@ -378,15 +130,10 @@
     });
   };
 
-  // every picture, for the tour too (it can open from What's new anywhere)
-  F.twTextures = function (scene) {
-    F.twStationTex(scene);
-    railsTex(scene);
+  // every picture, for the tour too (it can open from What's new anywhere: it asks only for the sheets it shows)
+  F.twTextures = function (scene, only) {
+    (only || TW_ART).forEach(function (k) { F.ensureTexture(scene, k); });
     bufferTex(scene);
-    trainTex(scene);
-    crateTex(scene, false);
-    crateTex(scene, true);
-    palletTex(scene);
     puffTex(scene);
     wishTex(scene);
   };
@@ -410,18 +157,18 @@
     var self = this, s = me();
     [st, rails, cargo].forEach(function (r) { solid(self, r); });
     var tw = this.tw = { st: st, rails: rails, cargo: cargo, train: null, shown: false, moving: false, absent: false, crates: [], sig: '', ms: 0, puffMs: 0, deco: -1, decos: [] };
-    this.add.image(st.x0 * T, (st.y1 + 1) * T, F.twStationTex(this)).setOrigin(0, 1).setDisplaySize((st.x1 - st.x0 + 1) * T, (st.y1 - st.y0 + 1) * T).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5);
+    this.add.image(st.x0 * T, (st.y1 + 1) * T, F.ensureTexture(this, 'tw_station')).setOrigin(0, 1).setDisplaySize((st.x1 - st.x0 + 1) * T, (st.y1 - st.y0 + 1) * T).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5);
     tw.level = this.add.text((st.x0 + 4.2) * T, (st.y1 + 0.2) * T, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '58px', fontStyle: 'bold', color: '#5a3a1e', backgroundColor: '#ffe9a8', padding: { x: 14, y: 4 } })
       .setOrigin(0.5, 1).setDepth(DEPTH.actor + (st.y1 + 1) * T / 1e5 + 0.0001);
     this.add.rectangle(rails.x0 * T, (rails.y1 + 1) * T + 6, (cargo.x1 + 1 - rails.x0) * T, 22, 0xf2d46a).setOrigin(0).setDepth(DEPTH.flat); // the platform's edge: mind the gap
-    this.add.image(rails.x0 * T, (rails.y1 + 1) * T, railsTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, T).setDepth(DEPTH.flat);
+    this.add.image(rails.x0 * T, (rails.y1 + 1) * T, F.ensureTexture(this, 'tw_rails')).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, T).setDepth(DEPTH.flat);
     this.add.image(rails.x0 * T - 0.2 * T, (rails.y1 + 1) * T - 0.1 * T, bufferTex(this)).setOrigin(0, 1).setDisplaySize(T, T).setDepth(DEPTH.actor + 3 * T / 1e5);
-    tw.train = this.add.image(OFF_X * T, (rails.y1 + 1) * T - 0.18 * T, trainTex(this)).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, TRAIN_H * T).setDepth(DEPTH.actor + (rails.y1 + 1) * T / 1e5).setVisible(false);
+    tw.train = this.add.image(OFF_X * T, (rails.y1 + 1 - ON_RAIL) * T, F.ensureTexture(this, 'tw_train')).setOrigin(0, 1).setDisplaySize(TRAIN_TILES * T, TRAIN_H * T).setDepth(DEPTH.actor + (rails.y1 + 1) * T / 1e5).setVisible(false);
     F.twTextures(this);
     for (var i = 0; i < cargo.x1 - cargo.x0 + 1; i++) {
       var x = (cargo.x0 + i + 0.5) * T, y = (cargo.y1 + 1) * T - 12;
       tw.crates.push({
-        img: this.add.image(x, y, 'tw-pallet').setOrigin(0.5, 1).setDisplaySize(0.9 * T, 0.9 * T).setDepth(DEPTH.actor + y / 1e5),
+        img: this.add.image(x, y, 'tw_crates', PALLET).setOrigin(0.5, 1).setDisplaySize(0.9 * T, 0.9 * T).setDepth(DEPTH.actor + y / 1e5),
         icon: this.add.image(x, y - 0.62 * T, 'items', 0).setScale(0.62).setDepth(DEPTH.actor + y / 1e5 + 0.00001).setVisible(false),
       });
     }
@@ -439,7 +186,7 @@
       tw.sig = sig;
       tw.crates.forEach(function (c, i) {
         var crate = o && o.crates[i];
-        c.img.setTexture(!crate ? 'tw-pallet' : crate.done ? 'tw-crate-full' : 'tw-crate').setDisplaySize(0.9 * T, 0.9 * T);
+        c.img.setFrame(!crate ? PALLET : crate.done ? CRATE_FULL : CRATE).setDisplaySize(0.9 * T, 0.9 * T);
         c.icon.setVisible(!!crate && !crate.done);
         if (crate) c.icon.setFrame(C.ITEMS[crate.id].icon);
       });
@@ -540,7 +287,7 @@
   };
 
   P.twPuff = function () {
-    var tw = this.tw, x = tw.train.x + (tw.moving === 'out' ? 0.6 : 0.52) * T, y = tw.train.y - TRAIN_H * T + 0.05 * T;
+    var tw = this.tw, x = tw.train.x + (CHIMNEY + (tw.moving === 'out' ? 0.08 : 0)) * T, y = tw.train.y - TRAIN_H * T + 0.1 * T;
     var p = this.add.image(x, y, 'tw-puff').setScale(1.6 + Math.random()).setDepth(DEPTH.Above - 2).setAlpha(0.9);
     this.tweens.add({ targets: p, x: x + (Math.random() - 0.2) * 0.8 * T, y: y - (0.9 + Math.random() * 0.6) * T, scale: p.scale * 2.2, alpha: 0, duration: 1600 + Math.random() * 600, onComplete: function () { p.destroy(); } });
   };
@@ -630,31 +377,30 @@
   };
 
   // ---------- the visitors off the train ----------
+  // Each has their own walking sheet: row k of tw_people (C.TW.visitors in order, then the Collector), 9 frames like a
+  // villager's in the people sheet (rows of 3: facing you, away, left), so the villagers' walking and standing work as
+  // they are. The sheet is the town's own: made here, let go elsewhere (19zzzz-perf.js), with its walks.
+  var WHO = TW.visitors.concat([TW.collector]);
   var twAnims = function (scene) {
-    var n = C.VILLAGER_ORDER.length;
-    TW.visitors.concat([TW.collector]).forEach(function (vd) {
+    F.ensureTexture(scene, 'tw_people');
+    WHO.forEach(function (vd, k) {
       ['down', 'up', 'side'].forEach(function (d, j) {
-        var f = (n + vd.look) * 9 + j * 3, key = 'v-' + vd.key + '-' + d;
-        if (!scene.anims.exists(key)) scene.anims.create({ key: key, frames: scene.anims.generateFrameNumbers('people', { frames: [f + 1, f, f + 2, f] }), frameRate: 6, repeat: -1 });
+        var f = k * 9 + j * 3, key = 'v-' + vd.key + '-' + d;
+        if (!scene.anims.exists(key)) scene.anims.create({ key: key, frames: scene.anims.generateFrameNumbers('tw_people', { frames: [f + 1, f, f + 2, f] }), frameRate: 6, repeat: -1 });
       });
     });
-  };
-  var makePeopleAnims = F.makePeopleAnims;
-  F.makePeopleAnims = function (scene) {
-    makePeopleAnims(scene);
-    twAnims(scene);
   };
 
   // One person per visitor (and the Collector), hidden until their train is in.
   V.addTourists = function () {
-    var self = this, sc = this.scene, n = C.VILLAGER_ORDER.length;
+    var self = this, sc = this.scene;
     twAnims(sc);
-    this.tourists = TW.visitors.concat([TW.collector]).map(function (vd, k) {
+    this.tourists = WHO.map(function (vd, k) {
       var who = k < TW.visitors.length ? k : -1;
       var v = {
-        key: vd.key, i: n + vd.look, def: { name: vd.name, line: vd.line }, tourist: true, who: who, place: 'gone', target: null,
+        key: vd.key, i: k, def: { name: vd.name, line: vd.line }, tourist: true, who: who, place: 'gone', target: null,
         path: [], hold: 0, dir: 'down', visible: false, n: 0, dwell: 0, stops: [], out: -1,
-        sprite: sc.add.sprite(0, 0, 'people', (n + vd.look) * 9).setOrigin(0.5, 0.83).setScale(2).setVisible(false),
+        sprite: sc.add.sprite(0, 0, 'tw_people', k * 9).setOrigin(0.5, 0.83).setScale(2).setVisible(false),
         mark: null,
       };
       sc.physics.add.existing(v.sprite);

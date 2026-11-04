@@ -26,6 +26,8 @@
     visitbtn: { frameWidth: 144, frameHeight: 144, margin: 8, spacing: 16 }, // the painted buttons of a visit's fan (19h-online.js)
     archer: { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 }, // the farmer drawing a bow, 3 poses a way (tools/art/archer-import.js)
     archer_girl: { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 },
+    tw_crates: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 }, // the station's open crate, full crate, pallet (tools/art/station-import.js)
+    tw_people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 }, // the visitors off the train, 9 frames a row like the villagers
   };
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
   // the first time a map needs them, which keeps memory down on low-end phones.
@@ -83,7 +85,7 @@
   // (an <img> is decoded on the main thread the moment it is first drawn: 0.3-0.5 s for a town's worth on a slow phone);
   // ensureTexture uses the bitmap and closes it. The big sheets each map uses, then its props (from the map, as
   // buildObjects places them), then whatever else the map asked for the last time (F.mapNeeds: what was dropped since).
-  var NEXT_MAP = { town: ['people', 'tita_luz'], house: ['people', 'indoor'], mine: ['indoor'], lair: ['indoor', 'wild', 'wildshade', 'wildgrass'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'] };
+  var NEXT_MAP = { town: ['people', 'tita_luz', 'tw_station', 'tw_rails', 'tw_train', 'tw_crates', 'tw_people'], house: ['people', 'indoor'], mine: ['indoor'], lair: ['indoor', 'wild', 'wildshade', 'wildgrass'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'] };
   F.mapNeeds = {}; // map -> { texture key: true } made while that map was on screen
   var mapProps = function (map) {
     var s = F.session && F.session.state, raw = F.ASSETS.maps[map === 'house' && s ? 'house_' + s.home.level : map], out = [];
