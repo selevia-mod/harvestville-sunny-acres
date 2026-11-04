@@ -40,14 +40,14 @@
     most: { crops: 20, farm: 10, workshop: 4, ore: 12, fish: 6, hunt: 5, forage: 8 },
     kinds: { crops: 'Crops', farm: 'Farm goods', workshop: 'Workshop goods', ore: 'Ore', fish: 'Fish', hunt: 'Hunted goods', forage: 'Forage' },
 
-    // visitors off the train: a look from the visitors' sheet (C.SHOPPERS), and their words. {n} {item} {gold}
+    // visitors off the train: each walks in their own sheet (tw_people, in this order; 19zz-town.js), and their words. {n} {item} {gold}
     visitors: [
-      { key: 'tw_daytrip', name: 'Day-tripper', look: 1, line: 'Pasalubong for my family! Do you have {n} {item}? I will pay {gold}G.' },
-      { key: 'tw_backpack', name: 'Backpacker', look: 4, line: 'I heard the farms here are the best. Could I buy {n} {item} for {gold}G?' },
-      { key: 'tw_holiday', name: 'Holiday mum', look: 2, line: 'The children want {n} {item} to take home. {gold}G, is that fair?' },
-      { key: 'tw_foodie', name: 'Food blogger', look: 5, line: 'My readers must taste this town! {n} {item}, please. {gold}G for you.' },
+      { key: 'tw_daytrip', name: 'Day-tripper', line: 'Pasalubong for my family! Do you have {n} {item}? I will pay {gold}G.' },
+      { key: 'tw_backpack', name: 'Backpacker', line: 'I heard the farms here are the best. Could I buy {n} {item} for {gold}G?' },
+      { key: 'tw_holiday', name: 'Holiday mum', line: 'The children want {n} {item} to take home. {gold}G, is that fair?' },
+      { key: 'tw_foodie', name: 'Food blogger', line: 'My readers must taste this town! {n} {item}, please. {gold}G for you.' },
     ],
-    collector: { key: 'tw_collector', name: 'The Collector', look: 3, line: 'I collect the finest thing from every town. Have you {n} {item}? {gold}G and {stars} for it.' },
+    collector: { key: 'tw_collector', name: 'The Collector', line: 'I collect the finest thing from every town. Have you {n} {item}? {gold}G and {stars} for it.' },
     thanks: ['Salamat! This will make them so happy.', 'Wonderful! I will be back on the next train.', 'Perfect. Willowbrook is my new favourite town!'],
     // the stops a visitor likes (Tiled points on the town map), besides the market stall
     stops: ['stall_front', 'stall_front', 'market_w', 'market_e', 'plaza_n', 'plaza_e', 'plaza_w', 'park_pond', 'gazebo', 'door_bakery', 'door_florist', 'wagon', 'station_front'],

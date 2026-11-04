@@ -1,5 +1,5 @@
 // Keeping a long session light (performance review, 4 Nov 2026; low-end bar: an OPPO A5-class phone, 3-4 GB):
-//   - GPU memory: the sheets that belong to one place (the Wild Lands' animals, Kanor, Tita Luz, another map's props)
+//   - GPU memory: the sheets that belong to one place (the Wild Lands' animals, Kanor, Tita Luz, the station's, another map's props)
 //     are let go when you are somewhere that does not use them, and a furniture style's sheet once Mira's panels close.
 //     They come back from their kept Blob while the screen is dark on the way in (F.prewarm, 10-boot.js), so going back
 //     shows nothing missing. The farm's own pictures always stay, and so does anything still on screen. The villagers'
@@ -15,7 +15,7 @@
   var U = F.UIScene.prototype;
 
   // ---------- GPU memory ----------
-  var FREE = /^(tita_luz|kanor|wild|wildshade|wildgrass|archer|archer_girl|furn_\d+|props\/.+)$/;
+  var FREE = /^(tita_luz|tw_station|tw_rails|tw_train|tw_crates|tw_people|kanor|wild|wildshade|wildgrass|archer|archer_girl|furn_\d+|props\/.+)$/;
   var usedIn = function (scene, key) {
     if (!scene || !scene.children) return false;
     var hit = false, walk = function (list) {

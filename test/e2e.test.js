@@ -3756,6 +3756,19 @@ test('Willowbrook Station: its tour, a cargo order filled crate by crate, the To
     const w = Farm.world;
     return { tw: !!w.tw, lane: w.walkable(39, 8), door: w.walkable(39, 6), station: w.walkable(39, 5), rails: w.walkable(45, 3), platform: w.walkable(45, 5), cargo: w.walkable(47, 4), order: !!Farm.session.state.tw.o };
   }), { tw: true, lane: true, door: true, station: false, rails: false, platform: true, cargo: false, order: true });
+  // the painted pictures show (art-src/station/, tools/art/station-import.js), not the old drawn stand-ins
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const w = Farm.world, keys = w.children.list.map((o) => o.texture && o.texture.key);
+    return {
+      station: keys.includes('tw_station'), rails: keys.includes('tw_rails'), train: w.tw.train.texture.key,
+      crates: w.tw.crates.map((c) => c.img.texture.key + ':' + c.img.frame.name).join(' '),
+      visitors: w.villagers.tourists.map((v) => v.sprite.texture.key + ':' + v.sprite.frame.name).join(' '),
+      drawn: ['tw-station', 'tw-rails', 'tw-train', 'tw-crate', 'tw-crate-full', 'tw-pallet'].filter((k) => w.textures.exists(k)),
+    };
+  }), {
+    station: true, rails: true, train: 'tw_train', crates: 'tw_crates:0 tw_crates:0 tw_crates:0 tw_crates:0 tw_crates:2 tw_crates:2', // (4 crates, 2 empty pallets)
+    visitors: 'tw_people:0 tw_people:9 tw_people:18 tw_people:27 tw_people:36', drawn: [],
+  });
   // the tour opens the first time you walk up to the station (never while quiet)
   await teleport(page, 39, 7, 'up');
   await page.waitForTimeout(1800);
@@ -3833,9 +3846,13 @@ test('Willowbrook Station: its tour, a cargo order filled crate by crate, the To
   s = await state(page);
   assert.ok(s.tw.o && s.tw.o.no === 1 && !s.tw.o.full, 'a new order');
   assert.ok(s.tw.o.crates.every((c) => !c.done));
+  await shot(page, 'station-train-in');
   await page.waitForFunction(() => Farm.world.villagers.tourists.filter((v) => v.visible).length === 2, null, SLOW);
   await page.waitForTimeout(1200);
   await shot(page, 'station-visitors-off');
+  // they walk in their own painted sheets, the villagers' walk cut from them
+  assert.ok(await page.evaluate(() => Farm.world.villagers.tourists.filter((v) => v.visible).every((v) => v.sprite.texture.key === 'tw_people' &&
+    Farm.game.anims.get('v-' + v.key + '-side').frames.every((f) => f.textureKey === 'tw_people'))));
   // a visitor wishes for something: talk, and Give
   const wish = await page.evaluate(() => {
     const w = Farm.world, s = Farm.session.state, L = Farm.Logic, T = Farm.Config.TILE;

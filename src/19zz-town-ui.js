@@ -226,16 +226,16 @@
   var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
   var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
   var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
-  var pic = function (ui, sc, x, y, key, w, h) { var i = ui.add.image(x, y, key).setOrigin(0.5, 1).setDisplaySize(w, h); sc.add(i); return i; };
+  var pic = function (ui, sc, x, y, key, w, h, frame) { var i = ui.add.image(x, y, key, frame).setOrigin(0.5, 1).setDisplaySize(w, h); sc.add(i); return i; };
   F.TOURS.station = {
     title: 'THE TRAIN STATION',
     steps: [
       {
         text: 'Willowbrook Station is up the lane by the Post Office. A train comes in at ' + trainsText() + '.',
         draw: function (ui, sc, move) {
-          F.twTextures(ui);
-          pic(ui, sc, 52, 122, 'tw-station', 90, 72);
-          var t = pic(ui, sc, 112, 118, 'tw-train', 152, 23).setOrigin(0, 1); // (the stage does not clip: the train stays on it)
+          F.twTextures(ui, ['tw_station', 'tw_train']);
+          pic(ui, sc, 52, 122, 'tw_station', 90, 72);
+          var t = pic(ui, sc, 112, 118, 'tw_train', 152, 25).setOrigin(0, 1); // (the stage does not clip: the train stays on it)
           if (move) { t.x = 118; t.setAlpha(0); }
           tw(ui, move, { targets: t, x: 106, alpha: 1, duration: 1600, ease: 'Cubic.out', hold: 1600, yoyo: true, repeat: -1, repeatDelay: 300 });
           var p = ui.add.image(116, 84, 'tw-puff').setScale(0.4);
@@ -246,11 +246,11 @@
       {
         text: 'Each train with no order brings a cargo order. Every crate you fill pays a little; fill them all for a big prize.',
         draw: function (ui, sc, move) {
-          F.twTextures(ui);
+          F.twTextures(ui, ['tw_crates']);
           [C.ICON.turnip, C.ICON.egg, C.ICON.ore_copper, C.ICON.fish_m].forEach(function (f, i) {
-            var x = 52 + i * 56, cr = pic(ui, sc, x, 116, 'tw-crate', 46, 46);
+            var x = 52 + i * 56, cr = pic(ui, sc, x, 116, 'tw_crates', 46, 46, 0);
             icon(ui, sc, x, 70, f, 0.2);
-            if (move) ui.time.delayedCall(500 + i * 450, function () { if (cr.scene) { cr.setTexture('tw-crate-full').setDisplaySize(46, 46); } });
+            if (move) ui.time.delayedCall(500 + i * 450, function () { if (cr.scene) { cr.setFrame(1).setDisplaySize(46, 46); } });
           });
           var g = icon(ui, sc, 136, 24, C.ICON.gift, 0.26);
           tw(ui, move, { targets: g, scale: { from: 0.22, to: 0.3 }, duration: 500, yoyo: true, repeat: -1 });
@@ -259,10 +259,9 @@
       {
         text: 'Visitors get off and walk about town. Talk to them: give the pasalubong they wish for, and they pay well.',
         draw: function (ui, sc, move) {
-          F.ensureTexture(ui, 'people');
-          var n = C.VILLAGER_ORDER.length;
-          [1, 4, 2].forEach(function (look, i) {
-            var p = ui.add.image(70 + i * 66, 124, 'people', (n + look) * 9).setOrigin(0.5, 1).setScale(0.42);
+          F.twTextures(ui, ['tw_people']);
+          [0, 1, 2].forEach(function (k, i) { // the day-tripper, the backpacker and the holiday mum (tw_people's rows)
+            var p = ui.add.image(70 + i * 66, 124, 'tw_people', k * 9).setOrigin(0.5, 1).setScale(0.42);
             sc.add(p);
             var b = pic(ui, sc, 70 + i * 66, 48, 'tw-wish', 30, 32);
             var it = icon(ui, sc, 70 + i * 66, 30, [C.ICON.strawberry, C.ICON.milk, C.ICON.apple][i], 0.13);
