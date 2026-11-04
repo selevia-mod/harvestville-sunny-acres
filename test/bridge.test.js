@@ -193,7 +193,7 @@ test('home and straight back to the same farm while the server is slow to answer
   await B.net.rpc('farm_join_v1', {});
   const topic = 'farm:' + a, seen = { A: [], B: [] };
   const on = (k) => ({ presence: (l) => seen[k].push(plain(l)), message: () => {} });
-  A.net.join(topic, { id: a, name: 'Owner', x: 1 }, on('A'));
+  const owner = A.net.join(topic, { id: a, name: 'Owner', x: 1 }, on('A'));
   await tick(60);
   const visit = B.net.join(topic, { id: b, name: 'Visitor', x: 2 }, on('B'));
   await tick(80);
@@ -206,9 +206,157 @@ test('home and straight back to the same farm while the server is slow to answer
   assert.deepStrictEqual(seen.A.at(-1), [{ id: b, name: 'Visitor', x: 3 }], 'the owner sees the visitor back');
   // and the visitor hears the owner change
   const before = seen.B.length;
-  await A.ctx.__sunnyNet && null;
-  [...server.topics.get(topic)].find((c) => c.key === a).track({ id: a, name: 'Owner', x: 9 });
+  await owner.track({ id: a, name: 'Owner', x: 9 }); // (signed by the owner's app, as every presence now is)
   await tick(80);
   assert.ok(seen.B.length > before, 'the visitor still gets the room');
   assert.deepStrictEqual(seen.B.at(-1), [{ id: a, name: 'Owner', x: 9 }]);
+});
+
+// ---------- signed live messages (owner, 4 Nov 2026: "yes, fix it"; supabase/farm_online_18.sql) ----------
+// A changed game (or anyone with a signed-in account) on the same channel, sending straight to the server: the
+// supabase-js channel itself, with none of the app's signing.
+const raw = (server, topic, uid) => [...server.topics.get(topic)].find((c) => c.key === uid);
+
+async function room3() {
+  const server = createServer(), a = server.newUser(), b = server.newUser(), c = server.newUser();
+  const A = webview(server, a), B = webview(server, b), C = webview(server, c);
+  for (const v of [A, B, C]) await v.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, seen = { A: [], B: [], C: [] }, msgs = { A: [], B: [], C: [] };
+  const on = (k) => ({ presence: (l) => seen[k].push(plain(l)), message: (e, p) => msgs[k].push([e, plain(p)]) });
+  const ca = A.net.join(topic, { id: a, name: 'Owner', x: 1 }, on('A'));
+  await tick(60);
+  const cb = B.net.join(topic, { id: b, name: 'Friend', x: 2 }, on('B'));
+  await tick(80);
+  const cc = C.net.join(topic, { id: c, name: 'Cheat', x: 3 }, on('C'));
+  await tick(120);
+  return { server, a, b, c, A, B, C, ca, cb, cc, topic, seen, msgs };
+}
+
+test('signed: everyone still sees everyone and hears each other', async () => {
+  const r = await room3();
+  const ids = (l) => (l || []).map((x) => x.id).sort();
+  assert.deepStrictEqual(ids(r.seen.A.at(-1)), [r.b, r.c].sort());
+  assert.deepStrictEqual(ids(r.seen.B.at(-1)), [r.a, r.c].sort());
+  assert.deepStrictEqual(ids(r.seen.C.at(-1)), [r.a, r.b].sort());
+  assert.deepStrictEqual(r.seen.A.at(-1).find((x) => x.id === r.b), { id: r.b, name: 'Friend', x: 2 }, 'nothing of the signing reaches the game');
+  await r.cb.send('help', { id: r.b });
+  await tick(60);
+  assert.deepStrictEqual(r.msgs.A, [['help', { id: r.b }]]);
+  assert.deepStrictEqual(r.msgs.C, [['help', { id: r.b }]]);
+  const p = r.server.db.tracks.length;
+  await tick(400);
+  assert.strictEqual(r.server.db.tracks.length, p, 'and once all are signed for, no more presence updates');
+});
+
+test('signed: a message sent as someone else never arrives', async () => {
+  const r = await room3();
+  // the cheat's own game asks its app to send as the friend: the app sends it as the cheat
+  await r.cc.send('help', { id: r.b });
+  await tick(60);
+  assert.deepStrictEqual(r.msgs.A, [['help', { id: r.c }]], 'the app always sends as its own player');
+  r.msgs.A.length = 0;
+  // straight to the server, as the friend: unsigned, or with a signature copied from a real message of the friend's
+  const ch = raw(r.server, r.topic, r.c);
+  await ch.send({ type: 'broadcast', event: 'help', payload: { id: r.b } });
+  await ch.send({ type: 'broadcast', event: 'help', payload: { id: r.b, _t: Date.now(), _s: { [r.a]: '0'.repeat(32) } } });
+  await r.cb.send('mv', { id: r.b, x: 5 });
+  await tick(60);
+  const real = r.msgs.C.find((m) => m[0] === 'mv');
+  assert.ok(real, 'the cheat hears the friend');
+  r.msgs.A.length = 0;
+  const heard = [];
+  ch.on('broadcast', { event: '*' }, (m) => heard.push(m.payload)); // (the cheat keeps the signed original)
+  await r.cb.send('give', { id: r.b, to: r.a });
+  await tick(60);
+  const orig = heard.find((x) => x.to === r.a);
+  r.msgs.A.length = 0;
+  await ch.send({ type: 'broadcast', event: 'give', payload: { ...orig, to: r.c } }); // changed: the signature no longer fits
+  await ch.send({ type: 'broadcast', event: 'help', payload: orig }); // under another name: no
+  await ch.send({ type: 'broadcast', event: 'give', payload: orig }); // the very same again: a replay
+  await tick(60);
+  assert.deepStrictEqual(r.msgs.A, [], 'nothing the cheat made up, changed, renamed or sent again');
+});
+
+test('signed: a farmer shown as someone else is not shown', async () => {
+  const r = await room3();
+  const ch = raw(r.server, r.topic, r.c);
+  // the cheat's line, keyed as the cheat, says it is the owner: the game still gets the cheat's real id (as before)
+  await ch.track({ id: r.a, name: 'Owner', x: 50 });
+  await tick(60);
+  assert.ok(!(r.seen.B.at(-1) || []).some((x) => x.x === 50), 'an unsigned presence is not shown');
+  // a second line keyed as the friend
+  const fake = r.server.supabaseFor(r.c).channel(r.topic, { config: { private: true, presence: { key: r.b } } });
+  fake.subscribe();
+  await tick(20);
+  await fake.track({ name: 'Friend', x: 99, t: Date.now() + 99999 });
+  await tick(60);
+  // (the stand-in server keeps one presence per key, so here the fake one even pushes the friend's out; a real one keeps both)
+  assert.ok(!(r.seen.A.at(-1) || []).some((x) => x.x === 99), 'a presence keyed as the friend but not signed by the friend is not shown');
+});
+
+test('signed: players who blocked each other get no key, so they never hear or see each other', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser(), c = server.newUser();
+  const A = webview(server, a), B = webview(server, b), C = webview(server, c);
+  for (const v of [A, B, C]) await v.net.rpc('farm_join_v1', {});
+  server.db.blocks.push({ by: b, who: c });
+  const topic = 'farm:' + a, seen = { B: [], C: [] }, msgs = { B: [] };
+  A.net.join(topic, { id: a, name: 'Owner' }, { presence() {}, message() {} });
+  await tick(60);
+  const cb = B.net.join(topic, { id: b, name: 'B' }, { presence: (l) => seen.B.push(plain(l)), message: (e, p) => msgs.B.push(e) });
+  await tick(80);
+  const cc = C.net.join(topic, { id: c, name: 'C' }, { presence: (l) => seen.C.push(plain(l)), message() {} });
+  await tick(150);
+  assert.deepStrictEqual(seen.B.at(-1).map((x) => x.id), [a]);
+  assert.deepStrictEqual(seen.C.at(-1).map((x) => x.id), [a]);
+  await cc.send('emote', { id: c, k: 'wave' });
+  await tick(60);
+  assert.deepStrictEqual(msgs.B, []);
+  void cb;
+});
+
+test('signed: a server without part 18 works as before (unsigned)', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  server.db.noLineKeys = true;
+  const A = webview(server, a), B = webview(server, b);
+  await A.net.rpc('farm_join_v1', {});
+  await B.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, seen = [], msgs = [];
+  A.net.join(topic, { id: a, name: 'Owner' }, { presence: (l) => seen.push(plain(l)), message: (e, p) => msgs.push([e, plain(p)]) });
+  await tick(60);
+  const cb = B.net.join(topic, { id: b, name: 'Visitor' }, { presence() {}, message() {} });
+  await tick(80);
+  assert.deepStrictEqual(seen.at(-1), [{ id: b, name: 'Visitor' }]);
+  await cb.send('like', { id: b });
+  await tick(60);
+  assert.deepStrictEqual(msgs, [['like', { id: b }]]);
+});
+
+test('signed: the app signs with real SHA-256 (the same as Node)', () => {
+  const crypto = require('crypto'), { signing } = require('../bridge/sunnyAcresBridge');
+  for (const text of ['', 'abc', 'farm:x\nmv\nid\n{"x":1}', 'ñ€😀 中'.repeat(40)]) {
+    const key = crypto.randomBytes(32).toString('hex');
+    assert.strictEqual(Buffer.from(signing.sha256(Buffer.from(text, 'utf8'))).toString('hex'), crypto.createHash('sha256').update(text, 'utf8').digest('hex'));
+    assert.strictEqual(signing.hmac(key, text), crypto.createHmac('sha256', Buffer.from(key, 'hex')).update(text, 'utf8').digest('hex').slice(0, 32));
+  }
+  assert.strictEqual(signing.canon({ b: 1, a: [1, { d: undefined, c: 'x' }] }), '{"a":[1,{"c":"x"}],"b":1}', 'the same text whatever the field order');
+});
+
+test('signed: two real messages in the same millisecond both arrive', async () => {
+  const r = await room3();
+  const realNow = Date.now, t = realNow();
+  Date.now = () => t;
+  try { await Promise.all([r.cb.send('emote', { id: r.b, k: 'wave' }), r.cb.send('emote', { id: r.b, k: 'heart' })]); } finally { Date.now = realNow; }
+  await tick(60);
+  assert.deepStrictEqual(r.msgs.A.filter((m) => m[0] === 'emote').map((m) => m[1].k), ['wave', 'heart']);
+});
+
+test('signed: the first list of who is here waits until they are checked (the game decides there if a farm is full)', async () => {
+  const r = await room3();
+  const seen = [];
+  const D = webview(r.server, r.server.newUser());
+  await D.net.rpc('farm_join_v1', {});
+  D.net.join(r.topic, { name: 'Dan' }, { presence: (l) => seen.push(plain(l).map((x) => x.id).sort()), message() {} });
+  await tick(200);
+  assert.ok(seen.length, 'told');
+  assert.deepStrictEqual(seen[0], [r.a, r.b, r.c].sort(), 'the very first list already has everyone');
 });

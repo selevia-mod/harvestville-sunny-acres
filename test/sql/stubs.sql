@@ -46,3 +46,4 @@ create table public.coin_transactions (id uuid primary key default gen_random_uu
 create table public.star_transactions (id uuid primary key default gen_random_uuid(), user_id uuid not null, delta int not null,
   balance_after int not null check (balance_after >= 0), type text not null, reference_type text, reference_id text, metadata jsonb,
   created_at timestamptz not null default now(), constraint star_transactions_type_check check (type = any (array['ad_watch', 'unlock_chapter']) or type = 'pet_meals'));
+create schema extensions; create extension pgcrypto with schema extensions; grant usage on schema extensions to authenticated;

@@ -736,6 +736,22 @@ function createServer() {
   Object.keys(nbRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noHood) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return nbRpc[n](uid, a); }; });
   Object.keys(adsRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noAds) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return adsRpc[n](uid, a); }; });
 
+  // ----- signed live messages (supabase/farm_online_18.sql): each pair's key, only to one of the pair
+  const lineSecret = crypto.randomBytes(32);
+  rpc.farm_line_keys_v1 = (uid, a) => {
+    if (db.noLineKeys) throw new Error('Could not find the function public.farm_line_keys_v1 in the schema cache');
+    const topic = String(a.p_topic || '');
+    if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid) || blocked(uid, topic.slice(5))) return null;
+    if (!Array.isArray(a.p_peers) || a.p_peers.length > 40) return null;
+    const out = {};
+    a.p_peers.forEach((p) => {
+      if (!p || p === uid || blocked(uid, p)) return;
+      const [x, y] = pair(uid, p);
+      out[p] = crypto.createHmac('sha256', lineSecret).update(topic + '|' + x + '|' + y).digest('hex');
+    });
+    return out;
+  };
+
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels
   const later = (fn) => setTimeout(fn, 0);
