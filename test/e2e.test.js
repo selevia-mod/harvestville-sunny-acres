@@ -3056,10 +3056,10 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   await shot(page, 'lair-mouth');
   await page.evaluate(() => { const w = Farm.world; w.setFeet(20.5 * 256, 3.5 * 256); w.dir = 'up'; });
   await waitMap(page, 'lair');
-  // floor 1: three Santelmo, in the labuyo's row with their own colour (not on the shadow), and nobody walks in
+  // floor 1: three Santelmo, in their own row of the sheet and their own colours (no tint), and nobody walks in
   const here = await page.evaluate(() => {
-    const w = Farm.world, WI = Farm.Config.WILD, row = WI.order.indexOf('labuyo');
-    return { fl: Farm.session.lairFloor, deep: Farm.session.state.lair.deep, list: w.wild.animals.map((a) => [a.kind, Math.floor(a.img.frame.name / 12) === row, a.img.tintTopLeft === WI.animals.santelmo.tint, a.sh.tintTopLeft === 0xffffff, !!a.halo]) };
+    const w = Farm.world, WI = Farm.Config.WILD, row = WI.order.indexOf('santelmo');
+    return { fl: Farm.session.lairFloor, deep: Farm.session.state.lair.deep, list: w.wild.animals.map((a) => [a.kind, Math.floor(a.img.frame.name / 12) === row, a.img.tintTopLeft === 0xffffff, a.sh.tintTopLeft === 0xffffff, !!a.halo]) };
   });
   assert.deepStrictEqual(here, { fl: 1, deep: 1, list: [0, 1, 2].map(() => ['santelmo', true, true, true, true]) });
   await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 40; i++) { w.wild.next = 0; w.wildArrive(0); } });

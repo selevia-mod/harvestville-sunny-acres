@@ -11,20 +11,20 @@
   var WI = C.WILD;
 
   // ---------- the creatures (appended to C.WILD.order: the save counts them in that order) ----------
-  // Until their own pictures come (art-src/LAIR-PROMPTS.md), each borrows an animal's row of assets/wild.png (sheetRow)
-  // with a colour over it (tint). lair: true keeps them out of the Wild Lands' own places.
+  // Each has its own row of assets/wild.png (art-src/lair/wild_<kind>.png, 4 Nov 2026). lair: true keeps them out of the
+  // Wild Lands' own places.
   var KINDS = {
-    santelmo: { name: 'Santelmo', sheetRow: 'labuyo', tint: 0xff8a3a, px: 165, w: 0.85, kg: 0.4, hp: 2, walk: 0.9, run: 5, shy: 3.4, flies: true,
+    santelmo: { name: 'Santelmo', px: 128, w: 0.85, kg: 0.4, hp: 2, walk: 0.9, run: 5, shy: 3.4, flies: true,
       drops: [['ember_shard', 1, 1], ['santelmo_flame', 1, 0.5]] },
-    sigbin: { name: 'Sigbin', sheetRow: 'rabbit', tint: 0x8a6ad0, px: 140, w: 1, kg: 12, hp: 3, walk: 0.8, run: 4.4, angry: 3, hit: 8, ground: true,
+    sigbin: { name: 'Sigbin', px: 162, w: 1, kg: 12, hp: 3, walk: 0.8, run: 4.4, angry: 3, hit: 8, ground: true,
       drops: [['ember_shard', 2, 1], ['sigbin_horn', 1, 0.5]] },
-    tikbalang: { name: 'Tikbalang', sheetRow: 'deer', tint: 0x7a5a40, px: 179, w: 1.6, kg: 140, hp: 6, walk: 0.9, run: 4.8, angry: 4, hit: 12, ground: true,
+    tikbalang: { name: 'Tikbalang', px: 110, w: 1.6, kg: 140, hp: 6, walk: 0.9, run: 4.8, angry: 4, hit: 12, ground: true,
       drops: [['ember_shard', 2, 1], ['tikbalang_mane', 1, 0.5], ['obsidian', 1, 0.4]] },
     // guards every 10th floor: tougher the deeper (C.LAIR.bossHpPer)
-    bungisngis: { name: 'Bungisngis', sheetRow: 'bear', tint: 0x9aa070, px: 148, w: 2.4, kg: 600, hp: 24, walk: 0.6, run: 3.4, angry: 5, hit: 16, ground: true, boss: true,
+    bungisngis: { name: 'Bungisngis', px: 164, w: 2.4, kg: 600, hp: 24, walk: 0.6, run: 3.4, angry: 5, hit: 16, ground: true, boss: true,
       drops: [['ember_shard', 6, 1], ['bungisngis_tooth', 1, 1], ['obsidian', 2, 0.7], ['bakunawa_scale', 1, 0.05]] },
     // floor 50, for two or more (like the Great Mammoth: hpEach for each hunter, minHits to share it), once a day
-    bakunawa: { name: 'Bakunawa', sheetRow: 'mammoth', tint: 0x4a6ac0, px: 172, w: 3.8, kg: 9000, hp: 60, walk: 0.5, run: 3, angry: 3.2, hit: 22, ground: true,
+    bakunawa: { name: 'Bakunawa', px: 143, w: 3.8, kg: 9000, hp: 60, walk: 0.5, run: 3, angry: 3.2, hit: 22, ground: true,
       great: true, hpEach: 20, minHits: 3, boss: true,
       drops: [['bakunawa_scale', 2, 1], ['ember_shard', 10, 1], ['obsidian', 3, 1]] },
   };

@@ -30,7 +30,7 @@ test("the Lair's creatures are appended after every animal before them, and the 
   assert.strictEqual(L.wildOpen(s, 'lair'), true);
   ['santelmo', 'sigbin', 'tikbalang', 'bungisngis', 'bakunawa'].forEach((k) => {
     const d = C.WILD.animals[k];
-    assert.ok(d.lair && C.WILD.order.indexOf(d.sheetRow) >= 0, k + ' borrows a row until its art comes');
+    assert.ok(d.lair && C.WILD.order.indexOf(k) >= 0 && !d.sheetRow && !d.tint, k + ' has its own row of the wild sheet, in its own colours');
     d.drops.forEach((x) => assert.ok(C.ITEMS[x[0]], k + ': ' + x[0]));
   });
 });
