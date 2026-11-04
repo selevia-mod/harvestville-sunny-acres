@@ -4,7 +4,8 @@
 // keeps a hash of it). Writes:
 //   assets/furn_thumbs.png/.webp   each furniture style's armchair, 64 x 128 a frame, 4 px apart (Mira's style list)
 //   assets/fh_standin.png/.webp    the farmhands' stand-ins: each one's 9 frames of 128 x 192 from the visitor they wear
-//                                  in the people sheet, in C.FH_KEYS order (19zz-farmhands.js; real art replaces it)
+//                                  in the people sheet, in C.FH_KEYS order (19zz-farmhands.js). Not made (and removed)
+//                                  once their real pictures are in, assets/farmhands.webp (tools/art/farmhands-import.js)
 // node tools/art/cut-sheets.js [--if-changed]
 const fs = require('fs');
 const path = require('path');
@@ -20,8 +21,10 @@ const THUMB = { w: 64, h: 128, gap: 4 };
 
 const furnSheets = () => fs.readdirSync(OUT).filter((f) => /^furn_\d+\.webp$/.test(f)).sort((a, b) => parseInt(a.slice(5), 10) - parseInt(b.slice(5), 10));
 const inputs = () => furnSheets().concat(['people.webp', 'sizes.json']).map((f) => path.join(OUT, f)).concat(CONFIG.map((f) => path.join(SRC, f)), [__filename]);
+const REAL_FH = () => fs.existsSync(path.join(OUT, 'farmhands.webp'));
 const hashOf = () => {
   const h = crypto.createHash('sha256');
+  h.update(REAL_FH() ? 'real farmhands' : 'farmhand stand-ins');
   inputs().forEach((f) => { h.update(path.basename(f)); h.update(fs.readFileSync(f)); });
   return h.digest('hex').slice(0, 16);
 };
@@ -29,7 +32,7 @@ const hashOf = () => {
 // --if-changed: nothing to do when the stamp matches (build.js)
 if (process.argv.includes('--if-changed')) {
   const want = hashOf(), was = fs.existsSync(STAMP) ? JSON.parse(fs.readFileSync(STAMP, 'utf8')).hash : null;
-  const there = ['furn_thumbs.webp', 'fh_standin.webp'].every((f) => fs.existsSync(path.join(OUT, f)));
+  const there = ['furn_thumbs.webp'].concat(REAL_FH() ? [] : ['fh_standin.webp']).every((f) => fs.existsSync(path.join(OUT, f)));
   if (want === was && there) process.exit(0);
 }
 
@@ -72,6 +75,13 @@ const data = (f) => 'data:image/webp;base64,' + fs.readFileSync(path.join(OUT, f
   save('furn_thumbs', thumbs);
 
   // ---------- the farmhands' stand-ins (as 19zz-farmhands.js cut them at runtime before) ----------
+  // (none once the real sheet is there: the page would carry a sheet nobody sees)
+  if (REAL_FH()) {
+    ['png', 'webp'].forEach((ext) => fs.rmSync(path.join(OUT, 'fh_standin.' + ext), { force: true }));
+    await b.close();
+    fs.writeFileSync(STAMP, JSON.stringify({ hash: hashOf(), note: 'tools/art/cut-sheets.js: what furn_thumbs and fh_standin were cut from' }, null, 1) + '\n');
+    return;
+  }
   const n = C.VILLAGER_ORDER.length, faces = C.SHOPPERS.map((x) => x.key);
   const rows = C.FH_KEYS.map((key) => (n + Math.max(0, faces.indexOf(C.FARMHANDS[key].face))) * 9);
   const fh = await p.evaluate(async ([src, rows]) => {

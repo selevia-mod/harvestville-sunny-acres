@@ -3187,6 +3187,11 @@ test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the
   await go(page, 'farm', 'from_town');
   await closeAll(page);
   assert.deepStrictEqual(await page.evaluate(() => Object.keys(Farm.world.fh.hands).sort()), ['andoy', 'lucing']);
+  // they wear their own pictures (assets/farmhands, tools/art/farmhands-import.js), not visitors cut from the people sheet
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const one = Farm.world.textures.get('farmhands').source[0];
+    return { real: one.image === Farm.images.farmhands, standin: 'fh_standin' in Farm.images, w: one.width, h: one.height, sprite: Farm.world.fh.hands.andoy.sprite.texture.key };
+  }), { real: true, standin: false, w: 1152, h: 768, sprite: 'farmhands' });
   await teleport(page, 7, 11, 'down');
   await advance(page, 10);
   await page.waitForFunction(() => Farm.world.fh.hands.andoy.queue.length + (Farm.world.fh.hands.andoy.job ? 1 : 0) > 0, null, SLOW);
