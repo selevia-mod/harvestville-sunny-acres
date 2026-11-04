@@ -3926,8 +3926,8 @@ test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler wat
   assert.strictEqual(count(s, 'sprinkler_silver'), 1);
   assert.ok(s.soil[idx(10, 16)] && !s.soil[idx(10, 16)].sp, 'the soil stays tilled');
   assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.ftSp).length), 0);
-  // the bag: the Gold turnip's name and star
-  await page.evaluate(() => { Farm.session.state.sel = 3; Farm.ui.openInventory(); });
+  // the bag: the Gold turnip's name and star (and all five farm tech pictures, for the screenshot)
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.addItem(s, 'sprinkler_gold', 1); Farm.Logic.addItem(s, 'fert_rich', 1); s.sel = 3; Farm.ui.openInventory(); });
   await frames(page, 3);
   assert.match(await modalText(page), /Gold Turnip[\s\S]*Gold: sells for 10G/);
   await shot(page, 'farmtech-4-bag');
@@ -3967,9 +3967,15 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   const GH = await page.evaluate(() => Farm.Config.OUTDOOR.index.greenhouse);
   assert.ok(s.yard.items.some((it) => it.t === GH && it.x === 24 && it.y === 20), 'placed');
   assert.ok(s.soil[21 * W + 25].w, 'its soil is wet');
+  // the real pictures: the floor under the soil, the glass frame over the crops (art-src/props, not drawn canvases)
+  assert.deepStrictEqual(await page.evaluate((gh) => {
+    const w = Farm.world, i = Farm.session.state.yard.items.findIndex((it) => it.t === gh);
+    return [w.yardSprites[i].texture.key, w.ftFrames.map((f) => f.texture.key), w.textures.exists('ft-gh-floor') || w.textures.exists('ft-gh-frame')];
+  }, GH), ['props/greenhouse_floor', ['props/greenhouse_frame'], false]);
   // Mira's catalog: the Greenhouse under More land, one only
   await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
   assert.match(await modalText(page), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);
+  assert.strictEqual(await page.evaluate((gh) => Farm.yardImg(Farm.ui, gh).key, GH), 'props/ws_greenhouse', 'the whole greenhouse in the list');
   await shot(page, 'farmtech-6-mira');
   await closeAll(page);
   // with a greenhouse, Lily sells every seed: out of season ones after the rest
