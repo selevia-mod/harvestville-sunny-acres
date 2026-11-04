@@ -138,15 +138,16 @@ test('the Animal Contest: only during the Cow Festival; the best wins 1st, Gold,
   assert.strictEqual(L.ctRibbons(s2).length >= 1, true);
 });
 
-test('a neglected animal comes 4th: 100G for taking part, no ribbon; a tie goes to you', () => {
+test('a neglected animal comes 4th: 100G and a green ribbon for taking part; a tie goes to you', () => {
   let s = on(11, 20);
   const i = cow(s, 0, false);
   const r = L.ctEnter(s, 'animal', i);
   assert.strictEqual(r.place, 4);
   assert.strictEqual(s.gold, 100);
   assert.ok(!r.trophy);
-  assert.match(r.text, /4th place/);
-  assert.strictEqual(L.ctRibbons(s).length, 0);
+  assert.match(r.text, /4th place this time\. A green ribbon for taking part, and 100G\./);
+  assert.strictEqual(L.ctRibbons(s).length, 1, 'the green thank-you ribbon counts');
+  assert.strictEqual(L.ctTrophies(s).length, 0);
   assert.strictEqual(s.animals[i].love, 5, 'a fun day out all the same');
   // a tie with the best rival
   s = on(11, 20);

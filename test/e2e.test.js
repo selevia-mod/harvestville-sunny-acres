@@ -3289,7 +3289,7 @@ test('festival contests: told the day before and on the day, the calendar says s
   await shot(page, 'contest-card');
   // the ribbons are the pictures (assets/contests), not the drawn stand-ins
   const painted = (keys) => page.evaluate((keys) => keys.map((k) => Farm.ui.textures.exists(k)), keys);
-  assert.deepStrictEqual(await painted(['ct-rosp-1-40', 'ct-rosp-2-40', 'ct-rosp-3-40', 'ct-ros-1-40']), [true, true, true, false]);
+  assert.deepStrictEqual(await painted(['ct-rosp-1-40', 'ct-rosp-2-40', 'ct-rosp-3-40', 'ct-rosp-4-34', 'ct-ros-1-40']), [true, true, true, true, false]); // (4th: the green thank-you ribbon)
   await tapButton(page, 'Hooray!');
   assert.match(await modalText(page), /1ST PLACE![\s\S]*See it in the Collection: tap Ribbons\./);
   await page.waitForTimeout(600);

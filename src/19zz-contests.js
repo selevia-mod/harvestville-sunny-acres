@@ -264,8 +264,7 @@
       row.add(bar);
       var num = self.txt(BX + BW + 8, 49, '', 14, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5);
       row.add(num);
-      var place = k + 1, badge = place <= 3 ? self.ctRosette(row, W - 62, ROW / 2 - 3, place, 40) : self.txt(W - 62, ROW / 2, '4th', 14, '#7a5a3a', { fontStyle: 'bold' }).setOrigin(0.5);
-      if (place > 3) row.add(badge);
+      var place = k + 1, badge = self.ctRosette(row, W - 62, ROW / 2 - 3, place, place <= 3 ? 40 : 34); // (4th: the green one)
       return { row: row, bar: bar, num: num, badge: badge, e: e };
     });
     var result = this.txt(W / 2, top + 4 * (ROW + GAP) + 4, r.text, 14, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: W - 80 } }).setOrigin(0.5, 0);
@@ -306,7 +305,7 @@
     var self = this, prize = r.place <= 3;
     if (prize) this.fireworks(ct.key === 'cook' ? 'stars' : 'fireworks');
     var c = this.openModal(function () { self.closeModal(); });
-    var ph = prize ? 306 : 190, y0 = Math.round((H - ph) / 2 - 30);
+    var ph = prize ? 306 : 270, y0 = Math.round((H - ph) / 2 - 30);
     this.panelImg(c, 30, y0, W - 60, ph);
     var title = this.txt(W / 2, y0 + 4, (prize ? KC.places[r.place] : 'THANK YOU').toUpperCase() + '!', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
     this.ribbon(c, W / 2, y0 + 4, Math.max(170, title.width + 44));
@@ -317,8 +316,11 @@
       if (r.trophy) big.push(this.ctCup(c, W / 2 + 46, y0 + 80, 80));
       if (!still()) this.tweens.add({ targets: big, y: '-=6', duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       ty = y0 + 158;
+    } else { // 4th: the green thank-you ribbon, smaller and without the fanfare
+      this.ctRosette(c, W / 2, y0 + 70, r.place, 56);
+      ty = y0 + 128;
     }
-    c.add(this.txt(W / 2, ty, r.text + (prize ? '\nSee it in the Collection: tap Ribbons.' : ''), 14, INK, { align: 'center', lineSpacing: 3, wordWrap: { width: W - 96 } }).setOrigin(0.5, 0));
+    c.add(this.txt(W / 2, ty, r.text + '\nSee it in the Collection: tap Ribbons.', 14, INK, { align: 'center', lineSpacing: 3, wordWrap: { width: W - 96 } }).setOrigin(0.5, 0));
     this.button(c, W / 2, y0 + ph - 34, 130, 40, 'OK', function () { self.tweens.killTweensOf(c.list); self.closeModal(); }, GREEN);
     if (r.gold) this.toast('+' + fmt(r.gold) + 'G', 2200, 0x7a4d12);
     return c;

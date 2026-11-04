@@ -3,7 +3,8 @@
 //
 // At the Cow Festival, the Harvest Festival and Starry Night you bring one entry: your best animal, a crop or a dish you
 // cooked. Three villagers enter too, picked and scored from the year alone (the same on every phone). The best score
-// wins (a tie goes to you). Prizes: a ribbon for 1st to 3rd, Gold, and 1st place is that year's trophy.
+// wins (a tie goes to you). Prizes: a ribbon for 1st to 3rd and a green thank-you ribbon for 4th (owner, 5 Nov 2026),
+// Gold, and 1st place is that year's trophy.
 // Saved: s.cn = { r: [{ c: contest key, y: year, p: place 1-4, w: what you entered }] } as 'cn' (newest last; 'ct' is the cat's, 01-logic2.js).
 // Crop quality (feat/farmtech, L.cropQuality) and animal breeds (feat/breeding, L.animalBreed) count once they are in.
 (function (F) {
@@ -29,7 +30,7 @@
     return rec(s).filter(function (r) { return r.c === key && r.y === year; })[0] || null;
   };
   L.ctEntered = function (s, key) { return !!L.ctResult(s, key); };
-  L.ctRibbons = function (s) { return rec(s).filter(function (r) { return r.p <= 3; }); };
+  L.ctRibbons = function (s) { return rec(s).filter(function (r) { return r.p >= 1 && r.p <= 4; }); }; // every place has one now
   L.ctTrophies = function (s) { return rec(s).filter(function (r) { return r.p === 1; }); };
 
   // ---------- what the judges see ----------
@@ -165,7 +166,7 @@
     if (f.kind === 'harvest' || f.kind === 'cow') s.fest[f.key] = year;
     var text = place <= 3
       ? K.places[place] + '! ' + K.ribbons[place] + ' and ' + fmt(gold) + 'G' + (place === 1 ? ', and the ' + year + ' trophy!' : '.')
-      : '4th place this time. Thank you for taking part: ' + gold + 'G.';
+      : '4th place this time. A green ribbon for taking part, and ' + fmt(gold) + 'G.';
     return { place: place, gold: gold, trophy: place === 1, score: pick.score, entries: entries, year: year, text: text };
   };
 

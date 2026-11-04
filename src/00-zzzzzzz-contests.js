@@ -50,7 +50,7 @@
     crop: { base: 20, price: 2, season: 6, star: 5 },
     dish: { base: 25, energy: 0.45, part: 5 },
     places: ['', '1st place', '2nd place', '3rd place', '4th place'],
-    ribbons: ['', 'Blue ribbon', 'Red ribbon', 'Yellow ribbon'],
+    ribbons: ['', 'Blue ribbon', 'Red ribbon', 'Yellow ribbon', 'Green ribbon'], // (4th: a thank-you ribbon, owner 5 Nov 2026)
   };
 
   // the festivals say what is on
