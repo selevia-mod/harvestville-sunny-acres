@@ -779,8 +779,14 @@
     if (!this.lair) return wildDown.call(this, a);
     var s = this.state;
     this.lair.down[a.slot] = true;
-    if (a.kind === 'bakunawa' && a.mine) L.bakunawaHunted(s); // (everyone with a share: saved with the hunt)
+    var fire = a.kind === 'bakunawa' && a.mine && L.bakunawaHunted(s); // (everyone with a share: saved with the hunt)
     wildDown.call(this, a);
+    if (fire) { // the 1 in 10: after the drops have had their moment
+      this.time.delayedCall(2600, function () {
+        sfx('fanfare');
+        if (F.ui) F.ui.toast('The Lair\'s fire chose you! The Fire look is yours: wear it from Looks.', 4200, FIRE);
+      });
+    }
     delete s.wild.gone['lair:' + a.slot]; // (a friend's hunt leaves no slot waiting either)
   };
   // a friend runs the floor: what they report is the floor (their guard's bar shows at once)

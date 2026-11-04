@@ -1940,11 +1940,14 @@ test('online: Bakunawa\'s Lair: two hunters on floor 50, the Bakunawa rises only
   assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 50);
   assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), host.uid);
   await host.page.waitForFunction(() => { const w = Farm.world; w.wild.next = 0; w.wildArrive(0); return w.wild.animals.some((a) => a.kind === 'bakunawa'); }, null, SLOW);
-  const bk = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bakunawa'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar, tint: a.img.tintTopLeft === a.def.tint } : null; });
-  assert.deepStrictEqual(await bk(host.page), { hp: 40, max: 40, bar: true, tint: true }, '20 for each of the 2 hunters');
+  const bk = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bakunawa'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar, own: a.img.tintTopLeft === 0xffffff } : null; }); // (own: its own picture, no tint over it)
+  assert.deepStrictEqual(await bk(host.page), { hp: 40, max: 40, bar: true, own: true }, '20 for each of the 2 hunters');
   await guest.page.waitForFunction(() => Farm.world.wild.animals.some((a) => a.kind === 'bakunawa'), null, SLOW);
   await waitToast(guest.page, /The Bakunawa rises/);
   await shot(guest.page, 'lair-bakunawa');
+  // the Fire look's 1 in 10 (owner, 5 Nov): the guest's roll comes up, the owner's does not
+  await guest.page.evaluate(() => { const h = Farm.Logic.bakunawaHunted; Farm.Logic.bakunawaHunted = (s) => h(s, 0.05); });
+  await host.page.evaluate(() => { const h = Farm.Logic.bakunawaHunted; Farm.Logic.bakunawaHunted = (s) => h(s, 0.5); });
   // the guest lands 3 hits and the owner the rest: a hunt for both, with its scales, and no Great Tusk
   await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'bakunawa'); for (let i = 0; i < 3; i++) w.wildStruck(a); });
   await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'bakunawa'); return a && a.hp === 37; }, null, SLOW);
@@ -1957,6 +1960,9 @@ test('online: Bakunawa\'s Lair: two hunters on floor 50, the Bakunawa rises only
   for (const who of [host, guest]) await who.page.waitForFunction(() => Farm.session.state.lair.bk === Farm.session.state.day, null, SLOW);
   assert.deepStrictEqual(await paid(guest), { scales: 2, tusk: 0, today: true, ready: false });
   assert.deepStrictEqual(await paid(host), { scales: 2, tusk: 0, today: true, ready: false });
+  await guest.page.waitForFunction(() => /The Lair's fire chose you! The Fire look is yours/.test(Farm.ui.toastText.text), null, SLOW);
+  await shot(guest.page, 'lair-fire-look-won');
+  assert.deepStrictEqual(await Promise.all([guest, host].map((who) => who.page.evaluate(() => Farm.Logic.ownsLook(Farm.session.state, 'fire')))), [true, false], 'only the lucky one');
   // not again today, whoever runs the floor
   assert.strictEqual(await arrive(host.page), false);
   await host.page.evaluate(() => Farm.ui.closeAll());

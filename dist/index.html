@@ -2512,6 +2512,11 @@
   WI.bow.damage.push(3);
   C.MAGMA_BOW = { name: 'Magma Bow', level: 4, gold: 25000, needs: [['ember_shard', 40], ['bakunawa_scale', 3], ['obsidian', 5]] };
 
+  // ---------- the Fire look (the Tailor Shop's 'fire', C.LOOKS): never in the shop (owner, 5 Nov 2026) ----------
+  // Free by luck: each Bakunawa you help bring down has a 1 in 10 chance to give it, once you have a share of the hunt.
+  // Or Kanor makes it, dearer than anything else he makes, so that even buying it is hard.
+  C.FIRE_LOOK = { key: 'fire', chance: 0.1, gold: 500000, needs: [['ember_shard', 80], ['bakunawa_scale', 4], ['bungisngis_tooth', 2]] };
+
   // ---------- the Volcano set: furniture Kanor makes from what the Lair gives (owner, 5 Nov 2026) ----------
   // Made like the hunting trophies (C.WILD.trophies: his Trophies tab, never in the catalog), and dear: they are rare. The
   // Bakunawa Rug is the rarest thing in the house: its scales only come from floor 50, two hunters or more, once a day.
@@ -8573,7 +8578,27 @@
   };
   // The Bakunawa rises once a day for each hunter.
   L.bakunawaReady = function (s) { return !s.lair || s.lair.bk !== s.day; };
-  L.bakunawaHunted = function (s) { s.lair = s.lair || { deep: 0, bk: -1 }; s.lair.bk = s.day; };
+  // A share of its hunt: today's is done. True when the Lair's fire chose you: the Fire look is yours (C.FIRE_LOOK.chance,
+  // only while you do not have it). roll is for the tests (Math.random by default).
+  L.bakunawaHunted = function (s, roll) {
+    s.lair = s.lair || { deep: 0, bk: -1 };
+    s.lair.bk = s.day;
+    var f = C.FIRE_LOOK;
+    if (!f || L.ownsLook(s, f.key) || (roll != null ? roll : Math.random()) >= f.chance) return false;
+    s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[f.key]);
+    return true;
+  };
+  // Kanor makes the Fire look: 'ok' | 'owned' | 'gold' | 'short'
+  L.buyFireLook = function (s) {
+    var f = C.FIRE_LOOK;
+    if (L.ownsLook(s, f.key)) return 'owned';
+    if (s.gold < f.gold) return 'gold';
+    if (f.needs.some(function (n) { return L.countItem(s, n[0]) < n[1]; })) return 'short';
+    s.gold -= f.gold;
+    f.needs.forEach(function (n) { L.removeItem(s, n[0], n[1]); });
+    s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[f.key]);
+    return 'ok';
+  };
 
   // Reached a floor: the deepest so far (true when it is a new deepest).
   L.lairReach = function (s, floor) {
@@ -28562,8 +28587,14 @@
     if (!this.lair) return wildDown.call(this, a);
     var s = this.state;
     this.lair.down[a.slot] = true;
-    if (a.kind === 'bakunawa' && a.mine) L.bakunawaHunted(s); // (everyone with a share: saved with the hunt)
+    var fire = a.kind === 'bakunawa' && a.mine && L.bakunawaHunted(s); // (everyone with a share: saved with the hunt)
     wildDown.call(this, a);
+    if (fire) { // the 1 in 10: after the drops have had their moment
+      this.time.delayedCall(2600, function () {
+        sfx('fanfare');
+        if (F.ui) F.ui.toast('The Lair\'s fire chose you! The Fire look is yours: wear it from Looks.', 4200, FIRE);
+      });
+    }
     delete s.wild.gone['lair:' + a.slot]; // (a friend's hunt leaves no slot waiting either)
   };
   // a friend runs the floor: what they report is the floor (their guard's bar shows at once)
@@ -28644,7 +28675,7 @@
     return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
   // the row's own, shorter: every need fits its card ("40 Ember Shards (12), 3 Scales (0), 5 Obsidian (2)")
-  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian' };
+  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian', bungisngis_tooth: 'Teeth' };
   var needShort = function (s, needs) {
     return needs.map(function (n) { return n[1] + ' ' + (SHORT[n[0]] || C.ITEMS[n[0]].name) + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
@@ -28664,6 +28695,19 @@
         done(r, g.name + '! Always on when you hunt.');
       } }] };
     });
+    // the Fire look (the Tailor Shop's): Kanor makes it, very dear; a Bakunawa can also give it by luck
+    var fl = C.FIRE_LOOK, look = L.lookDef(fl.key);
+    if (look && !L.ownsLook(s, fl.key)) {
+      if (F.ensureTexture) F.ensureTexture(this, 'looks_thumbs');
+      rows.push({ sheet: { key: 'looks_thumbs', frame: C.LOOK_INDEX[fl.key] * 2 + (s.look === 'girl' ? 1 : 0), scale: 0.36 }, name: look.name + ' look',
+        desc: '1 in 10 from a Bakunawa. Or ' + needShort(s, fl.needs) + '.',
+        buttons: [{ label: String(fl.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', color: has(s, fl.needs) && s.gold >= fl.gold ? GREEN : GREY, cb: function () {
+          var r = L.buyFireLook(s);
+          if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, fl.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
+          if (r === 'ok') sfx('fanfare');
+          done(r, 'The ' + look.name + ' look is yours! Wear it from Looks.');
+        } }] });
+    }
     // the Magma Bow, after the Gold Bow
     if (L.hasBow(s) && L.bowLevel(s) === m.level - 1) {
       rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Range ' + C.WILD.bow.range[m.level] + '. Needs ' + needShort(s, m.needs) + '.',

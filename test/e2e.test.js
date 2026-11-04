@@ -4135,3 +4135,32 @@ test('the Lair\'s Fire look: not in the shop until it is yours, then the walk, e
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the Fire look from Kanor: on his Buy tab at 500,000G and the Lair\'s best, then in My looks; gone from his list once yours (owner, 5 Nov)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.wild.n = 50; s.gold = 500000; L.addItem(s, 'ember_shard', 80); L.addItem(s, 'bakunawa_scale', 4); L.addItem(s, 'bungisngis_tooth', 2);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const findPage = async () => {
+    for (let p = 0; p < 6; p++) {
+      await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('buy', p); }, p);
+      await frames(page, 2);
+      if (/Lair Fire look/.test(await modalText(page))) return p;
+    }
+    return -1;
+  };
+  const at = await findPage();
+  assert.ok(at >= 0, 'Kanor lists the Fire look');
+  assert.match(await modalText(page), /Lair Fire look[\s\S]*1 in 10 from a Bakunawa\. Or 80 Ember Shards \(80\), 4 Scales \(4\), 2 Teeth \(2\)[\s\S]*500,000G/);
+  await shot(page, 'fire-look-kanor');
+  await tapButton(page, '500,000G');
+  await page.waitForFunction(() => /The Lair Fire look is yours! Wear it from Looks\./.test(Farm.ui.toastText.text), null, SLOW);
+  const s = await state(page);
+  assert.strictEqual(s.gold, 0);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.ownsLook(Farm.session.state, 'fire')), true);
+  assert.strictEqual(await findPage(), -1, 'not offered again');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.drawTailor('mine', 0); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /Lair Fire[\s\S]*Wear/);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

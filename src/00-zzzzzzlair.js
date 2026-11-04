@@ -72,6 +72,11 @@
   WI.bow.damage.push(3);
   C.MAGMA_BOW = { name: 'Magma Bow', level: 4, gold: 25000, needs: [['ember_shard', 40], ['bakunawa_scale', 3], ['obsidian', 5]] };
 
+  // ---------- the Fire look (the Tailor Shop's 'fire', C.LOOKS): never in the shop (owner, 5 Nov 2026) ----------
+  // Free by luck: each Bakunawa you help bring down has a 1 in 10 chance to give it, once you have a share of the hunt.
+  // Or Kanor makes it, dearer than anything else he makes, so that even buying it is hard.
+  C.FIRE_LOOK = { key: 'fire', chance: 0.1, gold: 500000, needs: [['ember_shard', 80], ['bakunawa_scale', 4], ['bungisngis_tooth', 2]] };
+
   // ---------- the Volcano set: furniture Kanor makes from what the Lair gives (owner, 5 Nov 2026) ----------
   // Made like the hunting trophies (C.WILD.trophies: his Trophies tab, never in the catalog), and dear: they are rare. The
   // Bakunawa Rug is the rarest thing in the house: its scales only come from floor 50, two hunters or more, once a day.

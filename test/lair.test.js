@@ -60,7 +60,7 @@ test('the deepest floor and the lift: stops at 1, 11, 21 ... that you reached; t
   assert.strictEqual(L.lairReach(s, 999), true);
   assert.strictEqual(s.lair.deep, 50, 'no deeper than the last floor');
   assert.strictEqual(L.bakunawaReady(s), true);
-  L.bakunawaHunted(s);
+  L.bakunawaHunted(s, 1); // (1: no Fire look this time)
   assert.strictEqual(L.bakunawaReady(s), false);
   s.day += 1;
   assert.strictEqual(L.bakunawaReady(s), true, 'the next day');
@@ -124,7 +124,7 @@ test('the Fire Charm: Hunter\'s gear for gold and the Lair\'s goods; a charge co
 test('the Lair in the save: the deepest floor and the Bakunawa\'s day; an old save starts at nothing', () => {
   const s = fresh();
   L.lairReach(s, 31);
-  L.bakunawaHunted(s);
+  L.bakunawaHunted(s, 1); // (1: no Fire look this time)
   const back = roundTrip(s);
   assert.deepStrictEqual(plain(back.lair), { deep: 31, bk: s.day });
   const o = plain(L.serialize(fresh()));
@@ -156,4 +156,43 @@ test('the Volcano set: five pieces Kanor makes for Gold and Lair drops, the Baku
   assert.strictEqual(s.gold, 0);
   assert.strictEqual(L.countItem(s, 'ember_shard'), 0);
   assert.strictEqual(s.home.bag[L.furnKey(C.HOME.typeIndex.volcano_lamp, 0)], 1);
+});
+
+// Owner, 5 Nov 2026: "They can get it free with chance ... also they can buy it with Kanor with higher price".
+test('the Fire look: a 1 in 10 chance from each Bakunawa hunted, or Kanor makes it for 500,000G and the Lair\'s best', () => {
+  const F = C.FIRE_LOOK;
+  assert.strictEqual(F.chance, 0.1);
+  assert.strictEqual(F.gold, 500000);
+  assert.strictEqual(JSON.stringify(F.needs), JSON.stringify([['ember_shard', 80], ['bakunawa_scale', 4], ['bungisngis_tooth', 2]]));
+  assert.ok(C.WILD.trophies.every((t) => t.gold < F.gold) && F.gold > C.MAGMA_BOW.gold, 'the dearest thing Kanor makes');
+  // by luck
+  let s = fresh();
+  assert.strictEqual(L.ownsLook(s, 'fire'), false);
+  assert.strictEqual(L.bakunawaHunted(s, 0.1), false, 'a roll of 0.1 or more: not this time');
+  assert.strictEqual(L.ownsLook(s, 'fire'), false);
+  assert.strictEqual(L.bakunawaReady(s), false, 'the hunt still counts for the day');
+  s.day += 1;
+  assert.strictEqual(L.bakunawaHunted(s, 0.0999), true, 'under 0.1: the fire chose you');
+  assert.strictEqual(L.ownsLook(s, 'fire'), true);
+  assert.strictEqual(L.wearLook(s, 'fire'), true);
+  s.day += 1;
+  assert.strictEqual(L.bakunawaHunted(s, 0), false, 'never twice');
+  assert.strictEqual(L.ownsLook(roundTrip(s), 'fire'), true, 'kept in the save');
+  // about 1 in 10 over many hunts
+  let won = 0;
+  for (let i = 0; i < 4000; i++) { const t = fresh(); if (L.bakunawaHunted(t)) won++; }
+  assert.ok(won > 300 && won < 500, won + ' of 4000');
+  // from Kanor
+  s = fresh();
+  s.gold = 499999;
+  L.addItem(s, 'ember_shard', 80); L.addItem(s, 'bakunawa_scale', 4); L.addItem(s, 'bungisngis_tooth', 1);
+  assert.strictEqual(L.buyFireLook(s), 'gold');
+  s.gold = 500000;
+  assert.strictEqual(L.buyFireLook(s), 'short', 'one tooth short');
+  L.addItem(s, 'bungisngis_tooth', 1);
+  assert.strictEqual(L.buyFireLook(s), 'ok');
+  assert.strictEqual(s.gold, 0);
+  assert.deepStrictEqual(['ember_shard', 'bakunawa_scale', 'bungisngis_tooth'].map((k) => L.countItem(s, k)), [0, 0, 0]);
+  assert.strictEqual(L.ownsLook(s, 'fire'), true);
+  assert.strictEqual(L.buyFireLook(s), 'owned');
 });

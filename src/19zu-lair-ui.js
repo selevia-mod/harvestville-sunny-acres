@@ -15,7 +15,7 @@
     return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
   // the row's own, shorter: every need fits its card ("40 Ember Shards (12), 3 Scales (0), 5 Obsidian (2)")
-  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian' };
+  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian', bungisngis_tooth: 'Teeth' };
   var needShort = function (s, needs) {
     return needs.map(function (n) { return n[1] + ' ' + (SHORT[n[0]] || C.ITEMS[n[0]].name) + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
@@ -35,6 +35,19 @@
         done(r, g.name + '! Always on when you hunt.');
       } }] };
     });
+    // the Fire look (the Tailor Shop's): Kanor makes it, very dear; a Bakunawa can also give it by luck
+    var fl = C.FIRE_LOOK, look = L.lookDef(fl.key);
+    if (look && !L.ownsLook(s, fl.key)) {
+      if (F.ensureTexture) F.ensureTexture(this, 'looks_thumbs');
+      rows.push({ sheet: { key: 'looks_thumbs', frame: C.LOOK_INDEX[fl.key] * 2 + (s.look === 'girl' ? 1 : 0), scale: 0.36 }, name: look.name + ' look',
+        desc: '1 in 10 from a Bakunawa. Or ' + needShort(s, fl.needs) + '.',
+        buttons: [{ label: String(fl.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', color: has(s, fl.needs) && s.gold >= fl.gold ? GREEN : GREY, cb: function () {
+          var r = L.buyFireLook(s);
+          if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, fl.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
+          if (r === 'ok') sfx('fanfare');
+          done(r, 'The ' + look.name + ' look is yours! Wear it from Looks.');
+        } }] });
+    }
     // the Magma Bow, after the Gold Bow
     if (L.hasBow(s) && L.bowLevel(s) === m.level - 1) {
       rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Range ' + C.WILD.bow.range[m.level] + '. Needs ' + needShort(s, m.needs) + '.',

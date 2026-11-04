@@ -31,7 +31,27 @@
   };
   // The Bakunawa rises once a day for each hunter.
   L.bakunawaReady = function (s) { return !s.lair || s.lair.bk !== s.day; };
-  L.bakunawaHunted = function (s) { s.lair = s.lair || { deep: 0, bk: -1 }; s.lair.bk = s.day; };
+  // A share of its hunt: today's is done. True when the Lair's fire chose you: the Fire look is yours (C.FIRE_LOOK.chance,
+  // only while you do not have it). roll is for the tests (Math.random by default).
+  L.bakunawaHunted = function (s, roll) {
+    s.lair = s.lair || { deep: 0, bk: -1 };
+    s.lair.bk = s.day;
+    var f = C.FIRE_LOOK;
+    if (!f || L.ownsLook(s, f.key) || (roll != null ? roll : Math.random()) >= f.chance) return false;
+    s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[f.key]);
+    return true;
+  };
+  // Kanor makes the Fire look: 'ok' | 'owned' | 'gold' | 'short'
+  L.buyFireLook = function (s) {
+    var f = C.FIRE_LOOK;
+    if (L.ownsLook(s, f.key)) return 'owned';
+    if (s.gold < f.gold) return 'gold';
+    if (f.needs.some(function (n) { return L.countItem(s, n[0]) < n[1]; })) return 'short';
+    s.gold -= f.gold;
+    f.needs.forEach(function (n) { L.removeItem(s, n[0], n[1]); });
+    s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[f.key]);
+    return 'ok';
+  };
 
   // Reached a floor: the deepest so far (true when it is a new deepest).
   L.lairReach = function (s, floor) {
