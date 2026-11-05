@@ -546,6 +546,9 @@ function pulag() {
   m.point('from_town', 'spawn', 30.5, 14.6, [prop('dir', 'string', 'left')]);
   m.point('from_makiling', 'spawn', 15.9, 1.6, [prop('dir', 'string', 'down')]);
   m.point('kanor', 'place', 24.5, 10.7);
+  // Kanor's Jeep (owner, 6 Nov 2026), east of his Lodge: it goes to every hunting place (src/19zzzzz-places.js)
+  m.obj('jeep', 'jeep', 27, 9, 2, 1);
+  m.point('from_jeep', 'spawn', 27.9, 10.6, [prop('dir', 'string', 'down')]);
   m.obj('road_east', 'warp', 31, 13, 1, 2, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_pulag'), prop('walk', 'bool', true)]);
   m.obj('trail_north', 'warp', 15, 0, 2, 1, [prop('to', 'string', 'makiling'), prop('spawn', 'string', 'from_pulag'), prop('walk', 'bool', true)]);
   m.obj('sign_town', 'sign', 28, 16, 1, 1, [prop('text', 'string', 'PULAG GRASSLAND\nEast: back to town. North: Makiling Forest. Kanor\'s Lodge is up the trail.')]);
@@ -797,7 +800,57 @@ function hall() {
   return m.json();
 }
 
-const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park, hall };
+// ---------- hunting places (owner, 6 Nov 2026; docs/hunting-places-engine.md) ----------
+// A place's cave: the Lair's layout (the ladder up at (5, 2) with the 'entrance' spawn under it, the lift's tiles at
+// (2..3, 2..3) left free, the gate down near the bottom), any size from 14 x 12, its pools of 'void' (lava or water:
+// the game paints them in the place's colours), and the way out to the place's map at its 'from_dungeon' spawn.
+function placeCave(name, from, opts = {}) {
+  const W = opts.w || 16, H = opts.h || 14;
+  const m = new MapBuilder(name, W, H, ['indoor', 'props'], ['Ground', 'Walls']);
+  const r = rng(opts.seed || 1106);
+  m.rect('Ground', 0, 0, W - 1, H - 1, 'indoor', () => (r() < 0.5 ? I.cave : I.cave2));
+  m.rect('Walls', 0, 0, W - 1, 0, 'indoor', I.cave_top);
+  m.rect('Walls', 1, 1, W - 2, 1, 'indoor', I.cave_wall);
+  m.rect('Walls', 0, 0, 0, H - 1, 'indoor', I.cave_top);
+  m.rect('Walls', W - 1, 0, W - 1, H - 1, 'indoor', I.cave_top);
+  m.rect('Walls', 0, H - 1, W - 1, H - 1, 'indoor', I.cave_top);
+  (opts.pillars || [[10, 6]]).forEach(([x, y]) => { m.rect('Walls', x, y, x + 1, y, 'indoor', I.cave_top); m.rect('Walls', x, y + 1, x + 1, y + 1, 'indoor', I.cave_wall); });
+  (opts.pools || [[11, 3, 13, 4], [2, 9, 3, 10]]).forEach(([x0, y0, x1, y1]) => m.rect('Walls', x0, y0, x1, y1, 'indoor', I.void));
+  m.put('Walls', 5, 2, 'indoor', I.ladder_up);
+  m.point('entrance', 'spawn', 5.5, 3.6, [prop('dir', 'string', 'down')]);
+  m.obj('exit', 'warp', 5, 2, 1, 1, [prop('to', 'string', from), prop('spawn', 'string', 'from_dungeon'), prop('label', 'string', 'Climb out')]);
+  const g = opts.gate || [Math.floor(W / 2) - 1, H - 4];
+  m.obj('dungeon_gate', 'dungeon_gate', g[0], g[1], 2, 2);
+  (opts.props || [['lava_boulder', 1, 5], ['lava_boulder', W - 3, 8]]).forEach(([n, x, y]) => m.prop(n, x, y));
+  m.obj('wild', 'wild', 1, 4, W - 2, H - 5);
+  return m.json();
+}
+// A place's door down to its cave: a spur of trail, the mouth (drawn by the game over the 'dungeon_mouth' point, which
+// blocks the rock round the door), the door warp and the 'from_dungeon' spawn below it. (cx, top): the door's tile.
+function caveMouth(m, cave, cx, top) {
+  m.rect('Ground', cx, top + 1, cx, top + 2, 'tiles', T.wild_trail);
+  m.point('from_dungeon', 'spawn', cx + 0.5, top + 1.7, [prop('dir', 'string', 'down')]);
+  m.point('dungeon_mouth', 'place', cx + 0.5, top + 1);
+  m.obj('dungeon_door', 'warp', cx, top, 1, 1, [prop('to', 'string', cave), prop('spawn', 'string', 'entrance'), prop('walk', 'bool', true)]);
+}
+// SAMPLE PLACE (engine proof; src/00-zzzzzzzzzz-place-99-sample.js): Pulag's tiles and props, the jeep at the top left,
+// its person, one hidden chest, and the mouth of its 2-floor cave. The place agents delete it with the sample.
+function samplePlace() {
+  const m = new MapBuilder('sample_place', 20, 16, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(9906);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_grass);
+  trail(m, [[2, 4], [14, 4], [14, 12]]);
+  wildRing(m, [[15, 0, 15, 3]]);
+  m.obj('jeep', 'jeep', 2, 2, 2, 1);
+  m.point('from_jeep', 'spawn', 2.9, 3.6, [prop('dir', 'string', 'down')]);
+  caveMouth(m, 'sample_cave', 15, 2);
+  m.obj('wild', 'wild', 2, 5, m.W - 4, m.H - 7);
+  const keep = (x, y) => (x <= 5 && y <= 5) || (x >= 13 && y <= 5) || (x >= 9 && x <= 12 && y <= 6);
+  scatter(m, r, [['pine_tree', 3], ['boulder_moss', 2], ['bamboo_bush', 2], ['tall_grass', 10]], (x, y) => !onTrail(m, x, y) && !keep(x, y));
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park, hall, sample_place: samplePlace, sample_cave: () => placeCave('sample_cave', 'sample_place', { seed: 9907 }) };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

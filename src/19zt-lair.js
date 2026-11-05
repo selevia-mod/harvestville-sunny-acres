@@ -49,6 +49,35 @@
     crust: ['#1a0604', '#3e1108', '#742a12'], // under the lava pools (drawn over it, below): cooled rock round their edges
   };
 
+  // ---------- which cave (owner, 6 Nov 2026: each new hunting place has a dungeon of its own) ----------
+  // The Lair's code runs every cave: this.lair holds the floor, and this.lair.cfg says which cave it is, with its own
+  // floors, lift, colours and art (a place's: C.PLACES[id].dungeon, 01-logicZZZZ-places.js). The Lair's is below, as it was.
+  var LAIR_CFG = {
+    key: 'lair', lair: true, floors: LA.floors, liftEvery: LA.liftEvery, from: 'magayon', mouth: 'lair_mouth', sheet: SHEET, look: LOOK, art: ART,
+    bg: '#140605', propTint: 0xd8957c, embers: true, lift: 'Lair Lift', icon: 'ember_shard', place: 'magayon',
+    roster: function (f) { return L.lairRoster(f); }, reach: function (s, f) { return L.lairReach(s, f); }, stops: function (s) { return L.lairStops(s); },
+  };
+  var cfgs = {};
+  F.dungeonOf = function (map) {
+    if (map === 'lair') return LAIR_CFG;
+    if (!map || !L.isPlaceDungeon || !L.isPlaceDungeon(map)) return null;
+    if (cfgs[map]) return cfgs[map];
+    var id = C.DUNGEONS[map], p = C.PLACES[id], d = p.dungeon, art = d.art || {};
+    return (cfgs[map] = {
+      key: map, place: id, floors: d.floors, liftEvery: d.liftEvery, from: p.map, mouth: 'dungeon_mouth', sheet: 'indoor-' + map,
+      look: d.look || LOOK, lava: d.lava || null, art: { mouth: art.mouth, gate: art.gate, cave: art.cave }, bg: d.bg || '#140605', propTint: d.propTint || 0xd8957c,
+      embers: !!(d.lava ? d.lava.embers : true), lift: (d.name || p.name) + ' Lift', icon: d.icon || 'chest', name: d.name || p.name + ' Cave', d: d,
+      roster: function (f) { return L.dunRoster(map, f); }, reach: function (s, f) { return L.dunReach(s, map, f); }, stops: function (s) { return L.dunStops(s, map); },
+    });
+  };
+  // the cave whose mouth is on this map (Magayon: the Lair's)
+  var mouthOn = function (map) {
+    if (map === 'magayon') return LAIR_CFG;
+    var p = C.PLACES && C.PLACES[map];
+    return p && !p.legacy && p.dungeon ? F.dungeonOf(p.dungeon.key) : null;
+  };
+  var isGate = function (o) { return o.type === 'lair_gate' || o.type === 'dungeon_gate'; };
+
   // ---------- the session and the save ----------
   var newSession = F.newSession;
   F.newSession = function (saved) {
@@ -91,19 +120,21 @@
   // The Lair's are the floor's, less the ones hunted since you came down (they do not come back while you stay).
   var wildHere = L.wildHere;
   L.wildHere = function (s, area) {
-    if (area !== 'lair') return wildHere(s, area);
+    var cfg = F.dungeonOf(area);
+    if (!cfg) return wildHere(s, area);
     var w = F.world, down = (w && w.lair && w.lair.down) || {};
-    return L.lairRoster(floorNow()).filter(function (e) { return !down[e.slot]; });
+    return cfg.roster(floorNow()).filter(function (e) { return !down[e.slot]; });
   };
-  var gateRect = function () { // (from the map: the game needs it before the map's objects are read)
-    var raw = F.ASSETS.maps.lair, o = null;
-    raw.layers.forEach(function (l) { (l.objects || []).forEach(function (x) { if (x.type === 'lair_gate') o = x; }); });
+  var gateRect = function (cfg) { // (from the map: the game needs it before the map's objects are read)
+    var raw = F.ASSETS.maps[cfg.key], o = null;
+    raw.layers.forEach(function (l) { (l.objects || []).forEach(function (x) { if (isGate(x)) o = x; }); });
     return o ? { x0: Math.floor(o.x / T), y0: Math.floor(o.y / T), x1: Math.ceil((o.x + o.width) / T) - 1, y1: Math.ceil((o.y + o.height) / T) - 1 } : null;
   };
 
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
-    if (to === 'lair' && !this.busy) F.session.lairFloor = Math.max(1, Math.min(LA.floors, Math.floor(floor) || 1));
+    var tc = F.dungeonOf(to);
+    if (tc && !this.busy) F.session.lairFloor = Math.max(1, Math.min(tc.floors, Math.floor(floor) || 1));
     // off this floor: its "gate down is open" note goes too (it stayed up on the next floor)
     if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && /^The gate down is open/.test(F.ui.toastText.text)) F.ui.hideToast();
     return travel.call(this, to, spawn, floor);
@@ -140,8 +171,8 @@
   };
   // One of the Lair's own tiles into its cell of the sheet, its edge pixels drawn out into the gap round the cell (what a
   // tile's edge blends with when drawn smaller), as the sheet's own tiles have.
-  var putTile = function (g, at, id) {
-    var img = F.images[ART.cave], t = at, pad = t.pad, s = t.s - pad * 2, c = document.createElement('canvas');
+  var putTile = function (g, at, id, cfg) {
+    var img = F.images[cfg.art.cave], t = at, pad = t.pad, s = t.s - pad * 2, c = document.createElement('canvas');
     c.width = c.height = t.s;
     var cg = c.getContext('2d');
     cg.imageSmoothingQuality = 'high';
@@ -155,8 +186,8 @@
   };
   // The top of the indoor sheet with the Lair's tiles in the cave's cells (lava in the 'void' one, under the pools; without
   // the pictures, the Mine's in the Lair's colours): made the first time in, and kept for the session.
-  var lairSheet = function (w) {
-    var tex = w.textures;
+  var lairSheet = function (w, cfg) {
+    var tex = w.textures, SHEET = cfg.sheet, LOOK = cfg.look;
     if (tex.exists(SHEET)) return SHEET;
     F.ensureTexture(w, 'indoor');
     // (from the bitmap decoded on the way in when there is one, 10-boot.js F.prewarm: the <img> is decoded on the spot)
@@ -167,7 +198,7 @@
     var g = c.getContext('2d', { willReadFrequently: true }), ts = w.map.getTileset('indoor'), pad = Math.round(8 * k);
     g.drawImage(img, 0, 0);
     var at = function (id) { var q = ts.getTileTextureCoordinates(ts.firstgid + id); return { x: Math.round(q.x * k) - pad, y: Math.round(q.y * k) - pad, s: Math.round(ts.tileWidth * k) + pad * 2, pad: pad }; };
-    if (real(ART.cave)) ['void', 'cave', 'cave2', 'cave_wall', 'cave_top'].forEach(function (id) { putTile(g, at(ID[id]), id); });
+    if (real(cfg.art.cave)) ['void', 'cave', 'cave2', 'cave_wall', 'cave_top'].forEach(function (id) { putTile(g, at(ID[id]), id, cfg); });
     else {
       var paint = function (id, cols) { var t = at(id); recolour(g, t.x, t.y, t.s, t.s, cols); };
       var from = at(ID.cave2), to = at(ID.void);
@@ -207,7 +238,8 @@
   // dark rim. Inside, the owner's lava picture (one repeat every 2 tiles), darker toward the rim where it cools; without
   // it, plates of cooling crust drawn with the glow between them. The same pools on every floor: kept while you stay.
   var PX = 96, EDGE = 0.3; // canvas pixels a tile; how far the rim reaches past the pool, in tiles
-  var poolTexture = function (w, key, cells, x0, y0, cw, ch) {
+  var poolTexture = function (w, key, cells, x0, y0, cw, ch, cfg) {
+    var lava = cfg.lava || {}, RIM = lava.rim || '#2a0b05', HOT = lava.hot || ['#ffbc48', '#f2761c', '#c2360c'], PLATE = lava.plate || ['rgba(92,22,8,0.9)', 'rgba(128,36,10,0.85)'];
     return canvasTex(w, key, Math.ceil((cw + EDGE * 2) * PX), Math.ceil((ch + EDGE * 2) * PX), function (g, W, H) {
       var seed = cells.length * 7 + x0 * 13 + y0 * 29, rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
       var has = {}, at = function (c) { return [(c[0] - x0 + 0.5 + EDGE) * PX, (c[1] - y0 + 0.5 + EDGE) * PX]; };
@@ -225,13 +257,13 @@
         });
       };
       shape(0.5 + EDGE * 0.8, 0.5 + EDGE * 0.7);
-      g.fillStyle = '#2a0b05';
+      g.fillStyle = RIM;
       g.fill('nonzero');
       shape(0.56, 0.5);
-      if (real(ART.cave)) {
+      if (real(cfg.art.cave)) {
         var pc = document.createElement('canvas');
         pc.width = pc.height = PX * 2;
-        pc.getContext('2d').drawImage(F.images[ART.cave], CAVE.lava, 0, CAVE.lavaSize, CAVE.lavaSize, 0, 0, PX * 2, PX * 2);
+        pc.getContext('2d').drawImage(F.images[cfg.art.cave], CAVE.lava, 0, CAVE.lavaSize, CAVE.lavaSize, 0, 0, PX * 2, PX * 2);
         g.fillStyle = g.createPattern(pc, 'repeat');
         g.fill('nonzero');
         // the cooler edge: everything outside the pool, dark, casts its shadow in over the lava's edge
@@ -252,9 +284,9 @@
         return;
       }
       var hot = g.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, Math.max(W, H) * 0.6);
-      hot.addColorStop(0, '#ffbc48');
-      hot.addColorStop(0.45, '#f2761c');
-      hot.addColorStop(1, '#c2360c');
+      hot.addColorStop(0, HOT[0]);
+      hot.addColorStop(0.45, HOT[1]);
+      hot.addColorStop(1, HOT[2]);
       g.fillStyle = hot;
       g.fill('nonzero');
       g.save();
@@ -269,7 +301,7 @@
           g[j ? 'lineTo' : 'moveTo'](px + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.8);
         }
         g.closePath();
-        g.fillStyle = rnd() < 0.5 ? 'rgba(92,22,8,0.9)' : 'rgba(128,36,10,0.85)';
+        g.fillStyle = rnd() < 0.5 ? PLATE[0] : PLATE[1];
         g.fill();
       }
       for (var b = 0; b < cells.length * 2; b++) { // bright bubbles
@@ -283,8 +315,8 @@
   };
   // The cave mouth: the owner's picture, or (without it) a mound of dark rock with a glowing way in, two amber eyes and
   // fangs over it (a serpent's lair).
-  var mouthTexture = function (w) {
-    if (real(ART.mouth)) return F.ensureTexture(w, ART.mouth);
+  var mouthTexture = function (w, cfg) {
+    if (real(cfg.art.mouth)) return F.ensureTexture(w, cfg.art.mouth);
     return canvasTex(w, 'fx-lairmouth', 384, 364, function (g, W, H) {
       var line = '#1e1210', cx = W / 2, base = H - 6;
       g.lineJoin = 'round';
@@ -373,9 +405,9 @@
   };
   // The gate down: the owner's picture, its two halves (shut, open) as two frames of one texture; without it, a round
   // stone seal in the floor with the moon the Bakunawa eats, and open, a glowing stair going down. Gives [key, frame].
-  var gateFrame = function (w, open) {
-    if (!real(ART.gate)) return [gateTexture(w, open), undefined];
-    var key = F.ensureTexture(w, ART.gate), t = w.textures.get(key);
+  var gateFrame = function (w, open, cfg) {
+    if (!real(cfg.art.gate)) return [gateTexture(w, open), undefined];
+    var key = F.ensureTexture(w, cfg.art.gate), t = w.textures.get(key);
     if (!t.has('open')) { // (again after it was let go elsewhere and came back: 19zzzz-perf.js)
       var src = t.source[0], fw = Math.floor((src.width - 4) / 2); // (side by side, 4 px apart: the importer)
       t.add('shut', 0, 0, 0, fw, src.height);
@@ -520,11 +552,12 @@
 
   // ---------- Magayon: the cave mouth ----------
   P.setupLairMouth = function () {
-    var p = this.points.lair_mouth;
+    var cfg = mouthOn(this.mapKey), p = cfg && this.points[cfg.mouth];
     if (!p || this.lairMouth) return;
     this.lairMouth = true;
-    var img = this.add.image(p.x, p.y + 0.08 * T, mouthTexture(this)).setOrigin(0.5, 1);
-    img.setDisplaySize(MOUTH.w * T, real(ART.mouth) ? MOUTH.w * T * img.height / img.width : MOUTH.h * T);
+    var img = this.add.image(p.x, p.y + 0.08 * T, mouthTexture(this, cfg)).setOrigin(0.5, 1);
+    img.setDisplaySize(MOUTH.w * T, real(cfg.art.mouth) ? MOUTH.w * T * img.height / img.width : MOUTH.h * T);
+    if (!cfg.lair && !real(cfg.art.mouth)) img.setTint(cfg.propTint); // (a place's drawn stand-in, in its cave's colour)
     F.depthTo(img, DEPTH.actor + p.y / 1e5);
     var glow = this.add.image(p.x, p.y - 0.3 * T, glowTexture(this)).setDisplaySize(1.6 * T, 1.2 * T).setBlendMode(ADD).setAlpha(0.5).setDepth(img.depth + 0.00001);
     this.tweens.add({ targets: glow, alpha: 0.85, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -541,22 +574,22 @@
   // ---------- a floor ----------
   var create = P.create;
   P.create = function () {
-    var s = F.session && F.session.state, on = !!s && s.map === 'lair', floor = floorNow();
+    var s = F.session && F.session.state, cfg = s ? F.dungeonOf(s.map) : null, on = !!cfg, floor = floorNow();
     // (set before the world is made: setupWild, in 19v-wild.js, asks L.wildHere and wildFree)
     this.lairMouth = false;
-    this.lair = on ? { floor: floor, down: {}, seen: false, open: false, gate: null, gateRect: floor < LA.floors ? gateRect() : null, onGate: false, embers: 0, lava: [] } : null;
+    this.lair = on ? { cfg: cfg, floor: floor, down: {}, seen: false, open: false, gate: null, gateRect: floor < cfg.floors ? gateRect(cfg) : null, onGate: false, embers: 0, lava: [] } : null;
     create.call(this);
-    if (this.mapKey === 'magayon') this.setupLairMouth();
-    if (!this.lair || this.mapKey !== 'lair') {
+    this.setupLairMouth();
+    if (!this.lair || this.mapKey !== cfg.key) {
       this.lair = null; // (its painted sheet is kept for the session: 2 MB, and painting it again cost ~0.2 s each time in)
       return;
     }
     var self = this, lr = this.lair;
-    this.map.getTileset('indoor').setImage(this.textures.get(lairSheet(this)));
-    this.game.renderer.config.backgroundColor = Phaser.Display.Color.HexStringToColor('#140605');
-    if (floor === 1) L.lairReach(s, 1);
+    this.map.getTileset('indoor').setImage(this.textures.get(lairSheet(this, cfg)));
+    this.game.renderer.config.backgroundColor = Phaser.Display.Color.HexStringToColor(cfg.bg);
+    if (floor === 1) cfg.reach(s, 1);
     this.setupLava();
-    this.props.forEach(function (p) { p.setTint(0xd8957c); }); // (Magayon's rocks, in the light of the lava)
+    this.props.forEach(function (p) { p.setTint(cfg.propTint); }); // (Magayon's rocks, in the light of the lava)
     this.time.addEvent({ delay: 240, loop: true, callback: this.lairEmbers, callbackScope: this });
     this.setupLairGate();
     this.setupLairLift();
@@ -567,10 +600,16 @@
     F.session.lairNew = null;
     this.time.delayedCall(500, function () {
       if (!F.ui || !self.sys.isActive() || F.ui.modals.length) return; // (a panel opened at once: not over its title)
-      var boss = L.lairBossFloor(floor) && floor < LA.floors, bottom = floor >= LA.floors;
-      var line = bottom ? "Floor 50, the bottom of the Lair. The Bakunawa sleeps here: it rises only for two hunters or more."
-        : "Bakunawa's Lair, floor " + floor + (boss ? '. A Bungisngis guards it!' : '. Clear it to open the gate down.');
-      if (news && (floor - 1) % LA.liftEvery === 0 && floor > 1) line = 'Floor ' + floor + '! The lift by the way in now stops here.';
+      var line;
+      if (cfg.lair) {
+        var boss = L.lairBossFloor(floor) && floor < LA.floors, bottom = floor >= LA.floors;
+        line = bottom ? "Floor 50, the bottom of the Lair. The Bakunawa sleeps here: it rises only for two hunters or more."
+          : "Bakunawa's Lair, floor " + floor + (boss ? '. A Bungisngis guards it!' : '. Clear it to open the gate down.');
+      } else { // a place's cave: its guard and its boss
+        var d = cfg.d, who = floor === d.bossFloor && d.boss ? d.boss : floor === d.guardFloor && d.guard ? d.guard : null;
+        line = cfg.name + ', floor ' + floor + (who ? '. ' + WI.animals[who].name + (who === d.boss ? ' waits at the bottom!' : ' guards it!') : '. Clear it to open the gate down.');
+      }
+      if (news && (floor - 1) % cfg.liftEvery === 0 && floor > 1) line = 'Floor ' + floor + '! The lift by the way in now stops here.';
       F.ui.toast(line, 3200, FIRE);
     });
   };
@@ -594,20 +633,27 @@
       }
       var x0 = Math.min.apply(null, pool.map(function (c) { return c[0]; })), y0 = Math.min.apply(null, pool.map(function (c) { return c[1]; }));
       var cw = Math.max.apply(null, pool.map(function (c) { return c[0]; })) - x0 + 1, ch = Math.max.apply(null, pool.map(function (c) { return c[1]; })) - y0 + 1;
-      var key = poolTexture(self, 'fx-lairpool' + (n++) + '-' + x0 + '-' + y0, pool, x0, y0, cw, ch);
+      var key = poolTexture(self, (lr.cfg.lair ? 'fx-lairpool' : 'fx-' + lr.cfg.key + 'pool') + (n++) + '-' + x0 + '-' + y0, pool, x0, y0, cw, ch, lr.cfg);
       self.add.image((x0 - EDGE) * T, (y0 - EDGE) * T, key).setOrigin(0, 0).setDisplaySize((cw + EDGE * 2) * T, (ch + EDGE * 2) * T).setDepth(DEPTH.Walls + 0.05);
       glows.push(self.add.image((x0 + cw / 2) * T, (y0 + ch / 2) * T, glowTexture(self)).setDisplaySize((cw + 1.4) * T, (ch + 1.4) * T).setBlendMode(ADD).setAlpha(0.3).setDepth(DEPTH.Walls + 0.1));
     });
     if (glows.length) this.tweens.add({ targets: glows, alpha: 0.5, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
   };
   P.lairStrength = function (a) {
+    if (this.lair && !this.lair.cfg.lair) { // a place's cave: its boss is as strong as the crew (L.dunHp)
+      if (!a.def.dungeon) return;
+      a.hp = a.max = L.dunHp(a.kind, 1 + Object.keys(this.remotes || {}).length);
+      a.crew = 1 + Object.keys(this.remotes || {}).length;
+      if (a.def.boss) this.wildBar(a);
+      return;
+    }
     if (!a.def.lair || a.def.great) return;
     a.hp = a.max = L.lairHp(a.kind, this.lair.floor);
     if (a.def.boss) this.wildBar(a);
   };
   P.lairEmbers = function () {
     var lr = this.lair, view = this.cameras.main.worldView;
-    if (!lr || !lr.lava.length || lr.embers > 14 || this.busy) return;
+    if (!lr || !lr.cfg.embers || !lr.lava.length || lr.embers > 14 || this.busy) return;
     var p = lr.lava[Math.floor(Math.random() * lr.lava.length)];
     if (!view.contains(p.x, p.y)) return;
     lr.embers++;
@@ -617,18 +663,18 @@
   };
   // The cave is as dark by day as by night, lit by its lava (the night sheet is blue: only a touch of it).
   var darkness = U.darkness;
-  U.darkness = function () { return F.world && F.world.mapKey === 'lair' ? 0.1 : darkness.call(this); };
+  U.darkness = function () { return F.world && F.dungeonOf(F.world.mapKey) ? 0.1 : darkness.call(this); };
   var musicMood = P.musicMood;
-  P.musicMood = function () { return this.mapKey === 'lair' ? 'mine' : musicMood.call(this); };
+  P.musicMood = function () { return F.dungeonOf(this.mapKey) ? 'mine' : musicMood.call(this); };
 
   // ---------- the gate down ----------
   P.setupLairGate = function () {
     var lr = this.lair, g = lr.gateRect;
     if (!g) { // floor 50: no way further down
-      this.objects = this.objects.filter(function (o) { return o.type !== 'lair_gate'; });
+      this.objects = this.objects.filter(function (o) { return !isGate(o); });
       return;
     }
-    var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false);
+    var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false, lr.cfg);
     var img = this.add.image(x, y, tf[0], tf[1]).setDisplaySize(size, size).setDepth(DEPTH.flat);
     if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
       img.setOrigin(0.5, 1).setPosition(x, (g.y1 + 1 + GATE.drop) * T).setDisplaySize(size, size * img.height / img.width * GATE.squash);
@@ -644,7 +690,7 @@
     var lr = this.lair, self = this;
     if (!lr || !lr.gate || lr.open) return;
     lr.open = true;
-    var tf = gateFrame(this, true);
+    var tf = gateFrame(this, true, lr.cfg);
     lr.gate.img.setTexture(tf[0], tf[1]);
     lr.gate.glow.setVisible(true).setAlpha(0);
     this.tweens.add({ targets: lr.gate.glow, alpha: 0.8, duration: 700, onComplete: function () {
@@ -662,8 +708,8 @@
   P.lairDown = function () {
     var lr = this.lair, s = this.state, next = lr.floor + 1;
     if (this.busy || !lr.open) return;
-    if (L.lairReach(s, next)) F.session.lairNew = next; // (the deepest you have been: the lift's stops)
-    this.travel('lair', 'entrance', next);
+    if (lr.cfg.reach(s, next)) F.session.lairNew = next; // (the deepest you have been: the lift's stops)
+    this.travel(lr.cfg.key, 'entrance', next);
   };
   P.lairStep = function () {
     var lr = this.lair, g = lr.gateRect, f = this.feet(), tx = Math.floor(f.x / T), ty = Math.floor(f.y / T);
@@ -677,7 +723,7 @@
 
   // ---------- the lift ----------
   P.setupLairLift = function () {
-    if (F.session.visit || L.lairStops(this.state).length < 2) return;
+    if (F.session.visit || this.lair.cfg.stops(this.state).length < 2) return;
     var b = LIFT, x = (b.x0 + b.x1 + 1) / 2 * T, foot = (b.y1 + 1) * T;
     this.add.image(x, foot + 0.1 * T, liftTexture(this)).setOrigin(0.5, 1).setDisplaySize(b.w * T, b.h * T).setDepth(this.cursor ? this.cursor.depth - 0.01 : DEPTH.actor); // (against the back wall)
     this.objects.push({ type: 'lairlift', name: 'lift', x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, props: {} });
@@ -687,21 +733,21 @@
     for (var y = b.y0; y <= b.y1; y++) for (var tx = b.x0; tx <= b.x1; tx++) this.blocked[this.idx(tx, y)] = true;
   };
   U.openLairLift = function (page) {
-    var self = this, s = F.session.state, here = floorNow();
-    var rows = L.lairStops(s).slice().reverse().map(function (floor) { // (the deepest first)
+    var self = this, s = F.session.state, here = floorNow(), cfg = (F.world && F.dungeonOf(F.world.mapKey)) || LAIR_CFG;
+    var rows = cfg.stops(s).slice().reverse().map(function (floor) { // (the deepest first)
       var at = here === floor;
       return {
-        icon: C.ICON.ember_shard, name: 'Floor ' + floor, desc: floor === 1 ? 'The way in, under Magayon.' : 'Past the guard of floor ' + (floor - 1) + '.',
+        icon: C.ICON[cfg.icon], name: 'Floor ' + floor, desc: floor === 1 ? (cfg.lair ? 'The way in, under Magayon.' : 'The way in.') : cfg.lair ? 'Past the guard of floor ' + (floor - 1) + '.' : 'You have been this far.',
         buttons: [{ label: at ? 'Here' : 'Go', color: at ? HERE : GO, cb: function () {
           if (at) return;
           self.closeModal();
           sfx('ladder');
-          F.world.travel('lair', 'entrance', floor);
+          F.world.travel(cfg.key, 'entrance', floor);
         } }],
       };
     });
-    this.listPanel({ title: 'Lair Lift', rows: rows, page: page || 0, reopen: function (t, p) { self.openLairLift(p); },
-      sub: function () { return 'Stops every ' + LA.liftEvery + ' floors you have reached.'; } });
+    this.listPanel({ title: cfg.lift, rows: rows, page: page || 0, reopen: function (t, p) { self.openLairLift(p); },
+      sub: function () { return cfg.liftEvery > 1 ? 'Stops every ' + cfg.liftEvery + ' floors you have reached.' : 'Stops at every floor you have reached.'; } });
   };
 
   // What the action button does here: the ladder, the lift and the gate come first, even with the Bow in your hands.
@@ -709,7 +755,7 @@
   P.resolve = function () {
     if (this.lair) {
       var t = this.facing(), o = this.inMap(t.x, t.y) ? this.objectAt(t.x, t.y) : null;
-      if (o && (o.type === 'warp' || o.type === 'lairlift' || o.type === 'lair_gate')) {
+      if (o && (o.type === 'warp' || o.type === 'lairlift' || isGate(o))) {
         var a = this.objectAction(o, L.held(this.state), null);
         if (a) return a;
       }
@@ -720,7 +766,7 @@
   P.extraObjectAction = function (o, held, def) {
     var self = this;
     if (o.type === 'lairlift') return { label: 'Lift', icon: C.ICON.crate, run: function () { F.ui.openLairLift(); } };
-    if (o.type === 'lair_gate' && this.lair && this.lair.gate) {
+    if (isGate(o) && this.lair && this.lair.gate) {
       if (this.lair.open) return { label: 'Go down', icon: -1, run: function () { self.lairDown(); } };
       return { label: 'Sealed', icon: -1, disabled: true, why: sealed(this) };
     }
@@ -744,7 +790,7 @@
   P.wildArrive = function (dt) {
     if (!this.lair) return wildArrive.call(this, dt);
     var w = this.wild, s = this.state;
-    if (this.lair.floor !== LA.bakunawaFloor) return;
+    if (!this.lair.cfg.lair || this.lair.floor !== LA.bakunawaFloor) return; // (a place's cave: its boss is on its floor from the start)
     w.next -= dt;
     if (w.next > 0) return;
     w.next = rand(WI.arrive[0], WI.arrive[1]);
@@ -787,7 +833,7 @@
         if (F.ui) F.ui.toast('The Lair\'s fire chose you! The Fire look is yours: wear it from Looks.', 4200, FIRE);
       });
     }
-    delete s.wild.gone['lair:' + a.slot]; // (a friend's hunt leaves no slot waiting either)
+    delete s.wild.gone[this.mapKey + ':' + a.slot]; // (a friend's hunt leaves no slot waiting either)
   };
   // a friend runs the floor: what they report is the floor (their guard's bar shows at once)
   var wildHear = P.wildHear;
@@ -801,7 +847,7 @@
   // (Magayon's animals are placed after the mouth's rock is solid)
   var setupWild = P.setupWild;
   P.setupWild = function () {
-    if (this.mapKey === 'magayon') this.setupLairMouth();
+    this.setupLairMouth();
     return setupWild.call(this);
   };
   // the gate is not ground to stand on for them
@@ -844,7 +890,7 @@
   var hostMoved = O.hostMoved;
   O.hostMoved = function (v, host) {
     var w = F.world;
-    if (host && host.map === 'lair' && w && w.mapKey === 'lair' && host.fl !== F.session.lairFloor && O.hostToLair) return O.hostToLair(v, host);
+    if (host && F.dungeonOf(host.map) && w && w.mapKey === host.map && host.fl !== F.session.lairFloor && O.hostToLair) return O.hostToLair(v, host);
     return hostMoved.call(O, v, host);
   };
 })(window.Farm = window.Farm || {});

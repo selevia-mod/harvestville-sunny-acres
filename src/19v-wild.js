@@ -29,8 +29,19 @@
   var FACING = { down: 0, up: 3, side: 6 }, STEPS = [1, 0, 2, 0];
   // (Bakunawa's Lair, 4 Nov 2026: a creature with no row of its own yet borrows another's, sheetRow, in its own colour,
   // tint: 00-zzzzzzlair.js. The colour is on the animal only, not its shadow; a hit flashes white and it comes back.)
-  var frameOf = function (kind, k) { var def = WI.animals[kind]; return WI.order.indexOf((def && def.sheetRow) || kind) * 12 + k; };
-  var untint = function (a) { if (a.def.tint) a.img.setTint(a.def.tint); else a.img.clearTint(); };
+  // (Hunting places, 6 Nov 2026: a place's creature can have a sheet of its own, sheet: its key, 12 frames in the wild
+  // sheet's order and size, row: which 12; its shadow in sheet + 'shade'. Until that picture is in, its stand-in row.)
+  var own = function (def) { return !!(def && def.sheet && F.images && F.images[def.sheet]); };
+  var ownShade = function (def) { return own(def) && !!F.images[def.sheet + 'shade']; };
+  var frameOf = function (kind, k, shade) {
+    var def = WI.animals[kind];
+    if (shade ? ownShade(def) : own(def)) return (def.row || 0) * 12 + k;
+    return WI.order.indexOf((def && def.sheetRow) || kind) * 12 + k;
+  };
+  var sheetOf = function (def) { if (own(def)) return def.sheet; return 'wild'; };
+  var shadeOf = function (def) { return ownShade(def) ? def.sheet + 'shade' : 'wildshade'; };
+  var tintOf = function (def) { return def.tint && !own(def) ? def.tint : 0; };
+  var untint = function (a) { if (tintOf(a.def)) a.img.setTint(a.def.tint); else a.img.clearTint(); };
 
   // Standing on the ground (owner, 30 Oct: "they look like they are floating"): assets/wildshade has the shadow of each
   // frame, a dark patch under every foot and a soft shape joining them (the feet are not on one line in this view: the
@@ -236,12 +247,12 @@
     var a = {
       kind: kind, slot: slot, def: def, hp: def.hp, by: {}, mine: false, x: x, y: y, vx: 0, vy: 0, mode: 'idle', t: rand(300, 2500), cool: 0, step: 0,
       dir: 'side', left: Math.random() < 0.5, look: false, fr: FACING.side, lift: 0, breath: rand(0, 6), scale: scale, size: size, trail: 0, hitT: 0, glow: 0,
-      img: this.add.image(x, y, 'wild', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
-      sh: this.add.image(x, y, 'wildshade', frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setDepth(DEPTH.shadow),
+      img: this.add.image(x, y, F.ensureTexture(this, sheetOf(def)), frameOf(kind, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale),
+      sh: this.add.image(x, y, F.ensureTexture(this, shadeOf(def)), frameOf(kind, FACING.side, true)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setDepth(DEPTH.shadow),
     };
     a.img.setFlipX(!a.left);
     a.sh.setFlipX(!a.left);
-    if (def.tint) a.img.setTint(def.tint); // (the Lair)
+    if (tintOf(def)) a.img.setTint(def.tint); // (the Lair; a hunting place's stand-ins)
     this.wild.animals.push(a);
     this.drawWild(a);
     return a;
@@ -282,6 +293,12 @@
     }
     return !!t && t.index === w.soil;
   };
+  // (a hunting place says which of the three it looks most like: C.PLACES[id].grass, 0 to 2)
+  P.grassCol = function () {
+    if (GRASS_COL[this.mapKey] != null) return GRASS_COL[this.mapKey];
+    var p = C.PLACES && C.PLACES[L.placeOf ? L.placeOf(this.mapKey) : null];
+    return p && p.grass != null ? p.grass : 0;
+  };
   P.wildGrass = function (a, dt, seen) {
     var g = a.grass, wide = (0.5 + a.def.w * 0.55) * a.size * T, self = this;
     var show = a.lift < 0.08 * T && Math.hypot(a.vx, a.vy) < 1.8 * T;
@@ -294,7 +311,7 @@
       g.x = a.x + a.vx / len * wide * 0.14;
       g.y = a.y + a.vy / len * 0.08 * T;
       g.on = this.wildGrassy(g.x, g.y);
-      g.now.setFrame(GRASS_COL[this.mapKey] + (Math.random() < 0.5 ? 3 : 0)).setFlipX(Math.random() < 0.5).setPosition(g.x, g.y + 0.07 * T)
+      g.now.setFrame(this.grassCol() + (Math.random() < 0.5 ? 3 : 0)).setFlipX(Math.random() < 0.5).setPosition(g.x, g.y + 0.07 * T)
         .setDisplaySize(wide, wide * 0.27).setDepth(DEPTH.actor + (g.y + 0.07 * T) / 1e5);
     }
     var step = dt / 120, want = g.on && show ? seen : 0;
@@ -423,7 +440,7 @@
     var fr = this.wildPose(a, d), was = a.fr, flip = fr >= 6 && fr !== 9 && !a.left;
     a.fr = fr;
     a.img.setFrame(frameOf(a.kind, fr)).setFlipX(flip);
-    a.sh.setFrame(frameOf(a.kind, fr)).setFlipX(flip);
+    a.sh.setFrame(frameOf(a.kind, fr, true)).setFlipX(flip);
     this.wildFeel(a, was, dt);
     this.drawWild(a, dt);
   };
@@ -502,7 +519,7 @@
   // A charge reached you: energy lost, a bump, and it backs off a while.
   P.wildHit = function (a) {
     var s = this.state, f = this.feet(), dx = f.x - a.x, dy = f.y - a.y, len = Math.max(1, Math.hypot(dx, dy));
-    var lost = L.chargeLoss(s, a.def.hit); // (a dish's power halves it; the Fire Charm takes 40% off: 01-logicN.js)
+    var lost = L.chargeLoss(s, a.def.hit, a.kind); // (a dish's power halves it; the Fire Charm takes 40% off; gear 1 or 2: 01-logicZZZZ-places.js)
     s.energy = Math.max(0, s.energy - lost);
     this.floatTextAt(f.x, f.y - 1.6 * T, '-' + lost + ' energy');
     this.cameras.main.shake(160, 0.004);
@@ -1045,10 +1062,12 @@
       buttons: [{ label: 'Look', cb: function () { self.closeModal(); self.openBook(st, who, function () { self.playerMenu(F.session.visit.host, who); }); } }] };
   };
   U.openBook = function (st, who, back, page) {
-    var self = this, I = C.ITEMS, total = 0, rows = WI.order.map(function (k) {
+    // (a hunting place's creatures after the others, once it is in the game: 6 Nov 2026)
+    var kinds = WI.order.concat((WI.more || []).filter(function (k) { var d = WI.animals[k]; return !d.tameOnly && (!L.placeShown || L.placeShown(d.place)); }));
+    var self = this, I = C.ITEMS, total = 0, rows = kinds.map(function (k) {
       var def = WI.animals[k], n = st.wild.by[k] || 0, seen = n > 0, best = (st.wild.best[k] || 0) / 10;
       total += n;
-      if (!seen && def.rare) return { icon: C.ICON.exclaim, name: '???', desc: 'A rare one. ' + (WI.areas.pulag.extra.some(function (x) { return x.kind === k; }) ? 'Seen in Pulag, some days.' : 'Seen in Makiling, some days.') };
+      if (!seen && def.rare) return { icon: C.ICON.exclaim, name: '???', desc: 'A rare one. ' + (def.place ? 'Seen in ' + C.PLACES[def.place].name + ', some days.' : WI.areas.pulag.extra.some(function (x) { return x.kind === k; }) ? 'Seen in Pulag, some days.' : 'Seen in Makiling, some days.') };
       return { icon: I[def.drops[0][0]].icon, name: def.name + (n ? ' x' + n : ''), desc: seen ? 'Biggest: ' + best + ' kg.' : 'Not hunted yet.' };
     });
     this.listPanel({

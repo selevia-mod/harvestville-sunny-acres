@@ -4958,3 +4958,146 @@ test('Bayanihan Projects: the board by the plaza offline (its tour, the project,
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- hunting places (owner, 6 Nov 2026; src/19zzzzz-places.js) ----------
+// SAMPLE: the engine proved on the sample place; the place agents replace this test with their own place's.
+test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample place; gear takes a charge to 1; tame its animal (it runs off once and comes back); its hidden chest; its person\'s story; its 2-floor cave and the boss\'s chest; the Medals page (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.gold = 5000; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); L.addItem(s, 'berry', 10); L.addItem(s, 'sample_hide', 3); L.addItem(s, 'sample_fang', 1); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  await page.evaluate(() => { window.gameHost.devPlaces = true; });
+  // Kanor's Make tab: the sample set, four pieces, each on as it is made
+  const trophies = await page.evaluate(() => Farm.Config.WILD.trophies.length);
+  for (let k = 0; k < 4; k++) { // (the set's rows come after the trophies, 4 rows a page)
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, Math.floor((trophies + k) / 4));
+    await tapButton(page, '100G');
+  }
+  await page.waitForFunction(() => Farm.Logic.wornSet(Farm.session.state) === 'sample_place', null, SLOW);
+  await shot(page, 'places-kanor-make');
+  await closeAll(page);
+  // the Gear page from the Bag: four slots, the set worn
+  await page.evaluate(() => Farm.ui.openInventory());
+  await tapButton(page, 'Gear');
+  assert.match(await modalText(page), /Gear[\s\S]*Head: Sample Hat[\s\S]*Body: Sample Vest[\s\S]*Feet: Sample Shoes[\s\S]*Charm: Sample Charm/);
+  assert.match(await modalText(page), /A charge costs you 6 less, 8 less in Sample Place/);
+  await shot(page, 'places-gear');
+  await closeAll(page);
+  // the Jeep by the Lodge
+  await teleport(page, 27, 10, 'up');
+  assert.strictEqual(await actionLabel(page), 'Jeep', 'even with the Bow in your hands');
+  await tapAction(page);
+  assert.match(await modalText(page), /Kanor's Jeep[\s\S]*Pulag Grassland[\s\S]*Sample Place[\s\S]*0% explored[\s\S]*Makiling Forest[\s\S]*Opens at 10 hunts/);
+  await shot(page, 'places-jeep');
+  await tapButton(page, 'Go');
+  await waitMap(page, 'sample_place');
+  const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: !!w.placeNpc, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: w.wild.animals.map((a) => a.kind).sort(), comp: !!w.comp }; });
+  assert.deepStrictEqual(here, { jeep: true, npc: true, chests: 1, near: true, kinds: ['sample_hog', 'sample_kid'], comp: false });
+  await shot(page, 'places-sample-arrive');
+  // a charge: the whole set takes 8 off, never under 1
+  const lost = await page.evaluate(() => { const w = Farm.world, s = Farm.session.state, a = w.wild.animals.find((x) => x.kind === 'sample_hog'), e = s.energy; w.wildHit(a); return e - s.energy; });
+  assert.strictEqual(lost, 1);
+  // the hog hunted (its hits counted as yours)
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_hog'); a.hp = 1; w.wildStruck(a); });
+  await page.waitForFunction(() => Farm.session.state.places.sample_place.n === 1, null, SLOW);
+  // taming: hold berries, sneak up to it while it is calm, Feed
+  const kid = () => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_kid'); return a ? { hearts: a.hearts && a.hearts.visible ? a.hearts.text : null } : null; });
+  const nextTo = async () => {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_kid'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 8.5 * T; a.y = 9.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; w.setFeet(7.5 * T, 9.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+  };
+  await hold(page, 'berry');
+  await nextTo();
+  assert.strictEqual(await actionLabel(page), 'Feed');
+  await page.evaluate(() => { window.__rnd = Math.random; Math.random = () => 0.9; });
+  await tapAction(page);
+  await page.evaluate(() => { Math.random = window.__rnd; });
+  assert.strictEqual((await kid()).hearts, '♥ 1/3');
+  await shot(page, 'places-tame-fed');
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.1); window.__feed = r; }); // (the 1 in 4: it runs off)
+  await nextTo();
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.wild.animals.some((x) => x.kind === 'sample_kid'), null, SLOW);
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await advance(page, 11);
+  await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 20 && !w.wild.animals.some((x) => x.kind === 'sample_kid'); i++) { w.wild.next = 0; w.wildArrive(0); } });
+  assert.ok(await kid(), 'back after a while');
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; });
+  await nextTo();
+  await tapAction(page);
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'sample_place') && Farm.world.comp && !Farm.world.wild.animals.some((x) => x.kind === 'sample_kid'), null, SLOW);
+  await page.waitForFunction(() => /is tamed/.test(Farm.ui.toastText.text), null, SLOW);
+  await frames(page, 10);
+  await shot(page, 'places-companion');
+  // its skill: it fetches what lies near you
+  await page.evaluate(() => { const w = Farm.world, f = w.feet(); w.dropWild('sample_hide', f.x + 2.4 * 256, f.y + 0.5 * 256); });
+  const hides = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'sample_hide'));
+  await page.waitForFunction((n) => Farm.Logic.countItem(Farm.session.state, 'sample_hide') === n + 1 && !Farm.world.wildDrops.length, hides, SLOW);
+  // the hidden chest shows as you come near, and opens once
+  await teleport(page, 4, 4, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[0] && Farm.world.placeChests[0].img.alpha > 0.6, null, SLOW);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
+  await tapAction(page);
+  await page.waitForFunction(() => /A hidden chest!/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows')), arrows + 5);
+  // the person: the line for how far you are (hunted, tamed)
+  await teleport(page, 11, 5, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /SAMPLE GUIDE[\s\S]*A friend for life/);
+  await shot(page, 'places-npc');
+  await closeAll(page);
+  // the cave: in at the door, floor 1's guard and its two, the gate, floor 2's boss, its chest
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(15.5 * 256, 2.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'sample_cave');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), guardBar: !!Farm.world.wild.animals[0].bar, sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['sample_guard', 'sample_bat', 'sample_bat'], guardBar: true, sheet: 'indoor-sample_cave', comp: true });
+  await shot(page, 'places-cave-1');
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.sample_place.g), 1, 'the guard is down');
+  await page.evaluate(() => { const g = Farm.world.lair.gateRect; Farm.world.setFeet((g.x0 + 1) * 256, (g.y0 + 1.5) * 256); });
+  await page.waitForFunction(() => Farm.session.lairFloor === 2 && Farm.world.mapKey === 'sample_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
+  assert.deepStrictEqual(boss, { hp: 6, max: 6, bar: true }, 'soloable: no more for one');
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.gate), null, 'the bottom: no gate down');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_boss'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 2; w.wildStruck(a); w.wildStruck(a); });
+  await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
+  await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
+  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+  await frames(page, 3);
+  await shot(page, 'places-boss-chest');
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const fangs = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'sample_fang'));
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'sample_fang') + Farm.world.wildDrops.filter((d) => d.id === 'sample_fang').length >= n + 2, fangs));
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'sample_place')), 0);
+  // medals: the farmer card in the pause menu, then the page
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openPause());
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  const link = await page.evaluate(() => { const m = Farm.ui.modals[0], l = m.c.list.find((o) => o.name === 'medals-link'); return l && l.list[0].text; });
+  assert.match(link, /^Medals \d+$/);
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openMedals(); });
+  assert.match(await modalText(page), /My Medals[\s\S]*\d+ of \d+ medals/);
+  const earned = await page.evaluate(() => [9900, 9901, 9902, 9903, 9904, 9910].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true]);
+  await shot(page, 'places-medals');
+  // closed in the cave: it opens at the cave's door, in the place
+  await closeAll(page);
+  const closed = await page.evaluate(() => { Farm.world.save(); return gameHost.saves[gameHost.saves.length - 1]; });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  const again = await open(JSON.parse(closed));
+  await closeAll(again.page);
+  await waitMap(again.page, 'sample_place');
+  const back = await again.page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_dungeon; return { far: Math.hypot(f.x - p.x, f.y - p.y) / 256, comp: !!w.comp, deep: Farm.session.state.places.sample_place.deep }; });
+  assert.ok(back.far < 1, 'at the cave door');
+  assert.deepStrictEqual([back.comp, back.deep], [true, 2]);
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});

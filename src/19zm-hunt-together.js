@@ -27,6 +27,7 @@
     if (!O.on || O.huntOff || !F.Net.available()) return;
     var w = F.world, map = w && w.mapKey && !F.session.visit && L.isWildMap(w.mapKey) ? w.mapKey : null;
     if (map === 'lair') map = 'magayon'; // (the server knows the three Wild Lands: the Lair is under Magayon, and Join walks there)
+    else if (map && L.isNewPlaceMap && L.isNewPlaceMap(map)) map = 'pulag'; // (a hunting place: the server knows only the three, so Pulag, where the Jeep is)
     if (map === told) return;
     told = map;
     F.Net.rpc('farm_hunt_here_v1', { p_map: map }).catch(function (e) { if (!off(e) && told === map) told = undefined; }); // (tried again on the next map)
@@ -143,7 +144,7 @@
 
   // ---------- the biggest catch of the week ----------
   O.recordCatch = function (kind, kg) {
-    if (!O.on || O.huntOff || !WI.animals[kind] || WI.animals[kind].lair) return; // (the Lair's creatures are not on the board: the server knows the Wild Lands' 12)
+    if (!O.on || O.huntOff || !WI.animals[kind] || WI.animals[kind].lair || WI.animals[kind].place) return; // (the Lair's creatures are not on the board: the server knows the Wild Lands' 12)
     var kg10 = Math.round(kg * 10);
     F.Net.rpc('farm_catch_v1', { p_kind: kind, p_kg10: kg10 }).then(function (r) {
       if (!r || !r.ok || Number(r.best) !== kg10) return; // (not bigger than this week's)
