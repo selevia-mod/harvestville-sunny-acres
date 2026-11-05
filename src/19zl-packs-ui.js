@@ -27,7 +27,7 @@
     if (!wildMap(to) || F.packReady('wild')) return travel.call(this, to, spawn, floor);
     if (this.busy || this.packGate) return;
     var go = function () { self.packGate = false; if (self.sys && self.sys.isActive()) travel.call(self, to, spawn, floor); };
-    if (F.packOnPhone('wild') || (F.canFetch() && F.packCount('wild'))) { // on the phone already (or most of it): only a moment to open it
+    if (F.packOnPhone('wild') || (F.canFetch() && F.packCount('wild'))) { // on the phone already (or most of it, a download cut short: the rest comes now, else the card): only a moment to open it
       this.packGate = true;
       if (F.ui) F.ui.toast('Opening the Wild Lands...', 1500);
       return F.loadPack('wild').then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack('wild'); } });
@@ -161,7 +161,7 @@
     var s = F.session && F.session.state;
     if (!s || !wildMap(s.map) || F.packReady('wild')) return go();
     var back = function () { s.map = 'town'; s.player = { x: null, y: null, dir: 'right' }; F.session.spawn = 'from_pulag'; go(); };
-    if (!F.packOnPhone('wild') && !(F.canFetch() && F.packCount('wild'))) return back(); // (in town by the west road: the Wild Lands ask when you walk back out)
+    if (!F.packOnPhone('wild')) return back(); // (in town by the west road: the Wild Lands ask when you walk back out)
     var done = false, timer = setTimeout(function () { if (!done) { done = true; back(); } }, 8000);
     F.loadPack('wild').then(function (ok) { if (done) return; done = true; clearTimeout(timer); if (ok) go(); else back(); });
   };

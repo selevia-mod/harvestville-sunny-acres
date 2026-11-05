@@ -10,9 +10,6 @@ const WILD_PROPS = ['trail_sign', 'pili_tree', 'hot_spring', 'sulfur_vent', 'lav
   'mud_spring', 'mossy_log', 'fern_bush', 'mushroom_rock', 'jungle_grass', 'hunters_lodge', 'pine_tree', 'boulder_moss', 'bamboo_bush', 'wildflowers',
   'tall_grass', 'arrow_fly'];
 // (6 Nov 2026, the page was 19.46 MB of its 19.5 MiB: these came out of it)
-// Bakunawa's Lair: its mouth stands in Magayon and its gate and cave walls are inside, all behind the Wild Lands' door
-// (19zt-lair.js draws its own stand-ins when a picture is not in)
-const LAIR = ['props/lair_mouth', 'props/lair_gate', 'lair_cave'];
 // The furniture styles past Classic (furn_1, furn_2, ...) and their beds with the farmer asleep in them
 // (props/sleepbed[2]_v<style>_<boy|girl>). Classic (furn_0, props/sleepbed[2]_<who>) stays in the page: it is what a
 // style's piece shows as until its sheet is in (19zl2-packs-art.js).
@@ -20,8 +17,9 @@ const STYLES = fs.readdirSync(ASSETS).filter((f) => /^furn_[1-9]\d*\.png$/.test(
   .concat(fs.readdirSync(path.join(ASSETS, 'props')).filter((f) => /^sleepbed2?_v\d+_(boy|girl)\.png$/.test(f)).map((f) => 'props/' + f.slice(0, -4)))
   .sort();
 module.exports = {
-  // Pulag, Makiling and Magayon: their animals, Kanor, the bow poses, the flying arrow and the props only they use; the Lair's art
-  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n), LAIR),
+  // Pulag, Makiling and Magayon: their animals, Kanor, the bow poses, the flying arrow and the props only they use
+  // (not the Lair's art: a phone with the Wild Lands on it already must keep reaching the Lair offline)
+  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n)),
   // the farmers in their party hats, on their birthday
   party: ['player_bday', 'player_girl_bday'],
   // the furniture styles a farmer buys at Mira's (and sees in friends' houses)
