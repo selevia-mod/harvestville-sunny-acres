@@ -5331,3 +5331,125 @@ test('hunting places: Sierra Madre by the Jeep at 130 hunts; an Unggoy (its bana
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+
+// Place 12: Chocolate Hills, Bohol (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-12-bohol.js, src/19zzzzzz-place-12-bohol.js)
+test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a Wild Goat, a Musang and the rare Cocoa Goat hunted, the goat kid tamed with cabbage, a hidden chest, Mang Tonyo\'s first line and gift, into the Hill Hollows by the round door, the Punso Golem on floor 5, the Great Nuno on floor 10 and his chest, the medals (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.gold = 5000; s.wild.n = 80; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); L.addItem(s, 'cabbage', 12); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  // the Jeep by the Lodge: Chocolate Hills open at 80 hunts
+  await teleport(page, 27, 10, 'up');
+  assert.strictEqual(await actionLabel(page), 'Jeep');
+  await tapAction(page);
+  for (let p = 1; p < 6 && !/Chocolate Hills/.test(await modalText(page)); p++) await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openJeep(p); }, p);
+  assert.match(await modalText(page), /Chocolate Hills \| 0% explored\. 0 hunts here\./);
+  await shot(page, 'bohol-jeep');
+  const go = await page.evaluate(() => { // (the Go on Chocolate Hills' row)
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1], texts = [], gos = [];
+    const walk = (list) => list.forEach((o) => { if (o.type === 'Text' && o.text === 'Chocolate Hills') texts.push(o.getBounds()); if (o.type === 'Text' && o.text === 'Go' && o.parentContainer !== m.c) gos.push(o.getBounds()); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    const row = texts[0], b = gos.sort((p, q) => Math.abs(p.centerY - row.centerY) - Math.abs(q.centerY - row.centerY))[0];
+    return { x: b.centerX, y: b.centerY };
+  });
+  await page.touchscreen.tap(go.x, go.y);
+  await waitMap(page, 'bohol');
+  const here = await page.evaluate(() => {
+    const w = Farm.world, f = w.feet(), p = w.points.from_jeep, T = 256;
+    const at = (x, y) => w.walkable(x, y);
+    return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < T,
+      kinds: w.wild.animals.map((a) => a.kind).sort(), props: w.props.length, hillSolid: !at(4, 5) && at(4, 3), river: !at(25, 4), door: w.children.list.some((o) => o.texture && o.texture.key === 'fx-bohol-door'),
+      bohol: w.objects.filter((o) => o.type === 'bohol').length };
+  });
+  assert.deepStrictEqual(here, { jeep: true, npc: 'Mang Tonyo', chests: 5, near: true, kinds: ['kambing', 'kambing', 'kambing', 'kambing_kid', 'musang', 'musang'], props: 48, hillSolid: true, river: true, door: true, bohol: 0 });
+  await shot(page, 'bohol-arrive');
+  // one of each hunted: a Wild Goat, a Musang, and the rare Cocoa Goat (brought out for the test)
+  await page.evaluate(() => {
+    const w = Farm.world, f = w.feet(), slot = Farm.Logic.wildSlots('bohol').find((e) => e.kind === 'cocoagoat').slot;
+    w.addWildAnimal('cocoagoat', slot, f.x + 3 * 256, f.y - 2 * 256);
+    ['kambing', 'musang', 'cocoagoat'].forEach((k) => { const a = w.wild.animals.find((x) => x.kind === k); a.hp = 1; w.wildStruck(a); });
+  });
+  await page.waitForFunction(() => ['kambing', 'musang', 'cocoagoat'].every((k) => Farm.session.state.wild.by[k] === 1) && Farm.session.state.places.bohol.n === 3, null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.wildDrops.some((d) => d.id === 'cocoa_horn')), 'the Cocoa Horn on the ground');
+  // the goat kid: hold cabbage, come up to it while it is calm, Feed, nine times (it never runs off here)
+  const kid = () => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'kambing_kid'); return a ? { hearts: a.hearts && a.hearts.visible ? a.hearts.text : null } : null; });
+  const nextTo = async () => {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'kambing_kid'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 11.5 * T; a.y = 16.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; w.setFeet(10.5 * T, 16.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+  };
+  await hold(page, 'cabbage');
+  await page.evaluate(() => { window.__rnd = Math.random; Math.random = () => 0.9; });
+  for (let i = 1; i <= 8; i++) {
+    await nextTo();
+    assert.strictEqual(await actionLabel(page), 'Feed', 'feeding ' + i);
+    await tapAction(page);
+    assert.strictEqual((await kid()).hearts, '♥ ' + i + '/9');
+    if (i === 4) await shot(page, 'bohol-kid');
+  }
+  await nextTo();
+  await tapAction(page);
+  await page.evaluate(() => { Math.random = window.__rnd; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'bohol') && Farm.world.comp && Farm.world.comp.kind === 'kambing_kid', null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'cabbage')), 3);
+  // a hidden chest by the river shows as you come near, and opens once
+  await teleport(page, 21, 7, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[4] && Farm.world.placeChests[4].img.alpha > 0.6, null, SLOW);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  await tapAction(page);
+  await page.waitForFunction(() => /A hidden chest![\s\S]*Peanut Kisses[\s\S]*\(1 of 5\)/.test(Farm.ui.toastText.text), null, SLOW);
+  await shot(page, 'bohol-chest');
+  // Mang Tonyo by his hut: his first line, and its gift
+  await teleport(page, 9, 22, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  const kisses = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'peanut_kisses'));
+  await tapAction(page);
+  assert.match(await modalText(page), /MANG TONYO[\s\S]*Maayong pag-abot![\s\S]*Mang Tonyo gives you 3 Peanut Kisses\./);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'peanut_kisses')), kisses + 3);
+  await shot(page, 'bohol-tonyo');
+  await closeAll(page);
+  // the Hill Hollows: in through the round door; floor 1's White Duwende, in cream limestone
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(15.5 * 256, 5.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'bohol_cave');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp, tabi: Farm.session.boholTabi === Farm.session.state.day }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['duwendeputi', 'duwendeputi', 'duwendeputi'], sheet: 'indoor-bohol_cave', comp: true, tabi: true });
+  await shot(page, 'bohol-cave-1');
+  // floor 5 (jumped to, as the lift would once you reach it): the Punso Golem and its two
+  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const g5 = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
+  assert.deepStrictEqual(g5, { kind: 'punsogolem', hp: 22, bar: true, n: 3 });
+  await shot(page, 'bohol-cave-5');
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open && Farm.session.state.places.bohol.g === 1, null, SLOW);
+  // floor 10: the Great Nuno, as strong as one hunter; down, he leaves the day's chest
+  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'greatnuno'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, gate: Farm.world.lair.gate }; });
+  assert.deepStrictEqual(boss, { hp: 40, max: 40, bar: true, gate: null });
+  await shot(page, 'bohol-nuno');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'greatnuno'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
+  await page.waitForFunction(() => !!Farm.world.bossChest && /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
+  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const moss = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'moss_nuno') + (Farm.session.state.basket.moss_nuno || 0));
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  // his own on the floor, the chest's in the bag (or the basket at home, the bag being full by now)
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'moss_nuno') + (Farm.session.state.basket.moss_nuno || 0) + Farm.world.wildDrops.filter((d) => d.id === 'moss_nuno').length), moss + 2);
+  await shot(page, 'bohol-nuno-chest');
+  // the medals: first hunt, the guard, the boss, the tame, the three animals
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openMedals());
+  assert.match(await modalText(page), /My Medals/);
+  const earned = await page.evaluate(() => [1200, 1201, 1202, 1203, 1210, 1212, 1214].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true, true]);
+  assert.ok(await page.evaluate(() => !Farm.Logic.hasMedal(Farm.session.state, 1204)), 'not every chest yet');
+  await shot(page, 'bohol-medals');
+  await closeAll(page);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

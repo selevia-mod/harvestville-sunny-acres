@@ -956,6 +956,41 @@ Object.assign(MAPS, {
   // Place 14: Sierra Madre and Kapre's Roots (owner, 6 Nov 2026): root-woven earth, glowing pools, root pillars, glowing mushrooms
   sierra, sierra_cave: () => placeCave('sierra_cave', 'sierra', { w: 18, h: 15, seed: 1407, pools: [[12, 3, 14, 4], [2, 9, 3, 11], [14, 10, 15, 11]], pillars: [[9, 6], [5, 10]],
     props: [['mushroom_rock', 1, 5], ['mushroom_rock', 16, 7], ['mossy_log', 11, 12], ['fern_bush', 8, 2]] }) });
+// ---------- Place 12: Chocolate Hills, Bohol (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-12-bohol.js) ----------
+// Pulag's size. Its ground is the Wild Lands grass with a calm river (the water tile: solid, and you can fish in it) that
+// comes in at the top and ends in a pool; the trail from the Jeep (bottom left) past Mang Tonyo's hut up to the Hill
+// Hollows' round door (top middle). Its six kinds of prop are objects of type 'bohol' (name: hill, hut, palm, fence,
+// cogon, rock), drawn by src/19zzzzzz-place-12-bohol.js (the owner's props_bohol.png once it is in), so the map carries
+// no props tileset (lean: the page has little room). Chest and person tiles (the data file) stay free.
+function bohol() {
+  const m = new MapBuilder('bohol', 32, 28, ['tiles'], ['Ground', 'Walls', 'Above']);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_grass);
+  trail(m, [[4, 22], [11, 22], [11, 13], [15, 13], [15, 7]]);
+  // the river: 2 wide, down from the top edge, west, down again into a pool
+  [[25, 0, 26, 10], [20, 9, 26, 10], [20, 9, 21, 18], [19, 17, 23, 19]].forEach(([x0, y0, x1, y1]) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.water));
+  wildRing(m, [[25, 0, 26, 1]]);
+  m.obj('jeep', 'jeep', 2, 23, 2, 1);
+  m.point('from_jeep', 'spawn', 2.9, 24.6, [prop('dir', 'string', 'right')]);
+  caveMouth(m, 'bohol_cave', 15, 5);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  const put = (name, list) => list.forEach(([x, y, w, h]) => m.obj(name, 'bohol', x, y, w, h));
+  put('hill', [[3, 3, 4, 3], [8, 7, 4, 3], [3, 11, 4, 3], [14, 17, 4, 3], [24, 13, 4, 3], [19, 22, 4, 3], [17, 10, 3, 3]]);
+  put('hut', [[6, 18, 3, 3], [26, 21, 3, 3]]);
+  put('fence', [[2, 16, 3, 1], [13, 21, 3, 1], [25, 25, 3, 1]]);
+  put('palm', [[13, 10, 1, 2], [18, 15, 1, 2], [23, 11, 1, 2], [28, 18, 1, 2], [2, 19, 1, 2], [14, 24, 1, 2], [24, 24, 1, 2], [9, 14, 1, 2], [7, 1, 1, 2]]);
+  put('rock', [[12, 5, 2, 2], [18, 13, 2, 2], [22, 14, 2, 2], [3, 20, 2, 2], [21, 1, 2, 2]]);
+  put('cogon', [[9, 4], [10, 5], [12, 3], [13, 8], [6, 9], [7, 10], [2, 14], [4, 15], [9, 16], [17, 6], [18, 6], [23, 7], [28, 12], [29, 16], [27, 17],
+    [23, 20], [16, 24], [17, 25], [25, 19], [13, 19], [8, 25], [29, 10]].map(([x, y]) => [x, y, 1, 1]));
+  return m.json();
+}
+// The Hill Hollows: the Lair's layout in cream limestone, with cave pools (the 'void' tile, painted as water) and no props.
+function boholCave() {
+  const map = placeCave('bohol_cave', 'bohol', { w: 18, h: 15, seed: 1212, pools: [[12, 3, 14, 4], [2, 9, 3, 10], [13, 10, 14, 11], [7, 6, 7, 6]], pillars: [[10, 6], [4, 11]], props: [] });
+  map.tilesets = map.tilesets.filter((ts) => ts.name !== 'props'); // (none used: the page has little room)
+  return map;
+}
+
+Object.assign(MAPS, { bohol, bohol_cave: boholCave }); // Place 12: Chocolate Hills and Hill Hollows (owner, 6 Nov 2026)
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {
