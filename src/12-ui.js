@@ -408,7 +408,7 @@
       this.dayText.setText(L.formatDate(s.day));
       this.seasonIcon.setFrame(C.SEASONS[date.season].icon);
       var weather = L.weather(s, s.day), mapKey = F.world ? F.world.mapKey : 'farm';
-      var outdoors = mapKey === 'farm' || mapKey === 'town';
+      var outdoors = mapKey === 'farm' || mapKey === 'town' || mapKey === 'park'; // (Central Park has town's weather and nights)
       this.weatherIcon.setFrame(C.WEATHER[weather].icon);
       this.weatherText.setText(mapKey === 'mine' ? 'Mine B' + F.session.mineFloor : C.WEATHER[weather].name);
       var wkey = date.season + '|' + weather + '|' + outdoors;
@@ -483,7 +483,7 @@
 
     darkness() {
       var s = F.session.state, mapKey = F.world ? F.world.mapKey : 'farm', weather = L.weather(s, s.day);
-      var outdoors = mapKey === 'farm' || mapKey === 'town';
+      var outdoors = mapKey === 'farm' || mapKey === 'town' || mapKey === 'park'; // (Central Park has town's weather and nights)
       var dark = this.nightAlpha(s.time);
       if (mapKey === 'house') dark *= 0.35; // the lamps are on
       if (mapKey === 'mine') dark = 0.3;

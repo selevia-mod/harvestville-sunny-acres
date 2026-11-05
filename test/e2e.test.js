@@ -2205,7 +2205,7 @@ test('nothing solid can be walked through, on any map, on foot or on horseback',
     s.time = 600;
   `);
   const { page, problems, context } = await open(save);
-  for (const map of ['farm', 'house', 'town', 'mine']) {
+  for (const map of ['farm', 'house', 'town', 'mine', 'park']) { // (park: Central Park, owner 6 Nov 2026)
     await page.evaluate((m) => { Farm.ui.closeAll(); Farm.world.travel(m, null, 5); }, map);
     await waitMap(page, map);
     const r = await page.evaluate(() => {
@@ -4471,6 +4471,82 @@ test('chat: a long line shows every word in the small box and in the Chat panel,
   // the box holds the newest lines in a row: an older one never shows while a newer one is left out
   assert.ok(!/Selene: Hi!/.test(said.box) || (said.box.match(/Dear Jen:/g) || []).length === 2, 'newest lines in a row: ' + said.box);
   assert.ok(said.inBox && said.inPanel, 'every row inside');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 6 Nov 2026: "I am seeing this dead end path way in the right side of mining we can use that, if users goes that
+// it will drag to Central Park" — "its for everyone park". The dead end west of the Station's front goes on up the park
+// road to the top edge of town; walking off it takes you to the park, and out of the park's south gate brings you back.
+test('Central Park: from the dead end by the Station up the park road, walk about, the Hall of Fame door, no work there, and back to town (owner, 6 Nov 2026)', async () => {
+  const T = 256;
+  const save = await makeSave(`s.map = 'town'; s.player = { x: 37.5 * ${T}, y: 6.5 * ${T}, dir: 'left' };`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'town');
+  const feetTile = () => page.evaluate(() => { const f = Farm.world.feet(), T = Farm.Config.TILE; return [Math.floor(f.x / T), Math.floor(f.y / T)]; });
+  const feet = () => page.evaluate(() => Farm.world.feet());
+  const stick = (jx, jy) => page.evaluate(([jx, jy]) => { Farm.input.jx = jx; Farm.input.jy = jy; }, [jx, jy]);
+  assert.deepStrictEqual(await feetTile(), [37, 6], 'a town save stands where it was, at the dead end');
+  await shot(page, '90-park-way-in');
+  // west along the dead end to the road, then north up it and off the top of town
+  await stick(-1, 0);
+  await page.waitForFunction(() => Farm.world.feet().x < 36.15 * Farm.Config.TILE, null, SLOW);
+  await stick(0, -1);
+  await waitMap(page, 'park');
+  await stick(0, 0);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'park');
+  assert.deepStrictEqual(await feetTile(), [15, 23], 'in at the south gate, at from_town');
+  // the farmer walks about: up the avenue, then right along the lower walk
+  const a = await feet();
+  await stick(0, -1);
+  await page.waitForFunction((y) => Farm.world.feet().y < y - 2.5 * Farm.Config.TILE, a.y, SLOW);
+  await stick(0, 0);
+  const b = await feet();
+  assert.ok(b.y < a.y - 2.5 * T, 'walked up the avenue');
+  await stick(1, 0);
+  await page.waitForFunction((x) => Farm.world.feet().x > x + 2 * Farm.Config.TILE, b.x, SLOW);
+  await stick(0, 0);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'park', 'still in the park');
+  await shot(page, '91-park');
+  // no work here: every tool, seed and the rod says no (as in town), facing the lawn and facing the fountain
+  const tries = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, T = Farm.Config.TILE, out = [];
+    const spots = [[3, 16, 'right'], [15, 14, 'up']]; // a lawn; the fountain's front
+    spots.forEach(([x, y, dir]) => {
+      w.setFeet(x * T + T / 2, y * T + T / 2);
+      w.dir = dir;
+      s.inv.forEach((it, i) => {
+        if (!it) return;
+        s.sel = i;
+        const r = w.resolve();
+        out.push({ id: it.id, at: x + ',' + y, label: r && r.label, ok: !r || !!r.disabled || r.label === 'Eat' });
+      });
+    });
+    s.sel = 0;
+    return out;
+  });
+  assert.ok(tries.length >= 8, JSON.stringify(tries));
+  tries.forEach((t) => assert.ok(t.ok, 'nothing to do with ' + t.id + ' at ' + t.at + ': ' + t.label));
+  assert.ok(!(await page.evaluate(() => Farm.world.villagers || Farm.world.herd || Farm.world.wild)), 'no villagers, animals or wild animals');
+  // the Hall of Fame's door: "opening soon"
+  await teleport(page, 14, 7, 'up');
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  await tapAction(page);
+  assert.strictEqual(await modalText(page), "THE HALL OF FAME | Opening soon: the names of Harvest Ville's best hunters, farmers and anglers will hang here. | OK");
+  await shot(page, '92-park-hall');
+  await closeAll(page);
+  // a game closed here opens again in town on the park road
+  await page.evaluate(() => Farm.world.save());
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.strictEqual(saved.pk, 1);
+  assert.strictEqual(saved.p, undefined);
+  // out of the south gate, back to town just inside the park road
+  await teleport(page, 15, 23, 'down');
+  await stick(0, 1);
+  await waitMap(page, 'town');
+  await stick(0, 0);
+  assert.deepStrictEqual(await feetTile(), [36, 1], 'back at from_park');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

@@ -7,6 +7,7 @@ const path = require('path');
 const vm = require('vm');
 const { SIZE, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, HOME_STYLES, blockId } = require('./tiles');
 const { station, stationKeep } = require('./town-station'); // Willowbrook Station (src/19zz-town.js)
+const { parkRoad } = require('./park-town'); // the road up to Central Park (owner, 6 Nov 2026)
 
 // the house levels come from the game's own data
 function gameConfig() {
@@ -424,6 +425,7 @@ function town() {
   m.obj('mine_door', 'warp', 27, 10, 2, 1, [prop('to', 'string', 'mine'), prop('spawn', 'string', 'entrance'), prop('label', 'string', 'Enter')]);
   wildRoad(m);
   station(m); // Willowbrook Station, north of Market Street (tools/town-station.js)
+  parkRoad(m); // the dead end by the Station goes on up to Central Park (tools/park-town.js)
   const doors = {
     mayor: [4, 7, 2], inn: [24, 7, 2], forge: [4, 18, 1], woodshop: [25, 18, 1], clinic: [4, 26, 2], cottage: [24, 26, 2], cabin: [20, 30, 2],
     bakery: [32, 10, 1], florist: [36, 10, 2], post: [42, 10, 1], library: [47, 10, 2], vet: [48, 17, 1], shack: [31, 39, 2],
@@ -638,7 +640,81 @@ function lair() {
   return m.json();
 }
 
-const MAPS = { farm, town, mine, pulag, makiling, magayon, lair };
+// ---------- Central Park (owner, 6 Nov 2026): "its for everyone park" ----------
+// One open place for every player, up the park road from town (tools/park-town.js). A plaza with the fountain in the
+// middle, the Hall of Fame at the top (its door: src/19zzz-b-park.js), a gazebo for a stage on the west lawn, the notice
+// board and a playground on the east, and a loop of paths round the lawns, lamps, benches and flower beds. Trees all
+// round; the way in and out is the gap in the middle of the south edge. Town's tiles and props, so it has town's seasons
+// and nights (the lamps and the Hall's windows glow). Nothing to farm, chop, mine, hunt or fish: no field, no debris,
+// no water (the fountain is a prop), no forage, no animals.
+function park() {
+  const m = new MapBuilder('park', 30, 26, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(606);
+  grassFill(m, r);
+  const path = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.path);
+  // trees all round, with the way in left open in the middle of the south edge (x 14-15)
+  for (let x = 0; x < m.W; x += 2) {
+    m.tree(x, 0);
+    if (x !== 14) m.tree(x, 24);
+  }
+  for (let y = 2; y <= 22; y += 2) { m.tree(0, y); m.tree(28, y); }
+  // the plaza round the fountain, and the walks off it
+  m.rect('Ground', 9, 9, 20, 15, 'tiles', T.plaza);
+  path(14, 7, 15, 8); // up to the Hall of Fame's door
+  path(14, 16, 15, 25); // the avenue down to the way out
+  path(3, 12, 8, 13); // west walk, to the gazebo
+  path(4, 11, 5, 11);
+  path(21, 12, 26, 13); // east walk, past the notice board
+  path(4, 14, 5, 21); // the loop round the south lawns
+  path(24, 14, 25, 21);
+  path(4, 20, 25, 21);
+  // the Hall of Fame (door at x 14-15, y 6), two statues and flower beds in front
+  m.prop('hall_of_fame', 12, 2);
+  m.prop('statue', 9, 4);
+  m.prop('statue', 19, 4);
+  m.prop('flowerbed', 11, 7);
+  m.prop('flowerbed', 17, 7);
+  // the fountain in the middle of the plaza, drawn 4 x 4 (its picture is square) so it stands centred on the 2-wide
+  // avenue and on whole tiles (3 wide, it would sit half a tile off and its solid base would not match its picture)
+  m.prop('fountain', 13, 10);
+  Object.assign(m.objects[m.objects.length - 1], { y: 14 * SIZE, width: 4 * SIZE, height: 4 * SIZE });
+  [[9, 9], [20, 9], [9, 15], [20, 15]].forEach(([x, y]) => m.prop('lamp', x, y - 1)); // a lamp at each corner
+  m.prop('bench', 10, 14);
+  m.prop('bench', 18, 14);
+  // the west lawn: the gazebo (the stage), a bench by the walk, trees
+  m.prop('gazebo', 3, 7);
+  m.prop('bench', 6, 11);
+  m.tree(7, 3);
+  m.tree(2, 16);
+  // the east lawn: the notice board by the walk, the playground, trees
+  m.prop('notice', 22, 10);
+  m.prop('playground', 22, 4);
+  m.prop('bench', 25, 11);
+  m.tree(26, 16);
+  // along the avenue and the loop: lamps, flower beds, benches, trees on the lawns
+  [[13, 18], [16, 18], [13, 22], [16, 22]].forEach(([x, y]) => m.prop('lamp', x, y));
+  m.prop('flowerbed', 11, 17);
+  m.prop('flowerbed', 17, 17);
+  m.prop('flowerbed', 7, 15);
+  m.prop('flowerbed', 21, 15);
+  m.prop('bench', 8, 19);
+  m.prop('bench', 20, 19);
+  m.tree(9, 17);
+  m.tree(19, 17);
+  m.tree(7, 22);
+  m.tree(21, 22);
+  m.put('Walls', 17, 23, 'tiles', T.sign);
+
+  m.point('from_town', 'spawn', 15, 23.6, [prop('dir', 'string', 'up')]);
+  m.point('door_hall', 'place', 15, 7.5);
+  m.point('plaza', 'place', 15, 14.6);
+  m.obj('gate', 'warp', 14, 25, 2, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_park'), prop('walk', 'bool', true)]);
+  m.obj('hall_door', 'hall', 14, 6, 2, 1);
+  m.obj('park_sign', 'sign', 17, 23, 1, 1, [prop('text', 'string', 'CENTRAL PARK\nFor everyone in Harvest Ville. Down the avenue and out the gate: back to town.')]);
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

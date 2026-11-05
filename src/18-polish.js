@@ -91,7 +91,7 @@
     this.props.forEach(function (p) {
       var name = p.texture.key.replace('props/', ''), x = p.x, y = p.y, w = p.displayWidth, h = p.displayHeight;
       if (name === 'lamp' || name === 'lantern') glow(x + w / 2, y - h * 0.8, 3.2 * T);
-      else if (['mayor', 'inn', 'forge', 'woodshop', 'clinic', 'cottage', 'cabin'].indexOf(name) >= 0) {
+      else if (['mayor', 'inn', 'forge', 'woodshop', 'clinic', 'cottage', 'cabin', 'hall_of_fame'].indexOf(name) >= 0) {
         glow(x + w * 0.22, y - h * 0.42, 2.4 * T);
         glow(x + w * 0.78, y - h * 0.42, 2.4 * T);
       } else if (name === 'fireplace') glow(x + w / 2, y - h * 0.3, 3 * T);
