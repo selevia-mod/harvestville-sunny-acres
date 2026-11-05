@@ -649,7 +649,17 @@
     find(m.c.list);
     if (!ren) return;
     var y = ren.y + 23, x1 = ren.x, link = this.add.container(0, 0);
+    // Town Rank's link (19zzzz-rank.js) sits at the right of the same line: Medals goes just left of its badge, and the
+    // birthday line shrinks to fit before it (6 Nov 2026: the two were drawn one over the other)
+    var rank = m.c.list.filter(function (o) { return o.name === 'rank-link'; })[0], dot = rank && rank.list.filter(function (o) { return o.type === 'Arc'; })[0];
+    if (dot) { x1 = dot.x - 16; y = dot.y; }
     var t = this.txt(x1, y, 'Medals ' + L.medalCount(F.session.state), 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    if (dot) {
+      var bday = null, findB = function (list) { list.forEach(function (o) { if (o.type === 'Text' && /^(Birthday:|Set your birthday)/.test(o.text)) bday = o; if (o.list) findB(o.list); }); };
+      findB(m.c.list);
+      var room = t.x - t.width - 10;
+      if (bday && bday.x + bday.width * bday.scaleX > room) bday.setScale(Math.max(0.5, (room - bday.x) / bday.width));
+    }
     var z = this.add.zone(x1 - t.width / 2, y, t.width + 10, 24).setInteractive({ useHandCursor: true });
     F.tapOn(z, function () { self.closeModal(); self.openMedals(null, null, function () { self.openPause(); }); });
     link.add([t, z]);
