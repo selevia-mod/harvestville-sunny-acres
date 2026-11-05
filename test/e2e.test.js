@@ -4373,3 +4373,42 @@ test("the forge: each row is named after the upgrade you get, and everything it 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Owner, 5 Nov 2026 (after e29, a screenshot from the Lair): "i was attacked and pushed back to the edge and now i am
+// stucked". A charge's bump moved the farmer by the middle of the feet only, so it could leave the feet half inside the
+// wall at the edge of a floor, and there the farmer could not walk out.
+test('the Lair: a charge that bumps you against the wall at the edge of the floor never leaves you stuck in it', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'magayon'; s.wild.n = 50; s.energy = 900; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'magayon');
+  await page.evaluate(() => Farm.world.travel('lair', 'entrance', 1));
+  await page.waitForFunction(() => Farm.world.mapKey === 'lair' && Farm.session.lairFloor === 1 && !Farm.world.busy && Farm.world.player.active && Farm.world.wild && Farm.world.wild.animals.length, null, SLOW);
+  await closeAll(page);
+  const T = 256;
+  // the farmer just above the floor's bottom wall (row 17), something charging in from above
+  const hit = await page.evaluate(([T]) => {
+    const w = Farm.world, a = w.wild.animals[0];
+    w.setFeet(12.5 * T, 16.3 * T);
+    for (let k = 0; k < 3; k++) {
+      const f = w.feet();
+      a.x = f.x; a.y = f.y - 0.4 * T; a.cool = 0;
+      w.wildHit(a);
+    }
+    a.x = 3 * T; a.y = 5 * T; a.vx = a.vy = 0; a.cool = 99999; a.mode = 'walk';
+    const f = w.feet(), b = w.player.body;
+    return { y: f.y / T, bottom: (b.y + b.height) / T };
+  }, [T]);
+  assert.ok(hit.bottom <= 17 + 1e-6, 'the bump stops at the wall: feet bottom ' + hit.bottom.toFixed(3) + ' (the wall starts at 17)');
+  // and the farmer walks away: up, then left
+  for (const [jx, jy] of [[0, -1], [-1, 0]]) {
+    const from = await page.evaluate(() => Farm.world.feet());
+    await page.evaluate(([jx, jy]) => { Farm.input.jx = jx; Farm.input.jy = jy; }, [jx, jy]);
+    await page.waitForFunction(([fx, fy, jx, jy]) => { const f = Farm.world.feet(); return (jx ? Math.abs(f.x - fx) : Math.abs(f.y - fy)) > 0.6 * 256; }, [from.x, from.y, jx, jy], { timeout: 8000 }).catch(() => {});
+    await page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+    const to = await page.evaluate(() => Farm.world.feet());
+    assert.ok(jx ? Math.abs(to.x - from.x) > 0.6 * T : from.y - to.y > 0.6 * T, 'walked ' + (jx ? 'left' : 'up') + ' from the wall');
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

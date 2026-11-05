@@ -499,12 +499,21 @@
     s.energy = Math.max(0, s.energy - lost);
     this.floatTextAt(f.x, f.y - 1.6 * T, '-' + lost + ' energy');
     this.cameras.main.shake(160, 0.004);
-    var nx = f.x + dx / len * 0.6 * T, ny = f.y + dy / len * 0.6 * T;
-    if (this.walkable(Math.floor(nx / T), Math.floor(ny / T))) this.setFeet(nx, ny);
+    // the bump: as far as the whole of your feet fits (owner, 5 Nov 2026: it left them half in the Lair's wall)
+    for (var k = 1; k > 0.2; k /= 2) {
+      var nx = f.x + dx / len * 0.6 * T * k, ny = f.y + dy / len * 0.6 * T * k;
+      if (this.feetFit(nx, ny)) { this.setFeet(nx, ny); break; }
+    }
     this.wildBack(a, f);
     F.bus.emit('hud');
     this.changed();
     if (s.energy <= 0) this.faint();
+  };
+
+  // Would the farmer's feet (the body's box) stand clear of every wall with their middle at x, y?
+  P.feetFit = function (x, y) {
+    var b = this.player.body, hw = b.width / 2 - 1, hh = b.height / 2 - 1, self = this;
+    return [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh], [0, 0]].every(function (c) { return self.walkable(Math.floor((x + c[0]) / T), Math.floor((y + c[1]) / T)); });
   };
 
   P.wildBack = function (a, f) {
