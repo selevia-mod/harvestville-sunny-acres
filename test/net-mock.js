@@ -25,6 +25,10 @@ function createServer() {
   const staff = (uid) => { if (!db.staff.has(uid)) throw new Error('staff only'); };
   const blocked = (a, b) => db.blocks.some((x) => (x.by === a && x.who === b) || (x.by === b && x.who === a));
   const visitOf = (host, visitor) => db.visits.find((v) => v.host === host && v.visitor === visitor && v.day === today());
+  // may this user use the live channel? (farm_topic_ok_v1: a farm:<id> they are not blocked from, and since part 19 the
+  // park channels park:1 to park:3 for any player)
+  const topicOk = (uid, topic) => !!uid && db.players.has(uid)
+    && (/^park:[1-3]$/.test(topic) || (/^farm:[0-9a-f-]{36}$/.test(topic) && !blocked(uid, topic.slice(5))));
   const need = (uid) => {
     if (!uid) throw new Error('not signed in');
     if (!db.players.has(uid)) throw new Error('join first');
@@ -358,7 +362,7 @@ function createServer() {
       return { ok: true, item: 'energy', amount: 100, currency: a.p_currency, price, balance: w[a.p_currency] };
     },
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
-    farm_leave_v1(uid) { need(uid); hoodGone(uid); db.cupPicks.delete(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
+    farm_leave_v1(uid) { need(uid); hoodGone(uid); db.parkSeats.delete(uid); db.cupPicks.delete(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
     // part 14 (supabase/farm_online_14.sql): hunting together. db.noHunt: as before it is applied (the functions are not there).
     farm_hunt_here_v1(uid, a) {
       huntPart(); need(uid);
@@ -741,7 +745,7 @@ function createServer() {
   rpc.farm_line_keys_v1 = (uid, a) => {
     if (db.noLineKeys) throw new Error('Could not find the function public.farm_line_keys_v1 in the schema cache');
     const topic = String(a.p_topic || '');
-    if (!uid || !/^farm:[0-9a-f-]{36}$/.test(topic) || !db.players.has(uid) || blocked(uid, topic.slice(5))) return null;
+    if (!topicOk(uid, topic)) return null;
     if (!Array.isArray(a.p_peers) || a.p_peers.length > 40) return null;
     const out = {};
     a.p_peers.forEach((p) => {
@@ -751,6 +755,53 @@ function createServer() {
     });
     return out;
   };
+
+  // ----- Central Park (supabase/farm_online_19.sql; owner, 6 Nov 2026): one open place for every player, in three parks
+  // of 30. A seat counts only while it was seen in the last 75 s (the game beats every 30 s), so a phone that closed never
+  // keeps anyone out. Tests can age a seat by moving its seen back (db.parkSeats.get(uid).seen), or say the part is not
+  // applied yet (db.noPark).
+  const PARK = { cap: 30, freshMs: 75e3 };
+  db.parkSeats = new Map(); // uid -> { park, seen }
+  const seatFresh = (s) => Date.now() - s.seen < PARK.freshMs;
+  const parkOthers = (uid, n) => [...db.parkSeats.entries()].filter(([id, s]) => id !== uid && s.park === n && seatFresh(s)).map(([id]) => id);
+  const parkCounts = () => [1, 2, 3].map((n) => [...db.parkSeats.values()].filter((s) => s.park === n && seatFresh(s)).length);
+  const parkRpc = {
+    // p_park null = pick for me: stay in my park if my seat is fresh, else the park with the most friends that has
+    // room, else the lowest park with room (Park 1 fills first). A park I am already in always has room for me.
+    farm_park_join_v1(uid, a) {
+      if (!uid) throw new Error('not signed in');
+      if (!db.players.has(uid)) return { ok: false, code: 'not-player' };
+      const want = a.p_park == null ? null : a.p_park;
+      if (want !== null && ![1, 2, 3].includes(want)) return { ok: false, code: 'bad', counts: parkCounts() };
+      for (const [id, s] of db.parkSeats) if (Date.now() - s.seen > 3600e3) db.parkSeats.delete(id); // (old seats out)
+      const mine = db.parkSeats.get(uid);
+      let pick = want;
+      if (want === null) {
+        if (mine && seatFresh(mine)) pick = mine.park;
+        else {
+          const open = [1, 2, 3].filter((n) => parkOthers(uid, n).length < PARK.cap)
+            .map((n) => ({ n, friends: parkOthers(uid, n).filter((id) => areFriends(uid, id) && !blocked(uid, id)).length }))
+            .sort((x, y) => y.friends - x.friends || x.n - y.n);
+          if (!open.length) return { ok: false, code: 'full', counts: parkCounts() };
+          pick = open[0].n;
+        }
+      } else if (parkOthers(uid, want).length >= PARK.cap) return { ok: false, code: 'full', counts: parkCounts() };
+      db.parkSeats.set(uid, { park: pick, seen: Date.now() });
+      return { ok: true, park: pick, counts: parkCounts() };
+    },
+    // "still here": a stale seat comes back only if its park still has room; else it is gone (park null)
+    farm_park_beat_v1(uid) {
+      if (!uid) throw new Error('not signed in');
+      const s = db.parkSeats.get(uid);
+      if (s && !seatFresh(s) && parkOthers(uid, s.park).length >= PARK.cap) db.parkSeats.delete(uid);
+      const now = db.parkSeats.get(uid);
+      if (now) now.seen = Date.now();
+      return { ok: true, park: now ? now.park : null, counts: parkCounts() };
+    },
+    farm_park_leave_v1(uid) { if (!uid) throw new Error('not signed in'); db.parkSeats.delete(uid); return null; },
+    farm_park_counts_v1(uid) { if (!uid) throw new Error('not signed in'); return { counts: parkCounts() }; },
+  };
+  Object.keys(parkRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noPark) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return parkRpc[n](uid, a); }; });
 
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels
@@ -792,8 +843,8 @@ function createServer() {
             this.statusCb = cb || null;
             later(() => {
               if (this.leaving) return;
-              // private channels: only farm:<id> topics, for signed-in players (farm_topic_ok_v1)
-              if (!uid || !/^farm:[0-9a-f-]{36}$/.test(room) || !db.players.has(uid) || blocked(uid, room.slice(5))) return cb && cb('CHANNEL_ERROR');
+              // private channels: only farm:<id> and park:1-3 topics, for signed-in players (farm_topic_ok_v1)
+              if (!topicOk(uid, room)) return cb && cb('CHANNEL_ERROR');
               if (!topics.has(room)) topics.set(room, new Set());
               topics.get(room).add(this);
               this.joined = true;

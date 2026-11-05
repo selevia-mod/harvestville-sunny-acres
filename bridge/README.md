@@ -11,7 +11,7 @@ Supabase client**. Players never sign in inside the game: they are online with t
 
 1. The database script `supabase/farm_online.sql` must be applied to the Selebox Supabase project (once).
 2. Realtime must be on for the project. The game uses **private** channels named `farm:<user id>`. The script
-   adds the two policies on `realtime.messages` that allow them.
+   adds the two policies on `realtime.messages` that allow them. (Central Park's `park:1` to `park:3` channels: part 19 adds two more.)
 
 ## Add it to the screen that opens the game
 
@@ -54,7 +54,8 @@ window.gameHost.save = ...`), so `gameHost.net` is not lost.
 
 - It can call only the database functions named `farm_..._v1` (from `supabase/farm_online.sql`). Any other name
   is refused before it reaches Supabase.
-- It can join only channels named `farm:<uuid>`, and send only short event names (`mv`, `emote`, `like`, `gift`).
+- It can join only channels named `farm:<uuid>` (a farm) or `park:1` to `park:3` (Central Park, `supabase/farm_online_19.sql`),
+  and send only short event names (`mv`, `emote`, `like`, `gift`).
 - Calls run as the signed-in user, with the same Row Level Security as the rest of the app. The farm functions
   check everything again on the server (limits on gifts, likes and messages, friends only, bans).
 - The game never sees the login token.

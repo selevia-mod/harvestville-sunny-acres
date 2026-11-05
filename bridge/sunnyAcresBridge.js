@@ -2,7 +2,7 @@
 //
 // The game makes no network calls itself. It asks the app through window.gameHost.net; this file puts that
 // object into the game's WebView and answers it with the app's own signed-in Supabase client. The game can only
-// call the farm_*_v1 database functions and use farm:<id> live channels: nothing else in the app's data.
+// call the farm_*_v1 database functions and use farm:<id> and park:1-3 live channels: nothing else in the app's data.
 //
 //   const bridge = useMemo(() => createSunnyAcresBridge({ supabase, webViewRef }), []);
 //   useEffect(() => () => bridge.dispose(), [bridge]);
@@ -13,7 +13,8 @@
 // See bridge/README.md.
 
 const RPC_NAME = /^farm_[a-z_]{1,40}_v1$/;
-const TOPIC = /^farm:[0-9a-f-]{36}$/;
+// farm:<owner id> (a farm's room) or park:1 to park:3 (Central Park, owner 6 Nov 2026: one open place for every player)
+const TOPIC = /^(farm:[0-9a-f-]{36}|park:[1-3])$/;
 const EVENT = /^[a-z]{1,16}$/;
 const MAX_JSON = 256 * 1024; // the biggest call is publishing a farm (tens of KB)
 const TIMEOUT_MS = 15000; // a call with no answer by then fails, so the game never waits forever on a bad network
