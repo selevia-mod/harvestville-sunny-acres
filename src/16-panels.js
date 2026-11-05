@@ -438,7 +438,8 @@
       var bag = L.nextBag(s);
       if (bag) {
         rows.push({
-          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.' + (bag.needs ? ' Also needs ' + L.needsText(bag.needs) + '.' : ''),
+          icon: C.ICON.bag, name: 'Bigger Bag', desc: bag.size + ' slots (now ' + s.inv.length + '): room for more crops, fish and ore.',
+          reward: bag.needs ? { more: bag.needs } : null, rewardPrefix: 'Also needs', // (each its own chip, never cut off)
           buttons: [{
             label: 'Buy ' + bag.price + 'G', cb: function () {
               var r = L.upgradeBag(s);
@@ -497,11 +498,14 @@
     var self = this, s = F.session.state, o;
     var rows = C.TOOL_KEYS.map(function (tool) {
       var cost = L.upgradeCost(s, tool), next = L.toolLevel(s, tool) + 1;
+      // (5 Nov 2026) the row is named after what you get ("Silver Hammer" over a Gold Hammer's text read as a mix-up), and
+      // everything it takes is a chip: gold, ore, and what a hunt gives (the Boar Tusks were cut off at "Also needs...")
+      var text = cost ? L.upgradeText(s, tool) : '', cut = text.indexOf(': ');
+      var nextName = cut > 0 ? text.slice(0, cut) : L.itemName(s, tool), what = cut > 0 ? text.slice(cut + 2) : text;
       return {
-        icon: L.iconOf(s, tool), name: L.itemName(s, tool),
-        // what the upgrade does, then its price as chips (gold and ore)
-        desc: cost ? L.upgradeText(s, tool) + (cost.needs ? ' Also needs ' + L.needsText(cost.needs) + '.' : '') : 'Fully upgraded! The best ' + C.ITEMS[tool].name.toLowerCase() + ' in the valley.',
-        reward: cost ? { gold: cost.gold, item: cost.ore, n: cost.n } : null, rewardPrefix: 'Cost', buttonsBelow: true,
+        icon: L.iconOf(s, tool), name: cost ? 'Upgrade to ' + nextName : L.itemName(s, tool),
+        desc: cost ? what.charAt(0).toUpperCase() + what.slice(1) : 'Fully upgraded! The best ' + C.ITEMS[tool].name.toLowerCase() + ' in the valley.',
+        reward: cost ? { gold: cost.gold, item: cost.ore, n: cost.n, more: cost.needs || null } : null, rewardPrefix: 'Cost', buttonsBelow: true,
         buttons: cost ? [{
           label: 'Upgrade', cb: function () {
             var r = L.upgradeTool(s, tool);
@@ -541,6 +545,7 @@
     }
     o = this.listPanel({
       title: "Bram's Forge", rows: rows, page: page || 0, talk: 'bram', reopen: function (t, p) { self.openForge(p); },
+      rowH: rows.some(function (r) { return r.reward && r.reward.more && r.reward.more.length; }) ? 92 : undefined, // (room for a third cost chip)
       sub: function () {
         return s.gold + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
       },

@@ -427,6 +427,8 @@
     if (reward.gold) parts.push([C.ICON.coin, money(reward.gold)]);
     if (reward.stars) parts.push([C.ICON.sunbeam, String(reward.stars)]);
     if (reward.item) parts.push([C.ITEMS[reward.item].icon, (reward.n > 1 ? reward.n + ' ' : '') + C.ITEMS[reward.item].name]);
+    // more: [[item, n]], each its own chip (a forge upgrade's Boar Tusks were once only in the text, cut off: 5 Nov 2026)
+    (reward.more || []).forEach(function (m) { if (C.ITEMS[m[0]]) parts.push([C.ITEMS[m[0]].icon, (m[1] > 1 ? m[1] + ' ' : '') + C.ITEMS[m[0]].name]); });
     var cx = x, cy = y, rowH = 20;
     if (prefix) {
       var p = this.txt(cx, cy + 8, prefix + ':', 10, '#8a6a42', { fontStyle: 'bold' }).setOrigin(0, 0.5);

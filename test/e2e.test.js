@@ -1976,7 +1976,7 @@ test('the Tannery: bought and placed, hides go in, leather comes out; a Gold too
   // Bram says what a Gold tool wants, and asks for it
   await page.evaluate(() => { const s = Farm.session.state; s.tools.hoe = 2; Farm.Logic.addItem(s, 'ore_gold', 5); Farm.ui.openForge(); });
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
-  assert.match(await modalText(page), /Also needs 2 Boar Tusk/);
+  assert.match(await modalText(page), /5 Gold Ore \| 2 Boar Tusk/); // (its own chip since 5 Nov 2026)
   await tapButton(page, 'Upgrade');
   await page.waitForFunction(() => /You need 2 Boar Tusk/.test(Farm.ui.toastText.text), null, SLOW);
   assert.strictEqual((await state(page)).tools.hoe, 2);
@@ -1984,7 +1984,7 @@ test('the Tannery: bought and placed, hides go in, leather comes out; a Gold too
   // Lily says what a big bag wants
   await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.resizeBag(s, 7); s.gold = 1e6; Farm.ui.openShop('supplies'); });
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
-  assert.match(await modalText(page), /Also needs 5 Soft Leather/);
+  assert.match(await modalText(page), /Also needs: \| 5 Soft Leather/); // (its own chip since 5 Nov 2026)
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -3975,7 +3975,13 @@ test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler wat
   assert.deepStrictEqual(await page.evaluate(() => [Farm.ui.slots[3].star.visible, Farm.ui.slots[4].star.visible, Farm.ui.slots[2].star.visible]), [true, true, false], 'a star on the toolbar');
 
   // Bram's Forge: the three sprinklers after the tools; Make one
-  await page.evaluate(() => Farm.ui.openForge(1));
+  // (taller cards since 5 Nov 2026: the sprinklers are on a later page; they go together on the last one)
+  let fp = 0;
+  for (; fp < 6; fp++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openForge(p); }, fp);
+    await frames(page, 3);
+    if (/Copper Sprinkler/.test(await modalText(page))) break;
+  }
   assert.match(await modalText(page), /Copper Sprinkler[\s\S]*Silver Sprinkler[\s\S]*Gold Sprinkler/);
   await shot(page, 'farmtech-1-forge');
   await tapButton(page, 'Make');
@@ -4323,6 +4329,27 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
   const text = await modalText(page);
   assert.strictEqual((text.match(/Mira is building it/g) || []).length, 2, text);
   await shot(page, 'players-5-two-jobs');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test("the forge: each row is named after the upgrade you get, and everything it takes is a chip, Boar Tusks too (owner, 5 Nov 2026)", async () => {
+  const save = await makeSave(`s.tools.hammer = 2; s.gold = 9000; L.addItem(s, 'ore_gold', 8);`);
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'farm');
+  let text = '';
+  for (let p = 0; p < 6 && !/Gold Hammer/.test(text); p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openForge(p); }, p);
+    await frames(page, 3);
+    text = await modalText(page);
+  }
+  assert.match(text, /Upgrade to Gold Hammer \| Breaks a 3 x 5 patch at once/);
+  assert.ok(!/Also needs/.test(text), 'nothing hidden in the text');
+  const tusk = await page.evaluate(() => Farm.Logic.upgradeCost(Farm.session.state, 'hammer').needs);
+  assert.ok(tusk && tusk.length, 'the Gold Hammer takes a hunt\'s goods');
+  const names = await page.evaluate((t) => t.map(([id, n]) => (n > 1 ? n + ' ' : '') + Farm.Config.ITEMS[id].name), tusk);
+  names.forEach((nm) => assert.ok(text.includes('| ' + nm), nm + ' has its chip: ' + text));
+  await shot(page, 'forge-gold-hammer');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
