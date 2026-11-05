@@ -14925,6 +14925,8 @@
 
   var talkNpc = L.talkNpc;
   L.talkNpc = function (s, id) {
+    // (Banaue's person only: every place wraps talkNpc for its own gifts, so this one leaves the others alone)
+    if (id !== 'banaue') return talkNpc(s, id);
     var heard = L.placeRec(s, id).st, r = talkNpc(s, id), lines = C.PLACES[id].npc.lines, gift = [];
     for (var i = heard; i <= r.i; i++) (lines[i].gift || []).forEach(function (x) {
       var same = gift.filter(function (g) { return g[0] === x[0]; })[0];
