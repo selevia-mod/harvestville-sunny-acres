@@ -275,7 +275,8 @@ test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes'
   s.wild.n = 39;
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'magayon');
   assert.strictEqual(L.wildOpen(s, 'magayon'), true);
-  assert.strictEqual(L.wildNext(s), null);
+  // (next: none, or a hunting place further on: owner, 6 Nov 2026)
+  assert.ok(L.wildNext(s) === null || C.WILD.areas[L.wildNext(s)].unlock > 41, 'next: ' + L.wildNext(s));
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, null);
   ['bear', 'mammoth', 'tiger', 'rhino'].forEach((k) => {
     const def = C.WILD.animals[k];
