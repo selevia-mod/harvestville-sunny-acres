@@ -85,7 +85,7 @@
   // (an <img> is decoded on the main thread the moment it is first drawn: 0.3-0.5 s for a town's worth on a slow phone);
   // ensureTexture uses the bitmap and closes it. The big sheets each map uses, then its props (from the map, as
   // buildObjects places them), then whatever else the map asked for the last time (F.mapNeeds: what was dropped since).
-  var NEXT_MAP = { town: ['people', 'tita_luz', 'tw_station', 'tw_rails', 'tw_train', 'tw_crates', 'tw_people'], house: ['people', 'indoor'], mine: ['indoor'], lair: ['indoor', 'wild', 'wildshade', 'wildgrass'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'], park: [] }; // (park: Central Park, only its tiles and props)
+  var NEXT_MAP = { town: ['people', 'tita_luz', 'tw_station', 'tw_rails', 'tw_train', 'tw_crates', 'tw_people'], house: ['people', 'indoor'], mine: ['indoor'], lair: ['indoor', 'wild', 'wildshade', 'wildgrass'], pulag: ['wild', 'wildshade', 'wildgrass', 'kanor'], makiling: ['wild', 'wildshade', 'wildgrass'], magayon: ['wild', 'wildshade', 'wildgrass'], park: [], hall: ['indoor', 'furn_0'] }; // (park: Central Park, only its tiles and props; hall: its Hall of Fame inside, 19zzzz-rank.js)
   F.mapNeeds = {}; // map -> { texture key: true } made while that map was on screen
   var mapProps = function (map) {
     var s = F.session && F.session.state, raw = F.ASSETS.maps[map === 'house' && s ? 'house_' + s.home.level : map], out = [];

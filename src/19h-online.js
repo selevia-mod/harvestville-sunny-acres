@@ -14,7 +14,7 @@
   var IDLE_FRAME = { down: 0, up: 3, left: 6, right: 6 };
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
   var FADE_MS = 260; // a friend arriving or leaving
-  var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1, lair: 1, park: 1 }; // (lair: Bakunawa's Lair, 19zt-lair.js; park: Central Park, owner 6 Nov 2026)
+  var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1, lair: 1, park: 1, hall: 1 }; // (lair: Bakunawa's Lair, 19zt-lair.js; park: Central Park, owner 6 Nov 2026; hall: the Hall of Fame, 19zzzz-rank.js)
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};
@@ -276,6 +276,7 @@
       cs: C.LOOK_INDEX && typeof p.cs === 'string' && C.LOOK_INDEX[p.cs] != null ? p.cs : '', // their look
       fl: FLOORS[p.map] ? Math.max(1, Math.min(FLOORS[p.map], Math.floor(Number(p.fl)) || 1)) : 0, // which floor of the mine or the Lair
       rd: p.rd && (p.map === 'farm' || p.map === 'town' || p.map === 'park') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)), // (4 pieces of Hunter's gear with the Fire Charm)
+      tr: Math.max(0, Math.min(4, Math.floor(Number(p.tr)) || 0)), // their Town Rank this month: the badge by their name (19zzzz-rank.js)
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -1007,6 +1008,7 @@
   // ---------- the Online panel: Visit, Friends, Ranks, Me ----------
   var TABS = O.TABS = [['visit', 'Visit'], ['friends', 'Friends'], ['ranks', 'Ranks'], ['me', 'Me']]; // (19l-market.js adds Market)
   var KINDS = { visit: [['popular', 'Most beautiful'], ['recent', 'Just updated'], ['friends', 'Friends'], ['following', 'People you follow']], ranks: [['beauty', 'Home Beauty'], ['earned', 'Gold earned'], ['quests', 'Daily quests done'], ['catch', 'Biggest catch'], ['derby', 'Fishing Derby']] }; // (Biggest catch: 19zm-hunt-together.js; the Derby: 19zq-derby.js)
+  KINDS.ranks.push(['town', 'Town Rank']); // (Town Rank, owner 6 Nov 2026: 19zzzz-rank.js)
   var nextKind = function (tab, k) {
     var l = KINDS[tab], i = l.map(function (x) { return x[0]; }).indexOf(k);
     return l[(i + 1) % l.length][0];
@@ -1088,6 +1090,7 @@
       var k = this.onlineKind.ranks;
       if (k === 'catch' && self.openCatchBoard) return self.openCatchBoard(show, fail, kindRow, more);
       if (k === 'derby' && self.openDerbyBoard) return self.openDerbyBoard(show, fail, kindRow, more);
+      if (k === 'town' && self.openTownBoard) return self.openTownBoard(show, fail, kindRow, more);
       F.Net.rpc('farm_leaderboard_v1', { p_kind: k }).then(function (list) {
         var rows = [kindRow('ranks')].concat((list || []).map(function (r) {
           var mine = !!r.me, rk = Number(r.rank) || 0;

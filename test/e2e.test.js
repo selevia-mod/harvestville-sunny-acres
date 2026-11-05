@@ -2205,7 +2205,7 @@ test('nothing solid can be walked through, on any map, on foot or on horseback',
     s.time = 600;
   `);
   const { page, problems, context } = await open(save);
-  for (const map of ['farm', 'house', 'town', 'mine', 'park']) { // (park: Central Park, owner 6 Nov 2026)
+  for (const map of ['farm', 'house', 'town', 'mine', 'park', 'hall']) { // (park: Central Park, owner 6 Nov 2026; hall: its Hall of Fame)
     await page.evaluate((m) => { Farm.ui.closeAll(); Farm.world.travel(m, null, 5); }, map);
     await waitMap(page, map);
     const r = await page.evaluate(() => {
@@ -4545,13 +4545,14 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   assert.deepStrictEqual(pond.map((p) => p.slice(0, 3)), [['rod', 'Fish', true], ['can', 'Refill', true]], JSON.stringify(pond));
   await page.evaluate(() => { Farm.session.state.sel = 0; });
   assert.ok(!(await page.evaluate(() => Farm.world.villagers || Farm.world.herd || Farm.world.wild)), 'no villagers, animals or wild animals');
-  // the Hall of Fame's door: "opening soon"
+  // the Hall of Fame's door goes in (the hall itself: its own test below), and out again in front of it
   await teleport(page, 19, 7, 'up');
   assert.strictEqual(await actionLabel(page), 'Enter');
   await tapAction(page);
-  assert.strictEqual(await modalText(page), "THE HALL OF FAME | Opening soon: the names of Harvest Ville's best hunters, farmers and anglers will hang here. | OK");
+  await waitMap(page, 'hall');
   await shot(page, '92-park-hall');
-  await closeAll(page);
+  await page.evaluate(() => Farm.world.travel('park', 'door_hall'));
+  await waitMap(page, 'park');
   // a game closed here opens again in town on the park road
   await page.evaluate(() => Farm.world.save());
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
@@ -4563,6 +4564,98 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   await waitMap(page, 'town');
   await stick(0, 0);
   assert.deepStrictEqual(await feetTile(), [36, 1], 'back at from_park');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 6 Nov 2026: "the idea in my mind in museum is we will put it in the central park and inside the museum is the
+// name of the player who get the big boar, or first defeat boss something like that"; and Town Rank ("Town Rank is
+// better than Hunter ranking"). Offline (no app): the plaques say to join online play, the Town Rank page shows your own
+// points and says the same for the Top 100.
+test('the Hall of Fame: in through Central Park\'s door, plaques and pedestals offline, solid pedestals, out to the park in front of the door; the Town Rank page offline, How to earn, the farmer card (owner, 6 Nov 2026)', async () => {
+  const T = 256;
+  const save = await makeSave(`s.map = 'town'; s.wild.n = 3; s.wild.by.boar = 3; s.wild.best.boar = 980;`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await go(page, 'park', 'from_town');
+  const feetTile = () => page.evaluate(() => { const f = Farm.world.feet(), T = Farm.Config.TILE; return [Math.floor(f.x / T), Math.floor(f.y / T)]; });
+  const stick = (jx, jy) => page.evaluate(([jx, jy]) => { Farm.input.jx = jx; Farm.input.jy = jy; }, [jx, jy]);
+  await teleport(page, 20, 7, 'up');
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  await tapAction(page);
+  await waitMap(page, 'hall');
+  assert.deepStrictEqual(await feetTile(), [9, 12], 'just inside the door');
+  const seen = await page.evaluate(() => ({ plaques: Farm.world.objects.filter((o) => o.type === 'plaque').length, bg: Farm.world.game.renderer.config.backgroundColor.rgba }));
+  assert.strictEqual(seen.plaques, Object.keys(await page.evaluate(() => Farm.Config.HALL.spots)).length);
+  // up the carpet
+  await stick(0, -1);
+  await page.waitForFunction(() => Farm.world.feet().y < 8 * Farm.Config.TILE, null, SLOW);
+  await stick(0, 0);
+  await shot(page, '93-hall');
+  // the pedestal with the biggest boar: offline, it says to join online play, and shows your own biggest
+  await teleport(page, 4, 6, 'up');
+  assert.strictEqual(await actionLabel(page), 'Read');
+  await tapAction(page);
+  assert.strictEqual(await modalText(page), 'THE BIGGEST WILD BOAR | Join online play to see the names. | Your biggest Wild Boar: 98.0 kg. | OK');
+  await shot(page, '94-hall-plaque');
+  await closeAll(page);
+  // a plaque on the back wall
+  await teleport(page, 2, 2, 'up');
+  await tapAction(page);
+  assert.strictEqual(await modalText(page), 'BIGGEST CATCHES: PULAG | Join online play to see the names. | OK');
+  await closeAll(page);
+  // a pedestal is solid: pushing into it from below leaves you where you were
+  await teleport(page, 13, 6, 'up');
+  await stick(0, -1);
+  await page.waitForTimeout(700);
+  await stick(0, 0);
+  assert.deepStrictEqual(await feetTile(), [13, 6], 'the pedestal stops you');
+  // the big board: its own words, and the Town Rank page (your points, offline)
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.rankAdd(s, 'farm', 300); Farm.Logic.rankAdd(s, 'hunt', 25); });
+  await teleport(page, 8, 2, 'up');
+  assert.strictEqual(await actionLabel(page), 'Read');
+  await tapAction(page);
+  assert.strictEqual(await modalText(page), 'TOWN RANK: THIS MONTH | Join online play to see the names. | Close | Town Rank');
+  await tapButton(page, 'Town Rank');
+  const rank = await modalText(page);
+  assert.match(rank, /^TOWN RANK \| Bronze {2}· {2}325 points \| "Town Helper" \| Silver at 2,000: 1,675 to go \| /, rank);
+  assert.match(rank, /starts over in \d+ days?/);
+  assert.match(rank, /best ever: Bronze/);
+  assert.match(rank, /TOP 100 THIS MONTH \| Join online play to see the Top 100\. \| How to earn \| Close$/);
+  await shot(page, '95-town-rank');
+  await tapButton(page, 'How to earn');
+  const how = await modalText(page);
+  assert.match(how, /^HOW TO EARN POINTS \| Farming: 1 for each crop you pick or animal product you collect\. Up to 300 a day \(0 left today\)\. \| /, how);
+  assert.match(how, /Hunting: 5 for each animal you hunt\. Up to 150 a day \(125 left today\)\./);
+  assert.match(how, /Rewards are looks only/);
+  await tapButton(page, 'OK');
+  assert.match(await modalText(page), /^TOWN RANK \| Bronze/, 'back on the Town Rank page');
+  await tapButton(page, 'Close');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
+  // the farmer card: this month's rank at the right of the birthday line; tapping it opens the page
+  await page.evaluate(() => Farm.ui.openPause());
+  await frames(page);
+  const link = await page.evaluate(() => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1], l = m.c.list.find((o) => o.name === 'rank-link');
+    const t = l && l.list.find((o) => o.type === 'Text');
+    return t && { text: t.text, x: t.getBounds().centerX, y: t.getBounds().centerY };
+  });
+  assert.strictEqual(link.text, 'Bronze');
+  await page.touchscreen.tap(link.x, link.y);
+  await frames(page);
+  assert.match(await modalText(page), /^TOWN RANK \| Bronze/);
+  await closeAll(page);
+  // a game closed in the hall opens on the park road
+  await page.evaluate(() => Farm.world.save());
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.strictEqual(saved.pk, 1);
+  assert.strictEqual(saved.tr.p, 325, 'the points are saved');
+  // out of the door: in the park, in front of the hall
+  await teleport(page, 9, 12, 'down');
+  await stick(0, 1);
+  await waitMap(page, 'park');
+  await stick(0, 0);
+  assert.deepStrictEqual(await feetTile(), [20, 7], 'back in front of the Hall of Fame');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
