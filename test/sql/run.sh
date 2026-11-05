@@ -33,6 +33,8 @@ $P -d t -1 -f "$ROOT/supabase/farm_online_18.sql" # (signed live messages: needs
 $P -d t -1 -f "$ROOT/supabase/farm_online_18.sql"
 $P -d t -1 -f "$ROOT/supabase/farm_online_19.sql" # (Central Park: needs parts 1, 3 and 18)
 $P -d t -1 -f "$ROOT/supabase/farm_online_19.sql"
+$P -d t -1 -f "$ROOT/supabase/farm_online_20.sql" # (Bayanihan Projects: needs parts 1 and 16)
+$P -d t -1 -f "$ROOT/supabase/farm_online_20.sql"
 $P -d t -f "$ROOT/test/sql/checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/looks-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/hunt-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
@@ -40,3 +42,4 @@ $P -d t -f "$ROOT/test/sql/derby-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  
 $P -d t -f "$ROOT/test/sql/social-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/line-keys-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/park-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+$P -d t -f "$ROOT/test/sql/bayanihan-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
