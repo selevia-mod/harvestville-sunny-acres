@@ -72,7 +72,8 @@ test('in the park a late step: straight on for longer, then they wait; a stop en
 });
 
 test('Central Park\'s tour has its tip, last in the list; What\'s new 2.4 (6 Nov 2026) links it', () => {
-  assert.strictEqual(C.TIPS[C.TIPS.length - 1].key, 'park_tour');
+  // (the Friendship Book's tour tip, 6 Nov 2026, was appended after it: a tip's place in the list is its saved bit)
+  assert.deepStrictEqual(C.TIPS.slice(-2).map((t) => t.key).join(), 'park_tour,friends_tour');
   const s = L.newState();
   assert.strictEqual(L.tipSeen(s, 'park_tour'), false);
   L.takeTip(s, 'park_tour');
