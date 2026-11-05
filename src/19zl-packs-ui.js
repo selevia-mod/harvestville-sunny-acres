@@ -17,7 +17,7 @@
   var BADGE = { x: 22, y: 160, r: 13 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var mb = function (bytes) { var m = bytes / 1048576; return m >= 0.95 ? m.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; };
-  var ORDER = ['wild', 'looks', 'party'];
+  var ORDER = ['wild', 'looks', 'party', 'styles'];
 
   // ---------- the Wild Lands, before you go ----------
   var wildMap = function (to) { return L.isWildMap && L.isWildMap(to); };
@@ -27,7 +27,7 @@
     if (!wildMap(to) || F.packReady('wild')) return travel.call(this, to, spawn, floor);
     if (this.busy || this.packGate) return;
     var go = function () { self.packGate = false; if (self.sys && self.sys.isActive()) travel.call(self, to, spawn, floor); };
-    if (F.packOnPhone('wild')) { // on the phone already: only a moment to open it
+    if (F.packOnPhone('wild') || (F.canFetch() && F.packCount('wild'))) { // on the phone already (or most of it, a download cut short: the rest comes now, else the card): only a moment to open it
       this.packGate = true;
       if (F.ui) F.ui.toast('Opening the Wild Lands...', 1500);
       return F.loadPack('wild').then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack('wild'); } });
@@ -40,7 +40,7 @@
     var self = this, info = F.PACK_INFO[pack];
     if (!F.canFetch()) return this.dialog(info.name.toUpperCase() + '\nThis part of the game needs a download, and it can only come through the Selebox app.');
     if (F.packProgress(pack)) return this.toast(info.name + ' is downloading. You can keep playing.', 2200);
-    this.dialog(info.name.toUpperCase() + '\n' + info.desc + '\nA one-time download of ' + mb(F.packBytes(pack)) + '. You can keep playing while it comes.', [
+    this.dialog(info.name.toUpperCase() + '\n' + info.desc + '\nA one-time download of ' + mb(F.packBytesLeft(pack) || F.packBytes(pack)) + '. You can keep playing while it comes.', [
       { label: 'Not now', color: GREY },
       { label: 'Download', color: GREEN, cb: function () { self.startPack(pack, then); } },
     ]);

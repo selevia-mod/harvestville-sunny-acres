@@ -79,7 +79,14 @@ const sizes = fs.existsSync(sizesFile) ? JSON.parse(read('assets/sizes.json')) :
 const packed = (k) => Object.keys(packs).some((p) => packs[p][k]);
 Object.keys(sizes).forEach((k) => { if ((!images[k] || !images[k].startsWith('data:image/webp')) && !packed(k)) delete sizes[k]; });
 const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes, packs, lookBytes }) + ';';
-const game = list('src', '.js').map((f) => `// ---- src/${f}\n` + read(path.join('src', f))).join('\n');
+// The code without its comments and indentation (tools/strip-js.js: ~0.4 MB less page; each line where it was)
+const { strip } = require('./tools/strip-js');
+const game = list('src', '.js').map((f) => {
+  const code = read(path.join('src', f)), out = strip(code);
+  if (out.split('\n').length !== code.split('\n').length) throw new Error(`tools/strip-js.js moved a line of src/${f}`);
+  try { new Function(out); } catch (e) { throw new Error(`src/${f} without its comments does not parse (${e.message}): tools/strip-js.js`); } // eslint-disable-line no-new-func
+  return `// ---- src/${f}\n` + out;
+}).join('\n');
 
 // Characters outside ASCII in scripts become \uXXXX escapes (the same string at run time).
 const ascii = (js) => js.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));

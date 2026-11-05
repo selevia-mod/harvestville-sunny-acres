@@ -20,6 +20,7 @@
     wild: { name: 'Wild Lands', icon: 'bow', desc: 'Pulag, Makiling and Magayon: the wild animals, Kanor and the bow.', need: true },
     party: { name: 'Birthday', icon: 'gift', desc: 'Your farmer in a party hat on your birthday.' },
     looks: { name: 'Costumes', icon: 'ribbon', desc: 'The Tailor Shop looks, for you and for friends who wear them.' },
+    styles: { name: 'Furniture styles', icon: 'lumber', desc: "Mira's furniture styles past Classic, and their beds, for your house and friends' houses." },
   };
   F.packFiles = function (pack) {
     if (pack === 'looks') return LOOK_FILES().map(function (n) { return { file: 'looks/v1/' + n, bytes: F.ASSETS.lookBytes[n], look: n }; });
@@ -27,6 +28,8 @@
     return Object.keys(p).map(function (k) { return { file: p[k].file, bytes: p[k].bytes, key: k }; });
   };
   F.packBytes = function (pack) { return F.packFiles(pack).reduce(function (a, f) { return a + (f.bytes || 0); }, 0); };
+  // what is still to come down (a pack that gained a picture or two since it was downloaded)
+  F.packBytesLeft = function (pack) { return F.packFiles(pack).reduce(function (a, f) { return a + (here[f.file] ? 0 : f.bytes || 0); }, 0); };
   F.canFetch = function () { return typeof host().asset === 'function'; };
 
   // ---------- the phone's copy ----------
@@ -87,6 +90,33 @@
     });
   };
   F.saveFile = function (f) { return here[f.file] ? Promise.resolve(true) : ask(f.file, true); };
+
+  // ---------- one picture of a pack, when something wants it ----------
+  // (a furniture style's sheet when its piece is drawn: 19zl2-packs-art.js shows Classic's meanwhile.) From the phone, or
+  // downloaded first. Resolves true when it is in F.images; then 'packart' (its key) on the bus.
+  var byKey = null;
+  F.packedFile = function (key) {
+    if (!byKey) {
+      byKey = {};
+      var ps = (F.ASSETS && F.ASSETS.packs) || {};
+      Object.keys(ps).forEach(function (p) { Object.keys(ps[p]).forEach(function (k) { byKey[k] = { file: ps[p][k].file, bytes: ps[p][k].bytes, key: k, pack: p }; }); });
+    }
+    return byKey[key] || null;
+  };
+  var wanted = {};
+  F.needImage = function (key) {
+    if (F.images && F.images[key]) return Promise.resolve(true);
+    var f = F.packedFile(key);
+    if (!f || !F.images || !F.canFetch()) return Promise.resolve(false);
+    if (!wanted[key]) {
+      wanted[key] = F.fetchFile(f).then(function (ok) {
+        delete wanted[key];
+        if (ok) F.bus.emit('packart', key);
+        return !!ok;
+      });
+    }
+    return wanted[key];
+  };
 
   // ---------- whole packs ----------
   F.packReady = function (pack) {
