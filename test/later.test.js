@@ -438,5 +438,5 @@ test('v2.4 is the newest (Central Park, 6 Nov 2026), v2.3 has a storage in every
   ['The Tailor Shop', 'Play together', 'Reactions', 'Big moments'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   C.NEWS.forEach((n) => n.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2]), l[1]); }));
   const tours = [].concat(...C.NEWS.map((n) => n.lines.filter((l) => l[3]).map((l) => l[3])));
-  assert.deepStrictEqual(tours.sort(), ['ads', 'breeds', 'contest', 'derby', 'double', 'event', 'farmhands', 'gear', 'greenhouse', 'hunt_dog', 'hunt_together', 'lair', 'land', 'mine', 'nb', 'park', 'photo', 'players', 'quality', 'rare', 'skills', 'sprinkler', 'station', 'tailor', 'town']);
+  assert.deepStrictEqual(tours.sort(), ['ads', 'bh', 'breeds', 'contest', 'derby', 'double', 'event', 'farmhands', 'friends', 'gear', 'gear_slots', 'greenhouse', 'hall', 'hunt_dog', 'hunt_together', 'jeep', 'lair', 'land', 'medals', 'mine', 'nb', 'park', 'photo', 'players', 'quality', 'raid', 'rank', 'rare', 'skills', 'sprinkler', 'station', 'tailor', 'tame', 'town']);
 });

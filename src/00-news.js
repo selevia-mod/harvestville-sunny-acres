@@ -10,6 +10,17 @@
     {
       v: '2.4', date: 'November 6, 2026', lines: [
         ['heart', 'Central Park', 'Up the road by the Station: one park for everyone in Harvest Ville. Meet other players, chat, wave and make friends. Park 1, 2 and 3 hold 30 each.', 'park'], // (19zzz-c-park-online.js)
+        // (owner, 6 Nov 2026: "Finish all the one we talk earlier": the rest of the night's update, in one version)
+        ['bow', 'Five new hunting places', 'Ride Kanor\'s Jeep from his Lodge to Banaue Terraces, Chocolate Hills, Taal Lake, Sierra Madre and the Palawan Underground River. Each opens after more hunts, with its own animals, a local friend and hidden chests.', 'jeep'],
+        ['ember_shard', 'A dungeon under each', 'Ten floors, a guard on floor 5 and a boss on floor 10 you can beat alone (more friends, a bigger boss). Its chest waits once a day, up to 3.'],
+        ['gear_cloak', 'Hunter\'s gear sets', 'Kanor makes a set of 4 from each place. Every piece takes energy off a charge, and the whole set takes even more there.', 'gear_slots'],
+        ['heart', 'Tame a friend', 'Each place has a young animal to tame with its favourite food. It follows you and helps you hunt.', 'tame'],
+        ['star', 'Medals', 'Medals for what you do out hunting, from your first hunt to each boss. Friends see them on your card.', 'medals'],
+        ['crate', 'Bayanihan Projects', 'Build the town together with every farmer in Harvest Ville at the board by the plaza. Each finished project changes the town for everyone.', 'bh'],
+        ['bow', 'Town Raid', 'Monday and Thursday at 8 PM, raiders come at your fields. Everyone online fills one town bar, and a win gives the whole town a bonus day.', 'raid'],
+        ['ribbon', 'Town Rank', 'Points for all you do this month: Bronze, Silver, Gold and Champion. It starts over on the 1st.', 'rank'],
+        ['chest', 'The Hall of Fame', 'Inside Central Park: the biggest catches, the first to beat each boss, and the Town Rank champions.', 'hall'],
+        ['letter', 'Villager stories', 'Every villager has a story that opens at 2, 4, 6 and 8 hearts. Follow them in the Friendship Book.', 'friends'],
       ],
     },
     {
