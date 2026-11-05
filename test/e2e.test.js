@@ -4282,6 +4282,26 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
   await frames(page, 3);
   assert.ok(await page.evaluate(() => Farm.world.yardGlows[0].alpha) < 0.05, 'dark by day');
 
+  // What's new: watching the players' tour with Show me counts as seen, so the first Bag open does not play it again
+  // (found on the OPPO, 5 Nov 2026)
+  const unseen = await page.evaluate(() => {
+    const s = Farm.session.state, i = Farm.Config.TIPS.map((t) => t.key).indexOf('players_tour'), k = i < 31 ? 'tips' : 'tq', b = i < 31 ? i : i - 31;
+    s[k] = (s[k] || 0) & ~(1 << b);
+    return !Farm.Logic.tipSeen(s, 'players_tour');
+  });
+  assert.ok(unseen, 'the tip is unseen for this check');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openNews(0, null); });
+  await frames(page, 3);
+  {
+    const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
+    const nth = row.slice(0, row.indexOf('Your ideas: new seeds')).filter((t) => t === 'Show me').length;
+    await tapButton(page, 'Show me', nth);
+  }
+  assert.match(await modalText(page), /NEW: YOUR IDEAS/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'players_tour')), true, 'seen once watched');
+  await tapButton(page, 'Skip');
+  await closeAll(page);
+
   // Drop: hold the turnips, Bag, Drop, Drop 5
   await teleport(page, 12, 12, 'down');
   await hold(page, 'turnip');

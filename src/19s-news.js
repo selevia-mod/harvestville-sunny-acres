@@ -9,6 +9,12 @@
   var BLUE = 0x4a90c9, GREY = 0xa08a68;
   var ROW_H = 100; // taller cards than other lists (74), so each line's words show in full
 
+  // A tour watched from here counts as seen, so it does not play again by itself later (its tip is '<tour>_tour').
+  var seen = function (tour) {
+    var s = F.session && F.session.state;
+    if (s && !F.session.visit && L.takeTip(s, tour + '_tour') && F.Host && F.Host.save) F.Host.save(s);
+  };
+
   // A line with a tour (its 4th entry, 19ze-tours.js) gets Show me; again() reopens this list after the tour.
   var rowsOf = function (news, header, ui, again) {
     var rows = [];
@@ -16,7 +22,7 @@
       if (header) rows.push({ icon: C.ICON.star, name: 'Version ' + n.v + (i === 0 ? '  (latest)' : ''), desc: n.date });
       n.lines.forEach(function (l) {
         var row = { icon: C.ICON[l[0]] != null ? C.ICON[l[0]] : C.ICON.note, name: l[1], desc: l[2] };
-        if (l[3] && ui.tour && F.TOURS && F.TOURS[l[3]]) row.buttons = [{ label: 'Show me', color: BLUE, cb: function () { ui.closeModal(); ui.tour(l[3], again); } }];
+        if (l[3] && ui.tour && F.TOURS && F.TOURS[l[3]]) row.buttons = [{ label: 'Show me', color: BLUE, cb: function () { ui.closeModal(); seen(l[3]); ui.tour(l[3], again); } }];
         rows.push(row);
       });
     });

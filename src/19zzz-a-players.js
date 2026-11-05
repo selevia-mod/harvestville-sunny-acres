@@ -221,7 +221,7 @@
     this.changed();
     this.save();
     tellDrops();
-    F.ui.toast('You dropped ' + (took > 1 ? took + ' ' : 'your ') + L.itemName(s, id) + '. It disappears in ' + C.DROP.mins + ' minutes. A friend here can pick it up.', 3200);
+    F.ui.toast('You dropped ' + (took > 1 ? took + ' ' : 'your ') + L.itemName(s, id) + (took > 1 ? '. They disappear in ' : '. It disappears in ') + C.DROP.mins + ' minutes. A friend here can pick it up.', 3200);
   };
   // Draws what lies on this map, and forgets what is gone.
   P.drawGround = function () {
