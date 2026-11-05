@@ -288,7 +288,7 @@
     this.raidBox.setVisible(vis);
     if (!vis) return;
     var goal = this.goalBar && this.goalBar.visible, visitBar = this.visitBar && this.visitBar.visible !== false && F.session.visit;
-    this.raidBox.setY(goal || visitBar ? 102 : 68);
+    this.raidBox.setY(visitBar ? 112 : goal ? 102 : 68); // (on a visit: under the round Visit button)
     var r = ph.r, kind = L.raidKind(r), rec = L.raidRec(s), text, pct = 0, bar = false;
     var ic = kindIcon(kind);
     if (this.raidIcon.frame.name !== ic) this.raidIcon.setFrame(ic);
