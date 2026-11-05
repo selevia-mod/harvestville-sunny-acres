@@ -4412,3 +4412,28 @@ test('the Lair: a charge that bumps you against the wall at the edge of the floo
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Owner, 5 Nov 2026: "i can move left or right but i cannot go up going to door" — deep in the Lair's bottom wall the
+// farmer could walk along it but never out. Inside a wall, the farmer steps out to the nearest open tile.
+test('the Lair: a farmer found deep inside the bottom wall is back on the floor at once, and walks up to the door', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'magayon'; s.wild.n = 50; s.energy = 900; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'magayon');
+  await page.evaluate(() => Farm.world.travel('lair', 'entrance', 1));
+  await page.waitForFunction(() => Farm.world.mapKey === 'lair' && Farm.session.lairFloor === 1 && !Farm.world.busy && Farm.world.player.active && Farm.world.wild && Farm.world.wild.animals.length, null, SLOW);
+  await closeAll(page);
+  await page.evaluate(() => { Farm.world.wild.animals.forEach((x) => { x.x = 3 * 256; x.y = 5 * 256; x.cool = 1e9; x.mode = 'walk'; x.vx = x.vy = 0; }); });
+  await page.evaluate(() => Farm.world.setFeet(12.5 * 256, 17.8 * 256)); // (where the owner's farmer stood)
+  await page.waitForFunction(() => Farm.world.feet().y < 17 * 256, null, { timeout: 5000 }).catch(() => {});
+  const back = await page.evaluate(() => Farm.world.feet().y / 256);
+  assert.ok(back < 17, 'out of the wall: feet at row ' + back.toFixed(2));
+  const from = await page.evaluate(() => Farm.world.feet());
+  await page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = -1; });
+  await page.waitForFunction((fy) => fy - Farm.world.feet().y > 2 * 256, from.y, { timeout: 8000 }).catch(() => {});
+  await page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+  const to = await page.evaluate(() => Farm.world.feet());
+  assert.ok(from.y - to.y > 2 * 256, 'walked up ' + ((from.y - to.y) / 256).toFixed(2) + ' tiles');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

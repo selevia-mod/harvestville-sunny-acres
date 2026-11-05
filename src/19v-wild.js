@@ -352,6 +352,13 @@
     if (!lead) this.wildTell(dt);
     if (this.wildBait && Date.now() > this.wildBait.until) { this.wildBait.img.destroy(); this.wildBait = null; }
     if (this.kanor) this.updateKanor();
+    // never left inside a wall: deep in one, the farmer could walk along it but not out (owner, 5 Nov 2026, the Lair's
+    // bottom wall: "i can move left or right but i cannot go up"). Twice a second, out to the nearest open tile.
+    if (!busy && Math.floor(time / 500) !== this.stuckAt) {
+      this.stuckAt = Math.floor(time / 500);
+      var ft = this.feet();
+      if (!this.walkable(Math.floor(ft.x / T), Math.floor(ft.y / T))) { this.unstick(); this.player.body.setVelocity(0, 0); }
+    }
   };
 
   // Who the animals can see: you (not while a menu is open) and the friends on this map.
