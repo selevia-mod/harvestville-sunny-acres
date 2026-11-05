@@ -190,6 +190,16 @@ test('the clearing quest asks for 15 at most; shops never close but night is sti
   assert.ok(!L.canDrop(s, s.inv.findIndex((x) => !x)));
 });
 
+// Owner, 5 Nov 2026 (after e28): "why kanor is missing, all shop must be open right" — Kanor in the Wild Lands and Tita Luz
+// at the Tailor Shop kept their own hours (19v-wild.js updateKanor, 19zj-looks.js tailorOpen) and vanished at night.
+test('Kanor and Tita Luz are there at every hour, like every shop', () => {
+  const here = (k, t) => t >= k.open && t < k.close;
+  [0, 2 * 60, 5 * 60 + 59, 6 * 60, 20 * 60, 22 * 60, 23 * 60 + 30, 25 * 60, 27 * 60].forEach((t) => {
+    assert.ok(here(C.KANOR, t), 'Kanor at ' + t);
+    assert.ok(here(C.TAILOR, t), 'Tita Luz at ' + t);
+  });
+});
+
 test('animals: a chicken lays 8 hours after eating, a cow 12; the night only checks who ate today; the timer survives a save', () => {
   clock.set(2026, 4, 1, 9, 0);
   const s = L.newState();

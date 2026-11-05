@@ -3010,6 +3010,8 @@
     if (b.owner && b.open && k !== 'school') b.open = [0, 99 * H];
   });
   if (C.TRADER && C.TRADER.open) C.TRADER.open = [0, 99 * H];
+  // Kanor (Wild Lands) and Tita Luz (Tailor Shop) keep their own hours: there at every hour too (owner, 5 Nov 2026)
+  [C.KANOR, C.TAILOR].forEach(function (k) { if (k) { k.open = 0; k.close = 99 * H; } });
 
   // ---------- Mira: two jobs at once ----------
   C.MIRA_JOBS = 2;
