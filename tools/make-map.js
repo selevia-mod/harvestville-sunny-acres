@@ -691,7 +691,46 @@ function samplePlace() {
   return m.json();
 }
 
+// Place 15: PALAWAN UNDERGROUND RIVER (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-15-palawan.js), about Pulag's size.
+// A jungle beach: white sand to the south, tropical grass and jungle to the north, the turquoise river (not walkable)
+// running up from the sea into the limestone cliff, a small boat dock where Mang Pido waits, a dock bridge across,
+// karst spires along the cliff, the cave mouth beside the river. Stand-ins until the owner's ground_palawan /
+// props_palawan art: Pulag's tiles and Wild Lands props (boulder_moss = karst spire, rainforest_tree = mangrove,
+// fern_bush = red-flowering bush, pili_tree = coconut palm, jungle_grass = where animals hide, boat = the bangka).
+function palawan() {
+  const m = new MapBuilder('palawan', 32, 28, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(1515);
+  // sand to the south, grass to the north, jungle in the north-west corner
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', (x, y) => (y >= 13 + Math.round(1.6 * Math.sin(x / 2.7)) ? T.sand : x < 10 && y < 10 ? T.wild_forest : T.wild_grass));
+  // the river: from the sea at the bottom up to the cliff
+  const river = (x, y) => (y >= 3 && y <= 6 && x >= 21 && x <= 23) || (y >= 7 && y <= 12 && x >= 22 && x <= 24) || (y >= 13 && x >= 23 && x <= 25) || (y >= 25 && x >= 22 && x <= 27);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', (x, y) => (river(x, y) ? T.water : m.get('Ground', x, y) - m.first.tiles));
+  m.rect('Ground', 23, 14, 24, 15, 'tiles', T.dock); // Mang Pido's boat dock
+  m.rect('Ground', 22, 9, 24, 10, 'tiles', T.dock); // the bridge to the east bank
+  trail(m, [[5, 23], [18, 23], [18, 4]]); // from the jeep along the beach, past the dock, up to the cave
+  wildRing(m, [[22, 26, 27, 27]]);
+  m.obj('jeep', 'jeep', 3, 22, 2, 1);
+  m.point('from_jeep', 'spawn', 3.9, 23.6, [prop('dir', 'string', 'down')]);
+  m.prop('trail_sign', 7, 20);
+  m.obj('sign_palawan', 'sign', 7, 21, 1, 1, [prop('text', 'string', 'PALAWAN UNDERGROUND RIVER\nSabang beach. Up the trail, the river goes into the cliff: the River Caves. Mang Pido waits at his dock.')]);
+  caveMouth(m, 'palawan_cave', 18, 2);
+  m.prop('boat', 23, 16);
+  // karst spires along the cliff (not over the mouth or the river)
+  [[2, 1], [5, 1], [8, 1], [11, 1], [14, 1], [25, 1], [28, 1]].forEach(([x, y]) => m.prop('boulder_moss', x, y));
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  const place = gameConfig().PLACES.palawan, chests = place.chests.concat([place.npc.at]); // (kept free: the game's own data)
+  const near = (x, y, list, d) => list.some(([a, b]) => Math.abs(a - x) <= d && Math.abs(b - y) <= d);
+  const keep = (x, y) => river(x, y) || onTrail(m, x, y) || m.is('Ground', x, y, 'tiles', T.dock) || near(x, y, chests, 1) || (x <= 9 && y >= 19) ||
+    (x >= 15 && x <= 22 && y <= 6) || (x >= 19 && x <= 22 && y >= 12 && y <= 17) || (x >= 21 && x <= 25 && y >= 8 && y <= 11);
+  scatter(m, r, [['rainforest_tree', 3], ['pili_tree', 4], ['boulder_moss', 3], ['fern_bush', 6], ['bamboo_bush', 2], ['wildflowers', 3], ['jungle_grass', 28]], (x, y) => !keep(x, y));
+  return m.json();
+}
+
 const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, sample_place: samplePlace, sample_cave: () => placeCave('sample_cave', 'sample_place', { seed: 9907 }) };
+// Place 15's two maps: its beach, and the River Caves (wet limestone, the turquoise underground river in 'void' pools)
+MAPS.palawan = palawan;
+MAPS.palawan_cave = () => placeCave('palawan_cave', 'palawan', { w: 18, h: 14, seed: 1516, pillars: [[11, 7]],
+  pools: [[11, 3, 16, 4], [14, 5, 16, 5], [1, 9, 2, 11], [3, 10, 4, 11]], props: [['boulder_moss', 6, 6], ['mushroom_rock', 15, 9], ['mushroom_rock', 3, 6]] });
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

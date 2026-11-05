@@ -275,7 +275,8 @@ test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes'
   s.wild.n = 39;
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'magayon');
   assert.strictEqual(L.wildOpen(s, 'magayon'), true);
-  assert.strictEqual(L.wildNext(s), null);
+  const next = L.wildNext(s); // (after Magayon: one of the new hunting places, owner 6 Nov 2026, or none)
+  assert.ok(next === null || (C.PLACES[next] && !C.PLACES[next].legacy), next);
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, null);
   ['bear', 'mammoth', 'tiger', 'rhino'].forEach((k) => {
     const def = C.WILD.animals[k];
