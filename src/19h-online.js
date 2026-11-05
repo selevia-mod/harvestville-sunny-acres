@@ -587,7 +587,10 @@
     var alone = true;
     var fl = O.floorHere(w.mapKey);
     for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
-    if (alone && !(Object.keys(this.others).length && this.last && (this.last.map !== w.mapKey || this.last.fl !== fl))) return;
+    // (O.last is cleared as each map opens, so "nothing said here yet" is a change of map too. Players, 6 Nov 2026: "si nadya
+    // naging parang tuod na": going on alone to the next hunting ground said nothing, so the others saw her stand frozen
+    // where she had been, and anyone who came after her found nobody, until her presence came, up to 20 s later.)
+    if (alone && !(Object.keys(this.others).length && (!this.last || this.last.map !== w.mapKey || this.last.fl !== fl))) return;
     var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir || !!last.rd !== !!F.session.riding;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
@@ -711,6 +714,11 @@
     O.mvMs = 0;
     O.mapAt = Date.now();
     if (O.on) O.ensureChannel();
+    // The others already on this map, drawn the moment the map runs: syncSprites draws only in a running scene, and while it
+    // is being made it is not yet, so they waited for the next presence (up to 20 s). Players, 6 Nov 2026: "sometimes hindi
+    // visible ang characters. like bow and arrows lang nakikita": a friend there all along was not drawn, so their shots
+    // came as a bow and an arrow with nobody behind them (19v-wild.js 'ar', bowFlash).
+    this.events.once('create', function () { O.syncSprites(); });
     if (v && F.ui) F.ui.toast(L.isWildMap(this.mapKey) ? 'Hunting with ' + v.name + '. Tap Home to go back to your farm.' : this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
