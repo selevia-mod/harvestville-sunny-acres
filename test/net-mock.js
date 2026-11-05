@@ -15,6 +15,7 @@ function createServer() {
   const db = { looksOwned: new Map(), players: new Map(), snaps: new Map(), visits: [], friends: [], messages: [], scores: new Map(), msgId: 0, blocks: [], reports: [], follows: [], staff: new Set(), plays: [], wallets: new Map(), purchases: new Map(), loseNextBuyAnswer: false, helps: [], picks: [], market: [], lotId: 0, hunting: new Map(), catches: new Map(), derby: new Map() };
   const channels = new Map(); // topic -> Map(client:hid -> member)
   db.tracks = []; // every presence update, as the server counts them
+  db.sends = []; // every broadcast sent: { uid, room, event, at, heard } (heard: how many others it reached; the message budget)
   const today = () => new Date().toISOString().slice(0, 10);
   const online = (p) => Date.now() - p.seen < 2 * 60 * 1000;
   const pair = (a, b) => (a < b ? [a, b] : [b, a]);
@@ -761,6 +762,7 @@ function createServer() {
   // keeps anyone out. Tests can age a seat by moving its seen back (db.parkSeats.get(uid).seen), or say the part is not
   // applied yet (db.noPark).
   const PARK = { cap: 30, freshMs: 75e3 };
+  const cap = () => db.parkCap || PARK.cap; // (a test may lower it: db.parkCap)
   db.parkSeats = new Map(); // uid -> { park, seen }
   const seatFresh = (s) => Date.now() - s.seen < PARK.freshMs;
   const parkOthers = (uid, n) => [...db.parkSeats.entries()].filter(([id, s]) => id !== uid && s.park === n && seatFresh(s)).map(([id]) => id);
@@ -779,13 +781,13 @@ function createServer() {
       if (want === null) {
         if (mine && seatFresh(mine)) pick = mine.park;
         else {
-          const open = [1, 2, 3].filter((n) => parkOthers(uid, n).length < PARK.cap)
+          const open = [1, 2, 3].filter((n) => parkOthers(uid, n).length < cap())
             .map((n) => ({ n, friends: parkOthers(uid, n).filter((id) => areFriends(uid, id) && !blocked(uid, id)).length }))
             .sort((x, y) => y.friends - x.friends || x.n - y.n);
           if (!open.length) return { ok: false, code: 'full', counts: parkCounts() };
           pick = open[0].n;
         }
-      } else if (parkOthers(uid, want).length >= PARK.cap) return { ok: false, code: 'full', counts: parkCounts() };
+      } else if (parkOthers(uid, want).length >= cap()) return { ok: false, code: 'full', counts: parkCounts() };
       db.parkSeats.set(uid, { park: pick, seen: Date.now() });
       return { ok: true, park: pick, counts: parkCounts() };
     },
@@ -793,7 +795,7 @@ function createServer() {
     farm_park_beat_v1(uid) {
       if (!uid) throw new Error('not signed in');
       const s = db.parkSeats.get(uid);
-      if (s && !seatFresh(s) && parkOthers(uid, s.park).length >= PARK.cap) db.parkSeats.delete(uid);
+      if (s && !seatFresh(s) && parkOthers(uid, s.park).length >= cap()) db.parkSeats.delete(uid);
       const now = db.parkSeats.get(uid);
       if (now) now.seen = Date.now();
       return { ok: true, park: now ? now.park : null, counts: parkCounts() };
@@ -858,6 +860,7 @@ function createServer() {
           async send(m) {
             const set = topics.get(room);
             if (!set || !this.joined) return 'error';
+            db.sends.push({ uid, room, event: m.event, at: Date.now(), heard: set.size - 1 });
             for (const o of set) if (o !== this || this.self) later(() => o.fire('broadcast', m.event, { type: 'broadcast', event: m.event, payload: m.payload }));
             return 'ok';
           },

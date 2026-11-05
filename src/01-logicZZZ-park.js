@@ -6,6 +6,9 @@
   'use strict';
   var L = F.Logic;
 
+  // Central Park's first-time tour (19zzz-c-park-online.js). Appended last: a tip is its place in a saved number.
+  F.Config.TIPS.push({ key: 'park_tour', text: 'CENTRAL PARK' });
+
   var TOWN = null;
   var serialize = L.serialize;
   L.serialize = function (s) {

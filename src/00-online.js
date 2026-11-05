@@ -13,5 +13,10 @@
     goneAfter: 6000, // someone missing from the room this long has left; before that it is a dropped line (ms)
     snapTiles: 14, // someone further than this from where they should be is put there; nearer, they walk over quickly
     giftGold: 100, // what a gold gift is worth to the farm you leave it at
+    // Central Park (owner, 6 Nov 2026), up to 30 in one room: every message counts once sent and once for each phone
+    // that hears it, and the whole project may send 2,500 a second (more cuts off every live line in the app, Selebox
+    // chats too). So there your place goes out about once a second while you walk, and only then (one more when you
+    // stop), every 2 s when more than 20 others are there; "still here" to the park every 30 s (19zzz-c-park-online.js).
+    park: { moveEvery: 1000, busyMoveEvery: 2000, busyAt: 20, beatEvery: 30000 },
   };
 })(window.Farm = window.Farm || {});

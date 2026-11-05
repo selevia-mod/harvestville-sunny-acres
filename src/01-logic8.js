@@ -169,14 +169,18 @@
   };
 
   // Where to draw them now: { x, y, dir, moving, speed }, or null with nothing heard for a while.
+  // tr.every: how often their steps come, when slower than a farm's (Central Park, owner 6 Nov 2026: once a second, or
+  // every 2 s in a crowd). They are drawn that much further in the past, so the next step is still here before they
+  // need it, and a late one keeps them walking straight on for longer: the same smooth walk, from fewer messages.
   L.trailAt = function (tr, now) {
     var list = tr && tr.list, ON = C.ONLINE;
     if (!list || !list.length) return null;
+    var slow = tr.every > ON.moveEvery ? Math.min(tr.every, 4000) - ON.moveEvery : 0;
     var most = (now - (tr.seen || now)) * 0.05, gap = tr.off - tr.play;
     tr.seen = now;
     tr.play += Math.max(-most, Math.min(most, gap));
-    var t = now - tr.play - ON.moveDelay, last = list[list.length - 1];
-    if (t - last.t > 3000) return null;
+    var t = now - tr.play - ON.moveDelay - slow, last = list[list.length - 1];
+    if (t - last.t > 3000 + slow) return null;
     while (list.length > 2 && list[1].t <= t) list.shift();
     var a = list[0], b = list[1] || a, ms = b.t - a.t, dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
     var speed = ms > 0 ? d * 1000 / ms : 0, far = speed > C.SPEED * 3, going = speed > C.SPEED * 0.1 && !far; // (far: a door or a warp, not a walk, however long since the last step)
@@ -187,8 +191,8 @@
     }
     var over = t - b.t, on = b.m && going;
     if (!on) return { x: b.x, y: b.y, dir: b.dir, moving: false, speed: 0 };
-    var ahead = Math.min(over, ON.moveAhead) / ms; // their next step is late: straight on, for a moment
-    return { x: b.x + dx * ahead, y: b.y + dy * ahead, dir: b.dir, moving: over < ON.moveEvery * 2, speed: speed };
+    var ahead = Math.min(over, ON.moveAhead + slow / 2) / ms; // their next step is late: straight on, for a moment
+    return { x: b.x + dx * ahead, y: b.y + dy * ahead, dir: b.dir, moving: over < (ON.moveEvery + slow) * 2, speed: speed };
   };
 
   // ---------- save ----------
