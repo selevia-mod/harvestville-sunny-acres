@@ -4968,8 +4968,9 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   await waitMap(page, 'pulag');
   await page.evaluate(() => { window.gameHost.devPlaces = true; });
   // Kanor's Make tab: the sample set, four pieces, each on as it is made
-  const trophies = await page.evaluate(() => Farm.Config.WILD.trophies.length);
-  for (let k = 0; k < 4; k++) { // (the set's rows come after the trophies, 4 rows a page)
+  // (the set's rows come after the trophies and the sets of the places listed before it, 4 rows a page)
+  const trophies = await page.evaluate(() => { const C = Farm.Config, shown = C.PLACE_ORDER.filter(Farm.Logic.placeShown); return C.WILD.trophies.length + 4 * shown.slice(0, shown.indexOf('sample_place')).filter((id) => C.PLACE_GEAR[id + '_head']).length; });
+  for (let k = 0; k < 4; k++) {
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, Math.floor((trophies + k) / 4));
     await tapButton(page, '100G');
   }
@@ -5100,4 +5101,122 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   assert.deepStrictEqual([back.comp, back.deep], [true, 2]);
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
+});
+
+// ---------- Place 13: Taal Lake (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-13-taal.js) ----------
+test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and the rare Royal Tagak; fish from the pier; tame the Little Tagak; a hidden chest; Mang Celso\'s first step and gift; Taal Crater floor 5 guard and floor 10 Berberoka; its chest; the medals', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.wild.n = 100; s.gold = 5000; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 60); L.addItem(s, 'rod', 1); L.addItem(s, 'fish_s', 12); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  // Kanor's Jeep: Taal Lake is open at 100 hunts
+  await teleport(page, 27, 10, 'up');
+  assert.strictEqual(await actionLabel(page), 'Jeep');
+  await tapAction(page);
+  assert.match(await modalText(page), /Kanor's Jeep[\s\S]*Taal Lake \| 0% explored\. 0 hunts here\./);
+  const go = await page.evaluate(() => Farm.Logic.jeepPlaces(Farm.session.state).filter((e) => e.open).findIndex((e) => e.id === 'taal'));
+  assert.ok(go >= 0);
+  await page.evaluate(() => { Farm.Logic.wildRare = () => true; }); // (the rare one is out today)
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('taal', 'from_jeep'); });
+  await waitMap(page, 'taal');
+  const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: !!w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: [...new Set(w.wild.animals.map((a) => a.kind))].sort(), mouth: !!w.points.dungeon_mouth }; });
+  assert.deepStrictEqual(here, { jeep: true, npc: 'Mang Celso', chests: 5, near: true, kinds: ['buwaya', 'royal_tagak', 'tagak', 'tagak_bata'], mouth: true });
+  await frames(page, 20);
+  await shot(page, 'taal-arrive');
+  // one of each hunted (their hits counted as yours); the Buwaya charges first
+  const lost = await page.evaluate(() => { const w = Farm.world, s = Farm.session.state, a = w.wild.animals.find((x) => x.kind === 'buwaya'), e = s.energy; w.wildHit(a); return e - s.energy; });
+  assert.strictEqual(lost, 15, 'a Buwaya charge, no gear on');
+  for (const kind of ['tagak', 'buwaya', 'royal_tagak']) {
+    await page.evaluate((k) => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === k); a.hp = 1; w.wildStruck(a); }, kind);
+    await page.waitForFunction((k) => (Farm.session.state.wild.by[k] || 0) === 1, kind, SLOW);
+  }
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.taal.n), 3);
+  // the pier: fish from its end (the lake is water: you cannot walk on it)
+  await teleport(page, 17, 6, 'up');
+  await hold(page, 'rod');
+  assert.strictEqual(await actionLabel(page), 'Fish');
+  assert.strictEqual(await page.evaluate(() => Farm.world.walkable(17, 4)), false, 'the lake');
+  await frames(page, 10);
+  await shot(page, 'taal-pier');
+  // taming: hold Small Fish, sneak up to the Little Tagak while it is calm, Feed; 9 feedings (it never runs off here)
+  await hold(page, 'fish_s');
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; });
+  for (let k = 1; k <= 9; k++) {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'tagak_bata'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 22.5 * T; a.y = 21.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; w.setFeet(21.5 * T, 21.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+    assert.strictEqual(await actionLabel(page), 'Feed', 'feeding ' + k);
+    if (k === 1) await shot(page, 'taal-tame');
+    await tapAction(page);
+    if (k < 9) assert.strictEqual(await page.evaluate(() => Farm.Logic.tameHearts(Farm.session.state, 'taal')), k);
+  }
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'taal') && Farm.world.comp && Farm.world.comp.kind === 'tagak_bata', null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'fish_s')), 3);
+  // a hidden chest: the one in the reeds, by the crater path
+  await teleport(page, 4, 15, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[1] && Farm.world.placeChests[1].img.alpha > 0.6, null, SLOW);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
+  await tapAction(page);
+  await page.waitForFunction(() => /A hidden chest!/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows')), arrows + 8);
+  // Mang Celso by his pier: 3 hunts here is his first step, and its coffee
+  await teleport(page, 14, 16, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  const coffee = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'kapeng_barako')); // (the chest may have had one)
+  await tapAction(page);
+  assert.match(await modalText(page), /MANG CELSO[\s\S]*Magandang araw![\s\S]*Mang Celso gives you 1 Kapeng Barako/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'kapeng_barako')), coffee + 1);
+  await shot(page, 'taal-celso');
+  await closeAll(page);
+  // Taal Crater: in at the door at the top of the trail
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(6.5 * 256, 3.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'taal_crater');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['siyokoy', 'siyokoy', 'siyokoy'], sheet: 'indoor-taal_crater', comp: true });
+  await frames(page, 10);
+  await shot(page, 'taal-crater-1');
+  // floor 5 (jumping there): the Lava Buwaya and its two
+  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.lairFloor === 5 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const guard = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
+  assert.deepStrictEqual(guard, { kind: 'lava_buwaya', hp: 26, bar: true, n: 3 });
+  await shot(page, 'taal-crater-5');
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.taal.g), 1, 'the guard is down');
+  // floor 10: the Berberoka, soloable (no more for one); its chest
+  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'berberoka'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
+  assert.deepStrictEqual(boss, { hp: 40, max: 40, bar: true });
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.gate), null, 'the bottom: no gate down');
+  await shot(page, 'taal-crater-10');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'berberoka'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); }); // (3 hits: its share)
+  await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
+  await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
+  const pearlsNow = () => page.evaluate(() => { const s = Farm.session.state; return Farm.Logic.countItem(s, 'pearl_kataw') + (s.basket.pearl_kataw || 0) + Farm.world.wildDrops.filter((d) => d.id === 'pearl_kataw').length; }); // (a full bag: the rest waits in the basket)
+  const pearls = await pearlsNow();
+  // (stand at it and tap Open; again if a pet or the companion walked up in between and the button became Talk)
+  for (let i = 0; i < 4 && (await page.evaluate(() => !!Farm.world.bossChest)); i++) {
+    await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+    await frames(page, 3);
+    if (i === 0) assert.strictEqual(await actionLabel(page), 'Open');
+    if ((await actionLabel(page)) === 'Open') await tapAction(page);
+    await page.waitForFunction(() => !Farm.world.bossChest, null, { timeout: 8000 }).catch(() => {});
+  }
+  assert.strictEqual(await page.evaluate(() => Farm.world.bossChest), null, 'the chest is open');
+  assert.ok((await pearlsNow()) >= pearls + 2, 'the chest\'s 2 Kataw Pearls');
+  await shot(page, 'taal-boss-chest');
+  // medals: first hunt, guard, boss, tame, each animal and the rare one
+  await closeAll(page);
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openMedals(); });
+  assert.match(await modalText(page), /My Medals[\s\S]*\d+ of \d+ medals/);
+  const earned = await page.evaluate(() => [1300, 1301, 1302, 1303, 1310, 1312, 1314].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true, true]);
+  await shot(page, 'taal-medals');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
 });

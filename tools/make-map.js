@@ -851,6 +851,74 @@ function samplePlace() {
 }
 
 const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park, hall, sample_place: samplePlace, sample_cave: () => placeCave('sample_cave', 'sample_place', { seed: 9907 }) };
+// Place 13: Taal Lake (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-13-taal.js): a lakeshore on the volcano island, Pulag's
+// size. Dark volcanic sand (Magayon's ash tiles) with patches of grass, the big lake to the north-east (water tiles: not
+// walkable, you can fish from them) with a wooden pier into it, bancas on the shore, reeds, mango trees, steaming rocks
+// and nipa huts. The jeep stops at the south-east; the crater cave's mouth is up the slope at the north-west.
+// Stand-ins until the owner's art (art-src/places/taal/ground_taal*.png, props_taal.png): the ash, grass, sand, water
+// and dock tiles, and the props boat (banca), bamboo_bush + tall_grass (reeds), rainforest_tree (mango), sulfur_vent +
+// lava_boulder (steaming rocks) and shack (nipa hut).
+function taal() {
+  const m = new MapBuilder('taal', 32, 28, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(1313);
+  // dark volcanic sand, with patches of grass (a coarse random grid, smoothed: patches, not a checkerboard)
+  const cell = 5, gw = Math.ceil(m.W / cell) + 2, gh = Math.ceil(m.H / cell) + 2, coarse = Array.from({ length: gw * gh }, () => r());
+  const patch = (x, y) => {
+    const fx = x / cell, fy = y / cell, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, v = (i, j) => coarse[(y0 + j) * gw + x0 + i];
+    return (v(0, 0) * (1 - tx) + v(1, 0) * tx) * (1 - ty) + (v(0, 1) * (1 - tx) + v(1, 1) * tx) * ty;
+  };
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', (x, y) => (patch(x, y) > 0.6 ? T.wild_grass : T.wild_ash));
+  // the lake: an oval in the north-east, a rim of sand round it
+  const lake = (x, y) => ((x - 21.5) / 9.2) ** 2 + ((y - 7.5) / 5.6) ** 2;
+  for (let y = 1; y < m.H - 1; y++) for (let x = 1; x < m.W - 1; x++) {
+    const d = lake(x, y) + Math.sin(x * 1.7 + y) * 0.05;
+    if (d < 1) m.put('Ground', x, y, 'tiles', T.water);
+    else if (d < 1.32) m.put('Ground', x, y, 'tiles', T.sand);
+  }
+  // the pier: two tiles wide from the shore by Mang Celso, out over the water
+  m.rect('Ground', 16, 6, 17, 13, 'tiles', T.dock);
+  trail(m, [[26, 24], [20, 24], [20, 15], [14, 15], [14, 17], [6, 17], [6, 6]]); // the jeep, Mang Celso and his pier, the crater
+  wildRing(m, []);
+  m.obj('jeep', 'jeep', 26, 22, 2, 1);
+  m.point('from_jeep', 'spawn', 26.9, 23.6, [prop('dir', 'string', 'down')]);
+  caveMouth(m, 'taal_crater', 6, 3);
+  m.prop('trail_sign', 3, 6);
+  m.obj('sign_crater', 'sign', 3, 7, 1, 1, [prop('text', 'string', 'TAAL CRATER\nDown into the volcano: sulfur rock and green crater water, ten floors. The Lava Buwaya guards floor 5.')]);
+  m.prop('trail_sign', 23, 25);
+  m.obj('sign_jeep', 'sign', 23, 26, 1, 1, [prop('text', 'string', "TAAL LAKE\nKanor's Jeep goes back from here. Mang Celso fishes from the pier up the trail.")]);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  // fixed things: bancas on the sand, nipa huts on stilts, steam by the crater mouth
+  m.prop('boat', 12, 10);
+  m.prop('boat', 20, 13);
+  m.prop('shack', 21, 17);
+  m.prop('shack', 8, 20);
+  m.prop('bamboo_bush', 2, 13);
+  m.prop('sulfur_vent', 9, 2);
+  m.prop('sulfur_vent', 2, 9);
+  // keep free: the trail, the pier and its shore, the jeep, Mang Celso, the chests, the cave mouth
+  const chests = [[16, 6], [4, 14], [25, 18], [3, 4], [29, 15]];
+  const keep = (x, y) => (x >= 13 && x <= 18 && y >= 12 && y <= 17) || (x >= 22 && y >= 20) || (x >= 3 && x <= 9 && y <= 8)
+    || chests.some(([cx, cy]) => Math.abs(cx - x) <= 1 && Math.abs(cy - y) <= 1);
+  const land = (x, y) => !m.is('Ground', x, y, 'tiles', T.water) && !m.is('Ground', x, y, 'tiles', T.dock);
+  scatter(m, r, [['rainforest_tree', 3], ['bamboo_bush', 5], ['lava_boulder', 4], ['hot_spring', 1], ['tall_grass', 22]], (x, y) => land(x, y) && !onTrail(m, x, y) && !keep(x, y));
+  return m.json();
+}
+
+// A place map's props tileset keeps only the props it uses (each map carries its own copy of the list; about 16 KB less
+// on the page per map: owner, 6 Nov 2026, page size). Ids stay as they are: a prop is found by its id (src/11-world.js).
+function slimProps(json) {
+  const set = json.tilesets.find((t) => t.name === 'props'), used = new Set();
+  json.layers.forEach((l) => (l.objects || []).forEach((o) => { if (o.gid) used.add(o.gid - set.firstgid); }));
+  set.tiles = set.tiles.filter((t) => used.has(t.id));
+  return json;
+}
+
+// Taal Lake and its crater (owner, 6 Nov 2026): green crater water pools, two rock pillars, steaming vents
+Object.assign(MAPS, {
+  taal: () => slimProps(taal()),
+  taal_crater: () => slimProps(placeCave('taal_crater', 'taal', { w: 18, h: 15, seed: 1314, pillars: [[11, 6], [5, 9]],
+    pools: [[12, 3, 15, 4], [13, 5, 14, 5], [2, 11, 3, 12], [14, 10, 16, 11]], props: [['sulfur_vent', 8, 2], ['lava_boulder', 1, 5], ['lava_boulder', 15, 7]] })),
+});
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {
