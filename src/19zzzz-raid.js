@@ -66,6 +66,9 @@
   };
 
   // ---------- talking to the server ----------
+  // How often: ours (C.RAID), or slower when the server says so (farm.raid_rules: it can lighten the load without an update).
+  var sendSecs = function () { return Math.max(R.sendEvery, (RS.town && RS.town.every) || 0); };
+  var pollSecs = function () { return Math.max(R.pollEvery, (RS.town && RS.town.poll) || 0); };
   var missing = function (e) { return /could not find|does not exist|schema cache/i.test((e && e.message) || String(e || '')); };
   var noteFail = function (e) {
     RS.fails++;
@@ -83,7 +86,7 @@
   };
   RS.poll = function () {
     if (!online() || RS.sending) return Promise.resolve(null);
-    RS.pollAt = Date.now() + R.pollEvery * 1000;
+    RS.pollAt = Date.now() + pollSecs() * 1000;
     return F.Net.rpc('farm_raid_state_v1', {}).then(function (a) {
       var t = L.raidRead(a);
       if (!t) return null;
@@ -100,7 +103,7 @@
     if (!RS.req || RS.req.raid !== r.id) RS.req = { id: uuid(), raid: r.id, n: Math.min(RS.pending, R.batchMost) };
     var req = RS.req, s = mine();
     RS.sending = true;
-    RS.sendAt = Date.now() + R.sendEvery * 1000;
+    RS.sendAt = Date.now() + sendSecs() * 1000;
     return F.Net.rpc('farm_raid_hit_v1', { p_raid: req.raid, p_hits: req.n, p_request_id: req.id }).then(function (a) {
       RS.sending = false;
       var t = L.raidRead(a);
@@ -125,7 +128,7 @@
     }, function (e) {
       RS.sending = false;
       noteFail(e);
-      RS.sendAt = Date.now() + Math.min(60000, R.sendEvery * 1000 * Math.pow(2, Math.min(3, RS.fails))); // (the same batch, a little later)
+      RS.sendAt = Date.now() + Math.min(120000, sendSecs() * 1000 * Math.pow(2, Math.min(3, RS.fails))); // (the same batch, a little later)
       return null;
     });
   };
@@ -601,6 +604,7 @@
     if (!this.raiders || !this.raiders.length || !L.raidNow()) return null;
     var self = this, s = this.state, held = L.held(s), def = held && C.ITEMS[held.id], tool = def && def.tool && C.TOOLS[def.tool] ? def.tool : null;
     var near = this.raiderNear(R.reach);
+    if (F.session.riding) return near ? { label: near.def.verb, icon: -1, disabled: true, why: 'Get off your horse to fight them off!' } : null;
     if (held && held.id === 'bow') {
       var far = this.raiderNear(R.bowRange);
       if (far && works(far.def, null, 'bow')) return { label: 'Shoot', icon: L.iconOf(s, 'bow'), run: function () { self.raidShoot(far); } };

@@ -15,7 +15,7 @@
 --     moment don't all wait for one row.
 -- Additive: three new tables (rules, the town's count, each player's hits) and six new functions. Nothing that exists
 -- changes. Safe to run twice. Runs fine as ONE transaction in the SQL editor.
---   farm_raid_state_v1()                           { ok, raid, kind, on, starts_in, ends_in, total, goal, defenders, mine, cap, last }
+--   farm_raid_state_v1()                           { ok, raid, kind, on, starts_in, ends_in, total, goal, defenders, mine, cap, every, poll, last }
 --   farm_raid_hit_v1(p_raid, p_hits, p_request_id)  the same, plus { added, dup } | { ok: false, code: 'bad' | 'early' | 'over' }
 --   farm_raid_claim_v1(p_raid)                      { ok, won, hits, tier, total, goal, defenders }
 --                                                   | { ok: false, code: 'none' | 'claimed' (with the town's result) | 'early' | 'old' | 'bad' }
@@ -37,8 +37,12 @@ create table if not exists farm.raid_rules (
   min_goal int not null default 500,
   per_defender int not null default 80,
   tiers int[] not null default '{10,80,200}', -- the chests: Helper's, Defender's, Hero's
-  claim_days int not null default 7 -- the results can be asked for this long after a raid
+  claim_days int not null default 7, -- the results can be asked for this long after a raid
+  send_every int not null default 10, -- seconds between a phone's batches of hits (raise it to lighten the load: no app update needed)
+  poll_every int not null default 30 -- seconds between a phone's looks at the bar while it is not hitting
 );
+-- (a second run on a table made before these two: add them)
+alter table farm.raid_rules add column if not exists send_every int not null default 10, add column if not exists poll_every int not null default 30;
 insert into farm.raid_rules default values on conflict do nothing;
 
 create table if not exists farm.raid_shards (
@@ -146,7 +150,7 @@ begin
   if l.id is not null then select * into ltown from farm.raid_town(l.id); end if;
   return jsonb_build_object('ok', true, 'raid', x.id, 'kind', x.kind, 'on', x.starts_at <= t and t < x.ends_at,
     'starts_in', greatest(0, ceil(extract(epoch from x.starts_at - t)))::int, 'ends_in', greatest(0, ceil(extract(epoch from x.ends_at - t)))::int,
-    'total', town.total, 'goal', town.goal, 'defenders', town.defenders, 'mine', mine, 'cap', r.cap,
+    'total', town.total, 'goal', town.goal, 'defenders', town.defenders, 'mine', mine, 'cap', r.cap, 'every', r.send_every, 'poll', r.poll_every,
     'last', case when l.id is null then null else jsonb_build_object('raid', l.id, 'kind', l.kind, 'won', ltown.total >= ltown.goal) end);
 end $$;
 

@@ -67,7 +67,8 @@ test('raids: the four kinds take turns (boars, crows, sparks, typhoon), the same
     assert.ok(d.name && d.one && d.verb && d.start && d.lost.includes('{crop}') && d.hp >= 1 && d.most >= 1 && d.tools.length, k + ' has its words and numbers');
     assert.ok(C.ITEMS[d.icon] || C.ICON[d.icon] != null, k + ' has an icon');
   });
-  assert.strictEqual(C.TIPS[C.TIPS.length - 1].key, 'raid_tour', 'the tour\'s tip is appended last');
+  const tip = (k) => C.TIPS.findIndex((t) => t.key === k);
+  assert.ok(tip('raid_tour') > tip('park_tour') && tip('park_tour') > 0, 'the tour\'s tip is appended after the older ones (its place is its saved bit)');
 });
 
 test('raids: hits stop counting at the cap; the server\'s rate; its answers are kept in bounds', () => {

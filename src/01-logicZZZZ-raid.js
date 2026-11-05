@@ -163,7 +163,7 @@
 
   // ---------- the server's answers ----------
   // farm_raid_state_v1 / farm_raid_hit_v1: { ok, raid, kind, on, starts_in, ends_in (s), total, goal, defenders, mine,
-  // cap, added, dup, code, last: { raid, won } }
+  // cap, added, dup, code, every, poll, last: { raid, won } }
   L.raidRead = function (r) {
     if (!r || typeof r !== 'object') return null;
     var cap = int(r.cap, 0, R.cap) || R.cap;
@@ -172,6 +172,8 @@
       kind: R.kinds[r.kind] ? r.kind : '', on: !!r.on, startsIn: int(r.starts_in, 0, 30 * 86400), endsIn: int(r.ends_in, 0, 30 * 86400),
       total: int(r.total, 0, 2e9), goal: Math.max(1, int(r.goal, 0, 2e9) || R.minGoal), defenders: int(r.defenders, 0, 1e8),
       mine: int(r.mine, 0, cap), cap: cap, added: int(r.added, 0, R.batchMost), dup: !!r.dup,
+      // how often to send and look (the server can slow every phone down without an app update): seconds, 0 = ours
+      every: int(r.every, 0, 300), poll: int(r.poll, 0, 600),
       // the last raid that ended (its bonus day is for everyone, even those who missed it)
       last: r.last && typeof r.last === 'object' && /^\d{8}$/.test(String(r.last.raid)) ? { id: String(r.last.raid), won: !!r.last.won } : null,
     };
