@@ -641,76 +641,115 @@ function lair() {
 }
 
 // ---------- Central Park (owner, 6 Nov 2026): "its for everyone park" ----------
-// One open place for every player, up the park road from town (tools/park-town.js). A plaza with the fountain in the
-// middle, the Hall of Fame at the top (its door: src/19zzz-b-park.js), a gazebo for a stage on the west lawn, the notice
-// board and a playground on the east, and a loop of paths round the lawns, lamps, benches and flower beds. Trees all
-// round; the way in and out is the gap in the middle of the south edge. Town's tiles and props, so it has town's seasons
-// and nights (the lamps and the Hall's windows glow). Nothing to farm, chop, mine, hunt or fish: no field, no debris,
-// no water (the fountain is a prop), no forage, no animals.
+// One open place for every player (30 to a room), up the park road from town (tools/park-town.js). Made bigger the same
+// day (owner: "make it a little bit more bigger because it will crowded if all 30 players go in"): 40 x 34, with a big
+// plaza round the fountain (room for twenty or so to stand about), 4-wide main paths, benches all over, and more places
+// to hang about: the Hall of Fame at the top (its door: src/19zzz-b-park.js) with statues and flower beds, a small
+// square in front of the gazebo (the stage) on the west, the notice board and the playground on the east, a pond with a
+// bench-lined bank in the south-west and a picnic lawn in the south-east. The plaza is 10 tiles from the gate, in the middle of the
+// south edge. Trees all round. Town's tiles and props, so it has town's seasons and nights (the lamps and the Hall's
+// windows glow). Nothing to farm, chop, mine, hunt or fish: no field, no debris, no forage, no animals, and the pond is
+// not for fishing or filling the can (19zzz-b-park.js).
 function park() {
-  const m = new MapBuilder('park', 30, 26, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const m = new MapBuilder('park', 40, 34, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
   const r = rng(606);
   grassFill(m, r);
   const path = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.path);
-  // trees all round, with the way in left open in the middle of the south edge (x 14-15)
+  const stone = (x0, y0, x1, y1) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.plaza);
+  // trees all round, with the way in left open in the middle of the south edge (x 18-21)
   for (let x = 0; x < m.W; x += 2) {
     m.tree(x, 0);
-    if (x !== 14) m.tree(x, 24);
+    if (x !== 18 && x !== 20) m.tree(x, m.H - 2);
   }
-  for (let y = 2; y <= 22; y += 2) { m.tree(0, y); m.tree(28, y); }
-  // the plaza round the fountain, and the walks off it
-  m.rect('Ground', 9, 9, 20, 15, 'tiles', T.plaza);
-  path(14, 7, 15, 8); // up to the Hall of Fame's door
-  path(14, 16, 15, 25); // the avenue down to the way out
-  path(3, 12, 8, 13); // west walk, to the gazebo
-  path(4, 11, 5, 11);
-  path(21, 12, 26, 13); // east walk, past the notice board
-  path(4, 14, 5, 21); // the loop round the south lawns
-  path(24, 14, 25, 21);
-  path(4, 20, 25, 21);
-  // the Hall of Fame (door at x 14-15, y 6), two statues and flower beds in front
-  m.prop('hall_of_fame', 12, 2);
-  m.prop('statue', 9, 4);
-  m.prop('statue', 19, 4);
-  m.prop('flowerbed', 11, 7);
-  m.prop('flowerbed', 17, 7);
-  // the fountain in the middle of the plaza, drawn 4 x 4 (its picture is square) so it stands centred on the 2-wide
-  // avenue and on whole tiles (3 wide, it would sit half a tile off and its solid base would not match its picture)
-  m.prop('fountain', 13, 10);
-  Object.assign(m.objects[m.objects.length - 1], { y: 14 * SIZE, width: 4 * SIZE, height: 4 * SIZE });
-  [[9, 9], [20, 9], [9, 15], [20, 15]].forEach(([x, y]) => m.prop('lamp', x, y - 1)); // a lamp at each corner
-  m.prop('bench', 10, 14);
-  m.prop('bench', 18, 14);
-  // the west lawn: the gazebo (the stage), a bench by the walk, trees
-  m.prop('gazebo', 3, 7);
-  m.prop('bench', 6, 11);
-  m.tree(7, 3);
-  m.tree(2, 16);
-  // the east lawn: the notice board by the walk, the playground, trees
-  m.prop('notice', 22, 10);
-  m.prop('playground', 22, 4);
-  m.prop('bench', 25, 11);
-  m.tree(26, 16);
-  // along the avenue and the loop: lamps, flower beds, benches, trees on the lawns
-  [[13, 18], [16, 18], [13, 22], [16, 22]].forEach(([x, y]) => m.prop('lamp', x, y));
-  m.prop('flowerbed', 11, 17);
-  m.prop('flowerbed', 17, 17);
-  m.prop('flowerbed', 7, 15);
-  m.prop('flowerbed', 21, 15);
-  m.prop('bench', 8, 19);
-  m.prop('bench', 20, 19);
-  m.tree(9, 17);
-  m.tree(19, 17);
-  m.tree(7, 22);
-  m.tree(21, 22);
-  m.put('Walls', 17, 23, 'tiles', T.sign);
+  for (let y = 2; y <= m.H - 4; y += 2) { m.tree(0, y); m.tree(m.W - 2, y); }
 
-  m.point('from_town', 'spawn', 15, 23.6, [prop('dir', 'string', 'up')]);
-  m.point('door_hall', 'place', 15, 7.5);
-  m.point('plaza', 'place', 15, 14.6);
-  m.obj('gate', 'warp', 14, 25, 2, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_park'), prop('walk', 'bool', true)]);
-  m.obj('hall_door', 'hall', 14, 6, 2, 1);
-  m.obj('park_sign', 'sign', 17, 23, 1, 1, [prop('text', 'string', 'CENTRAL PARK\nFor everyone in Harvest Ville. Down the avenue and out the gate: back to town.')]);
+  // the main plaza (16 x 12) round the fountain, the avenue down to the gate and up to the Hall
+  stone(12, 12, 27, 23);
+  path(18, 7, 21, 11); // up to the Hall of Fame's door
+  path(18, 24, 21, 33); // the avenue down to the way out
+  // the walks east and west off the plaza (3 wide), and the lower walk across the park, over the pond's bridge
+  path(2, 16, 11, 18);
+  path(28, 16, 37, 18);
+  path(2, 26, 17, 27); // (past the pond's south bank)
+  path(22, 26, 37, 27);
+  path(2, 19, 3, 25); // west side, from the walk down to the lower walk
+  path(35, 19, 36, 25); // east side
+  // the Hall of Fame (door at x 19-20, y 6), two statues, flower beds and lamps in front
+  m.prop('hall_of_fame', 17, 2);
+  m.prop('statue', 14, 4);
+  m.prop('statue', 24, 4);
+  m.prop('flowerbed', 15, 8);
+  m.prop('flowerbed', 23, 8);
+  m.prop('flowerbed', 15, 10);
+  m.prop('flowerbed', 23, 10);
+  m.prop('lamp', 17, 9);
+  m.prop('lamp', 22, 9);
+  // the fountain in the middle of the plaza, drawn 4 x 4 (its picture is square) so it stands centred on the avenue
+  // and on whole tiles
+  m.prop('fountain', 18, 15);
+  Object.assign(m.objects[m.objects.length - 1], { y: 19 * SIZE, width: 4 * SIZE, height: 4 * SIZE });
+  [[12, 12], [27, 12], [12, 23], [27, 23]].forEach(([x, y]) => m.prop('lamp', x, y - 1)); // a lamp at each corner
+  // benches round the plaza's edge, facing in (open stone in between to stand about on)
+  [[14, 12], [24, 12], [14, 23], [24, 23]].forEach(([x, y]) => m.prop('bench', x, y));
+  [[11, 13], [11, 21], [28, 13], [28, 21]].forEach(([x, y]) => m.prop('flowerbed', x - (x < 20 ? 1 : 0), y));
+
+  // west: the gazebo (the stage) with its own small square in front, benches to watch from
+  m.prop('gazebo', 4, 7);
+  stone(3, 11, 10, 15);
+  m.prop('bench', 3, 14);
+  m.prop('bench', 9, 14);
+  m.prop('lamp', 3, 10);
+  m.prop('lamp', 10, 10);
+  m.tree(9, 3);
+  m.tree(2, 4);
+  m.prop('flowerbed', 8, 8);
+
+  // east: the notice board by the walk, the playground, benches, trees
+  m.prop('notice', 29, 14);
+  m.prop('playground', 31, 8);
+  m.prop('bench', 32, 12);
+  m.prop('bench', 35, 14);
+  m.tree(29, 3);
+  m.tree(35, 3);
+  m.prop('flowerbed', 28, 8);
+
+  // south-west: the pond (town's, with its lily pads), the lower walk along its bank, a painter's easel, benches; below
+  // the walk a second, quieter lawn with an umbrella
+  m.block('Walls', 'tiles', 'pond', 6, 22); // transparent corners over the (seasonal) grass
+  m.prop('easel', 12, 24);
+  m.prop('umbrella', 7, 29);
+  m.prop('bench', 6, 21);
+  m.prop('bench', 10, 21);
+  m.prop('bench', 14, 29);
+  m.tree(2, 28);
+  m.tree(15, 30);
+
+  // south-east: the picnic lawn, under umbrellas, with benches
+  m.prop('umbrella', 25, 29);
+  m.prop('umbrella', 29, 29);
+  m.prop('umbrella', 31, 21);
+  m.prop('bench', 26, 24);
+  m.prop('bench', 31, 24);
+  m.prop('bench', 33, 30);
+  m.tree(33, 21);
+  m.tree(35, 29);
+  m.prop('flowerbed', 29, 20);
+
+  // along the avenue: lamps, flower beds, the park's sign by the gate
+  [[17, 24], [22, 24], [17, 29], [22, 29]].forEach(([x, y]) => m.prop('lamp', x, y));
+  m.prop('flowerbed', 15, 31);
+  m.prop('flowerbed', 23, 31);
+  m.put('Walls', 22, 31, 'tiles', T.sign);
+
+  m.point('from_town', 'spawn', 20, 31.6, [prop('dir', 'string', 'up')]);
+  m.point('door_hall', 'place', 20, 7.5);
+  m.point('plaza', 'place', 20, 21.6);
+  m.point('stage', 'place', 6.5, 13.6);
+  m.point('pond', 'place', 8.5, 26.6);
+  m.point('picnic', 'place', 28.5, 27.6);
+  m.obj('gate', 'warp', 18, m.H - 1, 4, 1, [prop('to', 'string', 'town'), prop('spawn', 'string', 'from_park'), prop('walk', 'bool', true)]);
+  m.obj('hall_door', 'hall', 19, 6, 2, 1);
+  m.obj('park_sign', 'sign', 22, 31, 1, 1, [prop('text', 'string', 'CENTRAL PARK\nFor everyone in Harvest Ville. Down the avenue and out the gate: back to town.')]);
   return m.json();
 }
 
