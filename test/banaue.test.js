@@ -134,6 +134,16 @@ test('Lola Bugan: four steps (first visit, 5 hunts, the guard, the boss), each w
   assert.strictEqual(L.countItem(s, 'adobong_itik'), 2);
   const back = roundTrip(s);
   assert.strictEqual(plain(L.talkNpc(back, ID)).gift, undefined, 'not again after a reload');
+  // the guard and the boss both beaten before she hears of it: both their gifts, her newest line
+  const t = fresh();
+  L.talkNpc(t, ID);
+  for (let i = 0; i < 5; i++) L.hunted(t, ID, 0, 'itik', 1);
+  L.hunted(t, d.key, 0, d.guard, 1);
+  L.hunted(t, d.key, 0, d.boss, 1);
+  r = plain(L.talkNpc(t, ID));
+  assert.strictEqual(r.i, 3);
+  assert.strictEqual(L.giftWords(r.gift), '9 Heirloom Rice, 10 Arrows, 6 Terrace Stone and 2 Adobong Itik', 'the same things added up');
+  assert.strictEqual(L.countItem(t, 'heirloom_rice'), 4 + 4 + 2 + 3);
   L.medalCheck(s);
   assert.ok(L.hasMedal(s, 1105), 'her story\'s medal');
   // kind words only: the bulul are spoken of, never fought

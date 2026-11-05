@@ -12238,8 +12238,10 @@
 // ---- src/01-logicZZZZZ-place-11-banaue.js
 // Banaue Terraces' rules (owner, 6 Nov 2026; the place is src/00-zzzzzzzzzz-place-11-banaue.js): Lola Bugan "gives
 // small rewards" as her story goes on. A line of a place's person may carry a gift ([[item, n]]): it is given once,
-// the first time that line is said (the story's own save, 'st', already knows which lines were said), into the bag,
-// or the basket at home when the bag is full. Written for any place's lines, so it does nothing to a line without one.
+// when that line opens to you (the story's own save, 'st', already knows how far you have heard). Talking after
+// several lines opened at once (the guard and the boss both beaten before you came back) gives every one of their
+// gifts, though she says only the newest line. Into the bag, or the basket at home when the bag is full. Written for
+// any place's lines, so it does nothing to a line without one.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -12247,10 +12249,14 @@
 
   var talkNpc = L.talkNpc;
   L.talkNpc = function (s, id) {
-    var r = talkNpc(s, id), line = C.PLACES[id].npc.lines[r.i];
-    if (r.isNew && line.gift && line.gift.length) {
-      r.gift = line.gift.map(function (x) { return [x[0], x[1]]; });
-      r.basket = L.giveLoot(s, r.gift); // (how many went to the basket)
+    var heard = L.placeRec(s, id).st, r = talkNpc(s, id), lines = C.PLACES[id].npc.lines, gift = [];
+    for (var i = heard; i <= r.i; i++) (lines[i].gift || []).forEach(function (x) {
+      var same = gift.filter(function (g) { return g[0] === x[0]; })[0];
+      if (same) same[1] += x[1]; else gift.push([x[0], x[1]]);
+    });
+    if (gift.length) {
+      r.gift = gift;
+      r.basket = L.giveLoot(s, gift); // (how many went to the basket)
     }
     return r;
   };
