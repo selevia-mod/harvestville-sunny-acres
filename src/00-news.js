@@ -8,6 +8,11 @@
 
   C.NEWS = [
     {
+      v: '2.4', date: 'November 6, 2026', lines: [
+        ['heart', 'Central Park', 'Up the road by the Station: one park for everyone in Harvest Ville. Meet other players, chat, wave and make friends. Park 1, 2 and 3 hold 30 each.', 'park'], // (19zzz-c-park-online.js)
+      ],
+    },
+    {
       v: '2.3', date: 'November 5, 2026', lines: [
         ['seed_rose', 'Your ideas: new seeds', 'Rose, Sampaguita, Gumamela, Cotton, Sugarcane, Cacao and Oregano at Lily\'s. Craft yard pieces from them at Mira\'s.', 'players'], // (19zzz-a-players.js)
         ['star', 'Double Drops', 'Wednesday and Saturday, 12 to 1 PM and 8 to 10 PM: crops, forage, mine rocks and hunts give twice as much.', 'double'],

@@ -2315,3 +2315,264 @@ test('online: something dropped on a farm, a friend there walks onto it and it r
   for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, friend]) await p.context.close();
 });
+
+// ---------- Central Park (owner, 6 Nov 2026: "its for everyone park"; src/19zzz-c-park-online.js) ----------
+const PT = 256;
+const stickOn = (page, jx, jy) => page.evaluate(([x, y]) => { Farm.input.jx = x; Farm.input.jy = y; }, [jx, jy]);
+const waitMapOn = (page, map) => page.waitForFunction((m) => Farm.world && Farm.world.mapKey === m && !Farm.world.busy && Farm.world.player.active, map, SLOW);
+const until = async (fn, what, ms = 20000) => {
+  const end = Date.now() + ms;
+  while (!(await fn())) {
+    if (Date.now() > end) throw new Error('waited for ' + what);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+};
+// To the top of the park road in town (in the game you walk there from the Station), then up it into the park.
+async function walkIntoPark(page) {
+  await page.evaluate(() => Farm.world.travel('town', 'from_park'));
+  await waitMapOn(page, 'town');
+  await stickOn(page, 0, -1);
+  await waitMapOn(page, 'park');
+  await stickOn(page, 0, 0);
+}
+// Out of the south gate, back to town.
+async function walkOutOfPark(page) {
+  await page.evaluate((T) => { Farm.world.setFeet(15.5 * T, 23.5 * T); Farm.world.dir = 'down'; }, PT);
+  await stickOn(page, 0, 1);
+  await waitMapOn(page, 'town');
+  await stickOn(page, 0, 0);
+}
+const waitChip = (page, text) => page.waitForFunction((t) => Farm.ui.parkChipBox && Farm.ui.parkChipBox.visible && Farm.ui.parkChipText.text === t, text, SLOW);
+const chipShown = (page) => page.evaluate(() => !!(Farm.ui.parkChipBox && Farm.ui.parkChipBox.visible));
+const tapChip = async (page) => {
+  const at = await page.evaluate(() => { const b = Farm.ui.parkChipBox; return { x: b.x + Farm.ui.parkChipW / 2, y: b.y + 12 }; });
+  await page.touchscreen.tap(at.x, at.y);
+  await waitModal(page, /CENTRAL PARK/);
+};
+// the park's position messages one phone sent (the server's count: one sent, plus one for each phone that hears it)
+const parkMoves = (server, uid, from, to = Infinity) => server.db.sends.filter((s) => s.uid === uid && /^park:/.test(s.room) && s.event === 'mv' && s.at >= from && s.at < to);
+const seats = (server) => [1, 2, 3].map((n) => [...server.db.parkSeats.values()].filter((s) => s.park === n && Date.now() - s.seen < 75e3).length);
+
+test('online: Central Park: two walk in from town and see each other and chat; a third makes 3; Park 2 moves one away; full parks; leaving frees the seat; one move a second, none standing (owner, 6 Nov 2026)', async () => {
+  const server = createServer();
+  const ana = await open(server), ben = await open(server);
+  await nameFarm(ana.page, 'Ana Acres');
+  await nameFarm(ben.page, 'Ben Barn');
+  await ben.page.evaluate(() => { Farm.Config.ONLINE.park.beatEvery = 1500; }); // (his "still here" comes quickly, for the test)
+
+  // ----- in from town: Park 1, a toast and the chip; each sees the other, by name
+  await walkIntoPark(ana.page);
+  await waitToast(ana.page, /^Central Park 1 · 1 here$/);
+  await waitChip(ana.page, 'Park 1 · 1/30');
+  await walkIntoPark(ben.page);
+  await waitToast(ben.page, /^Central Park 1 · 2 here$/);
+  await waitRemotes(ana.page, ['Ben Barn']);
+  await waitRemotes(ben.page, ['Ana Acres']);
+  await waitChip(ana.page, 'Park 1 · 2/30');
+  await waitChip(ben.page, 'Park 1 · 2/30');
+  assert.deepStrictEqual(await ana.page.evaluate(() => [Farm.Online.topic, Farm.Online.home && Farm.Online.home.topic]), ['park:1', 'farm:' + ana.uid], 'the park\'s room; her own farm\'s room kept');
+  // her own farm's room says she went to the park (a friend on her farm sees where she went)
+  await until(() => [...(server.topics.get('farm:' + ana.uid) || [])].some((c) => c.key === ana.uid && c.state && c.state.map === 'park'), 'her farm room to say park');
+  assert.deepStrictEqual(seats(server), [2, 0, 0]);
+  await shot(ana.page, 'park-1-two');
+
+  // ----- chat: the Chat button, a line over her head on both phones
+  await ana.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.say('Hello, park!')), '');
+  await ben.page.waitForFunction((id) => Farm.world.bubbles[id] && Farm.world.bubbles[id].c.list[1].text === 'Hello, park!', ana.uid, SLOW);
+  assert.ok(await ben.page.evaluate(() => Farm.Online.chatLog.some((l) => l.name === 'Ana Acres' && l.text === 'Hello, park!')));
+
+  // ----- the message budget: Ben walks the lower walk for 6 s, then stands 3 s; Ana watches him walk
+  await ben.page.evaluate((T) => { Farm.world.setFeet(8.5 * T, 20.5 * T); Farm.world.dir = 'right'; }, PT);
+  await new Promise((r) => setTimeout(r, 1500));
+  await ana.page.evaluate((T) => Farm.world.setFeet(15.5 * T, 18.5 * T), PT); // (where she can see the walk)
+  const seen = ana.page.evaluate((id) => new Promise((done) => { // every frame Ana sees of him, for 4 s
+    const r = Farm.world.remotes[id], list = [], t0 = performance.now();
+    const step = () => { const t = performance.now() - t0; list.push([t, r.x, r.y]); if (t < 4000) requestAnimationFrame(step); else done(list); };
+    step();
+  }), ben.uid);
+  const t0 = Date.now();
+  await stickOn(ben.page, 1, 0);
+  await new Promise((r) => setTimeout(r, 2200));
+  await stickOn(ben.page, -1, 0);
+  await new Promise((r) => setTimeout(r, 2200));
+  await stickOn(ben.page, 1, 0);
+  await new Promise((r) => setTimeout(r, 1600));
+  const t1 = Date.now();
+  await stickOn(ben.page, 0, 0);
+  const walking = parkMoves(server, ben.uid, t0, t1);
+  await new Promise((r) => setTimeout(r, 3600));
+  const stopping = parkMoves(server, ben.uid, t1, t1 + 500), standing = parkMoves(server, ben.uid, t1 + 500, t1 + 3600);
+  const rate = walking.length / ((t1 - t0) / 1000);
+  console.log('park moves: walking ' + walking.length + ' in ' + ((t1 - t0) / 1000).toFixed(1) + ' s (' + rate.toFixed(2) + '/s), stopping ' + stopping.length + ', standing 3.1 s: ' + standing.length);
+  assert.ok(rate >= 0.8 && rate <= 1.4, 'about one a second while walking: ' + rate.toFixed(2));
+  assert.ok(stopping.length >= 1 && stopping.length <= 2, 'one "stopped": ' + stopping.length);
+  assert.strictEqual(stopping.filter((s) => s.event === 'mv').length, stopping.length);
+  assert.strictEqual(standing.length, 0, 'nothing while standing still');
+  // smooth on Ana's phone: drawn about a second behind, at an even walk (no stops and starts between the messages), no jumps
+  const list = await seen, mid = list.filter((f) => f[0] > 1600 && f[0] < 3100);
+  let stalls = 0, frames = 0, jump = 0;
+  for (let i = 1; i < list.length; i++) jump = Math.max(jump, Math.hypot(list[i][1] - list[i - 1][1], list[i][2] - list[i - 1][2]));
+  for (let i = 1; i < mid.length; i++) {
+    const dt = mid[i][0] - mid[i - 1][0];
+    if (dt < 1) continue;
+    frames++;
+    if (Math.hypot(mid[i][1] - mid[i - 1][1], mid[i][2] - mid[i - 1][2]) / dt * 1000 < Farm_SPEED * 0.25) stalls++;
+  }
+  assert.ok(frames > 10, 'enough frames to judge: ' + frames);
+  assert.ok(stalls / frames < 0.05, 'stopped on ' + stalls + ' of ' + frames + ' frames');
+  assert.ok(jump < 0.5 * PT, 'no jump: the biggest step in a frame was ' + Math.round(jump));
+  const benAt = await ben.page.evaluate(() => { const f = Farm.world.feet(); return { x: f.x, y: f.y }; });
+  await ana.page.waitForFunction(([id, f]) => { // he ends where he stopped, standing
+    const r = Farm.world.remotes[id];
+    return r && r.anim === '' && Math.hypot(r.x - f.x, r.y - f.y) < 12;
+  }, [ben.uid, benAt], SLOW);
+
+  // ----- a crowd (more than 20 others; here the line is moved to 0 for the test): one move every 2 s, and Ana draws him
+  // that much further behind
+  await ben.page.evaluate(() => { Farm.Config.ONLINE.park.busyAt = 0; });
+  const t2 = Date.now();
+  await stickOn(ben.page, -1, 0);
+  await new Promise((r) => setTimeout(r, 2000));
+  await stickOn(ben.page, 1, 0);
+  await new Promise((r) => setTimeout(r, 2000));
+  await stickOn(ben.page, -1, 0);
+  await new Promise((r) => setTimeout(r, 2000));
+  const t3 = Date.now();
+  await stickOn(ben.page, 0, 0);
+  const crowd = parkMoves(server, ben.uid, t2, t3), crowdRate = crowd.length / ((t3 - t2) / 1000);
+  console.log('park moves in a crowd: ' + crowd.length + ' in ' + ((t3 - t2) / 1000).toFixed(1) + ' s (' + crowdRate.toFixed(2) + '/s)');
+  assert.ok(crowdRate >= 0.3 && crowdRate <= 0.7, 'about one every 2 s: ' + crowdRate.toFixed(2));
+  assert.strictEqual(await ana.page.evaluate((id) => Farm.Online.trails[id].every, ben.uid), 2000);
+  await ben.page.evaluate(() => { Farm.Config.ONLINE.park.busyAt = 20; });
+  await new Promise((r) => setTimeout(r, 2500));
+
+  // ----- "still here": a seat the server lost comes back at the next beat, in the same park
+  server.db.parkSeats.delete(ben.uid);
+  await until(() => server.db.parkSeats.has(ben.uid), 'Ben seated again');
+  assert.strictEqual(server.db.parkSeats.get(ben.uid).park, 1);
+  assert.strictEqual(await ben.page.evaluate(() => Farm.Online.topic), 'park:1');
+
+  // ----- a third phone: 3 here
+  const cy = await open(server);
+  await nameFarm(cy.page, 'Cy Coop');
+  await walkIntoPark(cy.page);
+  await waitToast(cy.page, /^Central Park 1 · 3 here$/);
+  await waitRemotes(ana.page, ['Ben Barn', 'Cy Coop']);
+  await waitRemotes(cy.page, ['Ana Acres', 'Ben Barn']);
+  await waitChip(ana.page, 'Park 1 · 3/30');
+  await waitChip(cy.page, 'Park 1 · 3/30');
+  await shot(cy.page, 'park-2-three');
+
+  // ----- the chip opens the parks: Cy goes to Park 2, and the others no longer see him
+  await tapChip(cy.page);
+  assert.match(await modalText(cy.page), /Park 1 \| 3\/30 \| You are here \| Park 2 \| 0\/30 \| Go \| Park 3 \| 0\/30 \| Go \| Close/);
+  await shot(cy.page, 'park-3-parks');
+  await tapButton(cy.page, 'Go', 0);
+  await waitToast(cy.page, /^Central Park 2 · 1 here$/);
+  await waitChip(cy.page, 'Park 2 · 1/30');
+  assert.strictEqual(await cy.page.evaluate(() => Farm.Online.topic), 'park:2');
+  await waitRemotes(ana.page, ['Ben Barn']);
+  await waitRemotes(ben.page, ['Ana Acres']);
+  await waitRemotes(cy.page, []);
+  await waitChip(ana.page, 'Park 1 · 2/30');
+  assert.deepStrictEqual(seats(server), [2, 1, 0]);
+
+  // ----- full parks (2 a park for the test): Park 1 is full for Cy; a fourth phone goes where there is room
+  server.db.parkCap = 2;
+  await tapChip(cy.page);
+  await tapButton(cy.page, 'Go', 0); // (Park 1)
+  await waitToast(cy.page, /^Park 1 is full right now\.$/);
+  assert.strictEqual(await cy.page.evaluate(() => Farm.Online.topic), 'park:2');
+  const dee = await open(server);
+  await nameFarm(dee.page, 'Dee Dairy');
+  await walkIntoPark(dee.page);
+  await waitToast(dee.page, /^Central Park 2 · 2 here$/);
+  await waitRemotes(dee.page, ['Cy Coop']);
+  await waitRemotes(cy.page, ['Dee Dairy']);
+
+  // ----- Wave on someone in the park: their card, to say hi, add a friend, or More; a blocked player is not drawn
+  await cy.page.evaluate(() => Farm.ui.parkPlayer(Object.keys(Farm.world.remotes)[0]));
+  assert.match(await modalText(cy.page), /SAY HI \| Dee Dairy is in Central Park with you\. \| More \| Add friend \| Wave/);
+  await tapButton(cy.page, 'Add friend');
+  await waitToast(cy.page, /Friend request sent to Dee Dairy/);
+  await cy.page.evaluate((id) => Farm.ui.blockPlayer(id, 'Dee Dairy', true), dee.uid);
+  await waitModal(cy.page, /BLOCK THIS FARMER/);
+  await tapButton(cy.page, 'Yes');
+  await waitRemotes(cy.page, []);
+  await new Promise((r) => setTimeout(r, 1200));
+  assert.deepStrictEqual(await remotes(cy.page), [], 'still not drawn after the next presence and moves');
+
+  // ----- Ana leaves the park: her seat is free at once, and Ben sees her go
+  await walkOutOfPark(ana.page);
+  await until(() => !server.db.parkSeats.has(ana.uid), 'Ana\'s seat freed');
+  assert.deepStrictEqual(seats(server), [1, 2, 0]);
+  await waitRemotes(ben.page, []);
+  await waitChip(ben.page, 'Park 1 · 1/30');
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.topic), 'farm:' + ana.uid, 'back in her own farm\'s room');
+  assert.strictEqual(await chipShown(ana.page), false);
+
+  // ----- every park full (players on other phones fill the rest): Ana is turned back at the gate
+  const crypto = require('crypto');
+  server.db.parkSeats.set(crypto.randomUUID(), { park: 1, seen: Date.now() });
+  for (let i = 0; i < 2; i++) server.db.parkSeats.set(crypto.randomUUID(), { park: 3, seen: Date.now() });
+  await ana.page.evaluate(() => Farm.world.travel('park', 'from_town'));
+  await waitModal(ana.page, /CENTRAL PARK \| Central Park is full right now\. Try again in a minute\./);
+  assert.strictEqual(await ana.page.evaluate(() => Farm.world.mapKey), 'town', 'stepped back out to town');
+  assert.deepStrictEqual(await ana.page.evaluate(() => { const f = Farm.world.feet(), T = Farm.Config.TILE; return [Math.floor(f.x / T), Math.floor(f.y / T)]; }), [36, 1], 'at from_park');
+  await shot(ana.page, 'park-4-full');
+  assert.ok(!server.db.parkSeats.has(ana.uid));
+  assert.strictEqual(await chipShown(ana.page), false);
+
+  for (const p of [ana, ben, cy, dee]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [ana, ben, cy, dee]) await p.context.close();
+});
+
+test('online: Central Park from a friend\'s town ends the visit: you are in the park as yourself, and the friend joins you; leaving online play there leaves the park, and it says to join online play (owner, 6 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  // into their town (your own game there), up the park road
+  await guest.page.evaluate(() => Farm.world.travel('town', 'from_park'));
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.session.visit && Farm.session.visit.inTown, null, SLOW);
+  await waitModal(guest.page, /MOON MEADOW WENT HOME/); // (the owner is on the farm: "follow them?")
+  await tapButton(guest.page, 'Stay here');
+  await stickOn(guest.page, 0, -1);
+  await waitMapOn(guest.page, 'park');
+  await stickOn(guest.page, 0, 0);
+  await waitChip(guest.page, 'Park 1 · 1/30');
+  assert.deepStrictEqual(await guest.page.evaluate(() => ({
+    visit: Farm.session.visit, own: Farm.session.state === Farm.world.state, isVisit: !!Farm.world.state.isVisit, topic: Farm.Online.topic, home: Farm.Online.home.topic,
+  })), { visit: null, own: true, isVisit: false, topic: 'park:1', home: 'farm:' + guest.uid });
+  await until(() => ![...(server.topics.get('farm:' + host.uid) || [])].some((c) => c.key === guest.uid), 'out of the friend\'s room');
+  // the friend comes too: both in Park 1, and nobody is the owner here
+  await walkIntoPark(host.page);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow']);
+  await waitChip(host.page, 'Park 1 · 2/30');
+  await shot(guest.page, 'park-5-from-a-visit');
+  // the friend rides in on a horse (the park rides like town): the guest sees it under them
+  await host.page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state;
+    s.horse = s.horse || { name: 'Chestnut' };
+    Farm.session.riding = true;
+    w.setFeet(10.5 * 256, 20.5 * 256);
+  });
+  await stickOn(host.page, 1, 0);
+  await guest.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && !!r.horse; }, host.uid, SLOW);
+  await stickOn(host.page, 0, 0);
+  // leaving online play in the park: the seat goes at once; then the park is empty and says so, once
+  await guest.page.evaluate(() => { Farm.session.state.net.off = 1; Farm.Online.disconnect(); });
+  await until(() => !server.db.parkSeats.has(guest.uid), 'the guest\'s seat freed');
+  await waitRemotes(host.page, []);
+  assert.strictEqual(await chipShown(guest.page), false);
+  await walkOutOfPark(guest.page);
+  await walkIntoPark(guest.page);
+  await waitToast(guest.page, /^Join online play to meet everyone here\.$/);
+  assert.deepStrictEqual(await remotes(guest.page), []);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
+});

@@ -4290,8 +4290,11 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
     return !Farm.Logic.tipSeen(s, 'players_tour');
   });
   assert.ok(unseen, 'the tip is unseen for this check');
-  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openNews(0, null); });
-  await frames(page, 3);
+  for (let p = 0; p < 5; p++) { // (on the first page, or the next once newer versions come before it)
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
+    await frames(page, 3);
+    if (/Your ideas: new seeds/.test(await modalText(page))) break;
+  }
   {
     const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
     const nth = row.slice(0, row.indexOf('Your ideas: new seeds')).filter((t) => t === 'Show me').length;
@@ -4497,6 +4500,9 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   await stick(0, 0);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'park');
   assert.deepStrictEqual(await feetTile(), [15, 23], 'in at the south gate, at from_town');
+  // no online play here (no app): the park is open, empty, and says so once (19zzz-c-park-online.js)
+  await page.waitForFunction(() => Farm.ui.toastText.visible && Farm.ui.toastText.text === 'Join online play to meet everyone here.', null, SLOW);
+  assert.ok(!(await page.evaluate(() => Farm.ui.parkChipBox && Farm.ui.parkChipBox.visible)), 'no park chip');
   // the farmer walks about: up the avenue, then right along the lower walk
   const a = await feet();
   await stick(0, -1);

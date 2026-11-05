@@ -275,7 +275,7 @@
       x: num(p.x), y: num(p.y), dir: DIRS[p.dir] ? p.dir : 'down', m: p.m ? 1 : 0, host: p.id === O.hostId(), at: Number(p.at) || 0, pt: p.pt ? 1 : 0,
       cs: C.LOOK_INDEX && typeof p.cs === 'string' && C.LOOK_INDEX[p.cs] != null ? p.cs : '', // their look
       fl: FLOORS[p.map] ? Math.max(1, Math.min(FLOORS[p.map], Math.floor(Number(p.fl)) || 1)) : 0, // which floor of the mine or the Lair
-      rd: p.rd && (p.map === 'farm' || p.map === 'town') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)), // (4 pieces of Hunter's gear with the Fire Charm)
+      rd: p.rd && (p.map === 'farm' || p.map === 'town' || p.map === 'park') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)), // (4 pieces of Hunter's gear with the Fire Charm)
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to
@@ -301,12 +301,13 @@
       if (old && old.bye) q.bye = 1;
       now[q.id] = q;
     });
+    var park = O.topic.indexOf('park:') === 0; // Central Park (owner, 6 Nov 2026; 19zzz-c-park-online.js): everyone's, no owner, no cap of 8
     if (v && !O.seen && !L.visitorFits(raw, { id: O.me.id, at: Infinity }, v.host, ON.maxVisitors)) {
       O.leaveVisit('This farm is full right now (' + ON.maxVisitors + ' visitors). Try again in a little while!');
       return;
     }
     // the owner sees the first 8 visitors (more cannot stay)
-    if (!v) {
+    if (!v && !park) {
       var keep = {};
       Object.keys(now).map(function (id) { return now[id]; }).sort(function (a, b) { return a.at - b.at || (a.id < b.id ? -1 : 1); })
         .slice(0, ON.maxVisitors).forEach(function (q) { keep[q.id] = q; });
@@ -326,10 +327,10 @@
     var came = Object.keys(now).filter(function (id) { return !before[id]; }).map(function (id) { return now[id]; });
     var went = Object.keys(before).filter(function (id) { return !now[id] && !(away && id === v.host); }).map(function (id) { return before[id]; });
     O.others = now;
-    if (came.length && O.chan) O.tellPlace(); // newcomers see where we are now, not where we last stopped
+    if (came.length && O.chan && !park) O.tellPlace(); // newcomers see where we are now, not where we last stopped (park: our presence says it; 30 of us answering each newcomer is 900 messages)
     var first = !O.seen;
     O.seen = true;
-    if (F.ui && (came.length || went.length)) {
+    if (F.ui && !park && (came.length || went.length)) {
       var names = function (l) { return l.map(function (p) { return p.name; }).slice(0, 3).join(', ') + (l.length > 3 ? ' and ' + (l.length - 3) + ' more' : ''); };
       if (!v && came.length) { sfx('found'); F.ui.toast(names(came) + (came.length > 1 ? ' are' : ' is') + ' visiting your farm!', 3000, 0x2f5a22); }
       else if (v && came.length) {
@@ -583,6 +584,7 @@
       w.horse.sh.setVisible(!out);
     }
     if (!this.chan || w.busy) return;
+    if (this.parkSend && this.parkSend(w, dt)) return; // Central Park: fewer moves (owner, 6 Nov 2026; 19zzz-c-park-online.js)
     // Nobody on this map to tell: no moves (only a change of map, so the others stop drawing us where we were).
     var alone = true;
     var fl = O.floorHere(w.mapKey);

@@ -7,7 +7,7 @@
   var T = C.TILE;
   var DEPTH = F.WorldScene.DEPTH;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
-  var RIDE_MAPS = { farm: true, town: true };
+  var RIDE_MAPS = { farm: true, town: true, park: true }; // (park: Central Park rides like town, owner 6 Nov 2026)
   var CHEST_TILE = [9, 3];
 
   var M = {};
