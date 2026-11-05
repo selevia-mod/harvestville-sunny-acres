@@ -2414,3 +2414,49 @@ test('online: something dropped on a farm, a friend there walks onto it and it r
   for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, friend]) await p.context.close();
 });
+
+// ---------- hunting places (owner, 6 Nov 2026; src/19zzzzz-places.js) ----------
+// SAMPLE: the place agents replace this with their own place's cave.
+test('online: hunting places (SAMPLE): two hunters in the sample cave\'s bottom floor, the boss is stronger for two, a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { window.gameHost.devPlaces = true; const s = Farm.session.state; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const bottom = async (who) => {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; Farm.world.travel('town', 'from_farm'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('sample_cave', 'entrance', 2); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'sample_cave' && Farm.session.lairFloor === 2 && !Farm.world.busy && Farm.world.wild, null, SLOW);
+    await who.page.evaluate(() => Farm.ui.closeAll());
+  };
+  const boss = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar } : null; });
+  await bottom(host);
+  assert.deepStrictEqual(await boss(host.page), { hp: 6, max: 6, bar: true }, 'one hunter: its own strength');
+  await bottom(guest);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 2, 'the same floor');
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), host.uid, 'the owner, there first, runs it');
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); return a && a.max === 10; }, null, SLOW);
+  await guest.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); return a && a.max === 10 && a.hp === 10; }, null, SLOW);
+  // the guest lands its 2 hits (a share), the owner the rest
+  await host.page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); a.def = Object.assign({}, a.def, { angry: 0 }); });
+  await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_boss'); w.wildStruck(a); w.wildStruck(a); });
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'sample_boss'); return a && a.hp === 8; }, null, SLOW);
+  await host.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_boss'); w.wildStruck(a); a.hp = 1; w.wildStruck(a); });
+  for (const who of [host, guest]) await who.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.kind === 'sample_boss') && !!Farm.world.bossChest, null, SLOW);
+  await shot(guest.page, 'places-online-boss-chest');
+  // each opens their own
+  for (const who of [host, guest]) {
+    const got = await who.page.evaluate(() => { const s = Farm.session.state, n = Farm.Logic.countItem(s, 'sample_fang'); Farm.world.openBossChest(); return { before: n, after: Farm.Logic.countItem(s, 'sample_fang'), waiting: Farm.Logic.bossChests(s, 'sample_place'), boss: s.places.sample_place.b, medal: Farm.Logic.hasMedal(s, 9902) }; });
+    assert.deepStrictEqual([got.after - got.before >= 2, got.waiting, got.boss, got.medal], [true, 0, 1, true]);
+  }
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
