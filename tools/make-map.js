@@ -8,6 +8,7 @@ const vm = require('vm');
 const { SIZE, TILES, RANCH, SEASONS, INDOOR, PROPS, SEASON_NAMES, SEASONAL, HOME_STYLES, blockId } = require('./tiles');
 const { station, stationKeep } = require('./town-station'); // Willowbrook Station (src/19zz-town.js)
 const { parkRoad } = require('./park-town'); // the road up to Central Park (owner, 6 Nov 2026)
+const { bayanihanTown, bayanihanKeep } = require('./bayanihan-town'); // Bayanihan Projects' places (owner, 6 Nov 2026)
 
 // the house levels come from the game's own data
 function gameConfig() {
@@ -426,6 +427,7 @@ function town() {
   wildRoad(m);
   station(m); // Willowbrook Station, north of Market Street (tools/town-station.js)
   parkRoad(m); // the dead end by the Station goes on up to Central Park (tools/park-town.js)
+  bayanihanTown(m); // the Bayanihan board, the broken Old Bridge and the projects' places (tools/bayanihan-town.js)
   const doors = {
     mayor: [4, 7, 2], inn: [24, 7, 2], forge: [4, 18, 1], woodshop: [25, 18, 1], clinic: [4, 26, 2], cottage: [24, 26, 2], cabin: [20, 30, 2],
     bakery: [32, 10, 1], florist: [36, 10, 2], post: [42, 10, 1], library: [47, 10, 2], vet: [48, 17, 1], shack: [31, 39, 2],
@@ -461,7 +463,7 @@ function town() {
   // keep paths, plazas, the beach and everyone's standing spots clear of random bushes
   const spots = new Set(m.objects.filter((o) => o.point).map((o) => Math.floor(o.y / SIZE) * m.W + Math.floor(o.x / SIZE)));
   const keep = (x, y) => (x >= 8 && x <= 21 && y >= 13 && y <= 23) || y >= 31 || spots.has(y * m.W + x)
-    || (x >= 29 && y >= 18) || stationKeep(x, y) || [...spots].some((k) => Math.abs((k % m.W) - x) <= 1 && Math.abs(Math.floor(k / m.W) - y) <= 1);
+    || (x >= 29 && y >= 18) || stationKeep(x, y) || bayanihanKeep(x, y) || [...spots].some((k) => Math.abs((k % m.W) - x) <= 1 && Math.abs(Math.floor(k / m.W) - y) <= 1);
   decorate(m, r, keep, [[T.tallgrass, 16], [T.bush, 10]]);
   return m.json();
 }

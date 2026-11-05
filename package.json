@@ -8,7 +8,7 @@
     "map": "node tools/make-map.js",
     "simulate": "node tools/simulate.js",
     "build": "node build.js",
-    "test": "node --test test/logic.test.js test/rules.test.js test/content.test.js test/stand.test.js test/home.test.js test/town.test.js test/yard.test.js test/quests.test.js test/online.test.js test/bridge.test.js test/farm2.test.js test/basket.test.js test/storage.test.js test/wild.test.js test/land.test.js test/requests.test.js test/mine-bands.test.js test/later.test.js test/looks.test.js test/hunt.test.js test/derby.test.js test/lair.test.js test/review-fixes.test.js test/farmhands.test.js test/contests.test.js test/skills.test.js test/breeding.test.js test/station.test.js test/farmtech.test.js test/social.test.js test/players.test.js test/park.test.js test/park-server.test.js test/park-online.test.js test/rank.test.js test/friends.test.js",
+    "test": "node --test test/logic.test.js test/rules.test.js test/content.test.js test/stand.test.js test/home.test.js test/town.test.js test/yard.test.js test/quests.test.js test/online.test.js test/bridge.test.js test/farm2.test.js test/basket.test.js test/storage.test.js test/wild.test.js test/land.test.js test/requests.test.js test/mine-bands.test.js test/later.test.js test/looks.test.js test/hunt.test.js test/derby.test.js test/lair.test.js test/review-fixes.test.js test/farmhands.test.js test/contests.test.js test/skills.test.js test/breeding.test.js test/station.test.js test/farmtech.test.js test/social.test.js test/players.test.js test/park.test.js test/park-server.test.js test/park-online.test.js test/rank.test.js test/friends.test.js test/bayanihan.test.js",
     "test:e2e": "node build.js && node --test test/e2e.test.js"
   },
   "dependencies": {

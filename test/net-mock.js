@@ -804,6 +804,7 @@ function createServer() {
     farm_park_counts_v1(uid) { if (!uid) throw new Error('not signed in'); return { counts: parkCounts() }; },
   };
   Object.keys(parkRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noPark) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return parkRpc[n](uid, a); }; });
+  require('./mock-bayanihan').install(rpc, db, need); // Bayanihan Projects (supabase/farm_online_20.sql)
 
   require('./mock-rank').install(rpc, db, { need, blocked }); // Town Rank and the Hall of Fame (part 22: test/mock-rank.js)
 
