@@ -1122,6 +1122,8 @@ test('sleep in your bed: tucked in with Zzz, energy every minute, the joystick w
   // asleep with a nearly full bar: it wakes you when it is full; the saved game never says you are asleep
   // another style of bed: its own picture of the bed with you in it
   await page.evaluate(() => { Farm.session.state.home.items.forEach((it) => { if (Farm.Config.HOME.types[it.t].use === 'sleep') it.v = 1; }); Farm.world.fallAsleep(); });
+  // (in the Furniture styles pack since 6 Nov: Classic's for the moment it takes to come in from the phone)
+  await page.waitForFunction(() => Farm.world.sleeping.img.texture.key !== 'props/sleepbed_boy', null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.world.sleeping.img.texture.key), 'props/sleepbed_v1_boy', 'other styles: their own whole-bed picture (30 Oct)');
   await page.evaluate(() => { Farm.world.wakeUp(); Farm.session.state.home.items.forEach((it) => { it.v = 0; }); });
   await page.evaluate(() => { const s = Farm.session.state; s.energy = Farm.Logic.maxEnergy(s) - 1; s.regen = Farm.Logic.nowMin(); Farm.world.fallAsleep(); });
@@ -4240,7 +4242,7 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   assert.strictEqual(await page.evaluate(() => window.__asked.length), 0, 'not straight away: the farm opens first');
   await page.waitForFunction(() => Farm.anyDownloading() && Farm.ui.packBadge.visible, null, SLOW);
   await shot(page, 'packs-auto-badge');
-  await page.waitForFunction(() => ['wild', 'looks', 'party'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
+  await page.waitForFunction(() => ['wild', 'looks', 'party', 'styles'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
   const asked = await page.evaluate(() => window.__asked);
   assert.ok(asked.length > 0 && asked.every((a) => a[1] === true), 'onto the phone only, not into the page');
   assert.strictEqual(await page.evaluate(() => Farm.packReady('wild')), false, 'the Wild Lands go into the page when you go there');
@@ -4248,7 +4250,7 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   await page.evaluate(() => Farm.ui.openDownloads());
   await frames(page, 3);
   const text = await modalText(page);
-  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 3, text);
+  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 4, text); // (Furniture styles too, 6 Nov)
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -4616,4 +4618,52 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   assert.deepStrictEqual([back.comp, back.deep], [true, 2]);
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
+});
+
+test('furniture styles come from their pack (6 Nov 2026): a style shows as Classic until its sheet is in, then as itself, in the house, in bed and in Mira\'s catalog; with no app, Classic stays and nothing breaks', async () => {
+  const save = await makeSave("s.time = 600; s.map = 'house'; s.gold = 40000; s.wv = Farm.Config.NEWS_LATEST; s.home.items.forEach((it) => { if (C.HOME.types[it.t].key === 'table' || C.HOME.types[it.t].use === 'sleep') it.v = 4; });");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'house');
+  // the house's own style is asked for as the map opens, and swapped in when it comes
+  await page.waitForFunction(() => { const w = Farm.world, i = w.state.home.items.findIndex((it) => it.v === 4); return w.homeSprites[i].texture.key === 'furn_4'; }, null, SLOW);
+  assert.ok(await page.evaluate(() => !!Farm.images['props/sleepbed_v4_boy'] || !!Farm.images['props/sleepbed2_v4_boy']), 'its bed with you in it came too');
+  assert.strictEqual(await page.evaluate(() => Farm.ASSETS.images.furn_4), undefined, 'not in the page');
+  // Mira's catalog of a style not in yet: Classic's pieces for a moment, then its own
+  const first = await page.evaluate(() => {
+    Farm.ui.openCatalog(7, 0);
+    const keys = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Image' && o.texture && /^furn_/.test(o.texture.key)) keys.push(o.texture.key); if (o.list) walk(o.list); });
+    walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list);
+    return keys;
+  });
+  assert.ok(first.length >= 4 && first.every((k) => k === 'furn_0'), first.join());
+  await page.waitForFunction(() => {
+    const keys = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Image' && o.texture && /^furn_/.test(o.texture.key)) keys.push(o.texture.key); if (o.list) walk(o.list); });
+    walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list);
+    return keys.length >= 4 && keys.every((k) => k === 'furn_7');
+  }, null, SLOW);
+  await shot(page, 'styles-catalog');
+  await page.evaluate(() => Farm.ui.closeAll());
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+
+  // no app (a preview in a browser): nothing can come, the pieces stay Classic, the bed too, and nothing breaks
+  const c2 = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const p2 = await c2.newPage(), errs = [];
+  p2.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
+  p2.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+  await p2.addInitScript(([s, now]) => { window.__now = now; window.gameHost = { state: s, quiet: true, saves: [], save(x) { this.saves.push(JSON.stringify(x)); this.state = x; }, now: () => window.__now }; }, [save, at(START)]);
+  await p2.goto(PAGE, { timeout: 90000 });
+  await p2.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
+  await waitMap(p2, 'house');
+  const alone = await p2.evaluate(() => {
+    const w = Farm.world, i = w.state.home.items.findIndex((it) => it.v === 4 && Farm.Config.HOME.types[it.t].use !== 'sleep');
+    w.setFeet((w.state.home.items.find((it) => Farm.Config.HOME.types[it.t].use === 'sleep').x + 1) * 256, 5 * 256);
+    w.fallAsleep();
+    return { piece: w.homeSprites[i].texture.key, bed: w.sleeping && w.sleeping.img.texture.key };
+  });
+  assert.strictEqual(alone.piece, 'furn_0');
+  assert.match(alone.bed, /^props\/sleepbed2?_boy$/);
+  await frames(p2, 3);
+  assert.deepStrictEqual(errs, []);
+  await c2.close();
 });
