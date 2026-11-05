@@ -2436,7 +2436,7 @@ async function walkIntoPark(page) {
 }
 // Out of the south gate, back to town.
 async function walkOutOfPark(page) {
-  await page.evaluate((T) => { Farm.world.setFeet(15.5 * T, 23.5 * T); Farm.world.dir = 'down'; }, PT);
+  await page.evaluate((T) => { Farm.world.setFeet(20.5 * T, 31.5 * T); Farm.world.dir = 'down'; }, PT);
   await stickOn(page, 0, 1);
   await waitMapOn(page, 'town');
   await stickOn(page, 0, 0);
@@ -2481,10 +2481,10 @@ test('online: Central Park: two walk in from town and see each other and chat; a
   await ben.page.waitForFunction((id) => Farm.world.bubbles[id] && Farm.world.bubbles[id].c.list[1].text === 'Hello, park!', ana.uid, SLOW);
   assert.ok(await ben.page.evaluate(() => Farm.Online.chatLog.some((l) => l.name === 'Ana Acres' && l.text === 'Hello, park!')));
 
-  // ----- the message budget: Ben walks the lower walk for 6 s, then stands 3 s; Ana watches him walk
-  await ben.page.evaluate((T) => { Farm.world.setFeet(8.5 * T, 20.5 * T); Farm.world.dir = 'right'; }, PT);
+  // ----- the message budget: Ben walks across the plaza for 6 s, then stands 3 s; Ana watches him walk
+  await ben.page.evaluate((T) => { Farm.world.setFeet(13.5 * T, 21.5 * T); Farm.world.dir = 'right'; }, PT); // (across the plaza, below the fountain)
   await new Promise((r) => setTimeout(r, 1500));
-  await ana.page.evaluate((T) => Farm.world.setFeet(15.5 * T, 18.5 * T), PT); // (where she can see the walk)
+  await ana.page.evaluate((T) => Farm.world.setFeet(20.5 * T, 13.5 * T), PT); // (where she can see the walk)
   const seen = ana.page.evaluate((id) => new Promise((done) => { // every frame Ana sees of him, for 4 s
     const r = Farm.world.remotes[id], list = [], t0 = performance.now();
     const step = () => { const t = performance.now() - t0; list.push([t, r.x, r.y]); if (t < 4000) requestAnimationFrame(step); else done(list); };
