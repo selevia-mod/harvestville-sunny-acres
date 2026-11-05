@@ -804,6 +804,7 @@ function createServer() {
     farm_park_counts_v1(uid) { if (!uid) throw new Error('not signed in'); return { counts: parkCounts() }; },
   };
   Object.keys(parkRpc).forEach((n) => { rpc[n] = (uid, a) => { if (db.noPark) throw new Error('Could not find the function public.' + n + ' in the schema cache'); return parkRpc[n](uid, a); }; });
+  require('./mock-bayanihan').install(rpc, db, need); // Bayanihan Projects (supabase/farm_online_20.sql)
 
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels
