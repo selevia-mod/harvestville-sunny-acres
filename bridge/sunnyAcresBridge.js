@@ -71,7 +71,6 @@ const js = (v) => JSON.stringify(v === undefined ? null : v).replace(/\u2028/g, 
 // room, a signature made with that pair's key. A message counts only if it is signed for you by the player it names.
 const SKEW_MS = 10 * 60 * 1000; // a message stamped further from this phone's clock than this is old (or replayed)
 const KEYS_WAIT_MS = 5000; // a request for keys with no answer by then counts as failed (asked again 5 s later)
-const SEND_WAIT_MS = 300; // a message waits this long at most for a newcomer's key, then goes out signed for the rest
 const PRESENCE = '~presence'; // (what a presence is signed as: never a broadcast's name)
 const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
   0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -183,6 +182,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const now = Date.now();
       const missing = ids.filter((id) => id !== room.uid && !room.keys.has(id) && !((room.retryAt.get(id) || 0) > now)).slice(0, 40);
       if (!missing.length) return;
+      missing.forEach((id) => room.tried.add(id)); // (asked for at least once: send no longer waits for it)
       if (!room.asking) {
         // (never waits for ever: a request with no answer, as Android's fetch has no timeout, held every message and
         // presence of this phone, so its friends saw it stand frozen. Players, 6 Nov 2026: "hindi gumagalaw")
@@ -404,7 +404,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     if (room && room.uid !== uid) { close(room); room = null; } // (another account on this phone)
     if (room) return room;
     room = { topic, uid, channel: null, owner: null, subscribed: false, linger: null, retry: null, tries: 0, gaveUp: false,
-      keys: new Map(), retryAt: new Map(), lastT: new Map(), asking: null, unsigned: false, signedFor: new Set(), lastTrack: 0, resign: null, resigned: [], keyWait: false, told: false, since: 0, firstTimer: null, chains: new Map(), seen: new Set() };
+      keys: new Map(), retryAt: new Map(), lastT: new Map(), tried: new Set(), asking: null, unsigned: false, signedFor: new Set(), lastTrack: 0, resign: null, resigned: [], keyWait: false, told: false, since: 0, firstTimer: null, chains: new Map(), seen: new Set() };
     rooms.set(topic, room);
     room.ready = settle(topic).then(() => { if (rooms.get(topic) === room && !disposed) connect(room); });
     return room;
@@ -458,8 +458,11 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const body = { ...without(payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}, ['_s']), id: room.uid, _t: Date.now(), _n: (room.sent = (room.sent || 0) + 1) };
       if (!room.unsigned) {
         const ids = peers(room);
-        // (a newcomer's key is worth a short wait, never a long one: everyone else would hear nothing meanwhile)
-        await Promise.race([keysFor(room, ids).catch(() => {}), new Promise((r) => setTimeout(r, SEND_WAIT_MS))]);
+        // A newcomer's key is waited for once (at most KEYS_WAIT_MS: keysFor gives up then). After that a missing key is
+        // asked for again behind the scenes, never waited on: one request with no answer must not hold every message.
+        const fresh = ids.some((id) => id !== room.uid && !room.keys.has(id) && !room.tried.has(id));
+        if (fresh) await keysFor(room, ids);
+        else keysFor(room, ids).catch(() => {});
         body._s = signFor(room, String(event), body, ids);
       }
       if (!room.channel || room.owner !== ch) return false;
