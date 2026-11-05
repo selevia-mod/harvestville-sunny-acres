@@ -29,6 +29,7 @@
     tw_crates: { frameWidth: 128, frameHeight: 128, margin: 8, spacing: 16 }, // the station's open crate, full crate, pallet (tools/art/station-import.js)
     tw_people: { frameWidth: 128, frameHeight: 192, margin: 8, spacing: 16 }, // the visitors off the train, 9 frames a row like the villagers
   };
+  F.SHEETS = SHEETS; // (a hunting place adds its own creatures' and people's sheets: 19zzzzz-places.js)
   // Only these are uploaded to the GPU at boot; the rest (props, villagers, indoor tiles) are added
   // the first time a map needs them, which keeps memory down on low-end phones.
   var EAGER = ['player', 'fx', 'crops', 'items', 'animals', 'tiles', 'ranch', 'seasons'];
