@@ -4659,3 +4659,192 @@ test('the Hall of Fame: in through Central Park\'s door, plaques and pedestals o
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- villager friendship stories (owner, 6 Nov 2026) ----------
+// Puts a villager just below the farmer's spot (14, 18) in town, facing them, so the action button talks to them.
+async function standBy(page, key) {
+  await page.evaluate((key) => {
+    const list = Farm.world.villagers.list, v = list.find((x) => x.key === key), X = 14.5 * 256, Y = 19.6 * 256;
+    list.forEach((o) => { if (o !== v && Math.hypot(o.x - X, o.y - Y) < 400) { Farm.world.villagers.put(o, X + 5 * 256, Y, true); o.hold = 1e9; } }); // (someone put here before steps aside)
+    Farm.world.villagers.put(v, X, Y, true);
+    v.place = Farm.Logic.villagerAt(Farm.session.state, key, Farm.session.state.time);
+    v.hold = 1e9;
+  }, key);
+  await teleport(page, 14, 18, 'down');
+}
+
+test('friendship stories: Lily at 2 hearts tells her story when you talk, her seeds arrive, the Story button and the Friendship Book show it, and its tour (owner, 6 Nov 2026)', async () => {
+  const EVENING = [2026, 4, 1, 18, 0];
+  const save = await makeSave(`
+    L.friend(s, 'lily').pts = 20;
+    L.friend(s, 'lily').met = 1;
+    L.friend(s, 'lily').ev = 1; // her own 2-heart event was seen already
+    L.friend(s, 'hana').met = 1;
+  `, EVENING);
+  const { page, problems, context } = await open(save, EVENING);
+  await go(page, 'town', 'from_farm');
+  await standBy(page, 'lily');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  const best = await page.evaluate(() => Farm.Logic.vsSeasonSeed(Farm.session.state));
+  await tapAction(page);
+  assert.match(await modalText(page), /I give my seed packets names/);
+  await shot(page, '93-story-scene');
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /What do you say\?/);
+  await shot(page, '93b-story-choice');
+  await tapButton(page, 'I believe in them too.');
+  assert.match(await modalText(page), /Believe hard, okay\?/);
+  await tapButton(page, 'OK');
+  // the reward card
+  let text = await modalText(page);
+  assert.match(text, /SEEDS WITH NAMES/);
+  assert.match(text, /Friendship Book: Lily's story, 1 of 4\. Next: At 4 hearts: /);
+  await shot(page, '94-story-reward');
+  await tapButton(page, 'OK');
+  let s = await state(page);
+  assert.strictEqual(s.vf.lily, 1, 'step 1 done, the first answer');
+  assert.strictEqual(count(s, best), 6, 'six packets of the season\'s best seeds');
+  assert.strictEqual(s.friends.lily.pts, 20 + 3 + 4 + 3, 'the chat, the step and the kind answer');
+  assert.strictEqual(JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1])).vf[0], 1, 'saved');
+  // talking again: her usual line, with a Story button by her name
+  await tapAction(page);
+  assert.ok(!/seed packets names/.test(await modalText(page)));
+  await shot(page, '95a-story-button');
+  await tapButton(page, 'Story');
+  text = await modalText(page);
+  assert.match(text, /Lily/);
+  assert.match(text, /DONE/);
+  assert.match(text, /Seeds with names/);
+  assert.match(text, /At 4 hearts: Lily wants to talk away from the stand/);
+  assert.ok(!/storm/i.test(text), 'a locked step shows its hint, not what happens');
+  await shot(page, '95-story-page');
+  // read it again
+  await tapButton(page, 'Read');
+  assert.match(await modalText(page), /I give my seed packets names/);
+  await closeAll(page);
+  // the Friendship Book, from the pause menu's Friends
+  await page.evaluate(() => Farm.ui.openPause());
+  await tapButton(page, 'Friends');
+  text = await modalText(page);
+  assert.match(text, /Friendship Book/);
+  assert.match(text, /2 of 23 met\. +1 of 92 story steps\./);
+  assert.match(text, /Story 1 of 4\. At 4 hearts:/);
+  assert.match(text, /\?\?\? \| Not met yet\./);
+  await shot(page, '96-friendship-book');
+  await page.evaluate(() => { Farm.ui.closeModal(); Farm.ui.vsBook(3); }); // Hana's page of the Book
+  assert.match(await modalText(page), /Hana \| Story 0 of 4\. At 2 hearts: Hana starts baking before sunrise/, "Hana's: still locked");
+  await tapButton(page, 'Photos');
+  assert.match(await modalText(page), /PHOTO WALL[\s\S]*No photos yet/);
+  await closeAll(page);
+  // the Book's first-time tour
+  await page.evaluate(() => Farm.ui.tour('friends'));
+  assert.match(await modalText(page), /FRIENDSHIP BOOK/);
+  await shot(page, '97-friends-tour');
+  for (let k = 0; k < 3; k++) { await tapButton(page, 'Next'); await page.waitForTimeout(900); await shot(page, '97-friends-tour-' + (k + 2)); }
+  assert.match(await modalText(page), /Pause > Friends/);
+  await tapButton(page, 'Got it');
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('friendship stories: a favour (the mayor asks for 20 Stone, you bring them later), a step at a shop\'s Talk (Hana teaches bread at the bakery), the recipe in the Kitchen, a photo on the wall (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave(`
+    s.stone = 3;
+    s.builds.kitchen = 1;
+    L.friend(s, 'hollis').pts = 60;
+    L.friend(s, 'hollis').met = 1;
+    L.friend(s, 'hollis').ev = 1;
+    L.friend(s, 'hana').pts = 20;
+    L.friend(s, 'hana').met = 1;
+    L.friend(s, 'hana').ev = 1;
+    L.friend(s, 'pearl').pts = 60;
+    L.friend(s, 'pearl').met = 1;
+    L.friend(s, 'pearl').ev = 1;
+    s.vf = { hollis: 2, pearl: 2 | 8 }; // Hollis: two steps done; Pearl: her favour asked, the first answer (the photo)
+    L.addItem(s, 'grilled_fish', 2);
+  `);
+  const { page, problems, context } = await open(save);
+  await go(page, 'town', 'from_farm');
+  await standBy(page, 'hollis');
+  await tapAction(page);
+  assert.match(await modalText(page), /twenty letters a week about the fountain/);
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Happy to help the town.');
+  let text = await modalText(page);
+  assert.match(text, /A favour: bring Mayor Hollis 20 Stone\. You have 3\./);
+  await shot(page, '97b-favour');
+  await tapButton(page, 'OK');
+  let s = await state(page);
+  assert.strictEqual(s.vf.hollis, 2 | 8, 'asked, not done');
+  // without the stone: his usual line says what he waits for
+  await tapAction(page);
+  assert.match(await modalText(page), /Mayor Hollis is waiting for 20 Stone\. You have 3\./);
+  await closeAll(page);
+  await page.evaluate(() => { Farm.session.state.stone = 25; });
+  await tapAction(page);
+  assert.match(await modalText(page), /Twenty fine stones!/);
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /no more fountain letters/);
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  text = await modalText(page);
+  assert.match(text, /THE FOUNTAIN FUND/);
+  assert.match(text, /Birdbath, for your yard/);
+  assert.match(text, /400G/);
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(s.stone, 5);
+  assert.strictEqual(s.vf.hollis, 3);
+  const bath = await page.evaluate(() => Farm.Logic.vsYardIndex('birdbath'));
+  assert.strictEqual(s.yard.bag[bath], 1, 'the birdbath waits in yard storage');
+  // Pearl's favour: the fish are in the bag, so talking hands them over (and the photo goes up)
+  await standBy(page, 'pearl');
+  await tapAction(page);
+  assert.match(await modalText(page), /Just the way he makes them/);
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Next');
+  assert.match(await modalText(page), /FORTY-NINE YEARS/);
+  assert.match(await modalText(page), /Pearl and Ewan on the pier/);
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(count(s, 'grilled_fish'), 0);
+  await page.evaluate(() => Farm.ui.vsPhotoWall(0));
+  text = await modalText(page);
+  assert.match(text, /Pearl and Ewan on the pier \| from Grandma Pearl/);
+  assert.match(text, /1 of \d+ photos/);
+  await shot(page, '98-photo-wall');
+  await closeAll(page);
+  // Hana's step is in her bakery, in the morning: the bakery's Talk button plays it
+  await page.evaluate(() => Farm.ui.openBuilding('bakery'));
+  assert.match(await modalText(page), /Hana's Bakery/);
+  await tapButton(page, 'Talk');
+  assert.match(await modalText(page), /Flour, apron, go!/);
+  for (let k = 0; k < 4; k++) await tapButton(page, 'Next');
+  const energy = (await state(page)).energy;
+  await tapButton(page, 'There is flour in my nose.');
+  assert.match(await modalText(page), /level two/);
+  await tapButton(page, 'OK');
+  assert.match(await modalText(page), /Recipe: Fresh Bread \(cook it in your Kitchen\)/);
+  await tapButton(page, 'OK');
+  s = await state(page);
+  assert.strictEqual(s.energy, energy - 15, 'helping took 15 energy');
+  assert.strictEqual(s.vf.hana, 1 | 16);
+  await closeAll(page);
+  // the Kitchen now has Fresh Bread at the end of its list
+  await page.evaluate(() => {
+    const s = Farm.session.state, n = Farm.Config.RECIPES.length + Farm.Logic.vsRecipes(s).length;
+    Farm.Logic.addItem(s, 'wheat', 2);
+    Farm.ui.openKitchen(null, Math.floor((n - 1) / 4)); // its last page
+  });
+  assert.match(await modalText(page), /Fresh Bread \| Needs Wheat \+ Wheat/);
+  await shot(page, '99-kitchen-bread');
+  await tapButton(page, 'Cook', (await page.evaluate(() => Farm.Logic.vsRecipes(Farm.session.state).length + Farm.Config.RECIPES.length - 1)) % 4);
+  assert.strictEqual(count(await state(page), 'bread'), 1, 'baked at home');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
