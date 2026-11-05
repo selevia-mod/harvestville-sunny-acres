@@ -11056,6 +11056,24 @@
   L.shopOpen = function (s) { return !L.festivalOn(s.day); };
   L.marketOpen = function () { return true; };
 
+  // ---------- a paid refill is always the whole +100 (owner, 5 Nov 2026: "they spend real money on this") ----------
+  // 5 energy left + a refill = 105; again = 205. It stacks past the max, up to C.ENERGY_MOST, and nothing trims it back
+  // (the night, loading the game). Free refills from Invite Friends work the same way.
+  C.ENERGY_MOST = 9999;
+  L.refillEnergy = function (s, amount) {
+    var before = s.energy;
+    s.energy = Math.min(C.ENERGY_MOST, s.energy + Math.max(0, Math.floor(amount) || 0));
+    if (s.energy >= L.maxEnergy(s)) s.regen = L.nowMin();
+    return s.energy - before;
+  };
+  // Would a refill of `amount` fit (it never goes past C.ENERGY_MOST, so no Coins are spent on nothing)?
+  L.refillFits = function (s, amount) { return Math.floor(s.energy) + (Number(amount) || 0) <= C.ENERGY_MOST; };
+  L.useFreeRefill = function (s) {
+    if (!L.refillsLeft(s) || !L.refillFits(s, C.FREE_REFILL)) return 0;
+    s.rf = L.refillsLeft(s) - 1;
+    return L.refillEnergy(s, C.FREE_REFILL);
+  };
+
   // ---------- rain ----------
   L.raining = function (s) { return !!(s && !s.isVisit && C.WEATHER[L.weather(s, s.day)].waters); };
   // On a rainy day the rain waters any tile with something waiting (planted, picked and growing back): every place
@@ -11270,6 +11288,9 @@
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
+    // (energy above the max is kept: a paid refill stacks; the older loaders trimmed it to the max)
+    var e = Math.floor(Number(o && o.e));
+    if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST, e);
     var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
     s.animals.forEach(function (a, i) {
       var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
@@ -21031,7 +21052,9 @@
     var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
     var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
     var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * L.regenEvery(s) + (L.regenEvery(s) - (now - s.regen))) + '.';
-    var self = this, buy = L.canRefill && L.canRefill() && e < max, free = e < max ? L.refillsLeft(s) : 0;
+    // (a refill is offered even when full: it adds its whole amount on top, 5 Nov 2026)
+    var fits = !L.refillFits || L.refillFits(s, C.FREE_REFILL || 100);
+    var self = this, buy = L.canRefill && L.canRefill() && fits, free = fits ? L.refillsLeft(s) : 0;
     var useFree = function () {
       var gain = L.useFreeRefill(s);
       F.Host.save(s);
@@ -21814,10 +21837,11 @@
   };
 
   U.buyRefill = function (o) {
-    var self = this, s = F.session.state, max = L.maxEnergy(s), e = Math.floor(s.energy);
-    if (e >= max) return this.toast("You're already full of energy.");
+    var self = this, s = F.session.state, e = Math.floor(s.energy);
+    // (5 Nov 2026: always the whole amount, on top of what you have, even past the max: 01-logicZZ-players.js)
+    if (L.refillFits && !L.refillFits(s, o.amount)) return this.toast('You have lots of energy already. Use some first!');
     if (this.buying) return;
-    var gain = Math.min(max, e + (Number(o.amount) || 0)) - e;
+    var gain = Number(o.amount) || 0;
     this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
       self.buying = true;
       L.settleRefills().then(function (state) {

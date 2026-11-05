@@ -109,15 +109,19 @@ test('a Power-Up says how many minutes it has left, past midnight too', () => {
   assert.strictEqual(L.powerUpLeft(s), 45);
 });
 
-test('free refills from Invite Friends: one at a time, not at full energy, kept in the save', () => {
+test('free refills from Invite Friends: one at a time, the whole 100 on top (5 Nov 2026), kept in the save', () => {
   const s = fresh();
-  s.rf = 2;
+  s.rf = 3;
   s.energy = 0;
   assert.strictEqual(L.useFreeRefill(s), C.FREE_REFILL);
-  assert.strictEqual(s.rf, 1);
-  assert.strictEqual(L.useFreeRefill(s), 0, 'full now');
+  assert.strictEqual(s.rf, 2);
+  assert.strictEqual(L.useFreeRefill(s), C.FREE_REFILL, 'at full energy too: on top');
+  assert.strictEqual(s.energy, 200);
+  s.energy = C.ENERGY_MOST - 50;
+  assert.strictEqual(L.useFreeRefill(s), 0, 'never past the most');
   assert.strictEqual(s.rf, 1, 'none used');
   assert.strictEqual(roundTrip(s).rf, 1);
+  assert.strictEqual(roundTrip(s).energy, C.ENERGY_MOST - 50, 'energy past the max survives a save');
   assert.strictEqual(L.serialize(fresh()).rf, undefined);
   assert.strictEqual(L.refillsLeft(L.deserialize(Object.assign(JSON.parse(JSON.stringify(L.serialize(s))), { rf: -5 }))), 0);
 });

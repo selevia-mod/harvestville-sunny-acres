@@ -269,7 +269,7 @@ test('bad or foreign save data is rejected or sanitised', () => {
   [null, undefined, 'x', 42, [], {}, { v: 99 }].forEach((bad) => assert.strictEqual(L.deserialize(bad), null));
   const today = L.dayOf(clock.ms);
   const s = L.deserialize({
-    v: 1, mg: 2, rt: 1, d: -5, t: 'noon', g: 1e20, e: 500, w: -1, s: 77,
+    v: 1, mg: 2, rt: 1, d: -5, t: 'noon', g: 1e20, e: 'lots', w: -1, s: 77,
     i: [['hoe', 1], ['rocket', 3], ['turnip', 1000], 'junk'],
     b: [['hoe', 1], ['turnip', 2]],
     f: [[999, 5, 1, 10], [1, 'x', 0, 11, 'y'], 'junk', [0, 0, 0, -1]],
@@ -277,6 +277,8 @@ test('bad or foreign save data is rejected or sanitised', () => {
   });
   assert.strictEqual(s.day, 0);
   assert.strictEqual(s.energy, C.MAX_ENERGY);
+  // (energy past the max is real since 5 Nov 2026: paid refills stack; never past C.ENERGY_MOST)
+  assert.strictEqual(L.deserialize(Object.assign(L.serialize(L.newState()), { e: 1e9 })).energy, C.ENERGY_MOST);
   assert.strictEqual(s.water, 0);
   assert.strictEqual(s.sel, C.INV_SIZE - 1);
   same(s.inv.slice(0, 4), [{ id: 'hoe', n: 1 }, null, { id: 'turnip', n: 99 }, null]);

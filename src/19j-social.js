@@ -227,10 +227,11 @@
   };
 
   U.buyRefill = function (o) {
-    var self = this, s = F.session.state, max = L.maxEnergy(s), e = Math.floor(s.energy);
-    if (e >= max) return this.toast("You're already full of energy.");
+    var self = this, s = F.session.state, e = Math.floor(s.energy);
+    // (5 Nov 2026: always the whole amount, on top of what you have, even past the max: 01-logicZZ-players.js)
+    if (L.refillFits && !L.refillFits(s, o.amount)) return this.toast('You have lots of energy already. Use some first!');
     if (this.buying) return;
-    var gain = Math.min(max, e + (Number(o.amount) || 0)) - e;
+    var gain = Number(o.amount) || 0;
     this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
       self.buying = true;
       L.settleRefills().then(function (state) {

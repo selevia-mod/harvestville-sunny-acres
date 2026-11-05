@@ -266,7 +266,8 @@ test('the watering can fills at the pond again (an energy refill once took its n
   s.energy = 10;
   assert.strictEqual(typeof L.refillEnergy, 'function');
   const before = s.water;
-  assert.strictEqual(L.refillEnergy(s, 100), L.maxEnergy(s) - 10);
+  assert.strictEqual(L.refillEnergy(s, 100), 100, 'always the whole 100 (5 Nov 2026)');
+  assert.strictEqual(s.energy, 110);
   assert.strictEqual(s.water, before, 'an energy refill leaves the can alone');
 });
 

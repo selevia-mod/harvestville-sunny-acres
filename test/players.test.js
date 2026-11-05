@@ -240,3 +240,23 @@ test('animals: a chicken lays 8 hours after eating, a cow 12; the night only che
   assert.strictEqual(L.collect(s, 0), 'egg');
   assert.strictEqual(hen.ready, 1, 'the next one at once');
 });
+
+test('a paid refill is always the whole +100: 5 left makes 105, again 205; past the max, kept by the save and the night', () => {
+  const s = L.newState();
+  s.energy = 5;
+  assert.strictEqual(L.refillEnergy(s, 100), 100);
+  assert.strictEqual(s.energy, 105);
+  assert.strictEqual(L.refillEnergy(s, 100), 100);
+  assert.strictEqual(s.energy, 205);
+  assert.strictEqual(roundTrip(s).energy, 205);
+  L.endDay(s);
+  assert.ok(s.energy >= 205, 'the night takes none away');
+  assert.strictEqual(L.regen(s), 0, 'no regen past the max');
+  assert.strictEqual(s.energy, 205);
+  L.addItem(s, 'turnip', 1);
+  assert.strictEqual(L.eat(s, s.inv.findIndex((x) => x && x.id === 'turnip')), -1, 'eating never trims it');
+  assert.strictEqual(s.energy, 205);
+  assert.ok(L.spendEnergy(s, 150) && s.energy === 55, 'it is spent like any energy');
+  s.energy = C.ENERGY_MOST - 20;
+  assert.strictEqual(L.refillFits(s, 100), false, 'no Coins spent on energy that would not fit');
+});

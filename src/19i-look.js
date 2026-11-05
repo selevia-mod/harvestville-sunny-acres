@@ -167,7 +167,9 @@
     var s = F.session.state, max = L.maxEnergy(s), now = L.nowMin(), e = Math.floor(s.energy);
     var fmt = function (mins) { mins = Math.max(1, Math.ceil(mins)); var h = Math.floor(mins / 60), m = mins % 60; return (h ? h + 'h ' : '') + (m || !h ? m + 'm' : '').trim(); };
     var head = e >= max ? 'Your energy is full!' : 'Full in ' + fmt((max - e - 1) * L.regenEvery(s) + (L.regenEvery(s) - (now - s.regen))) + '.';
-    var self = this, buy = L.canRefill && L.canRefill() && e < max, free = e < max ? L.refillsLeft(s) : 0;
+    // (a refill is offered even when full: it adds its whole amount on top, 5 Nov 2026)
+    var fits = !L.refillFits || L.refillFits(s, C.FREE_REFILL || 100);
+    var self = this, buy = L.canRefill && L.canRefill() && fits, free = fits ? L.refillsLeft(s) : 0;
     var useFree = function () {
       var gain = L.useFreeRefill(s);
       F.Host.save(s);

@@ -20,6 +20,24 @@
   L.shopOpen = function (s) { return !L.festivalOn(s.day); };
   L.marketOpen = function () { return true; };
 
+  // ---------- a paid refill is always the whole +100 (owner, 5 Nov 2026: "they spend real money on this") ----------
+  // 5 energy left + a refill = 105; again = 205. It stacks past the max, up to C.ENERGY_MOST, and nothing trims it back
+  // (the night, loading the game). Free refills from Invite Friends work the same way.
+  C.ENERGY_MOST = 9999;
+  L.refillEnergy = function (s, amount) {
+    var before = s.energy;
+    s.energy = Math.min(C.ENERGY_MOST, s.energy + Math.max(0, Math.floor(amount) || 0));
+    if (s.energy >= L.maxEnergy(s)) s.regen = L.nowMin();
+    return s.energy - before;
+  };
+  // Would a refill of `amount` fit (it never goes past C.ENERGY_MOST, so no Coins are spent on nothing)?
+  L.refillFits = function (s, amount) { return Math.floor(s.energy) + (Number(amount) || 0) <= C.ENERGY_MOST; };
+  L.useFreeRefill = function (s) {
+    if (!L.refillsLeft(s) || !L.refillFits(s, C.FREE_REFILL)) return 0;
+    s.rf = L.refillsLeft(s) - 1;
+    return L.refillEnergy(s, C.FREE_REFILL);
+  };
+
   // ---------- rain ----------
   L.raining = function (s) { return !!(s && !s.isVisit && C.WEATHER[L.weather(s, s.day)].waters); };
   // On a rainy day the rain waters any tile with something waiting (planted, picked and growing back): every place
@@ -234,6 +252,9 @@
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
+    // (energy above the max is kept: a paid refill stacks; the older loaders trimmed it to the max)
+    var e = Math.floor(Number(o && o.e));
+    if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST, e);
     var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
     s.animals.forEach(function (a, i) {
       var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
