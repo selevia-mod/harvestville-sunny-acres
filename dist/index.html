@@ -22728,9 +22728,39 @@
   // The small box on the left: the last few lines, gone after a while. A tap opens the Chat panel. It stands just above
   // the joystick and grows upwards: higher up it covered the bubble of a farmer near the top of the map (at the house,
   // where visitors arrive), the bar you get on a visit and the toasts.
-  var BOX = { x: 8, bottom: 458 + C.EXTRA, w: 196, lines: 3, h: 16, show: 15000 };
-  var PAGE = 7; // lines on a page of the Chat panel
+  var BOX = { x: 8, bottom: 458 + C.EXTRA, w: 196, lines: 3, rows: 5, h: 16, show: 15000 }; // (rows: a long line wraps; 5 at most)
+  var PAGE = 7; // rows on a page of the Chat panel
   var U = F.UIScene.prototype;
+
+  // A line said, word-wrapped after its speaker's name (owner, 5 Nov 2026: "long chat, even in chat box cant see it": a
+  // line was cut to one row with "\u2026"). first: the room on the first row (after the name), rest: on the rows below.
+  // Returns the rows' words. A word too long for any row is broken where it must.
+  U.chatRows = function (text, first, rest, size) {
+    var t = this.txt(0, 0, '', size, '#ffffff'), rows = [], row = '', room = first;
+    var fits = function (str) { t.setText(str); return t.width <= room; };
+    String(text).split(/\s+/).filter(Boolean).forEach(function (word) {
+      var next = row ? row + ' ' + word : word;
+      if (fits(next)) { row = next; return; }
+      if (row) { rows.push(row); row = ''; room = rest; }
+      while (!fits(word) && word.length > 1) { // (one long word: as much as fits, then the rest)
+        var n = word.length - 1;
+        while (n > 1 && !fits(word.slice(0, n))) n--;
+        rows.push(word.slice(0, n));
+        word = word.slice(n);
+        room = rest;
+      }
+      row = word;
+    });
+    if (row || !rows.length) rows.push(row);
+    t.destroy();
+    return rows;
+  };
+  // A line as its pieces: the name, then its rows (x, dy from the line's top), in a container's coordinates.
+  U.chatLine = function (l, x, y, width, size, rowH, nameColor, color) {
+    var who = this.txt(x, y, l.name + ':', size, nameColor, { fontStyle: 'bold' }), indent = who.width + 4, self = this;
+    var rows = this.chatRows(l.text, width - indent, width, size);
+    return { rows: rows.length, parts: [who].concat(rows.map(function (r, i) { return self.txt(x + (i ? 0 : indent), y + i * rowH, r, size, color); })) };
+  };
 
   var uiCreate = U.create;
   U.create = function () {
@@ -22768,17 +22798,25 @@
     var lines = O.chatLines().filter(function (l) { return now - l.t < BOX.show; }).slice(-BOX.lines);
     box.setVisible(!!lines.length && !this.decorating);
     if (!lines.length) return;
-    var h = lines.length * BOX.h + 8, bg = this.add.graphics();
+    // every word shows: a long line takes more rows; the newest lines that fit in the box's rows (the newest always)
+    var made = lines.map(function (l) {
+      var me = O.me && l.id === O.me.id;
+      return self.chatLine(l, 7, 0, BOX.w - 14, 11, BOX.h, me ? '#ffe08a' : '#a8dcff', '#ffffff');
+    });
+    var keep = [], used = 0, full = false;
+    for (var k = made.length - 1; k >= 0; k--) { // (the newest lines in a row: once one does not fit, none older shows)
+      if (full || (keep.length && used + made[k].rows > BOX.rows)) { full = true; made[k].parts.forEach(function (o) { o.destroy(); }); continue; }
+      keep.unshift(made[k]);
+      used += made[k].rows;
+    }
+    var h = used * BOX.h + 8, bg = this.add.graphics(), row = 0;
     box.setY(BOX.bottom - h);
     bg.fillStyle(0x2e1c0c, 0.62).fillRoundedRect(0, 0, BOX.w, h, 8);
     box.add(bg);
-    lines.forEach(function (l, i) {
-      var me = O.me && l.id === O.me.id, y = 4 + i * BOX.h;
-      var who = self.txt(7, y, l.name + ':', 11, me ? '#ffe08a' : '#a8dcff', { fontStyle: 'bold' });
-      var say = self.txt(7 + who.width + 4, y, l.text, 11, '#ffffff');
-      var room = BOX.w - 14 - who.width - 4;
-      while (say.width > room && say.text.length > 2) say.setText(say.text.replace(/\u2026$/, '').slice(0, -1) + '\u2026');
-      box.add([who, say]);
+    keep.forEach(function (m) {
+      m.parts.forEach(function (o) { o.y += 4 + row * BOX.h; });
+      box.add(m.parts);
+      row += m.rows;
     });
     var z = this.add.zone(BOX.w / 2, h / 2, BOX.w, h).setInteractive({ useHandCursor: true });
     F.tapOn(z, function () { if (!self.modals.length) self.openSay(); });
@@ -22817,14 +22855,28 @@
     hist.add(box);
     var show = function () {
       hist.list.slice(1).forEach(function (o) { o.destroy(); });
-      var lines = O.chatLines(), pages = Math.max(1, Math.ceil(lines.length / PAGE)), at = Math.min(page || 0, pages - 1), end = lines.length - at * PAGE;
+      var lines = O.chatLines();
       if (!lines.length) hist.add(self.txt(W / 2, top + 30 + (boxH - 44) / 2, 'Nothing said yet. Say hello!\nOnly what is said while you are here shows.', 12, '#6a4a2a', { align: 'center' }).setOrigin(0.5));
-      lines.slice(Math.max(0, end - PAGE), end).forEach(function (l, i) {
-        var me = O.me && l.id === O.me.id, y = top + 37 + i * 25;
-        var who = self.txt(48, y, l.name + ':', 12, me ? '#a0601a' : '#1f5f96', { fontStyle: 'bold' });
-        var say = self.txt(48 + who.width + 5, y, l.text, 12, '#3d2614');
-        while (say.width > W - 106 - who.width && say.text.length > 2) say.setText(say.text.replace(/\u2026$/, '').slice(0, -1) + '\u2026');
-        hist.add([who, say]);
+      // every word shows: a long line takes more rows. Pages hold PAGE rows, newest page first; a line is never split
+      var made = lines.map(function (l) {
+        var me = O.me && l.id === O.me.id;
+        return self.chatLine(l, 48, 0, W - 106, 12, 25, me ? '#a0601a' : '#1f5f96', '#3d2614');
+      });
+      var pageList = [], cur = [], used = 0;
+      for (var k = made.length - 1; k >= 0; k--) {
+        if (cur.length && used + made[k].rows > PAGE) { pageList.push(cur); cur = []; used = 0; }
+        cur.unshift(made[k]);
+        used += made[k].rows;
+      }
+      if (cur.length) pageList.push(cur);
+      var pages = Math.max(1, pageList.length), at = Math.min(page || 0, pages - 1), row = 0;
+      pageList.forEach(function (pg, n) {
+        pg.forEach(function (m) {
+          if (n !== at) return m.parts.forEach(function (o) { o.destroy(); });
+          m.parts.forEach(function (o) { o.y += top + 37 + row * 25; });
+          hist.add(m.parts);
+          row += m.rows;
+        });
       });
       if (pages > 1) self.pager(hist, top + boxH + 2, at, pages, function (to) { page = to; show(); });
       self.sayShow = show;

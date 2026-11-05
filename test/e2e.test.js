@@ -4437,3 +4437,40 @@ test('the Lair: a farmer found deep inside the bottom wall is back on the floor 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Owner, 5 Nov 2026: "need improvement specially on long chat, even in chat box cant see it" — the box and the Chat
+// panel cut every line to one row with "…". Now a long line wraps onto more rows; every word shows, inside the box.
+test('chat: a long line shows every word in the small box and in the Chat panel, on more rows, never cut', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  const long = 'Meet me at the plaza after you water your crops please okay ka';
+  const said = await page.evaluate((long) => {
+    const O = Farm.Online, now = Date.now(), C = Farm.Config;
+    O.chatLog.push({ id: 'a', name: 'Selene', text: 'Hi!', t: now - 2000 });
+    O.chatLog.push({ id: 'b', name: 'Dear Jen', text: long.slice(0, C.CHAT.max), t: now - 1000 });
+    for (let i = 0; i < 9; i++) O.chatLog.push({ id: 'a', name: 'Selene', text: 'Line ' + i + ' of a few more words here', t: now - 50000 });
+    O.chatLog.push({ id: 'b', name: 'Dear Jen', text: long.slice(0, C.CHAT.max), t: now });
+    const ui = Farm.ui;
+    ui.drawChatBox();
+    const boxTexts = ui.chatBox.list.filter((o) => o.text != null), bg = ui.chatBox.list[0];
+    const inBox = boxTexts.every((o) => o.x + o.width <= 196 + 1);
+    const box = boxTexts.map((o) => o.text).join(' ');
+    ui.openSay(0);
+    const modal = ui.modals[ui.modals.length - 1].c;
+    const all = []; const walk = (c) => (c.list || []).forEach((o) => { if (o.type === 'Text') all.push(o); walk(o); });
+    walk(modal);
+    const W = Farm.UI_CONST.W, inPanel = all.filter((o) => /plaza|crops|okay|water|please|after/.test(o.text)).every((o) => o.x + o.width <= W - 38);
+    return { box, inBox, panel: all.map((o) => o.text).join(' '), inPanel, max: C.CHAT.max, rows: boxTexts.length };
+  }, long);
+  const want = long.slice(0, said.max).trim().split(' ');
+  for (const w of want) {
+    assert.ok(said.box.split(/\s+/).includes(w), 'box shows "' + w + '": ' + said.box);
+    assert.ok(said.panel.split(/\s+/).includes(w), 'panel shows "' + w + '": ' + said.panel);
+  }
+  assert.ok(!/…/.test(said.box) && !/…/.test(said.panel), 'nothing cut');
+  // the box holds the newest lines in a row: an older one never shows while a newer one is left out
+  assert.ok(!/Selene: Hi!/.test(said.box) || (said.box.match(/Dear Jen:/g) || []).length === 2, 'newest lines in a row: ' + said.box);
+  assert.ok(said.inBox && said.inPanel, 'every row inside');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
