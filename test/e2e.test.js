@@ -4566,3 +4566,112 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Bayanihan Projects (owner, 6 Nov 2026; src/19zzzz-bayanihan.js, rules test/bayanihan.test.js; two phones online:
+// test/e2e-bayanihan-online.test.js). Run alone:
+// node build.js && node --test --test-timeout=900000 --test-name-pattern="Bayanihan Projects" test/e2e.test.js
+test('Bayanihan Projects: the board by the plaza offline (its tour, the project, "Join online play"), the broken Old Bridge, then online: Give takes things only on ok, a failed gift keeps them and is asked again (owner, 6 Nov 2026)', async () => {
+  const WHEN = [2026, 4, 1, 10, 50];
+  const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.lumber = 40;', WHEN);
+  const { page, problems, context } = await open(save, WHEN);
+  await closeAll(page);
+  const waitText = (re) => page.waitForFunction((src) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    if (!m) return false;
+    const out = [];
+    const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    return new RegExp(src).test(out.join(' | ').replace(/\n/g, ' ')); // (a dialog's lines as one)
+  }, re.source, SLOW);
+  const waitToast = (re) => page.waitForFunction((src) => Farm.ui.toastText.visible && new RegExp(src).test(Farm.ui.toastText.text), re.source, SLOW);
+  await go(page, 'town', 'from_farm');
+  // the town: the board is solid; the Old Bridge is broken (its stubs stand, the river between them)
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const w = Farm.world;
+    return { bh: !!w.bh, board: w.walkable(24, 14), front: w.walkable(24, 15), stub: w.walkable(6, 32), gap: w.walkable(6, 33), far: w.walkable(6, 35), sign: w.bh.sign.text };
+  }), { bh: true, board: false, front: true, stub: true, gap: false, far: true, sign: 'BAYANIHAN' });
+  // the tour, the first time the board opens (not while quiet: other pop-ups of the day are closed as they come)
+  await teleport(page, 30, 13, 'up');
+  await page.evaluate(() => { window.gameHost.quiet = false; });
+  for (let quietFor = 0, i = 0; quietFor < 3 && i < 30; i++) {
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => Farm.ui.modals.length)) { await closeAll(page); quietFor = 0; } else quietFor++;
+  }
+  await teleport(page, 24, 15, 'up');
+  assert.strictEqual(await actionLabel(page), 'Board');
+  await tapAction(page);
+  await waitText(/BAYANIHAN PROJECTS.*The whole of Harvest Ville builds Willowbrook together.*Skip.*Next/);
+  await shot(page, 'bh-tour-1');
+  for (const k of [2, 3]) { await tapButton(page, 'Next'); await page.waitForTimeout(700); await shot(page, 'bh-tour-' + k); }
+  await waitText(/Gold, a title and a piece for the yard.*Got it/);
+  await tapButton(page, 'Got it');
+  await page.evaluate(() => { window.gameHost.quiet = true; });
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'bh_tour')), true);
+  // offline: the project and what it needs, and how to help
+  await waitText(/Bayanihan Projects.*Project 1 of 5.*The Old Bridge.*Join online play to help the town.*Lumber: 1,500/);
+  await shot(page, 'bh-board-offline');
+  assert.ok(!/Give/.test(await modalText(page)), 'no Give offline');
+  await tapButton(page, 'Town');
+  await waitText(/The Market Hall.*Coming later/);
+  await closeAll(page);
+  // the broken bridge says what it is
+  await teleport(page, 6, 32, 'down');
+  assert.strictEqual(await actionLabel(page), 'Look');
+  await tapAction(page);
+  await waitText(/THE OLD BRIDGE.*fell into the river.*Board/);
+  await shot(page, 'bh-bridge-broken');
+  await closeAll(page);
+  // online (a stand-in for the server: test/e2e-bayanihan-online.test.js plays the real bridge and test server)
+  await page.evaluate(() => {
+    window.__calls = [];
+    window.__fail = false;
+    Farm.Online.on = true;
+    Farm.Net.rpc = (name, a) => {
+      window.__calls.push([name, a]);
+      if (window.__fail && /^farm_project/.test(name)) return Promise.reject(new Error('Failed to fetch'));
+      if (name === 'farm_project_state_v1') {
+        return Promise.resolve({ ok: true, can_give: true, done: [], current: { key: 'bridge', cap: 800, mine: 0, givers: 2, hood: null, top: [{ id: 'k1', name: 'Kapitbahay', pts: 120 }],
+          needs: [{ item: 'lumber', goal: 1500, have: 700, pts: 1, day_max: 60, today: 0 }, { item: 'stone', goal: 1000, have: 10, pts: 1, day_max: 60, today: 0 },
+            { item: 'ore_copper', goal: 400, have: 0, pts: 2, day_max: 25, today: 0 }, { item: 'fish_s', goal: 300, have: 0, pts: 2, day_max: 15, today: 0 }] } });
+      }
+      if (name === 'farm_project_give_v1') return Promise.resolve({ ok: true, project: 'bridge', item: a.p_item, n: a.p_n, have: 700 + a.p_n, goal: 1500, today: a.p_n, mine: a.p_n, done: false });
+      return Promise.resolve(null);
+    };
+  });
+  await teleport(page, 24, 15, 'up');
+  await tapAction(page);
+  await waitText(/The Old Bridge.*% built.*Lumber 700\/1,500.*You have 40.*Give/);
+  await shot(page, 'bh-board-online');
+  await tapButton(page, 'Give');
+  await waitText(/GIVE LUMBER.*You have 40.*up to 40.*\| 1 \| 10 \| All 40/);
+  await tapButton(page, '10');
+  await waitToast(/Salamat! 10 Lumber for The Old Bridge/);
+  const after = await page.evaluate(() => ({ lumber: Farm.session.state.lumber, pend: Farm.session.state.bh.p, give: window.__calls.filter((c) => c[0] === 'farm_project_give_v1').map((c) => c[1]) }));
+  assert.strictEqual(after.lumber, 30, '10 lumber left the bag, after the server said ok');
+  assert.strictEqual(after.pend, null);
+  assert.strictEqual(after.give.length, 1);
+  assert.ok(after.give[0].p_n === 10 && after.give[0].p_item === 'lumber' && after.give[0].p_project === 'bridge' && /^[0-9a-f-]{36}$/.test(after.give[0].p_request_id));
+  await waitText(/Lumber 710\/1,500/);
+  // the network fails: the lumber stays, and the request is kept
+  await page.evaluate(() => { window.__fail = true; });
+  await tapButton(page, 'Give');
+  await waitText(/GIVE LUMBER.*You have 30/);
+  await tapButton(page, '10');
+  await waitToast(/Could not reach the online world.*still in your bag/);
+  const kept = await page.evaluate(() => ({ lumber: Farm.session.state.lumber, pend: Farm.session.state.bh.p }));
+  assert.strictEqual(kept.lumber, 30, 'nothing left the bag');
+  assert.ok(kept.pend && kept.pend.n === 10 && kept.pend.i === 'lumber', 'the gift waits for its answer');
+  // back online: asked again with the same request id, and only then out of the bag
+  await page.evaluate(() => { window.__fail = false; return Farm.Online.bhRetry(); });
+  const retried = await page.evaluate(() => ({ lumber: Farm.session.state.lumber, pend: Farm.session.state.bh.p, last: window.__calls.filter((c) => c[0] === 'farm_project_give_v1').pop()[1] }));
+  assert.strictEqual(retried.lumber, 20);
+  assert.strictEqual(retried.pend, null);
+  assert.strictEqual(retried.last.p_request_id, kept.pend.r, 'the same request id');
+  // the top givers
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openBayanihan('top', 0));
+  await waitText(/#1 Kapitbahay.*120 points/);
+  await shot(page, 'bh-top');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
