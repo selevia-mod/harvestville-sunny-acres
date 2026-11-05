@@ -4484,8 +4484,9 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   await waitMap(page, 'pulag');
   await page.evaluate(() => { window.gameHost.devPlaces = true; });
   // Kanor's Make tab: the sample set, four pieces, each on as it is made
-  const trophies = await page.evaluate(() => Farm.Config.WILD.trophies.length);
-  for (let k = 0; k < 4; k++) { // (the set's rows come after the trophies, 4 rows a page)
+  // (the set's rows come after the trophies and the sets of the places before it, 4 rows a page)
+  const trophies = await page.evaluate(() => { const C = Farm.Config, at = C.PLACE_ORDER.indexOf('sample_place'); return C.WILD.trophies.length + 4 * C.PLACE_ORDER.filter((id, i) => i < at && Farm.Logic.placeShown(id) && C.PLACE_GEAR[id + '_head']).length; });
+  for (let k = 0; k < 4; k++) {
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, Math.floor((trophies + k) / 4));
     await tapButton(page, '100G');
   }
@@ -4625,6 +4626,10 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await closeAll(page);
   await waitMap(page, 'pulag');
   await page.evaluate(() => { Farm.Logic.wildRare = () => true; }); // (the Golden Duck is out)
+  // every toast is kept: a later one (a medal's, 2.8 s after a hunt) can take the place of the one looked for
+  const keepToasts = (pg) => pg.evaluate(() => { const t = Farm.ui.toast.bind(Farm.ui); window.__toasts = []; Farm.ui.toast = (m, ...rest) => { window.__toasts.push(String(m)); return t(m, ...rest); }; });
+  const toasted = (pg, re) => pg.waitForFunction((src) => (window.__toasts || []).some((m) => new RegExp(src).test(m)), re.source, SLOW);
+  await keepToasts(page);
   // the Jeep by the Lodge: Banaue is open at 60 hunts
   await teleport(page, 27, 10, 'up');
   assert.strictEqual(await actionLabel(page), 'Jeep');
@@ -4651,7 +4656,7 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   assert.strictEqual(await actionLabel(page), 'Talk');
   await tapAction(page);
   assert.match(await modalText(page), /LOLA BUGAN[\s\S]*Welcome up the mountain/);
-  await page.waitForFunction(() => /Lola Bugan gave you 4 Heirloom Rice\./.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /Lola Bugan gave you 4 Heirloom Rice\./);
   await shot(page, 'banaue-lola');
   await closeAll(page);
   // two more ducks: her second step, 4 more rice and arrows
@@ -4660,7 +4665,7 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await teleport(page, 12, 4, 'up');
   await tapAction(page);
   assert.match(await modalText(page), /You hunt with care/);
-  await page.waitForFunction(() => /gave you 4 Heirloom Rice and 10 Arrows/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /gave you 4 Heirloom Rice and 10 Arrows/);
   await closeAll(page);
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'heirloom_rice')), 8);
   // taming the calm duck: hold heirloom rice, sneak up while it is calm, Feed
@@ -4679,7 +4684,7 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await page.evaluate(() => { Farm.Logic.feedTame = (s, id) => window.__feed(s, id, () => 0.1); }); // (the 1 in 4: it flies off)
   await nextTo();
   await tapAction(page);
-  await page.waitForFunction(() => /ran off! \(2 of 8\)[\s\S]*15 minutes/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /ran off! \(2 of 8\)[\s\S]*15 minutes/);
   await page.waitForFunction(() => !Farm.world.wild.animals.some((x) => x.kind === 'itik_calm'), null, SLOW);
   await advance(page, 16);
   await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 20 && !w.wild.animals.some((x) => x.kind === 'itik_calm'); i++) { w.wild.next = 0; w.wildArrive(0); } });
@@ -4689,21 +4694,21 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await tapAction(page);
   await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
   await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'banaue') && Farm.world.comp && !Farm.world.wild.animals.some((x) => x.kind === 'itik_calm'), null, SLOW);
-  await page.waitForFunction(() => /Wild Duck is tamed/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /Wild Duck is tamed/);
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'heirloom_rice')), 0, 'Lola Bugan\'s 8: just enough');
   await frames(page, 10);
   await shot(page, 'banaue-companion');
   // its skill: the Golden Duck is back, and the duck says so
   await advance(page, 125);
   await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 30 && !w.wild.animals.some((x) => x.kind === 'goldduck'); i++) { w.wild.next = 0; w.wildArrive(0); } });
-  await page.waitForFunction(() => /Wild Duck spotted something rare: a Golden Duck!/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /Wild Duck spotted something rare: a Golden Duck!/);
   // a hidden chest, in the village's corner
   await teleport(page, 2, 3, 'up');
   await page.waitForFunction(() => Farm.world.placeChests[0] && Farm.world.placeChests[0].img.alpha > 0.6, null, SLOW);
   assert.strictEqual(await actionLabel(page), 'Open');
   const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
   await tapAction(page);
-  await page.waitForFunction(() => /A hidden chest![\s\S]*\(1 of 5\)/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /A hidden chest![\s\S]*\(1 of 5\)/);
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows')), arrows + 6);
   // into the tunnels at the door
   await page.evaluate(() => { const w = Farm.world; w.setFeet(20.5 * 256, 2.5 * 256); w.dir = 'up'; });
@@ -4731,14 +4736,14 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await shot(page, 'banaue-tunnels-boss');
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'amomongo'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); }); // (a share is 3 hits)
   await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
-  await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(page, /The boss left a chest/);
   await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
   await frames(page, 3);
   assert.strictEqual(await actionLabel(page), 'Open');
   const fur = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo'));
   await tapAction(page);
   await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
-  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /The chest: [\s\S]*Amomongo Fur/);
+  await toasted(page, /The chest: [\s\S]*Amomongo Fur/);
   assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo') + Farm.world.wildDrops.filter((d) => d.id === 'fur_amomongo').length >= n + 1, fur));
   assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'banaue')), 0);
   await shot(page, 'banaue-boss-chest');
@@ -4757,13 +4762,14 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   const again = await open(JSON.parse(closed));
   await closeAll(again.page);
   await waitMap(again.page, 'banaue');
+  await keepToasts(again.page);
   const back = await again.page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_dungeon; return { far: Math.hypot(f.x - p.x, f.y - p.y) / 256, comp: !!w.comp, deep: Farm.session.state.places.banaue.deep }; });
   assert.ok(back.far < 1, 'at the tunnels\' door');
   assert.ok(back.comp && back.deep >= 1, 'the duck comes along; (the floors were jumped, not walked: only floor 1 is reached)');
   await teleport(again.page, 12, 4, 'up');
   await tapAction(again.page);
   assert.match(await modalText(again.page), /LOLA BUGAN[\s\S]*The Amomongo is calm/);
-  await again.page.waitForFunction(() => /gave you 6 Terrace Stone, 5 Heirloom Rice and 2 Adobong Itik/.test(Farm.ui.toastText.text), null, SLOW);
+  await toasted(again.page, /gave you 6 Terrace Stone, 5 Heirloom Rice and 2 Adobong Itik/);
   assert.ok(await again.page.evaluate(() => Farm.Logic.hasMedal(Farm.session.state, 1105)), 'her story\'s medal');
   await shot(again.page, 'banaue-lola-last');
   assert.deepStrictEqual(again.problems, []);

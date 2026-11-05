@@ -156,7 +156,7 @@ I tested the import on made-up pictures: every part ran, and the sizes came out 
 
 ## Page size
 
-The page went from 19,456,174 to 19,541,326 bytes (**+85 KB**): the two maps (28 KB + 7 KB), the ground tiles (18 KB
+The page went from 19,456,174 to 19,541,177 bytes (**+85 KB**, of a 20,447,232 limit): the two maps (28 KB + 7 KB), the ground tiles (18 KB
 WebP) and the place's code. Real pictures later go to the wild pack. The only ones that stay in the page are the 16
 icons and the ground, and the ground replaces its stand-in at about the same size.
 
