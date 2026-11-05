@@ -807,6 +807,7 @@ function createServer() {
   require('./mock-bayanihan').install(rpc, db, need); // Bayanihan Projects (supabase/farm_online_20.sql)
 
   require('./mock-rank').install(rpc, db, { need, blocked }); // Town Rank and the Hall of Fame (part 22: test/mock-rank.js)
+  require('./mock-raid')(rpc, db, need); // part 21: the Town Raid
 
   // ----- realtime: channels with presence (keyed by user id) and broadcasts, like supabase-js
   const topics = new Map(); // topic -> Set of channels
