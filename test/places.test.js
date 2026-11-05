@@ -84,7 +84,7 @@ test('the item ids fixed for the five places (docs/places-items.json) are all go
     assert.strictEqual(j[p].items.length, 16, p + ': a 4 x 4 icons sheet');
     j[p].items.forEach((x) => {
       assert.match(x.id, /^[a-z][a-z_]{0,23}$/, p + ': ' + x.id);
-      if (C.ITEMS[x.id]) assert.ok(!C.ITEMS[x.id].place, x.id + ' is one from before (used again, not new)');
+      if (C.ITEMS[x.id]) assert.ok(!C.ITEMS[x.id].place || C.ITEMS[x.id].place === p, x.id + ' is one from before (used again, not new), or this place\'s own');
     });
   });
   // F.placeIcons appends only what is new, at the end, and keeps the ones from before
@@ -101,11 +101,13 @@ test('the item ids fixed for the five places (docs/places-items.json) are all go
 
 test('the places from before are in the jeep list with their medals; a new place opens by hunts', () => {
   const s = fresh();
-  const list = plain(L.jeepPlaces(s));
-  assert.deepStrictEqual(list.map((p) => p.id), ['pulag', 'makiling', 'magayon'], 'the sample place hides outside the tests');
-  assert.deepStrictEqual(list.map((p) => p.open), [true, false, false]);
+  // (the new places come after these three: each place's own test checks its row)
+  const list = plain(L.jeepPlaces(s)), old = (l) => l.filter((p) => C.PLACES[p.id].legacy);
+  assert.deepStrictEqual(old(list).map((p) => p.id), ['pulag', 'makiling', 'magayon']);
+  assert.ok(!list.some((p) => p.id === SP), 'the sample place hides outside the tests');
+  assert.deepStrictEqual(old(list).map((p) => p.open), [true, false, false]);
   s.wild.n = 40;
-  assert.ok(L.jeepPlaces(s).every((p) => p.open));
+  assert.ok(old(L.jeepPlaces(s)).every((p) => p.open));
   ctx.window.gameHost.devPlaces = true;
   assert.ok(L.jeepPlaces(s).some((p) => p.id === SP), 'SAMPLE: shown to the tests');
   ctx.window.gameHost.devPlaces = false;

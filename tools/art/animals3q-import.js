@@ -23,6 +23,7 @@
 // two. The picture generator left a faint glow round some of them: `clean` takes it away.
 // node tools/art/animals3q-import.js            (everything)
 // node tools/art/animals3q-import.js breeds     (only the breeds)
+// node tools/art/animals3q-import.js places     (only the hunting places' creatures)
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -63,7 +64,17 @@ Object.keys(C.BREEDS).forEach((kind) => C.BREEDS[kind].forEach((d) => {
   const f = 'breed_' + kind + '_' + d.key;
   if (fs.existsSync(path.join(ROOT, 'art-src', 'breeds', f + '.png'))) SETS.push({ name: f, shade: 'breedshade_' + kind + '_' + d.key, dir: 'breeds', ground: 352, store: 0.75, rows: [[f, Object.assign({ clean: true }, BARN)]] });
 }));
-const RUN = process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : SETS;
+// The hunting places' creatures (owner, 6 Nov 2026; docs/hunting-places-engine.md): one with its own `sheet` whose
+// picture art-src/places/<place>/<sheet>.png is in gets a one-row sheet of its own (like a breed), cut like the Lair's
+// (each pose found and stood on the line). Two creatures may share a picture (Banaue's Wild Duck and the calm one).
+const placeSheets = {};
+(C.WILD.more || []).forEach((k) => {
+  const d = C.WILD.animals[k];
+  if (!d.sheet || placeSheets[d.sheet] || !fs.existsSync(path.join(ROOT, 'art-src', 'places', d.place, d.sheet + '.png'))) return;
+  placeSheets[d.sheet] = true;
+  SETS.push({ name: d.sheet, shade: d.sheet + 'shade', dir: 'places/' + d.place, ground: 358, store: 0.75, place: true, rows: [[d.sheet, { front: 9, ground: !!d.ground, fit: true }]] });
+});
+const RUN = process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {

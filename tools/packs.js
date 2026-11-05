@@ -8,7 +8,8 @@ const WILD_PROPS = ['trail_sign', 'pili_tree', 'hot_spring', 'sulfur_vent', 'lav
   'tall_grass', 'arrow_fly'];
 module.exports = {
   // Pulag, Makiling and Magayon: their animals, Kanor, the bow poses, the flying arrow and the props only they use
-  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n)),
+  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n))
+    .concat(require('./places/banaue-art').packed()), // (Banaue Terraces' pictures, once they are in: owner, 6 Nov 2026)
   // the farmers in their party hats, on their birthday
   party: ['player_bday', 'player_girl_bday'],
 };
