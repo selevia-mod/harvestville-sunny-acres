@@ -164,7 +164,8 @@
     var f = this.feet();
     if (n.look.key === 'people' || n.look.key === p.npc.sheet) n.img.setFrame(n.look.frame + (Math.abs(f.x - n.x) > Math.abs(f.y - n.y) ? 6 : f.y < n.y ? 3 : 0)).setFlipX(f.x > n.x && Math.abs(f.x - n.x) > Math.abs(f.y - n.y));
     var next = p.npc.lines[r.i + 1];
-    F.ui.dialog(p.npc.name.toUpperCase() + '\n' + r.text + (r.last || r.isNew ? '' : '\n\n(' + (next && next.hint ? next.hint : 'Come back after more hunting here.') + ')'));
+    var gift = r.engineGift && r.gift ? '\n\nYou got ' + r.gift.map(function (x) { var it = C.ITEMS[x[0]]; return x[1] + ' ' + (x[1] > 1 && it.plural ? it.plural.charAt(0).toUpperCase() + it.plural.slice(1) : it.name); }).join(', ') + '.' + (r.left ? ' Some went to your basket at home.' : '') : '';
+    F.ui.dialog(p.npc.name.toUpperCase() + '\n' + r.text + gift + (r.last || r.isNew ? '' : '\n\n(' + (next && next.hint ? next.hint : 'Come back after more hunting here.') + ')'));
     this.changed();
     medalsNow(this);
     this.save();

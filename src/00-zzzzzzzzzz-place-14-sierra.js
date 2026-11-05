@@ -109,7 +109,7 @@
         anggitayqueen: { name: 'Anggitay Queen', sheet: 'wild_anggitayqueen', row: 0, sheetRow: 'tikbalang', tint: 0xfff2d8, px: 110, w: 1.5, bar: 2.6, kg: 300, hp: 30,
           walk: 0.8, run: 4.6, angry: 4, hit: 20, ground: true, boss: true, drops: [['ribbon_queen', 1, 1], ['mane_anggitay', 2, 1]] },
         // floor 10: the Kapre, a huge gentle tree giant covered in moss; soloable, 22 more health for each friend
-        kapre: { name: 'Kapre', sheet: 'wild_kapre', row: 0, sheetRow: 'bungisngis', tint: 0x86b070, px: 164, w: 3.2, kg: 2000, hp: 55, hpEach: 22, minHits: 3,
+        kapre: { name: 'Kapre', sheet: 'wild_kapre', row: 0, sheetRow: 'bungisngis', tint: 0x86b070, px: 164, w: 3.2, kg: 2000, hp: 41, hpEach: 16, minHits: 3,
           walk: 0.5, run: 3.2, angry: 3.4, hit: 24, ground: true, boss: true, drops: [['bark_kapre', 2, 1], ['moss_spirit', 3, 1], ['narra_wood', 2, 0.6]] },
       },
       floorKinds: [['anggitay', 1, 10], ['woodspirit', 3, 10]],

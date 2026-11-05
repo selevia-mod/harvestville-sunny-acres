@@ -112,8 +112,8 @@ test('Kapre\'s Roots: 10 floors, the Anggitay Queen leads floor 5, the Kapre flo
   assert.strictEqual(L.dunRoster(d.key, 5).length, 3, 'the guard and two with her');
   assert.strictEqual(L.dunRoster(d.key, 10)[0].kind, 'kapre');
   assert.ok(L.dunRoster(d.key, 9).length <= 6);
-  assert.strictEqual(L.dunHp('kapre', 1), 55, 'soloable');
-  assert.strictEqual(L.dunHp('kapre', 3), 99, '22 more for each friend');
+  assert.strictEqual(L.dunHp('kapre', 1), 41, 'soloable (41: between Taal\'s Berberoka 40 and Palawan\'s Minokawa 42, under the Lair\'s deep floors)');
+  assert.strictEqual(L.dunHp('kapre', 3), 73, '16 more for each friend');
   assert.strictEqual(WA.kapre.minHits, 3);
   const s = fresh();
   assert.strictEqual(L.hunted(s, d.key, 0, 'kapre', 1).chests, 1);

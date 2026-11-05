@@ -52,7 +52,7 @@ Root-woven earth, glowing mushrooms, glowing blue-green pools (not walkable). Th
 | Anggitay | 8 | no (shy) | - | Anggitay Mane (60%), Wild Honey (20%) |
 | Wood Spirit | 10 | yes | 15 | Spirit Moss, Narra Wood (40%) |
 | Anggitay Queen (floor 5) | 30 | yes | 20 | Queen's Ribbon, 2 Anggitay Mane |
-| Kapre (floor 10) | 55 (+22 a friend) | yes | 24 | 2 Kapre Bark, 3 Spirit Moss, 2 Narra Wood (60%) |
+| Kapre (floor 10) | 41 (+16 a friend) | yes | 24 | 2 Kapre Bark, 3 Spirit Moss, 2 Narra Wood (60%) |
 
 The Kapre's daily chest: 2 Kapre Bark, 3 Narra Wood, 2 Wild Honey, 12 Arrows, and a Silver Horn 15% of the time.
 

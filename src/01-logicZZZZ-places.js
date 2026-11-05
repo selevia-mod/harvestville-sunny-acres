@@ -156,11 +156,18 @@
     while (i + 1 < lines.length && unlocked(s, id, lines[i + 1].need)) i++;
     return i;
   };
-  // Talking: their newest line (and it is read). { i, text, isNew, last }
+  // Talking: their newest line (and it is read). { i, text, isNew, last } (+ gift, left: what a line gave)
+  // A line's small reward (owner, 6 Nov 2026: "small rewards"): line.gift = [[item, n]], given once, for every line
+  // opened since you last talked (so one skipped by doing two things at once still gives its gift).
   L.talkNpc = function (s, id) {
-    var p = C.PLACES[id], i = L.npcStep(s, id), r = rec(s, id), isNew = i >= r.st;
+    var p = C.PLACES[id], i = L.npcStep(s, id), r = rec(s, id), isNew = i >= r.st, gift = [];
+    // (only for a place that asks for it: npc.engineGifts. Banaue, Chocolate Hills, Taal and Sierra Madre give their own
+    // gifts in their own files, wrapping this; giving them here too gave every gift twice)
+    if (p.npc.engineGifts) for (var k = r.st; k <= i; k++) gift = gift.concat(p.npc.lines[k].gift || []);
     r.st = Math.max(r.st, i + 1);
-    return { i: i, text: p.npc.lines[i].text, isNew: isNew, last: i === p.npc.lines.length - 1 };
+    var out = { i: i, text: p.npc.lines[i].text, isNew: isNew, last: i === p.npc.lines.length - 1 };
+    if (gift.length) { out.gift = merge(gift); out.left = L.giveLoot(s, out.gift); out.engineGift = true; }
+    return out;
   };
 
   // ---------- taming ----------

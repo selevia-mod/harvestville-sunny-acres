@@ -5661,3 +5661,110 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
 });
+
+
+test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunts; a Paniki, a Sawa and the Golden Sawa hunted; the Paniki pup tamed with mangoes; a hidden chest; Mang Pido\'s first line and gift; the River Caves, the Queen on floor 5, the Minokawa on floor 10 and its chest; the medals (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.gold = 5000; s.wild.n = 160; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); L.addItem(s, 'mango', 12); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  await page.evaluate(() => { window.__rare = Farm.Logic.wildRare; Farm.Logic.wildRare = () => true; }); // (the Golden Sawa is out)
+  // the Jeep by the Lodge: Palawan opens at 160 hunts
+  await teleport(page, 27, 10, 'up');
+  await tapAction(page);
+  const list = await modalText(page);
+  assert.match(list, /Kanor's Jeep[\s\S]*Magayon Peaks[\s\S]*Palawan Underground River[\s\S]*0% explored\. 0 hunts here/);
+  await tapButton(page, 'Go', 2); // (Pulag is Here; Makiling, Magayon, Palawan)
+  await waitMap(page, 'palawan');
+  const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: [...new Set(w.wild.animals.map((a) => a.kind))].sort(), mouth: !!w.lairMouth }; });
+  assert.deepStrictEqual(here, { jeep: true, npc: 'Mang Pido', chests: 5, near: true, kinds: ['golden_sawa', 'paniki', 'paniki_pup', 'sawa'], mouth: true });
+  await shot(page, 'palawan-arrive');
+  // one of each hunted (its hits counted as yours); a Sawa's charge costs its hit
+  const lost = await page.evaluate(() => { const w = Farm.world, s = Farm.session.state, a = w.wild.animals.find((x) => x.kind === 'sawa'), e = s.energy; w.wildHit(a); return e - s.energy; });
+  assert.strictEqual(lost, 16);
+  for (const kind of ['paniki', 'sawa', 'golden_sawa']) await page.evaluate((k) => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === k); a.hp = 1; w.wildStruck(a); }, kind);
+  await page.waitForFunction(() => Farm.session.state.places.palawan.n === 3, null, SLOW);
+  await page.evaluate(() => { Farm.Logic.wildRare = window.__rare; });
+  // the Paniki pup: hold a mango, close while it is calm, Feed; ten feedings
+  const nextTo = async () => {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'paniki_pup'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 19.5 * T; a.y = 18.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; w.setFeet(18.5 * T, 18.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+  };
+  await hold(page, 'mango');
+  await nextTo();
+  await page.waitForFunction(() => Farm.ui.actionLabel.text === 'Feed', null, SLOW);
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; }); // (it stays)
+  for (let i = 1; i <= 10; i++) {
+    await nextTo();
+    await tapAction(page);
+    if (i === 1) { await page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'paniki_pup'); return a && a.hearts && a.hearts.text === '♥ 1/10'; }, null, SLOW); await shot(page, 'palawan-tame-fed'); }
+  }
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'palawan') && Farm.world.comp && !Farm.world.wild.animals.some((x) => x.kind === 'paniki_pup'), null, SLOW);
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.Logic.companionSkill(Farm.session.state), Farm.Logic.countItem(Farm.session.state, 'mango')]), ['spot', 2]);
+  await shot(page, 'palawan-companion');
+  // a hidden chest
+  await closeAll(page); // (the Hunting level-up card)
+  await teleport(page, 11, 10, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[1] && Farm.world.placeChests[1].img.alpha > 0.6 && Farm.ui.actionLabel.text === 'Open', null, SLOW);
+  await tapAction(page);
+  await page.waitForFunction(() => /A hidden chest!.*Palawan Cashews.*\(1 of 5\)/.test(Farm.ui.toastText.text), null, SLOW);
+  // Mang Pido at his dock: the first line, and its gift
+  await closeAll(page);
+  await teleport(page, 21, 15, 'up');
+  await page.waitForFunction(() => Farm.ui.actionLabel.text === 'Talk', null, SLOW);
+  const mangoes = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'mango')); // (the chest may have had some)
+  await tapAction(page);
+  assert.match(await modalText(page), /MANG PIDO[\s\S]*Magandang araw[\s\S]*You got 3 Mangoes\./);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'mango')), mangoes + 3);
+  await shot(page, 'palawan-mang-pido');
+  await closeAll(page);
+  await tapAction(page); // (again: no second gift, and what opens his next line)
+  const again = await modalText(page);
+  assert.ok(/\(Hunt here a few more times\.\)/.test(again) && !/You got/.test(again), again);
+  await closeAll(page);
+  // the River Caves: in at the door under the cliff
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(18.5 * 256, 2.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'palawan_cave');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['cave_crab', 'cave_crab', 'cave_crab'], sheet: 'indoor-palawan_cave', comp: true });
+  await shot(page, 'palawan-cave-1');
+  // floor 5: the Balinsasayaw Queen leads it, with her bar; down, the gate opens
+  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.lairFloor === 5 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  const queen = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'balinsasayaw'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
+  assert.deepStrictEqual(queen, { hp: 28, max: 28, bar: true, n: 3 });
+  await shot(page, 'palawan-cave-5-queen');
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.palawan.g), 1, 'the guard is down');
+  // floor 10: the Minokawa, soloable (42 for one), and its daily chest
+  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'minokawa'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, gate: Farm.world.lair.gate }; });
+  assert.deepStrictEqual(boss, { hp: 42, max: 42, bar: true, gate: null });
+  await shot(page, 'palawan-cave-10-minokawa');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'minokawa'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); }); // (3 hits: a share)
+  await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
+  await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
+  await closeAll(page); // (a Hunting level-up card may be up)
+  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+  await page.waitForFunction(() => Farm.ui.actionLabel.text === 'Open' && !Farm.ui.modals.length, null, SLOW);
+  const feathers = () => page.evaluate(() => { const s = Farm.session.state; return Farm.Logic.countItem(s, 'feather_minokawa') + (s.basket.feather_minokawa || 0); }); // (a full bag: the basket at home)
+  const had = await feathers();
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  assert.ok((await feathers()) >= had + 1, 'its Minokawa Feather');
+  await shot(page, 'palawan-boss-chest');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'palawan')), 0);
+  // the medals: first hunt, the guard, the boss, the tame, the three animals
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openMedals());
+  assert.match(await modalText(page), /My Medals[\s\S]*\d+ of \d+ medals/);
+  const earned = await page.evaluate(() => [1500, 1501, 1502, 1503, 1510, 1512, 1514].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true, true]);
+  await shot(page, 'palawan-medals');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
