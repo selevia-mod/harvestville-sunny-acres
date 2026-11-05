@@ -56,7 +56,7 @@ floor and the gate down opens; the lift stops at floors 1 and 6 once you have re
 | White Duwende | 1-10 | 3 | shy | Duwende Hat (6 in 10), Limestone Chip |
 | Black Duwende | 3-10 | 4 | 12 energy | Duwende Pebbles (6 in 10), Limestone Chip |
 | **Punso Golem**, the guard of floor 5 (with 2 more) | 5 | 22 | 15 energy | 2 Punso Clay, 3 Limestone Chips |
-| **Great Nuno**, the boss of floor 10 (with 2 more) | 10 | 40 alone, +18 for each friend | 18 energy | Nuno Moss, Punso Clay |
+| **Great Nuno**, the boss of floor 10 (with 2 more) | 10 | 34 alone, +16 for each friend | 18 energy | Nuno Moss, Punso Clay |
 
 The Great Nuno is grumpy but kind: soloable, harder with friends (each must land 3 hits to share him).
 **His daily chest** (once a day; missed days add up, up to 3 waiting): 1 Nuno Moss, 3 Peanut Kisses, 2 Kape Alamid,

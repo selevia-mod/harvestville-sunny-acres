@@ -51,7 +51,7 @@ test('Chocolate Hills: its numbers, a step past Banaue and Magayon; 80 hunts ope
   assert.deepStrictEqual(plain(P().kinds), ['kambing', 'musang', 'cocoagoat']);
   // the cave
   const d = P().dungeon;
-  assert.deepStrictEqual([A('punsogolem').hp, A('punsogolem').hit, A('greatnuno').hp, A('greatnuno').hpEach, A('greatnuno').hit], [22, 15, 40, 18, 18]);
+  assert.deepStrictEqual([A('punsogolem').hp, A('punsogolem').hit, A('greatnuno').hp, A('greatnuno').hpEach, A('greatnuno').hit], [22, 15, 34, 16, 18]); // (34, not 40: under Taal's Berberoka, owner 6 Nov 2026: each place a step up)
   // a step past Banaue (place 11) when it is in, in every number that makes a place harder
   const B = C.PLACES.banaue;
   if (B) {
@@ -150,7 +150,7 @@ test('the Hill Hollows: 10 floors, White Duwende from 1, Black from 3, the Punso
   assert.strictEqual(kinds(5).length, 3, 'the guard and its two');
   assert.strictEqual(kinds(10)[0], 'greatnuno');
   assert.strictEqual(kinds(10).length, 3);
-  assert.deepStrictEqual([L.dunHp('greatnuno', 1), L.dunHp('greatnuno', 2), L.dunHp('greatnuno', 4)], [40, 58, 94], 'soloable; 18 more for each friend');
+  assert.deepStrictEqual([L.dunHp('greatnuno', 1), L.dunHp('greatnuno', 2), L.dunHp('greatnuno', 4)], [34, 50, 82], 'soloable; 16 more for each friend');
   assert.strictEqual(L.dunHp('punsogolem', 3), 22, 'the guard is the guard');
   const s = fresh();
   L.dunReach(s, CAVE, 7);
