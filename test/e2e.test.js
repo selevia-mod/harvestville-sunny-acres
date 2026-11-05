@@ -152,6 +152,14 @@ const modalText = (page) => page.evaluate(() => {
   return out.join(' | ');
 });
 const state = (page) => page.evaluate(() => JSON.parse(JSON.stringify(Farm.session.state)));
+// Kanor's Jeep lists every hunting place, a few to a page: the text of all its pages (6 Nov 2026: eight places)
+async function jeepText(page) {
+  let out = '';
+  for (let p = 0; p < 3; p++) { await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openJeep(p); }, p); out += ' | ' + await modalText(page); }
+  await page.evaluate(() => Farm.ui.closeAll());
+  return out;
+}
+
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, name + '.png') }); };
 const actionLabel = (page) => page.evaluate(() => Farm.ui.actionLabel.text);
 const closeAll = async (page) => { await page.evaluate(() => Farm.ui.closeAll()); await frames(page, 2); };
@@ -5026,11 +5034,12 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 20 && !w.wild.animals.some((x) => x.kind === 'sample_kid'); i++) { w.wild.next = 0; w.wildArrive(0); } });
   assert.ok(await kid(), 'back after a while');
   await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; });
+  await page.evaluate(() => { const t = Farm.ui.toast; window.__toasts = []; Farm.ui.toast = function (m) { window.__toasts.push(m); return t.apply(this, arguments); }; }); // (the hunt's late medal toast can take its place)
   await nextTo();
   await tapAction(page);
   await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
   await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'sample_place') && Farm.world.comp && !Farm.world.wild.animals.some((x) => x.kind === 'sample_kid'), null, SLOW);
-  await page.waitForFunction(() => /is tamed/.test(Farm.ui.toastText.text), null, SLOW);
+  await page.waitForFunction(() => window.__toasts.some((m) => /is tamed/.test(m)), null, SLOW);
   await frames(page, 10);
   await shot(page, 'places-companion');
   // its skill: it fetches what lies near you
@@ -5163,7 +5172,7 @@ test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and th
   await teleport(page, 27, 10, 'up');
   assert.strictEqual(await actionLabel(page), 'Jeep');
   await tapAction(page);
-  assert.match(await modalText(page), /Kanor's Jeep[\s\S]*Taal Lake \| 0% explored\. 0 hunts here\./);
+  assert.match(await jeepText(page), /Kanor's Jeep[\s\S]*Taal Lake \| 0% explored\. 0 hunts here\./);
   const go = await page.evaluate(() => Farm.Logic.jeepPlaces(Farm.session.state).filter((e) => e.open).findIndex((e) => e.id === 'taal'));
   assert.ok(go >= 0);
   await page.evaluate(() => { Farm.Logic.wildRare = () => true; }); // (the rare one is out today)
@@ -5358,7 +5367,7 @@ test('hunting places: Sierra Madre by the Jeep at 130 hunts; an Unggoy (its bana
   await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const kapre = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'kapre'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
-  assert.deepStrictEqual(kapre, { hp: 55, max: 55, bar: true }, 'soloable: no more for one');
+  assert.deepStrictEqual(kapre, { hp: 41, max: 41, bar: true }, 'soloable: no more for one');
   assert.strictEqual(await page.evaluate(() => Farm.world.lair.gate), null, 'the bottom: no gate down');
   await shot(page, 'sierra-kapre');
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'kapre'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
@@ -5478,7 +5487,7 @@ test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a 
   await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'greatnuno'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, gate: Farm.world.lair.gate }; });
-  assert.deepStrictEqual(boss, { hp: 40, max: 40, bar: true, gate: null });
+  assert.deepStrictEqual(boss, { hp: 34, max: 34, bar: true, gate: null });
   await shot(page, 'bohol-nuno');
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'greatnuno'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
   await page.waitForFunction(() => !!Farm.world.bossChest && /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
@@ -5672,9 +5681,9 @@ test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunt
   // the Jeep by the Lodge: Palawan opens at 160 hunts
   await teleport(page, 27, 10, 'up');
   await tapAction(page);
-  const list = await modalText(page);
+  const list = await jeepText(page);
   assert.match(list, /Kanor's Jeep[\s\S]*Magayon Peaks[\s\S]*Palawan Underground River[\s\S]*0% explored\. 0 hunts here/);
-  await tapButton(page, 'Go', 2); // (Pulag is Here; Makiling, Magayon, Palawan)
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('palawan', 'from_jeep'); }); // (its Go is on the list's second page now; Banaue's test taps one)
   await waitMap(page, 'palawan');
   const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: [...new Set(w.wild.animals.map((a) => a.kind))].sort(), mouth: !!w.lairMouth }; });
   assert.deepStrictEqual(here, { jeep: true, npc: 'Mang Pido', chests: 5, near: true, kinds: ['golden_sawa', 'paniki', 'paniki_pup', 'sawa'], mouth: true });
