@@ -22,6 +22,18 @@
   C.BUILDS.barn2.desc = 'Room for 8 cows, 4 pigs and 4 carabao.';
   C.BUILDS.coop2.desc = 'Room for 8 chickens.';
 
+  // ---------- animals: a product some hours after each feeding (it was once a day, the morning after) ----------
+  // Owner, 5 Nov 2026 (players: "24 hours for 1 egg is too long"), from the numbers: a chicken every 8 hours, a cow,
+  // pig or carabao every 12. Prices stay; a full, happy ranch makes at most about 2.2 times what it did, and a player
+  // who comes once a day makes the same as before.
+  C.ANIMAL_HOURS = { chicken: 8, cow: 12, pig: 12, carabao: 12 };
+  Object.keys(C.ANIMAL_HOURS).forEach(function (k) {
+    var a = C.ANIMALS[k], h = C.ANIMAL_HOURS[k], what = { chicken: 'Lays an egg', cow: 'Gives milk', pig: 'Sniffs out a truffle', carabao: 'Gives creamy carabao milk' }[k];
+    if (!a) return;
+    a.desc = (k === 'carabao' ? 'Strong and gentle. ' : '') + what + ' ' + h + ' hours after it is fed.';
+    a.shop = what + ' every ' + h + ' hours when fed.';
+  });
+
   // ---------- Double Drops: Wednesday and Saturday, 12-1 PM and 8-10 PM Manila time ----------
   // Picking crops, forage, mine rocks and what a hunted animal leaves: twice as much.
   C.DOUBLE = { days: [3, 6], windows: [[12 * H, 13 * H], [20 * H, 22 * H]], tz: 8 * H };

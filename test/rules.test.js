@@ -174,7 +174,9 @@ test('happy animals give large produce; cows need the milker', () => {
   s.gold = 1e6;
   L.buyAnimal(s, 'cow');
   s.animals.forEach((a) => { a.love = 70; a.fed = 1; });
-  L.endDay(s);
+  L.animalsTick(s);
+  clock.advance(12 * 60);
+  L.animalsTick(s);
   assert.strictEqual(L.collect(s, 0), 'egg_l');
   assert.strictEqual(L.collect(s, 1), '!milker');
   L.addItem(s, 'milker', 1);

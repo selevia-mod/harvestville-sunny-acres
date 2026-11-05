@@ -184,13 +184,13 @@ test('the animal hand puts what they made in the basket and feeds them, from you
   assert.strictEqual(L.countItem(s, 'fodder'), 0);
   assert.strictEqual(s.animals[0].love, C.LOVE.feed);
   assert.strictEqual(L.fhDoneToday(s, 'berto'), 5);
-  // overnight they make something; he collects it in the morning and feeds them again, 6 jobs a day at Lv 1
+  // (5 Nov 2026: hens lay 8 hours after eating, the cow gives milk after 12) he collects as they make it, up to 6 jobs a day
+  // at Lv 1, and feeds them again; the 6:00 round in the morning picks up what came in the night
   const r = clock.nextDay(L, s, null, 6);
-  assert.ok(r.fh.berto.a === 3 && r.fh.berto.b === 2);
-  assert.match(L.fhReport(r.fh), /Berto fed the animals 3 times and put 2 things they made in the basket\. Wages: 60G\./);
-  // (the 6:00 round came with the morning) two eggs and the cow's milk in; the cow could not be fed
+  assert.ok(r.fh.berto.a === 3 && r.fh.berto.b === 3, JSON.stringify(r.fh.berto));
+  assert.match(L.fhReport(r.fh), /Berto fed the animals 3 times and put 3 things they made in the basket\. Wages: 60G\./);
   assert.strictEqual(L.fhDoneToday(s, 'berto'), 5);
-  assert.deepStrictEqual(plain(s.basket), { egg: 3, milk_l: 1, milk: 1 });
+  assert.deepStrictEqual(plain(s.basket), { egg: 4, milk_l: 1, milk: 1 });
   assert.deepStrictEqual(s.animals.map((a) => a.fed), [1, 1, 0, 0]);
   assert.ok(s.fh.hands.berto.nf === s.day, 'no fodder left for the cow');
   assert.match(L.fhReport(L.fhTakeLog(s)), /Berto ran out of animal feed/);

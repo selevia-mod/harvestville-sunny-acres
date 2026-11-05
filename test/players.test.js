@@ -189,3 +189,54 @@ test('the clearing quest asks for 15 at most; shops never close but night is sti
   assert.ok(!L.canDrop(s, slotOf(s, 'hoe')));
   assert.ok(!L.canDrop(s, s.inv.findIndex((x) => !x)));
 });
+
+test('animals: a chicken lays 8 hours after eating, a cow 12; the night only checks who ate today; the timer survives a save', () => {
+  clock.set(2026, 4, 1, 9, 0);
+  const s = L.newState();
+  s.gold = 1e6;
+  L.buyAnimal(s, 'cow');
+  L.addItem(s, 'fodder', 3);
+  L.addItem(s, 'chicken_feed', 3);
+  L.addItem(s, 'milker', 1);
+  const hen = s.animals[0], cow = s.animals[1];
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'ok');
+  assert.strictEqual(L.feedAnimal(s, 1, slotOf(s, 'fodder')), 'ok');
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'already', 'one meal at a time');
+  assert.strictEqual(L.animalLeft(hen), 8 * 60);
+  assert.strictEqual(L.animalLeft(cow), 12 * 60);
+  // the timer survives a save
+  clock.advance(60);
+  const back = roundTrip(s);
+  assert.strictEqual(L.animalLeft(back.animals[0]), 7 * 60);
+  assert.strictEqual(back.animals[0].fd, 1);
+  clock.advance(7 * 60); // 5 PM
+  L.catchUp(s, clock.ms);
+  assert.strictEqual(hen.ready, 1, 'the egg at 5 PM');
+  assert.strictEqual(cow.ready, 0, 'the milk not yet');
+  assert.strictEqual(L.collect(s, 0), 'egg');
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'ok', 'fed again');
+  clock.advance(4 * 60); // 9 PM
+  L.catchUp(s, clock.ms);
+  assert.strictEqual(cow.ready, 1);
+  // midnight: both ate today, no one is hungry; the hen's second egg comes at 1 AM, after the night
+  clock.advance(3 * 60 + 30);
+  const r = L.catchUp(s, clock.ms);
+  assert.ok(r, 'a new day');
+  assert.deepStrictEqual(plain(r.hungry), []);
+  clock.advance(60);
+  L.catchUp(s, clock.ms);
+  assert.strictEqual(hen.ready, 1, 'the second egg');
+  // a day without food: hungry at midnight
+  L.collect(s, 0); L.collect(s, 1);
+  clock.advance(24 * 60);
+  const r2 = L.catchUp(s, clock.ms);
+  assert.ok(r2.hungry.includes(hen.name) && r2.hungry.includes(cow.name));
+  // waiting produce: a fed animal makes the next one when the last is collected
+  s.animals[0].ready = 1;
+  L.feedAnimal(s, 0, slotOf(s, 'chicken_feed'));
+  clock.advance(9 * 60);
+  L.catchUp(s, clock.ms);
+  assert.strictEqual(hen.fed, 1, 'still waiting: the last egg is in the coop');
+  assert.strictEqual(L.collect(s, 0), 'egg');
+  assert.strictEqual(hen.ready, 1, 'the next one at once');
+});

@@ -627,7 +627,12 @@
     var a = this.state.animals[m.i], def = C.ANIMALS[a.kind], h = L.hearts(a);
     var lines = [a.name + '  ' + (h ? new Array(h + 1).join('♥') + ' (' + h + '/5)' : 'no hearts yet')];
     if (a.young) lines.push('Still little: grown in ' + a.young + (a.young > 1 ? ' days.' : ' day.'));
-    else lines.push((a.fed ? 'Fed today. ' : 'Hungry! Give it ' + C.ITEMS[def.feed].name + '. ') + (a.pet ? 'Petted today.' : 'Wants a pet.'));
+    else { // (a product some hours after each feeding, 5 Nov 2026: 01-logicZZ-players.js)
+      var left = L.animalLeft ? L.animalLeft(a) : null, prod = C.ITEMS[def.product].name;
+      lines.push((a.ready ? 'Something to collect! ' : '') +
+        (a.fed ? (left ? 'Eating: ' + prod + ' in ' + L.formatLeft(left) + '. ' : 'Fed. ') : 'Hungry! Give it ' + C.ITEMS[def.feed].name + (C.ANIMAL_HOURS && C.ANIMAL_HOURS[a.kind] ? ': ' + prod + ' ' + C.ANIMAL_HOURS[a.kind] + ' hours later. ' : '. ')) +
+        (a.pet ? 'Petted today.' : 'Wants a pet.'));
+    }
     if (a.preg) lines.push('A calf is on the way: ' + a.preg + (a.preg > 1 ? ' days.' : ' day.'));
     if (!a.young && h < 3) lines.push('At 3 hearts it gives large produce.');
     F.ui.toast(lines.join('\n'));

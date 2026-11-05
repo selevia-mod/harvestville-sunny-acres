@@ -873,6 +873,7 @@
       v: '2.3', date: 'November 5, 2026', lines: [
         ['seed_rose', 'Your ideas: new seeds', 'Rose, Sampaguita, Gumamela, Cotton, Sugarcane, Cacao and Oregano at Lily\'s. Craft yard pieces from them at Mira\'s.', 'players'], // (19zzz-a-players.js)
         ['star', 'Double Drops', 'Wednesday and Saturday, 12 to 1 PM and 8 to 10 PM: crops, forage, mine rocks and hunts give twice as much.', 'double'],
+        ['egg', 'Eggs every 8 hours', 'A fed chicken lays 8 hours later, and a cow, pig or carabao gives its milk or truffle 12 hours later. Feed them again for the next one.'],
         ['crate', 'Shops open all night', 'Every shop in town stays open day and night now. Mira takes two jobs at once.'],
         ['bag', 'Drop what you don\'t need', 'Hold it and tap Drop in your Bag. It stays on the ground 5 minutes, and a friend with you can pick it up.'],
         ['sikwate', 'Sikwate and Chocolate Cake', 'The Bakery makes both from your own cacao.'],
@@ -3015,6 +3016,18 @@
   // (a player thought the Bigger Barn did nothing for pigs: it doubles every barn animal)
   C.BUILDS.barn2.desc = 'Room for 8 cows, 4 pigs and 4 carabao.';
   C.BUILDS.coop2.desc = 'Room for 8 chickens.';
+
+  // ---------- animals: a product some hours after each feeding (it was once a day, the morning after) ----------
+  // Owner, 5 Nov 2026 (players: "24 hours for 1 egg is too long"), from the numbers: a chicken every 8 hours, a cow,
+  // pig or carabao every 12. Prices stay; a full, happy ranch makes at most about 2.2 times what it did, and a player
+  // who comes once a day makes the same as before.
+  C.ANIMAL_HOURS = { chicken: 8, cow: 12, pig: 12, carabao: 12 };
+  Object.keys(C.ANIMAL_HOURS).forEach(function (k) {
+    var a = C.ANIMALS[k], h = C.ANIMAL_HOURS[k], what = { chicken: 'Lays an egg', cow: 'Gives milk', pig: 'Sniffs out a truffle', carabao: 'Gives creamy carabao milk' }[k];
+    if (!a) return;
+    a.desc = (k === 'carabao' ? 'Strong and gentle. ' : '') + what + ' ' + h + ' hours after it is fed.';
+    a.shop = what + ' every ' + h + ' hours when fed.';
+  });
 
   // ---------- Double Drops: Wednesday and Saturday, 12-1 PM and 8-10 PM Manila time ----------
   // Picking crops, forage, mine rocks and what a hunted animal leaves: twice as much.
@@ -11099,6 +11112,71 @@
     return r;
   };
 
+  // ---------- animals: a product C.ANIMAL_HOURS after each feeding ----------
+  // a.fed: eating, its product on the way (since a.ft, a real minute); a.fd: fed today (the night's hungry check).
+  // One product waits at a time: a fed animal whose last one is still uncollected makes the next when it is collected.
+  L.animalMins = function (a) { return (C.ANIMAL_HOURS[a.kind] || 24) * 60; };
+  // Minutes until a fed animal's product (0: due), or null when it is not eating.
+  L.animalLeft = function (a, now) {
+    if (!a || !a.fed || a.young) return null;
+    if (now == null) now = L.nowMin();
+    return Math.max(0, Math.ceil((a.ft == null ? now : a.ft) + L.animalMins(a) - now));
+  };
+  // Makes what is due. Returns { item: n } made.
+  L.animalsTick = function (s, now) {
+    var made = {};
+    if (!s || !s.animals || s.isVisit) return made;
+    if (now == null) now = L.nowMin();
+    s.animals.forEach(function (a) {
+      if (a.young || !a.fed) return;
+      if (a.ft == null) { a.ft = now; a.fd = 1; } // (fed by a farmhand, or in an older save)
+      if (a.ready || now < a.ft + L.animalMins(a)) return;
+      a.ready = a.love >= C.LOVE.large ? 2 : 1;
+      a.fed = 0;
+      delete a.ft;
+      var d = C.ANIMALS[a.kind], item = a.ready === 2 ? d.large : d.product, n = 1;
+      if (L.isRare && L.isRare(a) && C.BREEDING) { a.bx = C.BREEDING.bonus; n += C.BREEDING.bonus; }
+      made[item] = (made[item] || 0) + n;
+    });
+    return made;
+  };
+  var feedAnimal = L.feedAnimal;
+  L.feedAnimal = function (s, i, slot) {
+    var r = feedAnimal(s, i, slot), a = s.animals[i];
+    if (r === 'ok') { a.ft = L.nowMin(); a.fd = 1; }
+    return r;
+  };
+  // Collected: a fed animal that was waiting on it makes the next one at once if it is due.
+  var collect = L.collect;
+  L.collect = function (s, i) {
+    var got = collect(s, i);
+    if (typeof got === 'string' && got[0] !== '!') L.animalsTick(s);
+    return got;
+  };
+  var catchUp = L.catchUp;
+  L.catchUp = function (s, now, info) {
+    var m = Math.floor(now / 60000), made = L.animalsTick(s, m), r = catchUp(s, now, info), more = L.animalsTick(s, m);
+    Object.keys(more).forEach(function (k) { made[k] = (made[k] || 0) + more[k]; });
+    if (r) r.produced = made;
+    return r;
+  };
+  // The night no longer makes anything: it only checks who was fed today (hungry otherwise) and who was petted.
+  var endDayA = L.endDay;
+  L.endDay = function (s, passedOut, info) {
+    var keep = (s.animals || []).map(function (a) { return { a: a, fed: a.fed, ready: a.ready, bx: a.bx }; });
+    keep.forEach(function (k) { k.a.fed = k.a.fd ? 1 : 0; });
+    var r = endDayA(s, passedOut, info);
+    keep.forEach(function (k) {
+      if (s.animals.indexOf(k.a) < 0) return;
+      k.a.fed = k.fed;
+      k.a.ready = k.ready;
+      if (k.bx) k.a.bx = k.bx; else delete k.a.bx;
+      delete k.a.fd;
+    });
+    if (r) r.produced = {};
+    return r;
+  };
+
   // ---------- Double Drops ----------
   // The window on now (ms, the game's clock) by Manila time: { end: ms } or null.
   L.doubleNow = function (ms) {
@@ -11183,12 +11261,22 @@
   L.serialize = function (s) {
     var o = serialize(s);
     if (s.project2) o.p2 = [C.BUILD_KEYS.indexOf(s.project2.id), Math.max(0, s.project2.done - s.day)];
+    // each animal: (minutes since it was fed + 1) x 2 + fed today, or 0
+    var now = L.nowMin(), af = (s.animals || []).map(function (a) { return (a.fed && a.ft != null ? (Math.max(0, now - a.ft) + 1) * 2 : 0) + (a.fd ? 1 : 0); });
+    if (af.some(Boolean)) o.af = af;
     return o;
   };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
+    var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
+    s.animals.forEach(function (a, i) {
+      var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
+      delete a.fd; delete a.ft; // (only there when they mean something: an older save's animals look as they did)
+      if (v % 2) a.fd = 1;
+      if (a.fed && ago >= 0) a.ft = now - ago;
+    });
     s.project2 = null;
     var p = o && o.p2, id = Array.isArray(p) && C.BUILD_KEYS[Math.floor(Number(p[0]))];
     if (id && (!s.project || s.project.id !== id) && !(id !== 'house' && s.builds[id])) {
@@ -12417,7 +12505,7 @@
     'SELLING AND ANIMALS\n' +
     'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus. ' +
     'Something you don\'t need? Hold it and tap Drop in your Bag: it stays on the ground 5 minutes, and a friend with you can pick it up.\n\n' +
-    'Feed animals once a day for eggs and milk (a Milker is needed for cows). Pet and brush them: happy animals give large produce.',
+    'Feed your animals: a chicken lays 8 hours later, and a cow, pig or carabao gives milk or a truffle 12 hours later (a Milker is needed for cows). Feed them again for the next one. Pet and brush them: happy animals give large produce.',
     'TOWN\n' +
     'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
     'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn: two jobs at once) and helps you craft yard pieces from your own flowers, cotton and wheat. Rosa feeds you, Ivy sells tonics. The shops never close. ' +
@@ -14372,7 +14460,12 @@
     var a = this.state.animals[m.i], def = C.ANIMALS[a.kind], h = L.hearts(a);
     var lines = [a.name + '  ' + (h ? new Array(h + 1).join('\u2665') + ' (' + h + '/5)' : 'no hearts yet')];
     if (a.young) lines.push('Still little: grown in ' + a.young + (a.young > 1 ? ' days.' : ' day.'));
-    else lines.push((a.fed ? 'Fed today. ' : 'Hungry! Give it ' + C.ITEMS[def.feed].name + '. ') + (a.pet ? 'Petted today.' : 'Wants a pet.'));
+    else { // (a product some hours after each feeding, 5 Nov 2026: 01-logicZZ-players.js)
+      var left = L.animalLeft ? L.animalLeft(a) : null, prod = C.ITEMS[def.product].name;
+      lines.push((a.ready ? 'Something to collect! ' : '') +
+        (a.fed ? (left ? 'Eating: ' + prod + ' in ' + L.formatLeft(left) + '. ' : 'Fed. ') : 'Hungry! Give it ' + C.ITEMS[def.feed].name + (C.ANIMAL_HOURS && C.ANIMAL_HOURS[a.kind] ? ': ' + prod + ' ' + C.ANIMAL_HOURS[a.kind] + ' hours later. ' : '. ')) +
+        (a.pet ? 'Petted today.' : 'Wants a pet.'));
+    }
     if (a.preg) lines.push('A calf is on the way: ' + a.preg + (a.preg > 1 ? ' days.' : ' day.'));
     if (!a.young && h < 3) lines.push('At 3 hearts it gives large produce.');
     F.ui.toast(lines.join('\n'));
@@ -33410,6 +33503,15 @@
           var moon = words(ui, sc, 90, 60, '24 h', 26, '#7a4d12');
           icon(ui, sc, 190, 62, C.ICON.crate, 0.4);
           tw(ui, move, { targets: moon, scale: 1.15, duration: 600, yoyo: true, repeat: -1 });
+        },
+      },
+      {
+        text: 'Animals don\'t wait for morning any more: a fed chicken lays 8 hours later, and a cow, pig or carabao gives 12 hours later. Feed them again for the next one!',
+        draw: function (ui, sc, move) {
+          var egg = icon(ui, sc, 100, 60, C.ITEMS.egg.icon, 0.34), milk = icon(ui, sc, 180, 60, C.ITEMS.milk.icon, 0.34);
+          words(ui, sc, 100, 102, '8 h', 14);
+          words(ui, sc, 180, 102, '12 h', 14);
+          tw(ui, move, { targets: [egg, milk], y: 52, duration: 500, yoyo: true, repeat: -1 });
         },
       },
       {

@@ -76,6 +76,71 @@
     return r;
   };
 
+  // ---------- animals: a product C.ANIMAL_HOURS after each feeding ----------
+  // a.fed: eating, its product on the way (since a.ft, a real minute); a.fd: fed today (the night's hungry check).
+  // One product waits at a time: a fed animal whose last one is still uncollected makes the next when it is collected.
+  L.animalMins = function (a) { return (C.ANIMAL_HOURS[a.kind] || 24) * 60; };
+  // Minutes until a fed animal's product (0: due), or null when it is not eating.
+  L.animalLeft = function (a, now) {
+    if (!a || !a.fed || a.young) return null;
+    if (now == null) now = L.nowMin();
+    return Math.max(0, Math.ceil((a.ft == null ? now : a.ft) + L.animalMins(a) - now));
+  };
+  // Makes what is due. Returns { item: n } made.
+  L.animalsTick = function (s, now) {
+    var made = {};
+    if (!s || !s.animals || s.isVisit) return made;
+    if (now == null) now = L.nowMin();
+    s.animals.forEach(function (a) {
+      if (a.young || !a.fed) return;
+      if (a.ft == null) { a.ft = now; a.fd = 1; } // (fed by a farmhand, or in an older save)
+      if (a.ready || now < a.ft + L.animalMins(a)) return;
+      a.ready = a.love >= C.LOVE.large ? 2 : 1;
+      a.fed = 0;
+      delete a.ft;
+      var d = C.ANIMALS[a.kind], item = a.ready === 2 ? d.large : d.product, n = 1;
+      if (L.isRare && L.isRare(a) && C.BREEDING) { a.bx = C.BREEDING.bonus; n += C.BREEDING.bonus; }
+      made[item] = (made[item] || 0) + n;
+    });
+    return made;
+  };
+  var feedAnimal = L.feedAnimal;
+  L.feedAnimal = function (s, i, slot) {
+    var r = feedAnimal(s, i, slot), a = s.animals[i];
+    if (r === 'ok') { a.ft = L.nowMin(); a.fd = 1; }
+    return r;
+  };
+  // Collected: a fed animal that was waiting on it makes the next one at once if it is due.
+  var collect = L.collect;
+  L.collect = function (s, i) {
+    var got = collect(s, i);
+    if (typeof got === 'string' && got[0] !== '!') L.animalsTick(s);
+    return got;
+  };
+  var catchUp = L.catchUp;
+  L.catchUp = function (s, now, info) {
+    var m = Math.floor(now / 60000), made = L.animalsTick(s, m), r = catchUp(s, now, info), more = L.animalsTick(s, m);
+    Object.keys(more).forEach(function (k) { made[k] = (made[k] || 0) + more[k]; });
+    if (r) r.produced = made;
+    return r;
+  };
+  // The night no longer makes anything: it only checks who was fed today (hungry otherwise) and who was petted.
+  var endDayA = L.endDay;
+  L.endDay = function (s, passedOut, info) {
+    var keep = (s.animals || []).map(function (a) { return { a: a, fed: a.fed, ready: a.ready, bx: a.bx }; });
+    keep.forEach(function (k) { k.a.fed = k.a.fd ? 1 : 0; });
+    var r = endDayA(s, passedOut, info);
+    keep.forEach(function (k) {
+      if (s.animals.indexOf(k.a) < 0) return;
+      k.a.fed = k.fed;
+      k.a.ready = k.ready;
+      if (k.bx) k.a.bx = k.bx; else delete k.a.bx;
+      delete k.a.fd;
+    });
+    if (r) r.produced = {};
+    return r;
+  };
+
   // ---------- Double Drops ----------
   // The window on now (ms, the game's clock) by Manila time: { end: ms } or null.
   L.doubleNow = function (ms) {
@@ -160,12 +225,22 @@
   L.serialize = function (s) {
     var o = serialize(s);
     if (s.project2) o.p2 = [C.BUILD_KEYS.indexOf(s.project2.id), Math.max(0, s.project2.done - s.day)];
+    // each animal: (minutes since it was fed + 1) x 2 + fed today, or 0
+    var now = L.nowMin(), af = (s.animals || []).map(function (a) { return (a.fed && a.ft != null ? (Math.max(0, now - a.ft) + 1) * 2 : 0) + (a.fd ? 1 : 0); });
+    if (af.some(Boolean)) o.af = af;
     return o;
   };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
+    var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
+    s.animals.forEach(function (a, i) {
+      var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
+      delete a.fd; delete a.ft; // (only there when they mean something: an older save's animals look as they did)
+      if (v % 2) a.fd = 1;
+      if (a.fed && ago >= 0) a.ft = now - ago;
+    });
     s.project2 = null;
     var p = o && o.p2, id = Array.isArray(p) && C.BUILD_KEYS[Math.floor(Number(p[0]))];
     if (id && (!s.project || s.project.id !== id) && !(id !== 'house' && s.builds[id])) {

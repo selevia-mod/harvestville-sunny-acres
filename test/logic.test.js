@@ -327,15 +327,20 @@ test('feeding needs the right feed, once a day', () => {
   assert.strictEqual(L.countItem(s, 'chicken_feed'), 4);
 });
 
-test('a fed animal has produce the next morning; collecting adds it to the bag', () => {
+test('a fed chicken lays 8 hours later (5 Nov 2026: it was the next morning); collecting adds it to the bag', () => {
   const s = L.newState();
   assert.strictEqual(L.collect(s, 0), '!notready');
   L.feedAnimal(s, 0, slotOf(s, 'chicken_feed'));
+  clock.advance(8 * 60 - 1);
+  same(L.animalsTick(s), {});
+  assert.strictEqual(L.animalLeft(s.animals[0]), 1);
+  clock.advance(1);
+  same(L.animalsTick(s), { egg: 1 });
   const r = L.endDay(s);
-  same(r.produced, { egg: 1 });
-  same(r.hungry, []);
+  same(r.produced, {}, 'the night makes nothing now');
+  same(r.hungry, [], 'it was fed today');
   assert.strictEqual(s.animals[0].ready, 1);
-  assert.strictEqual(s.animals[0].fed, 0, 'hunger resets overnight');
+  assert.strictEqual(s.animals[0].fed, 0, 'hungry again once it laid');
   assert.strictEqual(L.collect(s, 0), 'egg');
   assert.strictEqual(L.countItem(s, 'egg'), 1);
   assert.strictEqual(L.collect(s, 0), '!notready');
@@ -347,7 +352,8 @@ test('uncollected produce does not stack up', () => {
   const s = L.newState();
   for (let d = 0; d < 3; d++) {
     s.animals[0].fed = 1;
-    L.endDay(s);
+    clock.advance(12 * 60);
+    L.animalsTick(s);
   }
   assert.strictEqual(L.collect(s, 0), 'egg');
   assert.strictEqual(L.collect(s, 0), '!notready');

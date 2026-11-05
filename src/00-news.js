@@ -11,6 +11,7 @@
       v: '2.3', date: 'November 5, 2026', lines: [
         ['seed_rose', 'Your ideas: new seeds', 'Rose, Sampaguita, Gumamela, Cotton, Sugarcane, Cacao and Oregano at Lily\'s. Craft yard pieces from them at Mira\'s.', 'players'], // (19zzz-a-players.js)
         ['star', 'Double Drops', 'Wednesday and Saturday, 12 to 1 PM and 8 to 10 PM: crops, forage, mine rocks and hunts give twice as much.', 'double'],
+        ['egg', 'Eggs every 8 hours', 'A fed chicken lays 8 hours later, and a cow, pig or carabao gives its milk or truffle 12 hours later. Feed them again for the next one.'],
         ['crate', 'Shops open all night', 'Every shop in town stays open day and night now. Mira takes two jobs at once.'],
         ['bag', 'Drop what you don\'t need', 'Hold it and tap Drop in your Bag. It stays on the ground 5 minutes, and a friend with you can pick it up.'],
         ['sikwate', 'Sikwate and Chocolate Cake', 'The Bakery makes both from your own cacao.'],

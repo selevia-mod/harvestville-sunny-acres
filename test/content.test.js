@@ -297,7 +297,8 @@ test('pigs and carabaos live in the barn, eat fodder and give truffles and carab
   L.addItem(s, 'fodder', 2);
   assert.strictEqual(L.feedAnimal(s, pig, slotOf(s, 'fodder')), 'ok');
   assert.strictEqual(L.feedAnimal(s, cara, slotOf(s, 'fodder')), 'ok');
-  L.endDay(s, false, {});
+  clock.advance(12 * 60);
+  L.animalsTick(s);
   assert.strictEqual(L.collect(s, pig), 'truffle');
   // the carabao needs the milker, like a cow
   s.inv = s.inv.map((x) => (x && x.id === 'milker' ? null : x));

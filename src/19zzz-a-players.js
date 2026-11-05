@@ -373,6 +373,15 @@
         },
       },
       {
+        text: 'Animals don\'t wait for morning any more: a fed chicken lays 8 hours later, and a cow, pig or carabao gives 12 hours later. Feed them again for the next one!',
+        draw: function (ui, sc, move) {
+          var egg = icon(ui, sc, 100, 60, C.ITEMS.egg.icon, 0.34), milk = icon(ui, sc, 180, 60, C.ITEMS.milk.icon, 0.34);
+          words(ui, sc, 100, 102, '8 h', 14);
+          words(ui, sc, 180, 102, '12 h', 14);
+          tw(ui, move, { targets: [egg, milk], y: 52, duration: 500, yoyo: true, repeat: -1 });
+        },
+      },
+      {
         text: 'Mira now works on two jobs at once: a building and a house upgrade, or two buildings.',
         draw: function (ui, sc, move) {
           [100, 180].forEach(function (x, n) {

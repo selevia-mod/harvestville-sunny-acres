@@ -468,7 +468,7 @@ test('a pig and a carabao from the shop join the pen; the carabao is milked, the
   assert.strictEqual(s.gold, 500);
   assert.deepStrictEqual(await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key)), ['animals', 'animals', 'animals']);
   await page.evaluate(() => window.__gameBack());
-  // fodder feeds them both; the next morning there is a truffle and carabao milk
+  // fodder feeds them both; 12 hours later (5 Nov 2026: it was the next morning) there is a truffle and carabao milk
   await hold(page, 'fodder');
   await meetAnimal(page, 1, 6, 33);
   assert.strictEqual(await actionLabel(page), 'Feed');
@@ -478,7 +478,8 @@ test('a pig and a carabao from the shop join the pen; the carabao is milked, the
   await tapAction(page);
   s = await state(page);
   assert.deepStrictEqual(s.animals.slice(1).map((a) => a.fed), [1, 1]);
-  await page.evaluate(() => { Farm.Logic.endDay(Farm.session.state, false, {}); Farm.world.changed(); });
+  await advance(page, 12 * 60);
+  await page.evaluate(() => Farm.world.changed());
   await meetAnimal(page, 2, 6, 33);
   assert.strictEqual(await actionLabel(page), 'Milk');
   await tapAction(page);
@@ -3415,7 +3416,7 @@ test('festival contests: told the day before and on the day, the calendar says s
   // the evening is still there
   await closeAll(b.page);
   await tapAction(b.page);
-  assert.ok(!/STARRY NIGHT\n/.test(await modalText(b.page)) && /Starry Night/.test(await modalText(b.page)), 'the evening list');
+  { const ev = await modalText(b.page); assert.ok(!/STARRY NIGHT\n/.test(ev) && /Starry Night/.test(ev), 'the evening list: ' + ev.slice(0, 300)); }
   await closeAll(b.page);
   assert.deepStrictEqual(b.problems, []);
   await b.context.close();

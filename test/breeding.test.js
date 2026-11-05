@@ -148,13 +148,14 @@ test('the Miracle Potion: a calf for a cow, a piglet for a pig, a calf for a car
   assert.strictEqual(L.givePotion(s2, 1, slotOf(s2, 'miracle')), 'full');
 });
 
-test('a rare animal gives two each morning it was fed; with a full bag the second waits in the pen', () => {
+test('a rare animal gives two each time it was fed; with a full bag the second waits in the pen', () => {
   const s = fresh();
   const hen = s.animals[0];
   hen.br = B('chicken', 'golden');
   hen.fed = 1;
-  const r = L.endDay(s, false, {});
-  assert.strictEqual(r.produced.egg, 2, 'the morning report counts both');
+  L.animalsTick(s);
+  clock.advance(8 * 60);
+  assert.strictEqual(L.animalsTick(s).egg, 2, 'both counted');
   assert.strictEqual(hen.bx, 1);
   const eggs = L.countItem(s, 'egg');
   assert.strictEqual(L.collect(s, 0), 'egg');
@@ -168,11 +169,15 @@ test('a rare animal gives two each morning it was fed; with a full bag the secon
   // a common hen gives one
   const s2 = fresh();
   s2.animals[0].fed = 1;
-  assert.strictEqual(L.endDay(s2, false, {}).produced.egg, 1);
+  L.animalsTick(s2);
+  clock.advance(8 * 60);
+  assert.strictEqual(L.animalsTick(s2).egg, 1);
   assert.strictEqual(s2.animals[0].bx, undefined);
   // the bag has room for one egg only
   hen.fed = 1;
-  L.endDay(s, false, {});
+  L.animalsTick(s);
+  clock.advance(8 * 60);
+  L.animalsTick(s);
   s.inv = s.inv.map((x, i) => (i === 0 ? { id: 'egg', n: L.stackLimit('egg') - 1 } : { id: 'stone', n: 1 }));
   assert.strictEqual(L.collect(s, 0), 'egg');
   assert.strictEqual(hen.ready, 1, 'the bonus egg still waits');
