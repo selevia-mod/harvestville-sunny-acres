@@ -2675,3 +2675,93 @@ test('online: Central Park from a friend\'s town ends the visit: you are in the 
   for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, guest]) await p.context.close();
 });
+
+// Town Rank and the Hall of Fame (owner, 6 Nov 2026: "Town Rank is better than Hunter ranking"; "inside the museum is
+// the name of the player who get the big boar, or first defeat boss"), over the test server's part 22 (test/mock-rank.js).
+test('online: Town Rank and the Hall of Fame: two earn points, the board orders them, a badge by a name in the park, a first goes to whoever claims it first, the plaques show names and "That\'s you!"; before part 22, quiet (owner, 6 Nov 2026)', async () => {
+  const server = createServer();
+  const ana = await open(server), ben = await open(server);
+  await nameFarm(ana.page, 'Ana Acres');
+  await nameFarm(ben.page, 'Ben Barn');
+  const month = (uid) => { const m = [...server.db.rankMonths.values()].find((x) => x.has(uid)); return m ? m.get(uid).points : 0; };
+
+  // ----- points, as the game counts them (crops picked, hunts, fish), go to the server
+  await ana.page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.bump(s, 'harvest', 250); L.bump(s, 'hunt', 12); }); // 250 + 60
+  await ben.page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.bump(s, 'harvest', 400); L.rankAdd(s, 'fish', 90); }); // 300 (the cap) + 90
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.rankSend()), true);
+  assert.strictEqual(await ben.page.evaluate(() => Farm.Online.rankSend()), true);
+  assert.deepStrictEqual([month(ana.uid), month(ben.uid)], [310, 390]);
+  assert.deepStrictEqual(server.db.rankCalls.filter((c) => c.uid === ana.uid).map((c) => [c.args.p_source, c.args.p_points]), [['farm', 250], ['hunt', 60]], 'one send for each kind');
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.rankSend()), false, 'nothing more to send');
+  assert.deepStrictEqual(await ana.page.evaluate(() => [Farm.Online.rank.points, Farm.Online.rank.tier, Farm.session.state.tr.out.length]), [310, 1, 0], 'the server\'s word: Bronze');
+
+  // ----- the Town Rank page: the board in order, you marked
+  await ana.page.evaluate(() => Farm.ui.openTownRank());
+  await waitModal(ana.page, /TOP 100 THIS MONTH/);
+  const page = await modalText(ana.page);
+  assert.match(page, /^TOWN RANK \| Bronze {2}· {2}310 points \| "Town Helper" \| /, page);
+  assert.match(page, /#2 in town/);
+  assert.match(page, /TOP 100 THIS MONTH \| #1 \| Ben Barn \| 390 \| #2 \| Ana Acres \(you\) \| 310 \| How to earn \| Close$/, page);
+  await shot(ana.page, 'town-rank-online');
+  await ana.page.evaluate(() => Farm.ui.closeAll());
+  // ...and in Online > Ranks, with the other boards
+  await ana.page.evaluate(() => { Farm.ui.onlineKind = { visit: 'popular', ranks: 'town' }; Farm.ui.openOnline('ranks', 0); });
+  await waitModal(ana.page, /Showing: Town Rank/);
+  assert.match(await modalText(ana.page), /Bronze: 310 points \| #2 this month\. Looks only, never power\. \| Open \| #1 Ben Barn \| 390 points this month, Bronze\. \| #2 Ana Acres \(you\)/);
+  await ana.page.evaluate(() => Farm.ui.closeAll());
+
+  // ----- in the park, Ben sees Ana's Bronze badge by her name
+  await walkIntoPark(ana.page);
+  await walkIntoPark(ben.page);
+  await waitRemotes(ben.page, ['Ana Acres']);
+  await ana.page.evaluate((T) => { Farm.world.setFeet(18.5 * T, 29.5 * T); Farm.world.dir = 'down'; Farm.Online.chan.track(Farm.Online.myState()); }, PT); // (a step aside, so the shot shows her)
+  await ben.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && r.rk && r.rkTier === 1 && r.rk.visible && Math.abs(r.rk.y - r.tag.y) < 120 && r.rk.x < r.tag.x; }, ana.uid, SLOW);
+  await shot(ben.page, 'rank-badge');
+
+  // ----- a first: Ben claims the Bakunawa first; Ana, after him, does not get it
+  await ben.page.evaluate(() => { Farm.Logic.hallWant(Farm.session.state, 'bakunawa'); Farm.Online.claimFirsts(); });
+  await waitModal(ben.page, /^A FIRST FOR HARVEST VILLE! \| You are the first player ever to beat the Bakunawa!/);
+  await ben.page.evaluate(() => Farm.ui.closeAll());
+  await ana.page.evaluate(() => { Farm.Logic.hallWant(Farm.session.state, 'bakunawa'); Farm.Online.claimFirsts(); });
+  await ana.page.waitForFunction(() => Farm.session.state.tr.fd.indexOf('bakunawa') >= 0, null, SLOW);
+  assert.strictEqual(server.db.firsts.get('bakunawa').uid, ben.uid);
+  await new Promise((r) => setTimeout(r, 3000));
+  assert.strictEqual(await modalText(ana.page), '', 'no "first" for Ana');
+
+  // ----- the Hall: the biggest boar is Ana's (That's you!), the Bakunawa's first is Ben's, the board
+  await ana.page.evaluate(() => Farm.Online.recordCatch('boar', 110));
+  await ben.page.evaluate(() => Farm.Online.recordCatch('boar', 100));
+  await until(() => server.db.catches.size === 2, 'two boars on the server');
+  await ana.page.evaluate((T) => { Farm.world.setFeet(20.5 * T, 7.5 * T); Farm.world.dir = 'up'; }, PT);
+  await ana.page.evaluate(() => { const a = Farm.world.resolve(); if (a && a.run) a.run(); });
+  await waitMapOn(ana.page, 'hall');
+  await ana.page.waitForFunction(() => Farm.world.hallNames && typeof Farm.world.hallNames === 'object', null, SLOW);
+  const read = async (spot) => { await ana.page.evaluate((k) => Farm.world.readPlaque(k), spot); await frames(ana.page); const t = await modalText(ana.page); await ana.page.evaluate(() => Farm.ui.closeAll()); return t; };
+  assert.strictEqual(await read('d1'), 'THE BIGGEST WILD BOAR | Wild Boar: Ana Acres, 110.0 kg  That\'s you! | OK');
+  assert.strictEqual(await read('d2'), 'FIRST TO BEAT THE BAKUNAWA | First to beat the Bakunawa: Ben Barn | OK');
+  assert.strictEqual(await read('board'), 'TOWN RANK: THIS MONTH | #1 Ben Barn, 390 (Bronze) | #2 Ana Acres, 310 (Bronze)  That\'s you! | Close | Town Rank');
+  assert.match(await read('w2'), /^BIGGEST CATCHES: MAKILING \| Deer: nobody yet\. Be the first! \| Wild Boar: Ana Acres, 110\.0 kg {2}That's you! \| /);
+  await ana.page.evaluate((T) => { Farm.world.setFeet(4.5 * T, 6.5 * T); }, PT);
+  await shot(ana.page, 'hall-online');
+  // inside the hall she is off the park's room (her seat is given back), and Ben does not see her
+  await waitRemotes(ben.page, []);
+  await until(() => seats(server)[0] === 1, 'one in Park 1');
+  // out of the door: in the park again, in front of the hall, and Ben sees her
+  await ana.page.evaluate(() => Farm.world.travel('park', 'door_hall'));
+  await waitMapOn(ana.page, 'park');
+  await waitRemotes(ben.page, ['Ana Acres']);
+
+  // ----- before part 22 is on the server: the points wait, the page and the hall say "soon"
+  server.db.noRank = true;
+  await ana.page.evaluate(() => { Farm.Logic.rankAdd(Farm.session.state, 'goods', 9); });
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.rankSend()), false);
+  assert.deepStrictEqual(await ana.page.evaluate(() => [Farm.Online.rank.off, Farm.session.state.tr.out.map((o) => o.n)]), [true, [9]], 'kept for later');
+  await ana.page.evaluate(() => Farm.ui.openTownRank());
+  await waitModal(ana.page, /opens very soon/);
+  await ana.page.evaluate(() => { Farm.ui.closeAll(); Farm.Online.hallCache = null; Farm.world.travel('hall', 'entrance'); });
+  await waitMapOn(ana.page, 'hall');
+  await ana.page.waitForFunction(() => Farm.world.hallNames === 'soon', null, SLOW);
+  assert.strictEqual(await read('w1'), 'BIGGEST CATCHES: PULAG | The names go up here very soon. | OK');
+  for (const p of [ana, ben]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [ana, ben]) await p.context.close();
+});

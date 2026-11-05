@@ -2,7 +2,8 @@
 // 01-logicZZZZ-rank.js, server supabase/farm_online_22.sql, map tools/make-map.js hall()).
 //   Town Rank: the points you earn go to the server about once a minute (and when you change place or the app goes to
 //   the background); the Town Rank page shows your rank, your points, how far to the next rank and the Top 100. It opens
-//   from Online > Ranks (Town Rank), from Me, from your farmer card in the pause menu and from the Hall's big board.
+//   from Online > Ranks (Town Rank), from your farmer card in the pause menu and from the Hall's big board (not
+//   from Me: a sixth row there would push Leave online play onto a second page).
 //   Others see your rank's colour as a small badge by your name over your head. Looks only, never power.
 //   The Hall of Fame: Central Park's door now goes in. Plaques on the walls and pedestals with trophies show names from
 //   the server (farm_hall_v1); walking up to one and tapping Read shows them, with "That's you!" on your own. Out the
@@ -254,6 +255,18 @@
     }
   };
 
+  // indoors: the lamps are on at night, as in the house, and the house's music by day
+  var darkness = U.darkness;
+  U.darkness = function () {
+    var d = darkness.apply(this, arguments);
+    return F.world && F.world.mapKey === 'hall' ? d * 0.35 : d;
+  };
+  var musicMood = P.musicMood;
+  P.musicMood = function () {
+    var m = musicMood.apply(this, arguments);
+    return this.mapKey === 'hall' && m !== 'night' && m !== 'festival' ? 'house' : m;
+  };
+
   P.readPlaque = function (spot) {
     var sp = HALL.spots[spot], self = this;
     if (!sp || !F.ui) return;
@@ -496,13 +509,6 @@
       O.rank.off = true;
       show([kindRow('ranks'), meRow(), { icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The Top 100 opens very soon. Your points are kept.' }], '', null);
     });
-  };
-  // Me: a row for your Town Rank
-  var meExtras = U.meExtras;
-  U.meExtras = function () {
-    var self = this, out = meExtras ? meExtras.apply(this, arguments) : [], me = O.rankMine(), d = L.rankTierDef(me.tier);
-    return out.concat([{ icon: C.ICON.star, name: 'Town Rank: ' + (d ? d.name : 'none yet'), desc: fmt(me.points) + ' points this month.',
-      buttons: [{ label: 'See', color: BLUE, cb: function () { self.closeModal(); self.openTownRank(0, function () { self.openOnline('me', 0); }); } }] }]);
   };
   // the farmer card in the pause menu: your rank this month, at the right of the birthday line (best ever on the page)
   var openPause = U.openPause;
