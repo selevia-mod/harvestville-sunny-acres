@@ -4625,16 +4625,17 @@ test('Bayanihan Projects: the board by the plaza offline (its tour, the project,
   await page.evaluate(() => {
     window.__calls = [];
     window.__fail = false;
+    window.__have = 700; // (the town's lumber on this stand-in server)
     Farm.Online.on = true;
     Farm.Net.rpc = (name, a) => {
       window.__calls.push([name, a]);
       if (window.__fail && /^farm_project/.test(name)) return Promise.reject(new Error('Failed to fetch'));
       if (name === 'farm_project_state_v1') {
         return Promise.resolve({ ok: true, can_give: true, done: [], current: { key: 'bridge', cap: 800, mine: 0, givers: 2, hood: null, top: [{ id: 'k1', name: 'Kapitbahay', pts: 120 }],
-          needs: [{ item: 'lumber', goal: 1500, have: 700, pts: 1, day_max: 60, today: 0 }, { item: 'stone', goal: 1000, have: 10, pts: 1, day_max: 60, today: 0 },
+          needs: [{ item: 'lumber', goal: 1500, have: window.__have, pts: 1, day_max: 60, today: 0 }, { item: 'stone', goal: 1000, have: 10, pts: 1, day_max: 60, today: 0 },
             { item: 'ore_copper', goal: 400, have: 0, pts: 2, day_max: 25, today: 0 }, { item: 'fish_s', goal: 300, have: 0, pts: 2, day_max: 15, today: 0 }] } });
       }
-      if (name === 'farm_project_give_v1') return Promise.resolve({ ok: true, project: 'bridge', item: a.p_item, n: a.p_n, have: 700 + a.p_n, goal: 1500, today: a.p_n, mine: a.p_n, done: false });
+      if (name === 'farm_project_give_v1') { window.__have += a.p_n; return Promise.resolve({ ok: true, project: 'bridge', item: a.p_item, n: a.p_n, have: window.__have, goal: 1500, today: a.p_n, mine: a.p_n, done: false }); }
       return Promise.resolve(null);
     };
   });
