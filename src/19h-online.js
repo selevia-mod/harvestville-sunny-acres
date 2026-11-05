@@ -15,6 +15,7 @@
   var FEET_OFFSET = 128; // the sprite's centre sits this far above the feet (as in 11-world.js)
   var FADE_MS = 260; // a friend arriving or leaving
   var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1, lair: 1 }; // (lair: Bakunawa's Lair, 19zt-lair.js)
+  (C.PLACE_ORDER || []).forEach(function (id) { var p = C.PLACES[id]; MAPS[p.map] = 1; if (p.dungeon) MAPS[p.dungeon.key] = 1; }); // (the hunting places and their caves, 6 Nov 2026)
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};
@@ -172,8 +173,8 @@
   // The name over your head: your farmer's (01-logicA.js), or your farm's until you name them.
   // Which floor of the mine or of Bakunawa's Lair we are on (0 elsewhere): two players on one map but on different
   // floors are not together (they do not see each other, and do not hunt together).
-  O.floorHere = function (map) { return map === 'mine' ? F.session.mineFloor : map === 'lair' ? F.session.lairFloor || 1 : 0; };
-  var FLOORS = { mine: 9999, lair: 50 };
+  O.floorHere = function (map) { return map === 'mine' ? F.session.mineFloor : map === 'lair' || (F.dungeonOf && F.dungeonOf(map)) ? F.session.lairFloor || 1 : 0; }; // (any cave: 19zt-lair.js)
+  var FLOORS = F.FLOORS = { mine: 9999, lair: 50 }; // (a hunting place's cave adds its own: 19zzzzz-places.js)
 
   O.myName = function () { return (F.session.state && F.session.state.name) || (O.me && O.me.name) || 'Farmer'; };
 
@@ -656,7 +657,7 @@
       mine.player = { x: null, y: null, dir: 'down' };
       F.session.spawn = spawn;
       if (to === 'mine') F.session.mineFloor = floor || 1;
-      if (to === 'lair') F.session.lairFloor = floor || 1;
+      if (to === 'lair' || (F.dungeonOf && F.dungeonOf(to))) F.session.lairFloor = floor || 1;
     }
     O.leaveChannel(); // now: until the farm reloads, that farm's news would read as news about ours
     if (F.ui && why) F.ui.toast(why, 3200);

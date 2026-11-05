@@ -113,26 +113,27 @@
   var follow = O.follow;
   O.follow = function (to) {
     var w = F.world, v = F.session.visit, host = v && O.others[v.host];
-    if (to === 'lair' && w && !w.busy && (w.mapKey === 'magayon' || w.mapKey === 'lair')) return w.travel('lair', 'entrance', (host && host.map === 'lair' && host.fl) || 1);
+    var cfg = F.dungeonOf && F.dungeonOf(to); // (any cave: the Lair, or a hunting place's own, 19zt-lair.js)
+    if (cfg && w && !w.busy && (w.mapKey === cfg.from || w.mapKey === to)) return w.travel(to, 'entrance', (host && host.map === to && host.fl) || 1);
     return follow.call(O, to);
   };
   // The owner went down (or up) to another floor while you are in the Lair: "follow them?", once for each floor.
   // (19zt-lair.js sends it here: it has to come before 19v-wild.js, which sees the same map and stops.)
   O.hostToLair = function (v, host) {
-    var w = F.world, fl = host.fl || 1;
-    if (!w || w.busy || !F.ui || w.mapKey !== 'lair' || F.session.lairFloor === fl) return;
+    var w = F.world, fl = host.fl || 1, cave = host.map, cfg = F.dungeonOf && F.dungeonOf(cave);
+    if (!w || w.busy || !F.ui || !cfg || w.mapKey !== cave || F.session.lairFloor === fl) return;
     v.asked = v.asked || {};
-    if (v.asked['lair:' + fl]) return;
-    v.asked['lair:' + fl] = 1;
+    if (v.asked[cave + ':' + fl]) return;
+    v.asked[cave + ':' + fl] = 1;
     var show = function () {
       var ww = F.world, now = O.others[v.host];
-      if (F.session.visit !== v || !ww || ww.busy || ww.mapKey !== 'lair') return;
-      if (!now || now.map !== 'lair' || now.fl !== fl) { delete v.asked['lair:' + fl]; return; } // (they have moved on)
+      if (F.session.visit !== v || !ww || ww.busy || ww.mapKey !== cave) return;
+      if (!now || now.map !== cave || now.fl !== fl) { delete v.asked[cave + ':' + fl]; return; } // (they have moved on)
       if (F.ui.modals.length) return setTimeout(show, 1200);
       if (F.Audio) F.Audio.sfx('found');
-      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (fl > F.session.lairFloor ? 'DOWN' : 'UP') + '\n' + v.name + ' is on floor ' + fl + ' of the Lair. Follow them?', [
+      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (fl > F.session.lairFloor ? 'DOWN' : 'UP') + '\n' + v.name + ' is on floor ' + fl + ' of ' + (cfg.lair ? 'the Lair' : cfg.name) + '. Follow them?', [
         { label: 'Stay here', color: 0xc0703a },
-        { label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel('lair', 'entrance', fl); } },
+        { label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel(cave, 'entrance', fl); } },
       ]);
     };
     show();
