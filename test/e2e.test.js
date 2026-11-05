@@ -4496,7 +4496,7 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   await waitMap(page, 'park');
   await stick(0, 0);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'park');
-  assert.deepStrictEqual(await feetTile(), [15, 23], 'in at the south gate, at from_town');
+  assert.deepStrictEqual(await feetTile(), [20, 31], 'in at the south gate, at from_town');
   // the farmer walks about: up the avenue, then right along the lower walk
   const a = await feet();
   await stick(0, -1);
@@ -4512,7 +4512,7 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   // no work here: every tool, seed and the rod says no (as in town), facing the lawn and facing the fountain
   const tries = await page.evaluate(() => {
     const w = Farm.world, s = Farm.session.state, T = Farm.Config.TILE, out = [];
-    const spots = [[3, 16, 'right'], [15, 14, 'up']]; // a lawn; the fountain's front
+    const spots = [[33, 5, 'right'], [20, 19, 'up']]; // a lawn; the fountain's front
     spots.forEach(([x, y, dir]) => {
       w.setFeet(x * T + T / 2, y * T + T / 2);
       w.dir = dir;
@@ -4528,9 +4528,19 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   });
   assert.ok(tries.length >= 8, JSON.stringify(tries));
   tries.forEach((t) => assert.ok(t.ok, 'nothing to do with ' + t.id + ' at ' + t.at + ': ' + t.label));
+  // the pond is to look at: no fishing, no filling the can
+  const pond = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, L = Farm.Logic, T = Farm.Config.TILE;
+    if (!L.hasItem(s, 'rod')) L.addItem(s, 'rod', 1);
+    w.setFeet(8 * T + T / 2, 26 * T + T / 2);
+    w.dir = 'up';
+    return ['rod', 'can'].map((id) => { s.sel = s.inv.findIndex((x) => x && x.id === id); const r = w.resolve(); return [id, r && r.label, !!(r && r.disabled), r && r.why]; });
+  });
+  assert.deepStrictEqual(pond.map((p) => p.slice(0, 3)), [['rod', 'Fish', true], ['can', 'Refill', true]], JSON.stringify(pond));
+  await page.evaluate(() => { Farm.session.state.sel = 0; });
   assert.ok(!(await page.evaluate(() => Farm.world.villagers || Farm.world.herd || Farm.world.wild)), 'no villagers, animals or wild animals');
   // the Hall of Fame's door: "opening soon"
-  await teleport(page, 14, 7, 'up');
+  await teleport(page, 19, 7, 'up');
   assert.strictEqual(await actionLabel(page), 'Enter');
   await tapAction(page);
   assert.strictEqual(await modalText(page), "THE HALL OF FAME | Opening soon: the names of Harvest Ville's best hunters, farmers and anglers will hang here. | OK");
@@ -4542,7 +4552,7 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   assert.strictEqual(saved.pk, 1);
   assert.strictEqual(saved.p, undefined);
   // out of the south gate, back to town just inside the park road
-  await teleport(page, 15, 23, 'down');
+  await teleport(page, 20, 31, 'down');
   await stick(0, 1);
   await waitMap(page, 'town');
   await stick(0, 0);

@@ -44,10 +44,10 @@ function reach(m, startTile, extraSolid = []) {
   return { seen, solid };
 }
 
-test('the park map: about 30 x 26, town tiles and props, every picture it uses is in the game', () => {
+test('the park map: 40 x 34 (made bigger for 30 players, owner 6 Nov 2026), town tiles and props, every picture it uses is in the game', () => {
   const m = mapOf('park');
-  assert.strictEqual(m.width, 30);
-  assert.strictEqual(m.height, 26);
+  assert.strictEqual(m.width, 40);
+  assert.strictEqual(m.height, 34);
   assert.deepStrictEqual(m.tilesets.map((t) => t.name), ['tiles', 'seasons', 'props'], 'the seasons tileset: it changes with the seasons, like town');
   const propSet = m.tilesets.find((t) => t.name === 'props');
   objectsOf(m).filter((o) => o.gid).forEach((o) => {
@@ -56,23 +56,30 @@ test('the park map: about 30 x 26, town tiles and props, every picture it uses i
     assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'props', name + '.webp')), name + ' has its picture');
   });
   const names = objectsOf(m).filter((o) => o.gid).map((o) => propSet.tiles.find((t) => t.id === o.gid - propSet.firstgid).image.replace(/^.*\/|\.png$/g, ''));
-  ['hall_of_fame', 'fountain', 'gazebo', 'notice', 'bench', 'lamp', 'flowerbed'].forEach((n) => assert.ok(names.includes(n), 'the park has a ' + n));
+  ['hall_of_fame', 'statue', 'fountain', 'gazebo', 'notice', 'playground', 'umbrella', 'easel', 'bench', 'lamp', 'flowerbed'].forEach((n) => assert.ok(names.includes(n), 'the park has a ' + n));
 });
 
-test('the park is for meeting, not work: no water to fish, no field, no forage, no pens, no wild animals', () => {
+test('the park is for meeting, not work: no field, no forage, no pens, no wild animals; the only water is the pond', () => {
   const m = mapOf('park');
-  const ts = m.tilesets.find((t) => t.name === 'tiles');
-  const special = new Set();
-  m.tilesets.forEach((t) => (t.tiles || []).forEach((x) => { if ((x.properties || []).some((p) => (p.name === 'water' || p.name === 'tillable') && p.value)) special.add(t.firstgid + x.id); }));
-  m.layers.filter((l) => l.data).forEach((l) => l.data.forEach((g, i) => assert.ok(!special.has(g), l.name + ' tile ' + i + ' is water or field')));
-  assert.ok(ts);
+  const ts = m.tilesets.find((t) => t.name === 'tiles'), { TILES, blockId } = require('../tools/tiles');
+  const has = (name) => { const out = new Set(); m.tilesets.forEach((t) => (t.tiles || []).forEach((x) => { if ((x.properties || []).some((p) => p.name === name && p.value)) out.add(t.firstgid + x.id); })); return out; };
+  const water = has('water'), field = has('tillable');
+  const pond = new Set();
+  for (let dy = 0; dy < TILES.BLOCKS.pond.h; dy++) for (let dx = 0; dx < TILES.BLOCKS.pond.w; dx++) pond.add(ts.firstgid + blockId(TILES, 'pond', dx, dy));
+  let ponds = 0;
+  m.layers.filter((l) => l.data).forEach((l) => l.data.forEach((g, i) => {
+    assert.ok(!field.has(g), l.name + ' tile ' + i + ' is field');
+    if (water.has(g)) { assert.ok(l.name === 'Walls' && pond.has(g), l.name + ' tile ' + i + ' is water outside the pond'); ponds++; }
+  }));
+  assert.strictEqual(ponds, TILES.BLOCKS.pond.w * TILES.BLOCKS.pond.h, 'one pond (no fishing or refills there: src/19zzz-b-park.js)');
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', '19zzz-b-park.js'), 'utf8'), /mapKey === 'park' \? false : isWater/);
   const types = new Set(objectsOf(m).map((o) => o.type));
   ['forage', 'pen', 'dogarea', 'catarea', 'wild', 'minefloor', 'shop', 'stand'].forEach((t) => assert.ok(!types.has(t), 'no ' + t));
   assert.strictEqual(L.isWildMap('park'), false);
   assert.ok(!C.FORAGE_COUNT.park);
 });
 
-test('the park: in from town at the south gate, the Hall of Fame door, the plaza and the gate can all be walked to', () => {
+test('the park: in from town at the south gate, the Hall of Fame door, the plaza, the stage, the pond, the picnic lawn and the gate can all be walked to', () => {
   const m = mapOf('park'), objs = objectsOf(m), by = (n) => objs.find((o) => o.name === n);
   const spawn = by('from_town'), gate = by('gate'), door = by('hall_door');
   assert.ok(spawn && spawn.point && propsOf(spawn).dir === 'up');
@@ -80,7 +87,7 @@ test('the park: in from town at the south gate, the Hall of Fame door, the plaza
   assert.strictEqual(gate.y / S, m.height - 1, 'the gate is on the south edge');
   assert.strictEqual(door.type, 'hall');
   const { seen, solid } = reach(m, tileOf(m, spawn));
-  ['from_town', 'door_hall', 'plaza'].forEach((n) => assert.ok(seen.has(tileOf(m, by(n))), n + ' can be walked to'));
+  ['from_town', 'door_hall', 'plaza', 'stage', 'pond', 'picnic'].forEach((n) => assert.ok(seen.has(tileOf(m, by(n))), n + ' can be walked to'));
   for (let x = gate.x / S; x < (gate.x + gate.width) / S; x++) assert.ok(seen.has((gate.y / S) * m.width + x), 'the gate can be walked into');
   // the door is in the Hall's solid front, with an open tile under it to stand on and face it
   for (let x = door.x / S; x < (door.x + door.width) / S; x++) {
@@ -90,7 +97,17 @@ test('the park: in from town at the south gate, the Hall of Fame door, the plaza
   // the spawn is not on the gate (or you would bounce straight back to town)
   assert.ok(Math.floor(spawn.y / S) < gate.y / S);
   // most of the park is open ground: wide paths and lawns
-  assert.ok(seen.size > m.width * m.height * 0.55, 'open ground: ' + seen.size);
+  assert.ok(seen.size > m.width * m.height * 0.6, 'open ground: ' + seen.size);
+  // the main plaza: room for twenty or so to stand about, and no more than 10 tiles up the avenue from the gate
+  const stone = m.tilesets.find((t) => t.name === 'tiles').firstgid + require('../tools/tiles').TILES.T.plaza, ground = m.layers.find((l) => l.name === 'Ground').data;
+  const open = [...seen].filter((k) => ground[k] === stone).length;
+  assert.ok(open >= 150, 'open stone to stand on: ' + open);
+  const mid = gate.x / S + gate.width / S / 2;
+  let up = gate.y / S;
+  while (ground[up * m.width + mid] !== stone) up--;
+  assert.ok(gate.y / S - up <= 10, 'the plaza is ' + (gate.y / S - up) + ' tiles from the gate');
+  // the main paths are wide: the avenue is 4 across, the walks off the plaza 3
+  for (let x = mid - 2; x < mid + 2; x++) assert.ok(seen.has(28 * m.width + x), 'avenue at ' + x);
 });
 
 test('town: the dead end by the Station goes up the park road to the top edge; from_park is just inside it; nothing else moved', () => {
