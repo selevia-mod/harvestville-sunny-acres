@@ -20185,7 +20185,10 @@
     var alone = true;
     var fl = O.floorHere(w.mapKey);
     for (var k in this.others) { if (this.others[k].map === w.mapKey) { alone = false; break; } }
-    if (alone && !(Object.keys(this.others).length && this.last && (this.last.map !== w.mapKey || this.last.fl !== fl))) return;
+    // (O.last is cleared as each map opens, so "nothing said here yet" is a change of map too. Players, 6 Nov 2026: "si nadya
+    // naging parang tuod na": going on alone to the next hunting ground said nothing, so the others saw her stand frozen
+    // where she had been, and anyone who came after her found nobody, until her presence came, up to 20 s later.)
+    if (alone && !(Object.keys(this.others).length && (!this.last || this.last.map !== w.mapKey || this.last.fl !== fl))) return;
     var f = w.feet(), last = this.last, moved = !last || last.map !== w.mapKey || last.fl !== fl || Math.abs(f.x - last.x) > 4 || Math.abs(f.y - last.y) > 4 || last.dir !== w.dir || !!last.rd !== !!F.session.riding;
     this.mvMs -= dt;
     if (this.mvMs > 0) return;
@@ -20309,6 +20312,11 @@
     O.mvMs = 0;
     O.mapAt = Date.now();
     if (O.on) O.ensureChannel();
+    // The others already on this map, drawn the moment the map runs: syncSprites draws only in a running scene, and while it
+    // is being made it is not yet, so they waited for the next presence (up to 20 s). Players, 6 Nov 2026: "sometimes hindi
+    // visible ang characters. like bow and arrows lang nakikita": a friend there all along was not drawn, so their shots
+    // came as a bow and an arrow with nobody behind them (19v-wild.js 'ar', bowFlash).
+    this.events.once('create', function () { O.syncSprites(); });
     if (v && F.ui) F.ui.toast(L.isWildMap(this.mapKey) ? 'Hunting with ' + v.name + '. Tap Home to go back to your farm.' : this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
@@ -25151,6 +25159,12 @@
     if (shot.fist) shot.fist.setPosition(bx, by).setFrame(frame).setFlipX(!!at.flip).setCrop(grip[0] - FIST, grip[1] - FIST, FIST * 2, FIST * 2);
   };
 
+  // What a shot put on the map: the archer, the bow, the string, the arrow on it and the fist over the grip.
+  var clear = function (shot) {
+    [shot.body, shot.bow, shot.string, shot.arrow, shot.fist].forEach(function (o) { if (o) o.destroy(); });
+    shot.arrow = null;
+  };
+
   var loose = function (w, shot) {
     var s = w.state, cx = Math.cos(shot.ang), cy = Math.sin(shot.ang), x = shot.nock.x + cx * ARROW_W / 2, y = shot.nock.y + cy * ARROW_W / 2;
     var range = shot.remote ? shot.range : L.bowRange(s) * T;
@@ -25170,10 +25184,7 @@
         pose(w, shot);
       },
       onComplete: function () {
-        shot.bow.destroy();
-        shot.string.destroy();
-        shot.body.destroy();
-        if (shot.fist) shot.fist.destroy();
+        clear(shot);
         if (shot.remote) return shot.done();
         w.player.setVisible(true);
         w.shot = null;
@@ -25254,7 +25265,11 @@
     pose(this, shot);
     this.remoteSound(r, 'bowdraw');
     this.time.delayedCall(quick.ready, function () {
-      if (r.shot !== shot || !p.active) return;
+      if (r.shot !== shot) return;
+      // their farmer was made again (a new look) or left before the bow came up: the shot goes with it. It used to stay on
+      // the map for good, a bow with an arrow on it: a rarer road to what players saw, 6 Nov 2026 ("bow and arrows lang
+      // nakikita na parang lumulutang"; the usual one is in 19h-online.js create).
+      if (!p.active) { clear(shot); return shot.done(); }
       shot.stage = FULL;
       self.tweens.addCounter({
         from: 0.72, to: 1, duration: quick.draw, ease: 'Quad.out',

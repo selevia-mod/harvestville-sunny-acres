@@ -1,0 +1,417 @@
+{
+ "banaue": {
+  "name": "Banaue Terraces",
+  "dungeon": "Terrace Tunnels",
+  "icons_file": "art-src/places/banaue/icons_banaue.png",
+  "items": [
+   {
+    "id": "feather_itik",
+    "looks": "a soft brown speckled duck feather"
+   },
+   {
+    "id": "meat_itik",
+    "looks": "a raw duck drumstick"
+   },
+   {
+    "id": "scale_bayawak",
+    "looks": "a shiny olive-and-yellow lizard scale"
+   },
+   {
+    "id": "tail_bayawak",
+    "looks": "a curled lizard tail tip"
+   },
+   {
+    "id": "golden_feather",
+    "looks": "a glowing golden feather"
+   },
+   {
+    "id": "cap_kibaan",
+    "looks": "a tiny pointed green leaf hat"
+   },
+   {
+    "id": "scale_cave",
+    "looks": "a pale blue-spotted lizard scale"
+   },
+   {
+    "id": "staff_kibaan",
+    "looks": "a small carved wooden staff with a red feather"
+   },
+   {
+    "id": "fur_amomongo",
+    "looks": "a tuft of long grey-white fur"
+   },
+   {
+    "id": "terrace_hat",
+    "looks": "a woven native hunting hat with a red-and-black band"
+   },
+   {
+    "id": "terrace_vest",
+    "looks": "a woven vest with red, black and white stripes"
+   },
+   {
+    "id": "terrace_sandals",
+    "looks": "a pair of woven rattan sandals"
+   },
+   {
+    "id": "terrace_charm",
+    "looks": "a small carved wooden charm on a cord shaped like a rice stalk"
+   },
+   {
+    "id": "adobong_itik",
+    "looks": "a bowl of adobong itik, duck stewed in a dark soy-vinegar sauce, with rice"
+   },
+   {
+    "id": "terrace_stone",
+    "looks": "a smooth grey terrace stone"
+   },
+   {
+    "id": "heirloom_rice",
+    "looks": "a small woven basket of red-and-white heirloom rice"
+   }
+  ],
+  "animals": [
+   "Wild Duck (runs and flies away)",
+   "Bayawak (charges)",
+   "Golden Duck (rare)"
+  ],
+  "creatures": [
+   "Kibaan",
+   "Cave Bayawak",
+   "Kibaan Chief (floor 5 guard)",
+   "Amomongo (floor 10 boss)"
+  ],
+  "npc": "Lola Bugan, the terrace elder"
+ },
+ "bohol": {
+  "name": "Chocolate Hills",
+  "dungeon": "Hill Hollows",
+  "icons_file": "art-src/places/bohol/icons_bohol.png",
+  "items": [
+   {
+    "id": "horn_goat",
+    "looks": "a small curved goat horn"
+   },
+   {
+    "id": "meat_goat",
+    "looks": "a raw goat meat cut"
+   },
+   {
+    "id": "tail_musang",
+    "looks": "a bushy ringed civet tail"
+   },
+   {
+    "id": "kape_alamid",
+    "looks": "a small burlap bag of coffee beans"
+   },
+   {
+    "id": "cocoa_horn",
+    "looks": "a glossy cream curled horn"
+   },
+   {
+    "id": "hat_duwende",
+    "looks": "a tiny tall pointed white hat"
+   },
+   {
+    "id": "pebble_duwende",
+    "looks": "three small shiny juggling pebbles"
+   },
+   {
+    "id": "clay_golem",
+    "looks": "a lump of brown anthill clay with a tiny flower"
+   },
+   {
+    "id": "moss_nuno",
+    "looks": "a glowing tuft of magic green moss"
+   },
+   {
+    "id": "hollow_hat",
+    "looks": "a woven buri hunting hat with a moss band"
+   },
+   {
+    "id": "hollow_vest",
+    "looks": "a light brown vest with a ringed tail trim"
+   },
+   {
+    "id": "hollow_boots",
+    "looks": "a pair of soft brown goat-leather boots"
+   },
+   {
+    "id": "hollow_charm",
+    "looks": "a small anthill-shaped clay charm on a cord"
+   },
+   {
+    "id": "kaldereta",
+    "looks": "a bowl of kalderetang kambing, a red goat stew with potatoes and peppers"
+   },
+   {
+    "id": "peanut_kisses",
+    "looks": "a little pile of peanut kisses cookies shaped like small hills"
+   },
+   {
+    "id": "limestone_chip",
+    "looks": "a white limestone chip"
+   }
+  ],
+  "animals": [
+   "Wild Goat (runs away)",
+   "Musang (charges)",
+   "Cocoa Goat (rare)"
+  ],
+  "creatures": [
+   "White Duwende",
+   "Black Duwende",
+   "Punso Golem (floor 5 guard)",
+   "Great Nuno (floor 10 boss)"
+  ],
+  "npc": "Mang Tonyo, the Bohol guide"
+ },
+ "taal": {
+  "name": "Taal Lake",
+  "dungeon": "Taal Crater",
+  "icons_file": "art-src/places/taal/icons_taal.png",
+  "items": [
+   {
+    "id": "plume_tagak",
+    "looks": "a long white egret plume"
+   },
+   {
+    "id": "shell_lake",
+    "looks": "a small striped lake snail shell"
+   },
+   {
+    "id": "hide_buwaya",
+    "looks": "a folded piece of green crocodile hide"
+   },
+   {
+    "id": "tooth_buwaya",
+    "looks": "a small white rounded crocodile tooth"
+   },
+   {
+    "id": "royal_plume",
+    "looks": "a shimmering silvery-blue plume"
+   },
+   {
+    "id": "fin_siyokoy",
+    "looks": "a green fish fin"
+   },
+   {
+    "id": "pearl_kataw",
+    "looks": "a small blue pearl in a shell"
+   },
+   {
+    "id": "scale_lava",
+    "looks": "a dark red scale with glowing orange cracks"
+   },
+   {
+    "id": "pearl_berberoka",
+    "looks": "a big glowing blue-green water pearl"
+   },
+   {
+    "id": "lake_hat",
+    "looks": "a cone-shaped salakot hat"
+   },
+   {
+    "id": "lake_vest",
+    "looks": "a green crocodile-hide vest"
+   },
+   {
+    "id": "lake_boots",
+    "looks": "a pair of blue water-proof boots"
+   },
+   {
+    "id": "lake_charm",
+    "looks": "a small pearl charm on a cord"
+   },
+   {
+    "id": "tapang_taal",
+    "looks": "a plate of tapang Taal, red sweet cured pork with garlic rice and an egg"
+   },
+   {
+    "id": "kapeng_barako",
+    "looks": "a small cup of strong dark kapeng barako coffee"
+   },
+   {
+    "id": "sulfur_chip",
+    "looks": "a bright yellow sulfur crystal"
+   }
+  ],
+  "animals": [
+   "Tagak (runs and flies away)",
+   "Buwaya (charges)",
+   "Royal Tagak (rare)"
+  ],
+  "creatures": [
+   "Siyokoy",
+   "Kataw",
+   "Lava Buwaya (floor 5 guard)",
+   "Berberoka (floor 10 boss)"
+  ],
+  "npc": "Mang Celso, the Taal fisherman"
+ },
+ "sierra": {
+  "name": "Sierra Madre",
+  "dungeon": "Kapre's Roots",
+  "icons_file": "art-src/places/sierra/icons_sierra.png",
+  "items": [
+   {
+    "id": "banana_wild",
+    "looks": "a small bunch of wild bananas"
+   },
+   {
+    "id": "fur_unggoy",
+    "looks": "a tuft of soft grey-brown monkey fur"
+   },
+   {
+    "id": "horn_carabao",
+    "looks": "a big curved dark buffalo horn"
+   },
+   {
+    "id": "hide_carabao",
+    "looks": "a folded piece of slate-grey buffalo hide"
+   },
+   {
+    "id": "silver_horn",
+    "looks": "a shining silver horn"
+   },
+   {
+    "id": "mane_anggitay",
+    "looks": "a braided chestnut mane with a small flower"
+   },
+   {
+    "id": "moss_spirit",
+    "looks": "a glowing green tuft of forest moss"
+   },
+   {
+    "id": "ribbon_queen",
+    "looks": "a golden ribbon tied in a bow"
+   },
+   {
+    "id": "bark_kapre",
+    "looks": "a piece of thick mossy tree bark with a vine"
+   },
+   {
+    "id": "ranger_hat",
+    "looks": "a wide-brimmed ranger hat with a leaf badge"
+   },
+   {
+    "id": "ranger_vest",
+    "looks": "a khaki ranger vest with pockets"
+   },
+   {
+    "id": "ranger_boots",
+    "looks": "a pair of sturdy brown ranger boots"
+   },
+   {
+    "id": "kapre_charm",
+    "looks": "a small carved wooden charm shaped like a tree on a cord"
+   },
+   {
+    "id": "kare_kare",
+    "looks": "a bowl of kare-kare, a thick peanut stew with vegetables"
+   },
+   {
+    "id": "wild_honey",
+    "looks": "a small jar of golden wild honey with a honeycomb"
+   },
+   {
+    "id": "narra_wood",
+    "looks": "a log of red-brown narra wood"
+   }
+  ],
+  "animals": [
+   "Unggoy (runs away)",
+   "Wild Carabao (charges)",
+   "Silver Carabao (rare)"
+  ],
+  "creatures": [
+   "Anggitay",
+   "Wood Spirit",
+   "Anggitay Queen (floor 5 guard)",
+   "Kapre (floor 10 boss)"
+  ],
+  "npc": "Ka Ramon, the forest ranger"
+ },
+ "palawan": {
+  "name": "Palawan Underground River",
+  "dungeon": "River Caves",
+  "icons_file": "art-src/places/palawan/icons_palawan.png",
+  "items": [
+   {
+    "id": "fig_wild",
+    "looks": "a small cluster of wild figs"
+   },
+   {
+    "id": "wing_paniki",
+    "looks": "a folded soft brown bat wing"
+   },
+   {
+    "id": "skin_sawa",
+    "looks": "a rolled piece of patterned python skin"
+   },
+   {
+    "id": "scale_sawa",
+    "looks": "a shiny brown-and-gold scale"
+   },
+   {
+    "id": "golden_scale",
+    "looks": "a glowing golden snake scale"
+   },
+   {
+    "id": "shell_crab",
+    "looks": "a blue crab claw shell"
+   },
+   {
+    "id": "glow_light",
+    "looks": "a small jar with a glowing cyan light"
+   },
+   {
+    "id": "nest_swiftlet",
+    "looks": "a small cup-shaped white bird nest"
+   },
+   {
+    "id": "feather_minokawa",
+    "looks": "a long shining silver feather"
+   },
+   {
+    "id": "cavern_hat",
+    "looks": "a hard hat with a little headlamp"
+   },
+   {
+    "id": "cavern_vest",
+    "looks": "a dark blue vest with reflective stripes"
+   },
+   {
+    "id": "cavern_boots",
+    "looks": "a pair of rubber cave boots"
+   },
+   {
+    "id": "cavern_charm",
+    "looks": "a small crescent-moon charm on a cord"
+   },
+   {
+    "id": "ginataang_alimasag",
+    "looks": "a bowl of crabs cooked in coconut milk"
+   },
+   {
+    "id": "cashew_palawan",
+    "looks": "a small pile of roasted cashew nuts"
+   },
+   {
+    "id": "stalactite_chip",
+    "looks": "a pale limestone stalactite tip"
+   }
+  ],
+  "animals": [
+   "Paniki (runs and flies away)",
+   "Sawa (charges)",
+   "Golden Sawa (rare)"
+  ],
+  "creatures": [
+   "Cave Crab",
+   "Glow Eel",
+   "Balinsasayaw Queen (floor 5 guard)",
+   "Minokawa (floor 10 boss)"
+  ],
+  "npc": "Mang Pido, the Sabang boatman"
+ }
+}

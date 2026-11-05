@@ -360,3 +360,59 @@ test('signed: the first list of who is here waits until they are checked (the ga
   assert.ok(seen.length, 'told');
   assert.deepStrictEqual(seen[0], [r.a, r.b, r.c].sort(), 'the very first list already has everyone');
 });
+
+// Players, 6 Nov 2026 ("tapos minsan hindi gumagalaw ang ibang kasama sa game"): two ways a friend froze on everyone's
+// screen while they walked on their own.
+test('signed: a key request that never answers does not stop this phone talking to the others', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser(), c = server.newUser();
+  const supa = server.supabaseFor(a), rpc = supa.rpc.bind(supa);
+  let hang = false;
+  supa.rpc = (name, args) => (hang && name === 'farm_line_keys_v1' ? new Promise(() => {}) : rpc(name, args)); // (Android's fetch has no timeout)
+  server.supabaseFor = ((orig) => (uid) => (uid === a ? supa : orig(uid)))(server.supabaseFor.bind(server));
+  const A = webview(server, a), B = webview(server, b), C = webview(server, c);
+  for (const v of [A, B, C]) await v.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, heardB = [];
+  const ca = A.net.join(topic, { id: a, x: 1 }, { presence: () => {}, message: () => {} });
+  await tick(60);
+  B.net.join(topic, { id: b, x: 2 }, { presence: () => {}, message: (e, p) => heardB.push([e, plain(p)]) });
+  await tick(120);
+  hang = true; // someone new comes, and this phone's request for their key never answers
+  C.net.join(topic, { id: c, x: 3 }, { presence: () => {}, message: () => {} });
+  await tick(120);
+  ca.send('mv', { id: a, x: 9 });
+  await tick(800);
+  for (const v of [A, B, C]) v.bridge.dispose();
+  assert.deepStrictEqual(heardB.filter((m) => m[0] === 'mv').map((m) => m[1].x), [9], 'the friend still hears this phone move');
+});
+
+test('signed: a phone whose clock is 11 minutes off still moves on the others\' screens, and a replay is still refused', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser();
+  const A = webview(server, a), B = webview(server, b);
+  for (const v of [A, B]) await v.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a, heardA = [];
+  A.net.join(topic, { id: a, x: 1 }, { presence: () => {}, message: (e, p) => heardA.push([e, plain(p)]) });
+  await tick(60);
+  const real = Date.now;
+  Date.now = () => real() + 11 * 60000; // (a player who moved the phone's clock for their crops)
+  let cb;
+  try {
+    cb = B.net.join(topic, { id: b, x: 2 }, { presence: () => {}, message: () => {} });
+    await tick(150);
+    await cb.send('mv', { id: b, x: 5 });
+    await cb.send('mv', { id: b, x: 6 });
+  } finally { Date.now = real; }
+  await tick(150);
+  assert.deepStrictEqual(heardA.filter((m) => m[0] === 'mv').map((m) => m[1].x), [5, 6], 'their steps arrive');
+  // the very same signed message again: a replay, refused
+  const ch = raw(server, topic, b), copy = [];
+  ch.on('broadcast', { event: '*' }, (m) => copy.push(m.payload));
+  Date.now = () => real() + 11 * 60000;
+  try { await cb.send('mv', { id: b, x: 7 }); } finally { Date.now = real; }
+  await tick(100);
+  const orig = copy.find((p) => p.x === 7);
+  heardA.length = 0;
+  await ch.send({ type: 'broadcast', event: 'mv', payload: orig });
+  await tick(100);
+  for (const v of [A, B]) v.bridge.dispose();
+  assert.deepStrictEqual(heardA, [], 'the same message again is not taken');
+});

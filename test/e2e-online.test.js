@@ -1090,6 +1090,105 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await Promise.all([host.context.close(), guest.context.close()]);
 });
 
+// Players hunting together, 6 Nov 2026: "sometimes hindi visible ang characters. like bow and arrows lang nakikita na parang
+// they're lumulutang" and "minsan hindi gumagalaw ang ibang kasama sa game" ("si nadya naging parang tuod na"). On the phones
+// a presence update goes out at most every 20 s (02-net.js), so what a player does in between reaches the others only through
+// their moves. Here the presence is held back for longer than each check waits, which is what a phone sees in those 20 s.
+// The owner and a visitor, both with a bow (and Makiling open: 50 hunts), in Pulag, seeing each other (setup at the tests' quick presence pace).
+async function huntInPulag(server, setup) {
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  if (setup) await setup(host, guest);
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 50; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitModal(guest.page, /WENT TO TOWN/);
+  await tapButton(guest.page, 'Stay here');
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitModal(guest.page, /WENT HUNTING/);
+  await tapButton(guest.page, 'Join them');
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  for (const who of [host, guest]) await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.Config.ONLINE.trackEvery = 600000; });
+  await new Promise((r) => setTimeout(r, 300));
+  return { host, guest };
+}
+const hereIn = (who, map) => who.page.waitForFunction((m) => Farm.world.mapKey === m && !Farm.world.busy && Farm.world.wild, map, SLOW);
+const drawn = (who, id) => who.page.evaluate((id) => { const r = Farm.world.remotes[id]; return !!(r && r.spr.active && r.spr.visible); }, id);
+const within = async (ms, fn) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 100)); } return !!(await fn()); };
+
+test('online: hunting together (players, 6 Nov 2026: "si nadya naging parang tuod na"): a friend who goes on to the next hunting ground is gone from yours at once, not left standing there frozen while they walk', async () => {
+  const server = createServer();
+  const { host, guest } = await huntInPulag(server);
+  // the owner takes the trail north to Makiling, where nobody is yet; the visitor stays in Pulag
+  await host.page.evaluate(() => Farm.Online.follow('makiling'));
+  await hereIn(host, 'makiling');
+  await host.page.evaluate(() => { Farm.input.jx = 1; Farm.input.jy = 0; }); // walking there, on their own phone
+  const gone = await within(3000, async () => !(await drawn(guest, host.uid)));
+  await host.page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
+  assert.ok(gone, 'the owner, in Makiling, still stands frozen in Pulag on the visitor\'s phone');
+  assert.strictEqual(await guest.page.evaluate((id) => Farm.Online.others[id].map, host.uid), 'makiling', 'the visitor knows where they went');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+test('online: hunting together (players, 6 Nov 2026: "bow and arrows lang nakikita na parang lumulutang"): arriving where a friend hunts, their farmer is there at once, and their shot is their farmer drawing the bow, in their own clothes when their look\'s bow sheet is not on this phone', async () => {
+  const server = createServer();
+  const { host, guest } = await huntInPulag(server, async (host, guest) => {
+    // the visitor wears the Fire look; the owner's phone never gets its bow sheet (not downloaded, or refused)
+    server.db.looksOwned.set(guest.uid, ['fire']);
+    await guest.page.evaluate(() => Farm.Online.loadLooks());
+    await guest.page.evaluate(() => Farm.ui.wearLook('fire'));
+    await guest.page.waitForFunction(() => Farm.world.player.texture.key === 'look_fire_boy', null, SLOW);
+    await host.page.evaluate(() => {
+      const asset = window.gameHost.asset;
+      window.gameHost.asset = function (f, save) { if (/-archer$/.test(f)) return setTimeout(function () { window.__gameAsset(f, null); }, 0); return asset.call(this, f, save); };
+    });
+  });
+  // the visitor goes ahead to Makiling; the owner follows a little later
+  await guest.page.evaluate(() => Farm.Online.follow('makiling'));
+  await hereIn(guest, 'makiling');
+  await new Promise((r) => setTimeout(r, 600));
+  await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.Online.follow('makiling'); });
+  await hereIn(host, 'makiling');
+  const knows = await host.page.evaluate((id) => Farm.Online.others[id] && Farm.Online.others[id].map, guest.uid);
+  assert.ok(await within(3000, () => drawn(host, guest.uid)), 'the owner arrived and the visitor, there all along, is not drawn (this phone has them in ' + knows + ')');
+  assert.ok(await within(3000, () => drawn(guest, host.uid)), 'the visitor does not see the owner arrive');
+  // the visitor shoots: on the owner's phone, their farmer draws and lets go (no bow and arrow flying on its own)
+  await host.page.evaluate(() => { const w = Farm.world, flash = w.bowFlash; window.flashes = 0; w.bowFlash = function () { window.flashes++; return flash.apply(this, arguments); }; });
+  await guest.page.evaluate(() => { Farm.world.dir = 'right'; Farm.world.idle(); });
+  await frames(guest.page, 3);
+  await guest.page.evaluate(() => Farm.world.shoot());
+  const theirShot = await host.page.waitForFunction((id) => {
+    const r = Farm.world.remotes[id], s = r && r.shot;
+    return s && s.body.active ? { body: s.body.texture.key, real: Farm.world.textures.exists(s.body.texture.key), hidden: !r.spr.visible, bow: !!s.bow.active } : null;
+  }, guest.uid, { timeout: 5000, polling: 10 }).then((h) => h.jsonValue()).catch(() => null);
+  assert.deepStrictEqual(theirShot, { body: 'archer', real: true, hidden: true, bow: true }, 'their farmer draws the bow, in the plain archer sheet');
+  assert.strictEqual(await host.page.evaluate(() => window.flashes), 0, 'no bow flashing with nobody behind it');
+  await host.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && !r.shot && r.spr.visible; }, guest.uid, SLOW);
+  // their look changes the moment their shot starts (their farmer is made again): nothing of the shot is left floating
+  const left = await host.page.evaluate(async (id) => {
+    const w = Farm.world, O = Farm.Online, r = w.remotes[id];
+    w.remoteShot(r, r.x, r.y, 0, 4 * 256, 0);
+    O.others[id] = Object.assign({}, O.others[id], { cs: '' });
+    O.syncSprites();
+    await new Promise((done) => setTimeout(done, 700));
+    const r2 = w.remotes[id];
+    return { bows: w.children.list.filter((o) => o.active && o.texture && /^fx-bow-|^archer/.test(o.texture.key)).length, seen: !!(r2 && r2.spr.visible && !r2.shot) };
+  }, guest.uid);
+  assert.deepStrictEqual(left, { bows: 0, seen: true }, 'a bow (or archer) left behind on the map');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
 test('online: the Great Mammoth: only with two hunters, strength for the crew; 3 hits share the hunt and a Great Tusk, fewer do not (owner, 30 Oct)', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server), third = await open(server);

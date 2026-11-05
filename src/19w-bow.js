@@ -101,6 +101,12 @@
     if (shot.fist) shot.fist.setPosition(bx, by).setFrame(frame).setFlipX(!!at.flip).setCrop(grip[0] - FIST, grip[1] - FIST, FIST * 2, FIST * 2);
   };
 
+  // What a shot put on the map: the archer, the bow, the string, the arrow on it and the fist over the grip.
+  var clear = function (shot) {
+    [shot.body, shot.bow, shot.string, shot.arrow, shot.fist].forEach(function (o) { if (o) o.destroy(); });
+    shot.arrow = null;
+  };
+
   var loose = function (w, shot) {
     var s = w.state, cx = Math.cos(shot.ang), cy = Math.sin(shot.ang), x = shot.nock.x + cx * ARROW_W / 2, y = shot.nock.y + cy * ARROW_W / 2;
     var range = shot.remote ? shot.range : L.bowRange(s) * T;
@@ -120,10 +126,7 @@
         pose(w, shot);
       },
       onComplete: function () {
-        shot.bow.destroy();
-        shot.string.destroy();
-        shot.body.destroy();
-        if (shot.fist) shot.fist.destroy();
+        clear(shot);
         if (shot.remote) return shot.done();
         w.player.setVisible(true);
         w.shot = null;
@@ -204,7 +207,11 @@
     pose(this, shot);
     this.remoteSound(r, 'bowdraw');
     this.time.delayedCall(quick.ready, function () {
-      if (r.shot !== shot || !p.active) return;
+      if (r.shot !== shot) return;
+      // their farmer was made again (a new look) or left before the bow came up: the shot goes with it. It used to stay on
+      // the map for good, a bow with an arrow on it: a rarer road to what players saw, 6 Nov 2026 ("bow and arrows lang
+      // nakikita na parang lumulutang"; the usual one is in 19h-online.js create).
+      if (!p.active) { clear(shot); return shot.done(); }
       shot.stage = FULL;
       self.tweens.addCounter({
         from: 0.72, to: 1, duration: quick.draw, ease: 'Quad.out',
