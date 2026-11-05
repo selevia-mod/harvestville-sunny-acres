@@ -429,11 +429,12 @@ test('v2.1 names what is live, the two server features included now the script i
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
 });
 
-test('v2.2 is the newest: the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
+test('v2.3 is the newest (a storage in every cabinet), v2.2 has the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
   const news = C.NEWS[0];
-  assert.strictEqual(news.v, '2.2');
-  assert.strictEqual(C.NEWS_LATEST, '2.2');
-  const titles = news.lines.map((l) => l[1]);
+  assert.strictEqual(news.v, '2.3');
+  assert.strictEqual(C.NEWS_LATEST, '2.3');
+  assert.ok(news.lines.some((l) => l[1] === 'Every cabinet, its own storage'));
+  const titles = C.NEWS[1].lines.map((l) => l[1]);
   ['The Tailor Shop', 'Play together', 'Reactions', 'Big moments'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   C.NEWS.forEach((n) => n.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2]), l[1]); }));
   const tours = [].concat(...C.NEWS.map((n) => n.lines.filter((l) => l[3]).map((l) => l[3])));

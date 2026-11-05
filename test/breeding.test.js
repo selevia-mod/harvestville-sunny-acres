@@ -40,7 +40,7 @@ test('every farm animal has a few colours: the art as it is first, at least one 
   });
   assert.ok(C.BREEDING.rare >= 1 / 50 && C.BREEDING.rare <= 1 / 20, 'rare: 1 in 20 to 1 in 50');
   assert.ok(C.TIPS.some((t) => t.key === 'breeds_tour'));
-  assert.ok(C.NEWS[0].lines.some((l) => l[3] === 'breeds'));
+  assert.ok(C.NEWS.some((n) => n.lines.some((l) => l[3] === 'breeds')));
 });
 
 test('a new game: Clucky is a White Hen, the first in the Breeds book; L.animalBreed says so', () => {

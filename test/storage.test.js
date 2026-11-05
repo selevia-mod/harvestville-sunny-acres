@@ -1,4 +1,4 @@
-// Unit tests for home storage (owner, 30 Oct 2026): the Dresser and the Wardrobe share 60 slots, every farm gets a
+// Unit tests for home storage (owner, 30 Oct 2026): every Dresser and Wardrobe keeps its own 60 slots, every farm gets a
 // free Dresser once, putting away / taking out whole stacks, the save, older saves, and the save size with it all full.
 const test = require('node:test');
 const assert = require('node:assert');
@@ -91,15 +91,16 @@ test('storage is saved; an older save gets its free Dresser once, and not if it 
   assert.deepStrictEqual(plain(got3.store[2]), { id: 'egg', n: 99 });
 });
 
-test('a full 90-slot bag and full storage still save under 16 KB', () => {
+test('a full 90-slot bag and every cabinet full (6 of them) still save under 16 KB', () => {
   const s = L.newState();
   C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < C.ANIMALS[k].max; i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 2 }); });
   for (let i = 0; i < 24 * 38; i++) if (!s.debris[i]) s.soil[i] = { w: 1, c: 'pumpkin', d: 9 };
   L.resizeBag(s, C.BAG_SIZES.length - 1);
   s.inv = s.inv.map(() => ({ id: 'seed_strawberry', n: 99 }));
-  s.store = s.store.map(() => ({ id: 'seed_strawberry', n: 99 }));
+  s.store = Array.from({ length: C.STORE_BOXES * 60 }, () => ({ id: 'seed_strawberry', n: 99 })); // every cabinet full
   const size = JSON.stringify(L.serialize(s)).length;
-  assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size + ' bytes');
+  assert.ok(size < 16000, 'save is ' + size + ' bytes');
+  assert.ok(size < C.MAX_SAVE_BYTES);
 });
 
 test('a save that is too big is refused out loud: one message and one report a visit, and a smaller save still goes through', () => {
@@ -119,4 +120,109 @@ test('a save that is too big is refused out loud: one message and one report a v
   assert.deepStrictEqual(reports, ['save_refused']);
   assert.strictEqual(F.Host.save(L.newState()), true);
   assert.strictEqual(saved.length, 1);
+});
+
+// ---------- one cabinet, one storage (owner, 5 Nov 2026) ----------
+const addCabinet = (s, key) => {
+  const t = H.typeIndex[key];
+  s.home.bag[L.furnKey(t, 0)] = (s.home.bag[L.furnKey(t, 0)] || 0) + 1;
+  const spot = L.findSpot(s, t, 3, 3, null);
+  assert.ok(spot, 'room for a ' + key);
+  const i = L.placeFurn(s, t, 0, spot.x, spot.y, 0);
+  assert.strictEqual(typeof i, 'number');
+  return i;
+};
+
+test('a second cabinet is a second storage: 60 more slots, its own things', () => {
+  const s = L.newState();
+  const d = L.cabinets(s)[0];
+  const w = addCabinet(s, 'wardrobe');
+  assert.strictEqual(s.store.length, 120);
+  assert.strictEqual(L.boxCount(s), 2);
+  assert.strictEqual(L.boxOf(s, d), 0);
+  assert.strictEqual(L.boxOf(s, w), 1);
+  assert.strictEqual(L.boxName(s, 1), 'Wardrobe');
+  s.inv[8] = { id: 'carrot', n: 40 };
+  s.inv[9] = { id: 'egg', n: 5 };
+  assert.strictEqual(L.inBox(s, 1, () => L.storeIn(s, 8)), 40);
+  assert.strictEqual(L.inBox(s, 0, () => L.storeIn(s, 9)), 5);
+  assert.deepStrictEqual(plain(L.boxSlots(s, 0).filter(Boolean)), [{ id: 'egg', n: 5 }]);
+  assert.deepStrictEqual(plain(L.boxSlots(s, 1).filter(Boolean)), [{ id: 'carrot', n: 40 }]);
+  // moving and taking out stay inside the cabinet
+  assert.strictEqual(L.inBox(s, 1, () => L.moveStore(s, 0, 59)), 'ok');
+  assert.deepStrictEqual(plain(s.store[119]), { id: 'carrot', n: 40 });
+  assert.strictEqual(s.store[60], null);
+  assert.strictEqual(L.inBox(s, 1, () => L.storeOut(s, 59, 10)), 10);
+  assert.strictEqual(s.store[119].n, 30);
+  assert.strictEqual(s.store.length, 120);
+  // a full cabinet takes nothing, the other still does
+  for (let k = 0; k < 60; k++) if (!s.store[k]) s.store[k] = { id: 'stone_x', n: 99 };
+  s.inv[3] = { id: 'milk', n: 2 };
+  assert.strictEqual(L.inBox(s, 0, () => L.storeIn(s, 3)), 0);
+  assert.strictEqual(L.inBox(s, 1, () => L.storeIn(s, 3)), 2);
+  // two of a kind are numbered
+  addCabinet(s, 'wardrobe');
+  assert.strictEqual(L.boxName(s, 1), 'Wardrobe 1');
+  assert.strictEqual(L.boxName(s, 2), 'Wardrobe 2');
+  assert.strictEqual(s.store.length, 180);
+});
+
+test('every cabinet keeps its things through the save', () => {
+  const s = L.newState();
+  addCabinet(s, 'wardrobe');
+  s.store[0] = { id: 'egg', n: 5 };
+  s.store[65] = { id: 'carrot', n: 7 };
+  const r = roundTrip(s);
+  assert.strictEqual(r.store.length, 120);
+  assert.deepStrictEqual(plain(r.store[0]), { id: 'egg', n: 5 });
+  assert.deepStrictEqual(plain(r.store[65]), { id: 'carrot', n: 7 });
+  // the second cabinet empty: still two boxes after loading
+  const e = L.newState();
+  addCabinet(e, 'dresser');
+  assert.strictEqual(roundTrip(e).store.length, 120);
+});
+
+test('a cabinet with things in it stays; an empty one is put away with its slots', () => {
+  const s = L.newState();
+  const d = L.cabinets(s)[0];
+  addCabinet(s, 'wardrobe');
+  s.store[61] = { id: 'carrot', n: 3 };
+  const w = L.cabinets(s)[1];
+  assert.strictEqual(L.storeFurn(s, w), 'notempty');
+  assert.strictEqual(s.store.length, 120);
+  // the first one is empty: it goes, and the Wardrobe's things are now box 0
+  assert.strictEqual(L.storeFurn(s, d), 'ok');
+  assert.strictEqual(s.store.length, 60);
+  assert.deepStrictEqual(plain(s.store[1]), { id: 'carrot', n: 3 });
+  assert.strictEqual(L.boxOf(s, L.cabinets(s)[0]), 0);
+  // the last cabinet, emptied: put away, its 60 slots stay for the next one
+  s.store[1] = null;
+  assert.strictEqual(L.storeFurn(s, L.cabinets(s)[0]), 'ok');
+  assert.strictEqual(L.cabinets(s).length, 0);
+  assert.strictEqual(s.store.length, 60);
+});
+
+test('an older save (one shared 60) keeps everything in the first cabinet, a second one starts empty', () => {
+  const s = L.newState();
+  addCabinet(s, 'wardrobe');
+  const o = plain(L.serialize(s));
+  o.kp = Array.from({ length: 60 }, (_, k) => (k % 2 ? ['egg', 3] : 0));
+  const r = L.deserialize(o);
+  assert.strictEqual(r.store.length, 120);
+  assert.strictEqual(L.boxUsed(r, 0), 30);
+  assert.strictEqual(L.boxUsed(r, 1), 0);
+});
+
+test('things kept while no cabinet stands are not lost, and a save never grows past the limit', () => {
+  const s = L.newState();
+  addCabinet(s, 'wardrobe');
+  s.store[70] = { id: 'egg', n: 1 };
+  const o = plain(L.serialize(s));
+  o.hm[5] = []; // every piece gone (e.g. no longer fits): only the bed comes back
+  const r = L.deserialize(o);
+  assert.strictEqual(r.store.length, 120);
+  assert.deepStrictEqual(plain(r.store[70]), { id: 'egg', n: 1 });
+  const big = plain(L.serialize(s));
+  big.kp = Array.from({ length: 5000 }, () => ['egg', 1]);
+  assert.strictEqual(L.deserialize(big).store.length, C.STORE_BOXES * 60);
 });

@@ -1,6 +1,6 @@
 // Home storage (owner, 30 Oct 2026): tap a Dresser or a Wardrobe at home and choose Storage. Two tabs: Storage
 // (tap an item to take it into your bag) and Bag (tap an item to put it away). 30 slots a page, like the bag.
-// Rules in 01-logicC.js.
+// One cabinet, one storage (owner, 5 Nov 2026): each cabinet opens its own 60 slots. Rules in 01-logicC.js.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -16,15 +16,19 @@
   P.extraObjectAction = function (o, held, def) {
     if (o.type !== 'storage') return extraObjectAction.call(this, o, held, def);
     if (F.session.visit) return { label: 'Storage', icon: C.ICON.chest, disabled: true, why: "That's where " + F.session.visit.name + ' keeps their things.' };
-    return { label: 'Storage', icon: C.ICON.chest, run: function () { F.ui.openItemStorage(); } };
+    var b = o.item != null ? L.boxOf(F.session.state, o.item) : 0;
+    if (b < 0) return { label: 'Storage', icon: C.ICON.chest, disabled: true, why: 'You have ' + C.STORE_BOXES + ' cabinets keeping things already.' };
+    return { label: 'Storage', icon: C.ICON.chest, run: function () { F.ui.openItemStorage(null, b); } };
   };
 
-  U.openItemStorage = function (tab) {
+  U.openItemStorage = function (tab, box) {
     var self = this, s = F.session.state, w = F.world;
     var c = this.openModal();
     tab = tab || 'store';
+    box = Math.max(0, Math.min(L.boxCount(s) - 1, box || 0));
+    var inBox = function (fn) { return L.inBox(s, box, fn); };
     var page = 0, moving = null; // moving: the slot picked up with Move
-    var list = function () { return tab === 'store' ? s.store : s.inv; };
+    var list = function () { return tab === 'store' ? L.boxSlots(s, box) : s.inv; };
     var saved = function () {
       F.session.dirty = true;
       w.changed();
@@ -53,20 +57,20 @@
         widgets.push(self.slotWidget(c, x, y, function () {
           var i = page * PAGE + k, it = list()[i];
           if (moving != null) {
-            var r = tab === 'store' ? L.moveStore(s, moving, i) : L.moveSlot(s, moving, i);
+            var from = moving, r = tab === 'store' ? inBox(function () { return L.moveStore(s, from, i); }) : L.moveSlot(s, moving, i);
             moving = null;
             if (r === 'ok') { sfx('pick'); saved(); }
             self.refresh();
             return;
           }
-          if (it) self.openStoreItem(tab, i, function () { moving = i; self.refresh(); }, saved);
+          if (it) self.openStoreItem(tab, i, function () { moving = i; self.refresh(); }, saved, box);
         }));
       })(k);
     }
     var note = this.txt(W / 2, y0 + rows * (SLOT + gap) + 10, '', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 300 } }).setOrigin(0.5, 0);
     c.add(note);
     this.button(c, W / 2, y0 + rows * (SLOT + gap) + 70, 120, 42, 'Close', function () { self.closeModal(); });
-    this.storePage = function () { return { tab: tab, page: page }; };
+    this.storePage = function () { return { tab: tab, page: page, box: box }; };
     this.invRefresh = function () {
       var items = list(), n = pages();
       if (page >= n) page = n - 1;
@@ -86,15 +90,17 @@
       prev.setVisible(n > 1);
       next.setVisible(n > 1);
       var used = items.filter(Boolean).length;
-      title.setText((tab === 'store' ? 'Storage' : 'Bag') + (n > 1 ? '  ' + (page + 1) + '/' + n : ''));
+      title.setText((tab === 'store' ? (L.cabinets(s).length > 1 ? L.boxName(s, box) : 'Storage') : 'Bag') + (n > 1 ? '  ' + (page + 1) + '/' + n : ''));
       note.setText(moving != null && items[moving] ? 'Now tap where to put the ' + L.itemName(s, items[moving].id) + '.' + (n > 1 ? ' The arrows change page.' : '') : 'Tap an item to read about it, ' + (tab === 'store' ? 'take it or move it. ' : 'put it away or move it. ') + used + ' of ' + items.length + ' slots used.');
     };
     this.invRefresh();
   };
 
   // One item in the box or the bag: what it is, how many to move across, and Move to arrange it.
-  U.openStoreItem = function (tab, i, onMove, saved) {
-    var self = this, s = F.session.state, store = tab === 'store', it = (store ? s.store : s.inv)[i], def = C.ITEMS[it.id] || {};
+  U.openStoreItem = function (tab, i, onMove, saved, box) {
+    box = box || 0;
+    var self = this, s = F.session.state, store = tab === 'store', it = (store ? L.boxSlots(s, box) : s.inv)[i], def = C.ITEMS[it.id] || {};
+    var where = L.cabinets(s).length > 1 ? 'This ' + L.boxName(s, box) : 'Your storage';
     var c = this.openModal(), h = 262, top = (C.VIEW_H - h) / 2, name = L.itemName(s, it.id);
     this.panelImg(c, 34, top, W - 68, h);
     c.add(this.add.image(W / 2, top + 42, 'items', L.iconOf(s, it.id)).setScale(0.42));
@@ -104,9 +110,9 @@
     if (def.sell) d += ' Sells for ' + def.sell + 'G.';
     c.add(this.txt(W / 2, top + 96, d, 12, '#5a3a1e', { align: 'center', wordWrap: { width: W - 96 } }).setOrigin(0.5, 0));
     var move = function (n) {
-      var moved = store ? L.storeOut(s, i, n) : L.storeIn(s, i, n);
+      var moved = L.inBox(s, box, function () { return store ? L.storeOut(s, i, n) : L.storeIn(s, i, n); });
       self.closeModal();
-      if (!moved) { sfx('nope'); return self.toast(store ? 'Your bag is full. Put something away first.' : 'Your storage is full.'); }
+      if (!moved) { sfx('nope'); return self.toast(store ? 'Your bag is full. Put something away first.' : where + ' is full.' + (L.cabinets(s).length > 1 ? ' Try another cabinet.' : ' Another Dresser or Wardrobe gives you 60 more slots.')); }
       self.toast((store ? 'Took ' : 'Put ') + (moved > 1 ? moved + ' ' : '') + name + (store ? ' into your bag.' : ' away.'), 1800);
       sfx('pick');
       saved();

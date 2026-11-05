@@ -8,6 +8,14 @@
 
   C.NEWS = [
     {
+      v: '2.3', date: 'November 5, 2026', lines: [
+        ['chest', 'Every cabinet, its own storage', 'Each Dresser and Wardrobe at home keeps its own 60 slots. Two cabinets, two storages: 120 slots. Empty a cabinet before you put it away.'],
+        ['ember_shard', 'The Volcano set', 'Kanor makes five pieces of Lair furniture from what the Lair gives. The Bakunawa Rug is the most beautiful thing in any house.'],
+        ['star', 'The Fire look', 'Help bring down a Bakunawa for a 1 in 10 chance at the Fire look, or have Kanor make it.'],
+        ['ribbon', 'A green ribbon', '4th place in a festival contest gets a green ribbon for taking part.'],
+      ],
+    },
+    {
       v: '2.2', date: 'November 4, 2026', lines: [
         ['ember_shard', "Bakunawa's Lair", 'A cave mouth on Magayon leads down 50 floors of lava caves. Clear each floor with your Bow, beat the guards, and face the Bakunawa with friends.', 'lair'],
         ['bow_4', 'The Magma Bow and the Fire Charm', 'Kanor makes them from what the Lair gives: the best bow there is, and a charm that softens every charge.'],

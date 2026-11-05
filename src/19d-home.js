@@ -15,6 +15,7 @@
   var WHY = {
     outside: "It doesn't fit there.", wall: 'That one hangs on the back wall.', taken: "Something's already there.",
     door: 'Keep the doorway clear!', blocks: "That would block the way to something you use.", lastbed: 'Every home needs a bed!',
+    notempty: 'Empty it first. Its things stay inside until you take them out.',
   };
 
   // The texture for a style's furniture, with a frame per kind of furniture (frame = its index in HOME.types).

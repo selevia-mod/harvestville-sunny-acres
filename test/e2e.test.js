@@ -1037,6 +1037,54 @@ test('home storage: the free Dresser opens Storage; put a stack away, take it ba
   await context.close();
 });
 
+test('one cabinet, one storage: a Wardrobe keeps its own 60, the Dresser its own; a cabinet with things in it stays (owner, 5 Nov 2026)', async () => {
+  const { page, problems, context } = await open();
+  await tapButton(page, 'Boy');
+  await page.waitForSelector('#farm-ask input', SLOW);
+  await page.click('#farm-ask button:first-child');
+  await page.waitForSelector('#farm-ask', { state: 'detached' });
+  await page.evaluate(() => window.__gameBack());
+  await go(page, 'house', 'bed');
+  const w = await page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic, H = Farm.Config.HOME, t = H.typeIndex.wardrobe;
+    s.home.bag[L.furnKey(t, 0)] = 1;
+    const spot = L.findSpot(s, t, 4, 2, null);
+    const i = L.placeFurn(s, t, 0, spot.x, spot.y, 0);
+    Farm.world.placeHome();
+    s.inv[8] = { id: 'carrot', n: 40 };
+    return { i, x: spot.x, y: spot.y, n: s.store.length };
+  });
+  assert.strictEqual(w.n, 120, 'a second cabinet, 60 more slots');
+  await teleport(page, w.x, w.y + 3, 'up');
+  assert.strictEqual(await actionLabel(page), 'Storage');
+  await tapAction(page);
+  assert.match(await modalText(page), /Wardrobe {2}1\/2.*0 of 60 slots used/);
+  await tapButton(page, 'Bag');
+  await tapSlotOnPage(page, 8);
+  await tapButton(page, 'All');
+  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.store[60]), { id: 'carrot', n: 40 }, "in the Wardrobe's own slots");
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.store[0]), null);
+  await tapButton(page, 'Storage');
+  await shot(page, '41c-wardrobe-storage');
+  await tapButton(page, 'Close');
+  // the Dresser has its own, still empty
+  const d = await page.evaluate(() => { const H = Farm.Config.HOME; const it = Farm.session.state.home.items.find((x) => H.types[x.t].key === 'dresser'); return { x: it.x, y: it.y }; });
+  await teleport(page, d.x, d.y + 2, 'up');
+  await tapAction(page);
+  assert.match(await modalText(page), /Dresser {2}1\/2.*0 of 60 slots used/);
+  await tapButton(page, 'Close');
+  // the Wardrobe can't be put away with the Carrots in it
+  const kept = await page.evaluate((i) => { Farm.world.startDecor(); Farm.world.decor.sel = i; Farm.world.decorStore(); return Farm.session.state.home.items.length; }, w.i);
+  assert.strictEqual(kept, await page.evaluate(() => Farm.session.state.home.items.length));
+  assert.ok(await page.evaluate(() => Farm.Logic.cabinets(Farm.session.state).length === 2), 'still standing');
+  assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Empty it first/);
+  // kept in the save, in the Wardrobe's place
+  const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
+  assert.deepStrictEqual(saved.kp[60], ['carrot', 40]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('sleep in your bed: tucked in with Zzz, energy every minute, the joystick wakes you (owner, 29 Oct 2026)', async () => {
   const { page, problems, context } = await open();
   await tapButton(page, 'Boy');
