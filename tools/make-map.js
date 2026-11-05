@@ -919,6 +919,43 @@ Object.assign(MAPS, {
   taal_crater: () => slimProps(placeCave('taal_crater', 'taal', { w: 18, h: 15, seed: 1314, pillars: [[11, 6], [5, 9]],
     pools: [[12, 3, 15, 4], [13, 5, 14, 5], [2, 11, 3, 12], [14, 10, 16, 11]], props: [['sulfur_vent', 8, 2], ['lava_boulder', 1, 5], ['lava_boulder', 15, 7]] })),
 });
+// Place 14: Sierra Madre (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-14-sierra.js): a deep mountain rainforest about
+// Pulag's size. Mossy forest ground with orchids (wildflowers), a clear river (the farm's water: not walkable) from a
+// small waterfall pool at the top, crossed by a log bridge; giant narra trees (rainforest_tree), rattan palms
+// (bamboo_bush), ferns, mossy logs, glowing mushrooms, and jungle grass where the animals hide. The Jeep stops at the
+// bottom left; past the bridge, the hollow at the foot of the giant balete is the way down to Kapre's Roots. The
+// stand-in props are Makiling's and Pulag's until props_sierra.png (and ground_sierra*.png) have an import step.
+function sierra() {
+  const m = new MapBuilder('sierra', 32, 28, ['tiles', 'seasons', 'props'], ['Ground', 'Walls', 'Above']);
+  const r = rng(1406);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'tiles', T.wild_forest); // mossy forest floor
+  trail(m, [[5, 22], [12, 22], [12, 9], [26, 9], [26, 5]]); // from the Jeep, north, east over the bridge, up to the balete
+  wildRing(m, []);
+  // the waterfall pool and the river (Ground: solid water), down from the pool, then east under the trees at the edge
+  [[20, 2, 23, 4], [21, 5, 22, 13], [21, 12, 29, 13], [20, 5, 20, 5], [23, 5, 23, 5]].forEach(([x0, y0, x1, y1]) => m.rect('Ground', x0, y0, x1, y1, 'tiles', T.water));
+  m.rect('Ground', 21, 9, 22, 10, 'tiles', T.dock); // the log bridge where the trail crosses (walkable)
+  m.prop('boulder_moss', 18, 2); // rocks by the falls
+  // the Jeep and its stop
+  m.obj('jeep', 'jeep', 3, 23, 2, 1);
+  m.point('from_jeep', 'spawn', 3.9, 24.6, [prop('dir', 'string', 'right')]);
+  m.prop('trail_sign', 6, 24);
+  m.obj('sign_sierra', 'sign', 6, 25, 1, 1, [prop('text', 'string', "SIERRA MADRE\nA deep mountain rainforest. Unggoy and Wild Carabao live here. Ka Ramon the ranger keeps watch by the trail; Kapre's Roots are under the giant balete, past the river.")]);
+  // the giant balete's hollow: the door down
+  caveMouth(m, 'sierra_cave', 26, 4);
+  m.obj('wild', 'wild', 2, 2, m.W - 4, m.H - 4);
+  // kept free: the trail and the bridge, the Jeep's stop, Ka Ramon (9, 20), the mouth, the five chests, the river's banks
+  const chests = [[3, 3], [29, 7], [8, 13], [16, 25], [27, 22]];
+  const near = (x, y, cx, cy, d) => Math.abs(x - cx) <= d && Math.abs(y - cy) <= d;
+  const keep = (x, y) => onTrail(m, x, y) || !m.is('Ground', x, y, 'tiles', T.wild_forest) || (x <= 8 && y >= 21) || near(x, y, 9, 20, 1) || (x >= 23 && x <= 29 && y <= 7)
+    || chests.some(([cx, cy]) => near(x, y, cx, cy, 1)) || (x >= 19 && x <= 24 && y <= 14) || (x >= 20 && y >= 11 && y <= 14);
+  scatter(m, r, [['rainforest_tree', 8], ['bamboo_bush', 7], ['fern_bush', 7], ['mossy_log', 4], ['mushroom_rock', 6], ['wildflowers', 9], ['jungle_grass', 26]], (x, y) => !keep(x, y));
+  return m.json();
+}
+
+Object.assign(MAPS, {
+  // Place 14: Sierra Madre and Kapre's Roots (owner, 6 Nov 2026): root-woven earth, glowing pools, root pillars, glowing mushrooms
+  sierra, sierra_cave: () => placeCave('sierra_cave', 'sierra', { w: 18, h: 15, seed: 1407, pools: [[12, 3, 14, 4], [2, 9, 3, 11], [14, 10, 15, 11]], pillars: [[9, 6], [5, 10]],
+    props: [['mushroom_rock', 1, 5], ['mushroom_rock', 16, 7], ['mossy_log', 11, 12], ['fern_bush', 8, 2]] }) });
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {

@@ -5220,3 +5220,114 @@ test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and th
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Place 14: Sierra Madre and Kapre's Roots (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-14-sierra.js)
+test('hunting places: Sierra Madre by the Jeep at 130 hunts; an Unggoy (its bananas), a Wild Carabao and the rare Silver Carabao; the Little Unggoy tamed with wild bananas; a hidden chest; Ka Ramon; Kapre\'s Roots: the Anggitay Queen on floor 5, the Kapre on floor 10 and his chest; the medals (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.wild.n = 130; s.gold = 5000; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); L.addItem(s, 'banana_wild', 12); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  await page.evaluate(() => { Farm.Logic.wildRare = () => true; }); // (the Silver Carabao is out today)
+  // the Jeep by the Lodge: Sierra Madre is open, Go on its row
+  await teleport(page, 27, 10, 'up');
+  assert.strictEqual(await actionLabel(page), 'Jeep');
+  await tapAction(page);
+  let pg = 0;
+  while (!/Sierra Madre/.test(await modalText(page)) && pg < 5) await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openJeep(p); }, ++pg);
+  assert.match(await modalText(page), /Sierra Madre[\s\S]*0% explored\. 0 hunts here\./);
+  const go = await page.evaluate(() => { // (the Go on Sierra Madre's row: the one level with its name)
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1], texts = [];
+    const walk = (list) => list.forEach((o) => { if (o.type === 'Text' && (!o.parentContainer || o.parentContainer.visible)) texts.push(o); if (o.list) walk(o.list); });
+    walk(m.c.list);
+    const name = texts.find((o) => o.text === 'Sierra Madre').getBounds();
+    const b = texts.filter((o) => o.text === 'Go').map((o) => o.getBounds()).sort((p, q) => Math.abs(p.centerY - name.centerY) - Math.abs(q.centerY - name.centerY))[0];
+    return b && Math.abs(b.centerY - name.centerY) < 40 ? { x: b.centerX, y: b.centerY } : null;
+  });
+  assert.ok(go, 'its Go');
+  await page.touchscreen.tap(go.x, go.y);
+  await waitMap(page, 'sierra');
+  const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, mouth: !!w.lairMouth, kinds: [...new Set(w.wild.animals.map((a) => a.kind))].sort() }; });
+  assert.deepStrictEqual(here, { jeep: true, npc: 'Ka Ramon', chests: 5, near: true, mouth: true, kinds: ['carabaoligaw', 'silvercarabao', 'unggoy', 'unggoy_bata'] });
+  await shot(page, 'sierra-arrive');
+  // one of each, hunted (the Unggoy leaves the bananas it carried)
+  for (const kind of ['unggoy', 'carabaoligaw', 'silvercarabao']) {
+    await page.evaluate((k) => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === k); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 1; w.wildStruck(a); }, kind);
+  }
+  await page.waitForFunction(() => Farm.session.state.places.sierra.n === 3, null, SLOW);
+  const got = await page.evaluate(() => { const s = Farm.session.state, on = (id) => Farm.world.wildDrops.filter((d) => d.id === id).length + Farm.Logic.countItem(s, id); return { banana: on('banana_wild'), hide: on('hide_carabao'), silver: on('silver_horn') }; });
+  assert.ok(got.banana >= 14 && got.hide >= 3 && got.silver >= 1, JSON.stringify(got));
+  // the Little Unggoy: hold wild bananas, sneak up while it is calm, Feed ten times
+  const nextTo = async () => {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'unggoy_bata'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 15.5 * T; a.y = 17.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; w.setFeet(14.5 * T, 17.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+  };
+  await hold(page, 'banana_wild');
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; });
+  for (let i = 1; i <= 10; i++) {
+    await nextTo();
+    assert.strictEqual(await actionLabel(page), 'Feed', 'feeding ' + i);
+    await tapAction(page);
+    if (i === 1) { await frames(page, 3); await shot(page, 'sierra-tame-fed'); }
+  }
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'sierra') && Farm.world.comp && Farm.world.comp.kind === 'unggoy_bata', null, SLOW);
+  await page.waitForFunction(() => /Little Unggoy is tamed/.test(Farm.ui.toastText.text), null, SLOW);
+  // a hidden chest
+  await teleport(page, 3, 4, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[0] && Farm.world.placeChests[0].img.alpha > 0.6, null, SLOW);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const honey = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'wild_honey'));
+  await tapAction(page);
+  await page.waitForFunction(() => /A hidden chest!/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'wild_honey')), honey + 1);
+  // Ka Ramon's first line, and his honey
+  await teleport(page, 9, 21, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /KA RAMON[\s\S]*Mabuhay![\s\S]*You got 2 Wild Honey/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'wild_honey')), honey + 3);
+  await shot(page, 'sierra-ka-ramon');
+  await closeAll(page);
+  // Kapre's Roots: in at the hollow under the balete
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(26.5 * 256, 4.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'sierra_cave');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: [...new Set(Farm.world.wild.animals.map((a) => a.kind))], sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['anggitay'], sheet: 'indoor-sierra_cave', comp: true });
+  await shot(page, 'sierra-cave-1');
+  // floor 5: the Anggitay Queen and her two
+  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const queen = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
+  assert.deepStrictEqual(queen, { kind: 'anggitayqueen', hp: 30, bar: true, n: 3 });
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.sierra.g), 1, 'the guard is down');
+  // floor 10: the Kapre, soloable
+  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const kapre = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'kapre'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
+  assert.deepStrictEqual(kapre, { hp: 55, max: 55, bar: true }, 'soloable: no more for one');
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.gate), null, 'the bottom: no gate down');
+  await shot(page, 'sierra-kapre');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'kapre'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
+  await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
+  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const bark = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'bark_kapre'));
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'bark_kapre') + Farm.world.wildDrops.filter((d) => d.id === 'bark_kapre').length >= n + 2, bark));
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'sierra')), 0);
+  // the medals: first hunt, the guard, the boss, the tame, the three animals
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openMedals());
+  assert.match(await modalText(page), /My Medals[\s\S]*\d+ of \d+ medals/);
+  const earned = await page.evaluate(() => [1400, 1401, 1402, 1403, 1410, 1412, 1414].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true, true]);
+  await shot(page, 'sierra-medals');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
