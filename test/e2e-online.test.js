@@ -2284,3 +2284,33 @@ test('online: the Lair\'s Fire look, given by the server, is worn, and a visitin
   for (const p of [me, friend]) assert.deepStrictEqual(p.problems, []);
   for (const p of [me, friend]) await p.context.close();
 });
+
+test('online: something dropped on a farm, a friend there walks onto it and it reaches their bag as a gift; not friends, it stays on the ground (5 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  await host.page.evaluate(() => Farm.Online.publish(true));
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await friend.page.waitForFunction((id) => Farm.world && Farm.world.state && Farm.world.state.isVisit && Farm.world.remotes && Farm.world.remotes[id], host.uid, { timeout: 60000 });
+  // the friend drops 5 grilled fish next to them
+  await friend.page.evaluate(() => { const s = Farm.session.state; s.inv[8] = { id: 'grilled_fish', n: 5 }; Farm.world.dropOnGround(8, 5); });
+  assert.strictEqual(await friend.page.evaluate(() => Farm.session.state.inv[8]), null, 'out of their bag');
+  // the owner sees it on their farm
+  await host.page.waitForFunction(() => Object.keys(Farm.ground.theirs).length === 1, null, { timeout: 60000 });
+  await host.page.waitForFunction(() => Object.keys(Farm.world.groundImgs || {}).length === 1, null, { timeout: 60000 });
+  const walkOnto = () => host.page.evaluate(() => { const d = Object.values(Farm.ground.theirs)[0]; Farm.world.player.body.reset(d.x, d.y); });
+  // not friends: the server says no, it stays on the ground
+  await walkOnto();
+  await host.page.waitForTimeout(3000);
+  assert.strictEqual(await friend.page.evaluate(() => Farm.ground.mine.length), 1, 'still on the ground');
+  assert.strictEqual(await host.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'grilled_fish')), 0);
+  // friends now: still standing on it, the owner's phone asks again (every 4 s) and it reaches their bag
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  await host.page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'grilled_fish') === 5, null, { timeout: 60000 });
+  await friend.page.waitForFunction(() => Farm.ground.mine.length === 0, null, { timeout: 60000 });
+  await host.page.waitForFunction(() => Object.keys(Farm.ground.theirs).length === 0, null, { timeout: 60000 });
+  assert.deepStrictEqual(server.db.gives.map((g) => [g.item, g.n]).slice(-1)[0], ['grilled_fish', 5]);
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});

@@ -22,7 +22,7 @@ const C = ctx.window.Farm.Config;
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.setContent('<canvas id="x"></canvas>');
-  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js', 'gear-icons.js', 'lair-icons.js', 'farmtech-icons.js']) {
+  for (const f of ['draw.js', 'icons2.js', 'tiles2.js', 'people.js', 'props.js', 'extra2.js', 'extra3.js', 'furniture.js', 'town2.js', 'outdoor.js', 'quests.js', 'crops2.js', 'farm2.js', 'gear-icons.js', 'lair-icons.js', 'farmtech-icons.js', 'players-icons.js']) {
     await p.addScriptTag({ path: path.join(__dirname, f) });
   }
   // pictures a drawing starts from (ART.ICON_FROM, e.g. the Magma Bow from the Gold Bow), loaded before it draws
@@ -58,7 +58,7 @@ const C = ctx.window.Farm.Config;
     wide.width = 8 * 2 + cols * 144 - 16; wide.height = 8 * 2 + Math.ceil(n / cols) * 144 - 16;
     const h = wide.getContext('2d');
     for (let i = 0; i < n; i++) h.drawImage(sheet, 8 + (i % 8) * 144, 8 + Math.floor(i / 8) * 144, 128, 128, 8 + (i % cols) * 144, 8 + Math.floor(i / cols) * 144, 128, 128);
-    return { png: sheet.toDataURL('image/png'), webp: wide.toDataURL('image/webp', 0.86), out, none };
+    return { png: sheet.toDataURL('image/png'), webp: wide.toDataURL('image/webp', 0.72), out, none };
   }, ['data:image/png;base64,' + fs.readFileSync(path.join(OUT, 'items.png')).toString('base64'), C.ICON_ORDER, JSON.parse(JSON.stringify(C.CROPS)), from]);
   Object.keys(r.out).forEach((n) => fs.writeFileSync(path.join(ICONS, n + '.png'), Buffer.from(r.out[n].split(',')[1], 'base64')));
   fs.writeFileSync(path.join(OUT, 'items.png'), Buffer.from(r.png.split(',')[1], 'base64'));

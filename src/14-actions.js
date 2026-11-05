@@ -357,6 +357,7 @@
       } else if (e.kind === 'rock') {
         var show = self.breakRock(e.idx, tile, items);
         if (show) {
+          counts.clear++; // (a mine rock is a stone cleared: quests, 5 Nov 2026)
           heavy = 2;
           fx.push(function () { show(); self.impact(tool, e, tile, true); sfx('stonebreak'); });
         }
@@ -401,12 +402,13 @@
     this.mine.broken[idx] = 1;
     var stairs = idx === this.mine.stairs;
     if (drop) {
-      if (drop === 'stone') s.stone += 1;
+      var n = L.doubleNow && L.doubleNow() && (drop === 'stone' || L.canAdd(s, drop, 2)) ? 2 : 1; // (Double Drops)
+      if (drop === 'stone') s.stone += n;
       else {
-        L.addItem(s, drop, 1);
+        L.addItem(s, drop, n);
         L.discover(s, drop);
       }
-      items[drop] = (items[drop] || 0) + 1;
+      items[drop] = (items[drop] || 0) + n;
     }
     return function () {
       self.popOut('Walls', t);

@@ -13,6 +13,7 @@ fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^0[01]-/.test(f
 const { Config: C, Logic: L } = ctx.window.Farm;
 const clock = require('./clock')(ctx);
 L.weather = () => 'sunny';
+L.doubleNow = () => null; // (Double Drops, by the clock, would double what an animal leaves: players.test.js)
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(plain(L.serialize(s)));
 const kinds = (list) => plain(list.map((e) => e.kind));

@@ -115,6 +115,7 @@
     var w = C.WEATHER[result.weather];
     row(w.icon, 'Weather: ' + w.name + '.' + (w.waters ? ' The rain watered your crops.' : ''));
     if (result.built) row('crate', 'Mira finished your ' + C.BUILDS[result.built].name + '!');
+    if (result.built2) row('crate', 'Mira finished your ' + C.BUILDS[result.built2].name + ' too!');
     if (result.homeUp) row('crate', 'Mira finished your ' + L.homeLevel(s).name + ' (Lv ' + result.homeUp + ')! More room to decorate.');
     if (result.visitor) row('heart', C.VILLAGERS[result.visitor.who].name + ' dropped by to see your home: "' + result.visitor.line + '"');
     (result.born || []).forEach(function (i) {
@@ -335,17 +336,21 @@
       this.button(c, 64, top + 30, 52, 38, '<', function () { turn(-1); }, BROWN);
       this.button(c, W - 64, top + 30, 52, 38, '>', function () { turn(1); }, BROWN);
     }
-    var eatBtn = this.button(c, W / 2 - 108, 488 + dy, 96, 42, 'Eat', function () {
+    // Eat, Drop (5 Nov 2026: 19zzz-a-players.js), Move, Close
+    var eatBtn = this.button(c, W / 2 - 123, 488 + dy, 76, 42, 'Eat', function () {
       world().eat();
       self.refresh();
     }, BLUE);
-    var moveBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Move', function () {
+    var dropBtn = this.button(c, W / 2 - 41, 488 + dy, 76, 42, 'Drop', function () {
+      if (moving == null && self.askDrop) self.askDrop();
+    }, RED);
+    var moveBtn = this.button(c, W / 2 + 41, 488 + dy, 76, 42, 'Move', function () {
       if (!L.held(s)) return;
       moving = s.sel;
       self.refresh();
     }, BROWN);
-    var stopBtn = this.button(c, W / 2, 488 + dy, 96, 42, 'Cancel', function () { moving = null; self.refresh(); }, GREY);
-    this.button(c, W / 2 + 108, 488 + dy, 96, 42, 'Close', function () { self.closeModal(); });
+    var stopBtn = this.button(c, W / 2 + 41, 488 + dy, 76, 42, 'Cancel', function () { moving = null; self.refresh(); }, GREY);
+    this.button(c, W / 2 + 123, 488 + dy, 76, 42, 'Close', function () { self.closeModal(); });
     this.invPage = function () { return page; };
     this.invTurn = turn;
     this.invRefresh = function () {
@@ -371,6 +376,7 @@
       desc.setText(d);
       mats.setText('Lumber ' + s.lumber + '     Stone ' + s.stone);
       eatBtn.setVisible(!!held && L.energyOf(held.id) > 0);
+      dropBtn.setVisible(moving == null && !!held && !!L.canDrop && L.canDrop(s, s.sel));
     };
     this.invRefresh();
   };
@@ -546,7 +552,7 @@
     tab = tab || 'build';
     if (tab === 'build') {
       rows = C.BUILD_KEYS.filter(function (id) { return C.BUILDS[id]; }).map(function (id) {
-        var b = C.BUILDS[id], building = s.project && s.project.id === id;
+        var b = C.BUILDS[id], building = L.miraBusyWith ? !!L.miraBusyWith(s, id) : s.project && s.project.id === id;
         var cost = b.gold + 'G, ' + b.lumber + ' lumber' + (b.stone ? ', ' + b.stone + ' stone' : '');
         return {
           icon: { kitchen: C.ICON.lunch, bighouse: C.ICON.ring, coop2: C.ICON.chicken, barn2: C.ICON.cow, stable: C.ICON.horse }[id],
@@ -554,7 +560,7 @@
           buttons: s.builds[id] || building ? [] : [{
             label: 'Build', cb: function () {
               var r = L.startBuild(s, id);
-              var why = { busy: 'Mira is busy with another job. One at a time!', gold: 'Not enough gold.', lumber: 'You need ' + b.lumber + ' lumber. Chop branches and stumps, or buy some.', stone: 'You need ' + b.stone + ' stone.' };
+              var why = { busy: 'Mira is busy with two jobs already. One will be ready soon!', gold: 'Not enough gold.', lumber: 'You need ' + b.lumber + ' lumber. Chop branches and stumps, or buy some.', stone: 'You need ' + b.stone + ' stone.' };
               if (r !== 'ok') { sfx('nope'); return self.toast(why[r] || 'Hmm.'); }
               sfx('hammer');
               world().changed();

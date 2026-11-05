@@ -6,7 +6,7 @@
   var C = F.Config;
   var L = F.Logic;
   var O = C.OUTDOOR;
-  var MAX_ITEMS = 360; // keeps the save small (300, and the field's 60 fence pieces)
+  var MAX = function () { return C.YARD_MAX || 360; }; // keeps the save small (every path tile and fence piece is one; 00-zzzzzzzz-players.js)
 
   var newState = L.newState;
   L.newState = function (info) {
@@ -170,7 +170,7 @@
   // From storage onto the farm. Returns the new item's index, or why it can't.
   L.placeYard = function (s, farm, t, x, y) {
     if (!s.yard.bag[t]) return 'none';
-    if (s.yard.items.length >= MAX_ITEMS) return 'full';
+    if (s.yard.items.length >= MAX()) return 'full';
     var why = L.yardCantPlace(s, farm, t, x, y, null);
     if (why) return why;
     if (--s.yard.bag[t] <= 0) delete s.yard.bag[t];
@@ -283,7 +283,7 @@
     if (!yd) { s.yard = L.newYard(); return s; }
     s.yard = { items: [], bag: {} };
     var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [];
-    for (var i = 0; i + 2 < flat.length && s.yard.items.length < MAX_ITEMS; i += 3) {
+    for (var i = 0; i + 2 < flat.length && s.yard.items.length < MAX(); i += 3) {
       var t = int(flat[i], -1, 999, -1);
       if (O.types[t]) s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
     }

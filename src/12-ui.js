@@ -39,12 +39,14 @@
     'Hoe the soil and plant a seed bag (it sows 3x3). Crops grow in real time, from 15 minutes to 2 days, once you water them (rain waters them too). ' +
     'Pick them when ripe: a crop left too long withers (clear it with the Hoe).',
     'SELLING AND ANIMALS\n' +
-    'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus.\n\n' +
+    'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus. ' +
+    'Something you don\'t need? Hold it and tap Drop in your Bag: it stays on the ground 5 minutes, and a friend with you can pick it up.\n\n' +
     'Feed animals once a day for eggs and milk (a Milker is needed for cows). Pet and brush them: happy animals give large produce.',
     'TOWN\n' +
     'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
-    'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn), Rosa feeds you, Ivy sells tonics. ' +
-    'The mine east of town has ore. Fish at the river or the pond.',
+    'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn: two jobs at once) and helps you craft yard pieces from your own flowers, cotton and wheat. Rosa feeds you, Ivy sells tonics. The shops never close. ' +
+    'The mine east of town has ore. Fish at the river or the pond.\n\n' +
+    'Need lumber? New branches and a stump fall in the meadow on your farm every day, and the big trees of Makiling Forest can be chopped for lumber, 5 a day.',
     'TIME, SEASONS AND FESTIVALS\n' +
     'The game follows your phone\'s clock and date. A new day starts at midnight. Energy comes back by itself, 1 point every ' + C.ENERGY_EVERY + ' minutes: tap the energy bar to see when it is full.\n\n' +
     'Seasons follow the months (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter Dec-Feb), each with 10 crops. ' +

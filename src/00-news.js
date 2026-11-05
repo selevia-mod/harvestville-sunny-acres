@@ -9,10 +9,16 @@
   C.NEWS = [
     {
       v: '2.3', date: 'November 5, 2026', lines: [
+        ['seed_rose', 'Your ideas: new seeds', 'Rose, Sampaguita, Gumamela, Cotton, Sugarcane, Cacao and Oregano at Lily\'s. Craft yard pieces from them at Mira\'s.', 'players'], // (19zzz-a-players.js)
+        ['star', 'Double Drops', 'Wednesday and Saturday, 12 to 1 PM and 8 to 10 PM: crops, forage, mine rocks and hunts give twice as much.', 'double'],
+        ['crate', 'Shops open all night', 'Every shop in town stays open day and night now. Mira takes two jobs at once.'],
+        ['bag', 'Drop what you don\'t need', 'Hold it and tap Drop in your Bag. It stays on the ground 5 minutes, and a friend with you can pick it up.'],
+        ['sikwate', 'Sikwate and Chocolate Cake', 'The Bakery makes both from your own cacao.'],
         ['chest', 'Every cabinet, its own storage', 'Each Dresser and Wardrobe at home keeps its own 60 slots. Two cabinets, two storages: 120 slots. Empty a cabinet before you put it away.'],
         ['ember_shard', 'The Volcano set', 'Kanor makes five pieces of Lair furniture from what the Lair gives. The Bakunawa Rug is the most beautiful thing in any house.'],
         ['star', 'The Fire look', 'Help bring down a Bakunawa for a 1 in 10 chance at the Fire look, or have Kanor make it.'],
         ['ribbon', 'A green ribbon', '4th place in a festival contest gets a green ribbon for taking part.'],
+        ['rain', 'Fixes from your reports', 'Lamp Posts and Paper Lanterns glow at night. Rain waters what you plant on a rainy day. Growing wheat no longer looks withered. Room for 500 yard pieces. Hunting drops land where you can reach them. The clearing quest asks for 15, and mine rocks count.'],
       ],
     },
     {

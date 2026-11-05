@@ -383,13 +383,14 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   assert.strictEqual(s.shelves[0], null);
   await go(page, 'farm', 'from_town');
 
-  // Lily's stand opens at 6 in the morning (real time); before that she is asleep, and the market is shut too
+  // Lily's stand never closes (5 Nov 2026): open at 5:30 in the morning too, with no CLOSED sign on it
   await setClock(page, [2026, 4, 2, 5, 30]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
-  assert.match(await modalText(page), /Lily is sleeping\.\s+Come back at 6:00 AM/);
-  await tapButton(page, 'OK');
-  await page.waitForFunction(() => Farm.world.nightSigns && Farm.world.nightSigns.length > 0, null, { timeout: 5000 }); // a CLOSED sign on the stand (checked every 2 s)
+  assert.match(await modalText(page), /Lily's Seed Stand/);
+  await closeAll(page);
+  await page.waitForTimeout(2200); // (signs are checked every 2 s)
+  assert.ok(!(await page.evaluate(() => Farm.world.nightSigns && Farm.world.nightSigns.length)), 'no CLOSED sign');
   await setClock(page, [2026, 4, 2, 10, 0]);
   await tapAction(page);
   await shot(page, '07-shop');
@@ -3291,7 +3292,7 @@ test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the
   await closeAll(page);
   await page.waitForFunction(() => Farm.world.fh.hands.andoy && Farm.world.fh.hands.andoy.leaving, null, SLOW);
   // What's new has the line, with the tour behind Show me
-  assert.ok(await page.evaluate(() => Farm.Config.NEWS[0].lines.some((l) => l[1] === 'Farmhands' && l[3] === 'farmhands')));
+  assert.ok(await page.evaluate(() => Farm.Config.NEWS.some((n) => n.lines.some((l) => l[1] === 'Farmhands' && l[3] === 'farmhands'))));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -3616,12 +3617,12 @@ test('skills: a hunted deer is Hunting XP and a strong shot says so; the Skills 
   await closeAll(page);
   // What's new: the Skills line, and Show me plays it again
   let p = 0;
-  for (; p < 9; p++) {
+  for (; p < 20; p++) {
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/Skills \| Get better at farming/.test(await modalText(page))) break;
   }
-  assert.ok(p < 9, 'the Skills line is in What\'s new');
+  assert.ok(p < 20, 'the Skills line is in What\'s new');
   await shot(page, 'skills-news');
   const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
   const nth = row.slice(0, row.indexOf('Skills')).filter((t) => t === 'Show me').length;
@@ -4241,6 +4242,86 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   await frames(page, 3);
   const text = await modalText(page);
   assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 3, text);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag and pick it up again; Craft at Mira's; Mira's two jobs", async () => {
+  const save = await makeSave(`
+    s.gold = 50000; s.lumber = 300; s.stone = 300;
+    L.addItem(s, 'tulip', 4); L.addItem(s, 'gumamela', 2); L.addItem(s, 'turnip', 5);
+    s.yard.bag[C.OUTDOOR.index.lamp] = 1;
+  `);
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'farm');
+  // a Lamp Post on the farm: a glow, lit at night
+  const placed = await page.evaluate(() => {
+    const L = Farm.Logic, s = Farm.session.state, t = Farm.Config.OUTDOOR.index.lamp, f = Farm.farm();
+    const spot = L.yardFindSpot(s, f, t, 14, 9);
+    const i = L.placeYard(s, f, t, spot.x, spot.y);
+    Farm.world.renderYard();
+    return typeof i === 'number';
+  });
+  assert.ok(placed);
+  await setClock(page, [2026, 4, 1, 21, 30]);
+  await page.evaluate(() => Farm.ui.refresh());
+  await frames(page, 3);
+  const glow = await page.evaluate(() => ({ n: Farm.world.yardGlows.length, a: Farm.world.yardGlows[0] && Farm.world.yardGlows[0].alpha }));
+  assert.strictEqual(glow.n, 1, 'the lamp has a glow');
+  assert.ok(glow.a > 0.5, 'lit at night: ' + glow.a);
+  await shot(page, 'players-1-lamp-night');
+  await setClock(page, [2026, 4, 1, 11, 0]);
+  await page.evaluate(() => Farm.ui.refresh());
+  await frames(page, 3);
+  assert.ok(await page.evaluate(() => Farm.world.yardGlows[0].alpha) < 0.05, 'dark by day');
+
+  // Drop: hold the turnips, Bag, Drop, Drop 5
+  await teleport(page, 12, 12, 'down');
+  await hold(page, 'turnip');
+  await page.evaluate(() => Farm.ui.openInventory());
+  await frames(page, 3);
+  await shot(page, 'players-2-bag-drop');
+  await tapButton(page, 'Drop');
+  assert.match(await modalText(page), /DROP IT\?[\s\S]*disappears in 5 minutes/);
+  await tapButton(page, 'Drop 5');
+  await frames(page, 3);
+  assert.strictEqual(count(await state(page), 'turnip'), 0, 'out of the bag');
+  assert.strictEqual(await page.evaluate(() => Farm.ground.mine.length), 1);
+  assert.strictEqual(await page.evaluate(() => Object.keys(Farm.world.groundImgs).length), 1, 'on the ground');
+  await shot(page, 'players-3-dropped');
+  // step off, then back onto it: back in the bag
+  const at2 = await page.evaluate(() => { const d = Farm.ground.mine[0], T = Farm.Config.TILE; return [d.x / T, d.y / T]; });
+  await teleport(page, 12, 16, 'down');
+  await page.waitForFunction(() => !Farm.ground.mine[0].away, null, SLOW);
+  await page.evaluate(([x, y]) => { Farm.world.setFeet(x * Farm.Config.TILE, y * Farm.Config.TILE); }, at2);
+  await page.waitForFunction(() => !Farm.ground.mine.length, null, SLOW);
+  assert.strictEqual(count(await state(page), 'turnip'), 5, 'picked up again');
+
+  // Craft at Mira's: the first row of her Outdoor page
+  let found = false;
+  for (let pg = 0; pg < 4 && !found; pg++) {
+    await page.evaluate((pg) => { Farm.ui.closeAll(); Farm.ui.openOutdoor(null, pg); }, pg);
+    await frames(page, 3);
+    found = /Craft it yourself/.test(await modalText(page));
+  }
+  assert.ok(found, 'Craft it yourself is in Mira\'s Outdoor catalog');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openCraft(0); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /Flower Bed[\s\S]*Needs 4 Tulip \(4\), 2 Gumamela \(2\)/);
+  await shot(page, 'players-4-craft');
+  const bed = await page.evaluate(() => Farm.Config.OUTDOOR.index.flower_bed);
+  const before = await page.evaluate((b) => Farm.session.state.yard.bag[b] || 0, bed);
+  await tapButton(page, 'Craft', 0);
+  assert.strictEqual(await page.evaluate((b) => Farm.session.state.yard.bag[b] || 0, bed), before + 1, 'a Flower Bed in yard storage');
+  assert.strictEqual(count(await state(page), 'tulip'), 0);
+  await closeAll(page);
+
+  // Mira: two jobs, both shown as being built
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.startBuild(s, 'kitchen'); L.startBuild(s, 'coop2'); Farm.ui.openWoodshop('build', 0); });
+  await frames(page, 3);
+  const text = await modalText(page);
+  assert.strictEqual((text.match(/Mira is building it/g) || []).length, 2, text);
+  await shot(page, 'players-5-two-jobs');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

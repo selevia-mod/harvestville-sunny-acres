@@ -394,13 +394,21 @@ test('the carpenter builds overnight with gold, lumber and stone', () => {
   assert.strictEqual(L.buyMaterial(s, 'lumber', C.BUILDS.kitchen.lumber), 'ok');
   assert.strictEqual(s.gold, 5000 - C.BUILDS.kitchen.lumber * C.LUMBER_PRICE);
   assert.strictEqual(L.startBuild(s, 'kitchen'), 'ok');
-  assert.strictEqual(L.startBuild(s, 'coop2'), 'busy');
+  assert.strictEqual(L.startBuild(s, 'kitchen'), 'busy', 'one job at a time on the same building');
+  // (two jobs at once since 5 Nov 2026: a third waits)
+  s.gold += 1e5; s.lumber += 500; s.stone += 500;
+  assert.strictEqual(L.startBuild(s, 'coop2'), 'ok');
+  assert.strictEqual(L.startBuild(s, 'barn2'), 'busy');
   same(roundTrip(s).project, s.project);
+  same(roundTrip(s).project2, s.project2);
   const r = L.endDay(s);
   assert.strictEqual(r.built, 'kitchen');
+  assert.strictEqual(r.built2, 'coop2');
   assert.strictEqual(s.builds.kitchen, 1);
+  assert.strictEqual(s.builds.coop2, 1);
+  assert.strictEqual(s.project, null);
   assert.strictEqual(L.startBuild(s, 'kitchen'), 'built');
-  same(roundTrip(s).builds, { kitchen: 1 });
+  same(roundTrip(s).builds, { kitchen: 1, coop2: 1 });
 });
 
 // ---------- festivals ----------
@@ -524,12 +532,14 @@ test('a farmer in the mine wakes up at the mine entrance in town', () => {
   assert.strictEqual(back.player.spawn, 'from_mine');
 });
 
-test('shops and the market are open 6 AM to 11 PM; at night everyone is asleep', () => {
+test('shops and the market never close (5 Nov 2026); it is still night from 11 PM to 6 AM; the school keeps its hours', () => {
   const s = fresh();
   s.day = dayOn(4, 1); // a Wednesday
-  const at = (h, m) => { s.time = h * 60 + m; return [L.sleepTime(s), L.marketOpen(s), L.shopOpen(s), L.buildingOpen(s, 'forge'), L.buildingOpen(s, 'bakery')]; };
-  same(at(5, 59), [true, false, false, false, false]);
-  same(at(6, 0), [false, true, true, true, true]);
-  same(at(22, 59), [false, true, true, true, true]);
-  same(at(23, 0), [true, false, false, false, false]);
+  const at = (h, m) => { s.time = h * 60 + m; return [L.sleepTime(s), L.marketOpen(s), L.shopOpen(s), L.buildingOpen(s, 'forge'), L.buildingOpen(s, 'bakery'), L.buildingOpen(s, 'school')]; };
+  same(at(5, 59), [true, true, true, true, true, false]);
+  same(at(6, 0), [false, true, true, true, true, false]);
+  same(at(10, 0), [false, true, true, true, true, true]);
+  same(at(22, 59), [false, true, true, true, true, false]);
+  same(at(23, 0), [true, true, true, true, true, false]);
+  same(at(25, 30), [true, true, true, true, true, false]);
 });

@@ -147,7 +147,7 @@ test("Marco's wagon: 4 discounted pieces a day, different each day, into storage
   assert.strictEqual(s.home.bag[L.furnKey(d.t, d.v)], 1);
   assert.strictEqual(s.gold, 1e6 - d.price);
   s.time = 23 * 60 + 30;
-  assert.strictEqual(L.buyDeal(s, 0), 'closed');
+  assert.strictEqual(L.buyDeal(s, 1), 'ok', 'open all night (5 Nov 2026)');
 });
 
 test('the save stays small with all 23 villagers befriended', () => {

@@ -43,7 +43,9 @@ test('three sprinklers, five new items with icons, two fertilizers at Lily, the 
   ['sprinkler_copper', 'sprinkler_silver', 'sprinkler_gold', 'fert', 'fert_rich'].forEach((id) => {
     assert.ok(C.ITEMS[id] && typeof C.ITEMS[id].icon === 'number' && C.ICON_ORDER[C.ITEMS[id].icon] === id, id);
   });
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-5)), ['sprinkler_copper', 'sprinkler_silver', 'sprinkler_gold', 'fert', 'fert_rich'], 'appended last');
+  const at5 = C.ICON_ORDER.indexOf('sprinkler_copper');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(at5, at5 + 5)), ['sprinkler_copper', 'sprinkler_silver', 'sprinkler_gold', 'fert', 'fert_rich'], 'appended in a row');
+  assert.ok(C.ICON_ORDER.indexOf('gear_charm') < at5, 'after the ones before');
   assert.ok(C.SHOP_SUPPLIES.includes('fert') && C.SHOP_SUPPLIES.includes('fert_rich'));
   assert.deepStrictEqual([C.ITEMS.fert.price, C.ITEMS.fert_rich.price], [10, 30]);
   const gh = C.OUTDOOR.types[GH];

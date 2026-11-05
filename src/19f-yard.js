@@ -12,7 +12,7 @@
   var U = 128, CELL = 3 * U, GAP = 16, COLS = 6; // the yard sheet's layout (tools/art/outdoor.js)
   var WHY = {
     outside: "It doesn't fit there.", blocked: "You can't build there.", taken: "Something's already there.",
-    blocks: 'That would block the way to a door, the field or the pen.', full: 'Your yard is full! Put something away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
+    blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' pieces out, the most a farm can hold (every path tile and fence piece counts as one). Put something away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
   };
   var TILE_KINDS = { fence: 1, path: 1, hedge: 1 };
 
@@ -451,6 +451,7 @@
           buttons: [{ label: 'See all', color: BLUE, cb: function () { self.closeModal(); self.openOutdoor(c[0], 0); } }],
         };
       });
+      if (F.craftRow) rows.push(F.craftRow(self)); // (5 Nov 2026: 19zzz-a-players.js)
     } else {
       rows = O.types.map(function (t, i) { return i; }).filter(function (i) { return O.types[i].cat === cat; }).map(function (i) {
         var type = O.types[i], onSale = L.yardOnSale(s, i), tile = TILE_KINDS[type.kind];

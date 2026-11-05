@@ -203,14 +203,9 @@ test('shop checks gold and bag space', () => {
   assert.strictEqual(L.buy(s, 'seed_strawberry', 1), 'full');
 });
 
-test('shop hours', () => {
+test('shop hours: open all day and night (5 Nov 2026), closed for a festival', () => {
   const s = L.newState();
-  s.time = C.SHOP_OPEN - 1;
-  assert.strictEqual(L.shopOpen(s), false);
-  s.time = C.SHOP_OPEN;
-  assert.strictEqual(L.shopOpen(s), true);
-  s.time = C.SHOP_CLOSE;
-  assert.strictEqual(L.shopOpen(s), false);
+  [C.SHOP_OPEN - 1, C.SHOP_OPEN, C.SHOP_CLOSE, 25 * 60].forEach((t) => { s.time = t; assert.strictEqual(L.shopOpen(s), true, String(t)); });
 });
 
 test('time formatting', () => {
@@ -420,12 +415,12 @@ test('calendar: the real date; seasons by month', () => {
 test('the shop sells this season\'s 10 seeds (and grass and wheat, but not in winter)', () => {
   const day = (m) => L.dayOf(new Date(2026, m - 1, 10, 12).getTime());
   const seeds = (m) => L.seedsInSeason(day(m));
-  assert.strictEqual(seeds(4).length, 12);
+  assert.strictEqual(seeds(4).length, 14, '10, grass, wheat, and the rose and oregano (5 Nov 2026)');
   assert.ok(seeds(4).includes('seed_wheat') && seeds(7).includes('seed_wheat') && seeds(10).includes('seed_wheat') && !seeds(1).includes('seed_wheat'));
   assert.ok(seeds(4).includes('seed_turnip') && seeds(4).includes('seed_tulip') && seeds(4).includes('seed_grass'));
   assert.ok(seeds(7).includes('seed_watermelon') && !seeds(7).includes('seed_turnip'));
   assert.ok(seeds(10).includes('seed_pumpkin') && seeds(10).includes('seed_rice'));
-  assert.strictEqual(seeds(1).length, 10, 'winter has its own 10');
+  assert.strictEqual(seeds(1).length, 11, 'winter has its own 10, and cacao');
   assert.ok(seeds(1).includes('seed_coffee') && !seeds(1).includes('seed_grass'));
   assert.strictEqual(L.seasonsOf('tomato'), 'Summer');
 });
@@ -458,7 +453,8 @@ test('a crop planted at the end of a season grows on into the next', () => {
 
 test('10 crops in every season, all sellable, from 15 minutes to 2 days', () => {
   // (wheat, for the Bakery, grows in three seasons on top of each season's own 10)
-  C.SEASONS.forEach((se) => assert.strictEqual(C.CROP_KEYS.filter((k) => !C.CROPS[k].sickle && k !== 'wheat' && C.CROPS[k].seasons[0] === se.key).length, 10, se.key));
+  // (and the players' seeds of 5 Nov 2026: flowers, cotton, sugarcane, cacao, oregano)
+  C.SEASONS.forEach((se) => assert.strictEqual(C.CROP_KEYS.filter((k) => !C.CROPS[k].sickle && k !== 'wheat' && !C.NEW_CROPS.includes(k) && C.CROPS[k].seasons[0] === se.key).length, 10, se.key));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS[C.CROPS[k].item].sell || C.CROPS[k].sickle, k + ' sells'));
   C.CROP_KEYS.forEach((k) => assert.ok(C.ITEMS['seed_' + k] && C.ITEMS['seed_' + k].crop === k, k + ' has seeds'));
   const mins = C.CROP_KEYS.map((k) => C.CROPS[k].mins);
