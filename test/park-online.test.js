@@ -72,7 +72,8 @@ test('in the park a late step: straight on for longer, then they wait; a stop en
 });
 
 test('Central Park\'s tour has its tip, last in the list; What\'s new 2.4 (6 Nov 2026) links it', () => {
-  assert.strictEqual(C.TIPS[C.TIPS.length - 1].key, 'park_tour');
+  const keys = C.TIPS.map((t) => t.key); // (appended after the tips before it; later features append after it: Town Rank, the Hall)
+  assert.strictEqual(keys.indexOf('park_tour'), keys.indexOf('double_tour') + 1);
   const s = L.newState();
   assert.strictEqual(L.tipSeen(s, 'park_tour'), false);
   L.takeTip(s, 'park_tour');

@@ -753,7 +753,49 @@ function park() {
   return m.json();
 }
 
-const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park };
+// ---------- the Hall of Fame, inside (owner, 6 Nov 2026: "inside the museum is the name of the player who get the big
+// boar, or first defeat boss something like that") ----------
+// A small museum through the door of Central Park's Hall of Fame (src/19zzzz-rank.js): the house's Royal floor and walls,
+// a red carpet up the middle (drawn by the game), plaques on the back and side walls, the Town Rank board in the middle
+// of the back wall, and pedestals with trophies. Each plaque, the board and each pedestal is a 'plaque' object whose
+// 'spot' says what it shows (C.HALL.spots in src/00-zzzzzzzzzzz-rank.js); the game draws them and makes the pedestals
+// solid. Out through the door at the bottom, back to the park in front of the hall.
+function hall() {
+  const m = new MapBuilder('hall', 18, 14, ['indoor', 'props'], ['Ground', 'Walls']);
+  m.rect('Ground', 0, 0, m.W - 1, m.H - 1, 'indoor', I.floor_4);
+  m.rect('Walls', 0, 0, m.W - 1, 0, 'indoor', I.wall_4);
+  m.rect('Walls', 0, 1, m.W - 1, 1, 'indoor', I.wall_low_4);
+  m.rect('Walls', 0, 0, 0, m.H - 1, 'indoor', I.wall_side);
+  m.rect('Walls', m.W - 1, 0, m.W - 1, m.H - 1, 'indoor', I.wall_side);
+  m.rect('Walls', 1, m.H - 1, m.W - 2, m.H - 1, 'indoor', I.wall_side);
+  m.put('Walls', 8, m.H - 1, null, 0); // the door
+  m.put('Walls', 9, m.H - 1, null, 0);
+  m.point('entrance', 'spawn', 9, m.H - 1.4, [prop('dir', 'string', 'up')]);
+  m.obj('exit', 'warp', 8, m.H - 1, 2, 1, [prop('to', 'string', 'park'), prop('spawn', 'string', 'door_hall'), prop('walk', 'bool', true)]);
+  const spot = (name, x, y, w = 1) => m.obj(name, 'plaque', x, y, w, 1, [prop('spot', 'string', name)]);
+  // the back wall: three plaques each side of the board
+  [['w1', 2], ['w2', 4], ['w3', 6], ['w4', 11], ['w5', 13], ['w6', 15]].forEach(([n, x]) => spot(n, x, 1));
+  spot('board', 8, 1, 2);
+  // the side walls
+  spot('w7', 0, 6);
+  spot('w8', m.W - 1, 6);
+  // the pedestals: three across the middle (the Bakunawa's in the centre, two wide), two by the door
+  spot('d1', 4, 5);
+  spot('d2', 8, 5, 2);
+  spot('d3', 13, 5);
+  spot('d4', 4, 9);
+  spot('d5', 13, 9);
+  // plants in the corners, lanterns either side of the door
+  m.prop('big_plant', 1, 2);
+  m.prop('big_plant', m.W - 2, 2);
+  m.prop('big_plant', 1, m.H - 3);
+  m.prop('big_plant', m.W - 2, m.H - 3);
+  m.prop('lantern', 6, m.H - 3);
+  m.prop('lantern', 11, m.H - 3);
+  return m.json();
+}
+
+const MAPS = { farm, town, mine, pulag, makiling, magayon, lair, park, hall };
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {
