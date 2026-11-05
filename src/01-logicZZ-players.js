@@ -20,18 +20,21 @@
   L.shopOpen = function (s) { return !L.festivalOn(s.day); };
   L.marketOpen = function () { return true; };
 
-  // ---------- a paid refill is always the whole +100 (owner, 5 Nov 2026: "they spend real money on this") ----------
-  // 5 energy left + a refill = 105; again = 205. It stacks past the max, up to C.ENERGY_MOST, and nothing trims it back
-  // (the night, loading the game). Free refills from Invite Friends work the same way.
-  C.ENERGY_MOST = 9999;
-  L.refillEnergy = function (s, amount) {
-    var before = s.energy;
-    s.energy = Math.min(C.ENERGY_MOST, s.energy + Math.max(0, Math.floor(amount) || 0));
+  // ---------- a refill is always the whole +100 (owner, 5 Nov 2026: "they spend real money on this") ----------
+  // 5 energy left + a refill = 105; again = 205. It stacks past the max and nothing trims it back (the night, loading the
+  // game). How far: up to 9,999 with Selebox Coins, up to 1,000 with Stars or a free refill (owner: "9,999 is okay as
+  // long it was coins purchase").
+  C.ENERGY_MOST = 1000;
+  C.ENERGY_MOST_COINS = 9999;
+  L.energyMost = function (currency) { return currency === 'coins' ? C.ENERGY_MOST_COINS : C.ENERGY_MOST; };
+  L.refillEnergy = function (s, amount, currency) {
+    var before = s.energy, most = Math.max(L.energyMost(currency), before);
+    s.energy = Math.min(most, s.energy + Math.max(0, Math.floor(amount) || 0));
     if (s.energy >= L.maxEnergy(s)) s.regen = L.nowMin();
     return s.energy - before;
   };
-  // Would a refill of `amount` fit (it never goes past C.ENERGY_MOST, so no Coins are spent on nothing)?
-  L.refillFits = function (s, amount) { return Math.floor(s.energy) + (Number(amount) || 0) <= C.ENERGY_MOST; };
+  // Would a refill of `amount` fit in full (so nothing is paid for energy that would not fit)?
+  L.refillFits = function (s, amount, currency) { return Math.floor(s.energy) + (Number(amount) || 0) <= L.energyMost(currency); };
   L.useFreeRefill = function (s) {
     if (!L.refillsLeft(s) || !L.refillFits(s, C.FREE_REFILL)) return 0;
     s.rf = L.refillsLeft(s) - 1;
@@ -254,7 +257,7 @@
     if (!s) return s;
     // (energy above the max is kept: a paid refill stacks; the older loaders trimmed it to the max)
     var e = Math.floor(Number(o && o.e));
-    if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST, e);
+    if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST_COINS, e);
     var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
     s.animals.forEach(function (a, i) {
       var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;

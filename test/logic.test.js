@@ -278,7 +278,7 @@ test('bad or foreign save data is rejected or sanitised', () => {
   assert.strictEqual(s.day, 0);
   assert.strictEqual(s.energy, C.MAX_ENERGY);
   // (energy past the max is real since 5 Nov 2026: paid refills stack; never past C.ENERGY_MOST)
-  assert.strictEqual(L.deserialize(Object.assign(L.serialize(L.newState()), { e: 1e9 })).energy, C.ENERGY_MOST);
+  assert.strictEqual(L.deserialize(Object.assign(L.serialize(L.newState()), { e: 1e9 })).energy, C.ENERGY_MOST_COINS);
   assert.strictEqual(s.water, 0);
   assert.strictEqual(s.sel, C.INV_SIZE - 1);
   same(s.inv.slice(0, 4), [{ id: 'hoe', n: 1 }, null, { id: 'turnip', n: 99 }, null]);

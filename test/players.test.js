@@ -257,6 +257,17 @@ test('a paid refill is always the whole +100: 5 left makes 105, again 205; past 
   assert.strictEqual(L.eat(s, s.inv.findIndex((x) => x && x.id === 'turnip')), -1, 'eating never trims it');
   assert.strictEqual(s.energy, 205);
   assert.ok(L.spendEnergy(s, 150) && s.energy === 55, 'it is spent like any energy');
-  s.energy = C.ENERGY_MOST - 20;
-  assert.strictEqual(L.refillFits(s, 100), false, 'no Coins spent on energy that would not fit');
+  // how far it stacks: 9,999 with Coins, 1,000 with Stars or a free refill (owner, 5 Nov 2026)
+  assert.deepStrictEqual([C.ENERGY_MOST, C.ENERGY_MOST_COINS], [1000, 9999]);
+  s.energy = 950;
+  assert.strictEqual(L.refillFits(s, 100, 'stars'), false, 'Stars: up to 1,000');
+  assert.strictEqual(L.refillFits(s, 100), false, 'a free refill: up to 1,000');
+  assert.strictEqual(L.refillFits(s, 100, 'coins'), true, 'Coins: on to 9,999');
+  assert.strictEqual(L.refillEnergy(s, 100, 'coins'), 100);
+  assert.strictEqual(s.energy, 1050);
+  assert.strictEqual(roundTrip(s).energy, 1050, 'kept by the save');
+  assert.strictEqual(L.refillEnergy(s, 100, 'stars'), 0, 'past 1,000 a Stars refill adds nothing (the shop does not sell it)');
+  s.energy = 9950;
+  assert.strictEqual(L.refillFits(s, 100, 'coins'), false, 'no Coins spent on energy that would not fit');
+  assert.strictEqual(L.refillEnergy(s, 100, 'coins'), 49, '9,999 at most');
 });

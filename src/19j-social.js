@@ -206,7 +206,7 @@
     var s = F.session.state;
     return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: 0, p_version: b[3], p_request_id: b[0] }).then(function (r) {
       s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; });
-      var gain = r && r.ok ? L.refillEnergy(s, Number(r.amount) || 0) : null;
+      var gain = r && r.ok ? L.refillEnergy(s, Number(r.amount) || 0, r.currency || b[1]) : null;
       save(s);
       if (gain === null) return 'none';
       spent();
@@ -229,7 +229,9 @@
   U.buyRefill = function (o) {
     var self = this, s = F.session.state, e = Math.floor(s.energy);
     // (5 Nov 2026: always the whole amount, on top of what you have, even past the max: 01-logicZZ-players.js)
-    if (L.refillFits && !L.refillFits(s, o.amount)) return this.toast('You have lots of energy already. Use some first!');
+    if (L.refillFits && !L.refillFits(s, o.amount, o.currency)) {
+      return this.toast(o.currency === 'coins' ? 'You have lots of energy already. Use some first!' : 'With Stars, energy goes up to ' + C.ENERGY_MOST.toLocaleString('en-US') + '. Use some first, or refill with Coins.', 3000);
+    }
     if (this.buying) return;
     var gain = Number(o.amount) || 0;
     this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
@@ -251,7 +253,7 @@
             self.closeAll();
             return self.openRefill(function () { self.toast(SAY[r && r.code] || 'That did not work. Nothing was taken.', 2600); });
           }
-          var got = L.refillEnergy(s, Number(r.amount) || 0);
+          var got = L.refillEnergy(s, Number(r.amount) || 0, r.currency || o.currency);
           save(s);
           spent();
           self.closeAll();
