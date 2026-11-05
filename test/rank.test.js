@@ -315,7 +315,9 @@ test('the hall in the save and the routes: a game closed in the hall opens on th
   assert.strictEqual(C.ROUTES.town.hall, C.ROUTES.town.park);
   assert.strictEqual(C.ROUTES.farm.hall, C.ROUTES.farm.park);
   const keys = C.TIPS.map((t) => t.key);
-  assert.deepStrictEqual(plain(keys.slice(keys.indexOf('park_tour') + 1, keys.indexOf('park_tour') + 3)), ['rank_tour', 'hall_tour'], 'the tours\' tips, appended after the park\'s');
+  // (appended after the park's, in file order: other features tonight append theirs too, e.g. the Friendship Book's)
+  const pk = keys.indexOf('park_tour'), rk = keys.indexOf('rank_tour'), hk = keys.indexOf('hall_tour');
+  assert.ok(pk >= 0 && rk > pk && hk === rk + 1, 'the tours\' tips, appended after the park\'s: ' + keys.slice(pk).join());
   const t = fresh();
   L.takeTip(t, 'hall_tour');
   assert.ok(L.tipSeen(roundTrip(t), 'hall_tour') && !L.tipSeen(roundTrip(t), 'rank_tour'));
