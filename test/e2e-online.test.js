@@ -2811,3 +2811,48 @@ test('online: hunting places (SAMPLE): two hunters in the sample cave\'s bottom 
   for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+// ---------- Banaue Terraces (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-11-banaue.js) ----------
+test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 10, the Amomongo is stronger for two (30, 42), a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const bottom = async (who) => {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; Farm.world.travel('town', 'from_farm'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('banaue_cave', 'entrance', 10); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'banaue_cave' && Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.wild, null, SLOW);
+    await who.page.evaluate(() => Farm.ui.closeAll());
+  };
+  const boss = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar } : null; });
+  await bottom(host);
+  assert.deepStrictEqual(await boss(host.page), { hp: 30, max: 30, bar: true }, 'one hunter: soloable');
+  await bottom(guest);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 10, 'the same floor');
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && a.max === 42; }, null, SLOW);
+  await guest.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && a.max === 42 && a.hp === 42; }, null, SLOW);
+  await shot(guest.page, 'banaue-online-boss');
+  // the guest lands its 3 hits (a share), the owner the rest
+  await host.page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); a.def = Object.assign({}, a.def, { angry: 0 }); });
+  await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'amomongo'); w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
+  await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && a.hp === 39; }, null, SLOW);
+  await host.page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'amomongo'); w.wildStruck(a); w.wildStruck(a); a.hp = 1; w.wildStruck(a); });
+  for (const who of [host, guest]) await who.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.kind === 'amomongo') && !!Farm.world.bossChest, null, SLOW);
+  await shot(guest.page, 'banaue-online-boss-chest');
+  // each opens their own
+  for (const who of [host, guest]) {
+    const got = await who.page.evaluate(() => { const s = Farm.session.state, n = Farm.Logic.countItem(s, 'fur_amomongo'); Farm.world.openBossChest(); return { before: n, after: Farm.Logic.countItem(s, 'fur_amomongo'), waiting: Farm.Logic.bossChests(s, 'banaue'), boss: s.places.banaue.b, medal: Farm.Logic.hasMedal(s, 1102) }; });
+    assert.deepStrictEqual([got.after - got.before >= 1, got.waiting, got.boss, got.medal], [true, 0, 1, true]);
+  }
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});

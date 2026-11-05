@@ -5453,3 +5453,161 @@ test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+
+// ---------- Banaue Terraces (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-11-banaue.js, docs/places/banaue.md) ----------
+test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild Duck, a Bayawak and the Golden Duck hunted; Lola Bugan\'s first steps and their gifts; the calm duck tamed with heirloom rice (it flies off once), and it spots the Golden Duck; a hidden chest; the Terrace Tunnels: floor 5\'s Kibaan Chief, floor 10\'s Amomongo and its chest; the medals; back at the door, Lola Bugan\'s last step (owner, 6 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.gold = 5000; s.wild.n = 60; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  await page.evaluate(() => { Farm.Logic.wildRare = () => true; }); // (the Golden Duck is out)
+  // every toast is kept: a later one (a medal's, 2.8 s after a hunt) can take the place of the one looked for
+  const keepToasts = (pg) => pg.evaluate(() => { const t = Farm.ui.toast.bind(Farm.ui); window.__toasts = []; Farm.ui.toast = (m, ...rest) => { window.__toasts.push(String(m)); return t(m, ...rest); }; });
+  const toasted = (pg, re) => pg.waitForFunction((src) => (window.__toasts || []).some((m) => new RegExp(src).test(m)), re.source, SLOW);
+  await keepToasts(page);
+  // the Jeep by the Lodge: Banaue is open at 60 hunts
+  await teleport(page, 27, 10, 'up');
+  assert.strictEqual(await actionLabel(page), 'Jeep');
+  await tapAction(page);
+  assert.match(await modalText(page), /Kanor's Jeep[\s\S]*Banaue Terraces \| 0% explored\. 0 hunts here\./);
+  const nth = await page.evaluate(() => { const l = Farm.Logic.jeepPlaces(Farm.session.state), i = l.findIndex((p) => p.id === 'banaue'); return l.slice(0, i).filter((p) => p.open && p.id !== 'pulag').length; });
+  await tapButton(page, 'Go', nth);
+  await waitMap(page, 'banaue');
+  const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: [...new Set(w.wild.animals.map((a) => a.kind))].sort(), props: w.props.length > 60, ground: !!w.map.getTileset('banaue_ground') }; });
+  assert.deepStrictEqual(here, { jeep: true, npc: 'Lola Bugan', chests: 5, near: true, kinds: ['bayawak', 'goldduck', 'itik', 'itik_calm'], props: true, ground: true });
+  await shot(page, 'banaue-arrive');
+  // a paddy is water you cannot walk in; the steps and the dikes you can
+  const tiles = await page.evaluate(() => { const w = Farm.world; return [w.walkable(3, 5), w.walkable(8, 5), w.walkable(16, 5), w.walkable(3, 7)]; });
+  assert.deepStrictEqual(tiles, [false, true, true, false], 'paddy, steps, dike, wall');
+  // one of each hunted (the hits counted as yours)
+  for (const kind of ['itik', 'bayawak', 'goldduck']) {
+    await page.evaluate((k) => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === k); a.hp = 1; w.wildStruck(a); }, kind);
+  }
+  await page.waitForFunction(() => Farm.session.state.places.banaue.n === 3, null, SLOW);
+  const hunted = await page.evaluate(() => [1100, 1110, 1112, 1114].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(hunted, [true, true, true, true], 'first hunt, Wild Duck, Bayawak, Rare: Golden Duck');
+  // Lola Bugan: her welcome and 4 heirloom rice
+  await teleport(page, 12, 4, 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /LOLA BUGAN[\s\S]*Welcome up the mountain/);
+  await toasted(page, /Lola Bugan gave you 4 Heirloom Rice\./);
+  await shot(page, 'banaue-lola');
+  await closeAll(page);
+  // two more ducks: her second step, 4 more rice and arrows
+  for (let i = 0; i < 2; i++) await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'itik'); a.hp = 1; w.wildStruck(a); });
+  await page.waitForFunction(() => Farm.session.state.places.banaue.n === 5, null, SLOW);
+  await teleport(page, 12, 4, 'up');
+  await tapAction(page);
+  assert.match(await modalText(page), /You hunt with care/);
+  await toasted(page, /gave you 4 Heirloom Rice and 10 Arrows/);
+  await closeAll(page);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'heirloom_rice')), 8);
+  // taming the calm duck: hold heirloom rice, sneak up while it is calm, Feed
+  const duck = () => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'itik_calm'); return a ? { hearts: a.hearts && a.hearts.visible ? a.hearts.text : null } : null; });
+  const nextTo = async () => {
+    await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'itik_calm'), T = 256; a.def = Object.assign({}, a.def, { shy: 0 }); a.x = 16.5 * T; a.y = 9.7 * T; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9; a.lift = 0; w.setFeet(15.5 * T, 9.5 * T); w.dir = 'right'; w.idle(); });
+    await frames(page, 3);
+  };
+  await hold(page, 'heirloom_rice');
+  await nextTo();
+  assert.strictEqual(await actionLabel(page), 'Feed');
+  await page.evaluate(() => { const r = Farm.Logic.feedTame; Farm.Logic.feedTame = (s, id) => r(s, id, () => 0.9); window.__feed = r; });
+  await tapAction(page);
+  assert.strictEqual((await duck()).hearts, '♥ 1/8');
+  await shot(page, 'banaue-tame-fed');
+  await page.evaluate(() => { Farm.Logic.feedTame = (s, id) => window.__feed(s, id, () => 0.1); }); // (the 1 in 4: it flies off)
+  await nextTo();
+  await tapAction(page);
+  await toasted(page, /ran off! \(2 of 8\)[\s\S]*15 minutes/);
+  await page.waitForFunction(() => !Farm.world.wild.animals.some((x) => x.kind === 'itik_calm'), null, SLOW);
+  await advance(page, 16);
+  await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 20 && !w.wild.animals.some((x) => x.kind === 'itik_calm'); i++) { w.wild.next = 0; w.wildArrive(0); } });
+  assert.ok(await duck(), 'back after a while');
+  await page.evaluate(() => { const s = Farm.session.state; for (let i = 0; i < 5; i++) window.__feed(s, 'banaue', () => 0.9); Farm.Logic.feedTame = (s2, id) => window.__feed(s2, id, () => 0.9); });
+  await nextTo();
+  await tapAction(page);
+  await page.evaluate(() => { Farm.Logic.feedTame = window.__feed; });
+  await page.waitForFunction(() => Farm.Logic.tamed(Farm.session.state, 'banaue') && Farm.world.comp && !Farm.world.wild.animals.some((x) => x.kind === 'itik_calm'), null, SLOW);
+  await toasted(page, /Wild Duck is tamed/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'heirloom_rice')), 0, 'Lola Bugan\'s 8: just enough');
+  await frames(page, 10);
+  await shot(page, 'banaue-companion');
+  // its skill: the Golden Duck is back, and the duck says so
+  await advance(page, 125);
+  await page.evaluate(() => { const w = Farm.world; for (let i = 0; i < 30 && !w.wild.animals.some((x) => x.kind === 'goldduck'); i++) { w.wild.next = 0; w.wildArrive(0); } });
+  await toasted(page, /Wild Duck spotted something rare: a Golden Duck!/);
+  // a hidden chest, in the village's corner
+  await teleport(page, 2, 3, 'up');
+  await page.waitForFunction(() => Farm.world.placeChests[0] && Farm.world.placeChests[0].img.alpha > 0.6, null, SLOW);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const arrows = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows'));
+  await tapAction(page);
+  await toasted(page, /A hidden chest![\s\S]*\(1 of 5\)/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'arrows')), arrows + 6);
+  // into the tunnels at the door
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(20.5 * 256, 2.5 * 256); w.dir = 'up'; });
+  await waitMap(page, 'banaue_cave');
+  const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp, props: Farm.world.props.length }));
+  assert.deepStrictEqual(f1, { fl: 1, kinds: ['kibaan', 'kibaan', 'kibaan'], sheet: 'indoor-banaue_cave', comp: true, props: 5 });
+  await shot(page, 'banaue-tunnels-1');
+  // (down to floor 5 at once) the Kibaan Chief and two, the gate opens when they are down
+  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 5));
+  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const f5 = await page.evaluate(() => ({ kinds: Farm.world.wild.animals.map((a) => a.kind), bar: !!Farm.world.wild.animals[0].bar, hp: Farm.world.wild.animals[0].hp }));
+  assert.deepStrictEqual([f5.kinds[0], f5.kinds.length, f5.bar, f5.hp], ['kibaan_chief', 3, true, 14]);
+  await shot(page, 'banaue-tunnels-guard');
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+  await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.places.banaue.g), 1, 'the guard is down');
+  // (down to floor 10) the Amomongo: soloable, its full health for one
+  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await frames(page, 3);
+  const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
+  assert.deepStrictEqual(boss, { hp: 30, max: 30, bar: true });
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.gate), null, 'the bottom: no gate down');
+  await shot(page, 'banaue-tunnels-boss');
+  await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'amomongo'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); }); // (a share is 3 hits)
+  await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
+  await toasted(page, /The boss left a chest/);
+  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Open');
+  const fur = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo'));
+  await tapAction(page);
+  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  await toasted(page, /The chest: [\s\S]*Amomongo Fur/);
+  assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo') + Farm.world.wildDrops.filter((d) => d.id === 'fur_amomongo').length >= n + 1, fur));
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'banaue')), 0);
+  await shot(page, 'banaue-boss-chest');
+  // the medals: the Medals page lists Banaue's
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openMedals());
+  assert.match(await modalText(page), /My Medals[\s\S]*\d+ of \d+ medals/);
+  const earned = await page.evaluate(() => [1100, 1101, 1102, 1103, 1110, 1112, 1114].map((c) => Farm.Logic.hasMedal(Farm.session.state, c)));
+  assert.deepStrictEqual(earned, [true, true, true, true, true, true, true], 'first hunt, guard, boss, tame, duck, bayawak, golden duck');
+  await shot(page, 'banaue-medals');
+  // closed in the tunnels: it opens at their door; Lola Bugan's last step (and the guard's step's gift too)
+  await closeAll(page);
+  const closed = await page.evaluate(() => { Farm.world.save(); return gameHost.saves[gameHost.saves.length - 1]; });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  const again = await open(JSON.parse(closed));
+  await closeAll(again.page);
+  await waitMap(again.page, 'banaue');
+  await keepToasts(again.page);
+  const back = await again.page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_dungeon; return { far: Math.hypot(f.x - p.x, f.y - p.y) / 256, comp: !!w.comp, deep: Farm.session.state.places.banaue.deep }; });
+  assert.ok(back.far < 1, 'at the tunnels\' door');
+  assert.ok(back.comp && back.deep >= 1, 'the duck comes along; (the floors were jumped, not walked: only floor 1 is reached)');
+  await teleport(again.page, 12, 4, 'up');
+  await tapAction(again.page);
+  assert.match(await modalText(again.page), /LOLA BUGAN[\s\S]*The Amomongo is calm/);
+  await toasted(again.page, /gave you 6 Terrace Stone, 5 Heirloom Rice and 2 Adobong Itik/);
+  assert.ok(await again.page.evaluate(() => Farm.Logic.hasMedal(Farm.session.state, 1105)), 'her story\'s medal');
+  await shot(again.page, 'banaue-lola-last');
+  assert.deepStrictEqual(again.problems, []);
+  await again.context.close();
+});

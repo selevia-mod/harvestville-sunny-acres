@@ -992,6 +992,8 @@ function boholCave() {
 
 Object.assign(MAPS, { bohol, bohol_cave: boholCave }); // Place 12: Chocolate Hills and Hill Hollows (owner, 6 Nov 2026)
 HOME.levels.forEach((l, i) => { MAPS['house_' + (i + 1)] = () => house(i + 1); });
+// Banaue Terraces (owner, 6 Nov 2026): its map and its cave are made in tools/places/banaue-map.js
+Object.assign(MAPS, require('./places/banaue-map')({ MapBuilder, rng, prop, T, wildRing, placeCave, caveMouth, SETS, tileProps }));
 const force = process.argv.find((a) => a.startsWith('--force'));
 Object.keys(MAPS).forEach((name) => {
   const out = path.join(__dirname, '..', 'maps', name + '.json');
