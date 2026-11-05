@@ -70,6 +70,8 @@ const js = (v) => JSON.stringify(v === undefined ? null : v).replace(/\u2028/g, 
 // (farm_line_keys_v1: you only ever get your own keys), and each message and presence carries, for every player in the
 // room, a signature made with that pair's key. A message counts only if it is signed for you by the player it names.
 const SKEW_MS = 10 * 60 * 1000; // a message stamped further from this phone's clock than this is old (or replayed)
+const KEYS_WAIT_MS = 5000; // a request for keys with no answer by then counts as failed (asked again 5 s later)
+const SEND_WAIT_MS = 300; // a message waits this long at most for a newcomer's key, then goes out signed for the rest
 const PRESENCE = '~presence'; // (what a presence is signed as: never a broadcast's name)
 const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
   0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -182,8 +184,13 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const missing = ids.filter((id) => id !== room.uid && !room.keys.has(id) && !((room.retryAt.get(id) || 0) > now)).slice(0, 40);
       if (!missing.length) return;
       if (!room.asking) {
+        // (never waits for ever: a request with no answer, as Android's fetch has no timeout, held every message and
+        // presence of this phone, so its friends saw it stand frozen. Players, 6 Nov 2026: "hindi gumagalaw")
         room.asking = Promise.resolve()
-          .then(() => supabase.rpc('farm_line_keys_v1', { p_topic: room.topic, p_peers: missing }))
+          .then(() => Promise.race([
+            Promise.resolve().then(() => supabase.rpc('farm_line_keys_v1', { p_topic: room.topic, p_peers: missing })),
+            new Promise((_, no) => setTimeout(() => no(new Error('timeout')), KEYS_WAIT_MS)),
+          ]))
           .then(({ data, error }) => {
             if (error) {
               if (/could not find the function|does not exist/i.test(String(error.message || ''))) room.unsigned = true;
@@ -245,6 +252,20 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       Promise.resolve(trackSigned(room, entry.state)).catch(() => {}).then(() => resignSoon(room)); // (anyone who came meanwhile)
     }, wait);
   };
+  // A phone whose clock is far off (a player who moves it for their crops) still talks: its message is new on ITS clock
+  // when it is stamped no earlier than its own signed presence here now, and not earlier than its last one I took
+  // (an old message replayed is older than both). Players, 6 Nov 2026: "si astreo hindi gumagalaw".
+  const onTheirClock = (room, from, t) => {
+    if (!Number.isFinite(t) || !room.channel) return false;
+    const metas = (room.channel.presenceState() || {})[from];
+    const good = Array.isArray(metas) ? metas.filter((m) => m && signedBy(room, PRESENCE, from, m)) : [];
+    const pt = Math.max(-Infinity, ...good.map((m) => Number(m._t)).filter(Number.isFinite));
+    if (!(pt > 0) || t < pt || t - pt > 24 * 3600 * 1000) return false;
+    const last = room.lastT.get(from) || 0;
+    if (t < last) return false;
+    room.lastT.set(from, t);
+    return true;
+  };
   // Takes a message only if it is signed for me by the one it names, not too old, and not seen before. One player's
   // messages stay in their order while a key is fetched.
   function accept(room, event, payload) {
@@ -254,7 +275,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     const run = () => {
       if (room.unsigned) return without(p, ['_s', '_t', '_n']);
       const t = Number(p._t);
-      if (!signedBy(room, event, from, p) || !(Math.abs(Date.now() - t) <= SKEW_MS)) return null;
+      if (!signedBy(room, event, from, p) || !(Math.abs(Date.now() - t) <= SKEW_MS || onTheirClock(room, from, t))) return null;
       const id = from + ':' + event + ':' + t + ':' + p._n;
       if (room.seen.has(id)) return null; // (the same message again: a replay)
       room.seen.add(id);
@@ -383,7 +404,7 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     if (room && room.uid !== uid) { close(room); room = null; } // (another account on this phone)
     if (room) return room;
     room = { topic, uid, channel: null, owner: null, subscribed: false, linger: null, retry: null, tries: 0, gaveUp: false,
-      keys: new Map(), retryAt: new Map(), asking: null, unsigned: false, signedFor: new Set(), lastTrack: 0, resign: null, resigned: [], keyWait: false, told: false, since: 0, firstTimer: null, chains: new Map(), seen: new Set() };
+      keys: new Map(), retryAt: new Map(), lastT: new Map(), asking: null, unsigned: false, signedFor: new Set(), lastTrack: 0, resign: null, resigned: [], keyWait: false, told: false, since: 0, firstTimer: null, chains: new Map(), seen: new Set() };
     rooms.set(topic, room);
     room.ready = settle(topic).then(() => { if (rooms.get(topic) === room && !disposed) connect(room); });
     return room;
@@ -437,7 +458,8 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
       const body = { ...without(payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}, ['_s']), id: room.uid, _t: Date.now(), _n: (room.sent = (room.sent || 0) + 1) };
       if (!room.unsigned) {
         const ids = peers(room);
-        await keysFor(room, ids);
+        // (a newcomer's key is worth a short wait, never a long one: everyone else would hear nothing meanwhile)
+        await Promise.race([keysFor(room, ids).catch(() => {}), new Promise((r) => setTimeout(r, SEND_WAIT_MS))]);
         body._s = signFor(room, String(event), body, ids);
       }
       if (!room.channel || room.owner !== ch) return false;
