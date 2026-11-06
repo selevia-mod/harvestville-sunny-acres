@@ -168,7 +168,7 @@ class PubRoom extends Room {
     if (!fresh) this.moved.add(p.id);
     const view = this.viewOf(p, null);
     p.view = new Set(view.map((q) => q.id));
-    this.send(p, { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: view.map((q) => this.pplRow(q)), cap: this.cap, ch: this.ch, n: this.n, st: now });
+    this.send(p, { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: view.map((q) => this.pplRow(q)), cap: this.cap, ch: this.ch, here: this.players.size, n: this.n, st: now });
     this.baits.forEach((b) => { if (b.id !== p.id && b.until > now) this.send(p, { t: 'bt', id: b.id, x: b.x, y: b.y, until: b.until }); });
     return null;
   }
@@ -251,8 +251,11 @@ class PubRoom extends Room {
     const moved = new Map(), rows = new Map();
     this.moved.forEach((id) => { const p = this.players.get(id); if (p) moved.set(id, JSON.stringify([id, Math.round(p.x), Math.round(p.y), p.dir, p.m])); });
     const rowOf = (q) => { let s = rows.get(q.id); if (!s) rows.set(q.id, (s = JSON.stringify(this.pplRow(q)))); return s; };
-    const shared = m.length || this.goneNow.length;
-    const head = '{"t":"tk","n":' + this.n + ',"st":' + this.game.now() + ',"m":' + JSON.stringify(m) + ',"gone":' + JSON.stringify(this.goneNow);
+    // how many are in the whole room (the phone's "Banaue 2 · 23 here"), when it changed
+    const here = this.players.size, newHere = here !== this.hereSent;
+    this.hereSent = here;
+    const shared = m.length || this.goneNow.length || newHere;
+    const head = '{"t":"tk","n":' + this.n + ',"st":' + this.game.now() + (newHere ? ',"here":' + here : '') + ',"m":' + JSON.stringify(m) + ',"gone":' + JSON.stringify(this.goneNow);
     this.players.forEach((p) => {
       if (!p.conn || this.game.behind(p.conn)) return; // (far behind: this tick waits, so its view's news is not lost)
       const now = this.viewOf(p, p.view), ids = new Set(), pm = [], come = [], left = [];

@@ -870,6 +870,14 @@ var C = F.Config;
 
 C.NEWS = [
 {
+v: '2.6', date: 'November 7, 2026', lines: [
+
+['bow', 'Hunt with everyone', 'Every hunting place is open to all players now, up to 30 in a place. Hunt the same animals together: everyone who hits one gets a share when it goes down.', 'hunt_open'],
+['star', 'Medal frames', 'Each medal you earn sits in its own frame: gold for a boss, rainbow for a rare animal, silver for a guard, a tame, a story or a giant, bronze for the rest.'],
+['bow', 'Smoother dungeons with friends', 'A monster you beat stays down on your friends\' phones too, and a cleared floor\'s way down opens for a friend who comes in later.'],
+],
+},
+{
 v: '2.5', date: 'November 7, 2026', lines: [
 ['star', 'Gear stars', 'Kanor puts up to 3 stars on a piece you own, from its place\'s boss and guard parts. Each star takes 1 more energy off a charge there.', 'gear_stars'],
 ['bag', '999 in a slot', 'A bag slot now holds 999 of one thing, and so does each storage slot. Tools still take a slot each.'],
@@ -15310,6 +15318,14 @@ if (id && n && C.PLACE_GEAR[id] && L.ownsPiece(s, id)) s.gstar[id] = n;
 });
 return s;
 };
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZ-hunt-open.js
+
+
+(function (F) {
+'use strict';
+F.Config.TIPS.push({ key: 'hunt_open_tour', text: 'HUNTING TOGETHER' });
 })(window.Farm = window.Farm || {});
 
 // ---- src/02-host.js
@@ -31902,6 +31918,7 @@ fail(e);
 
 (function (F) {
 'use strict';
+var DOGS = 6;
 var C = F.Config;
 var L = F.Logic;
 var T = C.TILE;
@@ -31952,9 +31969,10 @@ if (!this.wild || !this.huntDog || this.busy || !this.sys.isActive()) return;
 var dt = Math.min(delta, 100), self = this, busy = !F.ui || F.ui.blocking();
 this.updateHuntDog(this.huntDog, this.feet(), dt, time, busy);
 
-var seen = {};
-Object.keys(this.remotes || {}).forEach(function (id) {
-var r = self.remotes[id];
+
+var seen = {}, me = this.feet(), rs = this.remotes || {};
+Object.keys(rs).sort(function (a, b) { return Math.hypot(rs[a].x - me.x, rs[a].y - me.y) - Math.hypot(rs[b].x - me.x, rs[b].y - me.y); }).slice(0, DOGS).forEach(function (id) {
+var r = rs[id];
 seen[id] = true;
 var fd = self.friendDogs[id];
 if (!fd) fd = self.friendDogs[id] = makeDog(self, r.x - HD.behind * T, r.y + 0.2 * T, id);
@@ -42738,6 +42756,7 @@ if (t === 'no') return fail(g, 'no:' + String(m.why || ''), true);
 if (t === 'wl') {
 g.ok = my;
 g.mode = 'live';
+g.tickN = isFinite(Number(m.n)) ? Number(m.n) : null;
 g.everLive = true;
 g.tries = 0;
 clearTimeout(g.waitT);
@@ -42758,6 +42777,7 @@ g.here = isFinite(Number(m.here)) ? Math.max(0, Math.floor(Number(m.here))) : 0;
 tameOut(g);
 g.farmTold = false;
 redraw(g);
+if (F.GameServer && typeof F.GameServer.onPubLive === 'function') F.GameServer.onPubLive(g);
 return;
 }
 (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
@@ -42765,8 +42785,11 @@ return;
 }
 if (g.mode !== 'live' || g.ok !== my) return;
 if (t === 'tk') {
-var st = Number(m.st);
+var st = Number(m.st), tn = Number(m.n);
 if (!isFinite(st)) return;
+
+if (isFinite(tn) && g.tickN != null && tn <= g.tickN) return;
+if (isFinite(tn)) g.tickN = tn;
 g.skew = Math.min(g.skew, Date.now() - st);
 apply(w, st, m.m, false);
 (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { var a = find(w, slot); if (a) w.wildGone(a); });
@@ -43108,6 +43131,89 @@ var g = gs;
 return g ? { mode: g.mode, why: g.why || '', you: g.you || '', rtt: g.rtt, connects: g.connects || 0, sent: g.sent || 0, got: g.got || 0, n: g.n || 0, map: g.map, floor: g.floor,
 pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubChipText && F.ui.pubChipBox.visible ? F.ui.pubChipText.text : '' } : null;
 },
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzz-hunt-open.js
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var K = F.UI_CONST, INK = K.INK;
+
+var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
+var farmer = function (ui, sc, x, y, girl, flip, scale) {
+var key = F.ensureTexture(ui, girl ? 'player_girl' : 'player');
+var p = ui.add.image(x, y, key, 0).setOrigin(0.5, 1).setScale(scale || 0.26).setFlipX(!!flip);
+sc.add(p);
+return p;
+};
+var pill = function (ui, sc, x, y, str) {
+var t = ui.txt(x + 22, y, str, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5), w = Math.ceil(t.width) + 32;
+var g = ui.add.graphics();
+g.fillStyle(0x24160b, 0.85).fillRoundedRect(x, y - 12, w, 24, 12);
+g.lineStyle(1.5, 0xffd23f, 0.85).strokeRoundedRect(x + 0.75, y - 11.25, w - 1.5, 22.5, 11.25);
+sc.add([g, ui.add.circle(x + 13, y, 4, 0x7ee06a), t]);
+return w;
+};
+
+F.TOURS.hunt_open = {
+title: 'HUNTING TOGETHER',
+steps: [
+{
+text: 'The hunting places are open to all players now. Hunt with players from all over Harvest Ville, up to 30 in a place.',
+draw: function (ui, sc, move) {
+[[52, false, false], [104, true, false], [196, false, true], [242, true, true]].forEach(function (f, i) {
+var p = farmer(ui, sc, f[0], 128, f[1], f[2]);
+tw(ui, move, { targets: p, y: 120, duration: 360, yoyo: true, repeat: -1, delay: i * 180, ease: 'Sine.inOut' });
+});
+var b = icon(ui, sc, 148, 52, C.ICON.bow, 0.34);
+tw(ui, move, { targets: b, angle: 12, duration: 460, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+},
+},
+{
+text: 'The chip at the top shows your place and how many are hunting there with you.',
+draw: function (ui, sc, move) {
+var w = pill(ui, sc, 60, 46, 'Pulag 2 \u00b7 17 here');
+var hand = words(ui, sc, 60 + w / 2, 84, '\u25b2', 18, '#a8740c');
+tw(ui, move, { targets: hand, y: 76, duration: 420, yoyo: true, repeat: -1 });
+farmer(ui, sc, 150, 140, false, false, 0.22);
+},
+},
+{
+text: 'Everyone who hits an animal gets a share when it goes down. Tap a hunter to wave or add them as a friend.',
+draw: function (ui, sc, move) {
+farmer(ui, sc, 86, 132, false, false, 0.22);
+farmer(ui, sc, 196, 132, true, true, 0.22);
+var m = icon(ui, sc, 141, 112, C.ICON.venison, 0.3);
+tw(ui, move, { targets: m, y: 104, duration: 420, yoyo: true, repeat: -1 });
+var h = icon(ui, sc, 141, 40, C.ICON.heart, 0.26);
+tw(ui, move, { targets: h, scale: 0.32, duration: 420, yoyo: true, repeat: -1 });
+},
+},
+],
+};
+
+var asked = false;
+F.GameServer.onPubLive = function () {
+var s = F.session && F.session.state;
+if (asked || !s || L.tipSeen(s, 'hunt_open_tour') || (window.gameHost && window.gameHost.quiet)) return;
+asked = true;
+var tries = 0;
+var show = function () {
+var w = F.world, st = F.GameServer.state() || {};
+if (!F.ui || st.mode !== 'live' || !st.pub || L.tipSeen(F.session.state, 'hunt_open_tour')) { asked = false; return; }
+if ((F.ui.modals.length || !w || w.busy || document.getElementById('farm-ask')) && tries++ < 40) return setTimeout(show, 1500);
+if (!L.takeTip(F.session.state, 'hunt_open_tour')) return;
+F.Host.save(F.session.state);
+F.ui.tour('hunt_open');
+};
+setTimeout(show, 2800);
 };
 })(window.Farm = window.Farm || {});
 

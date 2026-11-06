@@ -50,7 +50,16 @@ function fakeGameServer({ floors, refuse, silent } = {}) {
     const now = Date.now(), at = now - (c[dir + 'Sent'] || 0) < 30 ? c[dir] : Math.max(c[dir], now + rand(60, 250));
     c[dir] = at;
     c[dir + 'Sent'] = now;
-    setTimeout(fn, Math.max(0, at - now));
+    // one queue a way, so they come out in the order they went in (as one connection keeps them: two timers due at the
+    // same moment can fire out of order, and a stale tick after a kill brought a dead monster back in this test)
+    const q = c[dir + 'Q'] || (c[dir + 'Q'] = []);
+    q.push({ at, fn });
+    if (q.length > 1) return;
+    const pump = () => {
+      while (q.length && q[0].at <= Date.now()) q.shift().fn();
+      if (q.length) setTimeout(pump, Math.max(0, q[0].at - Date.now()));
+    };
+    setTimeout(pump, Math.max(0, at - now));
   };
   const out = (c, m) => delayed(c, 'outAt', () => { if (c.sock.readyState === 1) c.sock.send(JSON.stringify(m)); });
   const all = (r, m) => r.conns.forEach((c) => out(c, m));
@@ -453,7 +462,14 @@ async function realServer() {
   proxy.on('connection', (down) => {
     const up = new WS('ws://127.0.0.1:' + addr.port + '/');
     const toUp = [], outAt = { v: 0 }, inAt = { v: 0 };
-    const later = (at, fn) => { const t = Math.max(Date.now() + lag(), at.v + 1); at.v = t; setTimeout(fn, t - Date.now()); };
+    const later = (at, fn) => { // (one queue a way: in order, as one connection)
+      const t = Math.max(Date.now() + lag(), at.v); at.v = t;
+      const q = at.q || (at.q = []);
+      q.push({ t, fn });
+      if (q.length > 1) return;
+      const pump = () => { while (q.length && q[0].t <= Date.now()) q.shift().fn(); if (q.length) setTimeout(pump, Math.max(0, q[0].t - Date.now())); };
+      setTimeout(pump, Math.max(0, t - Date.now()));
+    };
     up.on('open', () => { while (toUp.length) up.send(toUp.shift()); });
     down.on('message', (m) => later(inAt, () => { if (up.readyState === 1) up.send(String(m)); else toUp.push(String(m)); }));
     up.on('message', (m) => later(outAt, () => { if (down.readyState === 1) down.send(String(m)); }));
@@ -518,6 +534,32 @@ test('the REAL game server: the line drops in the middle of a floor and both pho
   const a = await list(host.page), b = await list(guest.page);
   assert.strictEqual(b, a, 'the same floor on both after the drop');
   assert.ok(!a.split(' ').some((e) => Number(e.split(':')[0]) === first), 'the one killed before the drop stays gone');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+test('game server: a tick older than one already heard never brings a monster back (it came after the kill)', async () => {
+  const server = createServer();
+  let spec = null;
+  const gsrv = await fakeGameServer({ floors: (map, floor) => (map === MAP && floor === FLOOR ? spec.map((m) => ({ ...m })) : []) });
+  const { host, guest } = await pair(server, gsrv.url);
+  spec = await floorSpec(host.page);
+  await go(host, FLOOR);
+  await go(guest, FLOOR);
+  for (const who of [host, guest]) await waitMode(who.page, 'live');
+  const want = gsrv.list(roomKey(host));
+  for (const who of [host, guest]) await until(async () => (await list(who.page)) === want, 'one list');
+  for (const who of [host, guest]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+  const slot = Number(want.split(' ')[0].split(':')[0]);
+  const row = await guest.page.evaluate((n) => JSON.parse(JSON.stringify(Farm.Logic.wildPack(Farm.world.wild.animals.find((a) => a.slot === n)))), slot);
+  assert.strictEqual(await hunt(host.page, slot), true);
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  // a stale tick (number 1, long since passed) with the monster still in it, straight to the guest's line
+  const room = gsrv.rooms.get(roomKey(host)), c = [...room.conns].find((x) => x.id === guest.uid);
+  c.sock.send(JSON.stringify({ t: 'tk', n: 1, st: Date.now(), m: [row], gone: [], p: [], left: [], come: [] }));
+  await sleep(1500);
+  assert.ok(!(await guest.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot)), 'still gone');
+  assert.strictEqual(await list(guest.page), gsrv.list(roomKey(host)));
   for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });

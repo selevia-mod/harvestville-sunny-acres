@@ -63,7 +63,16 @@ function fakePubServer({ animals, cap = 30, refuse } = {}) {
     const now = Date.now(), at = now - (c[dir + 'Sent'] || 0) < 30 ? c[dir] : Math.max(c[dir], now + rand(60, 250));
     c[dir] = at;
     c[dir + 'Sent'] = now;
-    setTimeout(fn, Math.max(0, at - now));
+    // one queue a way, so they come out in the order they went in (as one connection keeps them: two timers due at the
+    // same moment can fire out of order, and a stale tick after a kill brought a dead monster back in this test)
+    const q = c[dir + 'Q'] || (c[dir + 'Q'] = []);
+    q.push({ at, fn });
+    if (q.length > 1) return;
+    const pump = () => {
+      while (q.length && q[0].at <= Date.now()) q.shift().fn();
+      if (q.length) setTimeout(pump, Math.max(0, q[0].at - Date.now()));
+    };
+    setTimeout(pump, Math.max(0, at - now));
   };
   const out = (c, m) => {
     if (!c.sock) return;
@@ -290,7 +299,7 @@ const hunt = (page, slot) => page.evaluate(async (n) => {
     const a = w.wild.animals.find((x) => x.slot === n && !x.gsLocal);
     if (!a) return true;
     const f = w.feet();
-    if (Math.hypot(f.x - a.x, f.y - a.y) > 4 * 256) w.setFeet(a.x, a.y + 128);
+    if (Math.hypot(f.x - a.x, f.y - a.y) > 4 * 256) w.setFeet(a.x, a.y + 384); // (1.5 tiles off: not standing where its drops fall)
     if (a.hp > 0) w.wildStruck(a);
     await new Promise((r) => setTimeout(r, 170));
   }
@@ -480,11 +489,14 @@ test('public room (fake server): your tame animal stays on your phone only; the 
   await calm(me.page);
   const copy = spec.find((m) => m.slot >= 100);
   const n0 = await me.page.evaluate(() => Farm.session.state.wild.n);
+  // what it always leaves (chance 1): on the ground, or already in the bag (the hunter stands where it fell)
+  const sure = await me.page.evaluate((k) => { const W = Farm.Config.WILD, d = (W.animals[k] || {}).drops || []; return d.filter((x) => x[2] >= 1).map((x) => x[0]); }, copy.kind);
+  const had = await me.page.evaluate((ids) => ids.map((id) => Farm.Logic.countItem(Farm.session.state, id)), sure);
   assert.strictEqual(await hunt(me.page, copy.slot), true);
   await me.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), copy.slot, SLOW);
   const rec = await me.page.evaluate((slot) => { const s = Farm.session.state; return { n: s.wild.n, base: !!s.wild.gone['banaue:' + (slot % 100)], copy: !!s.wild.gone['banaue:' + slot] }; }, copy.slot);
   assert.deepStrictEqual(rec, { n: n0 + 1, base: true, copy: false });
-  assert.ok((await me.page.evaluate(() => Farm.world.wildDrops.length)) > 0);
+  await me.page.waitForFunction(([ids, had]) => Farm.world.wildDrops.length > 0 || ids.some((id, i) => Farm.Logic.countItem(Farm.session.state, id) > had[i]), [sure, had], SLOW);
   assert.deepStrictEqual(relayOnMap(me, 'banaue').filter((m) => HUNT[m.ev]), []);
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
@@ -583,7 +595,14 @@ async function realServer() {
   proxy.on('connection', (down) => {
     const up = new WS('ws://127.0.0.1:' + addr.port + '/');
     const toUp = [], outAt = { v: 0 }, inAt = { v: 0 };
-    const later = (at, fn) => { const t = Math.max(Date.now() + lag(), at.v + 1); at.v = t; setTimeout(fn, t - Date.now()); };
+    const later = (at, fn) => { // (one queue a way: in order, as one connection)
+      const t = Math.max(Date.now() + lag(), at.v); at.v = t;
+      const q = at.q || (at.q = []);
+      q.push({ t, fn });
+      if (q.length > 1) return;
+      const pump = () => { while (q.length && q[0].t <= Date.now()) q.shift().fn(); if (q.length) setTimeout(pump, Math.max(0, q[0].t - Date.now())); };
+      setTimeout(pump, Math.max(0, t - Date.now()));
+    };
     up.on('open', () => { while (toUp.length) up.send(toUp.shift()); });
     down.on('message', (m) => later(inAt, () => { if (up.readyState === 1) up.send(String(m)); else toUp.push(String(m)); }));
     up.on('message', (m) => later(outAt, () => { if (down.readyState === 1) down.send(String(m)); }));
@@ -711,4 +730,51 @@ test('the REAL server: two friends on a hunting place are live in one public roo
   }
   for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+const modalText = (page) => page.evaluate(() => {
+  const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1];
+  const walk = (list) => list.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+  if (m) walk(m.c.list);
+  return out.join(' | ');
+});
+async function tapButton(page, label) {
+  const pos = await page.evaluate((label) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1], found = [];
+    const walk = (list) => list.forEach((o) => {
+      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o.getBounds());
+      if (o.list) walk(o.list);
+    });
+    if (m) walk(m.c.list);
+    const b = found[0];
+    return b && { x: b.centerX, y: b.centerY };
+  }, label);
+  assert.ok(pos, 'button "' + label + '" is on screen');
+  await page.touchscreen.tap(pos.x, pos.y);
+  await sleep(300);
+}
+
+test('the first time you are live in a public room: the HUNTING TOGETHER tour, every step drawn, once', async () => {
+  const server = createServer(), gsrv = await fakePubServer({ animals: () => [] });
+  const me = await open(server, gsrv.url, 'Tour Farm');
+  await me.page.evaluate(() => { window.gameHost.quiet = false; });
+  await go(me);
+  await waitMode(me.page, 'live');
+  await me.page.waitForFunction(() => Farm.Logic.tipSeen(Farm.session.state, 'hunt_open_tour') && Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await modalText(me.page), /HUNTING TOGETHER[\s\S]*open to all players now/);
+  await tapButton(me.page, 'Next');
+  assert.match(await modalText(me.page), /how many are hunting there with you/);
+  await tapButton(me.page, 'Next');
+  assert.match(await modalText(me.page), /gets a share/);
+  await tapButton(me.page, 'Got it');
+  const after = await modalText(me.page);
+  assert.doesNotMatch(after, /HUNTING TOGETHER/, 'the tour closed (another first-time card may follow: tips are on here)');
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  // another time live: no tour
+  await go(me);
+  await waitMode(me.page, 'live');
+  for (let k = 0; k < 10; k++) { await sleep(500); assert.doesNotMatch(await modalText(me.page), /HUNTING TOGETHER/, 'once only'); }
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+  await gsrv.close();
 });

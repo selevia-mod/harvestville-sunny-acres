@@ -23,7 +23,7 @@
 // 'bt', 'ar') and its farmers there are drawn only from the server's list (never twice). Bait ('bt') and your arrows in
 // flight ('ar') go to the server, and others' come from it. The place's tame animal stays your own: on this phone only.
 // A stranger's farmer opens the Central Park card (Add friend, Report, Block); a blocked one is not drawn. The chip says
-// the room: "Banaue 2 · 4 here" (the server sends only those near you: the count is them and you).
+// the room: "Banaue 2 · 23 here" (the whole room: the server says how many, `here` in wl and tk).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -423,6 +423,7 @@
     if (t === 'wl') {
       g.ok = my;
       g.mode = 'live';
+      g.tickN = isFinite(Number(m.n)) ? Number(m.n) : null; // (the ticks after this welcome count on from here)
       g.everLive = true;
       g.tries = 0;
       clearTimeout(g.waitT);
@@ -443,6 +444,7 @@
         tameOut(g);
         g.farmTold = false;
         redraw(g);
+        if (F.GameServer && typeof F.GameServer.onPubLive === 'function') F.GameServer.onPubLive(g); // (the first time: its tour)
         return;
       }
       (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
@@ -450,8 +452,11 @@
     }
     if (g.mode !== 'live' || g.ok !== my) return;
     if (t === 'tk') {
-      var st = Number(m.st);
+      var st = Number(m.st), tn = Number(m.n);
       if (!isFinite(st)) return;
+      // a tick older than one already applied never comes after it (it could bring back a monster since gone)
+      if (isFinite(tn) && g.tickN != null && tn <= g.tickN) return;
+      if (isFinite(tn)) g.tickN = tn;
       g.skew = Math.min(g.skew, Date.now() - st); // (the quickest a tick ever came: the server's clock against ours)
       apply(w, st, m.m, false);
       (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { var a = find(w, slot); if (a) w.wildGone(a); });

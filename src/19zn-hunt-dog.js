@@ -6,6 +6,7 @@
 // on your screen (only yours points and fetches). The same picture as the farm dog (13-animals.js).
 (function (F) {
   'use strict';
+  var DOGS = 6; // others' dogs drawn at most (the nearest)
   var C = F.Config;
   var L = F.Logic;
   var T = C.TILE;
@@ -55,10 +56,11 @@
     if (!this.wild || !this.huntDog || this.busy || !this.sys.isActive()) return;
     var dt = Math.min(delta, 100), self = this, busy = !F.ui || F.ui.blocking();
     this.updateHuntDog(this.huntDog, this.feet(), dt, time, busy);
-    // friends' dogs: one for each friend here, following them
-    var seen = {};
-    Object.keys(this.remotes || {}).forEach(function (id) {
-      var r = self.remotes[id];
+    // friends' dogs: one for each friend here, following them (at most the DOGS nearest: a hunting place open to
+    // everyone can have 15 others drawn, and a cheap phone should not draw 15 dogs too)
+    var seen = {}, me = this.feet(), rs = this.remotes || {};
+    Object.keys(rs).sort(function (a, b) { return Math.hypot(rs[a].x - me.x, rs[a].y - me.y) - Math.hypot(rs[b].x - me.x, rs[b].y - me.y); }).slice(0, DOGS).forEach(function (id) {
+      var r = rs[id];
       seen[id] = true;
       var fd = self.friendDogs[id];
       if (!fd) fd = self.friendDogs[id] = makeDog(self, r.x - HD.behind * T, r.y + 0.2 * T, id);

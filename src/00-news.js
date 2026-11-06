@@ -8,6 +8,14 @@
 
   C.NEWS = [
     {
+      v: '2.6', date: 'November 7, 2026', lines: [
+        // (owner, 7 Nov 2026: "open it to everyone up to 30"; docs/game-server.md "Step 2")
+        ['bow', 'Hunt with everyone', 'Every hunting place is open to all players now, up to 30 in a place. Hunt the same animals together: everyone who hits one gets a share when it goes down.', 'hunt_open'],
+        ['star', 'Medal frames', 'Each medal you earn sits in its own frame: gold for a boss, rainbow for a rare animal, silver for a guard, a tame, a story or a giant, bronze for the rest.'],
+        ['bow', 'Smoother dungeons with friends', 'A monster you beat stays down on your friends\' phones too, and a cleared floor\'s way down opens for a friend who comes in later.'],
+      ],
+    },
+    {
       v: '2.5', date: 'November 7, 2026', lines: [
         ['star', 'Gear stars', 'Kanor puts up to 3 stars on a piece you own, from its place\'s boss and guard parts. Each star takes 1 more energy off a charge there.', 'gear_stars'],
         ['bag', '999 in a slot', 'A bag slot now holds 999 of one thing, and so does each storage slot. Tools still take a slot each.'],

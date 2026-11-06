@@ -408,3 +408,19 @@ test('a cave row carries the look only when the phone sent one (step 1 rows stay
   const c = await w.phone('cara', { floor: 4 });
   assert.deepStrictEqual(c.last('wl').ppl.find((r) => r[0] === 'ben'), ['ben', 'ben', 'boy', 1408, 922, 'down', 0]);
 });
+
+test('how many are in the whole room: `here` in the wl, and in the next tk for everyone when it changes (even far apart)', async () => {
+  const w = world(), T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 3 * T, y: 3 * T });
+  assert.strictEqual(a.last('wl').here, 1);
+  const b = await w.pub('bo', 'pulag', { x: 40 * T, y: 30 * T }); // (out of Ann's view)
+  assert.strictEqual(b.last('wl').here, 2);
+  w.run(50);
+  assert.strictEqual(a.last('tk').here, 2, 'Ann hears the room grew, though Bo is far');
+  b.say({ t: 'bye' });
+  w.run(50);
+  assert.strictEqual(a.last('tk').here, 1);
+  const before = a.all('tk').length;
+  w.run(200);
+  assert.ok(a.all('tk').slice(before).every((m) => m.here == null), 'said once, not every tick');
+});

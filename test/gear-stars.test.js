@@ -69,5 +69,5 @@ test('stars: 1 more off a charge each, only in the piece\'s own place, never und
   const got = L.deserialize(o);
   assert.deepStrictEqual(plain(got.gstar), { sierra_head: 3, sierra_body: 3 });
   assert.strictEqual(L.serialize(fresh()).gs, undefined, 'a new farm saves no stars');
-  assert.ok(C.TIPS.some((t) => t.key === 'gear_stars_tour') && C.TIPS[C.TIPS.length - 1].key === 'gear_stars_tour', 'its tour tip comes last');
+  assert.ok(C.TIPS.some((t) => t.key === 'gear_stars_tour') && C.TIPS.map((t) => t.key).indexOf('gear_stars_tour') === C.TIPS.map((t) => t.key).indexOf('hall_tour') + 1, 'its tour tip comes after the Hall of Fame\'s (appended)');
 });
