@@ -95,3 +95,70 @@ place creatures at `1000 + WI.more.indexOf(kind)` (the game's `L.wildPack` / `L.
   to reach everyone, bandwidth.
 - `test/e2e-gameserver.test.js`: two real game pages against a local server, with delay: one list on both, a kill
   stays killed, the gate opens for both, a dropped connection comes back, and no server means the old way.
+
+# Step 2: the hunting places, open to everyone, 30 a room (owner, 7 Nov 2026)
+
+Owner: "open it to everyone up to 30 ... then if we got many players we can open it to 100". Every hunting place
+(`L.isWildMap`: Pulag, Makiling, Magayon and the new places: Banaue, Bohol, Taal, Sierra, Palawan) becomes one shared
+world for everyone, in rooms of 30 like Central Park's channels (Banaue 1, Banaue 2, ...). Strangers meet and hunt the
+same animals. The caves stay as in step 1 (a farm's floor, 8). Nothing goes through Supabase Realtime in a public room
+(no message budget: the server carries it all). With no server (switch off, refused, down) the place plays the old way
+(your farm's room, friends only), exactly as today.
+
+## Joining a public room
+
+The same socket and `hi`, with `topic: 'pub'`, the place's `map`, `floor: 0`, and:
+
+| field | what |
+|---|---|
+| `with` | (optional) a player id to be put with: the farm you are visiting (its host), or a friend from your farm's room who is on this place now. |
+| `lk` | how you look, drawn by the others: `{ cs, pt, rd }` as `O.myState()` (the look you wear, the party hat, on your horse). The server keeps it short (`cs` 64 chars) and passes it on. |
+| `bk` | unused here (0). |
+
+The server picks the room: the `with` player's room of this map if it has space; else the fullest room of this map that
+still has space (so places feel alive); else a new one (the lowest free number). The cap is **30** (`PUB_CAP`, one
+number to raise to 100 later). `wl` gains `ch` (the room number, shown as "Banaue 2") and `cap` 30. `no` `full` never
+happens for `pub` (a new room opens). Any good token may join `pub` (no farm check).
+
+## What the server does in a public room
+
+- **Animals:** the place's own list, as `L.wildHere` would give a player now, from a shared state: today's day and
+  minute from the real clock in Philippine time (`L.minuteOf`, as the phones), the same weather (`L.weather`), the
+  same rare hours (`L.wildRare`), wolves only at night, the Great Mammoth on its weekend (`great`, needs two or more
+  hunters in the room as today). The room has its own `gone` list: a hunted slot comes back after its `respawn` minutes
+  (`WI.respawn`, or the animal's own), divided by the crowd: `ceil(players / 5)`, at most 3 (30 hunters must not find
+  an empty field). More hunters also bring more animals: for each 6 players beyond the first 6 the room adds one more
+  copy of the place's roster (slots `100 * copy + slot`), at most 3 copies in all. New animals walk in as the game's
+  `arrive` (20-40 s), never pop in front of anyone.
+- **Not on the server:** the place's tame animal (`e.tame`: each player's own, as today: the phone keeps it as a
+  local-only animal, never sent, never in the room's list).
+- **Bait** (`bt` phone → server: `x`, `y`): the server puts it down for the room (one bait per phone at a time, `WI.baitMins`),
+  and its monsters go to it as the game's bait rules (`19v-wild.js`: a shy animal near it walks to it and eats). The
+  other phones are told (`bt` server → phone: `id`, `x`, `y`, `until`) and draw it.
+- **Arrows in flight** (`ar` phone → server, as the old relay's payload) are passed on to the phones that can see it.
+- **Who sees whom (so a cheap phone is never asked to draw 30):** each phone gets the players within `VIEW` tiles of it
+  (18 tiles: a phone screen and a margin), at most the **15 nearest**. Coming into view is a `come`, going out of it
+  a `left` (the phone treats them as joining and leaving). Animals: all of them (a place has fewer than 40).
+- Kills, shares (`by`), the hit checks, `bp` charges, `hp`: as step 1. A public room never sends `cl`.
+- An empty public room goes at once (no 30 s keep: a new one is made fresh).
+
+## What the phone does in a public room
+
+- On a hunting place as yourself (your own save: at home, or on a visit `v.inTown`), with the switch on: join `pub`
+  for that map. Your farm's room stays joined and says where you went (as the park), but it carries **no** hunt
+  messages there and its farmers are not drawn on that map (the server's list is who is here: never twice).
+- Everyone else is drawn from the server: name, look (`lk`), walking between ticks as in the caves. A stranger's
+  farmer opens the same player card as in Central Park (Add friend, Report, Block). A blocked player is not drawn.
+- The place's name shows its room: "Banaue 2 · 17 here" (where the park shows "Park 2").
+- No chat in a hunting place yet (Central Park has it). Emotes and waves as the farm rooms, if they already exist.
+- The tame animal stays your own (local only). Your drops, records and energy are yours (as today).
+
+## Tests (step 2)
+
+- `server/test`: room choice (`with`, fullest with space, a new room at 30), respawn by crowd, copies, view (15 nearest
+  within 18 tiles), bait, `ar` passed on, the tame never on the server.
+- Load: **30 bots on one place, and 6 places at once (180)**, with 60-250 ms each way: the slowest tick, KB/s down per
+  phone (target under 8), a kill to everyone.
+- Game e2e against the REAL server: 4 real game pages on one place (two strangers, two friends with `with`), one list
+  for all, a kill gone for all, a stranger's card, bait, and a cheap-phone check: 29 bots walking round one page
+  (the page's frame time while drawing them).
