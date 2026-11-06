@@ -7,8 +7,8 @@
 // page for this place is docs/places/taal.md (every number is listed there). Maps: maps/taal.json, maps/taal_crater.json
 // (tools/make-map.js). Mang Celso's small gifts for each story step are in 01-logicZZZZZ-place-13-taal.js.
 // Art (art-src/places/taal/, docs/places-items.json): every picture is wired by name below and the engine draws a
-// stand-in until it is in. Icons: F.placeIcons is NOT called yet (owner, 6 Nov 2026: only once icons_taal.png is painted
-// into assets/items.png); until then each item shows its standIn.
+// stand-in until it is in. Icons: icons_taal.png is painted into assets/items.png by tools/art/places-import.js (owner's
+// art, 6 Nov 2026), in C.TAAL_ICONS' order.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -16,6 +16,11 @@
   // Local food (owner, 6 Nov 2026): a dish and a drink, cooked in the kitchen like the others (recipes are found by
   // their dish, not by their place in the list, so appending is safe).
   C.RECIPES.push({ dish: 'tapang_taal', needs: ['meat_boar', 'garlic', 'egg'] }, { dish: 'kapeng_barako', needs: ['coffee'] });
+
+  // icons_taal.png, 4 x 4 in this order (docs/places-items.json "taal")
+  C.TAAL_ICONS = ['plume_tagak', 'shell_lake', 'hide_buwaya', 'tooth_buwaya', 'royal_plume', 'fin_siyokoy', 'pearl_kataw', 'scale_lava',
+    'pearl_berberoka', 'lake_hat', 'lake_vest', 'lake_boots', 'lake_charm', 'tapang_taal', 'kapeng_barako', 'sulfur_chip'];
+  F.placeIcons(C.TAAL_ICONS);
 
   F.addPlace({
     id: 'taal', n: 13, name: 'Taal Lake', unlock: 100, map: 'taal', grass: 2, icon: 'plume_tagak',
@@ -40,16 +45,16 @@
 
     creatures: {
       // stand-ins until the owner's art: another animal's row of the wild sheet, in its own colour (sheet: the art name)
-      tagak: { name: 'Tagak', sheet: 'wild_tagak', sheetRow: 'labuyo', tint: 0xf6f4ea, px: 165, w: 1.05, kg: 1.8, hp: 2, walk: 0.6, run: 4.8, shy: 3.2, flies: true, respawn: 15,
+      tagak: { name: 'Tagak', sheet: 'wild_tagak', sheetRow: 'labuyo', tint: 0xf6f4ea, px: 184, w: 1.05, kg: 1.8, hp: 2, walk: 0.6, run: 4.8, shy: 3.2, flies: true, respawn: 15,
         drops: [['plume_tagak', 1, 1], ['shell_lake', 1, 0.5]] },
-      buwaya: { name: 'Buwaya', sheet: 'wild_buwaya', sheetRow: 'boar', tint: 0x8fc070, px: 178, w: 1.8, ground: true, kg: 240, hp: 7, walk: 0.5, run: 3.8, angry: 3, hit: 15, respawn: 15,
+      buwaya: { name: 'Buwaya', sheet: 'wild_buwaya', sheetRow: 'boar', tint: 0x8fc070, px: 190, w: 1.8, ground: true, kg: 240, hp: 7, walk: 0.5, run: 3.8, angry: 3, hit: 15, respawn: 15,
         drops: [['hide_buwaya', 1, 1], ['tooth_buwaya', 1, 0.6]] },
-      royal_tagak: { name: 'Royal Tagak', sheet: 'wild_royaltagak', sheetRow: 'labuyo', tint: 0xb8dcff, px: 165, w: 1.25, kg: 2.8, hp: 3, walk: 0.6, run: 5.6, shy: 6, flies: true, rare: true, respawn: 120,
+      royal_tagak: { name: 'Royal Tagak', sheet: 'wild_royaltagak', sheetRow: 'labuyo', tint: 0xb8dcff, px: 162, w: 1.25, kg: 2.8, hp: 3, walk: 0.6, run: 5.6, shy: 6, flies: true, rare: true, respawn: 120,
         drops: [['royal_plume', 1, 1], ['plume_tagak', 2, 1]] },
       // the tame one (owner: "Tame: the Tagak"): a young egret that follows Mang Celso's banca for fish. The engine makes
       // a tame kind feed-only (never for the Bow), so it is its own kind and the grown Tagak stays a hunt. Smaller, and
       // drawn from the Tagak's own picture once that is in.
-      tagak_bata: { name: 'Little Tagak', sheet: 'wild_tagak', sheetRow: 'labuyo', tint: 0xfff8e0, px: 165, w: 0.8, kg: 0.9, hp: 1, walk: 0.5, run: 4.2, shy: 2.2, flies: true, drops: [] },
+      tagak_bata: { name: 'Little Tagak', sheet: 'wild_tagak', sheetRow: 'labuyo', tint: 0xfff8e0, px: 184, w: 0.8, kg: 0.9, hp: 1, walk: 0.5, run: 4.2, shy: 2.2, flies: true, drops: [] },
     },
     animals: { tagak: 4, buwaya: 2 },
     extra: [{ kind: 'royal_tagak', n: 1, when: 'rare' }],
@@ -82,12 +87,12 @@
       creatures: {
         siyokoy: { name: 'Siyokoy', sheet: 'wild_siyokoy', sheetRow: 'sigbin', tint: 0x7fd0a8, px: 162, w: 1.2, kg: 70, hp: 4, walk: 0.8, run: 4.4, angry: 3.2, hit: 12, ground: true,
           drops: [['fin_siyokoy', 1, 1], ['sulfur_chip', 1, 0.5]] },
-        kataw: { name: 'Kataw', sheet: 'wild_kataw', sheetRow: 'tikbalang', bar: 2.05, tint: 0x8cc4f0, px: 110, w: 1.15, kg: 90, hp: 6, walk: 0.9, run: 4.6, angry: 3.6, hit: 13, ground: true,
+        kataw: { name: 'Kataw', sheet: 'wild_kataw', sheetRow: 'tikbalang', bar: 2.05, tint: 0x8cc4f0, px: 164, w: 1.15, kg: 90, hp: 6, walk: 0.9, run: 4.6, angry: 3.6, hit: 13, ground: true,
           drops: [['pearl_kataw', 1, 0.6], ['fin_siyokoy', 1, 0.4], ['sulfur_chip', 1, 0.6]] },
-        lava_buwaya: { name: 'Lava Buwaya', sheet: 'wild_lavabuwaya', sheetRow: 'rhino', tint: 0xff8a5a, px: 214, w: 2.4, kg: 900, hp: 26, walk: 0.5, run: 3.8, angry: 3.4, hit: 17, ground: true, boss: true,
+        lava_buwaya: { name: 'Lava Buwaya', sheet: 'wild_lavabuwaya', sheetRow: 'rhino', tint: 0xff8a5a, px: 180, w: 2.4, kg: 900, hp: 26, walk: 0.5, run: 3.8, angry: 3.4, hit: 17, ground: true, boss: true,
           drops: [['scale_lava', 1, 1], ['hide_buwaya', 2, 1], ['sulfur_chip', 3, 1]] },
         // soloable; with friends 18 more for each one (like the Bakunawa), and 3 hits to share it
-        berberoka: { name: 'Berberoka', sheet: 'wild_berberoka', sheetRow: 'bungisngis', tint: 0x70d8c8, px: 164, w: 2.6, kg: 1200, hp: 40, hpEach: 18, minHits: 3, walk: 0.6, run: 3.4, angry: 4, hit: 19, ground: true, boss: true,
+        berberoka: { name: 'Berberoka', sheet: 'wild_berberoka', sheetRow: 'bungisngis', tint: 0x70d8c8, px: 174, w: 2.6, kg: 1200, hp: 40, hpEach: 18, minHits: 3, walk: 0.6, run: 3.4, angry: 4, hit: 19, ground: true, boss: true,
           drops: [['pearl_berberoka', 1, 1], ['pearl_kataw', 2, 1], ['sulfur_chip', 4, 1]] },
       },
       floorKinds: [['siyokoy', 1, 10], ['kataw', 3, 10]],

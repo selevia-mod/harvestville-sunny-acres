@@ -12,6 +12,9 @@ const ROOT = path.join(__dirname, '..', '..');
 const SRC = path.join(ROOT, 'assets', 'props', 'mayor.png');
 const OUT = path.join(ROOT, 'assets', 'props', 'hall_of_fame');
 
+// (7 Nov 2026: the owner's painting is in, art-src/park/hall_of_fame.png, made by tools/art/places-import.js: this
+// stand-in is never made over it)
+if (fs.existsSync(path.join(ROOT, 'art-src', 'park', 'hall_of_fame.png'))) { console.log('the owner\'s Hall of Fame is in: node tools/art/places-import.js'); process.exit(0); }
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   const r = await p.evaluate(async (src) => {

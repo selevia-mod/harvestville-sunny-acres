@@ -37,8 +37,9 @@ test('Taal Lake: place 13, opens at 100 hunts, shown in the Jeep; its fixed item
   assert.deepStrictEqual(gearIds, ['lake_hat', 'lake_vest', 'lake_boots', 'lake_charm']);
   j.items.forEach((x) => assert.ok((C.ITEMS[x.id] && C.ITEMS[x.id].place === 'taal') || gearIds.includes(x.id), x.id));
   assert.strictEqual(Object.keys(p.items).length + gearIds.length, 16);
-  // until icons_taal.png is in the items sheet, every item shows a stand-in from before (never an icon past the sheet)
-  Object.keys(p.items).forEach((id) => assert.ok(C.ICON_ORDER.indexOf(id) < 0 && C.ITEMS[id].icon < C.ICON_ORDER.length, id));
+  // icons_taal.png is in the items sheet (owner's art, 6 Nov 2026): every item shows its own icon, in the json's order
+  assert.deepStrictEqual(plain(C.TAAL_ICONS), j.items.map((x) => x.id));
+  Object.keys(p.items).forEach((id) => assert.ok(C.ITEMS[id].icon === C.ICON[id] && C.ICON[id] > C.ICON.chocolate_cake && C.ICON[id] < C.ICON_ORDER.length, id));
   // the art names (art-src/places/taal/...): the creatures' sheets, Mang Celso, the mouth, the gate, the cave tiles
   const sheets = plain(Object.keys(p.creatures).concat(Object.keys(p.dungeon.creatures)).map((k) => A(k).sheet));
   assert.deepStrictEqual(sheets, ['wild_tagak', 'wild_buwaya', 'wild_royaltagak', 'wild_tagak', 'wild_siyokoy', 'wild_kataw', 'wild_lavabuwaya', 'wild_berberoka']);

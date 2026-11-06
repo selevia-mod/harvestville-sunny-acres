@@ -88,16 +88,19 @@ test('the item ids fixed for the five places (docs/places-items.json) are all go
       if (C.ITEMS[x.id]) assert.ok(!C.ITEMS[x.id].place || C.PLACES[C.ITEMS[x.id].place].name === j[p].name, x.id + ' is one from before (used again, not new), or ' + j[p].name + "'s own");
     });
   });
-  // F.placeIcons appends only what is new, at the end, and keeps the ones from before
-  const before = C.ICON_ORDER.length, kald = C.ICON.kaldereta;
-  const ctx2 = { window: {}, console };
+  // F.placeIcons appended only what was new, at the end, place after place, and kept the ones from before (Kaldereta);
+  // calling it again adds nothing
+  const first = C.ICON.chocolate_cake + 1, fresh16 = [].concat(...Object.keys(j).map((p) => j[p].items.map((x) => x.id))).filter((id) => C.ICON_ORDER.indexOf(id) >= first);
+  assert.strictEqual(fresh16.length, 16 * 5 - 1, 'every new icon of the five, Kaldereta kept');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(first)), fresh16, 'in the places\' order, nothing after them');
+  assert.ok(C.ICON.kaldereta < first);
+  const before = C.ICON_ORDER.length, ctx2 = { window: {}, console };
   vm.createContext(ctx2);
   fs.readdirSync(path.join(__dirname, '..', 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'), ctx2));
   ctx2.window.Farm.placeIcons(j.bohol.items.map((x) => x.id));
   const C2 = ctx2.window.Farm.Config;
-  assert.strictEqual(C2.ICON_ORDER.length, before + 15);
-  assert.strictEqual(C2.ICON.kaldereta, kald);
-  assert.strictEqual(C2.ICON_ORDER[before], 'horn_goat');
+  assert.strictEqual(C2.ICON_ORDER.length, before);
+  assert.strictEqual(C2.ICON.horn_goat, C.ICON.horn_goat);
 });
 
 test('the places from before are in the jeep list with their medals; a new place opens by hunts', () => {

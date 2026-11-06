@@ -39,9 +39,11 @@ test('Banaue: the 16 ids of docs/places-items.json, in its order, and every pict
   assert.deepStrictEqual(plain(F.BANAUE_PROP_ORDER), ['banaue_wall', 'banaue_hut', 'banaue_fern', 'banaue_rack', 'banaue_boulder', 'banaue_grass'], 'props_banaue.png, row by row');
   const map = JSON.parse(fs.readFileSync(path.join(ROOT, 'maps', 'banaue.json'), 'utf8'));
   assert.ok(map.tilesets.some((t) => t.name === 'banaue_ground'), 'ground_banaue.png and ground_banaue_water.png go in its own tileset');
-  const packed = require('../tools/places/banaue-art').all;
+  const packed = require('../tools/places/places-art').all();
   ['props/banaue_mouth', 'props/banaue_gate', 'banaue_cave', 'npc_lola_bugan', 'wild_itik', 'wild_itikshade'].concat(F.BANAUE_PROP_ORDER.map((n) => 'props/' + n))
-    .forEach((k) => assert.ok(packed.includes(k), k + ' goes in the wild pack when it comes'));
+    .forEach((k) => assert.ok(packed.includes(k), k + ' goes in the places pack'));
+  // the owner's icons are in (6 Nov 2026): each at the end of the sheet, in the json's order, right after the players'
+  assert.deepStrictEqual(plain(F.BANAUE_ICONS.map((id) => C.ICON[id])), plain(F.BANAUE_ICONS.map((id, i) => C.ICON.chocolate_cake + 1 + i)));
 });
 
 test('Banaue: its numbers sit between Makiling and Magayon (and the Lair)', () => {

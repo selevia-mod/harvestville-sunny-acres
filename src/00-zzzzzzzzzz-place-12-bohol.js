@@ -15,11 +15,11 @@
   'use strict';
   var C = F.Config;
 
-  // The 16 icons of art-src/places/bohol/icons_bohol.png, in the sheet's order (docs/places-items.json). Uncomment the
-  // F.placeIcons line ONLY once the import has painted them at the end of assets/items.png (owner, 6 Nov 2026).
+  // The 16 icons of art-src/places/bohol/icons_bohol.png, in the sheet's order (docs/places-items.json), painted at the
+  // end of assets/items.png by tools/art/places-import.js (owner's art, 6 Nov 2026).
   C.BOHOL_ICONS = ['horn_goat', 'meat_goat', 'tail_musang', 'kape_alamid', 'cocoa_horn', 'hat_duwende', 'pebble_duwende', 'clay_golem',
     'moss_nuno', 'hollow_hat', 'hollow_vest', 'hollow_boots', 'hollow_charm', 'kaldereta', 'peanut_kisses', 'limestone_chip'];
-  // F.placeIcons(C.BOHOL_ICONS);
+  F.placeIcons(C.BOHOL_ICONS);
 
   F.addPlace({
     id: 'bohol', n: 12, name: 'Chocolate Hills', unlock: 80, map: 'bohol', grass: 0, icon: 'horn_goat',
@@ -44,17 +44,17 @@
 
     creatures: {
       // shy: runs when you come close; the Bow needs 3 hits
-      kambing: { name: 'Wild Goat', sheet: 'wild_kambing', row: 0, sheetRow: 'deer', tint: 0xd8b888, px: 179, w: 1.15, kg: 45, hp: 3, walk: 0.8, run: 4.8, shy: 4.4,
+      kambing: { name: 'Wild Goat', sheet: 'wild_kambing', row: 0, sheetRow: 'deer', tint: 0xd8b888, px: 174, w: 1.15, kg: 45, hp: 3, walk: 0.8, run: 4.8, shy: 4.4,
         drops: [['meat_goat', 2, 1], ['horn_goat', 1, 0.5]] },
       // charges from the cogon grass when you come too close
-      musang: { name: 'Musang', sheet: 'wild_musang', row: 0, sheetRow: 'wolf', tint: 0x9a8c80, px: 158, w: 1.05, ground: true, kg: 6, hp: 4, walk: 0.9, run: 4.6, angry: 3.2, hit: 13,
+      musang: { name: 'Musang', sheet: 'wild_musang', row: 0, sheetRow: 'wolf', tint: 0x9a8c80, px: 195, w: 1.05, ground: true, kg: 6, hp: 4, walk: 0.9, run: 4.6, angry: 3.2, hit: 13,
         drops: [['tail_musang', 1, 1], ['kape_alamid', 1, 0.35]] },
       // rare: one about now and then, hard to get near
-      cocoagoat: { name: 'Cocoa Goat', sheet: 'wild_cocoagoat', row: 0, sheetRow: 'deer', tint: 0x8a5634, px: 179, w: 1.3, kg: 60, hp: 6, walk: 0.8, run: 5.6, shy: 6, rare: true, respawn: 120,
+      cocoagoat: { name: 'Cocoa Goat', sheet: 'wild_cocoagoat', row: 0, sheetRow: 'deer', tint: 0x8a5634, px: 182, w: 1.3, kg: 60, hp: 6, walk: 0.8, run: 5.6, shy: 6, rare: true, respawn: 120,
         drops: [['meat_goat', 3, 1], ['cocoa_horn', 1, 1]] },
       // the tame one: a young wild goat (owner: "Tame: the Wild Goat"), the Wild Goat's own picture a little smaller.
       // Never for the Bow; it wants cabbage.
-      kambing_kid: { name: 'Wild Goat Kid', sheet: 'wild_kambing', row: 0, sheetRow: 'deer', tint: 0xe8d0a8, px: 179, w: 0.95, kg: 20, hp: 1, walk: 0.6, run: 4.2, shy: 2.4, drops: [] },
+      kambing_kid: { name: 'Wild Goat Kid', sheet: 'wild_kambing', row: 0, sheetRow: 'deer', tint: 0xe8d0a8, px: 174, w: 0.95, kg: 20, hp: 1, walk: 0.6, run: 4.2, shy: 2.4, drops: [] },
     },
     animals: { kambing: 3, musang: 2 },
     extra: [{ kind: 'kambing', n: 1, when: 'dawn' }, { kind: 'musang', n: 1, when: 'dusk' }, { kind: 'cocoagoat', n: 1, when: 'rare' }],
@@ -91,16 +91,16 @@
       count: { base: 3, per: 4, max: 5 }, escort: 2,
       creatures: {
         // knee-high and shy: they run and hide
-        duwendeputi: { name: 'White Duwende', sheet: 'wild_duwendeputi', row: 0, sheetRow: 'bungisngis', tint: 0xe0ecff, px: 164, w: 0.8, kg: 5, hp: 3, walk: 0.9, run: 5, shy: 3.4,
+        duwendeputi: { name: 'White Duwende', sheet: 'wild_duwendeputi', row: 0, sheetRow: 'bungisngis', tint: 0xe0ecff, px: 122, w: 0.8, kg: 5, hp: 3, walk: 0.9, run: 5, shy: 3.4,
           drops: [['hat_duwende', 1, 0.6], ['limestone_chip', 1, 0.8]] },
         // cheeky: it runs at you
-        duwendeitim: { name: 'Black Duwende', sheet: 'wild_duwendeitim', row: 0, sheetRow: 'bungisngis', tint: 0x6a5a8a, px: 164, w: 0.85, kg: 6, hp: 4, walk: 0.9, run: 4.8, angry: 3.4, hit: 12, ground: true,
+        duwendeitim: { name: 'Black Duwende', sheet: 'wild_duwendeitim', row: 0, sheetRow: 'bungisngis', tint: 0x6a5a8a, px: 134, w: 0.85, kg: 6, hp: 4, walk: 0.9, run: 4.8, angry: 3.4, hit: 12, ground: true,
           drops: [['pebble_duwende', 1, 0.6], ['limestone_chip', 1, 0.8]] },
         // the guard of floor 5: a living anthill (punso)
-        punsogolem: { name: 'Punso Golem', sheet: 'wild_punsogolem', row: 0, sheetRow: 'bear', tint: 0xa8784a, px: 148, w: 2.2, kg: 900, hp: 22, walk: 0.6, run: 3.2, angry: 3.4, hit: 15, ground: true, boss: true,
+        punsogolem: { name: 'Punso Golem', sheet: 'wild_punsogolem', row: 0, sheetRow: 'bear', tint: 0xa8784a, px: 171, w: 2.2, kg: 900, hp: 22, walk: 0.6, run: 3.2, angry: 3.4, hit: 15, ground: true, boss: true,
           drops: [['clay_golem', 2, 1], ['limestone_chip', 3, 1]] },
         // the boss of floor 10: grumpy but kind. Soloable; 18 more for each friend with you
-        greatnuno: { name: 'Great Nuno', sheet: 'wild_greatnuno', row: 0, sheetRow: 'bungisngis', tint: 0xd8d0b0, px: 164, w: 2.6, kg: 1200, hp: 34, hpEach: 16, minHits: 3, walk: 0.5, run: 3.2, angry: 4, hit: 18, ground: true, boss: true,
+        greatnuno: { name: 'Great Nuno', sheet: 'wild_greatnuno', row: 0, sheetRow: 'bungisngis', tint: 0xd8d0b0, px: 184, w: 2.6, kg: 1200, hp: 34, hpEach: 16, minHits: 3, walk: 0.5, run: 3.2, angry: 4, hit: 18, ground: true, boss: true,
           drops: [['moss_nuno', 1, 1], ['clay_golem', 1, 1]] },
       },
       floorKinds: [['duwendeputi', 1, 10], ['duwendeitim', 3, 10]],

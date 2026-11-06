@@ -17,14 +17,15 @@
 // Numbers are a step above Taal Lake (place 13); they are listed in docs/places/sierra.md.
 // Art (art-src/places/sierra/, docs/places-items.json): every name is wired; until a picture is in, the engine draws
 // the stand-in named here (another animal's row, tinted; a villager; the drawn mouth and gate; the Mine's cave tiles in
-// these colours). The 16 icons: call F.placeIcons(SIERRA_ICONS) only once icons_sierra.png is painted into
-// assets/items.png (never before: an icon past the sheet's end draws nothing).
+// these colours). The 16 icons: icons_sierra.png, painted into assets/items.png by tools/art/places-import.js (owner's
+// art, 6 Nov 2026).
 (function (F) {
   'use strict';
   var C = F.Config;
   // icons_sierra.png, 4 x 4 in this order (docs/places-items.json "sierra")
   C.SIERRA_ICONS = ['banana_wild', 'fur_unggoy', 'horn_carabao', 'hide_carabao', 'silver_horn', 'mane_anggitay', 'moss_spirit', 'ribbon_queen',
     'bark_kapre', 'ranger_hat', 'ranger_vest', 'ranger_boots', 'kapre_charm', 'kare_kare', 'wild_honey', 'narra_wood'];
+  F.placeIcons(C.SIERRA_ICONS);
 
   F.addPlace({
     id: 'sierra', n: 14, name: 'Sierra Madre', unlock: 130, map: 'sierra',
@@ -56,14 +57,14 @@
     // brings its own px: tools/art/wild3q-import.js prints it)
     creatures: {
       // shy: it scampers off when you come close (sneak up slowly)
-      unggoy: { name: 'Unggoy', sheet: 'wild_unggoy', row: 0, sheetRow: 'sigbin', tint: 0xc8b49a, px: 162, w: 0.95, hop: 0.06, kg: 9, hp: 4,
+      unggoy: { name: 'Unggoy', sheet: 'wild_unggoy', row: 0, sheetRow: 'sigbin', tint: 0xc8b49a, px: 182, w: 0.95, hop: 0.06, kg: 9, hp: 4,
         walk: 0.9, run: 5.2, shy: 4.4, drops: [['banana_wild', 2, 1], ['fur_unggoy', 1, 0.7]] },
-      carabaoligaw: { name: 'Wild Carabao', sheet: 'wild_carabaoligaw', row: 0, sheetRow: 'rhino', tint: 0x8c97a6, px: 214, w: 2.3, ground: true,
+      carabaoligaw: { name: 'Wild Carabao', sheet: 'wild_carabaoligaw', row: 0, sheetRow: 'rhino', tint: 0x8c97a6, px: 196, w: 2.3, ground: true,
         kg: 800, hp: 10, walk: 0.5, run: 4, angry: 3.2, hit: 18, respawn: 15, drops: [['hide_carabao', 1, 1], ['horn_carabao', 1, 0.5]] },
-      silvercarabao: { name: 'Silver Carabao', sheet: 'wild_silvercarabao', row: 0, sheetRow: 'rhino', tint: 0xeef4ff, px: 214, w: 2.5, ground: true,
+      silvercarabao: { name: 'Silver Carabao', sheet: 'wild_silvercarabao', row: 0, sheetRow: 'rhino', tint: 0xeef4ff, px: 188, w: 2.5, ground: true,
         kg: 900, hp: 14, walk: 0.5, run: 4.4, angry: 3.4, hit: 20, rare: true, respawn: 120, drops: [['silver_horn', 1, 1], ['hide_carabao', 2, 1]] },
       // the tame one: a young Unggoy, calm until you come near (the grown ones are for the Bow; this one never is)
-      unggoy_bata: { name: 'Little Unggoy', sheet: 'wild_unggoy', row: 0, sheetRow: 'sigbin', tint: 0xe0cfb4, px: 162, w: 0.75, hop: 0.06, kg: 4, hp: 1,
+      unggoy_bata: { name: 'Little Unggoy', sheet: 'wild_unggoy', row: 0, sheetRow: 'sigbin', tint: 0xe0cfb4, px: 182, w: 0.75, hop: 0.06, kg: 4, hp: 1,
         walk: 0.6, run: 4.2, shy: 2.4, drops: [] },
     },
     animals: { unggoy: 4, carabaoligaw: 3 },
@@ -100,16 +101,16 @@
       escort: 2,
       creatures: {
         // a small cheerful centaur girl: she gallops off when you come near
-        anggitay: { name: 'Anggitay', sheet: 'wild_anggitay', row: 0, sheetRow: 'tikbalang', tint: 0xe8c090, px: 110, w: 1, bar: 1.9, kg: 120, hp: 8,
+        anggitay: { name: 'Anggitay', sheet: 'wild_anggitay', row: 0, sheetRow: 'tikbalang', tint: 0xe8c090, px: 160, w: 1, bar: 1.9, kg: 120, hp: 8,
           walk: 0.9, run: 5.4, shy: 3.8, ground: true, drops: [['mane_anggitay', 1, 0.6], ['wild_honey', 1, 0.2]] },
         // a walking mossy stump: slow, but it charges
-        woodspirit: { name: 'Wood Spirit', sheet: 'wild_woodspirit', row: 0, sheetRow: 'sigbin', tint: 0x9cc080, px: 162, w: 1, kg: 30, hp: 10,
+        woodspirit: { name: 'Wood Spirit', sheet: 'wild_woodspirit', row: 0, sheetRow: 'sigbin', tint: 0x9cc080, px: 178, w: 1, kg: 30, hp: 10,
           walk: 0.6, run: 3.6, angry: 3, hit: 15, ground: true, drops: [['moss_spirit', 1, 1], ['narra_wood', 1, 0.4]] },
         // the guard of floor 5
-        anggitayqueen: { name: 'Anggitay Queen', sheet: 'wild_anggitayqueen', row: 0, sheetRow: 'tikbalang', tint: 0xfff2d8, px: 110, w: 1.5, bar: 2.6, kg: 300, hp: 30,
+        anggitayqueen: { name: 'Anggitay Queen', sheet: 'wild_anggitayqueen', row: 0, sheetRow: 'tikbalang', tint: 0xfff2d8, px: 192, w: 1.5, bar: 2.6, kg: 300, hp: 30,
           walk: 0.8, run: 4.6, angry: 4, hit: 20, ground: true, boss: true, drops: [['ribbon_queen', 1, 1], ['mane_anggitay', 2, 1]] },
         // floor 10: the Kapre, a huge gentle tree giant covered in moss; soloable, 22 more health for each friend
-        kapre: { name: 'Kapre', sheet: 'wild_kapre', row: 0, sheetRow: 'bungisngis', tint: 0x86b070, px: 164, w: 3.2, kg: 2000, hp: 41, hpEach: 16, minHits: 3,
+        kapre: { name: 'Kapre', sheet: 'wild_kapre', row: 0, sheetRow: 'bungisngis', tint: 0x86b070, px: 168, w: 3.2, kg: 2000, hp: 41, hpEach: 16, minHits: 3,
           walk: 0.5, run: 3.2, angry: 3.4, hit: 24, ground: true, boss: true, drops: [['bark_kapre', 2, 1], ['moss_spirit', 3, 1], ['narra_wood', 2, 0.6]] },
       },
       floorKinds: [['anggitay', 1, 10], ['woodspirit', 3, 10]],

@@ -9,7 +9,13 @@ window.W = {
     const c = W.canvas(img.width, img.height), g = c.getContext('2d');
     g.drawImage(img, 0, 0);
     const w = c.width, h = c.height, d = g.getImageData(0, 0, w, h), px = d.data;
-    if (px[3] < 32 && px[(w * h - 1) * 4 + 3] < 32) return c;
+    if (px[3] < 32 && px[(w * h - 1) * 4 + 3] < 32) {
+      // (a faint haze some generators leave behind the drawing, alpha under 24, is cleared: owner's places art, 6 Nov 2026)
+      let faint = 0;
+      for (let i = 3; i < px.length; i += 4) if (px[i] && px[i] < 24) { px[i] = 0; faint++; }
+      if (faint) g.putImageData(d, 0, 0);
+      return c;
+    }
     const key = [px[0], px[1], px[2]], magenta = key[0] > 180 && key[1] < 90 && key[2] > 180;
     const TOL = magenta ? 150 : 60, SOFT = magenta ? 260 : 120, seen = new Uint8Array(w * h), st = [];
     const dist = (i) => Math.abs(px[i] - key[0]) + Math.abs(px[i + 1] - key[1]) + Math.abs(px[i + 2] - key[2]);

@@ -4250,7 +4250,7 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   assert.strictEqual(await page.evaluate(() => window.__asked.length), 0, 'not straight away: the farm opens first');
   await page.waitForFunction(() => Farm.anyDownloading() && Farm.ui.packBadge.visible, null, SLOW);
   await shot(page, 'packs-auto-badge');
-  await page.waitForFunction(() => ['wild', 'looks', 'party', 'styles'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
+  await page.waitForFunction(() => ['wild', 'looks', 'party', 'styles', 'places'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
   const asked = await page.evaluate(() => window.__asked);
   assert.ok(asked.length > 0 && asked.every((a) => a[1] === true), 'onto the phone only, not into the page');
   assert.strictEqual(await page.evaluate(() => Farm.packReady('wild')), false, 'the Wild Lands go into the page when you go there');
@@ -4258,7 +4258,7 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   await page.evaluate(() => Farm.ui.openDownloads());
   await frames(page, 3);
   const text = await modalText(page);
-  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 4, text); // (Furniture styles too, 6 Nov)
+  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 5, text); // (Furniture styles too, and the Hunting places: 6 Nov)
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -5418,7 +5418,7 @@ test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a 
     const w = Farm.world, f = w.feet(), p = w.points.from_jeep, T = 256;
     const at = (x, y) => w.walkable(x, y);
     return { jeep: !!w.jeep, npc: w.placeNpc && w.placeNpc.p.npc.name, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < T,
-      kinds: w.wild.animals.map((a) => a.kind).sort(), props: w.props.length, hillSolid: !at(4, 5) && at(4, 3), river: !at(25, 4), door: w.children.list.some((o) => o.texture && o.texture.key === 'fx-bohol-door'),
+      kinds: w.wild.animals.map((a) => a.kind).sort(), props: w.props.length, hillSolid: !at(4, 5) && at(4, 3), river: !at(25, 4), door: w.children.list.some((o) => o.texture && o.texture.key === (Farm.images['props/bohol_mouth'] ? 'props/bohol_mouth' : 'fx-bohol-door')), // (the owner's mouth once its pack is in)
       bohol: w.objects.filter((o) => o.type === 'bohol').length };
   });
   assert.deepStrictEqual(here, { jeep: true, npc: 'Mang Tonyo', chests: 5, near: true, kinds: ['kambing', 'kambing', 'kambing', 'kambing_kid', 'musang', 'musang'], props: 48, hillSolid: true, river: true, door: true, bohol: 0 });

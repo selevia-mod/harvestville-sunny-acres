@@ -22,7 +22,7 @@ const ID = 'bohol', CAVE = 'bohol_cave';
 const P = () => C.PLACES[ID];
 const A = (k) => C.WILD.animals[k];
 
-test('Chocolate Hills: the 16 ids of docs/places-items.json, in its order; every new item on a stand-in icon until the art is in', () => {
+test('Chocolate Hills: the 16 ids of docs/places-items.json, in its order; every new item on its own icon (the owner\'s art is in)', () => {
   const j = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'places-items.json'), 'utf8')).bohol;
   assert.deepStrictEqual(plain(C.BOHOL_ICONS), j.items.map((x) => x.id), 'the icons sheet\'s order');
   const gearArt = plain(C.GEAR_SLOTS.map((slot) => C.PLACE_GEAR[ID + '_' + slot].art));
@@ -31,8 +31,8 @@ test('Chocolate Hills: the 16 ids of docs/places-items.json, in its order; every
   assert.strictEqual(C.ITEMS.kaldereta.place, undefined, 'Kaldereta is the dish from before, used again');
   Object.keys(P().items).forEach((id) => {
     assert.strictEqual(C.ITEMS[id].place, ID);
-    assert.ok(C.ICON_ORDER.indexOf(id) < 0, id + ': not in the sheet yet (F.placeIcons waits for the art)');
-    assert.strictEqual(C.ITEMS[id].icon, C.ICON[P().items[id].standIn], id + ': its stand-in');
+    assert.ok(C.ICON_ORDER.indexOf(id) > C.ICON.chocolate_cake, id + ': in the sheet, after the icons from before');
+    assert.strictEqual(C.ITEMS[id].icon, C.ICON[id], id + ': its own icon');
   });
   assert.deepStrictEqual([P().n, P().unlock, P().map, P().dungeon.key, P().dungeon.name], [12, 80, 'bohol', CAVE, 'Hill Hollows']);
   // every creature wired to its own picture (art-src/places/bohol/wild_<name>.png), on a stand-in row until then

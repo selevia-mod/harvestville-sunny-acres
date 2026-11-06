@@ -7,10 +7,11 @@
 (function (F) {
   'use strict';
   var C = F.Config;
-  // Its 16 icons (docs/places-items.json "palawan", in that order). Turn this on ONLY after tools/art has painted
-  // art-src/places/palawan/icons_palawan.png into assets/items.png (an icon past the sheet's end draws nothing):
-  // F.placeIcons(['fig_wild', 'wing_paniki', 'skin_sawa', 'scale_sawa', 'golden_scale', 'shell_crab', 'glow_light', 'nest_swiftlet',
-  //   'feather_minokawa', 'cavern_hat', 'cavern_vest', 'cavern_boots', 'cavern_charm', 'ginataang_alimasag', 'cashew_palawan', 'stalactite_chip']);
+  // Its 16 icons (docs/places-items.json "palawan", in that order), painted into assets/items.png by
+  // tools/art/places-import.js from art-src/places/palawan/icons_palawan.png (owner's art, 6 Nov 2026):
+  C.PALAWAN_ICONS = ['fig_wild', 'wing_paniki', 'skin_sawa', 'scale_sawa', 'golden_scale', 'shell_crab', 'glow_light', 'nest_swiftlet',
+    'feather_minokawa', 'cavern_hat', 'cavern_vest', 'cavern_boots', 'cavern_charm', 'ginataang_alimasag', 'cashew_palawan', 'stalactite_chip'];
+  F.placeIcons(C.PALAWAN_ICONS);
 
   F.addPlace({
     id: 'palawan', n: 15, name: 'Palawan Underground River', unlock: 160, map: 'palawan', grass: 1, icon: 'fig_wild',
@@ -34,15 +35,15 @@
 
     creatures: {
       // a fruit bat: shy, it flies off; it drops the fruit it carried (owner, 6 Nov 2026)
-      paniki: { name: 'Paniki', sheet: 'wild_paniki', row: 0, sheetRow: 'labuyo', tint: 0x9a7a62, px: 165, w: 0.85, kg: 0.9, hp: 2, walk: 0.7, run: 5.2, shy: 3.6, flies: true,
+      paniki: { name: 'Paniki', sheet: 'wild_paniki', row: 0, sheetRow: 'labuyo', tint: 0x9a7a62, px: 214, w: 0.85, kg: 0.9, hp: 2, walk: 0.7, run: 5.2, shy: 3.6, flies: true,
         drops: [['fig_wild', 1, 1], ['wing_paniki', 1, 0.6]] },
       // a cute chubby python: it charges
-      sawa: { name: 'Sawa', sheet: 'wild_sawa', row: 0, sheetRow: 'boar', tint: 0xc8a466, px: 178, w: 1.5, ground: true, kg: 45, hp: 8, walk: 0.6, run: 3.8, angry: 3, hit: 16,
+      sawa: { name: 'Sawa', sheet: 'wild_sawa', row: 0, sheetRow: 'boar', tint: 0xc8a466, px: 192, w: 1.5, ground: true, kg: 45, hp: 8, walk: 0.6, run: 3.8, angry: 3, hit: 16,
         drops: [['skin_sawa', 1, 1], ['scale_sawa', 1, 0.6]] },
-      golden_sawa: { name: 'Golden Sawa', sheet: 'wild_goldensawa', row: 0, sheetRow: 'goldboar', tint: 0xffe07a, px: 178, w: 1.7, ground: true, kg: 70, hp: 12, walk: 0.6, run: 4, angry: 3.4, hit: 18,
+      golden_sawa: { name: 'Golden Sawa', sheet: 'wild_goldensawa', row: 0, sheetRow: 'goldboar', tint: 0xffe07a, px: 196, w: 1.7, ground: true, kg: 70, hp: 12, walk: 0.6, run: 4, angry: 3.4, hit: 18,
         rare: true, respawn: 120, drops: [['skin_sawa', 2, 1], ['golden_scale', 1, 1]] },
       // the tame one: a Paniki pup, never for the Bow (the grown Paniki above is the one you hunt)
-      paniki_pup: { name: 'Paniki Pup', sheet: 'wild_paniki', row: 0, sheetRow: 'labuyo', tint: 0xb89478, px: 165, w: 0.65, kg: 0.4, hp: 1, walk: 0.6, run: 4.4, shy: 2.4, flies: true, drops: [] },
+      paniki_pup: { name: 'Paniki Pup', sheet: 'wild_paniki', row: 0, sheetRow: 'labuyo', tint: 0xb89478, px: 214, w: 0.65, kg: 0.4, hp: 1, walk: 0.6, run: 4.4, shy: 2.4, flies: true, drops: [] },
     },
     animals: { paniki: 3, sawa: 3 },
     extra: [{ kind: 'paniki', n: 2, when: 'dusk' }, { kind: 'sawa', n: 1, when: 'rain' }, { kind: 'golden_sawa', n: 1, when: 'rare' }],
@@ -74,15 +75,15 @@
       key: 'palawan_cave', name: 'River Caves', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
       count: { base: 3, per: 3, max: 6 }, escort: 2,
       creatures: {
-        cave_crab: { name: 'Cave Crab', sheet: 'wild_cavecrab', row: 0, sheetRow: 'sigbin', tint: 0x7ab4ff, px: 162, w: 1, ground: true, kg: 4, hp: 6, walk: 0.7, run: 4, angry: 2.6, hit: 14,
+        cave_crab: { name: 'Cave Crab', sheet: 'wild_cavecrab', row: 0, sheetRow: 'sigbin', tint: 0x7ab4ff, px: 188, w: 1, ground: true, kg: 4, hp: 6, walk: 0.7, run: 4, angry: 2.6, hit: 14,
           drops: [['shell_crab', 1, 1], ['stalactite_chip', 1, 0.5]] },
-        glow_eel: { name: 'Glow Eel', sheet: 'wild_gloweel', row: 0, sheetRow: 'santelmo', tint: 0x7affee, px: 128, w: 1, ground: true, kg: 6, hp: 7, walk: 0.9, run: 4.8, angry: 3.6, hit: 15,
+        glow_eel: { name: 'Glow Eel', sheet: 'wild_gloweel', row: 0, sheetRow: 'santelmo', tint: 0x7affee, px: 188, w: 1, ground: true, kg: 6, hp: 7, walk: 0.9, run: 4.8, angry: 3.6, hit: 15,
           drops: [['glow_light', 1, 1], ['stalactite_chip', 1, 0.4]] },
         // the floor 5 guard: a giant cave swiftlet
-        balinsasayaw: { name: 'Balinsasayaw Queen', sheet: 'wild_balinsasayaw', row: 0, sheetRow: 'labuyo', tint: 0xd8e0ff, px: 165, w: 2.2, kg: 30, hp: 28, walk: 0.8, run: 4.4, angry: 4, hit: 17, boss: true,
+        balinsasayaw: { name: 'Balinsasayaw Queen', sheet: 'wild_balinsasayaw', row: 0, sheetRow: 'labuyo', tint: 0xd8e0ff, px: 196, w: 2.2, kg: 30, hp: 28, walk: 0.8, run: 4.4, angry: 4, hit: 17, boss: true,
           drops: [['nest_swiftlet', 2, 1], ['stalactite_chip', 3, 1], ['glow_light', 1, 0.6]] },
         // the floor 10 boss: the giant moon-eating bird of Bagobo legend, grand but cute; soloable, more with friends
-        minokawa: { name: 'Minokawa', sheet: 'wild_minokawa', row: 0, sheetRow: 'bakunawa', tint: 0xe8f2ff, px: 143, w: 3.4, kg: 2500, hp: 42, hpEach: 14, minHits: 3,
+        minokawa: { name: 'Minokawa', sheet: 'wild_minokawa', row: 0, sheetRow: 'bakunawa', tint: 0xe8f2ff, px: 214, w: 3.4, kg: 2500, hp: 42, hpEach: 14, minHits: 3,
           walk: 0.6, run: 3.4, angry: 3.6, hit: 20, ground: true, boss: true, drops: [['feather_minokawa', 2, 1], ['nest_swiftlet', 1, 1], ['golden_scale', 1, 0.1]] },
       },
       floorKinds: [['cave_crab', 1, 10], ['glow_eel', 3, 10]],

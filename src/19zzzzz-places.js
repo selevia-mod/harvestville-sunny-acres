@@ -108,7 +108,8 @@
     var o = this.objects.filter(function (x) { return x.type === 'jeep'; })[0];
     if (!o || this.jeep) return;
     var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T;
-    var img = this.add.image(x, foot + 0.15 * T, jeepTexture(this)).setOrigin(0.5, 1).setDisplaySize(2.4 * T, 1.47 * T);
+    var key = jeepTexture(this), img = this.add.image(x, foot + 0.15 * T, key).setOrigin(0.5, 1);
+    img.setDisplaySize(2.4 * T, key === 'fx-jeep' ? 1.47 * T : 2.4 * T * img.height / img.width); // (the owner's picture keeps its own shape)
     F.depthTo(img, DEPTH.actor + foot / 1e5);
     for (var y = o.y0; y <= o.y1; y++) for (var tx = o.x0; tx <= o.x1; tx++) this.blocked[this.idx(tx, y)] = true;
     var zone = this.add.zone(x, (o.y0 + o.y1 + 1) / 2 * T, (o.x1 - o.x0 + 1) * T - 24, (o.y1 - o.y0 + 1) * T - 24);

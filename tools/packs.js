@@ -19,10 +19,12 @@ const STYLES = fs.readdirSync(ASSETS).filter((f) => /^furn_[1-9]\d*\.png$/.test(
 module.exports = {
   // Pulag, Makiling and Magayon: their animals, Kanor, the bow poses, the flying arrow and the props only they use
   // (not the Lair's art: a phone with the Wild Lands on it already must keep reaching the Lair offline)
-  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n))
-    .concat(require('./places/banaue-art').packed()), // (Banaue Terraces' pictures, once they are in: owner, 6 Nov 2026)
+  wild: ['wild', 'wildshade', 'wildgrass', 'kanor', 'archer', 'archer_girl'].concat(WILD_PROPS.map((n) => 'props/' + n)),
   // the farmers in their party hats, on their birthday
   party: ['player_bday', 'player_girl_bday'],
   // the furniture styles a farmer buys at Mira's (and sees in friends' houses)
   styles: STYLES,
+  // the new hunting places (Banaue Terraces to Palawan): their people, creatures, dungeons and props, each once its
+  // picture is in (owner, 6 Nov 2026: tools/places/places-art.js)
+  places: require('./places/places-art').packed(),
 };

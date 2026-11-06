@@ -34,18 +34,27 @@ Not done, as you decided: monster cards (no), the World Boss (Town Raid replaces
    - `supabase/farm_online_21.sql`: Town Raid.
    - `supabase/farm_online_22.sql`: Town Rank and the Hall of Fame.
    - The server already has every older part these need (I checked: parts 14, 15, 16 and 18).
-3. **Upload the furniture-styles download to the CDN.** That's 45 files (2.4 MB) to `app-assets/packs/`.
-   - To make room on the page, the 9 furniture styles and their sleeping pictures now download when first needed.
-   - Until the files are on the CDN, players with a style see the Classic look.
-   - I can upload them on your word.
+3. **Upload two downloads to the CDN**, to `app-assets/packs/`. I can upload them on your word.
+   - **Furniture styles:** 45 files (2.4 MB). To make room on the page, the 9 furniture styles and their sleeping
+     pictures now download when first needed. Until the files are on the CDN, players with a style see the Classic look.
+   - **Hunting places:** 126 files (5.8 MB), your 94 pictures cut for the game: the people, animals, dungeons, props and
+     ground of the 5 places. It downloads by itself like the others, and the Jeep asks for it before your first trip.
+     Pulag and the Wild Lands download did not change, so nobody downloads it again.
 4. **Phone test** on the OPPO and the iPhone, when they're free.
 5. **Push e30** on your word.
 
 ## Art
 
-You have the kit for 94 pictures (`~/Downloads/harvest-places-1-5-art-job.zip`). Until each one arrives, the game uses
-drawn stand-ins. For example, the new animals borrow other animals' pictures with a colour over them, and the Kapre
-looks like the Lair's green giant. Each feature's doc lists the extra art that would make it nicer:
+Your 94 pictures are in (7 Nov), all but one:
+- **Siyokoy** (Taal Crater) came out with a fake grey checkerboard painted behind it, so it still uses its stand-in.
+  One new picture fixes it: `places/taal/wild_siyokoy.png`, same prompt (number 50), on a see-through or magenta background.
+- **The ground pictures** came out photo-style, so in the game they look a bit darker and busier than the cartoon
+  props (most of all Banaue's paddies and the Chocolate Hills river). They work; redo them in the cartoon style if you
+  don't like them.
+- **The jeep stop sign and the medal frames** are not used yet. The places keep their wooden signs, and the medals
+  keep their drawn frames.
+
+Each feature's doc lists the extra art that would make it nicer:
 - `docs/bayanihan-projects.md`
 - `docs/town-raid.md`
 - `docs/town-rank-and-hall-of-fame.md`

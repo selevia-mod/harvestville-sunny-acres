@@ -37,7 +37,7 @@ test('Sierra Madre: place 14, open at 130 hunts, its 16 items in the icons order
   const gearIds = C.GEAR_SLOTS.map((k) => C.PLACE_GEAR[ID + '_' + k].art);
   assert.deepStrictEqual(plain(gearIds), ['ranger_hat', 'ranger_vest', 'ranger_boots', 'kapre_charm']);
   j.items.forEach((x) => { if (!gearIds.includes(x.id)) assert.ok(C.ITEMS[x.id] && C.ITEMS[x.id].place === ID && Number.isInteger(C.ITEMS[x.id].icon), x.id); });
-  assert.ok(!C.SIERRA_ICONS.some((x) => C.ICON[x] != null), 'no icon of its own until icons_sierra.png is in the sheet');
+  assert.ok(C.SIERRA_ICONS.every((x) => C.ICON[x] > C.ICON.chocolate_cake), 'its own icons, in the sheet after the ones from before (icons_sierra.png is in)');
   // art: the creatures' sheets, Ka Ramon's, the mouth, the gate, the cave
   const sheets = { unggoy: 'wild_unggoy', carabaoligaw: 'wild_carabaoligaw', silvercarabao: 'wild_silvercarabao', unggoy_bata: 'wild_unggoy',
     anggitay: 'wild_anggitay', woodspirit: 'wild_woodspirit', anggitayqueen: 'wild_anggitayqueen', kapre: 'wild_kapre' };

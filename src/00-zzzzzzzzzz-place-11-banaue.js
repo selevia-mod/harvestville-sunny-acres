@@ -24,7 +24,7 @@
   var BANAUE_ICONS = ['feather_itik', 'meat_itik', 'scale_bayawak', 'tail_bayawak', 'golden_feather', 'cap_kibaan', 'scale_cave', 'staff_kibaan',
     'fur_amomongo', 'terrace_hat', 'terrace_vest', 'terrace_sandals', 'terrace_charm', 'adobong_itik', 'terrace_stone', 'heirloom_rice'];
   F.BANAUE_ICONS = BANAUE_ICONS;
-  var ICONS_IN = false; // (tools/art/banaue-import.js sets this to true when it paints them into assets/items.png)
+  var ICONS_IN = true; // (tools/art/banaue-import.js sets this to true when it paints them into assets/items.png)
   if (ICONS_IN) F.placeIcons(BANAUE_ICONS);
 
   // The place's props (art-src/places/banaue/props_banaue.png, 3 x 2, in this order), drawn on its maps by
@@ -43,7 +43,7 @@
   F.BANAUE_PROP_ORDER = ['banaue_wall', 'banaue_hut', 'banaue_fern', 'banaue_rack', 'banaue_boulder', 'banaue_grass']; // (the picture's cells)
 
   // The Wild Duck's numbers, shared by the ones you hunt and the calm one you tame (the same bird, the same picture).
-  var duck = { px: 165, w: 0.85, kg: 1.1, hp: 1, walk: 0.6, run: 4.8, shy: 3, flies: true };
+  var duck = { px: 168, w: 0.85, kg: 1.1, hp: 1, walk: 0.6, run: 4.8, shy: 3, flies: true };
   var with_ = function (base, more) { var o = {}; [base, more].forEach(function (x) { Object.keys(x).forEach(function (k) { o[k] = x[k]; }); }); return o; };
 
   F.addPlace({
@@ -73,9 +73,9 @@
       itik: with_(duck, { name: 'Wild Duck', sheet: 'wild_itik', sheetRow: 'labuyo', tint: 0xc9a77a, drops: [['meat_itik', 1, 1], ['feather_itik', 1, 0.7]] }),
       // the calm one you tame: the same bird, a little less shy (sneak up slowly); never for the Bow
       itik_calm: with_(duck, { name: 'Wild Duck', sheet: 'wild_itik', sheetRow: 'labuyo', tint: 0xe2c79a, shy: 2.2, drops: [] }),
-      bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', sheetRow: 'boar', tint: 0x9aa860, px: 178, w: 1.3, ground: true, kg: 18, hp: 4,
+      bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', sheetRow: 'boar', tint: 0x9aa860, px: 190, w: 1.3, ground: true, kg: 18, hp: 4,
         walk: 0.6, run: 3.8, angry: 3, hit: 10, drops: [['scale_bayawak', 1, 1], ['tail_bayawak', 1, 0.5]] },
-      goldduck: with_(duck, { name: 'Golden Duck', sheet: 'wild_goldduck', sheetRow: 'labuyo', tint: 0xffd860, w: 0.95, kg: 1.6, hp: 2, run: 5.4, shy: 5,
+      goldduck: with_(duck, { name: 'Golden Duck', sheet: 'wild_goldduck', sheetRow: 'labuyo', tint: 0xffd860, px: 152, w: 0.95, kg: 1.6, hp: 2, run: 5.4, shy: 5,
         rare: true, respawn: 120, drops: [['golden_feather', 1, 1], ['meat_itik', 2, 1]] }),
     },
     animals: { itik: 4, bayawak: 3 },
@@ -114,14 +114,14 @@
       count: { base: 3, per: 4, max: 5 }, escort: 2, // 3 a floor, 4 from floor 4, 5 from floor 8
       creatures: {
         // playful little folk who run off with your things; they flee more than they fight
-        kibaan: { name: 'Kibaan', sheet: 'wild_kibaan', sheetRow: 'tikbalang', tint: 0x9ad08a, px: 110, w: 0.75, bar: 2.05, kg: 9, hp: 2,
+        kibaan: { name: 'Kibaan', sheet: 'wild_kibaan', sheetRow: 'tikbalang', tint: 0x9ad08a, px: 128, w: 0.75, bar: 2.05, kg: 9, hp: 2,
           walk: 0.9, run: 5, shy: 3.4, ground: true, drops: [['cap_kibaan', 1, 1], ['heirloom_rice', 1, 0.25], ['terrace_stone', 1, 0.3]] },
-        cave_bayawak: { name: 'Cave Bayawak', sheet: 'wild_cavebayawak', sheetRow: 'boar', tint: 0xa8c8d8, px: 178, w: 1.35, kg: 22, hp: 5,
+        cave_bayawak: { name: 'Cave Bayawak', sheet: 'wild_cavebayawak', sheetRow: 'boar', tint: 0xa8c8d8, px: 190, w: 1.35, kg: 22, hp: 5,
           walk: 0.6, run: 4, angry: 3.4, hit: 11, ground: true, drops: [['scale_cave', 1, 1], ['tail_bayawak', 1, 0.3]] },
-        kibaan_chief: { name: 'Kibaan Chief', sheet: 'wild_kibaanchief', sheetRow: 'bungisngis', tint: 0xb8e0a0, px: 164, w: 1.6, kg: 40, hp: 14,
+        kibaan_chief: { name: 'Kibaan Chief', sheet: 'wild_kibaanchief', sheetRow: 'bungisngis', tint: 0xb8e0a0, px: 178, w: 1.6, kg: 40, hp: 14,
           walk: 0.7, run: 3.8, angry: 4, hit: 12, ground: true, boss: true, drops: [['staff_kibaan', 1, 1], ['cap_kibaan', 3, 1], ['terrace_stone', 2, 1]] },
         // soloable (30 arrows' worth, 15 with a Silver Bow); 12 more for each friend down with you; a share is 3 hits
-        amomongo: { name: 'Amomongo', sheet: 'wild_amomongo', sheetRow: 'bear', tint: 0xe2ddd2, px: 148, w: 2.3, kg: 260, hp: 30, hpEach: 12, minHits: 3,
+        amomongo: { name: 'Amomongo', sheet: 'wild_amomongo', sheetRow: 'bear', tint: 0xe2ddd2, px: 168, w: 2.3, kg: 260, hp: 30, hpEach: 12, minHits: 3,
           walk: 0.6, run: 3.4, angry: 3.6, hit: 15, ground: true, boss: true, drops: [['fur_amomongo', 2, 1], ['scale_cave', 2, 1], ['terrace_stone', 3, 1]] },
       },
       // Kibaan on every floor; Cave Bayawak from floor 3, and twice as likely from floor 7 (more of them deeper)

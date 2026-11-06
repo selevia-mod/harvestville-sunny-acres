@@ -17,22 +17,28 @@
   var BADGE = { x: 22, y: 160, r: 13 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var mb = function (bytes) { var m = bytes / 1048576; return m >= 0.95 ? m.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; };
-  var ORDER = ['wild', 'looks', 'party', 'styles'];
+  var ORDER = ['wild', 'looks', 'party', 'styles', 'places'];
 
-  // ---------- the Wild Lands, before you go ----------
+  // ---------- the Wild Lands (and the new hunting places), before you go ----------
   var wildMap = function (to) { return L.isWildMap && L.isWildMap(to); };
+  // (owner, 6 Nov 2026) the five new places and their dungeons need their own pack as well as the Wild Lands'
+  var placeMap = function (to) {
+    return (C.PLACE_ORDER || []).some(function (id) { var p = C.PLACES[id]; return p.n > 10 && !p.dev && (p.map === to || !!p.dungeon && p.dungeon.key === to); });
+  };
+  var packsFor = function (to) { return (wildMap(to) ? ['wild'] : []).concat(placeMap(to) ? ['places'] : []); };
+  var OPENING = { wild: 'Opening the Wild Lands...', places: 'Opening the hunting places...' };
   var travel = P.travel;
-  P.travel = function (to, spawn, floor) {
-    var self = this;
-    if (!wildMap(to) || F.packReady('wild')) return travel.call(this, to, spawn, floor);
+  P.travel = function gated(to, spawn, floor) {
+    var self = this, pack = packsFor(to).filter(function (k) { return !F.packReady(k); })[0];
+    if (!pack) return travel.call(this, to, spawn, floor);
     if (this.busy || this.packGate) return;
-    var go = function () { self.packGate = false; if (self.sys && self.sys.isActive()) travel.call(self, to, spawn, floor); };
-    if (F.packOnPhone('wild') || (F.canFetch() && F.packCount('wild'))) { // on the phone already (or most of it, a download cut short: the rest comes now, else the card): only a moment to open it
+    var go = function () { self.packGate = false; if (self.sys && self.sys.isActive()) gated.call(self, to, spawn, floor); }; // (then the next pack, if any)
+    if (F.packOnPhone(pack) || (F.canFetch() && F.packCount(pack))) { // on the phone already (or most of it, a download cut short: the rest comes now, else the card): only a moment to open it
       this.packGate = true;
-      if (F.ui) F.ui.toast('Opening the Wild Lands...', 1500);
-      return F.loadPack('wild').then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack('wild'); } });
+      if (F.ui) F.ui.toast(OPENING[pack], 1500);
+      return F.loadPack(pack).then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack(pack); } });
     }
-    F.ui.askPack('wild', function () { /* downloaded: you walk on in yourself */ });
+    F.ui.askPack(pack, function () { /* downloaded: you walk on in yourself */ });
   };
 
   // A centred card: what it is, how big, Download or Not now. then() runs when it is all on the phone.
@@ -159,11 +165,12 @@
     try { bootCreate.call(this); } finally { delete plugin.start; delete plugin.launch; } // (the scenes start below, once the wild is ready)
     var go = function () { calls.forEach(function (c) { self.scene[c[0]](c[1], c[2]); }); };
     var s = F.session && F.session.state;
-    if (!s || !wildMap(s.map) || F.packReady('wild')) return go();
+    var want = s ? packsFor(s.map).filter(function (k) { return !F.packReady(k); }) : [];
+    if (!want.length) return go();
     var back = function () { s.map = 'town'; s.player = { x: null, y: null, dir: 'right' }; F.session.spawn = 'from_pulag'; go(); };
-    if (!F.packOnPhone('wild')) return back(); // (in town by the west road: the Wild Lands ask when you walk back out)
+    if (!want.every(F.packOnPhone)) return back(); // (in town by the west road: the Wild Lands ask when you walk back out)
     var done = false, timer = setTimeout(function () { if (!done) { done = true; back(); } }, 8000);
-    F.loadPack('wild').then(function (ok) { if (done) return; done = true; clearTimeout(timer); if (ok) go(); else back(); });
+    Promise.all(want.map(F.loadPack)).then(function (r) { if (done) return; done = true; clearTimeout(timer); if (r.every(Boolean)) go(); else back(); });
   };
 
 })(window.Farm = window.Farm || {});

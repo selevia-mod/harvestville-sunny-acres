@@ -16,8 +16,8 @@
 //                               gives them; then the place's file is switched to use them (ICONS_IN = true)
 //   the creatures (wild_itik.png ... wild_amomongo.png): node tools/art/animals3q-import.js places (their own sheets);
 //                               then set each creature's px in the place's file to the width it prints.
-// The pictures of the props, the person, the creatures and the tunnels go in the 'wild' pack, not the page
-// (tools/places/banaue-art.js, read by tools/packs.js). node tools/art/banaue-import.js
+// The pictures of the props, the person, the creatures and the tunnels go in the 'places' pack, not the page
+// (tools/places/places-art.js, read by tools/packs.js). node tools/art/banaue-import.js
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');

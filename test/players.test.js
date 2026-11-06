@@ -128,7 +128,8 @@ test('seven new seeds on the crop ladder, at Lily\'s in their seasons, with icon
   });
   assert.strictEqual(C.CROP_WITHERED, 2 + C.CROP_KEYS.length * 2);
   assert.ok(C.CROP_WITHERED < 105, 'the crops sheet holds 105 frames');
-  assert.ok(C.ICON_ORDER.indexOf('chocolate_cake') === C.ICON_ORDER.length - 1, 'new icons at the very end');
+  // (new icons at the very end, then the hunting places' icons after them: owner's art, 6 Nov 2026)
+  assert.strictEqual(C.ICON_ORDER[C.ICON.chocolate_cake + 1], 'feather_itik', 'new icons at the end, the places\' after them');
   const spring = L.seedsInSeason(L.dayOf(new Date(2026, 3, 10, 12).getTime()));
   assert.ok(spring.includes('seed_rose') && spring.includes('seed_oregano') && !spring.includes('seed_cotton'));
   assert.ok(C.WORKSHOPS.bakery.recipes.some((r) => r.out === 'sikwate') && C.MADE_IN.chocolate_cake === 'bakery');

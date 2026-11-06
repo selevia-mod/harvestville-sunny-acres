@@ -154,7 +154,7 @@ The ids are fixed in `docs/places-items.json`. Wire them by name; the engine fal
 | `ground_<id>.png`, `ground_<id>_water.png`, `props_<id>.png` | your map's tileset / props (tools/tiles.js, tools/art) | your map |
 | the jeep | `assets/props/kanor_jeep.png` (optional) | drawn stand-in until then |
 
-Big art belongs in the `wild` pack (tools/packs.js) like Pulag's, not in the page. **Page size**: after the engine the
+Big art belongs in the `places` pack (tools/places/places-art.js, read by tools/packs.js), not in the page: the Jeep asks for it before a trip to a new place (src/19zl-packs-ui.js). Importers: tools/art/banaue-import.js, tools/art/places-import.js, tools/art/animals3q-import.js places. **Page size**: after the engine the
 page is about 19.0 MB of a 19.5 MiB limit (build.js stops past it). Each map is 25-35 KB; keep art in packs.
 
 ## 4. Tests
