@@ -110,6 +110,27 @@
     var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T;
     var key = jeepTexture(this), img = this.add.image(x, foot + 0.15 * T, key).setOrigin(0.5, 1);
     img.setDisplaySize(2.4 * T, key === 'fx-jeep' ? 1.47 * T : 2.4 * T * img.height / img.width); // (the owner's picture keeps its own shape)
+    // the jeep stop beside it (owner's picture, 7 Nov 2026): to its left, standing on the same line; only to look at
+    if (F.images && F.images['props/jeep_stop'] && L.isNewPlaceMap && L.isNewPlaceMap(this.mapKey)) { // (Pulag's jeep stands at Kanor's Lodge)
+      // a free spot: left of the jeep, else right, else above it (no wall, prop or map edge in its 2 x 2 tiles)
+      var self = this, W = this.map.width, Hm = this.map.height, props = this.props || [];
+      var free = function (cx, fy) { // (cx: the stop's middle, fy: its foot, in tiles)
+        for (var ty = fy - 2; ty < fy; ty++) for (var tx = Math.floor(cx - 1); tx < Math.floor(cx - 1) + 2; tx++) {
+          if (tx < 2 || ty < 1 || tx > W - 3 || ty > Hm - 3 || self.blocked[self.idx(tx, ty)]) return false;
+          var px = (tx + 0.5) * T, py = (ty + 0.5) * T;
+          if (props.some(function (p) { var b = p.getBounds(); return px > b.x && px < b.right && py > b.y && py < b.bottom; })) return false;
+        }
+        return true;
+      };
+      var ft = (o.y1 + 1), mid = (o.x0 + o.x1 + 1) / 2;
+      var spot = [[mid - 2.2, ft], [mid + 2.4, ft], [mid, o.y0]].filter(function (c) { return free(c[0], c[1]); })[0];
+      if (spot) {
+        var stop = this.add.image(spot[0] * T, spot[1] * T + 0.1 * T, F.ensureTexture(this, 'props/jeep_stop')).setOrigin(0.5, 1);
+        stop.setDisplaySize(1.7 * T, 1.7 * T * stop.height / stop.width);
+        F.depthTo(stop, DEPTH.actor + (spot[1] * T - 1) / 1e5);
+        this.jeepStop = stop;
+      }
+    }
     F.depthTo(img, DEPTH.actor + foot / 1e5);
     for (var y = o.y0; y <= o.y1; y++) for (var tx = o.x0; tx <= o.x1; tx++) this.blocked[this.idx(tx, y)] = true;
     var zone = this.add.zone(x, (o.y0 + o.y1 + 1) / 2 * T, (o.x1 - o.x0 + 1) * T - 24, (o.y1 - o.y0 + 1) * T - 24);
@@ -636,11 +657,22 @@
     c.add([name, when]);
     list.slice(page * PER, page * PER + PER).forEach(function (m, i) {
       var x = x0 + (i % cols) * cell, y = y0 + Math.floor(i / cols) * cell, has = L.hasMedal(s, m.code);
-      self.baked(c, x + 3, y + 3, 'ui-medal' + (has ? 1 : 0) + (m.big ? 'b' : ''), cell - 6, cell - 6, function (g) {
-        g.fillStyle(has ? (m.big ? 0xf2c95a : 0xe8cf98) : 0xcdb88e, 1).fillCircle((cell - 6) / 2, (cell - 6) / 2, (cell - 6) / 2);
-        g.lineStyle(3, has ? 0xa8740c : 0x9a8a6a, 1).strokeCircle((cell - 6) / 2, (cell - 6) / 2, (cell - 6) / 2 - 2);
-      });
-      var icon = self.add.image(x + cell / 2, y + cell / 2, 'items', m.icon).setScale(0.3);
+      // an earned medal in the owner's frame (7 Nov 2026, art-src/shared/medals.png): its ribbon on top, the thing earned
+      // in the round part; one still to earn stays a plain grey ring with its silhouette
+      var frameKey = 'medal_' + medalTier(m), framed = has && F.images && F.images[frameKey], iy = y + cell / 2, scale = 0.3;
+      if (framed) {
+        var fr = self.add.image(x + cell / 2, y + cell - 1, F.ensureTexture(self, frameKey)).setOrigin(0.5, 1);
+        fr.setScale((cell - 2) / fr.height);
+        c.add(fr);
+        iy = y + cell - 1 - fr.displayHeight * (1 - 0.63); // (the round part's middle)
+        scale = fr.displayWidth * 0.5 / 128;
+      } else {
+        self.baked(c, x + 3, y + 3, 'ui-medal' + (has ? 1 : 0) + (m.big ? 'b' : ''), cell - 6, cell - 6, function (g) {
+          g.fillStyle(has ? (m.big ? 0xf2c95a : 0xe8cf98) : 0xcdb88e, 1).fillCircle((cell - 6) / 2, (cell - 6) / 2, (cell - 6) / 2);
+          g.lineStyle(3, has ? 0xa8740c : 0x9a8a6a, 1).strokeCircle((cell - 6) / 2, (cell - 6) / 2, (cell - 6) / 2 - 2);
+        });
+      }
+      var icon = self.add.image(x + cell / 2, iy, 'items', m.icon).setScale(scale);
       if (!has) icon.setTint(0x000000).setAlpha(0.3); // (a silhouette: still to earn)
       c.add(icon);
       var z = self.add.zone(x + cell / 2, y + cell / 2, cell, cell).setInteractive({ useHandCursor: true });
@@ -658,6 +690,13 @@
       if (page < pages - 1) this.button(c, W / 2 + 90, ny, 90, 34, 'More', function () { self.closeModal(); self.openMedals(st, who, back, page + 1); }, BLUE);
     }
   };
+  // which of the four frames: the boss gold, a rare animal the rainbow one, the bigger deeds silver, the rest bronze
+  var medalTier = function (m) {
+    if (m.kind === 'boss') return 'gold';
+    if (m.kind === 'hunt' && m.big) return 'rainbow';
+    return ['guard', 'tame', 'chests', 'story', 'giant'].indexOf(m.kind) >= 0 ? 'silver' : 'bronze';
+  };
+  F.medalTier = medalTier;
   var hint = function (m) {
     var p = C.PLACES[m.place];
     return { first: 'Hunt in ' + p.name + '.', guard: 'Beat the guard of its cave.', boss: 'Beat the boss of its cave.', tame: 'Tame the animal of ' + p.name + '.',

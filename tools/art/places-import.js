@@ -229,6 +229,25 @@ const save = (name, r) => {
     W.draw(o.getContext('2d'), x.c, x, ow / x.w, w / 2, hmax || oh);
     return Object.assign(W.out(o, 0.85), { w: o.width, h: o.height });
   }, [src, w, hmax]);
+  // the jeep stop by Kanor's Jeep at each place (shared/jeep_stop.png), 2 tiles wide, standing on its bottom edge
+  const stop = shared('shared/jeep_stop.png');
+  if (stop) { save('props/jeep_stop', await one(stop, 2 * PPT)); done.push('jeep stop'); }
+  // the four medal frames (shared/medals.png, 2 x 2: bronze, silver, gold, rainbow), each 120 x 150, standing on its
+  // bottom edge; the Medals page puts the earned thing in the round part (src/19zzzzzzz-medal-frames.js)
+  const medals = shared('shared/medals.png');
+  if (medals) {
+    const cut = await p.evaluate(async (src) => {
+      const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), 2, 2, 0.02);
+      return cl.map((x) => {
+        if (!x) throw new Error('a medal is missing');
+        const FW = 120, FH = 150, k = Math.min(FW / x.w, FH / x.h), o = W.canvas(FW, FH);
+        W.draw(o.getContext('2d'), x.c, x, k, FW / 2, FH);
+        return Object.assign(W.out(o, 0.9), { w: FW, h: FH });
+      });
+    }, medals);
+    ['bronze', 'silver', 'gold', 'rainbow'].forEach((n, i) => save('medal_' + n, cut[i]));
+    done.push('medal frames');
+  }
   const jeep = shared('shared/kanor_jeep.png');
   if (jeep) { save('props/kanor_jeep', await one(jeep, Math.round(2.4 * PPT))); done.push("Kanor's Jeep"); }
   const hall = shared('park/hall_of_fame.png');
