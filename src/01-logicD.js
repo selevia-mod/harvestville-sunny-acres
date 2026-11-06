@@ -197,9 +197,14 @@
     if (!Array.isArray(r) || r.length < 10 || r.slice(0, 9).some(function (v) { return typeof v !== 'number' || !isFinite(v); })) return null;
     var kind = WI.order[r[1]], most = 400 * C.TILE;
     if (!kind || r[0] < 0 || r[0] > 99 || r[0] !== Math.floor(r[0]) || !DIRS[r[4]] || !MODES[r[6]]) return null;
+    // the most it can have: its own, or (a Lair guard) as strong as the deepest floor makes it (L.lairHp). Capped at its
+    // own, a friend saw a floor-40 Bungisngis of 44 as 24/24: its bar ran out while it fought on (owner, 7 Nov 2026,
+    // "I just kill the monster but then it showing again")
+    var top = WI.animals[kind].hp;
+    if (L.lairHp && C.LAIR) top = Math.max(top, L.lairHp(kind, C.LAIR.bakunawaFloor));
     return { slot: r[0], kind: kind, x: Math.max(0, Math.min(most, r[2])), y: Math.max(0, Math.min(most, r[3])), dir: DIRS[r[4]], left: !!r[5], mode: MODES[r[6]],
-      hp: Math.max(0, Math.min(WI.animals[kind].hp, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9],
-      max: Math.max(1, Math.min(WI.animals[kind].hp, Number(r[10]) || WI.animals[kind].hp)) };
+      hp: Math.max(0, Math.min(top, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9],
+      max: Math.max(1, Math.min(top, Number(r[10]) || WI.animals[kind].hp)) };
   };
 
   // ---------- Kanor's request of the day ----------

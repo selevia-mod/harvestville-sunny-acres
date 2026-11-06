@@ -9956,9 +9956,14 @@ L.wildUnpack = function (r) {
 if (!Array.isArray(r) || r.length < 10 || r.slice(0, 9).some(function (v) { return typeof v !== 'number' || !isFinite(v); })) return null;
 var kind = WI.order[r[1]], most = 400 * C.TILE;
 if (!kind || r[0] < 0 || r[0] > 99 || r[0] !== Math.floor(r[0]) || !DIRS[r[4]] || !MODES[r[6]]) return null;
+
+
+
+var top = WI.animals[kind].hp;
+if (L.lairHp && C.LAIR) top = Math.max(top, L.lairHp(kind, C.LAIR.bakunawaFloor));
 return { slot: r[0], kind: kind, x: Math.max(0, Math.min(most, r[2])), y: Math.max(0, Math.min(most, r[3])), dir: DIRS[r[4]], left: !!r[5], mode: MODES[r[6]],
-hp: Math.max(0, Math.min(WI.animals[kind].hp, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9],
-max: Math.max(1, Math.min(WI.animals[kind].hp, Number(r[10]) || WI.animals[kind].hp)) };
+hp: Math.max(0, Math.min(top, r[7])), size: Math.max(0.5, Math.min(2, r[8] / 100)), look: !!r[9],
+max: Math.max(1, Math.min(top, Number(r[10]) || WI.animals[kind].hp)) };
 };
 
 
@@ -28768,6 +28773,7 @@ O.send('wa', { t: Date.now(), l: w.animals.map(L.wildPack) });
 
 P.wildHear = function (t, rows) {
 var self = this, list = this.wild.animals, seen = {}, now = Date.now();
+this.wild.heard = true;
 (Array.isArray(rows) ? rows.slice(0, 60) : []).map(L.wildUnpack).forEach(function (r) {
 if (!r) return;
 seen[r.slot] = true;
@@ -33393,8 +33399,10 @@ P.update = function (time, delta) {
 update.call(this, time, delta);
 var lr = this.lair;
 if (!lr || !this.wild || this.busy || !this.sys.isActive()) return;
-if (this.wild.animals.length) lr.seen = true;
-else if (lr.seen && lr.gate && !lr.open) this.openLairGate(true);
+
+
+if (this.wild.animals.length || (this.wild.lead && this.wild.heard)) lr.seen = true;
+if (!this.wild.animals.length && lr.seen && lr.gate && !lr.open) this.openLairGate(true);
 if (lr.gate) this.lairStep();
 };
 

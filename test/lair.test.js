@@ -199,3 +199,13 @@ test('the Fire look: a 1 in 10 chance from each Bakunawa hunted, or Kanor makes 
   assert.strictEqual(L.ownsLook(s, 'fire'), true);
   assert.strictEqual(L.buyFireLook(s), 'owned');
 });
+
+test('with friends, a deep floor\'s guard reaches the other phones with all its strength (owner, 7 Nov 2026: "I just kill the monster but then it showing again")', () => {
+  const pass = (a) => L.wildUnpack(JSON.parse(JSON.stringify(L.wildPack(a))));
+  [10, 30, 40, 49].forEach((floor) => {
+    const hp = L.lairHp('bungisngis', floor), got = pass({ slot: 5, kind: 'bungisngis', x: 900, y: 900, dir: 'down', left: false, mode: 'walk', hp, size: 1, look: false, max: hp });
+    assert.deepStrictEqual([got.hp, got.max], [hp, hp], 'floor ' + floor);
+  });
+  const boar = pass({ slot: 1, kind: 'boar', x: 9, y: 9, dir: 'down', left: false, mode: 'walk', hp: 999, size: 1, look: false, max: 999 });
+  assert.deepStrictEqual([boar.hp, boar.max], [C.WILD.animals.boar.hp, C.WILD.animals.boar.hp], 'an animal never more than its own');
+});

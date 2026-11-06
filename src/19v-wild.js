@@ -829,6 +829,7 @@
   // rides in the trail as its dir, so an animal turns and bolts at the moment it is seen to.
   P.wildHear = function (t, rows) {
     var self = this, list = this.wild.animals, seen = {}, now = Date.now();
+    this.wild.heard = true; // (a cave: what is here now is what the one running it says, even nothing: 19zt-lair.js)
     (Array.isArray(rows) ? rows.slice(0, 60) : []).map(L.wildUnpack).forEach(function (r) {
       if (!r) return;
       seen[r.slot] = true;

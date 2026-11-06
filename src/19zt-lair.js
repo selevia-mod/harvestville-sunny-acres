@@ -779,8 +779,10 @@
     update.call(this, time, delta);
     var lr = this.lair;
     if (!lr || !this.wild || this.busy || !this.sys.isActive()) return;
-    if (this.wild.animals.length) lr.seen = true;
-    else if (lr.seen && lr.gate && !lr.open) this.openLairGate(true);
+    // seen: there were creatures here, or (a friend runs it) their report came, even an empty one: a floor they had
+    // already cleared opens for you too (it stayed sealed, waiting for creatures that never came)
+    if (this.wild.animals.length || (this.wild.lead && this.wild.heard)) lr.seen = true;
+    if (!this.wild.animals.length && lr.seen && lr.gate && !lr.open) this.openLairGate(true);
     if (lr.gate) this.lairStep();
   };
 

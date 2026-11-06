@@ -2828,6 +2828,52 @@ test('online: hunting places (SAMPLE): two hunters in the sample cave\'s bottom 
   await Promise.all([host.context.close(), guest.context.close()]);
 });
 
+test('online: two hunters on a dungeon floor (owner, 7 Nov 2026: "I just kill the monster but then it showing again"): one list on both phones, a kill stays killed, and a friend who comes to a floor already cleared finds its gate open', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 99); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  const go = async (who, floor) => {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; if (Farm.world.mapKey !== 'town' && Farm.world.mapKey !== 'banaue_cave') Farm.world.travel('town', 'from_farm'); });
+    await who.page.waitForFunction(() => (Farm.world.mapKey === 'town' || Farm.world.mapKey === 'banaue_cave') && !Farm.world.busy, null, SLOW);
+    await who.page.evaluate((f) => { Farm.ui.closeAll(); Farm.world.travel('banaue_cave', 'entrance', f); }, floor);
+    await who.page.waitForFunction((f) => Farm.world.mapKey === 'banaue_cave' && Farm.session.lairFloor === f && !Farm.world.busy && Farm.world.wild, floor, SLOW);
+    await who.page.evaluate(() => Farm.ui.closeAll());
+  };
+  const list = (page) => page.evaluate(() => Farm.world.wild.animals.map((a) => a.slot + ':' + a.kind + ':' + a.hp + '/' + a.max).sort().join(' '));
+  // both on floor 3: the same creatures on both phones
+  await go(host, 3);
+  await go(guest, 3);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await guest.page.waitForFunction((id) => Farm.world.wildFollowing() === id, host.uid, SLOW);
+  await new Promise((r) => setTimeout(r, 800));
+  const both = await list(host.page);
+  assert.ok(both.length > 0);
+  assert.strictEqual(await list(guest.page), both, 'one list');
+  for (const who of [host, guest]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+  // the guest hunts one with its own arrows: gone from both, and it stays gone
+  const slot = await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals[0]; for (let i = 0; i < 30 && a.hp > 0; i++) w.wildStruck(a); return a.slot; });
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  await new Promise((r) => setTimeout(r, 2500));
+  for (const who of [host, guest]) assert.ok(!(await who.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot)), 'still gone a while later');
+  // the guest steps out to the cave's top floor; the owner clears floor 3; the guest comes back down: the gate is open
+  await go(guest, 1);
+  await host.page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 0; }); });
+  await host.page.waitForFunction(() => !Farm.world.wild.animals.length && Farm.world.lair.open, null, SLOW);
+  await go(guest, 3);
+  await guest.page.waitForFunction((id) => Farm.world.wildFollowing() === id, host.uid, SLOW);
+  await guest.page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(await list(guest.page), '', 'nothing came back');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
 // ---------- Banaue Terraces (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-11-banaue.js) ----------
 test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 10, the Amomongo is stronger for two (30, 42), a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
   const server = createServer();
