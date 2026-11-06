@@ -284,7 +284,9 @@
     var rows = o.rows, page = o.page || 0, per = rows.length * ROW_STEP > 400 ? Math.floor(320 / ROW_STEP) : Math.floor(400 / ROW_STEP);
     var pages = Math.max(1, Math.ceil(rows.length / per)), shown = rows.slice(page * per, page * per + per);
     var y0 = o.tabs ? 178 : 140;
-    var bottom = pages > 1 ? y0 + per * ROW_STEP + 48 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : 110);
+    // an empty list's words: the panel grows to hold them (owner's screenshot, 7 Nov 2026: Kanor's Pals ran out past it)
+    var empty = !rows.length && o.empty ? this.txt(W / 2, y0 + 40, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0) : null;
+    var bottom = pages > 1 ? y0 + per * ROW_STEP + 48 : y0 + shown.length * ROW_STEP + (shown.length ? 10 : empty ? Math.max(110, 40 + empty.height + 30) : 110);
     this.panelImg(c, 12, 76, W - 24, Math.max(220, Math.min(530, bottom - 76)));
     var title = this.txt(W / 2, 79, o.title, 17, '#fff6d8', { fontStyle: 'bold', stroke: '#5a1a12', strokeThickness: 3 }).setOrigin(0.5);
     fit(title, W - 150);
@@ -313,7 +315,7 @@
     o.refresh = showSub;
     if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
     shown.forEach(function (row, i) { self.listRow(c, y0 + i * ROW_STEP, row); });
-    if (!rows.length && o.empty) c.add(this.txt(W / 2, y0 + 50, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
+    if (empty) c.add(empty);
     if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p) { self.swapTo(function () { o.reopen(o.tab, p); }); });
     return o;
   };

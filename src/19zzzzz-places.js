@@ -547,7 +547,7 @@
   var starRow = function (s, g, id, slot, again) {
     var n = L.gearStars(s, g.id), next = L.starCost(g.id, n + 1), less = L.pieceLess(s, g.id);
     var row = { icon: g.icon, name: L.pieceName(s, g.id) + (n ? '' : ' (yours)'), // (a starred piece is yours: its name stays on one line)
-      desc: C.GEAR_SLOT_NAMES[slot] + ', ' + less + ' off a charge.' + (next ? ' Next ★: ' + next.needs.map(function (x) { return x[1] + ' ' + C.ITEMS[x[0]].name; }).join(', ') : ' All 3 stars!') }; // (short: it fits its row; what you have shows when it is not enough)
+      desc: C.GEAR_SLOT_NAMES[slot] + ', ' + less + ' off.' + (next ? ' Next ★: ' + next.needs.map(function (x) { return x[1] + ' ' + C.ITEMS[x[0]].name; }).join(', ') : ' All 3 stars!') }; // (short: it fits its row; what you have shows when it is not enough)
     if (!next) return row;
     var ok = s.gold >= next.gold && L.hasNeeds(s, next.needs);
     row.buttons = [{ label: '★' + (n + 1) + ' ' + fmt(next.gold) + 'G', color: ok ? GREEN : GREY, cb: function () {
@@ -578,7 +578,8 @@
             if (!g) return;
             if (L.ownsPiece(s, g.id)) { o.rows.push(starRow(s, g, id, slot, again)); return; }
             var ok = s.gold >= g.gold && L.hasNeeds(s, g.needs);
-            o.rows.push({ icon: g.icon, name: g.name, desc: C.GEAR_SLOT_NAMES[slot] + ', ' + g.less + ' less a charge in ' + C.PLACES[id].name + '. ' + needLine(s, g.needs) + '.',
+            // (short, so what it needs is never cut: the set's name says its place, and the Gear page says it works there)
+            o.rows.push({ icon: g.icon, name: g.name, desc: C.GEAR_SLOT_NAMES[slot] + ', ' + g.less + ' off. ' + needLine(s, g.needs) + '.',
               buttons: [{ label: fmt(g.gold) + 'G', color: ok ? GREEN : GREY, cb: function () {
                 var r = L.makeGear(s, g.id);
                 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }

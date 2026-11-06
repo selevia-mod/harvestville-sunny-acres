@@ -4987,17 +4987,50 @@ test('999 in a slot, and gear stars at Kanor\'s: the first-time tour, the star b
   // the Terrace Hat's row: yours, and its first star for 1,500G (Banaue's rows come after the trophies)
   const pageOf = await page.evaluate(() => { const C = Farm.Config, shown = C.PLACE_ORDER.filter(Farm.Logic.placeShown); return Math.floor((C.WILD.trophies.length + 4 * shown.slice(0, shown.indexOf('banaue')).filter((id) => C.PLACE_GEAR[id + '_head']).length) / 4); });
   await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, pageOf);
-  assert.match(await modalText(page), /Terrace Hat \(yours\) \| Head, 1 off a charge\. Next ★: 1 Amomongo Fur, 1 Kibaan Staff \|/, 'the whole line, not cut');
+  assert.match(await modalText(page), /Terrace Hat \(yours\) \| Head, 1 off\. Next ★: 1 Amomongo Fur, 1 Kibaan Staff \|/, 'the whole line, not cut');
   await tapButton(page, '★1 1,500G');
   await page.waitForFunction(() => Farm.Logic.gearStars(Farm.session.state, 'banaue_head') === 1, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 3500);
-  assert.match(await modalText(page), /Terrace Hat ★ \| Head, 2 off a charge\. Next ★: 2 Amomongo Fur, 2 Kibaan Staff \|/);
+  assert.match(await modalText(page), /Terrace Hat ★ \| Head, 2 off\. Next ★: 2 Amomongo Fur, 2 Kibaan Staff \|/);
   await shot(page, 'gear-stars-make');
   // the Gear page: the hat with its star
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openGear(); });
   assert.match(await modalText(page), /Head: Terrace Hat ★[\s\S]*2 less energy when something of Banaue Terraces charges you/);
   // a charge from a Banaue creature: 2 off now (1 and its star)
   assert.strictEqual(await page.evaluate(() => Farm.Logic.chargeLoss(Farm.session.state, 12, 'kibaan_chief')), 10);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('Kanor\'s Make tab: no row is cut, on any page, with every place open; the Pals tab\'s words stay inside its panel (owner\'s screenshots, 7 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.wild.n = 815; s.gold = 417431; s.tips = -1; s.tq = -1;");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  const cut = [];
+  for (let p = 0; p < 20; p++) {
+    const r = await page.evaluate((p) => {
+      Farm.ui.closeAll(); Farm.ui.openKanor('make', p);
+      const m = Farm.ui.modals[Farm.ui.modals.length - 1], out = [];
+      const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+      walk(m.c.list);
+      return out;
+    }, p);
+    r.filter((t) => /…$/.test(t)).forEach((t) => cut.push('page ' + (p + 1) + ': ' + t));
+    if (r.some((t) => t === 'Cavern Charm')) break; // (the last place's last piece)
+  }
+  assert.deepStrictEqual(cut, [], 'every line whole');
+  // the Pals tab with no pal yet: its words end above the panel's bottom edge
+  const pals = await page.evaluate(() => {
+    Farm.ui.closeAll(); Farm.ui.openKanor('pals', 0);
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    const words = m.c.list.filter((o) => o.type === 'Text' && /Tame an animal/.test(o.text))[0];
+    // the panel's own picture (12-ui.js panelImg: 'ui-panel...', drawn from its top)
+    const panel = m.c.list.filter((o) => o.texture && /^ui-panel/.test(o.texture.key)).sort((a, b) => b.displayHeight - a.displayHeight)[0];
+    return { wordsBottom: words.y + words.height, panelBottom: panel.y + panel.displayHeight };
+  });
+  assert.ok(pals.wordsBottom < pals.panelBottom - 6, JSON.stringify(pals));
+  await shot(page, 'kanor-pals-empty');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
