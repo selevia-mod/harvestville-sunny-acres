@@ -15,11 +15,13 @@ server/
   lib/maps.js           a cave map: walls, solid props, the `wild` zone, the gate down
   lib/wild.js           the monsters' rules, from src/19v-wild.js and src/19zt-lair.js, with no Phaser
   lib/room.js           one floor: phones, monsters, hits, kills, the 20 Hz news
+  lib/pub.js            a hunting place open to everyone (step 2): 30 a room, shared animals, bait, arrows, who sees whom
   lib/game.js           every room and connection, the messages in, the tick (no network: tests drive it)
   lib/server.js         HTTP + WebSocket on 127.0.0.1, /health, the tick on the clock, the minute's log line
   lib/auth.js           a phone's token (ES256, the project's JWKS) and farm_topic_ok_v1, asked as that player
   test/*.test.js        the rooms with fake phones, the token checks, the real server on this machine
   test/load.js          80 bot phones with 60-250 ms delay each way (8 on each of 10 floors)
+  test/load-pub.js      180 bot phones on the hunting places (30 on each of 6), 60-250 ms each way
   deploy/harvest-game.service   the systemd unit
 ```
 
@@ -54,6 +56,7 @@ Never put the key in the repo: on the droplet it lives in `/etc/harvest-game.env
 cd server
 npm test          # the rooms, the tokens, the real server on a free local port
 npm run load      # the load test, 60 s (SECS=120 ROOMS=10 BOTS=8 npm run load)
+npm run load-pub  # the hunting places' load test, 60 s (SECS=120 PLACES=6 BOTS=30 npm run load-pub)
 ```
 
 ## Deploy (by hand, by a person: nothing deploys itself)
@@ -135,3 +138,12 @@ or `systemctl stop harvest-game`.
 - Bait and a friend's arrow in flight are not on the server yet: the phones keep them on the old relay.
 - Limits: 60 messages a second a phone (more are dropped; 180 closes it), 4 KB a message, `hi` within 10 s, closed after
   20 s with nothing heard (a phone pings every 2 s). A phone far behind on what was sent skips ticks.
+
+## The hunting places (step 2: `topic: 'pub'`)
+
+A room is `pub|<map>|<n>` ("Banaue 2"), at most `PUB_CAP` (30) phones, any good token (no farm asked). The full rules
+and the wire are in the doc's "Step 2" (its "The wire, exactly" and "How the server decides"); in short: the room is
+the `with` player's if it has space, else the fullest with space, else a new one; the animals follow the Philippine
+clock, a hunted slot comes back sooner for a crowd, a crowd gets more copies of the roster (slots 100 and up), new ones
+walk in out of sight, the tame never comes; bait and arrows in flight go through the server; each phone hears of the 15
+nearest players within 18 tiles; no `cl`; an empty public room goes at once.

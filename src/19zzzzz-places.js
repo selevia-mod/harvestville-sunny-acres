@@ -278,7 +278,7 @@
     if (r === 'ran') {
       this.wildFlee(a, this.feet());
       F.ui.toast(name + ' ate it, then ran off! (' + have + ' of ' + need + ') It will be back in about ' + p.tame.back + ' minutes.', 3000);
-      this.time.delayedCall(1800, function () { if (self.wild && self.wild.animals.indexOf(a) >= 0 && !self.wildFollowing()) self.wildGone(a); });
+      this.time.delayedCall(1800, function () { if (self.wild && self.wild.animals.indexOf(a) >= 0 && (!self.wildFollowing() || a.gsLocal)) self.wildGone(a); }); // (gsLocal: your own, beside the game server's animals)
     }
     if (r === 'tame') {
       this.wildGone(a);
@@ -301,7 +301,7 @@
   var wildStruck = P.wildStruck;
   P.wildStruck = function (a, friend) {
     if (!a.def.tameOnly) return wildStruck.call(this, a, friend);
-    if (!this.wild.lead) this.wildFlee(a, friend || this.feet());
+    if (!this.wild.lead || a.gsLocal) this.wildFlee(a, friend || this.feet());
     if (!friend && F.ui) F.ui.toast('Not that one: it wants feeding, not hunting. Hold its favourite food.', 2600);
   };
   // its hearts over it while you are near

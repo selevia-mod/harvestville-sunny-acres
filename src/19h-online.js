@@ -465,14 +465,24 @@
     return { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '84px', fontStyle: 'bold', color: host ? '#9fe8ff' : '#fff27a', stroke: '#3d2614', strokeThickness: 15 };
   };
 
-  O.syncSprites = function () {
-    var w = F.world;
-    if (!w || !w.remotes || !w.sys || !w.sys.isActive()) return;
+  // Who is drawn on this map, by id: the others on it (the town and the mine too: visitors follow the owner there; the same
+  // floor of the mine or the Lair). (A hunting place's public room says it instead: the game server's list,
+  // 19zzzzzzzzz-gameserver.js.)
+  O.drawnHere = function (w) {
     var want = {};
     Object.keys(O.others).forEach(function (id) {
       var p = O.others[id];
-      if (p.map === w.mapKey && p.fl === O.floorHere(w.mapKey)) want[id] = p; // (the town and the mine too: visitors follow the owner there; the same floor of the mine or the Lair)
+      if (p.map === w.mapKey && p.fl === O.floorHere(w.mapKey)) want[id] = p;
     });
+    return want;
+  };
+  // One of those drawn here: their name, look and where they are.
+  O.who = function (id) { return O.others[id]; };
+
+  O.syncSprites = function () {
+    var w = F.world;
+    if (!w || !w.remotes || !w.sys || !w.sys.isActive()) return;
+    var want = O.drawnHere(w);
     Object.keys(w.remotes).forEach(function (id) {
       var r = w.remotes[id];
       if (want[id] && want[id].look === r.look && want[id].cs === r.cs) {
@@ -549,7 +559,7 @@
       this.onPresence(this.lastList);
     }
     Object.keys(w.remotes).forEach(function (id) {
-      var r = w.remotes[id], p = self.others[id];
+      var r = w.remotes[id], p = self.who(id);
       if (!p) return;
       var at = L.trailAt(self.trails[id], Date.now()), tx = at ? at.x : p.x, ty = at ? at.y : p.y;
       var dx = tx - r.x, dy = ty - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPEED * 1.25 * dt / 1000;

@@ -114,7 +114,7 @@
     shot.arrow = null;
     shot.stage = LET_GO;
     w.wildArrow(x, y, shot.ang, range, !!shot.remote);
-    if (!shot.remote && Object.keys(w.remotes || {}).length) O.send('ar', { x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
+    if (!shot.remote) w.tellArrow({ x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
     if (shot.remote) w.remoteSound(shot.r, 'bowshot');
     else sfx('bowshot');
     w.tweens.addCounter({
@@ -180,6 +180,9 @@
     F.bus.emit('hud');
     this.changed();
   };
+
+  // Your arrow in flight, for the friends here to see (a hunting place's public room: the game server, 19zzzzzzzzz-gameserver.js).
+  P.tellArrow = function (m) { if (Object.keys(this.remotes || {}).length) O.send('ar', m); };
 
   // A friend's shot (owner, 3 Nov 2026: what the other player does should show, not just its result). Heard when their arrow
   // leaves (19v-wild.js 'ar'), their farmer plays the same shot a little quicker: bow up, a pull to the cheek, and the arrow

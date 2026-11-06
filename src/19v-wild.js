@@ -776,10 +776,12 @@
     if (this.wildBait) return F.ui.toast('There is bait down already.');
     L.removeItem(s, 'bait', 1);
     this.layBait(pt.x, pt.y);
-    if (friendsHere(this)) O.send('bt', { x: Math.round(pt.x), y: Math.round(pt.y) });
+    this.tellBait(Math.round(pt.x), Math.round(pt.y));
     F.ui.toast('Bait down. Step back and wait: a shy animal may come to eat.', 2600);
     this.changed();
   };
+  // the friends here see it (a hunting place's public room: the game server, 19zzzzzzzzz-gameserver.js)
+  P.tellBait = function (x, y) { if (friendsHere(this)) O.send('bt', { x: x, y: y }); };
   P.layBait = function (x, y) {
     var img = this.add.image(x, y, 'items', C.ICON.bait).setScale(0.7).setDepth(DEPTH.actor + y / 1e5);
     this.wildBait = { x: x, y: y, img: img, until: Date.now() + WI.baitMins * 60000 + 30000 };

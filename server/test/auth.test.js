@@ -58,6 +58,14 @@ test('refused: expired, signed by someone else, another audience or issuer, nons
   assert.deepStrictEqual(await auth.check(await sign('u1'), 'farm:99999999-0000-4000-8000-000000000000'), { why: 'topic' });
 });
 
+test('a hunting place (topic pub): a good token is all, no farm asked; a bad one still refused', async () => {
+  const { auth, calls, sign } = await setup(false); // (on no farm at all)
+  assert.deepStrictEqual(await auth.check(await sign('stranger-1'), 'pub'), { uid: 'stranger-1' });
+  assert.strictEqual(calls.length, 0, 'Supabase is not asked about a farm');
+  assert.deepStrictEqual(await auth.check(await sign('u1', { exp: Math.floor(Date.now() / 1000) - 3600 }), 'pub'), { why: 'auth' });
+  assert.deepStrictEqual(await auth.check('not.a.token', 'pub'), { why: 'auth' });
+});
+
 test('Supabase not answering: refused (the phone plays the old way), and asked again next time', async () => {
   let up = false;
   const jose = await import('jose');

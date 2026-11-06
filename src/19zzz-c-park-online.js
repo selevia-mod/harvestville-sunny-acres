@@ -317,12 +317,13 @@
     }, noop);
   };
 
-  // Someone in the park: a centred card to say hi, add them as a friend, or More (report, block).
-  U.parkPlayer = function (id) {
-    var p = O.others[id], self = this;
+  // Someone in the park: a centred card to say hi, add them as a friend, or More (report, block). (where: another place
+  // open to everyone, a hunting place's public room: 19zzzzzzzzz-gameserver.js)
+  U.parkPlayer = function (id, where) {
+    var p = O.who(id), self = this;
     if (!p || this.modals.length) return;
     var who = p.name;
-    this.dialog('SAY HI\n' + who + ' is in Central Park with you.', [
+    this.dialog('SAY HI\n' + who + ' is ' + (where || 'in Central Park') + ' with you.', [
       { label: 'More', color: GREY, cb: function () { self.playerMenu(id, who); } },
       { label: 'Add friend', color: GREEN, cb: function () { if (self.askFriend) self.askFriend(id, who); } },
       { label: 'Wave', color: BLUE, cb: function () { O.wave(); } },

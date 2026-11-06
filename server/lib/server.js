@@ -43,7 +43,8 @@ function startServer(opts) {
   const minute = setInterval(() => {
     const r = game.report();
     log('[game] rooms ' + r.rooms + ', players ' + r.players + ', sockets ' + r.conns + ', msgs/s in ' + r.inPerSec.toFixed(1) + ' out ' + r.outPerSec.toFixed(1) +
-      ', ' + r.kbOutPerSec.toFixed(1) + ' KB/s out, slowest tick ' + r.slowestMs.toFixed(2) + ' ms');
+      ', ' + r.kbOutPerSec.toFixed(1) + ' KB/s out, slowest tick ' + r.slowestMs.toFixed(2) + ' ms' +
+      (r.pub ? ', public rooms ' + r.pub + ' (' + r.pubPlayers + ' players)' : ''));
   }, o.reportEvery || 60000);
   minute.unref();
 
