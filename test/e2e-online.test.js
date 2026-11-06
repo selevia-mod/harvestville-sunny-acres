@@ -2463,6 +2463,10 @@ test('online: Central Park: two walk in from town and see each other and chat; a
   await walkIntoPark(ana.page);
   await waitToast(ana.page, /^Central Park 1 · 1 here$/);
   await waitChip(ana.page, 'Park 1 · 1/30');
+  // alone in the park, the Chat button is there all the same (owner, 7 Nov 2026: "chat is not showing in the central
+  // park"): a public place, where whoever comes next can be greeted
+  await ana.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  assert.strictEqual(await ana.page.evaluate(() => Farm.Online.say('Anyone here?')), '', 'she may talk with nobody else there yet');
   await walkIntoPark(ben.page);
   await waitToast(ben.page, /^Central Park 1 · 2 here$/);
   await waitRemotes(ana.page, ['Ben Barn']);
@@ -2477,6 +2481,8 @@ test('online: Central Park: two walk in from town and see each other and chat; a
 
   // ----- chat: the Chat button, a line over her head on both phones
   await ana.page.waitForFunction(() => Farm.ui.chatBtn.visible, null, SLOW);
+  const chatGap = await ana.page.evaluate(() => Farm.Config.CHAT.gap); // (her line before, alone: the gap between two lines)
+  await new Promise((r) => setTimeout(r, chatGap + 50));
   assert.strictEqual(await ana.page.evaluate(() => Farm.Online.say('Hello, park!')), '');
   await ben.page.waitForFunction((id) => Farm.world.bubbles[id] && Farm.world.bubbles[id].c.list[1].text === 'Hello, park!', ana.uid, SLOW);
   assert.ok(await ben.page.evaluate(() => Farm.Online.chatLog.some((l) => l.name === 'Ana Acres' && l.text === 'Hello, park!')));

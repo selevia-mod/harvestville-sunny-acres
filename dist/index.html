@@ -26621,7 +26621,9 @@ return;
 w.placeBubble(id);
 });
 
-var some = !!(O.chan && Object.keys(O.others || {}).length && !w.busy);
+
+
+var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom())) && !w.busy);
 if (some !== w.chatable) {
 w.chatable = some;
 F.bus.emit('chatable', some);

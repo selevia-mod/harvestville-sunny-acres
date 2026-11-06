@@ -78,8 +78,10 @@
       }
       w.placeBubble(id);
     });
-    // the Chat button shows while someone else is on this farm, wherever they are on it
-    var some = !!(O.chan && Object.keys(O.others || {}).length && !w.busy);
+    // the Chat button shows while someone else is on this farm, wherever they are on it; in Central Park always, alone
+    // too (owner, 7 Nov 2026: "chat is not showing in the central park"): a public place, where the next one to come in
+    // can be greeted
+    var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom())) && !w.busy);
     if (some !== w.chatable) {
       w.chatable = some;
       F.bus.emit('chatable', some);
