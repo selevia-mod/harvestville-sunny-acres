@@ -58,7 +58,8 @@ load after `src/00-zzzzzzzzz-places.js` (nine z's) and after Central Park's `00-
       feet:  { id: 'terrace_sandals', name: 'Terrace Sandals', standIn: 'gear_boots', needs: [...], gold: 3000 },
       charm: { id: 'terrace_charm',   name: 'Terrace Charm',   standIn: 'gear_charm', needs: [...], gold: 5000 },
     } },
-    //   Head/Feet take 1 off each charge, Body/Charm 2, all four 2 more vs THIS place's creatures (map and cave). Min 1.
+    //   Head/Feet take 1 off each charge, Body/Charm 2, all four 2 more: ONLY vs THIS place's creatures (map and cave),
+    //   never under a third of the hit (C.GEAR_FLOOR). Min 1. (owner, 7 Nov 2026)
 
     chests: [[4, 3], [20, 7], [9, 18], [25, 22], [14, 12]],   // 5 hidden chests: TILE positions on your map (free tiles)
     chestLoot: [['arrows', 5, 1], ['terrace_stone', 2, 1], ['heirloom_rice', 1, 0.5]],  // [item, n, chance] per chest
@@ -176,8 +177,8 @@ and the two `hunting places (SAMPLE)` e2e tests; rebuild. Nothing else refers to
 ## 6. What the engine does not do (yet)
 
 - **Friends see your companion?** No: your companion is drawn only on your phone.
-- **Hunting now / Biggest catch** (server, part 14): the server knows only Pulag, Makiling and Magayon, so a hunter in a
-  new place shows as "in Pulag", and place creatures are not on the Biggest catch board. A server change (SQL) is
-  needed for more; the engine sends nothing new.
+- **The server** (part 23): a new place needs its rows for Hunting now (farm.hunt_maps), Biggest catch
+  (farm.catch_kinds) and its boss's first in the Hall of Fame (farm.hall_first_keys): `node tools/places/server-rows.js <place>`
+  prints them for the owner to run. The game finds the place's boss first by itself (src/00-zzzzzzzzzzz-rank.js).
 - **Medals for friends** ride in the farm snapshot (`md`, already published with the farm): no server change.
 - **What's new**: none from the engine; each place adds its own line (Central Park took 2.4; use the next).

@@ -174,7 +174,7 @@ test('the Lakeguard set from Kanor: its drops and Gold; worn whole it takes 8 of
   assert.strictEqual(L.wornSet(s), 'taal');
   assert.strictEqual(L.chargeLoss(s, A('buwaya').hit, 'buwaya'), 15 - 8);
   assert.strictEqual(L.chargeLoss(s, A('berberoka').hit, 'berberoka'), 19 - 8, 'the crater is Taal too');
-  assert.strictEqual(L.chargeLoss(s, A('bear').hit, 'bear'), 12 - 6);
+  assert.strictEqual(L.chargeLoss(s, A('bear').hit, 'bear'), 12, 'not in Magayon (owner, 7 Nov)');
   // tapang Taal and kapeng barako in the kitchen
   s.builds.kitchen = 1;
   ['meat_boar', 'garlic', 'egg', 'coffee'].forEach((id) => L.addItem(s, id, 1));

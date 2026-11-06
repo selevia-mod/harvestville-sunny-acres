@@ -49,7 +49,9 @@
   //   'first' one first; 'champs' Town Rank's champions; 'top' this month's Town Rank top 10 (the big board);
   //   'more' any records no other plaque shows (a new hunting place's animals, until it has its own plaque);
   //   'bayanihan' the Bayanihan Project's top givers (filled when that part comes); 'soon' an empty plaque.
-  // A new hunting place: give its animals a spot here (one line). A new boss: one line in FIRSTS, one in the server's list.
+  // A new hunting place: give its animals a spot here (one line). Its dungeon's boss is a first by itself (below, on the
+  // plaque w8) and needs one row in the server's list (farm.hall_first_keys: '<place>_boss'). Another first: one line in
+  // FIRSTS, one row on the server.
   C.HALL = {
     name: 'The Hall of Fame',
     offline: 'Join online play to see the names.',
@@ -66,7 +68,7 @@
       w5: { kind: 'firsts', keys: ['lair_10', 'lair_20', 'lair_30', 'lair_40'], title: "FIRSTS: BAKUNAWA'S LAIR", icon: 'bungisngis_tooth' },
       w6: { kind: 'champs', title: 'TOWN RANK CHAMPIONS', icon: 'ribbon' },
       w7: { kind: 'more', title: 'MORE HUNTING RECORDS', icon: 'antler' },
-      w8: { kind: 'soon', title: 'A NEW PLAQUE', icon: 'sparkle' },
+      w8: { kind: 'firsts', keys: [], title: 'FIRSTS: THE NEW DUNGEONS', icon: 'sparkle' }, // (keys: below)
       d1: { kind: 'animal', animal: 'boar', title: 'THE BIGGEST WILD BOAR', icon: 'tusk', cup: 'gold' },
       d2: { kind: 'first', key: 'bakunawa', title: 'FIRST TO BEAT THE BAKUNAWA', icon: 'bakunawa_scale', cup: 'gold' },
       d3: { kind: 'champs', title: 'LAST MONTH\'S CHAMPION', icon: 'ribbon', cup: 'champion', last: true },
@@ -86,6 +88,15 @@
     ],
     words: "THE HALL OF FAME\nThe names of Harvest Ville's best hunters, farmers and anglers. Walk up to a plaque to read it.",
   };
+
+  // Each new hunting place's dungeon boss (owner, 7 Nov 2026): the first to beat it, '<place>_boss', from the places'
+  // own data (so a place added later is here by itself), all on the plaque w8
+  C.PLACE_ORDER.forEach(function (id) {
+    var p = C.PLACES[id], d = p.dungeon, boss = d && d.boss && C.WILD.animals[d.boss];
+    if (!(p.n > 10) || p.dev || !boss) return;
+    C.HALL.FIRSTS.push({ key: id + '_boss', map: d.key, kind: d.boss, name: 'the ' + boss.name });
+    C.HALL.spots.w8.keys.push(id + '_boss');
+  });
 
   // the way out of the hall toward everywhere else (the goal arrow, following a friend): out the door, then the park's way
   var R = C.ROUTES;

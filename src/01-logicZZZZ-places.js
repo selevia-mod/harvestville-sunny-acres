@@ -278,21 +278,27 @@
     return place;
   };
   // How much the worn pieces take off a hit from this kind (1 for head and feet, 2 for body and charm, 2 more for a whole
-  // set against its own place's creatures).
+  // set): only the pieces of the place the creature belongs to (owner, 7 Nov 2026). With no kind (the Gear page): what
+  // they take off in their own places.
   L.gearLess = function (s, kind) {
-    var less = 0, def = kind && WI.animals[kind];
-    C.GEAR_SLOTS.forEach(function (slot) { var g = C.PLACE_GEAR[L.worn(s, slot)]; if (g) less += g.less; });
+    var less = 0, def = kind && WI.animals[kind], at = def ? def.place || null : undefined;
+    C.GEAR_SLOTS.forEach(function (slot) { var g = C.PLACE_GEAR[L.worn(s, slot)]; if (g && (at === undefined || g.place === at)) less += g.less; });
     var set = L.wornSet(s);
-    if (set && def && def.place === set) less += C.GEAR_SET_BONUS;
+    if (set && (at === undefined || at === set)) less += C.GEAR_SET_BONUS;
     return less;
   };
-  // The energy a charge costs you (hit: the animal's; kind: who charged). A dish's power halves it, the Fire Charm (worn)
-  // takes 40% off, then the gear its 1s and 2s. Never less than 1.
+  // A creature of the places from before (Pulag, Makiling, Magayon and the Lair: no place of the new ones)
+  var oldKind = function (kind) { var def = kind && WI.animals[kind], p = def && def.place && C.PLACES[def.place]; return !p || !!p.legacy; };
+  // The energy a charge costs you (hit: the animal's; kind: who charged). A dish's power halves it, the Fire Charm (worn,
+  // against the places from before) takes 40% off, then the gear its 1s and 2s, never under a third of what was left
+  // (C.GEAR_FLOOR). Never less than 1.
   L.chargeLoss = function (s, hit, kind) {
     if (!(hit > 0)) return 0;
     var lost = Math.ceil(hit / (L.power(s, 'charge') ? 2 : 1));
-    if (L.wearsOld(s, 'charm')) lost = Math.ceil(lost * C.GEAR_RULES.charm);
-    return Math.max(C.GEAR_MIN_HIT, lost - L.gearLess(s, kind));
+    if (L.wearsOld(s, 'charm') && oldKind(kind)) lost = Math.ceil(lost * C.GEAR_RULES.charm);
+    var less = L.gearLess(s, kind);
+    if (less > 0) lost = Math.max(Math.min(lost, Math.ceil(hit * C.GEAR_FLOOR)), lost - less);
+    return Math.max(C.GEAR_MIN_HIT, lost);
   };
 
   // ---------- medals ----------

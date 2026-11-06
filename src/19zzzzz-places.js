@@ -488,7 +488,7 @@
   var pieceText = function (g) {
     if (!g) return '';
     if (g.old) return g.desc;
-    return g.less + ' less energy when something charges you.';
+    return g.less + ' less energy when something of ' + C.PLACES[g.place].name + ' charges you.';
   };
   U.openGear = function (back) {
     var self = this, s = F.session.state;
@@ -507,7 +507,7 @@
     this.listPanel({
       title: 'Gear', page: 0, rows: rows,
       corner: back ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); back(); } } : null,
-      sub: function () { return less ? 'A charge costs you ' + less + ' less' + (set ? ', ' + (less + C.GEAR_SET_BONUS) + ' less in ' + C.PLACES[set].name : '') + ' (never under 1).' : 'Wear gear to lose less energy when something charges you.'; },
+      sub: function () { return less ? 'Each piece works in its own place: up to ' + less + ' less a charge there' + (set ? ' (the whole ' + C.PLACES[set].name + ' set)' : '') + '.' : 'Wear gear to lose less energy when something charges you.'; },
       reopen: function () { self.openGear(back); },
     });
   };
@@ -553,9 +553,9 @@
           C.GEAR_SLOTS.forEach(function (slot) {
             var g = C.PLACE_GEAR[id + '_' + slot];
             if (!g) return;
-            if (L.ownsPiece(s, g.id)) { o.rows.push({ icon: g.icon, name: g.name + ' (yours)', desc: C.GEAR_SLOT_NAMES[slot] + ': ' + g.less + ' less energy a charge. Wear it from Gear.' }); return; }
+            if (L.ownsPiece(s, g.id)) { o.rows.push({ icon: g.icon, name: g.name + ' (yours)', desc: C.GEAR_SLOT_NAMES[slot] + ': ' + g.less + ' less energy a charge in ' + C.PLACES[id].name + '. Wear it from Gear.' }); return; }
             var ok = s.gold >= g.gold && L.hasNeeds(s, g.needs);
-            o.rows.push({ icon: g.icon, name: g.name, desc: C.GEAR_SLOT_NAMES[slot] + ', ' + g.less + ' less a charge. ' + needLine(s, g.needs) + '.',
+            o.rows.push({ icon: g.icon, name: g.name, desc: C.GEAR_SLOT_NAMES[slot] + ', ' + g.less + ' less a charge in ' + C.PLACES[id].name + '. ' + needLine(s, g.needs) + '.',
               buttons: [{ label: fmt(g.gold) + 'G', color: ok ? GREEN : GREY, cb: function () {
                 var r = L.makeGear(s, g.id);
                 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
@@ -712,7 +712,7 @@
         draw: function (ui, sc, move) { ['gear_cloak', 'gear_boots', 'gear_charm', 'bag'].forEach(function (k, n) { var i = icon(ui, sc, 52 + n * 56, 66, C.ICON[k], 0.28); tw(ui, move, { targets: i, y: 58, duration: 420, delay: n * 150, yoyo: true, repeat: -1 }); }); } },
       { text: 'When something charges you, Head and Feet take 1 off the energy it costs, Body and Charm 2.',
         draw: function (ui, sc, move) { var t = words(ui, sc, 136, 66, '-10  ->  -4', 20, '#a8402a'); tw(ui, move, { targets: t, scale: 1.1, duration: 500, yoyo: true, repeat: -1 }); } },
-      { text: "Kanor makes a set for each place from what it gives (his Make tab). All four of one set: 2 more off there.",
+      { text: "Kanor makes a set for each place from what it gives (his Make tab). A set works in its own place; all four: 2 more off.",
         draw: function (ui, sc, move) { icon(ui, sc, 100, 66, C.ICON.bow, 0.3); var g = icon(ui, sc, 180, 66, C.ICON.gear_cloak, 0.34); tw(ui, move, { targets: g, angle: { from: -8, to: 8 }, duration: 500, yoyo: true, repeat: -1 }); } },
     ],
   };

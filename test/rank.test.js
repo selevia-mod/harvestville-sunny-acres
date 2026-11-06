@@ -22,6 +22,7 @@ const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))
 const manila = (y, mo, d, h = 10, mi = 0) => Date.UTC(y, mo - 1, d, h - 8, mi);
 const fresh = () => { clock.ms = manila(2026, 11, 6, 10); const s = L.newState(); s.seed = 7; if (L.takeNotes) L.takeNotes(); return s; };
 const SQL = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_22.sql'), 'utf8');
+const SQL23 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_23.sql'), 'utf8'); // (the new places' bosses)
 
 // ---------- points ----------
 test('points: each kind capped per day; the caps are the same as the server\'s', () => {
@@ -202,7 +203,7 @@ test('firsts: the Bakunawa, each Lair guard on its own floor, the Great Mammoth;
   assert.deepStrictEqual(plain(s.tr.fq), []);
   assert.strictEqual(L.hallWant(s, 'lair_10'), false, 'answered: never again');
   assert.deepStrictEqual(plain(roundTrip(s).tr.fd), ['lair_10']);
-  const keys = [...SQL.match(/insert into farm\.hall_first_keys \(key, what\) values([^;]+?)on conflict/)[1].matchAll(/\('([a-z0-9_]+)'/g)].map((m) => m[1]);
+  const keys = [SQL, SQL23].flatMap((q) => [...q.match(/insert into farm\.hall_first_keys \(key, what\) values([^;]+?)on conflict/)[1].matchAll(/\('([a-z0-9_]+)'/g)].map((m) => m[1]));
   assert.deepStrictEqual(keys.sort(), plain(C.HALL.FIRSTS.map((f) => f.key).sort()), 'the server\'s allow-list');
   assert.deepStrictEqual(MOCK.FIRSTS.slice().sort(), keys.sort());
   // every guard floor of the Lair has its first
@@ -235,7 +236,8 @@ test('plaques: names and records from the server, "That\'s you!", nobody yet, yo
   assert.deepStrictEqual(text('board'), ['#1 Bea, 9,100 (Gold)', '#2 Ana, 2,500 (Silver)  That\'s you!']);
   assert.deepStrictEqual(text('d5'), ['Coming soon: the Bayanihan Project\'s top givers will hang here.'], 'the Bayanihan hook, before that part');
   assert.deepStrictEqual(text('d5', Object.assign({}, data, { more: [{ key: 'bayanihan', rows: [{ id: 'me', name: 'Ana', text: '40 gifts' }] }] })), ['#1 Ana, 40 gifts  That\'s you!']);
-  assert.deepStrictEqual(text('w8'), [C.HALL.soon]);
+  // (owner, 7 Nov 2026) the plaque that waited is the new dungeons' firsts now
+  assert.deepStrictEqual(text('w8'), ['Amomongo', 'Great Nuno', 'Berberoka', 'Kapre', 'Minokawa'].map((n) => 'First to beat the ' + n + ': nobody yet. It could be you!'));
   // not online, reading, the server without part 22
   assert.deepStrictEqual(text('d1', null), ['Join online play to see the names.', 'Your biggest Wild Boar: 98.0 kg.']);
   assert.deepStrictEqual(text('w1', null), ['Join online play to see the names.']);

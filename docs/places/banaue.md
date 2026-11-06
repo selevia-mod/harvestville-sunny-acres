@@ -85,8 +85,9 @@ Itik Feather 25, Itik Meat 32, Terrace Stone 40, Heirloom Rice 50, Kibaan Cap 90
 | Terrace Sandals (Feet) | 4 Cave Scale, 6 Terrace Stone | 3,000 | 1 |
 | Terrace Charm (Charm) | 2 Amomongo Fur, 1 Kibaan Staff, 3 Heirloom Rice | 6,000 | 2 |
 
-Wearing all four takes **2 more** off charges from Banaue's own creatures (on the terraces and in the tunnels): 6 off
-anyone's charge, 8 off Banaue's. A charge never costs less than 1.
+Wearing all four takes **2 more** off: 8 off charges from Banaue's own creatures (on the terraces and in the tunnels),
+nothing elsewhere. A Bayawak's 10 becomes 4 (a third), the Amomongo's 15 becomes 7.
+(The gear rule, owner 7 Nov 2026: each piece works only against this place's own creatures, here and in its dungeon; a charge never costs under a third of its hit with the gear, and the Fire Charm works only from Pulag to the Lair.)
 
 ### Adobong Itik
 

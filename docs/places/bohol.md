@@ -72,6 +72,7 @@ The Great Nuno is grumpy but kind: soloable, harder with friends (each must land
 | Hollow Charm | 3 Punso Clay, 1 Nuno Moss | 6,000 | 2 |
 
 All four: 2 more off against the hills' and the Hollows' own creatures (a Musang's 13 becomes 5, the Nuno's 18 becomes 10).
+(The gear rule, owner 7 Nov 2026: each piece works only against this place's own creatures, here and in its dungeon; a charge never costs under a third of its hit with the gear, and the Fire Charm works only from Pulag to the Lair.)
 
 ## Food and drops
 

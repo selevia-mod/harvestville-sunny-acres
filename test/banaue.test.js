@@ -153,18 +153,18 @@ test('Lola Bugan: four steps (first visit, 5 hunts, the guard, the boss), each w
   assert.ok(!Object.keys(A).some((k) => /bulul/i.test(k + ' ' + A[k].name)), 'no bulul creature');
 });
 
-test('the Terrace set: Kanor makes it from Banaue\'s drops; all four take 6 off a charge, 8 off a Banaue creature\'s (map and tunnels)', () => {
+test('the Terrace set: Kanor makes it from Banaue\'s drops; all four take 8 off a Banaue creature\'s charge (map and tunnels), never under a third; nothing elsewhere', () => {
   const s = fresh();
   s.gold = 20000;
   Object.values(P().gear.pieces).forEach((g) => g.needs.forEach(([id, n]) => L.addItem(s, id, n)));
   ['head', 'body', 'feet', 'charm'].forEach((slot) => assert.strictEqual(L.makeGear(s, ID + '_' + slot), 'ok', slot));
   assert.strictEqual(s.gold, 20000 - 17000);
   assert.strictEqual(L.wornSet(s), ID);
-  assert.strictEqual(L.chargeLoss(s, 16, 'bear'), 10, '1 + 2 + 1 + 2 off anyone\'s');
-  assert.strictEqual(L.chargeLoss(s, 10, 'bayawak'), 2, '2 more off the Bayawak');
+  assert.strictEqual(L.chargeLoss(s, 16, 'bear'), 16, 'Magayon\'s bear: the places from before stay as they were');
+  assert.strictEqual(L.chargeLoss(s, 10, 'bayawak'), 4, 'the Bayawak: 10 - 8, but never under a third');
   assert.strictEqual(L.chargeLoss(s, 15, 'amomongo'), 7, 'and in the tunnels');
-  assert.strictEqual(L.chargeLoss(s, 11, 'cave_bayawak'), 3);
-  assert.strictEqual(L.chargeLoss(s, 9, 'kibaan_chief'), 1, 'never under 1');
+  assert.strictEqual(L.chargeLoss(s, 11, 'cave_bayawak'), 4);
+  assert.strictEqual(L.chargeLoss(s, 9, 'kibaan_chief'), 3);
 });
 
 test('the Terrace Tunnels: 10 floors, more creatures deeper, the Kibaan Chief on 5, the Amomongo on 10, the lift at 1, 6', () => {

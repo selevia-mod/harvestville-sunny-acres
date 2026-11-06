@@ -57,7 +57,8 @@ The lift by the ladder stops at floors 1 and 6 once you have been there.
 | Lakeguard Boots (feet) | 4 Siyokoy Fins, 6 Sulfur Chips | 4,500 | 1 |
 | Lakeguard Charm (charm) | 1 Berberoka Pearl, 3 Kataw Pearls, 4 Sulfur Chips | 7,500 | 2 |
 
-All four on: 2 more off against Taal's own animals and crater creatures (a Buwaya's 15 becomes 7). A hit never costs less than 1.
+All four on: 2 more off against Taal's own animals and crater creatures (a Buwaya's 15 becomes 7).
+(The gear rule, owner 7 Nov 2026: each piece works only against this place's own creatures, here and in its dungeon; a charge never costs under a third of its hit with the gear, and the Fire Charm works only from Pulag to the Lair.)
 
 ## Mang Celso, the Taal fisherman
 

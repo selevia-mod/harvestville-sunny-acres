@@ -128,7 +128,7 @@ test('the places from before are in the jeep list with their medals; a new place
 });
 
 // ---------- gear ----------
-test('gear: Head and Feet take 1 off a hit, Body and Charm 2, a whole set 2 more for its own creatures; never below 1', () => {
+test('gear: Head and Feet take 1 off a hit, Body and Charm 2, a whole set 2 more; only against its own place, never under a third of the hit (owner, 7 Nov)', () => {
   const s = fresh();
   s.gold = 10000;
   L.addItem(s, 'sample_hide', 9);
@@ -137,18 +137,25 @@ test('gear: Head and Feet take 1 off a hit, Body and Charm 2, a whole set 2 more
   assert.strictEqual(L.makeGear(s, 'sample_place_head'), 'ok');
   assert.strictEqual(L.makeGear(s, 'sample_place_head'), 'owned', 'made once');
   assert.strictEqual(L.worn(s, 'head'), 'sample_place_head', 'on at once in a free slot');
-  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 9);
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 9);
+  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 10, 'not against another place\'s creatures');
   L.makeGear(s, 'sample_place_body');
-  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 7);
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 7);
   L.makeGear(s, 'sample_place_feet');
-  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 6);
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 6);
   L.makeGear(s, 'sample_place_charm');
   assert.strictEqual(L.wornSet(s), SP);
-  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 4, '1 + 2 + 1 + 2 against anyone else');
-  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 2, 'and 2 more against the set\'s own place');
-  assert.strictEqual(L.chargeLoss(s, 10, 'sample_boss'), 2, 'its cave too');
-  assert.strictEqual(L.chargeLoss(s, 5, 'sample_hog'), 1, 'never less than 1');
+  assert.strictEqual(L.chargeLoss(s, 20, 'sample_hog'), 12, '1 + 2 + 1 + 2, and 2 more for the whole set');
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 4, 'but never under a third of the hit (10 - 8 would be 2)');
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_boss'), 4, 'its cave too');
+  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 10, 'the places from before stay as they were');
+  assert.strictEqual(L.chargeLoss(s, 2, 'sample_hog'), 1, 'never less than 1');
   assert.strictEqual(L.chargeLoss(s, 0, 'sample_hog'), 0);
+  // a dish's power still halves it first; with the whole set on it never goes under the third either
+  s.pw = Object.assign({}, s.pw);
+  const realPower = L.power;
+  L.power = (st, k) => k === 'charge' || realPower(st, k);
+  try { assert.strictEqual(L.chargeLoss(s, 24, 'sample_hog'), 8, '24 / 2 = 12, - 8 = 4, a third of 24 is 8'); } finally { L.power = realPower; }
   L.takeOff(s, 'feet');
   assert.strictEqual(L.wornSet(s), null);
   assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 5, 'no set: no bonus');
@@ -160,7 +167,8 @@ test('gear: Head and Feet take 1 off a hit, Body and Charm 2, a whole set 2 more
   assert.strictEqual(L.worn(s, 'charm'), 'sample_place_charm', 'the slot was taken: the new charm waits');
   assert.strictEqual(L.wearsOld(s, 'charm'), false);
   assert.strictEqual(L.wear(s, 'g:charm'), 'ok');
-  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 3, '40% off (6), then the hat and the vest (3)');
+  assert.strictEqual(L.chargeLoss(s, 10, 'boar'), 6, 'Makiling: 40% off; the sample place\'s hat and vest do nothing there');
+  assert.strictEqual(L.chargeLoss(s, 10, 'sample_hog'), 7, 'a new place: no Fire Charm, but the hat and the vest (3)');
   assert.strictEqual(L.wear(s, 'sample_place_feet'), 'ok');
   assert.strictEqual(L.wear(s, 'nope_head'), 'none');
   const back = roundTrip(s);
@@ -367,4 +375,19 @@ test('the save stays small with every place full', () => {
   C.MEDALS.forEach((m) => { s.medals[m.code] = 20400; });
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < 16000, size + ' bytes');
+});
+
+// ---------- the server knows every place (part 23, owner 7 Nov 2026) ----------
+test('part 23: its rows are the game\'s own (tools/places/server-rows.js): every new place\'s map, animals and boss', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_23.sql'), 'utf8');
+  const made = require('child_process').execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'places', 'server-rows.js')], { encoding: 'utf8' });
+  assert.ok(sql.includes(made.trim()), 'the SQL carries exactly what the tool prints (rerun it when a place changes)');
+  const news = C.PLACE_ORDER.filter((id) => !C.PLACES[id].legacy && !C.PLACES[id].dev);
+  news.forEach((id) => {
+    assert.ok(sql.includes("('" + C.PLACES[id].map + "')"), id + ': Hunting now');
+    C.PLACES[id].kinds.forEach((k) => assert.ok(sql.includes("('" + k + "', " + C.WILD.animals[k].kg + ')'), id + ': ' + k));
+    assert.ok(sql.includes("('" + id + "_boss'"), id + ': its boss in the Hall');
+    assert.ok(C.HALL.FIRSTS.some((f) => f.key === id + '_boss' && f.map === C.PLACES[id].dungeon.key && f.kind === C.PLACES[id].dungeon.boss), id + ': and in the game');
+  });
+  assert.deepStrictEqual(plain(C.HALL.spots.w8.keys), plain(news.map((id) => id + '_boss')), 'all on one plaque');
 });

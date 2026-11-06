@@ -4971,7 +4971,7 @@ test('Bayanihan Projects: the board by the plaza offline (its tour, the project,
 
 // ---------- hunting places (owner, 6 Nov 2026; src/19zzzzz-places.js) ----------
 // SAMPLE: the engine proved on the sample place; the place agents replace this test with their own place's.
-test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample place; gear takes a charge to 1; tame its animal (it runs off once and comes back); its hidden chest; its person\'s story; its 2-floor cave and the boss\'s chest; the Medals page (owner, 6 Nov 2026)', async () => {
+test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample place; gear takes a charge to a third; tame its animal (it runs off once and comes back); its hidden chest; its person\'s story; its 2-floor cave and the boss\'s chest; the Medals page (owner, 6 Nov 2026)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.gold = 5000; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); L.addItem(s, 'berry', 10); L.addItem(s, 'sample_hide', 3); L.addItem(s, 'sample_fang', 1); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
   const { page, problems, context } = await open(save);
   await closeAll(page);
@@ -4991,7 +4991,7 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   await page.evaluate(() => Farm.ui.openInventory());
   await tapButton(page, 'Gear');
   assert.match(await modalText(page), /Gear[\s\S]*Head: Sample Hat[\s\S]*Body: Sample Vest[\s\S]*Feet: Sample Shoes[\s\S]*Charm: Sample Charm/);
-  assert.match(await modalText(page), /A charge costs you 6 less, 8 less in Sample Place/);
+  assert.match(await modalText(page), /Each piece works in its own place: up to 8 less a charge there \(the whole Sample Place set\)/);
   await shot(page, 'places-gear');
   await closeAll(page);
   // the Jeep by the Lodge
@@ -5005,9 +5005,9 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   const here = await page.evaluate(() => { const w = Farm.world, f = w.feet(), p = w.points.from_jeep; return { jeep: !!w.jeep, npc: !!w.placeNpc, chests: w.placeChests.length, near: Math.hypot(f.x - p.x, f.y - p.y) < 256, kinds: w.wild.animals.map((a) => a.kind).sort(), comp: !!w.comp }; });
   assert.deepStrictEqual(here, { jeep: true, npc: true, chests: 1, near: true, kinds: ['sample_hog', 'sample_kid'], comp: false });
   await shot(page, 'places-sample-arrive');
-  // a charge: the whole set takes 8 off, never under 1
+  // a charge: the whole set takes 8 off, never under a third of the hit (owner, 7 Nov 2026)
   const lost = await page.evaluate(() => { const w = Farm.world, s = Farm.session.state, a = w.wild.animals.find((x) => x.kind === 'sample_hog'), e = s.energy; w.wildHit(a); return e - s.energy; });
-  assert.strictEqual(lost, 1);
+  assert.strictEqual(lost, Math.ceil(8 / 3), 'the hog\'s 8, less 8, but never under a third');
   // the hog hunted (its hits counted as yours)
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'sample_hog'); a.hp = 1; w.wildStruck(a); });
   await page.waitForFunction(() => Farm.session.state.places.sample_place.n === 1, null, SLOW);

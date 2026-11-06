@@ -11,7 +11,7 @@ computer. **Nothing is pushed**, and nothing has been tried on a phone yet (both
 | 10 | **Hall of Fame** (your museum idea) | The big building at the top of Central Park | Plaques with the names of the biggest catch of each animal, Derby records, the first to beat each boss, and the Town Rank champions. "That's you!" appears on your own. |
 | — | **5 new hunting places** | Kanor's Jeep, by his Lodge in Pulag | Banaue Terraces (60 hunts), Chocolate Hills (80), Taal Lake (100), Sierra Madre (130), Palawan Underground River (160). Each has 3 animals, a local friend with a 4-step story and gifts, and 5 hidden chests. |
 | 7 | **A dungeon in each place** | The cave door in each place | 10 floors, a guard on floor 5 and a boss on floor 10 you can beat alone. The boss gets bigger with friends. The boss chest comes once a day and saves up to 3. |
-| 2 | **Gear** | Kanor's Lodge, Make tab; Bag → Gear | One 4-piece set per place. Head and Feet take 1 energy off each monster hit, Body and Charm take 2, and a full set takes 2 more in its own place. |
+| 2 | **Gear** | Kanor's Lodge, Make tab; Bag → Gear | One 4-piece set per place, working only in its own place and dungeon. Head and Feet take 1 energy off each monster hit, Body and Charm take 2, and a full set takes 2 more. A hit never drops below a third, and the old Fire Charm works only from Pulag to the Lair (7 Nov balance). |
 | 3 | **Taming** | A young animal in each place | Feed it its favourite food about 8–10 times; it may run off and come back. It then follows you and helps (fetches drops or spots rares). |
 | 4 | **Medals** | Pause → farmer card → Medals; also on a friend's card | Medals for your first hunt, each animal, the rare one, the guard, the boss, the tame, all chests and the story, shown as silhouettes until earned. |
 | 9 | **Bayanihan Projects** | The board by the plaza (and Online → Friends) | The whole server builds one project at a time: the Old Bridge, Market Hall, Plaza Fountain, Chapel Bell and Old Pier. The town changes for everyone, and each project gives a real benefit. Rewards: Helper 300G, Builder 1,000G, Hero 2,500G, plus a title and a yard piece. |
@@ -33,6 +33,8 @@ Not done, as you decided: monster cards (no), the World Boss (Town Raid replaces
    - `supabase/farm_online_20.sql`: Bayanihan Projects.
    - `supabase/farm_online_21.sql`: Town Raid.
    - `supabase/farm_online_22.sql`: Town Rank and the Hall of Fame.
+   - `supabase/farm_online_23.sql` (added 7 Nov): every new place on the server. "Hunting now" shows the real place,
+     the Biggest catch has the new animals, and the Hall of Fame has a "first to beat" for the 5 new bosses.
    - The server already has every older part these need (I checked: parts 14, 15, 16 and 18).
 3. **Upload two downloads to the CDN**, to `app-assets/packs/`. I can upload them on your word.
    - **Furniture styles:** 45 files (2.4 MB). To make room on the page, the 9 furniture styles and their sleeping
@@ -71,7 +73,8 @@ Each feature's doc lists the extra art that would make it nicer:
 
 - **Town Raid:** friends see different raiders on each phone; only the town bar is shared. This keeps the server cost tiny.
 - **"Firsts" in the Hall of Fame** are claimed by the phone; the server only makes sure the first one wins.
-- **"Hunting now" and "Biggest catch"** on the server know only the first 3 places, so a hunter in a new place shows as "in Pulag". Fixing that needs a small server change later.
+- **"Hunting now" and "Biggest catch"** know every place once part 23 is in. A future place's server rows come from
+  `node tools/places/server-rows.js <place>`, so nobody types them by hand.
 - **Central Park load:** moves are sent once a second, and only while walking. Even 3 full parks stay well under the server's message limit.
 - **Hall of Fame and the park seat:** going inside the Hall gives up your park seat, and coming out asks for one again.
 - **Not checked on a phone yet.**

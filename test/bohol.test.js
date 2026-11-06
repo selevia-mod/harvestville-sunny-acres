@@ -180,7 +180,7 @@ test('the Hollow set: Kanor makes it from the hills\' drops and Gold; worn whole
   assert.deepStrictEqual(plain(C.GEAR_SLOTS.map((k) => C.PLACE_GEAR[ID + '_' + k].name)), ['Hollow Hat', 'Hollow Vest', 'Hollow Boots', 'Hollow Charm']);
   assert.strictEqual(L.chargeLoss(s, A('musang').hit, 'musang'), 5);
   assert.strictEqual(L.chargeLoss(s, A('greatnuno').hit, 'greatnuno'), 10);
-  assert.strictEqual(L.chargeLoss(s, A('boar').hit, 'boar'), 2, 'elsewhere: 6 off');
+  assert.strictEqual(L.chargeLoss(s, A('boar').hit, 'boar'), A('boar').hit, 'elsewhere: nothing off (owner, 7 Nov)');
   const t = fresh();
   t.gold = 99999;
   assert.strictEqual(L.makeGear(t, 'bohol_charm'), 'short', 'it needs the hills\' drops');

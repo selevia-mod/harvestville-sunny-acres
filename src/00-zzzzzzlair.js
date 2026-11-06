@@ -102,7 +102,7 @@
 
   // ---------- the Fire Charm: Hunter's gear, bought with what the Lair gives ----------
   // A charge that reaches you costs less energy (C.GEAR_RULES.charm).
-  C.GEAR.push({ key: 'charm', name: 'Fire Charm', gold: 6000, needs: [['ember_shard', 25], ['santelmo_flame', 3]], desc: 'A charge that reaches you costs 40% less energy.', short: 'Charges cost 40% less.' });
+  C.GEAR.push({ key: 'charm', name: 'Fire Charm', gold: 6000, needs: [['ember_shard', 25], ['santelmo_flame', 3]], desc: 'A charge that reaches you costs 40% less energy, from Pulag to the Lair.', short: 'Charges cost 40% less.' });
   C.GEAR_RULES.charm = 0.6;
   C.GEAR[C.GEAR.length - 1].icon = C.ICON.gear_charm;
 })(window.Farm = window.Farm || {});

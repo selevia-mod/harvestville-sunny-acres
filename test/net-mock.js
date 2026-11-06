@@ -7,6 +7,10 @@ const LOOK_OFFERS = [{ look: 'flower', currency: 'coins', price: 100 }, { look: 
 
 // each animal's usual weight (supabase/farm_online_14.sql, farm.catch_kinds)
 const CATCH_KG = { rabbit: 2, labuyo: 1.4, deer: 60, boar: 90, wolf: 40, whitedeer: 75, goldboar: 120, bear: 180, mammoth: 4000, tiger: 200, rhino: 1500, greatmammoth: 7000 };
+// part 23 (supabase/farm_online_23.sql): the new places' maps and animals. db.noPart23: as before it is applied.
+const PLACE_MAPS = ['banaue', 'bohol', 'taal', 'sierra', 'palawan'];
+const PLACE_KG = { itik: 1.1, bayawak: 18, goldduck: 1.6, kambing: 45, musang: 6, cocoagoat: 60, tagak: 1.8, buwaya: 240, royal_tagak: 2.8, unggoy: 9,
+  carabaoligaw: 800, silvercarabao: 900, paniki: 0.9, sawa: 45, golden_sawa: 70 };
 
 // each fish's usual weight (supabase/farm_online_15.sql, farm.derby_fish)
 const DERBY_KG = { fish_s: 0.3, fish_m: 1.2, fish_l: 3.5, fish_k: 12 };
@@ -369,7 +373,7 @@ function createServer() {
       huntPart(); need(uid);
       db.players.get(uid).seen = Date.now();
       if (a.p_map == null) { db.hunting.delete(uid); return null; }
-      if (!['pulag', 'makiling', 'magayon'].includes(a.p_map)) throw new Error('bad map');
+      if (!['pulag', 'makiling', 'magayon'].concat(db.noPart23 ? [] : PLACE_MAPS).includes(a.p_map)) throw new Error('bad map');
       const old = db.hunting.get(uid);
       db.hunting.set(uid, { map: a.p_map, since: old && old.map === a.p_map ? old.since : Date.now() });
       return null;
@@ -388,7 +392,7 @@ function createServer() {
     },
     farm_catch_v1(uid, a) {
       huntPart(); need(uid);
-      const base = CATCH_KG[a.p_kind];
+      const base = CATCH_KG[a.p_kind] || (!db.noPart23 && PLACE_KG[a.p_kind]);
       if (!base) return { ok: false, code: 'bad-kind' };
       if (!(a.p_kg10 >= Math.floor(base * 9) && a.p_kg10 <= Math.ceil(base * 13.5))) return { ok: false, code: 'bad-weight' };
       const key = a.p_kind + ':' + uid, old = db.catches.get(key) || 0;

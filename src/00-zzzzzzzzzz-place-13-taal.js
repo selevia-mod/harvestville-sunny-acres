@@ -85,7 +85,7 @@
       key: 'taal_crater', name: 'Taal Crater', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
       count: { base: 3, per: 3, max: 7 }, escort: 2,
       creatures: {
-        siyokoy: { name: 'Siyokoy', sheet: 'wild_siyokoy', sheetRow: 'sigbin', tint: 0x7fd0a8, px: 162, w: 1.2, kg: 70, hp: 4, walk: 0.8, run: 4.4, angry: 3.2, hit: 12, ground: true,
+        siyokoy: { name: 'Siyokoy', sheet: 'wild_siyokoy', sheetRow: 'sigbin', tint: 0x7fd0a8, px: 117, w: 0.95, kg: 70, hp: 4, walk: 0.8, run: 4.4, angry: 3.2, hit: 12, ground: true,
           drops: [['fin_siyokoy', 1, 1], ['sulfur_chip', 1, 0.5]] },
         kataw: { name: 'Kataw', sheet: 'wild_kataw', sheetRow: 'tikbalang', bar: 2.05, tint: 0x8cc4f0, px: 164, w: 1.15, kg: 90, hp: 6, walk: 0.9, run: 4.6, angry: 3.6, hit: 13, ground: true,
           drops: [['pearl_kataw', 1, 0.6], ['fin_siyokoy', 1, 0.4], ['sulfur_chip', 1, 0.6]] },

@@ -68,8 +68,8 @@ Mane 480, Spirit Moss 420, Queen's Ribbon 2,200, Kapre Bark 3,200, Narra Wood 22
 | Ranger Boots (feet) | 1 | 4 Carabao Hide, 4 Spirit Moss | 4,500 |
 | Kapre Charm (charm) | 2 | 2 Kapre Bark, 3 Narra Wood, 1 Queen's Ribbon | 8,000 |
 
-All four on: 6 off every charge, 8 off charges from Sierra Madre's creatures (a Wild Carabao's 18 becomes 10). Never
-below 1.
+All four on: 8 off charges from Sierra Madre's creatures (a Wild Carabao's 18 becomes 10), nothing elsewhere.
+(The gear rule, owner 7 Nov 2026: each piece works only against this place's own creatures, here and in its dungeon; a charge never costs under a third of its hit with the gear, and the Fire Charm works only from Pulag to the Lair.)
 
 **Medals** (codes 1400-1414): first hunt, the Anggitay Queen, the Kapre, the Little Unggoy tamed, every chest, Ka
 Ramon's story, then each animal (Unggoy, Wild Carabao, Silver Carabao) and a giant Unggoy and a giant Wild Carabao.

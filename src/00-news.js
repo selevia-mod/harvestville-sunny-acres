@@ -13,7 +13,7 @@
         // (owner, 6 Nov 2026: "Finish all the one we talk earlier": the rest of the night's update, in one version)
         ['bow', 'Five new hunting places', 'Ride Kanor\'s Jeep from his Lodge to Banaue Terraces, Chocolate Hills, Taal Lake, Sierra Madre and the Palawan Underground River. Each opens after more hunts, with its own animals, a local friend and hidden chests.', 'jeep'],
         ['ember_shard', 'A dungeon under each', 'Ten floors, a guard on floor 5 and a boss on floor 10 you can beat alone (more friends, a bigger boss). Its chest waits once a day, up to 3.'],
-        ['gear_cloak', 'Hunter\'s gear sets', 'Kanor makes a set of 4 from each place. Every piece takes energy off a charge, and the whole set takes even more there.', 'gear_slots'],
+        ['gear_cloak', 'Hunter\'s gear sets', 'Kanor makes a set of 4 from each place. In its own place, every piece takes energy off a charge, and the whole set even more.', 'gear_slots'],
         ['heart', 'Tame a friend', 'Each place has a young animal to tame with its favourite food. It follows you and helps you hunt.', 'tame'],
         ['star', 'Medals', 'Medals for what you do out hunting, from your first hunt to each boss. Friends see them on your card.', 'medals'],
         ['crate', 'Bayanihan Projects', 'Build the town together with every farmer in Harvest Ville at the board by the plaza. Each finished project changes the town for everyone.', 'bh'],

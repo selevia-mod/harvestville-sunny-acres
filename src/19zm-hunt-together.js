@@ -26,11 +26,16 @@
   O.tellHunt = function () {
     if (!O.on || O.huntOff || !F.Net.available()) return;
     var w = F.world, map = w && w.mapKey && !F.session.visit && L.isWildMap(w.mapKey) ? w.mapKey : null;
-    if (map === 'lair') map = 'magayon'; // (the server knows the three Wild Lands: the Lair is under Magayon, and Join walks there)
-    else if (map && L.isNewPlaceMap && L.isNewPlaceMap(map)) map = 'pulag'; // (a hunting place: the server knows only the three, so Pulag, where the Jeep is)
+    if (map === 'lair') map = 'magayon'; // (the Lair is under Magayon, and Join walks there)
+    // a new hunting place: itself (its dungeon: the place, as the Lair is Magayon), now the server knows every place (part
+    // 23, owner 7 Nov 2026); a server without part 23 yet knows only the three, so Pulag, where the Jeep is
+    else if (map && L.isNewPlaceMap && L.isNewPlaceMap(map)) map = O.oldHuntMaps ? 'pulag' : C.PLACES[L.placeOf(map)].map;
     if (map === told) return;
     told = map;
-    F.Net.rpc('farm_hunt_here_v1', { p_map: map }).catch(function (e) { if (!off(e) && told === map) told = undefined; }); // (tried again on the next map)
+    F.Net.rpc('farm_hunt_here_v1', { p_map: map }).catch(function (e) {
+      if (/bad map/i.test((e && e.message) || String(e || '')) && !O.oldHuntMaps) { O.oldHuntMaps = true; told = undefined; return O.tellHunt(); }
+      if (!off(e) && told === map) told = undefined; // (tried again on the next map)
+    });
   };
   var create = P.create;
   P.create = function () {
@@ -41,6 +46,7 @@
 
   // ---------- Hunting now ----------
   var AREA_ICON = { pulag: 'feather_labuyo', makiling: 'tusk', magayon: 'great_tusk' };
+  C.PLACE_ORDER.forEach(function (id) { var p = C.PLACES[id]; if (!p.legacy && !p.dev && p.icon) AREA_ICON[p.map] = p.icon; }); // (the new places: their own)
   // A row for another panel (the Friends tab, Kanor's Request tab); back() reopens that panel. null while it is hidden.
   U.huntRow = function (back) {
     var self = this;
@@ -143,8 +149,15 @@
   };
 
   // ---------- the biggest catch of the week ----------
+  // The animals on the board: the Wild Lands' 12, then each new place's (its animals and its rare one, not its dungeon's:
+  // the server's farm.catch_kinds, part 23, owner 7 Nov 2026; a place added later needs its rows there too)
+  var catchKinds = function () {
+    var out = WI.order.filter(function (x) { return !WI.animals[x].lair; });
+    C.PLACE_ORDER.forEach(function (id) { var p = C.PLACES[id]; if (!p.legacy && !p.dev) (p.kinds || []).forEach(function (k) { if (out.indexOf(k) < 0) out.push(k); }); });
+    return out;
+  };
   O.recordCatch = function (kind, kg) {
-    if (!O.on || O.huntOff || !WI.animals[kind] || WI.animals[kind].lair || WI.animals[kind].place) return; // (the Lair's creatures are not on the board: the server knows the Wild Lands' 12)
+    if (!O.on || O.huntOff || catchKinds().indexOf(kind) < 0) return; // (the Lair's and the dungeons' creatures are not on the board)
     var kg10 = Math.round(kg * 10);
     F.Net.rpc('farm_catch_v1', { p_kind: kind, p_kg10: kg10 }).then(function (r) {
       if (!r || !r.ok || Number(r.best) !== kg10) return; // (not bigger than this week's)
@@ -168,7 +181,7 @@
 
   // Online, Ranks, Biggest catch (19h-online.js asks for it): the top 10 for one animal; Next for another.
   U.openCatchBoard = function (show, fail, kindRow, more) {
-    var self = this, kinds = WI.order.filter(function (x) { return !WI.animals[x].lair; }), k = this.catchKind || F.session.lastHunt || 'boar';
+    var self = this, kinds = catchKinds(), k = this.catchKind || F.session.lastHunt || 'boar';
     if (kinds.indexOf(k) < 0) k = 'boar';
     this.catchKind = k;
     var def = WI.animals[k], head = [kindRow('ranks'), {

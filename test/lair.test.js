@@ -119,6 +119,9 @@ test('the Fire Charm: Hunter\'s gear for gold and the Lair\'s goods; a charge co
   const t = fresh();
   t.gold = 9999;
   assert.strictEqual(L.buyGear(t, 'cloak'), 'ok', 'the other gear as before: gold only');
+  // (owner, 7 Nov 2026) only against the places from before: a new place's creature charges at full
+  assert.strictEqual(L.chargeLoss(s, 10, 'bear'), 6, 'Magayon');
+  assert.strictEqual(L.chargeLoss(s, 10, 'bayawak'), 10, 'Banaue: its own gear, not the Fire Charm');
 });
 
 test('the Lair in the save: the deepest floor and the Bakunawa\'s day; an old save starts at nothing', () => {

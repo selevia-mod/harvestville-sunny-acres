@@ -135,7 +135,7 @@ test('Sierra Madre: the Kapre set at Kanor\'s from its drops and Gold; a whole s
   assert.strictEqual(L.wornSet(s), ID);
   assert.strictEqual(L.chargeLoss(s, WA.carabaoligaw.hit, 'carabaoligaw'), 10, '18 - 8');
   assert.strictEqual(L.chargeLoss(s, WA.kapre.hit, 'kapre'), 16, 'the cave too');
-  assert.strictEqual(L.chargeLoss(s, 18, 'boar'), 12, 'elsewhere, 6 off');
+  assert.strictEqual(L.chargeLoss(s, 18, 'boar'), 18, 'elsewhere, nothing off (owner, 7 Nov)');
   // Kare-Kare: any meat, an eggplant and wild bananas
   const t = fresh();
   t.builds.kitchen = 1;

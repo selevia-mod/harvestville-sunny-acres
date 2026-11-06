@@ -6,7 +6,8 @@
 // Bayanihan hook), or db.noRank = true (part 22 not on the server yet).
 const SOURCES = { farm: 300, goods: 150, fish: 150, mine: 150, hunt: 150, help: 300, bayanihan: 200 }; // (farm.rank_sources)
 const TIERS = [300, 2000, 8000, 20000]; // (farm.rank_tiers)
-const FIRSTS = ['bakunawa', 'lair_10', 'lair_20', 'lair_30', 'lair_40', 'greatmammoth']; // (farm.hall_first_keys)
+const FIRSTS = ['bakunawa', 'lair_10', 'lair_20', 'lair_30', 'lair_40', 'greatmammoth', // (farm.hall_first_keys)
+  'banaue_boss', 'bohol_boss', 'taal_boss', 'sierra_boss', 'palawan_boss']; // (part 23)
 
 function install(rpc, db, { need, blocked }) {
   const now = () => (db.rankClock ? db.rankClock() : Date.now());

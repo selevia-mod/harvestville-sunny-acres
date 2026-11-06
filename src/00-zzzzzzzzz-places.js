@@ -21,12 +21,17 @@
   // ---------- gear: four slots (owner, 6 Nov 2026) ----------
   // "gear is good so when are wearing it, they attack from monster will take less 1 or 2 energy": each place has a set
   // of four pieces Kanor makes from its drops and Gold. Head and Feet take 1 off each hit, Body and Charm 2; all four of
-  // one set take 2 more off for that place's own creatures. A hit never costs less than 1.
+  // one set take 2 more off. Balance (owner, 7 Nov 2026, "we can tune it later"): a piece works only against its own
+  // place's creatures (its map and its dungeon), so every place's set matters and the places from before stay as they
+  // were; the gear never brings a hit under a third of what it would cost without it (C.GEAR_FLOOR), so a boss stays a
+  // fight; and the Fire Charm from before works only in the places from before (Pulag to the Lair), or it would beat
+  // every new charm. A hit never costs less than 1.
   C.GEAR_SLOTS = ['head', 'body', 'feet', 'charm'];
   C.GEAR_SLOT_NAMES = { head: 'Head', body: 'Body', feet: 'Feet', charm: 'Charm' };
   C.GEAR_LESS = { head: 1, body: 2, feet: 1, charm: 2 };
   C.GEAR_SET_BONUS = 2;
   C.GEAR_MIN_HIT = 1;
+  C.GEAR_FLOOR = 1 / 3; // (of the full hit: the least the gear leaves; a dish or the Fire Charm may still go lower)
   // The Hunter's gear from before keeps its own effects and is worn in a slot now (the Big Quiver stays as it is).
   C.GEAR_SLOT_OF = { cloak: 'body', boots: 'feet', charm: 'charm' };
   C.PLACE_GEAR = {}; // piece id (<place>_<slot>) -> { id, place, slot, name, icon, needs, gold, less }

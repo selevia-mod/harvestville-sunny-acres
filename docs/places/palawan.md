@@ -77,7 +77,8 @@ The Minokawa is soloable; it takes 3 hits to share it with friends. It leaves a 
 | Cavern Boots (Feet, 1 less) | 4 Sawa Skins, 6 Crab Shells, 6 Stalactite Chips | 6,000 |
 | Cavern Charm (Charm, 2 less) | 2 Minokawa Feathers, 3 Swiftlet Nests, 1 Golden Scale | 12,000 |
 
-All four: 2 less again against Palawan's own animals and cave creatures (a hit never costs less than 1).
+All four: 2 less again against Palawan's own animals and cave creatures (a Sawa's 16 becomes 8).
+(The gear rule, owner 7 Nov 2026: each piece works only against this place's own creatures, here and in its dungeon; a charge never costs under a third of its hit with the gear, and the Fire Charm works only from Pulag to the Lair.)
 
 ## Local food
 
