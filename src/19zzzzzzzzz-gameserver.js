@@ -14,6 +14,16 @@
 // opened again at once, then after 1, 2 and 4 s; its 'wl' is the whole floor again.
 // No answer within 3 s, a 'no', or a line that cannot be opened again: the floor plays the old way, as before.
 // Without window.gameHost.gs none of this runs and nothing in the game changes.
+//
+// Step 2 (docs/game-server.md, "Step 2"): every hunting place (L.isWildMap, not a cave) is open to everyone, in rooms of
+// 30 (Banaue 1, Banaue 2, ...). On one as yourself (your own save, or a visit's town: v.inTown), the same socket says hi
+// with topic 'pub' and floor 0, 'with' (the farm you visit, or a friend from your farm's room who is on this place now)
+// and 'lk' (how you look). There the server owns the animals as in a cave, and is also who is here: its list (at most
+// the 15 nearest, in view) is drawn, your farm's room carries no hunt messages for the place ('wa', 'wh', 'wd', 'wb',
+// 'bt', 'ar') and its farmers there are drawn only from the server's list (never twice). Bait ('bt') and your arrows in
+// flight ('ar') go to the server, and others' come from it. The place's tame animal stays your own: on this phone only.
+// A stranger's farmer opens the Central Park card (Add friend, Report, Block); a blocked one is not drawn. The chip says
+// the room: "Banaue 2 · 4 here" (the server sends only those near you: the count is them and you).
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -31,13 +41,23 @@
     every: 50, // the server's tick
     ahead: 100, // a tick that comes late: they keep going this long on their own
     pendMs: 1500, // a hit of yours the server never answered stops counting after this
+    most: 15, // a public room: never more others drawn than this (the server sends at most the 15 nearest)
+    nearEvery: 1000, // a public room: who the nearest are, looked at again this often
   };
   var OLD = { wa: 1, wh: 1, wd: 1, wb: 1 }; // the old relay's monster messages
+  var HUNT = { wa: 1, wh: 1, wd: 1, wb: 1, bt: 1, ar: 1 }; // ...and, in a public room, bait and arrows too
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var MOST = 400 * T;
   var gen = 0;
   var gs = null; // this floor's session: { w, gen, mode: 'connecting' | 'live' | 'retry' | 'off', ws, ... }
 
+  // a hunting place open to everyone (step 2): a wild map that is not a cave (nor Bakunawa's Lair)
+  var pubMap = function (map) { return !!map && L.isWildMap(map) && !(F.dungeonOf && F.dungeonOf(map)); };
+  // the place's short name, as the room shows it ("Banaue 2"): the first word of its name
+  var placeWord = function (map) {
+    var a = WI.areas[map], p = C.PLACES && C.PLACES[map], n = (p && p.name) || (a && a.name) || map;
+    return String(n).split(' ')[0];
+  };
   var url = function () {
     var u = window.gameHost && window.gameHost.gs;
     return typeof u === 'string' && /^wss?:\/\/./.test(u) ? u : null;
@@ -47,6 +67,8 @@
   var menu = function () { return F.ui && F.ui.blocking && F.ui.blocking() ? 1 : 0; };
   var holding = function (w) { return gs && !gs.dead && w && gs.w === w && gs.gen === w.gsGen && gs.mode !== 'off' ? gs : null; };
   var live = function () { return gs && !gs.dead && gs.mode === 'live' && gs.ws && gs.ws.readyState === 1 ? gs : null; };
+  // the public room holding this world (also while it connects or gets its line back; the placeholder while the map opens)
+  var pubHolding = function (w) { var g = holding(w); return g && (g.pub || (g.placeholder && pubMap(w.mapKey))) ? g : null; };
   var send = function (g, m) {
     if (!g || g.dead || !g.ws || g.ws.readyState !== 1) return false;
     try { g.ws.send(JSON.stringify(m)); g.sent++; return true; } catch (e) { return false; }
@@ -54,10 +76,12 @@
 
   // ---------- a floor's session ----------
   var start = function (w) {
+    var pub = pubMap(w.mapKey);
     gs = {
-      w: w, gen: w.gsGen, url: url(), map: w.mapKey, floor: O.floorHere(w.mapKey), topic: O.topic || O.topicNow(), mode: 'connecting',
+      w: w, gen: w.gsGen, url: url(), map: w.mapKey, floor: pub ? 0 : O.floorHere(w.mapKey), topic: pub ? 'pub' : O.topic || O.topicNow(), mode: 'connecting',
       ws: null, attempt: 0, tries: 0, everLive: false, you: '', n: 0, sent: 0, got: 0, connects: 0, rtt: null, ppl: {},
       mvMs: 0, piMs: 0, lastMv: null, waitT: null, retryT: null, sn: null, why: '',
+      pub: pub, ch: 0, cap: 0, here: 0, baits: {}, drawnKey: '', nearMs: 0, skew: 0, farmTold: false,
     };
     // Who runs a floor the old way is whoever came first (L.wildLead, by sn): a phone on the server says it has no sn, so a
     // friend still playing the old way (a 9th, or one the server refused) never waits on monsters this phone no longer sends.
@@ -85,10 +109,23 @@
     Object.keys(O.trails || {}).forEach(function (id) { if (O.trails[id] && O.trails[id].gs) delete O.trails[id]; });
     g.ppl = {};
   };
+  // others' bait from the server, off the map
+  var dropBaits = function (g) {
+    Object.keys(g.baits || {}).forEach(function (id) { var b = g.baits[id]; if (b.img && b.img.active) b.img.destroy(); });
+    g.baits = {};
+  };
   var restoreSn = function (g, quiet) {
     if (g.sn != null && !O.mapAt) O.mapAt = g.sn;
     g.sn = null;
     if (!quiet && O.on && O.chan && O.retrack) O.retrack();
+  };
+
+  // A public room's 'with': the farm you visit (its owner), or a friend from your farm's room who is on this place now.
+  var withWho = function (g) {
+    var v = F.session.visit;
+    if (v && v.host) return String(v.host);
+    var ids = Object.keys(O.others || {}).filter(function (id) { var p = O.others[id]; return p && p.map === g.map && !p.fl && !O.blocked[id]; }).sort();
+    return ids[0] || '';
   };
 
   // One try at the line: the token first, then the socket and 'hi'; a 'wl' within 3 s, or this try failed.
@@ -106,9 +143,15 @@
       g.connects++;
       ws.onopen = function () {
         var w = g.w, s = F.session.state, f = w.feet();
-        send(g, { t: 'hi', v: 1, token: token, topic: g.topic, map: g.map, floor: g.floor, name: O.myName(), look: s.look === 'girl' ? 'girl' : 'boy',
+        var hi = { t: 'hi', v: 1, token: token, topic: g.topic, map: g.map, floor: g.floor, name: O.myName(), look: s.look === 'girl' ? 'girl' : 'boy',
           x: Math.round(f.x), y: Math.round(f.y), dir: w.dir || 'down', hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0,
-          b: menu(), bk: L.bakunawaReady && L.bakunawaReady(s) ? 1 : 0 }); // (b: a menu open, the monsters leave you be; bk: the Bakunawa may rise for you today)
+          b: menu(), bk: !g.pub && L.bakunawaReady && L.bakunawaReady(s) ? 1 : 0 }; // (b: a menu open, the monsters leave you be; bk: the Bakunawa may rise for you today)
+        if (g.pub) { // a public room: who to be put with, and how you look
+          var ms = O.myState(), mate = withWho(g);
+          hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0 };
+          if (mate) hi.with = mate;
+        }
+        send(g, hi);
         g.lastMv = null;
         g.piMs = 0;
       };
@@ -151,7 +194,9 @@
     g.mode = 'off';
     g.why = why;
     dropTrails(g);
+    dropBaits(g);
     restoreSn(g);
+    if (g.pub) { O.syncSprites(); F.bus.emit('pub'); } // (your farm's friends on this place, drawn as before)
     var w = g.w;
     if (g.dead || !w || w.gsGen !== g.gen || !w.wild || !w.sys || !w.sys.isActive()) return;
     // held back while it connected: the floor's creatures come out now, as they would have (unless a friend runs it)
@@ -167,6 +212,8 @@
     closeSocket(g);
     g.dead = true;
     if (g.mode !== 'off') { dropTrails(g); restoreSn(g, quiet); }
+    dropBaits(g);
+    if (g.pub) F.bus.emit('pub');
     if (g.dbg) { try { g.dbg.destroy(); } catch (e) { /* its scene went */ } g.dbg = null; }
     if (gs === g) gs = null;
   };
@@ -186,7 +233,18 @@
   };
 
   // ---------- what the server says ----------
-  var find = function (w, slot) { return w.wild.animals.filter(function (a) { return a.slot === slot; })[0]; };
+  // (gsLocal: this phone's own, beside the server's: a place's tame animal in a public room)
+  var find = function (w, slot) { return w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0]; };
+  // a packed animal; a public room's more copies of the roster are slots 100, 200 and 300 up (the game's own stop at 99)
+  var unpack = function (row) {
+    var s = Array.isArray(row) ? Number(row[0]) : NaN;
+    if (!(s >= 100 && s < 400 && s === Math.floor(s))) return L.wildUnpack(row);
+    var q = row.slice();
+    q[0] = s % 100;
+    var r = L.wildUnpack(q);
+    if (r) r.slot = s;
+    return r;
+  };
   var kindOf = function (k) {
     if (typeof k === 'string' && WI.animals[k]) return k;
     k = Number(k);
@@ -216,7 +274,7 @@
   var apply = function (w, st, rows, full) {
     var list = w.wild.animals, seen = {};
     (Array.isArray(rows) ? rows.slice(0, 60) : []).forEach(function (row) {
-      var r = L.wildUnpack(row);
+      var r = unpack(row);
       if (!r) return;
       seen[r.slot] = true;
       var a = find(w, r.slot);
@@ -244,9 +302,9 @@
       setHp(w, a, r.hp);
       if (born && a.def.great) w.wildGreat(a); // (the Bakunawa rising, when the server brings it in)
     });
-    if (full) list.slice().forEach(function (a) { if (!seen[a.slot]) w.wildGone(a); });
+    if (full) list.slice().forEach(function (a) { if (!seen[a.slot] && !a.gsLocal) w.wildGone(a); });
     else if (st != null) list.forEach(function (a) { // not in this tick: where it was (it stands), so it never drifts
-      if (seen[a.slot]) return;
+      if (seen[a.slot] || a.gsLocal) return;
       if (!a.path || !a.path.gs) a.path = trail();
       var last = a.path.list[a.path.list.length - 1];
       if (last) note(a.path, st, last.x, last.y, last.dir, 1);
@@ -269,6 +327,94 @@
     note(tr, st, p.x, p.y, p.dir, p.m);
   };
 
+  // ---------- a public room's players: the server says who is here ----------
+  // A row: [id, name, look, x, y, dir, m, lk] (lk: { cs, pt, rd }, as their hi said it). Drawn as a friend from the farm
+  // room is (19h-online.js), as O.who and O.drawnHere give them.
+  var pubRow = function (g, row, st) {
+    if (!Array.isArray(row)) return;
+    var id = row[0];
+    if (typeof id !== 'string' || !id || id.length > 64 || id === g.you || id === (O.me && O.me.id)) return;
+    var x = num(row[3]), y = num(row[4]);
+    if (x == null || y == null) return;
+    var lk = row[7] && typeof row[7] === 'object' ? row[7] : {}, cs = typeof lk.cs === 'string' ? lk.cs.slice(0, 64) : '';
+    var keep = g.ppl[id];
+    if (!keep && Object.keys(g.ppl).length >= 2 * GS.most) return; // (more than the server should ever say: never kept)
+    var p = g.ppl[id] = {
+      id: id, name: (L.cleanName ? L.cleanName(row[1]) : L.cleanText(row[1], 24)) || 'Farmer', look: row[2] === 'girl' ? 'girl' : 'boy', map: g.map, fl: 0,
+      x: x, y: y, dir: DIRS[row[5]] ? row[5] : 'down', m: row[6] ? 1 : 0, host: id === O.hostId(), at: 0, pt: lk.pt ? 1 : 0,
+      cs: C.LOOK_INDEX && cs && C.LOOK_INDEX[cs] != null ? cs : '', rd: 0, sk: 0, hg: 0, // (no horses on a hunting place)
+      tr: O.others[id] ? O.others[id].tr || 0 : 0, pub: 1,
+    };
+    void keep;
+    if (st == null) return;
+    var tr = O.trails[id];
+    if (!tr || !tr.gs) tr = O.trails[id] = trail();
+    note(tr, st, p.x, p.y, p.dir, p.m);
+  };
+  var pubMove = function (g, id, x, y, dir, m, st) {
+    var p = g.ppl[id];
+    if (!p) return; // (not in view: their 'come' says who they are first)
+    x = num(x);
+    y = num(y);
+    if (x == null || y == null) return;
+    p.x = x;
+    p.y = y;
+    p.dir = DIRS[dir] ? dir : p.dir;
+    p.m = m ? 1 : 0;
+    var tr = O.trails[id];
+    if (!tr || !tr.gs) tr = O.trails[id] = trail();
+    note(tr, st, x, y, p.dir, p.m);
+  };
+  var pubLeft = function (g, id) {
+    delete g.ppl[id];
+    if (O.trails[id] && O.trails[id].gs) delete O.trails[id];
+  };
+  // The ones drawn: the nearest 15, never a blocked one.
+  var nearest = function (g) {
+    var w = g.w, f = w && w.player ? w.feet() : { x: 0, y: 0 };
+    return Object.keys(g.ppl).filter(function (id) { return !O.blocked[id]; })
+      .sort(function (a, b) { var p = g.ppl[a], q = g.ppl[b]; return Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y) || (a < b ? -1 : 1); })
+      .slice(0, GS.most);
+  };
+  var redraw = function (g) {
+    g.drawnKey = nearest(g).slice().sort().join(',');
+    O.syncSprites();
+    F.bus.emit('pub');
+  };
+  // Someone else's bait (one each): on the map until it is eaten up (their 'until', on the server's clock).
+  var pubBait = function (g, m) {
+    var w = g.w, id = typeof m.id === 'string' ? m.id : '', x = num(m.x), y = num(m.y);
+    if (!id || id === g.you || x == null || y == null || O.blocked[id] || !w.add) return;
+    var until = Number(m.until), left = isFinite(until) && until > 1e12 ? until - (Date.now() - g.skew) : WI.baitMins * 60000;
+    left = Math.max(0, Math.min(WI.baitMins * 60000 + 60000, left));
+    if (!left) return;
+    var old = g.baits[id];
+    if (old && old.img && old.img.active) old.img.destroy();
+    g.baits[id] = { x: x, y: y, until: Date.now() + left, img: w.add.image(x, y, 'items', C.ICON.bait).setScale(0.7).setDepth(F.WorldScene.DEPTH.actor + y / 1e5) };
+  };
+  // Someone's arrow in flight: their farmer lets it go (19w-bow.js remoteShot), or just the arrow and a flash of their bow.
+  var pubArrow = function (g, m) {
+    var w = g.w, id = typeof m.id === 'string' ? m.id : '';
+    if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
+    var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
+    if (ax == null || ay == null) return;
+    var r = w.remotes && w.remotes[id];
+    if (!(r && w.remoteShot(r, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+  };
+  // The place's tame animal, your own (never the server's): out once the room says what is here, unless it is already.
+  var tameOut = function (g) {
+    var w = g.w, zone = w.wild && w.wild.zone;
+    if (!zone || w.wild.animals.some(function (a) { return a.gsLocal; })) return;
+    var f = w.feet();
+    L.wildHere(w.state, w.mapKey).forEach(function (e) {
+      if (!e.tame) return;
+      var p = w.wildSpot(zone, f, 6);
+      if (!p) return;
+      var a = w.addWildAnimal(e.kind, e.slot, p.x, p.y);
+      a.gsLocal = true;
+    });
+  };
+
   var hear = function (g, m, my) {
     var w = g.w;
     if (g.dead || !w || w.gsGen !== g.gen || !w.wild) return;
@@ -285,8 +431,20 @@
       w.wild.heard = true; // (what is here is what the server says, even nothing: a floor already cleared opens, 19zt-lair.js)
       if (w.lair) w.lair.seen = true;
       var at = isFinite(Number(m.st)) ? Number(m.st) : null; // (the server's clock, when it says)
+      if (at != null) g.skew = Date.now() - at;
       apply(w, at, m.mons, true);
       dropTrails(g);
+      if (g.pub) {
+        g.ch = Math.max(0, Math.min(9999, Math.floor(Number(m.ch)) || 0));
+        g.cap = Math.max(0, Math.min(1000, Math.floor(Number(m.cap)) || 0));
+        g.here = isFinite(Number(m.here)) ? Math.max(0, Math.floor(Number(m.here))) : 0; // (if the server says the room's whole count)
+        (Array.isArray(m.ppl) ? m.ppl.slice(0, 2 * GS.most) : []).forEach(function (p) { pubRow(g, p, at); });
+        (Array.isArray(m.bt) ? m.bt.slice(0, 40) : []).forEach(function (b) { if (b && typeof b === 'object') pubBait(g, b); });
+        tameOut(g);
+        g.farmTold = false;
+        redraw(g);
+        return;
+      }
       (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
       return;
     }
@@ -294,8 +452,25 @@
     if (t === 'tk') {
       var st = Number(m.st);
       if (!isFinite(st)) return;
+      g.skew = Math.min(g.skew, Date.now() - st); // (the quickest a tick ever came: the server's clock against ours)
       apply(w, st, m.m, false);
       (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { var a = find(w, slot); if (a) w.wildGone(a); });
+      if (g.pub) {
+        if (isFinite(Number(m.here))) g.here = Math.max(0, Math.floor(Number(m.here)));
+        var changed = false, went = {};
+        (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
+        (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
+        var stepped = {};
+        (Array.isArray(m.p) ? m.p.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { stepped[p[0]] = 1; pubMove(g, p[0], p[1], p[2], p[3], p[4], st); } });
+        Object.keys(g.ppl).forEach(function (id) { // (still: where they stood)
+          if (stepped[id]) return;
+          var q = g.ppl[id];
+          pubMove(g, id, q.x, q.y, q.dir, q.m, st);
+        });
+        if (changed) redraw(g);
+        void went;
+        return;
+      }
       (Array.isArray(m.come) ? m.come.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], st); });
       (Array.isArray(m.left) ? m.left : []).forEach(function (id) {
         delete g.ppl[id];
@@ -310,6 +485,8 @@
       });
       return;
     }
+    if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
+    if (t === 'ar') { if (g.pub) pubArrow(g, m); return; }
     if (t === 'hp') {
       var a = find(w, m.s);
       if (!a) return;
@@ -329,6 +506,7 @@
       return;
     }
     if (t === 'cl') {
+      if (g.pub) return; // (a public room never clears)
       if (w.lair) { w.lair.seen = true; w.openLairGate(true); }
       return;
     }
@@ -358,6 +536,7 @@
     a.mine = mine;
     a.by = {};
     by.forEach(function (id) { if (id !== g.you) a.by[id] = 9; });
+    if (g.pub && a.slot >= 100) a.slot = a.slot % 100; // (a copy's: your record keeps the place's own slot, as the save does)
     w.wildDown(a);
   };
 
@@ -372,6 +551,7 @@
   var wildCopy = P.wildCopy;
   P.wildCopy = function (a, dt) {
     if (!holding(this)) return wildCopy.call(this, a, dt);
+    if (a.gsLocal) return this.updateWild(a, dt, false); // (your own tame animal: this phone runs it, as always)
     var cool = a.cool;
     a.cool = Infinity;
     try { wildCopy.call(this, a, dt); } finally { a.cool = cool; }
@@ -395,13 +575,47 @@
   };
   var oSend = O.send;
   O.send = function (event, payload) {
-    if (OLD[event] && holding(F.world)) return;
+    var pg = pubHolding(F.world);
+    if (pg) {
+      if (HUNT[event]) return;
+      // a public room: your farm's room hears where you went (your first step here, and your presence), not each step
+      if (event === 'mv' && payload && payload.map === pg.w.mapKey) { if (pg.farmTold) return; pg.farmTold = true; }
+    } else if (OLD[event] && holding(F.world)) return;
     return oSend.call(O, event, payload);
   };
   var onMessage = O.onMessage;
   O.onMessage = function (event, payload) {
-    if (OLD[event] && holding(F.world)) return;
+    if ((pubHolding(F.world) ? HUNT : OLD)[event] && holding(F.world)) return;
     return onMessage.call(O, event, payload);
+  };
+  // a public room: bait and your arrows go to the server (it tells those who can see them), whoever is drawn here
+  var tellBait = P.tellBait;
+  P.tellBait = function (x, y) {
+    var g = pubHolding(this);
+    if (!g) return tellBait.call(this, x, y);
+    if (live() === g) send(g, { t: 'bt', x: x, y: y });
+  };
+  var tellArrow = P.tellArrow;
+  P.tellArrow = function (m) {
+    var g = pubHolding(this);
+    if (!g) return tellArrow.call(this, m);
+    var l = live();
+    if (l === g) send(g, { t: 'ar', x: m.x, y: m.y, a: m.a, l: m.l, b: m.b });
+  };
+  // who is here: the server's list (the 15 nearest; not a blocked one); your farm's room's farmers here only through it
+  var drawnHere = O.drawnHere;
+  O.drawnHere = function (w) {
+    var g = pubHolding(w);
+    if (!g) return drawnHere.call(O, w);
+    var want = {};
+    if (g.ppl) nearest(g).forEach(function (id) { want[id] = g.ppl[id]; });
+    return want;
+  };
+  var who = O.who;
+  O.who = function (id) {
+    var g = pubHolding(F.world);
+    if (!g) return who.call(O, id);
+    return (g.ppl && g.ppl[id]) || null;
   };
   // (a trail the server feeds: drawn about 100 ms behind its ticks, not a Supabase friend's 400 ms; and only it feeds it)
   var trailAt = L.trailAt;
@@ -426,12 +640,12 @@
     this.gsGen = ++gen;
     var s = F.session && F.session.state, map = s && s.map, v = F.session && F.session.visit;
     // held from the start, so this phone puts none of the floor's creatures out before the server answers
-    var hold = !!(url() && map && F.dungeonOf(map) && O.on && O.me && !(v && !v.inTown));
+    var hold = !!(url() && map && (F.dungeonOf(map) || pubMap(map)) && O.on && O.me && !(v && !v.inTown)); // (a cave, or a hunting place: step 2)
     if (hold) gs = { w: this, gen: this.gsGen, mode: 'connecting', dead: false, placeholder: true };
     create.call(this);
     if (!hold || !gs || !gs.placeholder || gs.w !== this) return;
     gs = null;
-    if (this.lair && this.wild && F.dungeonOf(this.mapKey)) start(this);
+    if (this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
   };
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
@@ -454,7 +668,7 @@
     // online came after you went down (or the switch was turned on): the server from now on
     if ((!gs || gs.gen !== this.gsGen) && Math.floor(time / 1000) !== this.gsLook) {
       this.gsLook = Math.floor(time / 1000);
-      if (url() && this.lair && this.wild && F.dungeonOf(this.mapKey) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
+      if (url() && this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
     }
     var g = live();
     if (g && g.w === this && g.gen === this.gsGen) {
@@ -473,8 +687,92 @@
         g.pendAt = Math.floor(time / 250);
         this.wild.animals.forEach(function (a) { if (a.gsPend && a.gsPend.length && a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a)); });
       }
+      if (g.pub) {
+        // who the nearest 15 are, now and then (you walk, they walk); and others' bait, gone when its time is up
+        g.nearMs -= dt;
+        if (g.nearMs <= 0) {
+          g.nearMs = GS.nearEvery;
+          if (nearest(g).slice().sort().join(',') !== g.drawnKey) redraw(g);
+          var now = Date.now();
+          Object.keys(g.baits).forEach(function (id) { var b = g.baits[id]; if (b.until <= now) { if (b.img && b.img.active) b.img.destroy(); delete g.baits[id]; } });
+        }
+      }
     }
     debugLine(this);
+  };
+
+  // ---------- a public room: a stranger's card, and the room on screen ----------
+  var pubLive = function () { var g = live(); return g && g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? g : null; };
+  var cardFor = function (id) {
+    var g = pubLive();
+    if (!g || !g.ppl[id] || !F.ui || !F.ui.parkPlayer || F.ui.modals.length) return false;
+    F.ui.parkPlayer(id, 'hunting in ' + placeWord(g.map));
+    return true;
+  };
+  // Facing someone: Wave opens their card (as in Central Park; 19zzz-c-park-online.js).
+  var resolve = P.resolve;
+  P.resolve = function () {
+    var a = resolve.apply(this, arguments);
+    if (!a || a.label !== 'Wave' || !pubLive()) return a;
+    var pt = this.front(0.7), r = this.remoteAt(pt.x, pt.y);
+    if (!r) return a;
+    var id = r.id;
+    return Object.assign({}, a, { run: function () { if (!cardFor(id)) O.wave(); } });
+  };
+  // A tap on someone's farmer (a quick touch that does not walk): their card.
+  P.remoteTapped = function (sx, sy) {
+    var g = pubLive();
+    if (!g || !this.remotes || this.busy) return null;
+    var pt = this.cameras.main.getWorldPoint(sx, sy), best = null, bd = Infinity, self = this;
+    Object.keys(this.remotes).forEach(function (id) {
+      var r = self.remotes[id];
+      if (!g.ppl[id] || Math.abs(pt.x - r.x) > 0.55 * T || pt.y < r.y - 1.7 * T || pt.y > r.y + 0.3 * T) return;
+      var d = Math.hypot(pt.x - r.x, pt.y - (r.y - 0.6 * T));
+      if (d < bd) { bd = d; best = id; }
+    });
+    return best;
+  };
+  var U = F.UIScene.prototype;
+  var CHIP = { x: 8, y: 164, visitY: 130, h: 24 }; // (where Central Park's chip is; on a visit the visit's buttons are there, so above them)
+  var uiCreate = U.create;
+  U.create = function () {
+    uiCreate.apply(this, arguments);
+    var self = this, again = function () { self.pubChip(); }, tap = null;
+    F.bus.on('pub', again);
+    F.bus.on('map', again);
+    F.bus.on('online', again);
+    this.events.once('shutdown', function () { F.bus.off('pub', again); F.bus.off('map', again); F.bus.off('online', again); });
+    this.input.on('pointerdown', function (p, over) { tap = !over.length && !self.modals.length && pubLive() ? { id: p.id, x: p.x, y: p.y, at: Date.now() } : null; });
+    this.input.on('pointerup', function (p) {
+      var t0 = tap;
+      tap = null;
+      if (!t0 || t0.id !== p.id || Date.now() - t0.at > 400 || Math.hypot(p.x - t0.x, p.y - t0.y) > 12 * F.R || self.modals.length) return;
+      var w = F.world, id = w && w.remoteTapped ? w.remoteTapped(p.x, p.y) : null;
+      if (id) cardFor(id);
+    });
+    this.pubChip();
+  };
+  // "Banaue 2 · 4 here": the room and how many are here (those near you, and you; the whole room if the server says).
+  U.pubChip = function () {
+    var g = pubLive(), on = !!g && g.ch > 0 && !this.decorating;
+    if (!on) { if (this.pubChipBox) this.pubChipBox.setVisible(false); return; }
+    var n = g.here || Object.keys(g.ppl).length + 1, text = placeWord(g.map) + ' ' + g.ch + ' · ' + n + ' here';
+    if (!this.pubChipBox) {
+      var c = this.pubChipBox = this.add.container(CHIP.x, CHIP.y).setDepth(45);
+      this.pubChipBg = this.add.graphics();
+      this.pubChipDot = this.add.circle(13, CHIP.h / 2, 4, 0x7ee06a);
+      this.pubChipText = this.txt(22, CHIP.h / 2, '', 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      c.add([this.pubChipBg, this.pubChipDot, this.pubChipText]);
+      this.tweens.add({ targets: this.pubChipDot, alpha: 0.4, duration: 900, yoyo: true, repeat: -1 });
+    }
+    this.pubChipBox.setY(F.session.visit ? CHIP.visitY : CHIP.y);
+    if (this.pubChipText.text !== text) {
+      this.pubChipText.setText(text);
+      var w = Math.ceil(this.pubChipText.width) + 32;
+      this.pubChipBg.clear().fillStyle(0x24160b, 0.78).fillRoundedRect(0, 0, w, CHIP.h, CHIP.h / 2);
+      this.pubChipBg.lineStyle(1.5, 0xffd23f, 0.85).strokeRoundedRect(0.75, 0.75, w - 1.5, CHIP.h - 1.5, CHIP.h / 2 - 0.75);
+    }
+    this.pubChipBox.setVisible(true);
   };
 
   // window.gameHost.gsDebug: a small line on screen: the line's state and its round trip.
@@ -489,9 +787,11 @@
   // (for the tests and the debug line: what the line is doing)
   F.GameServer = {
     config: GS,
+    baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; }, // (others' bait drawn here, by whose)
     state: function () {
       var g = gs;
-      return g ? { mode: g.mode, why: g.why || '', you: g.you || '', rtt: g.rtt, connects: g.connects || 0, sent: g.sent || 0, got: g.got || 0, n: g.n || 0, map: g.map, floor: g.floor } : null;
+      return g ? { mode: g.mode, why: g.why || '', you: g.you || '', rtt: g.rtt, connects: g.connects || 0, sent: g.sent || 0, got: g.got || 0, n: g.n || 0, map: g.map, floor: g.floor,
+        pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubChipText && F.ui.pubChipBox.visible ? F.ui.pubChipText.text : '' } : null;
     },
   };
 })(window.Farm = window.Farm || {});
