@@ -276,6 +276,8 @@ test('the Great Mammoth: on its weekend only, and only with two or more hunters,
   assert.ok(g, 'two: it walks in');
   assert.strictEqual(g.slot, R.L.wildSlots('magayon').find((e) => e.kind === 'greatmammoth').slot);
   assert.strictEqual(g.max, R.WI.animals.greatmammoth.hpEach * 2);
+  // a crowd: as strong as nine (its own hp, what the phones' L.wildUnpack shows at most)
+  assert.strictEqual(w.game.wild.walkIn(room.fl, 'greatmammoth', 8, [], 30).max, R.WI.animals.greatmammoth.hp);
   // on a Friday, never, even for two
   const v = world({ t: FRI_4PM });
   await v.pub('a', 'magayon', { x: 3 * T, y: 3 * T });

@@ -201,12 +201,13 @@ module.exports = function makeWild(R) {
     return out;
   };
   // One walks in (wildArrive): from the zone's edge, out of everyone's sight (6 tiles or more from each of `from`), toward
-  // the middle. The great one as strong as the crew (hpEach each), its usual size. null: no edge out of sight.
+  // the middle. The great one as strong as the crew (hpEach each), its usual size, but never more than its own hp (the
+  // phones' L.wildUnpack caps it there: 9 hunters' worth). null: no edge out of sight.
   const walkIn = (fl, kind, slot, from, crew) => {
     const z = fl.zone, p = wildEdge(fl, z, from);
     if (!p) return null;
     const def = WI.animals[kind], a = make(fl, kind, slot, p.x, p.y, def.great ? 1 : null);
-    if (def.great) a.hp = a.max = def.hpEach * Math.max(1, crew);
+    if (def.great) a.hp = a.max = Math.min(def.hp, def.hpEach * Math.max(1, crew));
     const ang = Math.atan2((z.y0 + z.y1) / 2 * T - p.y, (z.x0 + z.x1) / 2 * T - p.x);
     a.mode = 'walk';
     a.vx = Math.cos(ang) * def.walk * T;

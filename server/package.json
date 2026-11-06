@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "node --test test/*.test.js",
-    "load": "node test/load.js"
+    "load": "node test/load.js",
+    "load-pub": "node test/load-pub.js"
   },
   "dependencies": {
     "jose": "5.9.6",

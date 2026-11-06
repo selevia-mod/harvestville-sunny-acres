@@ -188,11 +188,13 @@ class PubRoom extends Room {
   // The players p hears of: within VIEW tiles, the VIEW_MAX nearest. `had` (the ones in view now) stay a little further
   // and outrank a newcomer a little, so nobody blinks in and out at the edge.
   viewOf(p, had) {
-    const T = this.R.T, near = VIEW * T, keep = (VIEW + VIEW_KEEP) * T, out = [];
+    const T = this.R.T, near = VIEW * VIEW * T * T, keep = (VIEW + VIEW_KEEP) * (VIEW + VIEW_KEEP) * T * T, out = [];
     this.players.forEach((q) => {
       if (q === p) return;
-      const d = Math.hypot(q.x - p.x, q.y - p.y), was = !!(had && had.has(q.id));
-      if (d <= (was ? keep : near)) out.push({ q, k: was ? d - VIEW_KEEP * T : d });
+      const dx = q.x - p.x, dy = q.y - p.y, d2 = dx * dx + dy * dy, was = !!(had && had.has(q.id));
+      if (d2 > (was ? keep : near)) return;
+      const d = Math.sqrt(d2);
+      out.push({ q, k: was ? d - VIEW_KEEP * T : d });
     });
     if (out.length > VIEW_MAX) { out.sort((a, b) => a.k - b.k); out.length = VIEW_MAX; }
     return out.map((o) => o.q);
