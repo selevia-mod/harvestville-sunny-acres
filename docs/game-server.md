@@ -142,6 +142,53 @@ happens for `pub` (a new room opens). Any good token may join `pub` (no farm che
 - Kills, shares (`by`), the hit checks, `bp` charges, `hp`: as step 1. A public room never sends `cl`.
 - An empty public room goes at once (no 30 s keep: a new one is made fresh).
 
+### The wire, exactly (step 2, as built in `server/lib/pub.js`)
+
+- `wl` in a public room: `{ t, you, tick: 50, mons, ppl, cap: 30, ch, n, st }`; `ppl` is the players in your view only
+  (below). Right after it, one `bt` for each bait another phone has down now. A public room never sends `cl`.
+- A player row (`wl.ppl`, `tk.come`) is `[id, name, look, x, y, dir, m, lk]`: step 1's seven, then `lk` = `{ cs, pt, rd }`
+  (`cs` at most 64 characters, `pt` and `rd` 0 / 1). In a public room `lk` is always there (`{ cs: '', pt: 0, rd: 0 }`
+  when the phone sent none); in a cave only when that phone's `hi` had one (step 1's rows are unchanged otherwise).
+  Names reach strangers without control or invisible characters.
+- `tk` in a public room: the same fields; `m` and `gone` are every animal's (all phones), `p` / `come` / `left` are
+  about the players in your view only: `come` = came into view (or into the room near you), `left` = went out of view
+  (or out of the room while in view).
+- `bt` phone → server: `{ t: 'bt', x, y }`; ignored while that phone's bait is still down. Server → the other phones:
+  `{ t: 'bt', id, x, y, until }`, `id` the player who put it down, `until` on the **server's clock** (ms, as `st`):
+  now + `WI.baitMins` + 30 s, as the game's `layBait`.
+- `ar` phone → server: `{ t: 'ar', x, y, a, l, b }` (the old relay's payload). Server → each phone that has the shooter in
+  view: `{ t: 'ar', id, x, y, a, l, b }`: `x`, `y` whole pixels on the map, `a` the angle (3 decimals, -7 .. 7), `l` 0 ..
+  8 tiles, `b` the bow level 0 .. 3; anything else is dropped. At most 8 a second a phone. It never hurts anything
+  (`hit` does).
+- `bt` and `ar` in a cave are ignored (step 1: the old relay).
+- **Slots 100 and up** (the copies): `100 * copy + slot`, so 0 .. 399. The phones' `L.wildUnpack` (`01-logicD.js`)
+  refuses a slot over 99 today: the phone must accept these (up to 399) in a public room, or it will not draw the copies.
+
+### How the server decides (where step 2 leaves a choice)
+
+- Room choice, in order: where this player already is (a second socket takes their place back, the old one closes
+  4001); the `with` player's room if it has space; the room this player's line dropped from in the last 30 s, if it has
+  space (so a reconnect without `with` finds its friends again); the fullest with space (ties: the lowest number); a
+  new one with the lowest free number.
+- The clock: Philippine time (UTC+8), the day and minute as `L.dayOf` / `L.minuteOf` give on a phone there; the
+  roster is `L.wildHere` on that state, without the tame, worked out once a minute.
+- Copies: 1 for 1-11 players, 2 for 12-17, 3 for 18 or more. A copy never has the place's rare or great animal (one of
+  those at a time). Each copy has its own 20-40 s arrive timer (one animal at a time, as the game), so a crowd's copies
+  fill in at the same pace a single player's roster does. An animal walks in from the zone's edge 6 tiles or more from
+  every player, toward the middle (as `wildArrive`).
+- Respawn: `(def.respawn || WI.respawn) / min(3, ceil(players / 5))` minutes, worked out when the slot is next due.
+  The Great Mammoth's 3 days are not divided (its weekend is not a crowd's). Its strength: `hpEach` x the players here,
+  at most its own `hp` (108: what the phones' `L.wildUnpack` shows at most).
+- One no longer about (its hour, the rain or the weekend has passed, or a copy the crowd no longer brings) walks off
+  once nobody is within 18 tiles of it and it is not running or charging (looked for every 5 s; its slot does not wait).
+- View: within 18 tiles, the 15 nearest; one already in view stays until 19 tiles and outranks a newcomer by a tile
+  (nobody blinks in and out at the edge). Worked out every tick for each phone.
+- Bait: the nearest shy animal within 9 tiles that is not already at a bait goes to it (`toBait`, 20 s), eats within
+  0.4 tiles (`eat`, `WI.baitMins`), and flees only from a player within 1.4 tiles while eating (the game's rules).
+- Load (`node server/test/load-pub.js`, this Mac, 60 s, 60-250 ms each way): 30 bots on one place: tick p50 0.43 ms,
+  p99 1.5 ms, 5.7 KB/s down a phone. 180 bots on 6 places: tick p50 2.1 ms, p99 3.2 ms, slowest 10.4 ms, 5.7 KB/s down a
+  phone (8.2 in the busiest second), a kill to all 30 phones p50 465 ms / p95 497 ms, 7.8% of one core.
+
 ## What the phone does in a public room
 
 - On a hunting place as yourself (your own save: at home, or on a visit `v.inTown`), with the switch on: join `pub`

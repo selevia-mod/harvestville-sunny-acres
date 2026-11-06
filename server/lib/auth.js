@@ -42,6 +42,7 @@ function makeSupabaseAuth(opts) {
       try { payload = await verify(token); } catch (e) { return { why: 'auth' }; }
       const uid = payload && typeof payload.sub === 'string' ? payload.sub : null;
       if (!uid) return { why: 'auth' };
+      if (topic === 'pub') return { uid }; // (a hunting place is open to everyone: a good token is all)
       const key = uid + '|' + topic, t = now(), had = seen.get(key);
       if (had && had.until > t) return had.ok ? { uid } : { why: 'topic' };
       let ok;

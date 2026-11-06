@@ -6,6 +6,7 @@ const { rules } = require('./rules');
 const { makeMaps } = require('./maps');
 const makeWild = require('./wild');
 const { Room } = require('./room');
+const { PubRoom, isPubMap } = require('./pub');
 
 const VERSION = 1;
 const TOPIC = /^farm:[0-9a-f-]{36}$/; // a farm's live room (step 1: caves only; the park comes later)
@@ -27,6 +28,8 @@ class Game {
     this.now = o.now || Date.now;
     this.rand = o.rand || Math.random;
     this.cap = o.cap || 8;
+    this.pubCap = o.pubCap || 0; // (0: PUB_CAP)
+    this.pub = new Map(); // a hunting place -> its public rooms (n -> room)
     this.tickMs = 50;
     this.log = o.log || (() => {});
     this.rooms = new Map();
@@ -59,7 +62,7 @@ class Game {
   closed(c) {
     if (!c.open) return;
     c.open = false;
-    if (c.room) c.room.leave(c);
+    if (c.room) c.room.leave(c, true);
     this.conns.delete(c);
   }
   // the same player came back on a new socket: the old one goes
@@ -92,11 +95,16 @@ class Game {
     if (msg.t === 'mv') room.move(p, msg);
     else if (msg.t === 'hit') room.hit(p, msg);
     else if (msg.t === 'bye') room.leave(c);
+    else if (room.pub && msg.t === 'bt') room.bait(p, msg); // (a cave's bait and arrows stay on the old relay: step 1)
+    else if (room.pub && msg.t === 'ar') room.arrow(p, msg);
   }
+  // A phone this far behind on what we sent (it misses ticks until it catches up).
+  behind(c) { return c.sock.bufferedAmount > BUSY_BYTES; }
 
   async hello(c, hi) {
     if (c.busy) return;
     if (hi.v !== VERSION) return this.refuse(c, 'version');
+    if (hi.topic === 'pub') return this.helloPub(c, hi);
     const cfg = this.R.dungeonOf(hi.map), floor = Math.floor(Number(hi.floor));
     const map = cfg ? this.maps.get(cfg.key) : null;
     if (typeof hi.topic !== 'string' || !TOPIC.test(hi.topic) || !map || !map.zone || !(floor >= 1 && floor <= cfg.floors)) return this.refuse(c, 'topic');
@@ -116,13 +124,61 @@ class Game {
     if (no) return this.refuse(c, no);
   }
 
+  // A hunting place, open to everyone (docs/game-server.md "Step 2"): any good token; the server picks the room.
+  async helloPub(c, hi) {
+    const map = hi.map;
+    if (!isPubMap(this.R, this.maps, map)) return this.refuse(c, 'topic');
+    if (typeof hi.token !== 'string' || !hi.token || hi.token.length > 4096) return this.refuse(c, 'auth');
+    c.busy = true;
+    c.said = true;
+    let r;
+    try { r = await this.auth.check(hi.token, 'pub'); } catch (e) { r = { why: 'auth' }; }
+    c.busy = false;
+    if (!c.open) return;
+    if (!r || !r.uid) return this.refuse(c, 'auth');
+    if (c.room) c.room.leave(c); // (another place, or a cave, on the same socket)
+    const uid = String(r.uid), room = this.pickPub(map, uid, typeof hi.with === 'string' ? hi.with.slice(0, 64) : '');
+    const no = room.join(c, uid, hi);
+    if (no) return this.refuse(c, no); // (never: the room picked has space)
+  }
+
+  // Which room of a place: where this player already is (a second socket takes their place back); else the `with`
+  // player's, if it has space; else the one they were in a moment ago (a dropped line, 30 s); else the fullest with
+  // space (so a place feels alive; the lowest number first); else a new one, the lowest free number.
+  pickPub(map, uid, withId) {
+    let list = this.pub.get(map);
+    if (!list) this.pub.set(map, (list = new Map()));
+    const rooms = Array.from(list.values()).sort((a, b) => a.ch - b.ch), now = this.now();
+    const space = (r) => r.players.size < r.cap;
+    let room = rooms.filter((r) => r.players.has(uid))[0]
+      || (withId && withId !== uid ? rooms.filter((r) => r.players.has(withId) && space(r))[0] : null)
+      || rooms.filter((r) => space(r) && r.recent.has(uid) && now - r.recent.get(uid) < 30000)[0];
+    if (!room) {
+      rooms.forEach((r) => { if (space(r) && (!room || r.players.size > room.players.size)) room = r; });
+    }
+    if (!room) {
+      let n = 1;
+      while (list.has(n)) n++;
+      room = new PubRoom(this, map, n, this.maps.get(map));
+      list.set(n, room);
+      this.rooms.set(room.key, room);
+    }
+    return room;
+  }
+  // An empty public room goes at once (a new one is made fresh).
+  dropRoom(room) {
+    if (this.rooms.get(room.key) === room) this.rooms.delete(room.key);
+    const list = this.pub.get(room.map);
+    if (list && list.get(room.ch) === room) list.delete(room.ch);
+  }
+
   // ---------- every 50 ms ----------
   tick() {
     const now = this.now(), dt = Math.max(0, Math.min(100, now - this.last)), t0 = process.hrtime.bigint();
     this.last = now;
     this.rooms.forEach((room, key) => {
       if (room.players.size) room.step(dt);
-      else if (now - room.emptySince > ROOM_KEEP) this.rooms.delete(key);
+      else if (room.pub || now - room.emptySince > ROOM_KEEP) { if (room.pub) this.dropRoom(room); else this.rooms.delete(key); }
     });
     // phones that never said hi, or went quiet
     this.conns.forEach((c) => {
@@ -138,9 +194,9 @@ class Game {
   // The minute's numbers (and they start again): rooms, players, messages a second, the slowest tick.
   report() {
     const now = this.now(), s = this.stats, secs = Math.max(0.001, (now - s.since) / 1000);
-    let players = 0;
-    this.rooms.forEach((r) => { players += r.players.size; });
-    const out = { rooms: this.rooms.size, players, conns: this.conns.size, inPerSec: s.in / secs, outPerSec: s.out / secs, kbOutPerSec: s.bytesOut / 1024 / secs, slowestMs: s.slowest, ticks: s.ticks };
+    let players = 0, pub = 0, pubPlayers = 0;
+    this.rooms.forEach((r) => { players += r.players.size; if (r.pub) { pub++; pubPlayers += r.players.size; } });
+    const out = { rooms: this.rooms.size, players, pub, pubPlayers, conns: this.conns.size, inPerSec: s.in / secs, outPerSec: s.out / secs, kbOutPerSec: s.bytesOut / 1024 / secs, slowestMs: s.slowest, ticks: s.ticks };
     this.stats = { in: 0, out: 0, bytesOut: 0, slowest: 0, ticks: 0, since: now };
     return out;
   }

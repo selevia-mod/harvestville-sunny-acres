@@ -9,6 +9,13 @@ const HIT_REACH = 12; // tiles: a hit from further than this from the monster is
 const DIRS = { down: 1, up: 1, left: 1, right: 1, side: 1 };
 
 const num = (v, lo, hi, def) => { v = Number(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+// a name or a look others will see: no control or invisible characters, at most `max` long
+const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '');
+// how a player looks, from their `hi` (O.myState): the look they wear (64 at most), the party hat, on their horse
+const lookOf = (lk) => {
+  const o = lk && typeof lk === 'object' && !Array.isArray(lk) ? lk : {};
+  return { cs: clean(o.cs, 64), pt: o.pt ? 1 : 0, rd: o.rd ? 1 : 0 };
+};
 
 class Room {
   constructor(game, key, topic, map, floor, cfg, mapData) {
@@ -47,7 +54,9 @@ class Room {
   span(a, b) { return a + this.game.rand() * (b - a); }
   get size() { return this.players.size; }
   pack(a) { return this.R.L.wildPack(a); }
-  pplRow(p) { return [p.id, p.name, p.look, Math.round(p.x), Math.round(p.y), p.dir, p.m]; }
+  // [id, name, look, x, y, dir, m] as in step 1, and an 8th, how they look (`lk`), when their phone said
+  pplRow(p) { const r = [p.id, p.name, p.look, Math.round(p.x), Math.round(p.y), p.dir, p.m]; if (p.lk) r.push(p.lk); return r; }
+  dirOf(v, def) { return typeof v === 'string' && DIRS[v] ? v : def; }
 
   send(p, msg) { if (p.conn) this.game.send(p.conn, msg); }
   broadcast(msg, except) {
@@ -80,6 +89,7 @@ class Room {
     p.sk = hi.sk ? 1 : 0;
     p.b = hi.b ? 1 : 0; // a menu open: the monsters do not see them (19v-wild.js wildCrew(!busy))
     p.bk = hi.bk ? 1 : 0; // their Bakunawa is ready today (L.bakunawaReady, on their phone)
+    if (hi.lk && typeof hi.lk === 'object') p.lk = lookOf(hi.lk); else delete p.lk; // (how they look, passed on)
     p.speed = 0;
     p.mvAt = now;
     conn.room = this;
@@ -246,4 +256,4 @@ class Room {
   }
 }
 
-module.exports = { Room, HIT_GAP, HIT_REACH };
+module.exports = { Room, HIT_GAP, HIT_REACH, num, clean, lookOf };
