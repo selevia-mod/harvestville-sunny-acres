@@ -438,3 +438,86 @@ test('game server: a "no" (refused), or no welcome within 3 s: the old way for t
   await Promise.all([host.context.close(), guest.context.close()]);
   await Promise.all([refusing.close(), silent.close()]);
 });
+
+// ---------- the REAL server (server/), not the fake one: only its sign-in check is a stand-in ----------
+// A relay in front of it adds 60-250 ms each way (in order), as a phone in the Philippines to Singapore on bad signal.
+async function realServer() {
+  const { startServer } = require('../server/lib/server');
+  const auth = { check: async (token) => { const m = /^test-token:(.+)$/.exec(String(token || '')); return m ? { uid: m[1] } : { why: 'auth' }; } };
+  const app = startServer({ auth, port: 0, log: () => {}, reportEvery: 600000 });
+  const addr = await app.listening;
+  const ws = require('../server/node_modules/ws'), WS = ws.WebSocket, WSS = ws.WebSocketServer;
+  const proxy = new WSS({ port: 0, host: '127.0.0.1' });
+  await new Promise((r) => proxy.on('listening', r));
+  const lag = () => 60 + Math.random() * 190;
+  proxy.on('connection', (down) => {
+    const up = new WS('ws://127.0.0.1:' + addr.port + '/');
+    const toUp = [], outAt = { v: 0 }, inAt = { v: 0 };
+    const later = (at, fn) => { const t = Math.max(Date.now() + lag(), at.v + 1); at.v = t; setTimeout(fn, t - Date.now()); };
+    up.on('open', () => { while (toUp.length) up.send(toUp.shift()); });
+    down.on('message', (m) => later(inAt, () => { if (up.readyState === 1) up.send(String(m)); else toUp.push(String(m)); }));
+    up.on('message', (m) => later(outAt, () => { if (down.readyState === 1) down.send(String(m)); }));
+    up.on('close', (c) => later(outAt, () => { try { down.close(c >= 4000 ? c : 1000); } catch (e) { /* gone */ } }));
+    down.on('close', () => { try { up.close(); } catch (e) { /* gone */ } });
+  });
+  const x = { url: 'ws://127.0.0.1:' + proxy.address().port + '/', cut: () => proxy.clients.forEach((c) => c.terminate()), close: async () => { proxy.clients.forEach((c) => c.terminate()); proxy.close(); await Promise.race([app.stop(), sleep(3000)]); } };
+  servers.push(x);
+  return x;
+}
+
+test('the REAL game server (60-250 ms each way): one list on both phones, a kill gone on both and kept, the floor clears and its gate opens on both', async () => {
+  const real = await realServer(), server = createServer();
+  const { host, guest } = await pair(server, real.url);
+  const step = (w) => console.log('[real]', ((Date.now() - t0) / 1000).toFixed(1) + 's', w), t0 = Date.now();
+  step('paired');
+  await go(host, FLOOR);
+  await go(guest, FLOOR);
+  step('on the floor');
+  for (const who of [host, guest]) await waitMode(who.page, 'live');
+  step('live');
+  await sleep(1200);
+  const a = await list(host.page), b = await list(guest.page);
+  assert.ok(a.length > 0, 'the floor has its creatures');
+  assert.strictEqual(b, a, 'the same creatures, slots and health on both');
+  // the guest hunts the first one: gone on both and it stays gone
+  step('lists ' + a);
+  const first = Number(a.split(' ')[0].split(':')[0]);
+  assert.strictEqual(await hunt(guest.page, first), true);
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((x) => x.slot === n), first, SLOW);
+  await sleep(2500);
+  for (const who of [host, guest]) assert.ok(!(await who.page.evaluate((n) => Farm.world.wild.animals.some((x) => x.slot === n), first)), 'still gone');
+  step('kill stayed gone');
+  // the host hunts the rest: the gate down opens on both
+  for (const slot of (await list(host.page)).split(' ').filter(Boolean).map((e) => Number(e.split(':')[0]))) assert.strictEqual(await hunt(host.page, slot), true);
+  for (const who of [host, guest]) await who.page.waitForFunction(() => !Farm.world.wild.animals.length && Farm.world.lair && Farm.world.lair.open, null, SLOW);
+  step('gate open on both');
+  // nothing of the cave's creatures went through the old relay from either phone
+  assert.deepStrictEqual([host.oldSent, guest.oldSent], [[], []]);
+  // the round trip the phones measured (through the 60-250 ms relay)
+  const rtt = await guest.page.evaluate(() => (Farm.GameServer.state() || {}).rtt);
+  console.log('measured round trip through the relay:', rtt, 'ms');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+test('the REAL game server: the line drops in the middle of a floor and both phones come back to the same floor', async () => {
+  const real = await realServer(), server = createServer();
+  const { host, guest } = await pair(server, real.url);
+  await go(host, FLOOR);
+  await go(guest, FLOOR);
+  for (const who of [host, guest]) await waitMode(who.page, 'live');
+  await sleep(1200);
+  const before = await list(host.page);
+  const first = Number(before.split(' ')[0].split(':')[0]);
+  assert.strictEqual(await hunt(host.page, first), true);
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((x) => x.slot === n), first, SLOW);
+  real.cut();
+  for (const who of [host, guest]) await who.page.waitForFunction(() => Farm.GameServer.state().mode !== 'live', null, SLOW);
+  for (const who of [host, guest]) await waitMode(who.page, 'live');
+  await sleep(1200);
+  const a = await list(host.page), b = await list(guest.page);
+  assert.strictEqual(b, a, 'the same floor on both after the drop');
+  assert.ok(!a.split(' ').some((e) => Number(e.split(':')[0]) === first), 'the one killed before the drop stays gone');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
