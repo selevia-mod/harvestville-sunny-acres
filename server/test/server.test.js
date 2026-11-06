@@ -63,3 +63,21 @@ test('on the network: health, two phones, a hit, the tick, the stop', async () =
   await app.stop();
   assert.strictEqual(await gone, 1001);
 });
+
+test('on the network: a hunting place open to everyone (pub): wl with its room number, a stranger seen with their look', async () => {
+  const app = startServer({ auth: fakeAuth, port: 0, log: () => {} });
+  const addr = await app.listening;
+  const url = 'ws://127.0.0.1:' + addr.port + '/';
+  const a = await open(url), b = await open(url);
+  a.send(hi('outsider', { topic: 'pub', map: 'taal', floor: 0, x: 600, y: 600 }));
+  const wl = await until(() => a.got.find((m) => m.t === 'wl'));
+  assert.strictEqual(wl.ch, 1);
+  assert.strictEqual(wl.cap, 30);
+  b.send(hi('b', { topic: 'pub', map: 'taal', floor: 0, x: 900, y: 600, lk: { cs: 'hat', pt: 1, rd: 0 }, with: 'outsider' }));
+  assert.strictEqual((await until(() => b.got.find((m) => m.t === 'wl'))).ppl[0][0], 'outsider');
+  const tk = await until(() => a.got.find((m) => m.t === 'tk' && m.come.length));
+  assert.deepStrictEqual(tk.come[0], ['b', 'b', 'boy', 900, 600, 'down', 0, { cs: 'hat', pt: 1, rd: 0 }]);
+  b.send(JSON.stringify({ t: 'ar', x: 900, y: 600, a: 3.1, l: 700, b: 1 }));
+  assert.strictEqual((await until(() => a.got.find((m) => m.t === 'ar'))).id, 'b');
+  await app.stop();
+});

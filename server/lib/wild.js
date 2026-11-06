@@ -112,6 +112,11 @@ module.exports = function makeWild(R) {
         }
       }
     }
+    // bait (a public room's: 19v-wild.js updateWild): it walks to it, a little quicker than a stroll, and eats a while
+    if (a.mode === 'toBait' && a.bait && !a.bait.gone) {
+      const bx = a.bait.x - a.x, by = a.bait.y - a.y, bl = Math.hypot(bx, by);
+      if (bl < 0.4 * T) { a.mode = 'eat'; a.vx = a.vy = 0; a.t = WI.baitMins * 60000; } else { a.vx = bx / bl * def.walk * T * 1.6; a.vy = by / bl * def.walk * T * 1.6; }
+    }
     if (a.t <= 0) wildDecide(fl, a);
     // move, around walls (a flying fleer goes over them)
     if (a.vx || a.vy) {
@@ -182,5 +187,48 @@ module.exports = function makeWild(R) {
     return a;
   };
 
-  return { wildFree, wildInZone, wildSpot, wildEdge, make, wildDecide, wildFlee, wildCharge, wildBack, updateWild, wildStruck, populate, bakunawaRises };
+  // ---------- a hunting place (a public room, docs/game-server.md "Step 2") ----------
+  // Its animals for a first visitor (setupWild): each of `list` on a free tile 6 or more tiles from `from`, never the
+  // great one (it walks in, for two or more).
+  const populatePlace = (fl, list, from) => {
+    const out = [];
+    list.forEach((e) => {
+      const def = WI.animals[e.kind];
+      if (!def || def.great) return;
+      const p = wildSpot(fl, fl.zone, from ? [from] : null, 6);
+      if (p) out.push(make(fl, e.kind, e.slot, p.x, p.y));
+    });
+    return out;
+  };
+  // One walks in (wildArrive): from the zone's edge, out of everyone's sight (6 tiles or more from each of `from`), toward
+  // the middle. The great one as strong as the crew (hpEach each), its usual size. null: no edge out of sight.
+  const walkIn = (fl, kind, slot, from, crew) => {
+    const z = fl.zone, p = wildEdge(fl, z, from);
+    if (!p) return null;
+    const def = WI.animals[kind], a = make(fl, kind, slot, p.x, p.y, def.great ? 1 : null);
+    if (def.great) a.hp = a.max = def.hpEach * Math.max(1, crew);
+    const ang = Math.atan2((z.y0 + z.y1) / 2 * T - p.y, (z.x0 + z.x1) / 2 * T - p.x);
+    a.mode = 'walk';
+    a.vx = Math.cos(ang) * def.walk * T;
+    a.vy = Math.sin(ang) * def.walk * T;
+    a.t = span(fl, 2500, 5000);
+    return a;
+  };
+  // Bait put down (19v-wild.js layBait): the nearest shy one within 9 tiles goes to it (not one already at a bait).
+  const layBait = (fl, mons, bait) => {
+    let shy = null, bd = Infinity;
+    mons.forEach((a) => {
+      if (!a.def.shy || a.mode === 'eat' || a.mode === 'toBait') return;
+      const d = Math.hypot(a.x - bait.x, a.y - bait.y);
+      if (d < bd) { bd = d; shy = a; }
+    });
+    if (!shy || bd >= 9 * T) return null;
+    shy.mode = 'toBait';
+    shy.t = 20000;
+    shy.bait = bait;
+    return shy;
+  };
+
+  return { wildFree, wildInZone, wildSpot, wildEdge, make, wildDecide, wildFlee, wildCharge, wildBack, updateWild, wildStruck, populate, bakunawaRises,
+    populatePlace, walkIn, layBait };
 };

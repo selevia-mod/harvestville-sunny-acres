@@ -13,17 +13,17 @@ const dice = (seed) => () => {
 const TOPIC = 'farm:' + '1234abcd-0000-4000-8000-00000000beef';
 
 // A fake Supabase: a token is 'tok:<uid>'; 'tok:outsider' may not be on the farm.
-const fakeAuth = { check: async (token) => {
+const fakeAuth = { check: async (token, topic) => {
   const m = /^tok:(.+)$/.exec(token);
   if (!m) return { why: 'auth' };
-  if (m[1] === 'outsider') return { why: 'topic' };
+  if (m[1] === 'outsider' && topic !== 'pub') return { why: 'topic' }; // (a hunting place is open to everyone)
   return { uid: m[1] };
 } };
 
 function world(opts) {
   const o = opts || {};
-  let t = 1800000000000;
-  const game = new Game({ auth: o.auth || fakeAuth, now: () => t, rand: dice(o.seed || 7) });
+  let t = o.t || 1800000000000; // (Fri 15 Jan 2027, 4 PM in the Philippines)
+  const game = new Game({ auth: o.auth || fakeAuth, now: () => t, rand: dice(o.seed || 7), pubCap: o.pubCap });
   const flush = () => new Promise((r) => setImmediate(r));
   const w = {
     game,
@@ -53,6 +53,9 @@ function world(opts) {
       return p;
     },
     room(map, floor, topic) { return game.rooms.get((topic || TOPIC) + '|' + map + '|' + floor); },
+    // a phone on a hunting place, open to everyone (topic 'pub', floor 0)
+    pub(uid, map, hi) { return w.phone(uid, Object.assign({ topic: 'pub', map: map || 'banaue', floor: 0, bk: 0 }, hi || {})); },
+    pubRoom(map, n) { return game.rooms.get('pub|' + map + '|' + n); },
   };
   return w;
 }
