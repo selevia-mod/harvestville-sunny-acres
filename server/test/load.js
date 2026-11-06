@@ -36,7 +36,7 @@ function bot(url, uid, group) {
     setTimeout(() => { if (ws.readyState === 1) ws.send(s); }, at - now);
   };
   const hello = () => send({ t: 'hi', v: 1, token: 'tok:' + uid, topic: 'farm:' + ('00000000' + group).slice(-8) + '-0000-4000-8000-000000000000', map: b.map, floor: b.floor,
-    name: uid, look: Math.random() < 0.5 ? 'boy' : 'girl', x: b.x, y: b.y, dir: 'down', hg: 0, sk: 0 });
+    name: uid, look: Math.random() < 0.5 ? 'boy' : 'girl', x: b.x, y: b.y, dir: 'down', hg: 0, sk: 0, b: 0, bk: 1 });
   ws.on('open', hello);
   ws.on('message', (d) => {
     const now = Date.now(), at = downAt = Math.max(downAt, now + rnd(DELAY[0], DELAY[1])), s = d.toString();
@@ -75,6 +75,7 @@ function bot(url, uid, group) {
         send({ t: 'bye' });
         b.floor = b.floor >= b.cfg.floors ? 1 : b.floor + 1;
         b.mons.clear();
+        b.lastHp = {};
         b.leaving = false;
         b.x = 1408; b.y = 1100;
         hello();

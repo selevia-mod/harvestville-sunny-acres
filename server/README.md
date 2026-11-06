@@ -127,7 +127,11 @@ or `systemctl stop harvest-game`.
 - A charge that reaches a player: `bp` to them, and it backs off (`wildBack`: 2.5 s away, 5 s before it charges again).
 - A place's boss grows by `hpEach` for each player more than it has seen (as the game does); it never shrinks when
   one leaves. The Lair's guards are as strong as the floor (`L.lairHp`).
-- The Bakunawa (Lair floor 50): 20-40 s timers as `wildArrive`; when one runs out with 2 or more on the floor, it rises
-  (hp `hpEach` x the crew), once for the room.
+- The Bakunawa (Lair floor 50): 20-40 s timers as `wildArrive`; when one runs out with 2 or more on the floor and at
+  least 2 of them said `bk: 1` in their `hi` (their Bakunawa is ready today), it rises (hp `hpEach` x the crew), once
+  for the room.
+- A player with a menu open (`b: 1` in `hi` / `mv`) is left out of the crew: nothing notices, flees from or charges
+  them (the game's `wildCrew(!busy)`). They still count for a boss's strength.
+- Bait and a friend's arrow in flight are not on the server yet: the phones keep them on the old relay.
 - Limits: 60 messages a second a phone (more are dropped; 180 closes it), 4 KB a message, `hi` within 10 s, closed after
   20 s with nothing heard (a phone pings every 2 s). A phone far behind on what was sent skips ticks.

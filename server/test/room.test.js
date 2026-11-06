@@ -255,24 +255,50 @@ test("a place's boss grows for each friend who comes down (L.dunHp), and never s
   void a;
 });
 
-test('Lair floor 50: the Bakunawa rises for two or more, as strong as the crew, once', async () => {
+test('Lair floor 50: the Bakunawa rises for two or more whose Bakunawa is ready today, as strong as the crew, once', async () => {
   const w = world();
-  const a = await w.phone('a', { floor: 50 });
+  const a = await w.phone('a', { floor: 50, bk: 1 });
   const room = w.room('lair', 50);
   assert.deepStrictEqual(room.mons.map((m) => m.kind).sort(), ['tikbalang', 'tikbalang'], 'it sleeps for one hunter alone');
   w.run(45000);
   assert.ok(!room.mons.some((m) => m.kind === 'bakunawa'));
-  const b = await w.phone('b', { floor: 50 });
+  // a friend whose Bakunawa was already hunted today: still asleep
+  const b = await w.phone('b', { floor: 50, bk: 0 });
+  w.run(90000);
+  assert.ok(!room.mons.some((m) => m.kind === 'bakunawa'), 'two hunters, but only one of them ready');
+  // a third, ready: it rises (hp for the three)
+  const c = await w.phone('c', { floor: 50, bk: 1 });
   let guard = 0;
   while (!room.mons.some((m) => m.kind === 'bakunawa') && guard++ < 1000) w.run(50);
   const bk = room.mons.filter((m) => m.kind === 'bakunawa')[0];
   assert.ok(bk, 'it rose');
-  assert.strictEqual(bk.hp, 40);
-  assert.strictEqual(bk.max, 40);
+  assert.strictEqual(bk.hp, 60);
+  assert.strictEqual(bk.max, 60);
   assert.strictEqual(bk.size, 1);
   assert.ok(a.got.some((m) => m.t === 'tk' && m.m.some((r) => r[0] === bk.slot)), 'every phone hears it');
-  shootAll(w, [a, b], { floor: 50 });
+  shootAll(w, [a, b, c], { floor: 50 });
   assert.ok(a.last('cl'));
   w.run(90000);
   assert.ok(!room.mons.length, 'once');
+});
+
+test('a player with a menu open (b: 1) is not seen: nothing runs from them or charges them, until they close it', async () => {
+  const w = world();
+  const a = await w.phone('a', { floor: 30, b: 1 });
+  const room = w.room('lair', 30), boss = room.mons[0];
+  boss.x = 2000; boss.y = 2600; boss.mode = 'idle'; boss.t = 99999;
+  a.say({ t: 'mv', x: 2000 + 2 * 256, y: 2600, dir: 'left', m: 0, b: 1 });
+  w.run(3000);
+  assert.strictEqual(a.all('bp').length, 0);
+  assert.notStrictEqual(boss.mode, 'charge');
+  assert.deepStrictEqual(room.fl.crew, []);
+  // a shy one beside them does not run either
+  const s = room.mons.filter((m) => m.def.shy)[0];
+  if (s) { s.x = 2000; s.y = 2600 + 256; s.mode = 'idle'; s.t = 99999; w.run(100); assert.notStrictEqual(s.mode, 'flee'); }
+  // menu closed: it sees them, and charges
+  boss.t = 99999;
+  a.say({ t: 'mv', x: 2000 + 2 * 256, y: 2600, dir: 'left', m: 0, b: 0 });
+  let guard = 0;
+  while (!a.last('bp') && guard++ < 100) w.run(50);
+  assert.ok(a.last('bp'));
 });

@@ -28,8 +28,8 @@ All messages are JSON objects with a type `t`. Positions are pixels on the map (
 
 | t | fields | when |
 |---|---|---|
-| `hi` | `v: 1`, `token`, `topic`, `map`, `floor`, `name`, `look` (`boy`/`girl`), `x`, `y`, `dir`, `hg` (gear bits, `L.gearBits`), `sk` (sneak power 0/1) | once, on connect (and on every reconnect) |
-| `mv` | `x`, `y`, `dir`, `m` (1 moving, 0 still), `hg`, `sk` | while moving at most 10 a second, and once when it stops |
+| `hi` | `v: 1`, `token`, `topic`, `map`, `floor`, `name`, `look` (`boy`/`girl`), `x`, `y`, `dir`, `hg` (gear bits, `L.gearBits`), `sk` (sneak power 0/1), `b` (1: a menu is open), `bk` (1: this phone's Bakunawa is ready today, `L.bakunawaReady`) | once, on connect (and on every reconnect); after `bye`, again on the same socket for another floor |
+| `mv` | `x`, `y`, `dir`, `m` (1 moving, 0 still), `hg`, `sk`, `b` (1 while a menu is open) | while moving at most 10 a second, once when it stops, and when `b` changes |
 | `hit` | `s` (monster slot), `d` (damage, `L.bowDamage`), `n` (this phone's own hit counter) | each arrow that hits, at once |
 | `pi` | `c` (phone's clock, ms) | every 2 s (the server answers `po`: the round trip is measured) |
 | `bye` | | leaving the floor (closing the socket also counts) |
@@ -38,14 +38,21 @@ All messages are JSON objects with a type `t`. Positions are pixels on the map (
 
 | t | fields | when |
 |---|---|---|
-| `wl` | `you` (your id), `tick` (ms, 50), `mons` (every monster, packed), `ppl` (everyone else: `[id, name, look, x, y, dir, m]`), `cap` (8) | after a good `hi` |
-| `no` | `why`: `auth` / `topic` / `full` / `version` | a `hi` refused (the phone plays on the old way) |
-| `tk` | `n` (tick number), `st` (server clock ms), `m` (monsters that changed, packed), `gone` (slots removed), `p` (players that moved: `[id, x, y, dir, m]`), `left` (ids that left), `come` (new players: as in `wl.ppl`) | every 50 ms, only if anything changed |
-| `hp` | `s`, `hp`, `by` (id of the hitter), `n` (that phone's hit counter, so it knows its own hit was counted) | each hit, at once, to everyone |
-| `dn` | `s`, `kind`, `x`, `y`, `by` (ids who earned a share: `minHits` hits or the last hit), `size` | a monster down: each phone in `by` gives itself the drops (`L.huntDrops`, as today) |
+| `wl` | `you` (your id), `tick` (ms, 50), `mons` (every monster, packed), `ppl` (everyone else: `[id, name, look, x, y, dir, m]`), `cap` (8), `n` (the tick number now), `st` (server clock ms) | after a good `hi`; a floor already clear also sends `cl` right after it |
+| `no` | `why`: `auth` / `topic` / `full` / `version` | a `hi` refused (the phone plays on the old way); the socket is then closed with 4010 / 4011 / 4012 / 4013 |
+| `tk` | `n` (tick number), `st` (server clock ms), `m` (monsters that changed, packed), `gone` (slots removed, a killed one too, after its `dn`), `p` (players that moved: `[id, x, y, dir, m]`), `left` (ids that left), `come` (new players: as in `wl.ppl`); every field always there (empty `[]`) | every 50 ms, only if anything changed for that phone |
+| `hp` | `s`, `hp`, `by` (id of the hitter), `n` (that phone's hit counter, so it knows its own hit was counted) | each hit, at once, to everyone. A hit not counted (within 150 ms of that phone's last on it, or from 12 tiles or more away) gets an `hp` to that phone only, with the hp as it is (its bar comes back) |
+| `dn` | `s`, `kind` (its name, e.g. `sigbin`), `x`, `y`, `by` (ids who earned a share: `minHits` hits or the last hit), `size` | a monster down: each phone in `by` gives itself the drops (`L.huntDrops`, as today) |
 | `bp` | `s`, `hit` (the monster's `def.hit`) | to one phone only: a charge reached you (the phone takes the energy, `L.chargeLoss`, and the bump, as `wildHit`) |
 | `cl` | | the floor is clear (every monster down): the gate down opens on every phone |
 | `po` | `c` (as sent), `st` (server clock) | answer to `pi` |
+
+Closing codes: 1001 the server is restarting (reconnect), 4001 the same player connected again on another socket
+(this one is let go), 4002 no `hi` within 10 s, 4003 nothing heard for 20 s, 4010-4013 after a `no` (above), 1008 far
+too many messages. Limits: 4 KB a message; 60 messages a second a phone (more are dropped, 180 closes it).
+
+**Not on the server yet** (step 1): bait (`bt`) and a friend's arrow in flight (`ar`). The phone keeps sending them on
+the old relay (Supabase Realtime) as today; the server's monsters never go to bait.
 
 **Packed monster** (as `L.wildPack`): `[slot, kindIndex, x, y, dirIndex, left, modeIndex, hp, size*100, look, max]`, with
 place creatures at `1000 + WI.more.indexOf(kind)` (the game's `L.wildPack` / `L.wildUnpack` already do this).
@@ -55,13 +62,17 @@ place creatures at `1000 + WI.more.indexOf(kind)` (the game's `L.wildPack` / `L.
 - Loads the map JSON (`maps/<map>.json`): walkable tiles (as the game's `walkable`), the `wild` zone object, blocked
   props. One floor's monsters: what the game would put there for a first visitor (the cave's floor list: see
   `19zt-lair.js` and `01-logicZZZZ-places.js`), as strong as the game makes them (`L.lairHp` for the Lair by floor,
-  `L.dunHp` for a place's boss by the number of players, recomputed when someone joins or leaves).
+  `L.dunHp` for a place's boss by the number of players: it grows by `hpEach` for each player more than it has seen,
+  as the game does, and never shrinks when one leaves).
 - Runs every monster at 20 Hz with the game's own rules (`updateWild`, `wildDecide`, `wildFlee`, `wildCharge`,
   `wildBack` in `19v-wild.js`, ported to plain JS without Phaser): the crew is every player in the room at their last
-  reported place, with their gear and sneak bits; walls, the zone and flying fleers as in the game.
-- A hit: `hp -= d` (never more than one hit per 150 ms per phone per monster, `d` at most the best bow's damage);
-  counts `hits[id]`; at 0, down with `by`. The Bakunawa (Lair floor 50) walks in as in `19zt-lair.js` when 2 or more are
-  there, once.
+  reported place, with their gear and sneak bits, but those with a menu open (`b`: 1, as the game's `wildCrew(!busy)`); walls, the zone and flying fleers as in the game.
+- A hit: `hp -= d` (never more than one hit per 150 ms per phone per monster; `d` clamped to 1 .. the best bow's
+  damage + 1 for a strong shot, Hunting 5+: 4 today; not from 12 tiles or more away); counts `hits[id]`; at 0, down with
+  `by` (`minHits` hits, plus the last hitter). The Bakunawa (Lair floor 50) walks in as in `19zt-lair.js` when 2 or more
+  are there and at least 2 of them say `bk: 1` (each phone still records its own day), once for the room.
+- A player is the token's `sub`; the same player again takes their place back (their hits still count). An empty floor
+  keeps its monsters, standing still, 30 s, then goes.
 - Never stores anything: rewards stay on each phone (as today). It logs one line a minute: rooms, players, messages a
   second, the slowest tick.
 

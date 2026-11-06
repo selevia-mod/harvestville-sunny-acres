@@ -78,6 +78,8 @@ class Room {
     p.m = 0;
     p.hg = num(hi.hg, 0, 0xffff, 0) | 0;
     p.sk = hi.sk ? 1 : 0;
+    p.b = hi.b ? 1 : 0; // a menu open: the monsters do not see them (19v-wild.js wildCrew(!busy))
+    p.bk = hi.bk ? 1 : 0; // their Bakunawa is ready today (L.bakunawaReady, on their phone)
     p.speed = 0;
     p.mvAt = now;
     conn.room = this;
@@ -114,7 +116,8 @@ class Room {
     if (!this.players.size) this.emptySince = this.game.now();
   }
 
-  crew() { this.fl.crew = Array.from(this.players.values()); }
+  // Who the monsters can see: everyone here but those with a menu open.
+  crew() { this.fl.crew = Array.from(this.players.values()).filter((p) => !p.b); }
 
   // A place's boss grows for each friend who comes down (19zzzzz-places.js update): hpEach more each, never less.
   grow() {
@@ -143,6 +146,7 @@ class Room {
     p.m = m;
     if (msg.hg != null) p.hg = num(msg.hg, 0, 0xffff, 0) | 0;
     if (msg.sk != null) p.sk = msg.sk ? 1 : 0;
+    if (msg.b != null && (msg.b ? 1 : 0) !== p.b) { p.b = msg.b ? 1 : 0; this.crew(); }
     this.moved.add(p.id);
   }
 
@@ -200,7 +204,10 @@ class Room {
     b.next -= dt;
     if (b.next > 0) return;
     b.next = this.span(R.WI.arrive[0], R.WI.arrive[1]);
-    if (this.players.size < 2) return;
+    // two hunters or more, and at least two whose Bakunawa is ready today (each phone keeps its own day)
+    let ready = 0;
+    this.players.forEach((p) => { if (p.bk) ready++; });
+    if (this.players.size < 2 || ready < 2) return;
     const e = this.cfg.roster(this.floor).filter((x) => R.WI.animals[x.kind].great && !this.mons.some((a) => a.slot === x.slot))[0];
     if (!e) return;
     const a = this.game.wild.bakunawaRises(this.fl, e.slot, this.players.size);
