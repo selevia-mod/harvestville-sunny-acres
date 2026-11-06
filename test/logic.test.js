@@ -38,13 +38,15 @@ test('new game starts with tools, seeds and gold', () => {
 
 test('inventory stacks, respects limits and reports overflow', () => {
   const s = L.newState();
-  assert.strictEqual(L.addItem(s, 'turnip', 150), 0);
-  assert.strictEqual(L.countItem(s, 'turnip'), 150);
+  const M = C.MAX_STACK;
+  assert.strictEqual(M, 999, 'a slot holds 999 of one thing (owner, 7 Nov 2026)');
+  assert.strictEqual(L.addItem(s, 'turnip', M + 51), 0);
+  assert.strictEqual(L.countItem(s, 'turnip'), M + 51);
   assert.strictEqual(s.inv.filter((x) => x && x.id === 'turnip').length, 2);
-  for (let i = 0; i < s.inv.length; i++) if (!s.inv[i]) s.inv[i] = { id: 'potato', n: 99 };
+  for (let i = 0; i < s.inv.length; i++) if (!s.inv[i]) s.inv[i] = { id: 'potato', n: M };
   assert.strictEqual(L.addItem(s, 'strawberry', 3), 3, 'full bag keeps nothing');
-  assert.strictEqual(L.canAdd(s, 'turnip', 48), true);
-  assert.strictEqual(L.canAdd(s, 'turnip', 49), false);
+  assert.strictEqual(L.canAdd(s, 'turnip', M - 51), true);
+  assert.strictEqual(L.canAdd(s, 'turnip', M - 50), false);
 });
 
 test('till, plant and grow a turnip to harvest in real time; a ripe crop withers if left too long', () => {
@@ -270,7 +272,7 @@ test('bad or foreign save data is rejected or sanitised', () => {
   const today = L.dayOf(clock.ms);
   const s = L.deserialize({
     v: 1, mg: 2, rt: 1, d: -5, t: 'noon', g: 1e20, e: 'lots', w: -1, s: 77,
-    i: [['hoe', 1], ['rocket', 3], ['turnip', 1000], 'junk'],
+    i: [['hoe', 1], ['rocket', 3], ['turnip', 10000], 'junk'],
     b: [['hoe', 1], ['turnip', 2]],
     f: [[999, 5, 1, 10], [1, 'x', 0, 11, 'y'], 'junk', [0, 0, 0, -1]],
     p: [1, 2],
@@ -281,7 +283,7 @@ test('bad or foreign save data is rejected or sanitised', () => {
   assert.strictEqual(L.deserialize(Object.assign(L.serialize(L.newState()), { e: 1e9 })).energy, C.ENERGY_MOST_COINS);
   assert.strictEqual(s.water, 0);
   assert.strictEqual(s.sel, C.INV_SIZE - 1);
-  same(s.inv.slice(0, 4), [{ id: 'hoe', n: 1 }, null, { id: 'turnip', n: 99 }, null]);
+  same(s.inv.slice(0, 4), [{ id: 'hoe', n: 1 }, null, { id: 'turnip', n: C.MAX_STACK }, null]);
   same(s.box, [{ id: 'turnip', n: 2 }]);
   same(s.soil[10], { w: 1, c: null, p: 0, r: 0 });
   assert.strictEqual(s.soil[11].c, 'turnip');

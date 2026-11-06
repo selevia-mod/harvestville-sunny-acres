@@ -43,7 +43,8 @@
   // ---------- dropping things ----------
   // A dropped stack lies on the ground for C.DROP.mins, then it is gone. A friend on the same map may pick it up
   // (it goes to them as a gift: the server's friends-only rules and daily limits). Tools can't be dropped.
-  C.DROP = { mins: 5, most: 12 }; // most: stacks on the ground at once
+  C.DROP = { mins: 5, most: 12, pile: 99 }; // most: stacks on the ground at once; pile: the most in one (a friend takes it
+  // as a gift, and the server's gift is 1 to 99: farm_give_v1, part 9; a slot holds 999 since 7 Nov 2026)
 
   // ---------- new seeds ----------
   // On the same ladder as every other crop: grow time -> seed price and what one sells for.

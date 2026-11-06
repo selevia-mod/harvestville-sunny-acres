@@ -32,19 +32,19 @@ test('a new farm has 60 empty storage slots and a Dresser where nothing hides it
 
 test('put a whole stack away, it stacks with the same item; take it out, what does not fit stays', () => {
   const s = L.newState();
-  s.inv[8] = { id: 'carrot', n: 40 };
+  s.inv[8] = { id: 'carrot', n: C.MAX_STACK - 59 };
   s.inv[9] = { id: 'carrot', n: 70 };
-  assert.strictEqual(L.storeIn(s, 8), 40);
+  assert.strictEqual(L.storeIn(s, 8), C.MAX_STACK - 59);
   assert.strictEqual(s.inv[8], null);
   assert.strictEqual(L.storeIn(s, 9), 70);
-  assert.deepStrictEqual(plain(s.store.slice(0, 2)), [{ id: 'carrot', n: 99 }, { id: 'carrot', n: 11 }]);
+  assert.deepStrictEqual(plain(s.store.slice(0, 2)), [{ id: 'carrot', n: C.MAX_STACK }, { id: 'carrot', n: 11 }]);
   assert.strictEqual(L.storeCount(s), 2);
   // a full bag: nothing comes out
   for (let i = 0; i < s.inv.length; i++) if (!s.inv[i]) s.inv[i] = { id: 'stone_x', n: 1 };
   assert.strictEqual(L.storeOut(s, 0), 0);
-  // one free slot: 99 come out, the other stack stays
+  // one free slot: a whole stack comes out, the other stack stays
   s.inv[17] = null;
-  assert.strictEqual(L.storeOut(s, 0), 99);
+  assert.strictEqual(L.storeOut(s, 0), C.MAX_STACK);
   assert.strictEqual(s.store[0], null);
   assert.strictEqual(L.storeOut(s, 1), 0);
   assert.deepStrictEqual(plain(s.store[1]), { id: 'carrot', n: 11 });
@@ -84,11 +84,11 @@ test('storage is saved; an older save gets its free Dresser once, and not if it 
   assert.strictEqual(got2.home.bag[L.furnKey(H.typeIndex.dresser, 0)], undefined);
   // bad entries are dropped
   const o3 = plain(L.serialize(L.newState()));
-  o3.kp = [['nope', 3], ['egg', -2], ['egg', 500], 'x'];
+  o3.kp = [['nope', 3], ['egg', -2], ['egg', 5000], 'x'];
   const got3 = L.deserialize(o3);
   assert.strictEqual(got3.store[0], null);
   assert.strictEqual(got3.store[1], null);
-  assert.deepStrictEqual(plain(got3.store[2]), { id: 'egg', n: 99 });
+  assert.deepStrictEqual(plain(got3.store[2]), { id: 'egg', n: C.MAX_STACK });
 });
 
 test('a full 90-slot bag and every cabinet full (6 of them) still save under 16 KB', () => {

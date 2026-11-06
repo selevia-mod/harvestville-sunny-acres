@@ -209,7 +209,7 @@
     var s = F.session.state, it = s.inv[slot];
     if (!it || !L.canDrop(s, slot)) return;
     if (G.mine.length >= C.DROP.most) return F.ui.toast('You have ' + C.DROP.most + ' things on the ground already. Pick one up first.');
-    var id = it.id, q = it.q || 0, took = L.removeAt(s, slot, n);
+    var id = it.id, q = it.q || 0, took = L.removeAt(s, slot, Math.min(n, C.DROP.pile));
     if (!took) return;
     var f = this.feet(), fr = this.front(0.6);
     var d = { k: G.next++, id: id, n: took, q: q, map: this.mapKey, fl: floorNow() || 0, x: fr.x, y: fr.y, until: Date.now() + C.DROP.mins * 60000 };
@@ -314,7 +314,7 @@
           if (!Array.isArray(e) || !C.ITEMS[e[1]] || C.ITEMS[e[1]].kind === 'tool') return;
           var k = Math.floor(Number(e[0])) || 0, left = Math.max(0, Math.min(C.DROP.mins * 60000, Number(e[7]) || 0));
           if (!k || !left) return;
-          G.theirs[who.id + ':' + k] = { owner: who.id, k: k, id: e[1], n: Math.max(1, Math.min(99, Math.floor(Number(e[2])) || 1)), map: String(e[3]), fl: Math.floor(Number(e[4])) || 0, x: Number(e[5]) || 0, y: Number(e[6]) || 0, until: Date.now() + left };
+          G.theirs[who.id + ':' + k] = { owner: who.id, k: k, id: e[1], n: Math.max(1, Math.min(C.DROP.pile, Math.floor(Number(e[2])) || 1)), map: String(e[3]), fl: Math.floor(Number(e[4])) || 0, x: Number(e[5]) || 0, y: Number(e[6]) || 0, until: Date.now() + left };
         });
         if (world()) world().drawGround();
         return;
@@ -347,7 +347,8 @@
     var self = this, s = F.session.state, slot = s.sel, it = s.inv[slot];
     if (!it || !L.canDrop(s, slot)) return this.toast(it ? 'Tools stay in your bag.' : 'Hold something to drop it.');
     var name = L.itemName(s, it.id), buttons = [{ label: 'Cancel', color: GREY }, { label: 'Drop 1', cb: function () { self.closeModal(); world().dropOnGround(slot, 1); } }];
-    if (it.n > 1) buttons.push({ label: 'Drop ' + it.n, color: BLUE, cb: function () { self.closeModal(); world().dropOnGround(slot, it.n); } });
+    var pile = Math.min(it.n, C.DROP.pile); // (at most 99 a pile: a friend takes it as a gift, and a gift is up to 99)
+    if (pile > 1) buttons.push({ label: 'Drop ' + pile, color: BLUE, cb: function () { self.closeModal(); world().dropOnGround(slot, pile); } });
     this.dialog('DROP IT?\nPut your ' + name + (it.n > 1 ? ' (you have ' + it.n + ')' : '') + ' on the ground? It disappears in ' + C.DROP.mins + ' minutes. Walk onto it to pick it up again, or a friend here can take it.', buttons);
   };
   var openInventory = U.openInventory;

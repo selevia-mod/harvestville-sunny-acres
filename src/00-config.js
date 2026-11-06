@@ -87,7 +87,7 @@
     BAG_PAGE: 30,
     HOTBAR: 6,
     HOTBAR_PAGES: 3, // owner, 2 Nov: swipe the bar for the next 6 slots: the first 3 rows of the bag
-    MAX_STACK: 99,
+    MAX_STACK: 999, // (owner, 7 Nov 2026: was 99; a bag slot holds 999 of one thing, a tool still 1)
 
     // ---------- tools ----------
     TOOL_LEVELS: ['Basic', 'Copper', 'Silver', 'Gold'],

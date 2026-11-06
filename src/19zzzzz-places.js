@@ -488,14 +488,15 @@
   var pieceText = function (g) {
     if (!g) return '';
     if (g.old) return g.desc;
-    return g.less + ' less energy when something of ' + C.PLACES[g.place].name + ' charges you.';
+    return L.pieceLess(F.session.state, g.id) + ' less energy when something of ' + C.PLACES[g.place].name + ' charges you.'; // (its stars too)
   };
+  var pieceName = function (g) { return g.old ? g.name : L.pieceName(F.session.state, g.id); };
   U.openGear = function (back) {
     var self = this, s = F.session.state;
     if (L.takeTip(s, 'gear_slots_tour') && !quiet()) { F.Host.save(s); return this.tour('gear_slots', function () { self.openGear(back); }); }
     var rows = C.GEAR_SLOTS.map(function (slot) {
       var id = L.worn(s, slot), g = id ? L.gearPiece(id) : null, have = L.piecesFor(s, slot).length;
-      return { icon: g ? g.icon : C.ICON.bag, name: C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? g.name : 'nothing'),
+      return { icon: g ? g.icon : C.ICON.bag, name: C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? pieceName(g) : 'nothing'),
         desc: g ? pieceText(g) : have ? 'You have ' + have + ' to wear.' : 'Kanor makes pieces from what you hunt.',
         buttons: [{ label: 'Change', color: have ? GREEN : GREY, cb: function () {
           if (!have) return self.toast('Kanor makes gear in his Make tab, from what each place gives.', 2600);
@@ -515,7 +516,7 @@
     var self = this, s = F.session.state, on = L.worn(s, slot);
     var rows = L.piecesFor(s, slot).map(function (id) {
       var g = L.gearPiece(id), wearing = on === id;
-      return { icon: g.icon, name: g.name + (wearing ? ' (on)' : ''), desc: pieceText(g) + (g.place ? ' ' + C.PLACES[g.place].name + ' set.' : ''),
+      return { icon: g.icon, name: pieceName(g) + (wearing ? ' (on)' : ''), desc: pieceText(g) + (g.place ? ' ' + C.PLACES[g.place].name + ' set.' : ''),
         buttons: [{ label: wearing ? 'Take off' : 'Wear', color: wearing ? GREY : GREEN, cb: function () {
           if (wearing) L.takeOff(s, slot); else L.wear(s, id);
           sfx('pick');
@@ -542,6 +543,26 @@
 
   // ---------- Kanor: the Make tab (trophies, then the set pieces) and the Pals tab ----------
   var needLine = function (s, needs) { return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', '); };
+  // A piece you own in the Make tab: its stars, and the next one (owner, 7 Nov 2026: gear stars, 01-logicZZZZZZ-gear-stars.js)
+  var starRow = function (s, g, id, slot, again) {
+    var n = L.gearStars(s, g.id), next = L.starCost(g.id, n + 1), less = L.pieceLess(s, g.id);
+    var row = { icon: g.icon, name: L.pieceName(s, g.id) + (n ? '' : ' (yours)'), // (a starred piece is yours: its name stays on one line)
+      desc: C.GEAR_SLOT_NAMES[slot] + ', ' + less + ' off a charge.' + (next ? ' Next ★: ' + next.needs.map(function (x) { return x[1] + ' ' + C.ITEMS[x[0]].name; }).join(', ') : ' All 3 stars!') }; // (short: it fits its row; what you have shows when it is not enough)
+    if (!next) return row;
+    var ok = s.gold >= next.gold && L.hasNeeds(s, next.needs);
+    row.buttons = [{ label: '★' + (n + 1) + ' ' + fmt(next.gold) + 'G', color: ok ? GREEN : GREY, cb: function () {
+      var r = L.starGear(s, g.id);
+      if (r === 'gold') { sfx('nope'); return F.ui.toast('Not enough gold.'); }
+      if (r === 'short') { sfx('nope'); return F.ui.toast('You need ' + needLine(s, next.needs) + '. Beat the guard and the boss of ' + C.PLACES[id].name + '\'s dungeon!', 3200); }
+      if (r !== 'ok') return;
+      sfx('found');
+      F.ui.toast(L.pieceName(s, g.id) + '! Now ' + L.pieceLess(s, g.id) + ' less a charge in ' + C.PLACES[id].name + '.', 2800, OK_GREEN);
+      F.world.changed();
+      F.world.save();
+      again();
+    } }];
+    return row;
+  };
   var openKanor = U.openKanor;
   U.openKanor = function (tab, page) {
     var self = this, s = F.session.state, list = this.listPanel, again = function () { self.closeModal(); self.openKanor(tab, page); };
@@ -549,11 +570,13 @@
       delete self.listPanel;
       o.tabs = [['buy', 'Buy'], ['sell', 'Sell'], ['job', 'Request'], ['make', 'Make'], ['pals', 'Pals']];
       if (tab === 'make') {
+        // (owner, 7 Nov 2026) gear stars: the first time you open Make with a piece of your own
+        if ((s.gown || []).length && L.takeTip(s, 'gear_stars_tour') && !quiet()) { F.Host.save(s); return self.tour('gear_stars', function () { self.openKanor('make', page); }); }
         C.PLACE_ORDER.filter(L.placeShown).forEach(function (id) {
           C.GEAR_SLOTS.forEach(function (slot) {
             var g = C.PLACE_GEAR[id + '_' + slot];
             if (!g) return;
-            if (L.ownsPiece(s, g.id)) { o.rows.push({ icon: g.icon, name: g.name + ' (yours)', desc: C.GEAR_SLOT_NAMES[slot] + ': ' + g.less + ' less energy a charge in ' + C.PLACES[id].name + '. Wear it from Gear.' }); return; }
+            if (L.ownsPiece(s, g.id)) { o.rows.push(starRow(s, g, id, slot, again)); return; }
             var ok = s.gold >= g.gold && L.hasNeeds(s, g.needs);
             o.rows.push({ icon: g.icon, name: g.name, desc: C.GEAR_SLOT_NAMES[slot] + ', ' + g.less + ' less a charge in ' + C.PLACES[id].name + '. ' + needLine(s, g.needs) + '.',
               buttons: [{ label: fmt(g.gold) + 'G', color: ok ? GREEN : GREY, cb: function () {
@@ -714,6 +737,17 @@
         draw: function (ui, sc, move) { var t = words(ui, sc, 136, 66, '-10  ->  -4', 20, '#a8402a'); tw(ui, move, { targets: t, scale: 1.1, duration: 500, yoyo: true, repeat: -1 }); } },
       { text: "Kanor makes a set for each place from what it gives (his Make tab). A set works in its own place; all four: 2 more off.",
         draw: function (ui, sc, move) { icon(ui, sc, 100, 66, C.ICON.bow, 0.3); var g = icon(ui, sc, 180, 66, C.ICON.gear_cloak, 0.34); tw(ui, move, { targets: g, angle: { from: -8, to: 8 }, duration: 500, yoyo: true, repeat: -1 }); } },
+    ],
+  };
+  F.TOURS.gear_stars = {
+    title: 'GEAR STARS',
+    steps: [
+      { text: 'Kanor can put up to 3 stars on a piece you own. Find the star button by it in his Make tab.',
+        draw: function (ui, sc, move) { var t = words(ui, sc, 136, 66, '★  ★  ★', 26, '#d8a21e'); tw(ui, move, { targets: t, scale: 1.12, duration: 520, yoyo: true, repeat: -1 }); } },
+      { text: 'Each star takes 1 more energy off a charge in that piece\'s own place and its dungeon.',
+        draw: function (ui, sc, move) { var t = words(ui, sc, 136, 66, '-15  ->  -11', 20, '#a8402a'); tw(ui, move, { targets: t, scale: 1.1, duration: 500, yoyo: true, repeat: -1 }); } },
+      { text: "A star needs that place's boss part and guard part, and Gold. It never fails and never breaks.",
+        draw: function (ui, sc, move) { var g = icon(ui, sc, 136, 66, C.ICON.chest, 0.36); tw(ui, move, { targets: g, y: 58, duration: 450, yoyo: true, repeat: -1 }); } },
     ],
   };
   F.TOURS.tame = {

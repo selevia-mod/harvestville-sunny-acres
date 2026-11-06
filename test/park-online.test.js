@@ -78,9 +78,9 @@ test('Central Park\'s tour has its tip, last in the list; What\'s new 2.4 (6 Nov
   assert.strictEqual(L.tipSeen(s, 'park_tour'), false);
   L.takeTip(s, 'park_tour');
   assert.strictEqual(L.tipSeen(L.deserialize(JSON.parse(JSON.stringify(L.serialize(s)))), 'park_tour'), true, 'kept in the save');
-  assert.strictEqual(C.NEWS[0].v, '2.4');
-  assert.strictEqual(C.NEWS[0].date, 'November 6, 2026');
-  assert.ok(C.NEWS[0].lines.some((l) => l[1] === 'Central Park' && l[3] === 'park' && C.ICON[l[0]] != null));
+  const v24 = C.NEWS.filter((n) => n.v === '2.4')[0]; // (2.5, 7 Nov, came after it)
+  assert.strictEqual(v24.date, 'November 6, 2026');
+  assert.ok(v24.lines.some((l) => l[1] === 'Central Park' && l[3] === 'park' && C.ICON[l[0]] != null));
   const tour = fs.readFileSync(path.join(__dirname, '..', 'src', '19zzz-c-park-online.js'), 'utf8');
   assert.match(tour, /F\.TOURS\.park = \{/);
 });

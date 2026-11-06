@@ -304,10 +304,10 @@ test('arranging the bag: move an item onto the hotbar, swap two items, stack the
   assert.strictEqual(s.inv[target], null, 'the slot it left is empty');
   assert.strictEqual(s.inv[empty].id, 'sickle');
   // the same item stacks, up to the limit
-  s.inv[10] = { id: 'turnip', n: 98 };
+  s.inv[10] = { id: 'turnip', n: C.MAX_STACK - 1 };
   s.inv[11] = { id: 'turnip', n: 5 };
   assert.strictEqual(L.moveSlot(s, 11, 10), 'ok');
-  assert.deepStrictEqual(plain([s.inv[10], s.inv[11]]), [{ id: 'turnip', n: 99 }, { id: 'turnip', n: 4 }]);
+  assert.deepStrictEqual(plain([s.inv[10], s.inv[11]]), [{ id: 'turnip', n: C.MAX_STACK }, { id: 'turnip', n: 4 }]);
   s.inv[12] = null;
   assert.strictEqual(L.moveSlot(s, 12, 10), 'empty');
   assert.strictEqual(L.moveSlot(s, 10, 10), 'same');

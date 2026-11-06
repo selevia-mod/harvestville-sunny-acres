@@ -4300,7 +4300,7 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
     return !Farm.Logic.tipSeen(s, 'players_tour');
   });
   assert.ok(unseen, 'the tip is unseen for this check');
-  for (let p = 0; p < 5; p++) { // (on the first page, or the next once newer versions come before it)
+  for (let p = 0; p < 12; p++) { // (on the first page, or a later one once newer versions come before it)
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/Your ideas: new seeds/.test(await modalText(page))) break;
@@ -4965,6 +4965,39 @@ test('Bayanihan Projects: the board by the plaza offline (its tour, the project,
   await page.evaluate(() => Farm.ui.openBayanihan('top', 0));
   await waitText(/#1 Kapitbahay.*120 points/);
   await shot(page, 'bh-top');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// ---------- the next update (owner, 7 Nov 2026): 999 in a slot, gear stars ----------
+test('999 in a slot, and gear stars at Kanor\'s: the first-time tour, the star button, a star bought, the Gear page shows it (owner, 7 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.wild.n = 70; s.gold = 5000; s.gown = ['banaue_head']; s.gwear.head = 'banaue_head'; L.addItem(s, 'fur_amomongo', 1); L.addItem(s, 'staff_kibaan', 1); L.addItem(s, 'turnip', 950);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await waitMap(page, 'pulag');
+  // 950 turnips: one slot, its number on it
+  const bag = await page.evaluate(() => { const s = Farm.session.state, i = s.inv.findIndex((x) => x && x.id === 'turnip'); return { slots: s.inv.filter((x) => x && x.id === 'turnip').length, n: s.inv[i].n, max: Farm.Logic.stackLimit('turnip') }; });
+  assert.deepStrictEqual(bag, { slots: 1, n: 950, max: 999 });
+  // the Make tab, the first time with a piece of your own: the stars' tour (a test phone is quiet: shown by hand)
+  await page.evaluate(() => { window.gameHost.quiet = false; Farm.ui.closeAll(); Farm.ui.openKanor('make', 0); });
+  await page.waitForFunction(() => Farm.ui.modals.length && /GEAR STARS/.test(JSON.stringify(Farm.ui.modals[Farm.ui.modals.length - 1].c.list.map((o) => o.text || ''))), null, SLOW);
+  await shot(page, 'gear-stars-tour');
+  await page.evaluate(() => { window.gameHost.quiet = true; Farm.ui.closeAll(); });
+  assert.ok(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'gear_stars_tour')), 'once');
+  // the Terrace Hat's row: yours, and its first star for 1,500G (Banaue's rows come after the trophies)
+  const pageOf = await page.evaluate(() => { const C = Farm.Config, shown = C.PLACE_ORDER.filter(Farm.Logic.placeShown); return Math.floor((C.WILD.trophies.length + 4 * shown.slice(0, shown.indexOf('banaue')).filter((id) => C.PLACE_GEAR[id + '_head']).length) / 4); });
+  await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, pageOf);
+  assert.match(await modalText(page), /Terrace Hat \(yours\) \| Head, 1 off a charge\. Next ★: 1 Amomongo Fur, 1 Kibaan Staff \|/, 'the whole line, not cut');
+  await tapButton(page, '★1 1,500G');
+  await page.waitForFunction(() => Farm.Logic.gearStars(Farm.session.state, 'banaue_head') === 1, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 3500);
+  assert.match(await modalText(page), /Terrace Hat ★ \| Head, 2 off a charge\. Next ★: 2 Amomongo Fur, 2 Kibaan Staff \|/);
+  await shot(page, 'gear-stars-make');
+  // the Gear page: the hat with its star
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openGear(); });
+  assert.match(await modalText(page), /Head: Terrace Hat ★[\s\S]*2 less energy when something of Banaue Terraces charges you/);
+  // a charge from a Banaue creature: 2 off now (1 and its star)
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.chargeLoss(Farm.session.state, 12, 'kibaan_chief')), 10);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

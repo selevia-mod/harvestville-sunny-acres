@@ -2411,6 +2411,12 @@ test('online: something dropped on a farm, a friend there walks onto it and it r
   await friend.page.waitForFunction(() => Farm.ground.mine.length === 0, null, { timeout: 60000 });
   await host.page.waitForFunction(() => Object.keys(Farm.ground.theirs).length === 0, null, { timeout: 60000 });
   assert.deepStrictEqual(server.db.gives.map((g) => [g.item, g.n]).slice(-1)[0], ['grilled_fish', 5]);
+  // a pile is at most 99 (a slot holds 999 since 7 Nov 2026, a gift is up to 99): of 500, 99 go down and 401 stay
+  await friend.page.evaluate(() => { const s = Farm.session.state; s.inv[8] = { id: 'egg', n: 500 }; Farm.world.dropOnGround(8, 500); });
+  assert.deepStrictEqual(await friend.page.evaluate(() => [Farm.session.state.inv[8].n, Farm.ground.mine[0].n]), [401, 99]);
+  await walkOnto();
+  await host.page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'egg') === 99, null, { timeout: 60000 });
+  assert.deepStrictEqual(server.db.gives.map((g) => [g.item, g.n]).slice(-1)[0], ['egg', 99], 'the whole pile, as one gift');
   for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
   for (const p of [host, friend]) await p.context.close();
 });

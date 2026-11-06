@@ -8,6 +8,13 @@
 
   C.NEWS = [
     {
+      v: '2.5', date: 'November 7, 2026', lines: [
+        ['star', 'Gear stars', 'Kanor puts up to 3 stars on a piece you own, from its place\'s boss and guard parts. Each star takes 1 more energy off a charge there.', 'gear_stars'],
+        ['bag', '999 in a slot', 'A bag slot now holds 999 of one thing, and so does each storage slot. Tools still take a slot each.'],
+        ['heart', 'Chat in Central Park', 'The Chat button is always there in the park, so you can say hi to whoever walks in next.'],
+      ],
+    },
+    {
       v: '2.4', date: 'November 6, 2026', lines: [
         ['heart', 'Central Park', 'Up the road by the Station: one park for everyone in Harvest Ville. Meet other players, chat, wave and make friends. Park 1, 2 and 3 hold 30 each.', 'park'], // (19zzz-c-park-online.js)
         // (owner, 6 Nov 2026: "Finish all the one we talk earlier": the rest of the night's update, in one version)
