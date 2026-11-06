@@ -1,0 +1,17 @@
+{
+  "name": "harvest-ville-game-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Harvest Ville's own game server: it runs the cave monsters for everyone on a floor (docs/game-server.md).",
+  "main": "index.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/*.test.js",
+    "load": "node test/load.js"
+  },
+  "dependencies": {
+    "jose": "5.9.6",
+    "ws": "8.18.0"
+  }
+}

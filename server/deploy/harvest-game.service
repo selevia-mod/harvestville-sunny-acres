@@ -1,0 +1,29 @@
+# Harvest Ville's game server (server/README.md). Copy to /etc/systemd/system/harvest-game.service.
+[Unit]
+Description=Harvest Ville game server (caves)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=game
+Group=game
+WorkingDirectory=/opt/harvest-game
+# SUPABASE_URL and SUPABASE_ANON_KEY (root-only file: systemd reads it before it becomes `game`)
+EnvironmentFile=/etc/harvest-game.env
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=2567
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=2
+# a stop tells every phone (they reconnect, or play the old way), then exits within 2 s
+KillSignal=SIGTERM
+TimeoutStopSec=10
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/opt/harvest-game
+
+[Install]
+WantedBy=multi-user.target
