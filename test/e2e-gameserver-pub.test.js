@@ -5,9 +5,9 @@
 // Two kinds of server:
 //   - a SMALL FAKE of the public rooms here (fakePubServer: only what the contract's "Step 2" says, with simple scripted
 //     animals and walking bots), with 60-250 ms of delay each way: what the phone side was built against;
-//   - the REAL server (server/lib/server.js) behind a 60-250 ms relay. Its public rooms are being built at the same time
-//     as this: until they are in, it refuses topic 'pub' (no 'topic') and the tests marked "REAL pub" skip themselves
-//     with that reason. (The one that checks the old way against the real server runs either way.)
+//   - the REAL server (server/lib/server.js, its public rooms: server/lib/pub.js) behind a 60-250 ms relay. A server
+//     without public rooms refuses topic 'pub' (no 'topic'): the tests marked "REAL pub" then skip themselves with that
+//     reason, and the last one checks the old way instead.
 // Run alone, after `node build.js`: node --test test/e2e-gameserver-pub.test.js
 const test = require('node:test');
 const assert = require('node:assert');
@@ -519,13 +519,24 @@ test('public room: no server (a dead address), or the server says no: the place 
   }
 });
 
-// The page's frame time over ms, from the browser's own frames (requestAnimationFrame): average, 95th, worst, frames.
+// The page's frame time over ms, from the browser's own frames (requestAnimationFrame: headless Chrome holds them at
+// 60 a second at best), and the world scene's own work in each (its update and its drawing, Phaser's sys.step and
+// sys.render): average, 95th, worst.
 const frames = (page, ms) => page.evaluate((ms) => new Promise((resolve) => {
-  const d = [];
+  const d = [], work = [], sys = Farm.world.sys, step = sys.step, render = sys.render;
+  let w = 0;
+  sys.step = function () { const t = performance.now(); try { return step.apply(this, arguments); } finally { w += performance.now() - t; } };
+  sys.render = function () { const t = performance.now(); try { return render.apply(this, arguments); } finally { w += performance.now() - t; } };
   let last = performance.now();
   const t0 = last;
-  const step = (now) => { d.push(now - last); last = now; if (now - t0 < ms) requestAnimationFrame(step); else { d.sort((a, b) => a - b); resolve({ avg: +(d.reduce((a, b) => a + b, 0) / d.length).toFixed(1), p95: +d[Math.floor(d.length * 0.95)].toFixed(1), worst: +d[d.length - 1].toFixed(1), frames: d.length }); } };
-  requestAnimationFrame(step);
+  const sum = (a) => { a.sort((x, y) => x - y); return { avg: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(1), p95: +a[Math.floor(a.length * 0.95)].toFixed(1), worst: +a[a.length - 1].toFixed(1) }; };
+  const tick = (now) => {
+    d.push(now - last); work.push(w); w = 0; last = now;
+    if (now - t0 < ms) return requestAnimationFrame(tick);
+    delete sys.step; delete sys.render;
+    resolve({ frame: sum(d), world: sum(work), frames: d.length });
+  };
+  requestAnimationFrame(tick);
 }), ms);
 
 test('public room (fake server): a cheap phone with 29 others walking round it draws at most 15 of them; its frame time', async () => {
@@ -593,7 +604,7 @@ const hasPub = (url) => new Promise((resolve) => {
   s.on('close', () => done(false));
   setTimeout(() => done(false), 5000);
 });
-const NEEDS_PUB = 'needs the REAL server\'s public rooms (docs/game-server.md, Step 2), not in server/ yet';
+const NEEDS_PUB = 'needs the REAL server\'s public rooms (server/lib/pub.js): this server has none';
 
 test('REAL pub: four on one place (two friends with, two strangers): one list, a kill gone for all, a stranger\'s card, bait and arrows seen, nothing on the old relay', async (t) => {
   const real = await realServer();
@@ -612,14 +623,33 @@ test('REAL pub: four on one place (two friends with, two strangers): one list, a
   for (const who of all) await calm(who.page);
   assert.strictEqual(await hunt(sun.page, slot), true);
   for (const who of all) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((x) => x.slot === n), slot, SLOW);
-  // the card
+  // the card (the stranger steps away from the others first: at the gate they all stand on one spot)
+  await rain.page.evaluate(() => { const w = Farm.world, f = w.feet(); w.setFeet(f.x - 3 * 256, f.y + 256); });
+  await sleep(500);
+  const rf = await rain.page.evaluate(() => Farm.world.feet());
+  await host.page.waitForFunction(([id, x, y]) => { const r = Farm.world.remotes[id]; return r && Math.hypot(r.x - x, r.y - y) < 40; }, [rain.uid, rf.x, rf.y], SLOW);
   await host.page.evaluate((id) => { Farm.ui.closeAll(); const w = Farm.world, r = w.remotes[id], s = Farm.session.state; s.sel = s.inv.findIndex((x) => !x); w.setFeet(r.x, r.y + 0.75 * 256); w.dir = 'up'; const q = w.resolve(); if (q) q.run(); }, rain.uid);
   assert.match(await panelText(host.page), /Rain Field is hunting in Pulag with you/);
   await host.page.evaluate(() => Farm.ui.closeAll());
   // bait
   await rain.page.evaluate(() => { const w = Farm.world, s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'bait'); w.putBait(); });
   for (const who of [guest, sun]) await who.page.waitForFunction((id) => Farm.GameServer.baits().includes(id), rain.uid, SLOW);
+  // an arrow: the others see it fly
+  for (const who of [host, sun, rain]) await who.page.evaluate(() => { const w = Farm.world; w.__shots = 0; const rs = w.remoteShot, wa = w.wildArrow; w.remoteShot = function () { const ok = rs.apply(this, arguments); if (ok) w.__shots++; return ok; }; w.wildArrow = function (x, y, a, l, shown) { if (shown) w.__shots++; return wa.apply(this, arguments); }; });
+  await guest.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.shoot(); });
+  for (const who of [host, sun, rain]) await who.page.waitForFunction(() => Farm.world.__shots > 0, null, SLOW);
+  // a tap on a stranger's farmer opens the card too
+  await host.page.evaluate(() => Farm.ui.closeAll());
+  await host.page.evaluate((id) => { const w = Farm.world, r = w.remotes[id]; w.setFeet(r.x, r.y + 2.2 * 256); }, rain.uid);
+  await sleep(1200);
+  const at = await onScreen(host.page, rain.uid);
+  await host.page.touchscreen.tap(at.x, at.y);
+  await host.page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await panelText(host.page), /Rain Field is hunting in Pulag with you/);
+  await host.page.evaluate(() => Farm.ui.closeAll());
+  assert.match((await gsState(host.page)).chip, /^Pulag \d+ · 4 here$/);
   for (const who of all) assert.deepStrictEqual(relayOnMap(who).filter((m) => HUNT[m.ev]), []);
+  for (const who of all) assert.ok(relayOnMap(who).filter((m) => m.ev === 'mv').length <= 2, who.name + ': no steps on the old relay');
   for (const who of all) assert.deepStrictEqual(who.problems, []);
   await Promise.all(all.map((who) => who.context.close()));
 });
@@ -657,7 +687,7 @@ test('REAL pub: a cheap phone with 29 bots (real sockets) walking round it: at m
   await me.context.close();
 });
 
-test('the REAL server as it is in this clone (no public rooms yet: it says no to "pub"): the place plays the old way; once it has them, a phone there is live', async () => {
+test('the REAL server: two friends on a hunting place are live in one public room (a server without public rooms says no: then the old way)', async () => {
   const real = await realServer(), server = createServer();
   const pub = await hasPub(real.direct);
   const host = await open(server, real.url, 'Moon Meadow'), guest = await open(server, real.url, 'Ana Acres');
@@ -667,6 +697,10 @@ test('the REAL server as it is in this clone (no public rooms yet: it says no to
   if (pub) {
     for (const who of [host, guest]) await waitMode(who.page, 'live');
     await waitRemotes(host.page, ['Ana Acres']);
+    await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+    assert.strictEqual((await gsState(host.page)).ch, (await gsState(guest.page)).ch, 'one room');
+    await sleep(1200);
+    await until(async () => (await list(guest.page)) === (await list(host.page)), 'one list (the server\'s)');
   } else {
     for (const who of [host, guest]) await waitMode(who.page, 'off');
     assert.match((await gsState(host.page)).why, /^(no:topic|refused:4011)$/);
