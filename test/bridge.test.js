@@ -39,6 +39,24 @@ test('the game asks who is signed in and calls the farm functions through the ap
   assert.strictEqual(await webview(server, null).net.session(), null, 'nobody signed in');
 });
 
+test('the game asks for the access token for the game server (docs/game-server.md): the session\'s, or null signed out', async () => {
+  const server = createServer(), uid = server.newUser();
+  const v = webview(server, uid);
+  assert.strictEqual(await v.net.token(), 'test-token:' + uid, 'the current session\'s access token');
+  assert.strictEqual(await webview(server, null).net.token(), null, 'nobody signed in: null');
+  // a session without a token (or a getSession that fails to give one) is null too, never an error
+  const supabase = server.supabaseFor(uid);
+  supabase.auth.getSession = async () => ({ data: { session: { user: { id: uid } } }, error: null });
+  const ctx = { console };
+  ctx.window = ctx;
+  const bridge = createSunnyAcresBridge({ supabase, webViewRef: { current: { injectJavaScript: (code) => vm.runInContext(code, ctx) } } });
+  ctx.ReactNativeWebView = { postMessage: (data) => setTimeout(() => bridge.onMessage({ nativeEvent: { data } }), 0) };
+  vm.createContext(ctx);
+  vm.runInContext(bridge.injectedJavaScriptBeforeContentLoaded, ctx);
+  assert.strictEqual(await ctx.gameHost.net.token(), null);
+  assert.strictEqual(typeof v.net.token(), 'object', 'a Promise, like session() and rpc()');
+});
+
 test('two players on one farm channel see each other, get broadcasts, and see a leave', async () => {
   const server = createServer(), a = server.newUser(), b = server.newUser();
   const A = webview(server, a), B = webview(server, b);
