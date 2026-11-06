@@ -416,3 +416,29 @@ test('signed: a phone whose clock is 11 minutes off still moves on the others\' 
   for (const v of [A, B]) v.bridge.dispose();
   assert.deepStrictEqual(heardA, [], 'the same message again is not taken');
 });
+
+test('signed: leaving a room while a presence update waits for a key never shows you in it again (Central Park, 7 Nov 2026: "in my phone they are stuck at the exit")', async () => {
+  const server = createServer(), a = server.newUser(), b = server.newUser(), c = server.newUser();
+  const supa = server.supabaseFor(a), rpc = supa.rpc.bind(supa);
+  let slow = false;
+  supa.rpc = (name, args) => (slow && name === 'farm_line_keys_v1' ? new Promise((r) => setTimeout(r, 300)).then(() => rpc(name, args)) : rpc(name, args));
+  server.supabaseFor = ((orig) => (uid) => (uid === a ? supa : orig(uid)))(server.supabaseFor.bind(server));
+  const A = webview(server, a), B = webview(server, b), C = webview(server, c);
+  for (const v of [A, B, C]) await v.net.rpc('farm_join_v1', {});
+  const topic = 'farm:' + a;
+  let seenByB = [];
+  const ca = A.net.join(topic, { id: a, x: 1 }, { presence: () => {}, message: () => {} });
+  await tick(60);
+  B.net.join(topic, { id: b, x: 2 }, { presence: (list) => { seenByB = plain(list).map((p) => p.id); }, message: () => {} });
+  await tick(150);
+  assert.ok(seenByB.includes(a), 'B sees A in the room');
+  slow = true; // someone new comes: A's next presence waits for their key
+  C.net.join(topic, { id: c, x: 3 }, { presence: () => {}, message: () => {} });
+  await tick(40);
+  ca.track({ id: a, x: 5 }); // (A stops at the gate: its place, once)
+  await tick(10);
+  ca.leave(); // and walks out while that waits for the key
+  await tick(900);
+  assert.ok(!seenByB.includes(a), 'B no longer sees A: ' + JSON.stringify(seenByB));
+  for (const v of [A, B, C]) v.bridge.dispose();
+});

@@ -414,8 +414,10 @@
         g.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(0, 0, R0 - L0, 112, 12);
       });
       medal(self, c, L0 + 34, y + 38, k, 24);
-      c.add(self.txt(L0 + 68, y + 12, (d ? d.name : 'No rank yet') + '  ·  ' + fmt(me.points) + ' points', 15, INK, { fontStyle: 'bold' }));
-      c.add(self.txt(L0 + 68, y + 33, d ? '"' + d.title + '"' : 'Do anything in Harvest Ville to earn points.', 12, d ? (d.css || INK) : '#6a4a2a', { fontStyle: d ? 'bold' : 'normal', wordWrap: { width: R0 - L0 - 80 } }));
+      // one row each, shrunk to fit rather than wrapped (owner's screenshot, 7 Nov 2026: the hint ran into the bar)
+      var oneRow = function (t) { var w = R0 - L0 - 80; if (t.width > w) t.setScale(w / t.width); return t; };
+      c.add(oneRow(self.txt(L0 + 68, y + 12, (d ? d.name : 'No rank yet') + '  ·  ' + fmt(me.points) + ' points', 15, INK, { fontStyle: 'bold' })));
+      c.add(oneRow(self.txt(L0 + 68, y + 33, d ? '"' + d.title + '"' : 'Everything you do here earns points.', 12, d ? (d.css || INK) : '#6a4a2a', { fontStyle: d ? 'bold' : 'normal' })));
       // the bar to the next rank
       var bx = L0 + 68, bw = R0 - bx - 12, by = y + 56, part = next ? Math.max(0, Math.min(1, 1 - next.need / (next.def.at - (d ? d.at : 0)))) : 1;
       c.add(self.add.rectangle(bx, by, bw, 10, 0x5a3a1e).setOrigin(0, 0.5));

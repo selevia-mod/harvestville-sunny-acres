@@ -2615,10 +2615,14 @@ test('online: Central Park: two walk in from town and see each other and chat; a
   assert.deepStrictEqual(await remotes(cy.page), [], 'still not drawn after the next presence and moves');
 
   // ----- Ana leaves the park: her seat is free at once, and Ben sees her go
+  const leftAt = Date.now();
   await walkOutOfPark(ana.page);
   await until(() => !server.db.parkSeats.has(ana.uid), 'Ana\'s seat freed');
   assert.deepStrictEqual(seats(server), [1, 2, 0]);
   await waitRemotes(ben.page, []);
+  // gone from Ben's park at once (she said bye), not after the wait for a dropped line (owner, 7 Nov 2026: "stuck at the exit")
+  assert.ok(Date.now() - leftAt < 3000, 'gone in ' + (Date.now() - leftAt) + ' ms');
+  assert.ok(server.db.sends.some((x) => x.uid === ana.uid && x.event === 'bye' && x.room === 'park:1'), 'she said bye in the park');
   await waitChip(ben.page, 'Park 1 · 1/30');
   assert.strictEqual(await ana.page.evaluate(() => Farm.Online.topic), 'farm:' + ana.uid, 'back in her own farm\'s room');
   assert.strictEqual(await chipShown(ana.page), false);

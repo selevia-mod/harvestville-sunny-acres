@@ -225,12 +225,17 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
   async function trackSigned(room, state) {
     const body = without(state && typeof state === 'object' && !Array.isArray(state) ? state : {}, ['_s']);
     body._t = Date.now();
+    const owner = room.owner;
     if (!room.unsigned) {
       const ids = peers(room);
       await keysFor(room, ids);
+      // left the room while the keys came (walked out of Central Park: owner, 7 Nov 2026, "in my phone they are stuck at
+      // the exit"): never shown in it again, or the room, kept open a while after you leave, would show you standing there
+      if (owner == null || room.owner !== owner) return null;
       body._s = signFor(room, PRESENCE, body, ids);
       room.signedFor = new Set(Object.keys(body._s));
     }
+    if (owner == null || room.owner !== owner) return null;
     room.lastTrack = Date.now();
     if (room.channel && room.subscribed) return room.channel.track(body);
     return null;
