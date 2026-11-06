@@ -832,7 +832,8 @@ function createServer() {
   function supabaseFor(uid) {
     let list = [];
     return {
-      auth: { getSession: async () => ({ data: { session: uid ? { user: { id: uid } } : null }, error: null }) },
+      // (access_token: what the game server checks, test/e2e-gameserver.test.js: 'test-token:<uid>' here)
+      auth: { getSession: async () => ({ data: { session: uid ? { user: { id: uid }, access_token: 'test-token:' + uid } : null }, error: null }) },
       async rpc(name, args) {
         const fn = rpc[name];
         if (!fn) return { data: null, error: { message: 'Could not find the function ' + name } };

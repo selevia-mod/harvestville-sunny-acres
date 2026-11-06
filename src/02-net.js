@@ -1,6 +1,7 @@
 // The connection to the online world. The game itself makes no network calls: the app it runs in (the Selebox
 // app) does them with its own signed-in account, through window.gameHost.net (see bridge/ for the app's side):
 //   session()             -> the signed-in user's id, or null
+//   token()               -> the signed-in account's access token, or null (for the game server: 19zzzzzzzzz-gameserver.js)
 //   rpc(name, args)       -> the result of one of the public.farm_*_v1 functions (supabase/farm_online.sql)
 //   join(topic, me, on)   -> a live channel ('farm:<farm id>'): on.presence(list of the others' states) and
 //                            on.message(event, payload); returns { track(state), send(event, payload), leave() }
@@ -23,6 +24,12 @@
       var self = this;
       if (!this.available()) return Promise.resolve(null);
       return Promise.resolve(host().session()).then(function (id) { self.uid = id ? String(id) : null; return self.uid; });
+    },
+
+    // (an app from before the game server has no token(): null, and the caves play the old way)
+    token: function () {
+      if (!this.available() || !host().token) return Promise.resolve(null);
+      return Promise.resolve(host().token());
     },
 
     rpc: function (name, args) {

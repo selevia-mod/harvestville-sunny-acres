@@ -1,6 +1,7 @@
 // Sunny Acres online play, the Selebox app's side (React Native + react-native-webview + supabase-js).
 //
-// The game makes no network calls itself. It asks the app through window.gameHost.net; this file puts that
+// The game makes no network calls itself (but one: the game server's WebSocket, docs/game-server.md, which it opens
+// with the access token it asks for here). It asks the app through window.gameHost.net; this file puts that
 // object into the game's WebView and answers it with the app's own signed-in Supabase client. The game can only
 // call the farm_*_v1 database functions and use farm:<id> and park:1-3 live channels: nothing else in the app's data.
 //
@@ -47,6 +48,9 @@ const GAME_NET_SCRIPT = `(function () {
   window.gameHost = window.gameHost || {};
   window.gameHost.net = {
     session: function () { return call('session', []); },
+    // the signed-in account's access token, for the game server (docs/game-server.md: the game page connects to it
+    // itself, and the server checks who it is with this), or null
+    token: function () { return call('token', []); },
     rpc: function (name, args) { return call('rpc', [name, args || {}]); },
     join: function (topic, me, on) {
       var ch = ++seq;
@@ -418,6 +422,13 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
 
   const ops = {
     session: () => userId(),
+
+    // The game server (docs/game-server.md) needs to know who is connecting: the page hands it this token, which the
+    // server checks with Supabase. Only the current session's access token, never the refresh token.
+    async token() {
+      const { data } = await supabase.auth.getSession();
+      return (data && data.session && data.session.access_token) || null;
+    },
 
     async rpc(name, args) {
       if (!RPC_NAME.test(String(name)) && name !== 'invite_collect_game_rewards_v1') throw new Error('not allowed');

@@ -1,0 +1,440 @@
+// The game server, the phone's side (docs/game-server.md; src/19zzzzzzzzz-gameserver.js), end to end: two real game
+// pages, each a WebView in the Selebox app running the real app bridge over a stand-in for the app's Supabase
+// (test/net-mock.js), as test/e2e-online.test.js does, and a SMALL FAKE game server here (node ws: only what the
+// contract says the server sends, with simple scripted monsters), with 60-250 ms of delay each way.
+// Run alone, after `node build.js`: node --test test/e2e-gameserver.test.js
+const test = require('node:test');
+const assert = require('node:assert');
+const path = require('path');
+const fs = require('fs');
+const { chromium } = require('playwright');
+const { createServer } = require('./net-mock');
+const { createSunnyAcresBridge } = require('../bridge/sunnyAcresBridge');
+
+// (the ws package; without it here, the copy that comes inside Playwright)
+const WebSocketServer = (() => {
+  try { const ws = require('ws'); return ws.WebSocketServer || ws.Server; } catch (e) { return require('playwright-core/lib/utilsBundle').wsServer; }
+})();
+
+const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
+const SLOW = { timeout: 90000 };
+const T = 256;
+const OLD = { wa: 1, wh: 1, wd: 1, wb: 1 };
+const rand = (a, b) => a + Math.random() * (b - a);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---------- the fake game server ----------
+// floors(map, floor) -> [{ slot, kind, k (its packed kind), hp, x, y, moves }]. Monsters that move walk a small circle.
+// refuse: answers every hi with 'no' (this why); silent: never answers. As the real one (server/lib/room.js): a hit
+// within 150 ms of this phone's last on that monster, or from 12+ tiles away, is not counted and only that phone hears
+// the monster's hp back; a refusal closes with 4010 after its 'no'; a second line for the same player takes its place
+// (the old one closed with 4001); 'wl' has the tick number and the server's clock, and a floor already clear gets 'cl'
+// right after it; 'dn' names the kind.
+const servers = []; // (closed at the end, even when a test fails: they would keep the run open)
+function fakeGameServer({ floors, refuse, silent } = {}) {
+  const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+  const rooms = new Map(), conns = new Set(), held = new Map();
+  const stats = { hi: 0, hits: 0, mv: 0, pi: 0, bye: 0 };
+  const pack = (m) => [m.slot, m.k, Math.round(m.x), Math.round(m.y), m.dir, m.left, m.mode, m.hp, 100, 0, m.max];
+  const row = (c) => [c.id, c.name, c.look, c.x, c.y, c.dir, c.m];
+  const room = (key, map, floor) => {
+    if (rooms.has(key)) return rooms.get(key);
+    const mons = new Map();
+    (floors ? floors(map, floor) : []).forEach((m) => mons.set(m.slot, { ...m, hx: m.x, hy: m.y, ang: m.slot, dir: 2, left: 0, mode: 0, max: m.hp, hits: {} }));
+    const r = { key, mons, conns: new Set(), changed: new Set(), gone: [], come: [], left: [], n: 0, cleared: false };
+    rooms.set(key, r);
+    return r;
+  };
+  // each way, every message 60-250 ms late, in order (as on one TCP line); what goes in one burst arrives together
+  const delayed = (c, dir, fn) => {
+    const now = Date.now(), at = now - (c[dir + 'Sent'] || 0) < 30 ? c[dir] : Math.max(c[dir], now + rand(60, 250));
+    c[dir] = at;
+    c[dir + 'Sent'] = now;
+    setTimeout(fn, Math.max(0, at - now));
+  };
+  const out = (c, m) => delayed(c, 'outAt', () => { if (c.sock.readyState === 1) c.sock.send(JSON.stringify(m)); });
+  const all = (r, m) => r.conns.forEach((c) => out(c, m));
+  const leave = (c) => {
+    const r = c.room;
+    c.room = null;
+    if (!r || !r.conns.delete(c)) return;
+    r.left.push(c.id);
+  };
+  const handle = (c, m) => {
+    if (c.closed && m.t !== 'bye') return;
+    if (m.t === 'hi') {
+      stats.hi++;
+      if (silent) return;
+      const id = /^test-token:(.+)$/.exec(String(m.token || ''));
+      if (refuse || !id || m.v !== 1) {
+        out(c, { t: 'no', why: refuse || (!id ? 'auth' : 'version') });
+        return delayed(c, 'outAt', () => c.sock.close(4010));
+      }
+      if (held.get(id[1]) > Date.now()) return c.sock.close(); // (its line is down a while: test only)
+      c.id = id[1];
+      Object.assign(c, { name: String(m.name), look: m.look === 'girl' ? 'girl' : 'boy', x: m.x, y: m.y, dir: m.dir, m: 0, b: m.b ? 1 : 0, last: {} });
+      const r = room(m.topic + '|' + m.map + '|' + m.floor, m.map, m.floor);
+      [...r.conns].filter((o) => o.id === c.id).forEach((o) => { leave(o); o.sock.close(4001); });
+      out(c, { t: 'wl', you: c.id, tick: 50, mons: [...r.mons.values()].map(pack), ppl: [...r.conns].map(row), cap: 8, n: r.n, st: Date.now() });
+      if (r.cleared) out(c, { t: 'cl' });
+      r.come.push(c);
+      r.conns.add(c);
+      c.room = r;
+      return;
+    }
+    if (m.t === 'bye') stats.bye++; // (the line closes right after it: counted even when the close came first)
+    const r = c.room;
+    if (!r) return;
+    if (m.t === 'mv') { stats.mv++; Object.assign(c, { x: m.x, y: m.y, dir: m.dir, m: m.m ? 1 : 0, b: m.b ? 1 : 0, moved: true }); }
+    else if (m.t === 'pi') { stats.pi++; out(c, { t: 'po', c: m.c, st: Date.now() }); }
+    else if (m.t === 'bye') leave(c);
+    else if (m.t === 'hit') {
+      stats.hits++;
+      const mon = r.mons.get(m.s);
+      if (!mon) return;
+      if (Date.now() - (c.last[mon.slot] || 0) < 150 || Math.hypot(mon.x - c.x, mon.y - c.y) > 12 * T) {
+        stats.uncounted = (stats.uncounted || 0) + 1;
+        return out(c, { t: 'hp', s: mon.slot, hp: mon.hp, by: c.id, n: m.n });
+      }
+      c.last[mon.slot] = Date.now();
+      mon.hp = Math.max(0, mon.hp - Math.max(1, Math.min(3, Math.floor(Number(m.d)) || 1)));
+      mon.hits[c.id] = (mon.hits[c.id] || 0) + 1;
+      all(r, { t: 'hp', s: mon.slot, hp: mon.hp, by: c.id, n: m.n });
+      if (mon.hp > 0) return;
+      r.mons.delete(mon.slot);
+      r.gone.push(mon.slot);
+      all(r, { t: 'dn', s: mon.slot, kind: mon.kind, x: Math.round(mon.x), y: Math.round(mon.y), by: Object.keys(mon.hits), size: 1 });
+      if (!r.mons.size && !r.cleared) { r.cleared = true; all(r, { t: 'cl' }); }
+    }
+  };
+  wss.on('connection', (sock) => {
+    const c = { sock, inAt: 0, outAt: 0, id: null, room: null, closed: false };
+    conns.add(c);
+    sock.on('message', (raw) => { let m; try { m = JSON.parse(String(raw)); } catch (e) { return; } delayed(c, 'inAt', () => handle(c, m)); });
+    sock.on('close', () => { c.closed = true; conns.delete(c); leave(c); });
+    sock.on('error', () => {});
+  });
+  // 20 ticks a second: the monsters that walk, the players that moved, who came and left
+  const timer = setInterval(() => {
+    rooms.forEach((r) => {
+      const ch = [];
+      r.mons.forEach((m) => {
+        if (!m.moves) return;
+        m.ang += 0.06;
+        const nx = m.hx + Math.cos(m.ang) * 0.8 * T, ny = m.hy + Math.sin(m.ang) * 0.5 * T, vx = nx - m.x, vy = ny - m.y;
+        m.x = nx; m.y = ny; m.mode = 2;
+        if (Math.abs(vx) > Math.abs(vy)) { m.dir = 2; m.left = vx < 0 ? 1 : 0; } else m.dir = vy > 0 ? 0 : 1;
+        ch.push(pack(m));
+      });
+      const p = [...r.conns].filter((c) => c.moved).map((c) => { c.moved = false; return [c.id, c.x, c.y, c.dir, c.m]; });
+      if (!ch.length && !p.length && !r.gone.length && !r.come.length && !r.left.length) return;
+      const come = r.come.splice(0), left = r.left.splice(0), gone = r.gone.splice(0);
+      r.conns.forEach((c) => out(c, { t: 'tk', n: ++r.n, st: Date.now(), m: ch, gone, p: p.filter((x) => x[0] !== c.id), left, come: come.filter((x) => x !== c).map(row) }));
+    });
+  }, 50);
+  timer.unref();
+  return new Promise((resolve) => wss.on('listening', () => resolve(servers[servers.push({
+    url: 'ws://127.0.0.1:' + wss.address().port + '/',
+    rooms, stats,
+    list: (key) => [...rooms.get(key).mons.values()].map((m) => m.slot + ':' + m.kind + ':' + m.hp + '/' + m.max).sort().join(' '),
+    // a phone's line drops (and it cannot come back for ms)
+    drop: (id, ms = 0) => { held.set(id, Date.now() + ms); conns.forEach((c) => { if (c.id === id) c.sock.terminate(); }); },
+    close: () => { clearInterval(timer); conns.forEach((c) => c.sock.terminate()); return new Promise((r) => wss.close(() => r())); },
+  }) - 1])));
+}
+
+// ---------- the phones (as test/e2e-online.test.js opens them, with window.gameHost.gs) ----------
+const assetFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file) || null, l = /^looks\/v1\/([a-z]+-(?:boy|girl)(?:-archer)?)$/.exec(file);
+  const p = m ? path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp') : l ? path.join(__dirname, '..', 'assets', 'looks', l[1] + '.webp') : null;
+  return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+};
+const allPackFiles = () => fs.readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
+let browser;
+test.before(async () => { browser = await chromium.launch(); });
+test.after(async () => { await browser.close(); await Promise.all(servers.map((x) => x.close().catch(() => {}))); });
+
+async function open(server, gs) {
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  const problems = [], oldSent = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  // (a socket to a dead address says so in the console: that is the test, not a problem)
+  page.on('console', (m) => { if (m.type() === 'error' && !/WebSocket connection to/.test(m.text())) problems.push('console: ' + m.text()); });
+  await page.route('**/*', (route) => {
+    const url = route.request().url();
+    if (url.startsWith('file:') || url.startsWith('data:')) return route.continue();
+    problems.push('network: ' + url);
+    return route.abort();
+  });
+  const uid = server.newUser();
+  const webViewRef = { current: { injectJavaScript: (code) => { page.evaluate(code).catch(() => {}); } } };
+  const bridge = createSunnyAcresBridge({ supabase: server.supabaseFor(uid), webViewRef });
+  await context.exposeBinding('__rnPost', (source, data) => {
+    // (what the old relay sends through the app: none of it for a floor the server runs)
+    try { const m = JSON.parse(data); if (m.op === 'send' && OLD[m.args[1]]) oldSent.push(m.args[1]); } catch (e) { /* not ours */ }
+    bridge.onMessage({ nativeEvent: { data } });
+  });
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript(([here, gs]) => {
+    window.ReactNativeWebView = { postMessage: (data) => window.__rnPost(data) };
+    window.__here = here;
+    window.gameHost = { state: null, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; } };
+    if (gs) window.gameHost.gs = gs;
+  }, [allPackFiles(), gs || null]);
+  await page.addInitScript(HOST_ASSETS);
+  await page.addInitScript(bridge.injectedJavaScriptBeforeContentLoaded);
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
+  await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await page.waitForFunction(() => Farm.Online.on, null, SLOW);
+  await page.evaluate(() => { Farm.Config.ONLINE.trackEvery = 100; });
+  return { page, problems, context, uid, bridge, oldSent };
+}
+
+const waitRemotes = (page, names) => page.waitForFunction((want) => {
+  const r = Farm.world.remotes || {};
+  return JSON.stringify(Object.keys(r).map((id) => r[id].tag.text).sort()) === JSON.stringify(want);
+}, names.slice().sort(), SLOW);
+const waitWorld = (page, visiting) => page.waitForFunction((v) => Farm.world && !Farm.world.busy && Farm.world.player.active && !!Farm.world.state.isVisit === v, visiting, SLOW);
+async function nameFarm(page, name) {
+  await page.evaluate((n) => Farm.Net.rpc('farm_join_v1', { p_farm_name: n }).then((r) => {
+    Farm.Online.me.name = r.farm_name;
+    Farm.session.state.net.named = 1;
+    Farm.Online.chan.track(Farm.Online.myState());
+  }), name);
+}
+const MAP = 'banaue_cave', FLOOR = 3;
+// The floor's creatures for the fake server: the game's own list for it, set out in its hunting zone (every other one
+// walking), each as strong as its kind.
+const floorSpec = (page) => page.evaluate(([map, floor]) => {
+  const L = Farm.Logic, WI = Farm.Config.WILD, raw = Farm.ASSETS.maps[map];
+  let z = null;
+  raw.layers.forEach((l) => (l.objects || []).forEach((o) => { if (o.type === 'wild') z = o; }));
+  return L.dunRoster(map, floor).filter((e) => !WI.animals[e.kind].great).map((e, i) => {
+    const k = L.wildPack({ slot: e.slot, kind: e.kind, x: 0, y: 0, dir: 'side', left: false, mode: 'idle', hp: 1, size: 1, look: false, max: 1 })[1];
+    return { slot: e.slot, kind: e.kind, k, hp: WI.animals[e.kind].hp, moves: i % 2 === 0, x: z.x + z.width * (0.25 + 0.5 * ((i * 37) % 10) / 10), y: z.y + z.height * (0.3 + 0.4 * ((i * 53) % 10) / 10) };
+  });
+}, [MAP, FLOOR]);
+async function pair(server, gs, gs2) {
+  const host = await open(server, gs), guest = await open(server, gs2 === undefined ? gs : gs2);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  for (const who of [host, guest]) {
+    await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 99); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  }
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  return { host, guest };
+}
+const go = async (who, floor) => {
+  await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; if (Farm.world.mapKey !== 'town' && Farm.world.mapKey !== 'banaue_cave') Farm.world.travel('town', 'from_farm'); });
+  await who.page.waitForFunction(() => (Farm.world.mapKey === 'town' || Farm.world.mapKey === 'banaue_cave') && !Farm.world.busy, null, SLOW);
+  await who.page.evaluate((f) => { Farm.ui.closeAll(); Farm.world.travel('banaue_cave', 'entrance', f); }, floor);
+  await who.page.waitForFunction((f) => Farm.world.mapKey === 'banaue_cave' && Farm.session.lairFloor === f && !Farm.world.busy && Farm.world.wild, floor, SLOW);
+  await who.page.evaluate(() => Farm.ui.closeAll());
+};
+const list = (page) => page.evaluate(() => Farm.world.wild.animals.map((a) => a.slot + ':' + a.kind + ':' + a.hp + '/' + a.max).sort().join(' '));
+const mode = (page) => page.evaluate(() => (Farm.GameServer.state() || {}).mode || null);
+const waitMode = (page, m) => page.waitForFunction((m) => (Farm.GameServer.state() || {}).mode === m, m, SLOW);
+const until = async (fn, what, ms = 20000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) { if (await fn()) return; await sleep(100); }
+  assert.fail('timed out: ' + what);
+};
+// Walks up to one creature and shoots it until it is down (as arrows come: one every 170 ms, so the server counts
+// each; the server counts none from 12 tiles away or more).
+const hunt = (page, slot) => page.evaluate(async (n) => {
+  const w = Farm.world;
+  for (let i = 0; i < 80; i++) {
+    const a = w.wild.animals.find((x) => x.slot === n);
+    if (!a) return true;
+    const f = w.feet();
+    if (Math.hypot(f.x - a.x, f.y - a.y) > 4 * 256) w.setFeet(a.x, a.y + 128);
+    if (a.hp > 0) w.wildStruck(a);
+    await new Promise((r) => setTimeout(r, 170));
+  }
+  const a = w.wild.animals.find((x) => x.slot === n), f = w.feet();
+  return JSON.stringify({ hp: a.hp, max: a.max, pend: a.gsPend, ax: a.x, ay: a.y, fx: f.x, fy: f.y, gs: Farm.GameServer.state() });
+}, slot);
+const roomKey = (host) => 'farm:' + host.uid + '|' + MAP + '|' + FLOOR;
+
+test('game server: two phones on one cave floor get the same monsters from it; your hit shows before its answer; a kill is gone on both and stays gone; the gate opens for both; the old relay stays quiet', async () => {
+  const server = createServer();
+  let spec = null;
+  const gsrv = await fakeGameServer({ floors: (map, floor) => (map === MAP && floor === FLOOR ? spec.map((m) => ({ ...m })) : []) });
+  const { host, guest } = await pair(server, gsrv.url);
+  spec = await floorSpec(host.page);
+  assert.ok(spec.length >= 2, 'a floor with a few creatures');
+  await go(host, FLOOR);
+  await waitMode(host.page, 'live');
+  await go(guest, FLOOR);
+  await waitMode(guest.page, 'live');
+  await waitRemotes(host.page, ['Ana Acres']);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  for (const who of [host, guest]) assert.strictEqual(await who.page.evaluate(() => Farm.world.wildFollowing()), 'gs', 'the server runs the floor');
+  // the same monsters on both, as the server has them, and in the same places (a moment behind it)
+  const want = gsrv.list(roomKey(host));
+  for (const who of [host, guest]) await until(async () => (await list(who.page)) === want, 'the server\'s list on both');
+  await sleep(600);
+  const where = (page) => page.evaluate(() => Farm.world.wild.animals.map((a) => [a.slot, a.x, a.y]));
+  const [ph, pg] = await Promise.all([where(host.page), where(guest.page)]);
+  const srv = gsrv.rooms.get(roomKey(host)).mons;
+  ph.forEach(([slot, x, y]) => {
+    const o = pg.find((q) => q[0] === slot), m = srv.get(slot);
+    assert.ok(Math.hypot(o[1] - x, o[2] - y) < 1.2 * T, 'slot ' + slot + ' in the same place on both phones');
+    assert.ok(Math.hypot(m.x - x, m.y - y) < 1.5 * T, 'and near where the server has it');
+  });
+  // a friend's farmer walks where the server says: the guest walks, the owner sees them get there
+  await guest.page.evaluate(() => { const w = Farm.world, f = w.feet(); w.setFeet(f.x + 256, f.y); });
+  await sleep(400);
+  const gfeet = await guest.page.evaluate(() => Farm.world.feet());
+  await until(() => [...gsrv.rooms.get(roomKey(host)).conns].some((c) => c.id === guest.uid && Math.abs(c.x - gfeet.x) < 8 && c.m === 0), 'the guest\'s move (and its stop) reach the server');
+  await host.page.waitForFunction(([id, x, y]) => { const r = Farm.world.remotes[id]; return r && Math.hypot(r.x - x, r.y - y) < 40; }, [guest.uid, gfeet.x, gfeet.y], SLOW);
+  for (const who of [host, guest]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+
+  // your hit shows at once (flash, flinch, the bar down by your damage), before the server has even heard of it
+  const slot = spec.slice().sort((a, b) => b.hp - a.hp)[0].slot; // (the toughest: a few hits in it)
+  const hitsBefore = gsrv.stats.hits;
+  const hit = await guest.page.evaluate((n) => {
+    const w = Farm.world, a = w.wild.animals.find((x) => x.slot === n), before = a.hp;
+    w.wildStruck(a);
+    return { before, after: a.hp, flinch: a.hitT > 0, bar: !!a.bar, waiting: (a.gsPend || []).length, dmg: Farm.Logic.bowDamage(Farm.session.state) };
+  }, slot);
+  assert.strictEqual(gsrv.stats.hits, hitsBefore, 'the server has not heard it yet');
+  assert.deepStrictEqual(hit, { before: hit.before, after: hit.before - hit.dmg, flinch: true, bar: true, waiting: 1, dmg: hit.dmg }, 'shown at once');
+  // ...then the server's 'hp' says the same: nothing waits any more, and the owner's bar drops too
+  await guest.page.waitForFunction(([n, hp]) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return a && !(a.gsPend || []).length && a.hp === hp; }, [slot, hit.after], SLOW);
+  await host.page.waitForFunction(([n, hp]) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return a && a.hp === hp && !!a.bar; }, [slot, hit.after], SLOW);
+  assert.strictEqual(srv.get(slot).hp, hit.after);
+
+  // the guest finishes it: the puff on both, the drops on the guest's phone only (it is in 'by'); and it stays gone
+  // two arrows in the same moment: the server counts one; the second's bar is put right on the guest's phone only
+  const quick = await guest.page.evaluate((n) => { const w = Farm.world, a = w.wild.animals.find((x) => x.slot === n); w.wildStruck(a); w.wildStruck(a); return a.hp; }, slot);
+  const counted = hit.after - hit.dmg;
+  assert.strictEqual(quick, hit.after - 2 * hit.dmg, 'both shown at once');
+  await guest.page.waitForFunction(([n, hp]) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return a && !(a.gsPend || []).length && a.hp === hp; }, [slot, counted], SLOW);
+  await host.page.waitForFunction(([n, hp]) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return a && a.hp === hp; }, [slot, counted], SLOW);
+  assert.ok(gsrv.stats.uncounted >= 1, 'one was not counted');
+  assert.ok(await hunt(guest.page, slot));
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  assert.ok((await guest.page.evaluate(() => Farm.world.wildDrops.length)) > 0, 'the guest\'s hunt: its things on the ground');
+  assert.strictEqual(await host.page.evaluate(() => Farm.world.wildDrops.length), 0, 'nothing for the owner, who never hit it');
+  await sleep(2500);
+  for (const who of [host, guest]) assert.ok(!(await who.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot)), 'still gone a while later');
+  assert.strictEqual(await list(host.page), gsrv.list(roomKey(host)));
+  assert.strictEqual(await list(guest.page), gsrv.list(roomKey(host)));
+
+  // the owner clears the rest: the server says the floor is clear, and the gate opens on both phones
+  for (const who of [host, guest]) assert.strictEqual(await who.page.evaluate(() => Farm.world.lair.open), false, 'sealed while creatures are left');
+  for (const n of await host.page.evaluate(() => Farm.world.wild.animals.map((a) => a.slot))) { const r = await hunt(host.page, n); assert.strictEqual(r, true, 'slot ' + n + ' hunted: ' + r + ' server: ' + JSON.stringify([...gsrv.rooms.get(roomKey(host)).conns].map((c) => [c.id === host.uid, c.x, c.y])) + ' ' + JSON.stringify(gsrv.stats)); }
+  for (const who of [host, guest]) await who.page.waitForFunction(() => !Farm.world.wild.animals.length && Farm.world.lair.open, null, SLOW);
+  assert.strictEqual(gsrv.rooms.get(roomKey(host)).cleared, true);
+  // the round trip is measured every 2 s
+  await host.page.waitForFunction(() => Farm.GameServer.state().rtt > 0, null, SLOW);
+  // none of the old relay's monster messages went through the app, from either phone
+  assert.deepStrictEqual(host.oldSent, []);
+  assert.deepStrictEqual(guest.oldSent, []);
+  // leaving the floor: 'bye'
+  const byes = gsrv.stats.bye;
+  await guest.page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 1));
+  await until(() => gsrv.stats.bye > byes, 'a bye');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+  await gsrv.close();
+});
+
+test('game server: a dropped line comes back (at once, then 1, 2 s), and its welcome is the whole floor again, a kill made while it was down too', async () => {
+  const server = createServer();
+  let spec = null;
+  const gsrv = await fakeGameServer({ floors: (map, floor) => (map === MAP && floor === FLOOR ? spec.map((m) => ({ ...m })) : []) });
+  const { host, guest } = await pair(server, gsrv.url);
+  spec = await floorSpec(host.page);
+  await guest.page.evaluate(() => { window.gameHost.gsDebug = true; });
+  await go(host, FLOOR);
+  await go(guest, FLOOR);
+  for (const who of [host, guest]) await waitMode(who.page, 'live');
+  const want = gsrv.list(roomKey(host));
+  for (const who of [host, guest]) await until(async () => (await list(who.page)) === want, 'one list');
+  for (const who of [host, guest]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+  // the debug line (gameHost.gsDebug): the round trip
+  await guest.page.waitForFunction(() => { const g = Farm.GameServer.state(); return g.rtt > 0; }, null, SLOW);
+  // the guest's line drops, and the server will not take it back for 1.5 s
+  gsrv.drop(guest.uid, 1500);
+  await guest.page.waitForFunction(() => Farm.GameServer.state().mode === 'retry', null, SLOW);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.wildFollowing()), 'gs', 'still the server\'s floor while the line comes back: no old relay');
+  // meanwhile the owner hunts one
+  const slot = spec[1].slot;
+  assert.ok(await hunt(host.page, slot));
+  await host.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  // back: its 'wl' is the floor as it is now
+  await waitMode(guest.page, 'live');
+  const st = await guest.page.evaluate(() => Farm.GameServer.state());
+  assert.ok(st.connects >= 2, 'opened again (' + st.connects + ' lines)');
+  await until(async () => (await list(guest.page)) === gsrv.list(roomKey(host)), 'the whole floor again');
+  assert.ok(!(await guest.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot)), 'the kill made while it was away is gone');
+  // and the guest's hits count again
+  const slot2 = spec[0].slot, hp0 = gsrv.rooms.get(roomKey(host)).mons.get(slot2).hp;
+  await guest.page.evaluate((n) => { const w = Farm.world; w.wildStruck(w.wild.animals.find((x) => x.slot === n)); }, slot2);
+  await until(() => gsrv.rooms.get(roomKey(host)).mons.get(slot2).hp < hp0, 'a hit after coming back');
+  await guest.page.waitForFunction(() => /^server: \d+ ms$/.test((Farm.ui.children.list.find((o) => o.type === 'Text' && /^server: /.test(o.text)) || {}).text || ''), null, SLOW);
+  for (const who of [host, guest]) assert.deepStrictEqual(who.oldSent, []);
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+  await gsrv.close();
+});
+
+// The old way, as today: one phone (the owner, there first) runs the floor through the Supabase relay.
+async function oldRelayWorks(host, guest, hostThere) {
+  if (!hostThere) await go(host, FLOOR);
+  await go(guest, FLOOR);
+  await waitRemotes(host.page, ['Ana Acres']);
+  await guest.page.waitForFunction((id) => Farm.world.wildFollowing() === id, host.uid, SLOW);
+  await sleep(800);
+  const both = await list(host.page);
+  assert.ok(both.length > 0, 'creatures on the floor');
+  await until(async () => (await list(guest.page)) === both, 'one list (the old relay)');
+  for (const who of [host, guest]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+  const slot = await guest.page.evaluate(() => { const w = Farm.world, a = w.wild.animals[0]; for (let i = 0; i < 30 && a.hp > 0; i++) w.wildStruck(a); return a.slot; });
+  for (const who of [host, guest]) await who.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  await sleep(2000);
+  for (const who of [host, guest]) assert.ok(!(await who.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot)), 'still gone');
+  assert.ok(host.oldSent.includes('wa'), 'the owner\'s phone tells the floor, as before');
+}
+
+test('game server: no server (the address is dead): the cave plays the old way, as before', async () => {
+  const server = createServer();
+  const { host, guest } = await pair(server, 'ws://127.0.0.1:9/');
+  await oldRelayWorks(host, guest);
+  for (const who of [host, guest]) assert.deepStrictEqual(await who.page.evaluate(() => { const g = Farm.GameServer.state(); return [g.mode, Farm.Online.mapAt > 0]; }), ['off', true], 'off, and its place in the "who came first" order is back');
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
+test('game server: a "no" (refused), or no welcome within 3 s: the old way for that floor', async () => {
+  const server = createServer();
+  const refusing = await fakeGameServer({ refuse: 'version' }), silent = await fakeGameServer({ silent: true });
+  // the owner's server never answers; the guest's says no
+  const { host, guest } = await pair(server, silent.url, refusing.url);
+  // alone on the floor first: nothing out while it waits, then (3 s, no welcome) the floor's creatures as before
+  await go(host, FLOOR);
+  assert.strictEqual(await mode(host.page), 'connecting');
+  assert.strictEqual(await host.page.evaluate(() => Farm.world.wild.animals.length), 0, 'held while it waits for the server');
+  const t0 = Date.now();
+  await waitMode(host.page, 'off');
+  assert.ok(Date.now() - t0 > 800, 'it waited for a welcome a while (3 s from when the floor opened)');
+  assert.strictEqual(await host.page.evaluate(() => Farm.GameServer.state().why), 'slow');
+  assert.ok((await host.page.evaluate(() => Farm.world.wild.animals.length)) > 0, 'then out they come');
+  assert.ok(silent.stats.hi >= 1, 'it said hi');
+  await oldRelayWorks(host, guest, true);
+  // (its 'no', or the refusal's close code right behind it: whichever the page handles first)
+  assert.match(await guest.page.evaluate(() => Farm.GameServer.state().why), /^(no:version|refused:4010)$/);
+  for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+  await Promise.all([refusing.close(), silent.close()]);
+});
