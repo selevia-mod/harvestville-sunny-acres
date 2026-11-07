@@ -4473,6 +4473,23 @@ test('e42: a look from each cave: Kanor lists the Lake Spirit at 500,000G and Ta
   await context.close();
 });
 
+test('e42: What\'s new 2.12 shows every line in full (the Moon Bow\'s was cut on the owner\'s phone, 8 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const cut = [];
+  for (let p = 0; p < 2; p++) {
+    await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
+    await frames(page, 3);
+    const texts = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
+    texts.filter((t) => /…$/.test(t)).forEach((t) => cut.push(t));
+    await shot(page, 'e42-news-' + (p + 1));
+  }
+  assert.deepStrictEqual(cut, []);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('downloads by themselves: a few seconds after the game opens, every pack comes down onto the phone, one after another, the badge showing it (owner, 5 Nov)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;");
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
