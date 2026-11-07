@@ -241,7 +241,7 @@
     this.questBadge.setPosition(SIDE.x + 15, SIDE.quests - 17);
     this.questBadgeText.setPosition(SIDE.x + 15, SIDE.quests - 17);
     this.onlineBtn.removeAll(true);
-    this.roundButton(this.onlineBtn, SIDE.x, SIDE.online, SIDE.r, BLUE, 'online', 'Online', function () { self.openOnline('visit', 0); });
+    this.roundButton(this.onlineBtn, SIDE.x, SIDE.online, SIDE.r, BLUE, 'online', 'Online', function () { self.openOnline(F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive() ? 'here' : 'visit', 0); }); // (a hunting place: who is here first)
     var decor = function () {
       if (!self.decorBtn) return;
       self.decorBtn.removeAll(true);

@@ -24426,7 +24426,7 @@ uiCreate.call(this);
 var self = this;
 O.start();
 this.onlineBtn = this.add.container(0, 0).setDepth(40).setVisible(false);
-this.button(this.onlineBtn, W - 44, 152, 74, 30, 'Online', function () { self.openOnline('visit', 0); }, BLUE);
+this.button(this.onlineBtn, W - 44, 152, 74, 30, 'Online', function () { self.openOnline(F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive() ? 'here' : 'visit', 0); }, BLUE);
 this.visitBar = null;
 var show = function () { self.showOnline(); };
 F.bus.on('online', show);
@@ -25231,7 +25231,7 @@ this.roundButton(this.questBtn, SIDE.x, SIDE.quests, SIDE.r, GOLD, 'quests', 'Qu
 this.questBadge.setPosition(SIDE.x + 15, SIDE.quests - 17);
 this.questBadgeText.setPosition(SIDE.x + 15, SIDE.quests - 17);
 this.onlineBtn.removeAll(true);
-this.roundButton(this.onlineBtn, SIDE.x, SIDE.online, SIDE.r, BLUE, 'online', 'Online', function () { self.openOnline('visit', 0); });
+this.roundButton(this.onlineBtn, SIDE.x, SIDE.online, SIDE.r, BLUE, 'online', 'Online', function () { self.openOnline(F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive() ? 'here' : 'visit', 0); });
 var decor = function () {
 if (!self.decorBtn) return;
 self.decorBtn.removeAll(true);
@@ -43327,6 +43327,39 @@ this.pubChipBg.clear().fillStyle(0x24160b, 0.78).fillRoundedRect(0, 0, w, CHIP.h
 this.pubChipBg.lineStyle(1.5, 0xffd23f, 0.85).strokeRoundedRect(0.75, 0.75, w - 1.5, CHIP.h - 1.5, CHIP.h / 2 - 0.75);
 }
 this.pubChipBox.setVisible(true);
+};
+
+
+
+
+var HERE = ['here', 'Here'];
+var openOnline = U.openOnline;
+U.openOnline = function (tab, page, then) {
+var g = pubLive(), at = O.TABS.indexOf(HERE);
+if (g && at < 0) O.TABS.unshift(HERE);
+if (!g && at >= 0) O.TABS.splice(at, 1);
+if (tab !== 'here') return openOnline.apply(this, arguments);
+if (!g || !F.Net.available() || !O.on) return openOnline.call(this, 'visit', page, then);
+var self = this, n = g.here || Object.keys(g.ppl).length + 1, ids = nearest(g);
+var rows = ids.map(function (id) {
+var p = g.ppl[id], state = self.friendState ? self.friendState(id) : undefined;
+var buttons = [];
+if (state !== 'friend' && state !== 'sent' && self.askFriend) buttons.push({ label: 'Add friend', color: 0x5fa84a, cb: function () { self.closeModal(); self.askFriend(id, p.name); } });
+buttons.push({ label: 'More', color: 0xa08a68, cb: function () { self.closeModal(); self.playerMenu(id, p.name, function (next) { self.openOnline('here', 0, next); }); } });
+return {
+id: id, icon: C.ICON.bow, name: p.name, online: true,
+desc: state === 'friend' ? 'Your friend, hunting with you.' : state === 'sent' ? 'Friend request sent.' : 'Hunting near you.',
+buttons: buttons,
+};
+});
+var where = placeWord(g.map) + ' ' + g.ch;
+this.listPanel({
+title: 'Online', tab: 'here', page: page || 0, tabs: O.TABS, rows: rows,
+reopen: function (t, p) { self.openOnline(t, p); },
+sub: function () { return where + ' \u00b7 ' + n + ' hunting here' + (n - 1 > ids.length ? ' (the nearest ' + ids.length + ' below)' : ''); },
+empty: 'Nobody else is near you right now. Walk around: ' + where + ' holds up to ' + (g.cap || 30) + ' hunters.',
+});
+if (then) then();
 };
 
 

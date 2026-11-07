@@ -840,7 +840,7 @@
     var self = this;
     O.start();
     this.onlineBtn = this.add.container(0, 0).setDepth(40).setVisible(false);
-    this.button(this.onlineBtn, W - 44, 152, 74, 30, 'Online', function () { self.openOnline('visit', 0); }, BLUE);
+    this.button(this.onlineBtn, W - 44, 152, 74, 30, 'Online', function () { self.openOnline(F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive() ? 'here' : 'visit', 0); }, BLUE);
     this.visitBar = null;
     var show = function () { self.showOnline(); };
     F.bus.on('online', show);

@@ -1185,3 +1185,35 @@ test('the player menu has Add friend: one tap sends the request, no code; then i
   for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([me.context.close(), sun.context.close()]);
 });
+
+// Owner, 7 Nov 2026: the count on the Online button; a tap on it shows who is hunting here (Here, first), with Add friend
+// and More; the other tabs are there as ever; off a hunting place the button opens Visit as before.
+test('REAL pub: a tap on the Online button in a hunting place opens Here: the room, how many, the hunters near you with Add friend and More', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const A = await open(server, real.direct, 'Moon Meadow'), B = await open(server, real.direct, 'Sun Patch');
+  for (const who of [A, B]) { await go(who); await waitMode(who.page, 'live'); }
+  await A.page.waitForFunction((id) => !!Farm.world.remotes[id], B.uid, SLOW);
+  await A.page.evaluate(() => Farm.ui.closeAll());
+  const at = await A.page.evaluate(() => { const c = Farm.ui.onlineBtn.list[0], m = c.getWorldTransformMatrix(); return { x: m.tx / Farm.R, y: m.ty / Farm.R }; });
+  await A.page.touchscreen.tap(at.x, at.y);
+  await A.page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await sleep(600);
+  const text = await A.page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return out.join(' | '); });
+  if (process.env.CHIP_SHOT) await A.page.screenshot({ path: process.env.CHIP_SHOT + '/online-here.png' });
+  assert.match(text, /Here[\s\S]*Visit[\s\S]*Friends/, 'Here first, the other tabs too');
+  assert.match(text, /Pulag 1 · 2 hunting here/);
+  assert.match(text, /Sun Patch \| online \| Hunting near you\. \| Add friend \| More/);
+  if (process.env.CHIP_SHOT) await A.page.screenshot({ path: process.env.CHIP_SHOT + '/online-here.png' });
+  // off a hunting place: Visit, as before, and no Here tab
+  await A.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('town', 'from_pulag'); });
+  await A.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await A.page.evaluate(() => Farm.ui.closeAll());
+  await A.page.touchscreen.tap(at.x, at.y);
+  await A.page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await sleep(1200);
+  const town = await A.page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return out.join(' | '); });
+  assert.ok(!/\| Here \|/.test(town) && /Visit/.test(town), 'Visit as before: ' + town.slice(0, 120));
+  for (const who of [A, B]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([A.context.close(), B.context.close()]);
+});
