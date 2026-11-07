@@ -274,11 +274,29 @@
   };
 
   // ---------- orders and requests can ask for your goods and fruit ----------
+  // A workshop good counts only while the farm can still get what goes into it: something it grows, its animals give,
+  // it fishes or mines (orderCandidates), a fruit of its trees, a shop good, or a hunt drop for a farm with a bow (no
+  // Kesong Puti for a farm with no carabao).
+  var canMake = function (s, r, raw) {
+    return r.needs.every(function (e) {
+      return L.ingredientItems(e[0]).some(function (id) {
+        var it = C.ITEMS[id];
+        return raw.indexOf(id) >= 0 || !!(it && it.price) || !!(it && it.kind === 'hunt' && L.hasBow && L.hasBow(s));
+      });
+    });
+  };
   var madeOrGrown = function (s) {
-    var out = [];
+    var out = [], fruit = [];
+    s.yard.items.forEach(function (it) {
+      var tree = L.treeOf(it.t);
+      if (tree && L.treeInSeason(tree, s.day) && fruit.indexOf(tree.fruit) < 0) fruit.push(tree.fruit);
+    });
+    var raw = orderCandidates(s).concat(fruit);
     C.WORKSHOP_KEYS.forEach(function (k) {
       if (!L.yardHas(s, k)) return;
-      C.WORKSHOPS[k].recipes.forEach(function (r) { if (!C.ITEMS[r.out].price && L.discovered(s, r.out)) out.push(r.out); });
+      C.WORKSHOPS[k].recipes.forEach(function (r) {
+        if (!C.ITEMS[r.out].price && L.discovered(s, r.out) && canMake(s, r, raw) && out.indexOf(r.out) < 0) out.push(r.out);
+      });
     });
     s.yard.items.forEach(function (it) {
       var tree = L.treeOf(it.t);

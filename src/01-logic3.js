@@ -134,33 +134,63 @@
   };
 
   // ---------- orders ----------
-  // Things the farmer can get right now: crops in season, what their animals make, fish once they have a rod,
-  // and ore from mine floors they have reached.
+  // An order only asks for what this farm can get NOW (a player, 7 Nov 2026: "they keep asking for carabao milk even
+  // though I don't have that"):
+  // - crops in season (the seed stand sells every crop's seed in its season),
+  // - what the farm's grown animals give: no carabao, no carabao milk; a calf gives nothing yet; milk only with a
+  //   milker (L.collect refuses it without one); a happy animal (love >= LOVE.large) gives the large kind,
+  // - fish once there is a fishing rod (in the bag or the cabinet), ore from mine floors reached,
+  // - (01-logicA.js adds) fruit from the farm's trees in season and goods its workshops have made, when the farm can
+  //   still get what goes into them.
+  // How much of an animal's product an order asks for: at most what the farm's animals give in a day.
+
+  // What the farm's grown animals give in a day: { item: n }.
+  L.orderAnimalSupply = function (s) {
+    var out = {}, milker = L.hasItem(s, 'milker') || (s.store || []).some(function (x) { return x && x.id === 'milker'; });
+    (s.animals || []).forEach(function (a) {
+      var def = C.ANIMALS[a.kind];
+      if (!def || a.young || (def.milk && !milker)) return;
+      var item = a.love >= C.LOVE.large && def.large ? def.large : def.product;
+      var hours = (C.ANIMAL_HOURS && C.ANIMAL_HOURS[a.kind]) || 24;
+      out[item] = (out[item] || 0) + Math.max(1, Math.floor(24 / hours));
+    });
+    return out;
+  };
+
+  // Most of one item an order can ask for: a day's worth of an animal product, else 10.
+  L.orderCap = function (s, id) {
+    var supply = L.orderAnimalSupply(s);
+    var animal = C.ANIMAL_KEYS.some(function (k) { return C.ANIMALS[k].product === id || C.ANIMALS[k].large === id; });
+    return animal ? Math.min(10, supply[id] || 0) : 10;
+  };
+
   L.orderCandidates = function (s) {
     var out = [];
     C.CROP_KEYS.forEach(function (k) {
       var crop = C.CROPS[k];
       if (!crop.sickle && L.cropInSeason(k, s.day)) out.push(crop.item);
     });
-    s.animals.forEach(function (a) {
-      var p = C.ANIMALS[a.kind].product;
-      if (out.indexOf(p) < 0) out.push(p);
-    });
-    if (L.hasItem(s, 'rod')) out.push('fish_s', 'fish_m');
+    Object.keys(L.orderAnimalSupply(s)).forEach(function (p) { if (out.indexOf(p) < 0) out.push(p); });
+    if (L.hasRod ? L.hasRod(s) : L.hasItem(s, 'rod')) out.push('fish_s', 'fish_m');
     C.MINE.drops.forEach(function (d) {
       if (d.id !== 'stone' && d.id !== 'gem' && d.minFloor && s.stats.deepest >= d.minFloor) out.push(d.id);
     });
     return out.filter(function (id) { return L.basePrice(id) > 0; });
   };
 
-  // A new order for a board slot, from a villager who has no other order on the board.
+  // A new order for a board slot, from a villager who has no other order on the board, asking for things no other
+  // order on the board asks for (while there is anything else to ask for).
   L.makeOrder = function (s, slot) {
     var pool = L.orderCandidates(s), no = s.orderNo++;
     if (!pool.length) return { wait: 120 };
-    var others = s.orders.filter(function (o, i) { return i !== slot && o && o.from; }).map(function (o) { return o.from; });
+    var others = s.orders.filter(function (o, i) { return i !== slot && o && o.from; });
+    var taken = [].concat.apply([], others.map(function (o) { return o.items.map(function (it) { return it[0]; }); }));
+    var fresh = pool.filter(function (id) { return taken.indexOf(id) < 0; });
+    if (fresh.length) pool = fresh;
+    var who = others.map(function (o) { return o.from; });
     for (var attempt = 0; attempt < 8; attempt++) {
       var o = orderFrom(s, pool, no, slot, attempt);
-      if (others.indexOf(o.from) < 0) return o;
+      if (who.indexOf(o.from) < 0) return o;
     }
     return o;
   };
@@ -173,14 +203,34 @@
       var id = pool[Math.floor(r(10 + k) * pool.length)];
       if (used[id]) continue;
       used[id] = 1;
-      // aim for 150-450G of goods per item, 1 to 10 of it
+      // aim for 150-450G of goods per item, 1 to 10 of it (an animal's product: a day's worth at most)
       var want = 150 + r(40 + k) * 300 + Math.min(600, s.stats.earned / 50);
-      items.push([id, Math.max(1, Math.min(10, Math.round(want / L.basePrice(id))))]);
+      items.push([id, Math.max(1, Math.min(L.orderCap(s, id), Math.round(want / L.basePrice(id))))]);
     }
     var value = items.reduce(function (sum, it) { return sum + L.basePrice(it[0]) * it[1]; }, 0);
     var from = C.VILLAGER_ORDER[Math.floor(r(3) * C.VILLAGER_ORDER.length)];
     return { from: from, items: items, gold: Math.round(value * C.ORDERS.bonus / 10) * 10 };
   }
+
+  // Is an order on the board one this farm can fill? Each item: it has enough already, or it can get it now and the
+  // order asks for no more than it can get (an older order may ask for carabao milk of a farm with no carabao).
+  L.orderFair = function (s, o) {
+    if (!o || !o.items) return true;
+    var pool = L.orderCandidates(s);
+    return o.items.every(function (it) {
+      return L.countItem(s, it[0]) >= it[1] || (pool.indexOf(it[0]) >= 0 && it[1] <= L.orderCap(s, it[0]));
+    });
+  };
+
+  // Swaps each unfair order on the board for a fresh fair one at once (no wait, no penalty). The stall calls it when
+  // it opens; a fresh order is fair, so it swaps each one once. Returns how many it swapped.
+  L.fixOrders = function (s) {
+    var n = 0;
+    (s.orders || []).forEach(function (o, i) {
+      if (o && o.items && !L.orderFair(s, o)) { s.orders[i] = L.makeOrder(s, i); n++; }
+    });
+    return n;
+  };
 
   L.canDeliver = function (s, i) {
     var o = s.orders[i];
