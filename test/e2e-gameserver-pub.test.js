@@ -765,7 +765,7 @@ test('the first time you are live in a public room: the HUNTING TOGETHER tour, e
   await tapButton(me.page, 'Next');
   assert.match(await modalText(me.page), /how many are hunting there with you/);
   await tapButton(me.page, 'Next');
-  assert.match(await modalText(me.page), /gets a share/);
+  assert.match(await modalText(me.page), /Tap Chat to talk to everyone here[\s\S]*shared with your friends/);
   await tapButton(me.page, 'Got it');
   const after = await modalText(me.page);
   assert.doesNotMatch(after, /HUNTING TOGETHER/, 'the tour closed (another first-time card may follow: tips are on here)');

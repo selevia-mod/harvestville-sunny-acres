@@ -49,7 +49,7 @@
         },
       },
       {
-        text: 'Everyone who hits an animal gets a share when it goes down. Tap a hunter to wave or add them as a friend.',
+        text: 'Tap Chat to talk to everyone here. A hunt is shared with your friends: tap a hunter to wave or add them as a friend.',
         draw: function (ui, sc, move) {
           farmer(ui, sc, 86, 132, false, false, 0.22);
           farmer(ui, sc, 196, 132, true, true, 0.22);

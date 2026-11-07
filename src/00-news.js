@@ -8,6 +8,14 @@
 
   C.NEWS = [
     {
+      v: '2.7', date: 'November 7, 2026', lines: [
+        // (owner, 7 Nov 2026: approved as written)
+        ['heart', 'Chat with everyone', 'Every hunting place has its Chat button now. Say hi to anyone hunting there, friends or not.'],
+        ['bow', 'Smoother hunting together', 'Other hunters walk smoothly instead of jumping, and their costume stays on when they shoot.'],
+        ['bow', 'Hunts with friends', 'When a hunter who isn\'t your friend lands the last hit, the hunt is theirs. Add them as a friend to share next time.'],
+      ],
+    },
+    {
       v: '2.6', date: 'November 7, 2026', lines: [
         // (owner, 7 Nov 2026: "open it to everyone up to 30"; docs/game-server.md "Step 2")
         ['bow', 'Hunt with everyone', 'Every hunting place is open to all players now, up to 30 in a place. Hunt the same animals together: everyone who hits one gets a share when it goes down.', 'hunt_open'],
