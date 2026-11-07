@@ -76,7 +76,7 @@ test('on the network: a hunting place open to everyone (pub): wl with its room n
   b.send(hi('b', { topic: 'pub', map: 'taal', floor: 0, x: 900, y: 600, lk: { cs: 'hat', pt: 1, rd: 0 }, with: 'outsider' }));
   assert.strictEqual((await until(() => b.got.find((m) => m.t === 'wl'))).ppl[0][0], 'outsider');
   const tk = await until(() => a.got.find((m) => m.t === 'tk' && m.come.length));
-  assert.deepStrictEqual(tk.come[0], ['b', 'b', 'boy', 900, 600, 'down', 0, { cs: 'hat', pt: 1, rd: 0 }]);
+  assert.deepStrictEqual(tk.come[0], ['b', 'b', 'boy', 900, 600, 'down', 0, { cs: 'hat', pt: 1, rd: 0, bw: 0 }]); // (bw: the bow in their hands, none)
   b.send(JSON.stringify({ t: 'ar', x: 900, y: 600, a: 3.1, l: 700, b: 1 }));
   assert.strictEqual((await until(() => a.got.find((m) => m.t === 'ar'))).id, 'b');
   await app.stop();

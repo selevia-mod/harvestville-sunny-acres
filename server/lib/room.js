@@ -19,7 +19,9 @@ const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u00
 // how a player looks, from their `hi` (O.myState): the look they wear (64 at most), the party hat, on their horse
 const lookOf = (lk) => {
   const o = lk && typeof lk === 'object' && !Array.isArray(lk) ? lk : {};
-  return { cs: clean(o.cs, 64), pt: o.pt ? 1 : 0, rd: o.rd ? 1 : 0 };
+  // bw: the bow in their hands, its level + 1 (0: none), drawn on their back (owner, 8 Nov 2026: "bow must be seen while equipped")
+  const bw = Math.floor(Number(o.bw));
+  return { cs: clean(o.cs, 64), pt: o.pt ? 1 : 0, rd: o.rd ? 1 : 0, bw: bw >= 1 && bw <= 9 ? bw : 0 };
 };
 
 class Room {
@@ -176,7 +178,16 @@ class Room {
     if (++p.arN > AR_MAX) return;
     const x = num(msg.x, 0, this.fl.W * T, NaN), y = num(msg.y, 0, this.fl.H * T, NaN), a = num(msg.a, -7, 7, NaN);
     if (!isFinite(x) || !isFinite(y) || !isFinite(a)) return;
-    this.broadcast({ t: 'ar', id: p.id, x: Math.round(x), y: Math.round(y), a: Math.round(a * 1000) / 1000, l: Math.round(num(msg.l, 0, 8 * T, 0)), b: num(msg.b, 0, 3, 0) | 0 }, p);
+    this.broadcast({ t: 'ar', id: p.id, x: Math.round(x), y: Math.round(y), a: Math.round(a * 1000) / 1000, l: Math.round(num(msg.l, 0, 8 * T, 0)), b: num(msg.b, 0, 9, 0) | 0 }, p);
+  }
+  // How they look now (the bow they took up or put away, a look put on): kept for those who come later (their rows), and
+  // passed on to the others here at once. At most 4 a second each.
+  look(p, msg) {
+    const now = this.game.now();
+    if (now - (p.lkAt || 0) < 250 || !msg.lk || typeof msg.lk !== 'object') return;
+    p.lkAt = now;
+    p.lk = lookOf(msg.lk);
+    this.broadcast({ t: 'lk', id: p.id, lk: p.lk }, p);
   }
   emote(p, msg) {
     const sec = Math.floor(this.game.now() / 1000);

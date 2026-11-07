@@ -100,6 +100,7 @@ class Game {
     else if (msg.t === 'ar') room.arrow(p, msg);
     else if (msg.t === 'say') room.say(p, msg); // (a cave's too: friends meet there from their own farms now)
     else if (msg.t === 'em') room.emote(p, msg);
+    else if (msg.t === 'lk') room.look(p, msg);
   }
   // A phone this far behind on what we sent (it misses ticks until it catches up).
   behind(c) { return c.sock.bufferedAmount > BUSY_BYTES; }

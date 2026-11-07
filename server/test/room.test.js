@@ -53,6 +53,22 @@ test('a place\'s cave is 50 floors (owner, 8 Nov 2026): its guard every 10th flo
   assert.strictEqual((await w.phone('x', { map: 'banaue_cave', floor: 51 })).last('no').why, 'topic', 'no floor 51');
 });
 
+test('the bow in your hands (owner, 8 Nov 2026: "bow must be seen while equipped"): in your hi, and an lk passes it on to the others at once', async () => {
+  const w = world();
+  const a = await w.phone('a', { floor: 3, lk: { cs: '', pt: 0, rd: 0, bw: 6 } });
+  const b = await w.phone('b', { floor: 3 });
+  const row = b.last('wl').ppl.find((r) => r[0] === 'a');
+  assert.strictEqual(row[7].bw, 6, 'their row says the Moon Bow is in their hands');
+  w.run(300); // (more than 250 ms after its hi)
+  a.say({ t: 'lk', lk: { cs: '', pt: 0, rd: 0, bw: 0 } });
+  assert.deepStrictEqual(b.last('lk'), { t: 'lk', id: 'a', lk: { cs: '', pt: 0, rd: 0, bw: 0 } }, 'put away');
+  a.say({ t: 'lk', lk: { bw: 6 } }); // (too soon after the last: not passed on)
+  assert.strictEqual(b.last('lk').lk.bw, 0);
+  w.run(300);
+  a.say({ t: 'lk', lk: { bw: 99 } }); // (not a bow's level: none)
+  assert.strictEqual(b.last('lk').lk.bw, 0);
+});
+
 test('a refused hi: version, topic, auth (and the socket is closed)', async () => {
   const w = world();
   const v = await w.phone('a', { v: 2 });

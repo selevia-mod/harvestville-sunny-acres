@@ -43,10 +43,10 @@ test('a public hi: any good token, the place as L.wildHere gives it now (never t
   wl.mons.forEach((r) => assert.ok(Math.hypot(r[2] - 3 * T, r[3] - 3 * T) >= 6 * T, 'placed 6 tiles or more from the first phone'));
   // the next one sees them, with how they look (the 8th of the row), the look kept short
   const b = await w.pub('ben', 'banaue', { x: 4 * T, y: 3 * T, name: 'Ben​\u0007' });
-  assert.deepStrictEqual(b.last('wl').ppl, [['outsider', 'outsider', 'boy', 3 * T, 3 * T, 'down', 0, { cs: 'x'.repeat(64), pt: 1, rd: 1 }]]);
+  assert.deepStrictEqual(b.last('wl').ppl, [['outsider', 'outsider', 'boy', 3 * T, 3 * T, 'down', 0, { cs: 'x'.repeat(64), pt: 1, rd: 1, bw: 0 }]]);
   assert.deepStrictEqual(b.last('wl').mons, wl.mons, 'the same animals for both');
   w.run(50);
-  assert.deepStrictEqual(a.last('tk').come, [['ben', 'Ben', 'boy', 4 * T, 3 * T, 'down', 0, { cs: '', pt: 0, rd: 0 }]]);
+  assert.deepStrictEqual(a.last('tk').come, [['ben', 'Ben', 'boy', 4 * T, 3 * T, 'down', 0, { cs: '', pt: 0, rd: 0, bw: 0 }]]);
   // refused: a cave, a farm map, a place still in the making, nowhere, a bad token
   for (const map of ['lair', 'banaue_cave', 'farm', 'park', 'sample_place', 'nowhere', 42]) {
     assert.strictEqual((await w.pub('c', map)).last('no').why, 'topic', String(map));
@@ -154,7 +154,7 @@ test('who sees whom: the 15 nearest within 18 tiles; walking into view is a `com
   d18.say({ t: 'mv', x: 3 * T, y: 2 * T, dir: 'left', m: 1 });
   w.run(50);
   let tk = a.last('tk');
-  assert.deepStrictEqual(tk.come, [['d18', 'd18', 'boy', 3 * T, 2 * T, 'left', 1, { cs: 'look18', pt: 0, rd: 0 }]]);
+  assert.deepStrictEqual(tk.come, [['d18', 'd18', 'boy', 3 * T, 2 * T, 'left', 1, { cs: 'look18', pt: 0, rd: 0, bw: 0 }]]);
   assert.deepStrictEqual(tk.left, ['d16']);
   // it walks off again, beyond 18 tiles: it leaves, and the 16-tile one is back
   d18.say({ t: 'mv', x: at(25).x, y: at(25).y, dir: 'right', m: 1 });
@@ -382,7 +382,7 @@ test('an arrow in flight goes to the phones that see the shooter, cleaned and sm
   w.run(50);
   const room = w.pubRoom('banaue', 1), hp = room.mons.map((x) => x.hp);
   a.say({ t: 'ar', x: 600, y: 700.6, a: 1.23456789, l: 99999, b: 7, junk: 'x'.repeat(2000), s: 0, d: 4 });
-  assert.deepStrictEqual(b.last('ar'), { t: 'ar', id: 'a', x: 600, y: 701, a: 1.235, l: 8 * T, b: 3 });
+  assert.deepStrictEqual(b.last('ar'), { t: 'ar', id: 'a', x: 600, y: 701, a: 1.235, l: 8 * T, b: 7 }); // (any bow level up to 9: the Moon Bow is 5)
   assert.ok(!far.last('ar'), 'out of view: not told');
   assert.ok(!a.last('ar'), 'not back to the shooter');
   assert.deepStrictEqual(room.mons.map((x) => x.hp), hp, 'an arrow in flight never hurts anything');
@@ -413,7 +413,7 @@ test('a cave row carries the look only when the phone sent one (step 1 rows stay
   const w = world();
   await w.phone('anna', { floor: 4, lk: { cs: 'robe', pt: 0, rd: 1 } });
   const b = await w.phone('ben', { floor: 4 });
-  assert.deepStrictEqual(b.last('wl').ppl, [['anna', 'anna', 'boy', 1408, 922, 'down', 0, { cs: 'robe', pt: 0, rd: 1 }]]);
+  assert.deepStrictEqual(b.last('wl').ppl, [['anna', 'anna', 'boy', 1408, 922, 'down', 0, { cs: 'robe', pt: 0, rd: 1, bw: 0 }]]);
   const c = await w.phone('cara', { floor: 4 });
   assert.deepStrictEqual(c.last('wl').ppl.find((r) => r[0] === 'ben'), ['ben', 'ben', 'boy', 1408, 922, 'down', 0]);
 });

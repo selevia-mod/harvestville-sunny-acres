@@ -187,6 +187,7 @@
       cs: L.wornLook ? L.wornLook(F.session.state) : '', // the look you wear (19zj-looks.js)
       sk: L.power(F.session.state, 'sneak') ? 1 : 0, hg: L.gearBits ? L.gearBits(F.session.state) : 0, // Hunter's gear (19zo-gear.js)
       rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0, // on your horse; when you came to this map (who runs a hunt: 19v-wild.js)
+      bw: O.heldBow ? O.heldBow() : 0, // the bow in your hands, its level + 1 (0: none): drawn on your back (19zzzzzzzzzzz-slung-bow.js)
     };
   };
 
@@ -278,6 +279,7 @@
       fl: FLOORS[p.map] ? Math.max(1, Math.min(FLOORS[p.map], Math.floor(Number(p.fl)) || 1)) : 0, // which floor of the mine or the Lair
       rd: p.rd && (p.map === 'farm' || p.map === 'town' || p.map === 'park') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)), // (4 pieces of Hunter's gear with the Fire Charm)
       tr: Math.max(0, Math.min(4, Math.floor(Number(p.tr)) || 0)), // their Town Rank this month: the badge by their name (19zzzz-rank.js)
+      bw: Math.max(0, Math.min(9, Math.floor(Number(p.bw)) || 0)), // the bow in their hands (19zzzzzzzzzzz-slung-bow.js)
       rt: 0, // when this phone last heard where they are (only this phone's clock orders updates)
       ts: Number(p.t) || 0, // when they said it, on their clock: what puts their moves and their presence in order
       away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '', // the farm they went to

@@ -3041,6 +3041,40 @@ test('e41: Haliya\'s Moon Bow: its arrow goes through the first creature and hit
   await context.close();
 });
 
+test('e41: the bow you hold hangs on your back (owner, 8 Nov 2026: "bow must be seen while equipped"), its own picture by level, the Moon Bow glowing; not when you hold something else, shoot or ride', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; L.addItem(s, 'bow', 1); s.tools.bow = 5; L.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id === 'bow');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.world.mapKey === 'pulag' && Farm.world.wild, null, SLOW);
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.forEach((a) => { a.img.destroy(); a.sh.destroy(); }); w.wild.animals = []; w.wild.next = 1e9; });
+  const slung = () => page.evaluate(() => { const m = Farm.world.slungMine || {}; return { on: !!(m.slung && m.slung.visible), frame: m.slung ? m.slung.frame.name : null, glow: !!(m.slungGlow && m.slungGlow.visible), sent: Farm.Online.heldBow() }; });
+  await frames(page, 3);
+  const C = await page.evaluate(() => ({ bow5: Farm.Config.ICON.bow_5, bow4: Farm.Config.ICON.bow_4 }));
+  assert.deepStrictEqual(await slung(), { on: true, frame: C.bow5, glow: true, sent: 6 }, 'the Moon Bow on your back, glowing');
+  for (const dir of ['down', 'left', 'up', 'right']) {
+    await page.evaluate((d) => { Farm.world.dir = d; Farm.world.idle(); }, dir);
+    await frames(page, 3);
+    await shot(page, 'e41-slung-' + dir);
+  }
+  // the Magma Bow: its own picture, no glow
+  await page.evaluate(() => { Farm.session.state.tools.bow = 4; });
+  await frames(page, 3);
+  assert.deepStrictEqual(await slung(), { on: true, frame: C.bow4, glow: false, sent: 5 });
+  // something else in your hands: no bow on your back
+  await page.evaluate(() => { const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'arrows'); });
+  await frames(page, 3);
+  assert.deepStrictEqual(await slung(), { on: false, frame: C.bow4, glow: false, sent: 0 });
+  // shooting: it is in your hands, not on your back
+  await page.evaluate(() => { const s = Farm.session.state; s.tools.bow = 5; s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); Farm.world.dir = 'right'; Farm.world.idle(); Farm.world.shoot(); });
+  await page.waitForFunction(() => !!Farm.world.shot, null, SLOW);
+  assert.strictEqual((await slung()).on, false, 'not on your back while it shoots');
+  await page.waitForFunction(() => !Farm.world.shot, null, SLOW);
+  await frames(page, 3);
+  assert.strictEqual((await slung()).on, true, 'back on your back after');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('your dog comes hunting: it follows you, points at a hidden animal, fetches a drop into your bag; Hunter\'s gear from Kanor; the Big Quiver brings a missed arrow back; the three tours (owner, 3 Nov)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag';");
   const { page, problems, context } = await open(save);

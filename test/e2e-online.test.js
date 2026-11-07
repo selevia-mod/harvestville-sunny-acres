@@ -2879,6 +2879,31 @@ test('online: two hunters on a dungeon floor (owner, 7 Nov 2026: "I just kill th
 });
 
 // ---------- Banaue Terraces (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-11-banaue.js) ----------
+test('online: a friend sees the bow in your hands on your back (owner, 8 Nov 2026: "bow must be seen while equipped"): your Moon Bow, with its glow; put away, gone', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate(() => { const s = Farm.session.state; Farm.Logic.addItem(s, 'bow', 1); s.tools.bow = 5; Farm.Logic.addItem(s, 'arrows', 20); s.sel = s.inv.findIndex((x) => x && x.id !== 'bow'); });
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(host.page, ['Ana Acres']);
+  const seen = () => host.page.evaluate(() => { const w = Farm.world, r = Object.values(w.remotes)[0]; return r && { on: !!(r.slung && r.slung.visible), frame: r.slung ? r.slung.frame.name : null, glow: !!(r.slungGlow && r.slungGlow.visible) }; });
+  await host.page.waitForTimeout(800);
+  assert.strictEqual((await seen()).on, false, 'nothing on their back while they hold something else');
+  // they take up the bow: the host sees it on their back, the Moon Bow's own picture, glowing
+  await guest.page.evaluate(() => { const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
+  const icon = await host.page.evaluate(() => Farm.Config.ICON.bow_5);
+  await host.page.waitForFunction((f) => { const r = Object.values(Farm.world.remotes)[0]; return r && r.slung && r.slung.visible && r.slung.frame.name === f; }, icon, SLOW);
+  assert.deepStrictEqual(await seen(), { on: true, frame: icon, glow: true });
+  await shot(host.page, 'online-friend-slung-moon-bow');
+  // put away: gone from their back
+  await guest.page.evaluate(() => { const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'arrows'); });
+  await host.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return r && !(r.slung && r.slung.visible); }, null, SLOW);
+  assert.deepStrictEqual([host.problems, guest.problems], [[], []]);
+  await host.context.close(); await guest.context.close();
+});
+
 test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 50 (its bottom since 8 Nov 2026), the Amomongo is stronger for two (30, 42), a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);

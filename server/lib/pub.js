@@ -233,7 +233,7 @@ class PubRoom extends Room {
     if (++p.arN > AR_MAX) return;
     const x = num(msg.x, 0, this.fl.W * T, NaN), y = num(msg.y, 0, this.fl.H * T, NaN), a = num(msg.a, -7, 7, NaN);
     if (!isFinite(x) || !isFinite(y) || !isFinite(a)) return;
-    const s = JSON.stringify({ t: 'ar', id: p.id, x: Math.round(x), y: Math.round(y), a: Math.round(a * 1000) / 1000, l: Math.round(num(msg.l, 0, 8 * T, 0)), b: num(msg.b, 0, 3, 0) | 0 });
+    const s = JSON.stringify({ t: 'ar', id: p.id, x: Math.round(x), y: Math.round(y), a: Math.round(a * 1000) / 1000, l: Math.round(num(msg.l, 0, 8 * T, 0)), b: num(msg.b, 0, 9, 0) | 0 });
     this.players.forEach((q) => { if (q !== p && q.conn && q.view.has(p.id)) this.game.sendRaw(q.conn, s); });
   }
 

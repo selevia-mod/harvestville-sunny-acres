@@ -171,7 +171,7 @@
           x: Math.round(f.x), y: Math.round(f.y), dir: w.dir || 'down', hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0,
           b: menu(), bk: !g.pub && L.bakunawaReady && L.bakunawaReady(s) ? 1 : 0 }; // (b: a menu open, the monsters leave you be; bk: the Bakunawa may rise for you today)
         var ms = O.myState();
-        hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0 }; // (how you look: the others draw you from it)
+        hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0, bw: ms.bw || 0 }; // (how you look: the others draw you from it; bw: the bow in your hands)
         if (g.pub) { // a public room: who to be put with
           var mate = withWho(g);
           if (mate) hi.with = mate;
@@ -405,6 +405,7 @@
       id: id, name: (L.cleanName ? L.cleanName(row[1]) : L.cleanText(row[1], 24)) || 'Farmer', look: row[2] === 'girl' ? 'girl' : 'boy', map: g.map, fl: 0,
       x: x, y: y, dir: DIRS[row[5]] ? row[5] : 'down', m: row[6] ? 1 : 0, host: id === O.hostId(), at: 0, pt: lk.pt ? 1 : 0,
       cs: C.LOOK_INDEX && cs && C.LOOK_INDEX[cs] != null ? cs : '', rd: 0, sk: 0, hg: 0, // (no horses on a hunting place)
+      bw: Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0)), // the bow in their hands (19zzzzzzzzzzz-slung-bow.js)
       tr: O.others[id] ? O.others[id].tr || 0 : 0, pub: 1,
     };
     void keep;
@@ -530,7 +531,7 @@
   var pubArrow = function (g, m) {
     var w = g.w, id = typeof m.id === 'string' ? m.id : '';
     if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
-    var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
+    var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(9, Number(m.b) || 0)); // (9: any bow level to come; the Moon Bow is 5)
     if (ax == null || ay == null) return;
     // their farmer draws (POSE_MS) and lets go when this screen has them where they shot from
     var wait = Math.max(0, behind(id) - POSE_MS);
@@ -639,6 +640,11 @@
       return;
     }
     if (t === 'say') { if (g.pub || g.pp) pubSay(g, m); return; }
+    if (t === 'lk') { // how someone here looks now (their bow taken up or put away): kept for drawing them
+      var q = g.ppl && typeof m.id === 'string' ? g.ppl[m.id] : null, lk = m.lk && typeof m.lk === 'object' ? m.lk : {};
+      if (q) q.bw = Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0));
+      return;
+    }
     if (t === 'em') {
       var eid = typeof m.id === 'string' ? m.id : '', k = typeof m.k === 'string' ? m.k : '';
       if ((g.pub || g.pp) && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
@@ -746,6 +752,13 @@
     }
     a.gsPend = a.gsPend || [];
     a.gsPend.push({ n: n, d: d, at: Date.now() });
+  };
+  // How you look now, to the floor or room you are on (the bow you took up or put away: 19zzzzzzzzzzz-slung-bow.js)
+  O.gsLook = function () {
+    var g = pubHolding(F.world) || pplHolding(F.world);
+    if (!g || g.mode !== 'live') return false;
+    var ms = O.myState();
+    return send(g, { t: 'lk', lk: { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0, bw: ms.bw || 0 } });
   };
   var oSend = O.send;
   O.send = function (event, payload) {

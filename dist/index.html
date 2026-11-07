@@ -874,6 +874,7 @@ v: '2.12', date: 'November 8, 2026', lines: [
 
 ['ember_shard', 'Caves 50 floors deep', 'Every hunting place\'s cave now goes down 50 floors, like the Lair: a guard on every 10th floor, tougher each time, and the boss on floor 50. The lift stops every 10 floors.'],
 ['bow', 'Haliya\'s Moon Bow', 'The new best bow. Kanor makes it from your Magma Bow, every cave boss\'s part, Bakunawa Scales and 600,000 Gold. Each arrow goes through the first creature and hits the one behind it.', 'moonbow'],
+['bow', 'Your bow on your back', 'When the Bow is in your hands, it hangs on your back, and everyone sees which bow you carry: Gold, Magma or the Moon Bow.'],
 ],
 },
 {
@@ -24151,6 +24152,7 @@ pt: F.myParty() ? 1 : 0,
 cs: L.wornLook ? L.wornLook(F.session.state) : '',
 sk: L.power(F.session.state, 'sneak') ? 1 : 0, hg: L.gearBits ? L.gearBits(F.session.state) : 0,
 rd: F.session.riding ? 1 : 0, sn: O.mapAt || 0,
+bw: O.heldBow ? O.heldBow() : 0,
 };
 };
 
@@ -24242,6 +24244,7 @@ cs: C.LOOK_INDEX && typeof p.cs === 'string' && C.LOOK_INDEX[p.cs] != null ? p.c
 fl: FLOORS[p.map] ? Math.max(1, Math.min(FLOORS[p.map], Math.floor(Number(p.fl)) || 1)) : 0,
 rd: p.rd && (p.map === 'farm' || p.map === 'town' || p.map === 'park') ? 1 : 0, sn: Math.max(0, Number(p.sn) || 0), sk: p.sk ? 1 : 0, hg: Math.max(0, Math.min(15, Math.floor(Number(p.hg)) || 0)),
 tr: Math.max(0, Math.min(4, Math.floor(Number(p.tr)) || 0)),
+bw: Math.max(0, Math.min(9, Math.floor(Number(p.bw)) || 0)),
 rt: 0,
 ts: Number(p.t) || 0,
 away: typeof p.away === 'string' && /^[0-9a-f-]{36}$/i.test(p.away) ? p.away.toLowerCase() : '',
@@ -43119,7 +43122,7 @@ var hi = { t: 'hi', v: 1, token: token, topic: g.topic, map: g.map, floor: g.flo
 x: Math.round(f.x), y: Math.round(f.y), dir: w.dir || 'down', hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0,
 b: menu(), bk: !g.pub && L.bakunawaReady && L.bakunawaReady(s) ? 1 : 0 };
 var ms = O.myState();
-hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0 };
+hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0, bw: ms.bw || 0 };
 if (g.pub) {
 var mate = withWho(g);
 if (mate) hi.with = mate;
@@ -43353,6 +43356,7 @@ var p = g.ppl[id] = {
 id: id, name: (L.cleanName ? L.cleanName(row[1]) : L.cleanText(row[1], 24)) || 'Farmer', look: row[2] === 'girl' ? 'girl' : 'boy', map: g.map, fl: 0,
 x: x, y: y, dir: DIRS[row[5]] ? row[5] : 'down', m: row[6] ? 1 : 0, host: id === O.hostId(), at: 0, pt: lk.pt ? 1 : 0,
 cs: C.LOOK_INDEX && cs && C.LOOK_INDEX[cs] != null ? cs : '', rd: 0, sk: 0, hg: 0,
+bw: Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0)),
 tr: O.others[id] ? O.others[id].tr || 0 : 0, pub: 1,
 };
 void keep;
@@ -43478,7 +43482,7 @@ return true;
 var pubArrow = function (g, m) {
 var w = g.w, id = typeof m.id === 'string' ? m.id : '';
 if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
-var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
+var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(9, Number(m.b) || 0));
 if (ax == null || ay == null) return;
 
 var wait = Math.max(0, behind(id) - POSE_MS);
@@ -43587,6 +43591,11 @@ player(g, id, q.x, q.y, q.dir, q.m, st, null, true);
 return;
 }
 if (t === 'say') { if (g.pub || g.pp) pubSay(g, m); return; }
+if (t === 'lk') {
+var q = g.ppl && typeof m.id === 'string' ? g.ppl[m.id] : null, lk = m.lk && typeof m.lk === 'object' ? m.lk : {};
+if (q) q.bw = Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0));
+return;
+}
 if (t === 'em') {
 var eid = typeof m.id === 'string' ? m.id : '', k = typeof m.k === 'string' ? m.k : '';
 if ((g.pub || g.pp) && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
@@ -43694,6 +43703,13 @@ return;
 }
 a.gsPend = a.gsPend || [];
 a.gsPend.push({ n: n, d: d, at: Date.now() });
+};
+
+O.gsLook = function () {
+var g = pubHolding(F.world) || pplHolding(F.world);
+if (!g || g.mode !== 'live') return false;
+var ms = O.myState();
+return send(g, { t: 'lk', lk: { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0, bw: ms.bw || 0 } });
 };
 var oSend = O.send;
 O.send = function (event, payload) {
@@ -44163,6 +44179,106 @@ F.Host.save(F.session.state);
 F.ui.tour('hunt_open');
 };
 setTimeout(show, 2800);
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzz-slung-bow.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var O = F.Online;
+var P = F.WorldScene.prototype;
+var DEPTH = F.WorldScene.DEPTH;
+
+var SCALE = 1.9;
+
+
+var AT = {
+down: { x: 46, y: -36, rot: -0.2, behind: true },
+up: { x: 0, y: -14, rot: 0, behind: false },
+left: { x: 50, y: -30, rot: 0.3, behind: true },
+right: { x: -50, y: -30, rot: -0.3, behind: true, flip: true },
+};
+
+var facing = function (spr) {
+var f = Number(spr.frame && spr.frame.name) || 0, row = Math.floor(f / 3) % 3;
+return row === 0 ? 'down' : row === 1 ? 'up' : spr.flipX ? 'right' : 'left';
+};
+
+
+O.heldBow = function () {
+var s = F.session && F.session.state, h = s && L.held && L.held(s);
+return h && h.id === 'bow' && L.hasBow(s) ? L.bowLevel(s) + 1 : 0;
+};
+
+
+var hang = function (w, holder, spr, bw, alpha) {
+var on = bw > 0 && spr && spr.active && spr.visible && alpha > 0.01;
+if (!on) {
+if (holder.slung) holder.slung.setVisible(false);
+if (holder.slungGlow) holder.slungGlow.setVisible(false);
+return null;
+}
+var level = bw - 1, frame = L.bowIcon ? L.bowIcon(level) : C.ICON.bow;
+if (!holder.slung || !holder.slung.active || holder.slungFrame !== frame) {
+if (holder.slung) holder.slung.destroy();
+F.ensureTexture(w, 'items');
+holder.slung = w.add.image(0, 0, 'items', frame).setScale(SCALE);
+holder.slungFrame = frame;
+}
+var moon = !!(L.moonShot && L.moonShot(level));
+if (moon && (!holder.slungGlow || !holder.slungGlow.active)) {
+holder.slungGlow = w.add.circle(0, 0, 0.62 * C.TILE, C.MOON_BOW.shine, 0.3).setBlendMode(Phaser.BlendModes.ADD);
+}
+var at = AT[facing(spr)], x = spr.x + at.x, y = spr.y + at.y;
+holder.slung.setPosition(x, y).setRotation(at.rot).setFlipX(!!at.flip).setAlpha(alpha).setVisible(true)
+.setDepth(spr.depth + (at.behind ? -0.0004 : 0.0004));
+if (holder.slungGlow) {
+holder.slungGlow.setVisible(moon);
+if (moon) holder.slungGlow.setPosition(x, y).setDepth(holder.slung.depth - 0.0001).setAlpha(alpha * (0.22 + 0.1 * Math.sin(w.time.now / 400)));
+}
+return holder.slung;
+};
+
+var update = P.update;
+P.update = function (time, delta) {
+update.call(this, time, delta);
+if (!this.player || !this.sys || !this.sys.isActive()) return;
+
+var bw = O.heldBow(), mine = this.slungMine = this.slungMine || {};
+hang(this, mine, this.player, this.shot || F.session.riding || this.sleeping ? 0 : bw, this.player.alpha);
+
+if (bw !== this.slungSent && time - (this.slungAt || 0) > 500) {
+this.slungSent = bw;
+this.slungAt = time;
+if (O.on && O.chan && O.retrack) O.retrack();
+if (O.gsLook) O.gsLook();
+}
+
+var self = this, keep = {};
+Object.keys(this.remotes || {}).forEach(function (id) {
+var r = self.remotes[id], p = O.who ? O.who(id) : O.others && O.others[id];
+keep[id] = 1;
+hang(self, r, r.spr, r.shot || r.horse || !p ? 0 : p.bw || 0, r.spr ? r.spr.alpha : 0);
+});
+
+var held = this.slungHeld = this.slungHeld || {};
+Object.keys(held).forEach(function (id) {
+if (keep[id] && self.remotes[id] === held[id]) return;
+var r = held[id];
+if (r.slung) r.slung.destroy();
+if (r.slungGlow) r.slungGlow.destroy();
+r.slung = r.slungGlow = null;
+delete held[id];
+});
+Object.keys(keep).forEach(function (id) { held[id] = self.remotes[id]; });
 };
 })(window.Farm = window.Farm || {});
 
