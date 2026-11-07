@@ -101,6 +101,14 @@ const modalText = (page) => page.evaluate(() => {
   walk(m.c.list);
   return out.join(' | ');
 });
+// A friend went somewhere: the banner at the top (owner, 7 Nov 2026: no pop-up for it; 19r-follow.js followNote)
+const followText = (page) => page.evaluate(() => { const b = Farm.ui.followBox, out = []; if (!b || !b.active) return ''; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(b.list); return out.join(' | '); });
+const waitFollow = (page, re) => page.waitForFunction((src) => { const b = Farm.ui.followBox, out = []; if (!b || !b.active) return false; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(b.list); return new RegExp(src).test(out.join(' | ')) && !Farm.ui.modals.length; }, re.source, SLOW);
+async function tapFollow(page) {
+  const pos = await page.evaluate(() => { const b = Farm.ui.followBox; let at = null; const walk = (l) => l.forEach((o) => { if (!at && o.type === 'Text' && /^(Follow|Join them)$/.test(o.text)) { const r = o.getBounds(); at = { x: r.centerX, y: r.centerY }; } if (o.list) walk(o.list); }); walk(b.list); return at; });
+  assert.ok(pos, 'the banner\'s Follow is there');
+  await page.touchscreen.tap(pos.x, pos.y);
+}
 const waitModal = (page, re) => page.waitForFunction((src) => {
   const m = Farm.ui.modals[Farm.ui.modals.length - 1];
   if (!m) return false;
@@ -972,12 +980,11 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   // the owner walks to town and on to Pulag: the guest is asked once, and the road takes two steps
   await host.page.evaluate(() => Farm.Online.follow('pulag'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /WENT TO TOWN/);
-  await tapButton(guest.page, 'Stay here');
+  await waitFollow(guest.page, /Moon Meadow went to town\./); // (a banner: it fades by itself, nothing to close)
   await host.page.evaluate(() => Farm.Online.follow('pulag'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
-  await waitModal(guest.page, /MOON MEADOW WENT HUNTING[\s\S]*Pulag Grassland\. Hunt together\?/);
-  await tapButton(guest.page, 'Join them');
+  await waitFollow(guest.page, /Moon Meadow is hunting in Pulag Grassland\. \| Join them/);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild && Farm.world.wild.animals.length > 0, null, SLOW);
   await waitRemotes(host.page, ['Ana Acres']);
   // one phone runs it: the first there. The other shows the same animals, the same size, in about the same place.
@@ -1073,8 +1080,7 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   const left = (await herd(guest.page)).length;
   await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.wildKeep(); Farm.Online.follow('town'); });
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /MOON MEADOW LEFT[\s\S]*went back to town\. Follow them\?/);
-  await tapButton(guest.page, 'Stay here');
+  await waitFollow(guest.page, /Moon Meadow went back to town\./);
   await guest.page.waitForFunction(() => Farm.world.wildFollowing() === null && Farm.world.wild.animals.every((a) => a.t < 1e8), null, SLOW);
   assert.ok((await herd(guest.page)).length >= left, 'nothing vanished');
   const spot = () => guest.page.evaluate(() => Farm.world.wild.animals.map((a) => Math.round(a.x) + ':' + Math.round(a.y)).join());
@@ -1108,12 +1114,11 @@ async function huntInPulag(server, setup) {
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
   await host.page.evaluate(() => Farm.Online.follow('pulag'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /WENT TO TOWN/);
-  await tapButton(guest.page, 'Stay here');
+  await waitFollow(guest.page, /Moon Meadow went to town\./); // (a banner: it fades by itself, nothing to close)
   await host.page.evaluate(() => Farm.Online.follow('pulag'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
-  await waitModal(guest.page, /WENT HUNTING/);
-  await tapButton(guest.page, 'Join them');
+  await waitFollow(guest.page, /is hunting in/);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
   await waitRemotes(host.page, ['Ana Acres']);
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
@@ -1251,9 +1256,9 @@ test('online: visitors follow the owner to town and into the mine: asked, Follow
   // the owner walks to town: the guest is asked to follow
   await host.page.evaluate(() => Farm.Online.follow('town'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /MOON MEADOW WENT TO TOWN[\s\S]*Follow them\?/);
+  await waitFollow(guest.page, /Moon Meadow went to town\. \| Follow/);
   await shot(guest.page, 'follow-1-ask');
-  await tapButton(guest.page, 'Follow');
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.session.visit && Farm.session.visit.inTown, null, SLOW);
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
   await waitRemotes(host.page, ['Ana Acres']);
@@ -1277,8 +1282,8 @@ test('online: visitors follow the owner to town and into the mine: asked, Follow
   await guest.page.evaluate(() => Farm.ui.closeAll());
   // back to the farm: asked again (the other way)
   await host.page.evaluate(() => Farm.Online.follow('farm'));
-  await waitModal(guest.page, /went back to the farm/);
-  await tapButton(guest.page, 'Follow');
+  await waitFollow(guest.page, /went back to the farm/);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
   assert.strictEqual(await guest.page.evaluate(() => Farm.session.state.map), 'farm', 'your own save is back where it was');
   // Home from their town: your own farm
@@ -1300,8 +1305,8 @@ test('online: visitors follow the owner to town and into the mine: asked, Follow
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
   await host.page.evaluate(() => Farm.world.travel('mine', 'entrance', 2));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /MOON MEADOW IS IN THE MINE[\s\S]*floor 2[\s\S]*Follow them\?/);
-  await tapButton(guest.page, 'Follow');
+  await waitFollow(guest.page, /Moon Meadow went to floor 2 of the mine\./);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.session.mineFloor === 2, null, SLOW);
   assert.strictEqual(await guest.page.evaluate(() => Farm.session.visit && Farm.session.visit.name), 'Moon Meadow', 'still visiting');
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
@@ -1747,13 +1752,13 @@ test('online: a friend\'s hammer swing plays on your screen, and the rock pops w
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
   await host.page.evaluate(() => Farm.Online.follow('town'));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /WENT TO TOWN[\s\S]*Follow them\?/);
-  await tapButton(guest.page, 'Follow');
+  await waitFollow(guest.page, /went to town\./);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
   await host.page.evaluate(() => Farm.world.travel('mine', 'entrance', 2));
   await host.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy, null, SLOW);
-  await waitModal(guest.page, /IS IN THE MINE[\s\S]*Follow them\?/);
-  await tapButton(guest.page, 'Follow');
+  await waitFollow(guest.page, /went to floor 2 of the mine\./);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'mine' && !Farm.world.busy && Farm.session.mineFloor === 2, null, SLOW);
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
   await waitRemotes(host.page, ['Ana Acres']);
@@ -2076,9 +2081,9 @@ test('online: Bakunawa\'s Lair: two hunters on floor 50, the Bakunawa rises only
   await host.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('lair', 'entrance', 41); });
   await host.page.waitForFunction(() => Farm.session.lairFloor === 41 && !Farm.world.busy && Farm.world.wild, null, SLOW);
   await waitRemotes(guest.page, []);
-  for (let i = 0; i < 20 && !/WENT UP/.test(await modalText(guest.page)); i++) { if (await modalText(guest.page)) await guest.page.evaluate(() => Farm.ui.closeModal()); await new Promise((r) => setTimeout(r, 500)); }
-  assert.match(await modalText(guest.page), /MOON MEADOW WENT UP[\s\S]*floor 41 of the Lair\. Follow them\?/);
-  await tapButton(guest.page, 'Follow');
+  for (let i = 0; i < 20 && !/went up to floor 41/.test(await followText(guest.page)); i++) { if (await modalText(guest.page)) await guest.page.evaluate(() => Farm.ui.closeModal()); await new Promise((r) => setTimeout(r, 500)); }
+  assert.match(await followText(guest.page), /Moon Meadow went up to floor 41 of the Lair\. \| Follow/);
+  await tapFollow(guest.page);
   await guest.page.waitForFunction(() => Farm.session.lairFloor === 41 && Farm.world.mapKey === 'lair' && !Farm.world.busy && Farm.world.wild, null, SLOW);
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
   assert.ok(await guest.page.evaluate(() => Farm.session.state.lair.deep < 41), 'a floor reached behind a friend is not yours');
@@ -2653,8 +2658,7 @@ test('online: Central Park from a friend\'s town ends the visit: you are in the 
   // into their town (your own game there), up the park road
   await guest.page.evaluate(() => Farm.world.travel('town', 'from_park'));
   await guest.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.session.visit && Farm.session.visit.inTown, null, SLOW);
-  await waitModal(guest.page, /MOON MEADOW WENT HOME/); // (the owner is on the farm: "follow them?")
-  await tapButton(guest.page, 'Stay here');
+  await waitFollow(guest.page, /Moon Meadow went back to the farm\./); // (the owner is on the farm: a banner, nothing to close)
   await stickOn(guest.page, 0, -1);
   await waitMapOn(guest.page, 'park');
   await stickOn(guest.page, 0, 0);

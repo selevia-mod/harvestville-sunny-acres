@@ -23950,11 +23950,7 @@ if (F.session.visit !== v || !ww || ROAD[ww.mapKey] !== to) return;
 var now = O.others[v.host];
 if (!now || now.map !== to) { delete v.asked['map:' + to]; return; }
 if (F.ui.modals.length || ww.busy) return setTimeout(show, 1200);
-sfx('found');
-F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (to === 'town' ? 'TO TOWN' : 'HOME') + '\n' + v.name + ' went ' + where + '. Follow them?', [
-{ label: 'Stay here', color: 0xc0703a },
-{ label: 'Follow', cb: function () { O.follow(to); } },
-]);
+if (F.ui.followNote) F.ui.followNote(v.name + ' went ' + where + '.', 'Follow', function () { O.follow(to); });
 };
 show();
 };
@@ -24889,14 +24885,14 @@ icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 
 desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : 'Send ' + who + ' a friend request. No code needed.',
 buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
 }] : []).concat([
+
 {
-icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
-buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
-},
-{
-icon: C.ICON.exclaim, name: blocked ? 'Unblock' : 'Block',
-desc: blocked ? 'Let them find, visit and message you again.' : "They can't visit, find or message you, and you won't see them.",
-buttons: [{ label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } }],
+icon: C.ICON.exclaim, name: blocked ? 'Report or unblock' : 'Report or block',
+desc: blocked ? 'Tell Selebox, or let them find, visit and message you again.' : 'A rude name or messages? Tell Selebox, or block them.',
+buttons: [
+{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } },
+{ label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } },
+],
 },
 ]),
 });
@@ -27625,11 +27621,7 @@ var show = function () {
 var ww = F.world;
 if (F.session.visit !== v || !ww || ww.busy) return;
 if (F.ui.modals.length) return setTimeout(show, 1200);
-if (F.Audio) F.Audio.sfx('found');
-F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' IS IN THE MINE\n' + v.name + ' went to floor ' + fl + ' of the mine. Follow them?', [
-{ label: 'Stay here', color: 0xc0703a },
-{ label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel('mine', 'entrance', fl); } },
-]);
+F.ui.followNote(v.name + ' went to floor ' + fl + ' of the mine.', 'Follow', function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel('mine', 'entrance', fl); });
 };
 show();
 };
@@ -27656,11 +27648,51 @@ var ww = F.world, now = O.others[v.host];
 if (F.session.visit !== v || !ww || ww.busy || ww.mapKey !== cave) return;
 if (!now || now.map !== cave || now.fl !== fl) { delete v.asked[cave + ':' + fl]; return; }
 if (F.ui.modals.length) return setTimeout(show, 1200);
+F.ui.followNote(v.name + ' went ' + (fl > F.session.lairFloor ? 'down' : 'up') + ' to floor ' + fl + ' of ' + (cfg.lair ? 'the Lair' : cfg.name) + '.', 'Follow', function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel(cave, 'entrance', fl); });
+};
+show();
+};
+
+
+
+
+
+var U = F.UIScene.prototype, NOTE_MS = 6000;
+var fighting = function () {
+var w = F.world;
+if (!w || w.busy) return true;
+if (w.shotAt && Date.now() - w.shotAt < 3000) return true;
+var f = w.player ? w.feet() : null;
+return !!(f && w.wild && w.wild.animals.some(function (a) { return a.mode === 'charge' && Math.hypot(a.x - f.x, a.y - f.y) < 6 * T; }));
+};
+U.followNote = function (text, label, act, still) {
+var self = this, tries = 0;
+if (!P.__shotSeen && typeof P.shoot === 'function') {
+var shoot = P.shoot;
+P.shoot = function () { this.shotAt = Date.now(); return shoot.apply(this, arguments); };
+P.__shotSeen = true;
+}
+var show = function () {
+if (still && !still()) return;
+if ((fighting() || self.modals.length) && tries++ < 60) return setTimeout(show, 1000);
+if (self.followBox) { self.followBox.destroy(); self.followBox = null; }
+var K = F.UI_CONST, W = K.W, w = W - 32, h = 46, c = self.followBox = self.add.container(16, 122).setDepth(60).setAlpha(0);
+var bg = self.add.graphics();
+bg.fillStyle(0x24160b, 0.9).fillRoundedRect(0, 0, w, h, 12);
+bg.lineStyle(1.5, 0xffd23f, 0.8).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 11.25);
+var t = self.txt(12, h / 2, text, 12, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 110 }, maxLines: 2 }).setOrigin(0, 0.5);
+c.add([bg, t]);
+var go = function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } act(); };
+self.button(c, w - 46, h / 2, 76, 30, label || 'Follow', go, 0x5fa84a);
+var z = self.add.zone(0, 0, w - 92, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+F.tapOn(z, go);
+c.add(z);
 if (F.Audio) F.Audio.sfx('found');
-F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (fl > F.session.lairFloor ? 'DOWN' : 'UP') + '\n' + v.name + ' is on floor ' + fl + ' of ' + (cfg.lair ? 'the Lair' : cfg.name) + '. Follow them?', [
-{ label: 'Stay here', color: 0xc0703a },
-{ label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel(cave, 'entrance', fl); } },
-]);
+self.tweens.add({ targets: c, alpha: 1, duration: 200 });
+self.time.delayedCall(NOTE_MS, function () {
+if (self.followBox !== c) return;
+self.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } } });
+});
 };
 show();
 };
@@ -28917,11 +28949,9 @@ if (F.session.visit !== v || !w || w.mapKey === to) return;
 var now = O.others[v.host];
 if (!now || now.map !== to) { delete v.asked['map:' + to]; return; }
 if (F.ui.modals.length || w.busy) return setTimeout(show, 1200);
-sfx('found');
-F.ui.dialog(title + '\n' + line, [
-{ label: 'Stay here', color: 0xc0703a },
-{ label: yes, cb: function () { v.chase = to; O.follow(to); } },
-]);
+
+F.ui.followNote(line, yes, function () { v.chase = to; O.follow(to); }, function () { var n = O.others[v.host]; return F.session.visit === v && !!n && n.map === to; });
+void title;
 };
 show();
 };
@@ -28936,8 +28966,8 @@ return;
 }
 if (v.chase === to) return O.follow(to);
 var name = v.name, big = name.toUpperCase().slice(0, 18);
-if (L.isWildMap(to)) return O.askFollow(v, to, big + ' WENT HUNTING', name + ' is hunting in ' + WI.areas[to].name + '. Hunt together?', 'Join them');
-if (L.isWildMap(w.mapKey) && (to === 'town' || to === 'farm')) return O.askFollow(v, to, big + ' LEFT', name + ' went back to ' + (to === 'town' ? 'town' : 'the farm') + '. Follow them?', 'Follow');
+if (L.isWildMap(to)) return O.askFollow(v, to, big + ' WENT HUNTING', name + ' is hunting in ' + WI.areas[to].name + '.', 'Join them');
+if (L.isWildMap(w.mapKey) && (to === 'town' || to === 'farm')) return O.askFollow(v, to, big + ' LEFT', name + ' went back to ' + (to === 'town' ? 'town' : 'the farm') + '.', 'Follow');
 return hostMoved.call(O, v, host);
 };
 

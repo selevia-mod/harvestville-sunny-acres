@@ -99,11 +99,7 @@
       var ww = F.world;
       if (F.session.visit !== v || !ww || ww.busy) return;
       if (F.ui.modals.length) return setTimeout(show, 1200);
-      if (F.Audio) F.Audio.sfx('found');
-      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' IS IN THE MINE\n' + v.name + ' went to floor ' + fl + ' of the mine. Follow them?', [
-        { label: 'Stay here', color: 0xc0703a },
-        { label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel('mine', 'entrance', fl); } },
-      ]);
+      F.ui.followNote(v.name + ' went to floor ' + fl + ' of the mine.', 'Follow', function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel('mine', 'entrance', fl); });
     };
     show();
   };
@@ -130,11 +126,51 @@
       if (F.session.visit !== v || !ww || ww.busy || ww.mapKey !== cave) return;
       if (!now || now.map !== cave || now.fl !== fl) { delete v.asked[cave + ':' + fl]; return; } // (they have moved on)
       if (F.ui.modals.length) return setTimeout(show, 1200);
+      F.ui.followNote(v.name + ' went ' + (fl > F.session.lairFloor ? 'down' : 'up') + ' to floor ' + fl + ' of ' + (cfg.lair ? 'the Lair' : cfg.name) + '.', 'Follow', function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel(cave, 'entrance', fl); });
+    };
+    show();
+  };
+  // ---------- a friend went somewhere: a small banner, never a pop-up ----------
+  // Owner, 7 Nov 2026: "the stay here and follow them button on dungeon is annoying, we need to improve it and make new
+  // rules". The rules: no pop-up that stops your game (a banner at the top, 6 s, tap Follow or let it go); never while you
+  // fight (an animal charging near you, or a shot of yours a moment ago: it waits until it is calm); once for each friend
+  // and place or floor (as before: v.asked); in a dungeon friends meet on a floor anyway (19zzzzzzzzz-gameserver.js).
+  var U = F.UIScene.prototype, NOTE_MS = 6000;
+  var fighting = function () {
+    var w = F.world;
+    if (!w || w.busy) return true;
+    if (w.shotAt && Date.now() - w.shotAt < 3000) return true;
+    var f = w.player ? w.feet() : null;
+    return !!(f && w.wild && w.wild.animals.some(function (a) { return a.mode === 'charge' && Math.hypot(a.x - f.x, a.y - f.y) < 6 * T; }));
+  };
+  U.followNote = function (text, label, act, still) {
+    var self = this, tries = 0;
+    if (!P.__shotSeen && typeof P.shoot === 'function') { // (a shot of yours: when, for 'fighting')
+      var shoot = P.shoot;
+      P.shoot = function () { this.shotAt = Date.now(); return shoot.apply(this, arguments); };
+      P.__shotSeen = true;
+    }
+    var show = function () {
+      if (still && !still()) return;
+      if ((fighting() || self.modals.length) && tries++ < 60) return setTimeout(show, 1000);
+      if (self.followBox) { self.followBox.destroy(); self.followBox = null; }
+      var K = F.UI_CONST, W = K.W, w = W - 32, h = 46, c = self.followBox = self.add.container(16, 122).setDepth(60).setAlpha(0);
+      var bg = self.add.graphics();
+      bg.fillStyle(0x24160b, 0.9).fillRoundedRect(0, 0, w, h, 12);
+      bg.lineStyle(1.5, 0xffd23f, 0.8).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 11.25);
+      var t = self.txt(12, h / 2, text, 12, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 110 }, maxLines: 2 }).setOrigin(0, 0.5);
+      c.add([bg, t]);
+      var go = function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } act(); };
+      self.button(c, w - 46, h / 2, 76, 30, label || 'Follow', go, 0x5fa84a);
+      var z = self.add.zone(0, 0, w - 92, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      F.tapOn(z, go);
+      c.add(z);
       if (F.Audio) F.Audio.sfx('found');
-      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (fl > F.session.lairFloor ? 'DOWN' : 'UP') + '\n' + v.name + ' is on floor ' + fl + ' of ' + (cfg.lair ? 'the Lair' : cfg.name) + '. Follow them?', [
-        { label: 'Stay here', color: 0xc0703a },
-        { label: 'Follow', cb: function () { var w2 = F.world; if (w2 && !w2.busy && F.session.visit === v) w2.travel(cave, 'entrance', fl); } },
-      ]);
+      self.tweens.add({ targets: c, alpha: 1, duration: 200 });
+      self.time.delayedCall(NOTE_MS, function () {
+        if (self.followBox !== c) return;
+        self.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } } });
+      });
     };
     show();
   };

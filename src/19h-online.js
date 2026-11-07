@@ -364,11 +364,7 @@
       var now = O.others[v.host];
       if (!now || now.map !== to) { delete v.asked['map:' + to]; return; } // (they have moved on: no old news)
       if (F.ui.modals.length || ww.busy) return setTimeout(show, 1200);
-      sfx('found');
-      F.ui.dialog(v.name.toUpperCase().slice(0, 18) + ' WENT ' + (to === 'town' ? 'TO TOWN' : 'HOME') + '\n' + v.name + ' went ' + where + '. Follow them?', [
-        { label: 'Stay here', color: 0xc0703a },
-        { label: 'Follow', cb: function () { O.follow(to); } },
-      ]);
+      if (F.ui.followNote) F.ui.followNote(v.name + ' went ' + where + '.', 'Follow', function () { O.follow(to); }); // (a banner, not a pop-up: 19r-follow.js)
     };
     show();
   };
@@ -1303,14 +1299,14 @@
           desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : 'Send ' + who + ' a friend request. No code needed.',
           buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
         }] : []).concat([
+        // (Report and Block on one row: with Add friend the menu stays one page, 7 Nov 2026)
         {
-          icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
-          buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
-        },
-        {
-          icon: C.ICON.exclaim, name: blocked ? 'Unblock' : 'Block',
-          desc: blocked ? 'Let them find, visit and message you again.' : "They can't visit, find or message you, and you won't see them.",
-          buttons: [{ label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } }],
+          icon: C.ICON.exclaim, name: blocked ? 'Report or unblock' : 'Report or block',
+          desc: blocked ? 'Tell Selebox, or let them find, visit and message you again.' : 'A rude name or messages? Tell Selebox, or block them.',
+          buttons: [
+            { label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } },
+            { label: blocked ? 'Unblock' : 'Block', color: blocked ? GREY : RED, cb: function () { self.closeModal(); self.blockPlayer(id, who, !blocked, back); } },
+          ],
         },
       ]),
     });

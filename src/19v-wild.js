@@ -923,11 +923,9 @@
       var now = O.others[v.host];
       if (!now || now.map !== to) { delete v.asked['map:' + to]; return; } // (they have moved on: no old news)
       if (F.ui.modals.length || w.busy) return setTimeout(show, 1200);
-      sfx('found');
-      F.ui.dialog(title + '\n' + line, [
-        { label: 'Stay here', color: 0xc0703a },
-        { label: yes, cb: function () { v.chase = to; O.follow(to); } },
-      ]);
+      // a banner, not a pop-up (owner, 7 Nov 2026: "the stay here and follow them button ... is annoying": 19r-follow.js)
+      F.ui.followNote(line, yes, function () { v.chase = to; O.follow(to); }, function () { var n = O.others[v.host]; return F.session.visit === v && !!n && n.map === to; });
+      void title;
     };
     show();
   };
@@ -942,8 +940,8 @@
     }
     if (v.chase === to) return O.follow(to);
     var name = v.name, big = name.toUpperCase().slice(0, 18);
-    if (L.isWildMap(to)) return O.askFollow(v, to, big + ' WENT HUNTING', name + ' is hunting in ' + WI.areas[to].name + '. Hunt together?', 'Join them');
-    if (L.isWildMap(w.mapKey) && (to === 'town' || to === 'farm')) return O.askFollow(v, to, big + ' LEFT', name + ' went back to ' + (to === 'town' ? 'town' : 'the farm') + '. Follow them?', 'Follow');
+    if (L.isWildMap(to)) return O.askFollow(v, to, big + ' WENT HUNTING', name + ' is hunting in ' + WI.areas[to].name + '.', 'Join them');
+    if (L.isWildMap(w.mapKey) && (to === 'town' || to === 'farm')) return O.askFollow(v, to, big + ' LEFT', name + ' went back to ' + (to === 'town' ? 'town' : 'the farm') + '.', 'Follow');
     return hostMoved.call(O, v, host);
   };
 
