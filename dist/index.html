@@ -24772,7 +24772,12 @@ o.empty = empty;
 self.listPanel(o);
 if (then) then();
 };
-var fail = function (e) { self.swapping = null; self.toast(errText(e)); };
+var fail = function (e) {
+self.swapping = null;
+var top = self.modals[self.modals.length - 1];
+if (top && top.quick === 'loading') self.closeModal();
+self.toast(errText(e));
+};
 
 var more = function (id, n, back) {
 return { label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, function (then) { self.openOnline(back, 0, then); }); } };
@@ -43529,12 +43534,38 @@ this.pubChipBox.setVisible(true);
 
 
 var HERE = ['here', 'Here'];
+
+
+
+
+var onlineCache = {};
+var cacheKey = function (ui, tab, page) { var k = ui.onlineKind || {}; return tab + ':' + (page || 0) + ':' + (k[tab] || ''); };
+var listPanelBefore = U.listPanel;
+U.listPanel = function (o) {
+if (o && o.title === 'Online' && o.tab && o.tab !== 'here' && Array.isArray(o.rows) && !o.quick) {
+onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: o.sub ? o.sub() : '', empty: o.empty || '' };
+}
+return listPanelBefore.apply(this, arguments);
+};
+var quickOnline = function (ui, tab, page) {
+if (!F.Net.available() || !O.on || !F.session.state.net.named) return;
+var had = onlineCache[cacheKey(ui, tab, page)];
+ui.listPanel({
+title: 'Online', tab: tab, page: page || 0, tabs: O.TABS, quick: true,
+rows: had ? had.rows : [], empty: had ? had.empty : '',
+sub: function () { return had ? had.sub : 'Loading...'; },
+reopen: function (t, p) { ui.openOnline(t, p); },
+});
+var top = ui.modals[ui.modals.length - 1];
+if (top) top.quick = had ? 'cached' : 'loading';
+ui.swapping = { m: top, at: Date.now() };
+};
 var openOnline = U.openOnline;
 U.openOnline = function (tab, page, then) {
 var g = pubLive(), at = O.TABS.indexOf(HERE);
 if (g && at < 0) O.TABS.unshift(HERE);
 if (!g && at >= 0) O.TABS.splice(at, 1);
-if (tab !== 'here') return openOnline.apply(this, arguments);
+if (tab !== 'here') { quickOnline(this, tab, page); return openOnline.apply(this, arguments); }
 if (!g || !F.Net.available() || !O.on) return openOnline.call(this, 'visit', page, then);
 var self = this, n = g.here || Object.keys(g.ppl).length + 1, ids = nearest(g);
 var rows = ids.map(function (id) {

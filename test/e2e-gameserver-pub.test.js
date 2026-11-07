@@ -1227,3 +1227,47 @@ test('SHOT: the follow banner (for the owner)', { skip: !process.env.CHIP_SHOT }
   await me.page.screenshot({ path: process.env.CHIP_SHOT + '/follow-banner.png' });
   await me.context.close();
 });
+
+// Owner, 7 Nov 2026: "the online button will take time to load? ... a delay of 0.5 - 1s". With the server 1 s slow:
+// the panel is there at once ('Loading...' the first time, the last list after), the server's list takes its place in
+// the same frame, and X while it loads keeps it closed.
+test('Online opens at once: Loading... the first time, the last list after, then the server\'s; closed while loading stays closed', async () => {
+  const server = createServer();
+  const me = await open(server, null, 'Moon Meadow'), sun = await open(server, null, 'Sun Patch');
+  await me.page.evaluate(() => { const rpc = Farm.Net.rpc.bind(Farm.Net); Farm.Net.rpc = (n, a) => (/^farm_(list|friends)_v1$/.test(n) ? new Promise((r) => setTimeout(r, 1000)).then(() => rpc(n, a)) : rpc(n, a)); });
+  const sub = () => me.page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; if (!m) return null; const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return out.join(' | '); });
+  const tapOnline = async () => {
+    const at = await me.page.evaluate(() => { const c = Farm.ui.onlineBtn.list[0], m = c.getWorldTransformMatrix(); return { x: m.tx / Farm.R, y: m.ty / Farm.R }; });
+    const t0 = Date.now();
+    await me.page.touchscreen.tap(at.x, at.y);
+    await me.page.waitForFunction(() => Farm.ui.modals.length > 0, null, { timeout: 5000 });
+    return Date.now() - t0;
+  };
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  const first = await tapOnline();
+  assert.match(await sub(), /Online \| Loading\.\.\./, 'the first time: Loading...');
+  await me.page.waitForFunction(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return /Walk around, wave/.test(out.join(' ')); }, null, SLOW);
+  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 1, 'one panel, the loading one replaced');
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  const again = await tapOnline();
+  assert.match(await sub(), /Walk around, wave/, 'the last list at once');
+  assert.doesNotMatch(await sub(), /Loading/);
+  await sleep(1500);
+  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 1);
+  // closed while the server's list is still coming: it stays closed
+  await me.page.evaluate(() => Farm.ui.closeAll());
+  await tapOnline();
+  await me.page.evaluate(() => Farm.ui.closeModal());
+  await sleep(1600);
+  assert.strictEqual(await me.page.evaluate(() => Farm.ui.modals.length), 0, 'stays closed');
+  // a load that fails (no signal): the Loading... panel goes and the usual message shows (never stuck on Loading...)
+  await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.onlineKind.ranks = 'beauty'; const rpc = Farm.Net.rpc; Farm.Net.rpc = (n, a) => (n === 'farm_leaderboard_v1' ? Promise.reject(new Error('Failed to fetch')) : rpc(n, a)); Farm.ui.openOnline('ranks', 0); });
+  await me.page.waitForFunction(() => Farm.ui.modals.length === 0 || !/Loading/.test(JSON.stringify(Farm.ui.modals.map((m) => m.quick || ''))), null, SLOW);
+  await sleep(500);
+  const after = await me.page.evaluate(() => Farm.ui.modals.map((m) => m.quick || 'list'));
+  assert.ok(!after.includes('loading'), 'never left on Loading...: ' + JSON.stringify(after));
+  console.log('[online at once] first tap ' + first + ' ms, again ' + again + ' ms (the server 1000 ms slow)');
+  assert.ok(first < 600 && again < 600, 'the panel is there at once');
+  for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([me.context.close(), sun.context.close()]);
+});

@@ -965,12 +965,38 @@
   // In a hunting place the Online button opens Here first: the room and how many, then the hunters near you (the nearest
   // 15 the server tells of), each with Add friend (not a friend already) and More (Report, Block). The other tabs as ever.
   var HERE = ['here', 'Here'];
+  // Online opens at once (owner, 7 Nov 2026: "the online button will take time to load? ... a delay of 0.5 - 1s"): each
+  // tab asks the server for its list first; now the panel shows straight away with the list from last time (or
+  // 'Loading...' the first time), and the server's list takes its place in the same frame when it comes (U.swapTo's way:
+  // closed with X before then, it stays closed).
+  var onlineCache = {};
+  var cacheKey = function (ui, tab, page) { var k = ui.onlineKind || {}; return tab + ':' + (page || 0) + ':' + (k[tab] || ''); };
+  var listPanelBefore = U.listPanel;
+  U.listPanel = function (o) {
+    if (o && o.title === 'Online' && o.tab && o.tab !== 'here' && Array.isArray(o.rows) && !o.quick) {
+      onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: o.sub ? o.sub() : '', empty: o.empty || '' };
+    }
+    return listPanelBefore.apply(this, arguments);
+  };
+  var quickOnline = function (ui, tab, page) {
+    if (!F.Net.available() || !O.on || !F.session.state.net.named) return; // (the join and name steps are their own panels)
+    var had = onlineCache[cacheKey(ui, tab, page)];
+    ui.listPanel({
+      title: 'Online', tab: tab, page: page || 0, tabs: O.TABS, quick: true,
+      rows: had ? had.rows : [], empty: had ? had.empty : '',
+      sub: function () { return had ? had.sub : 'Loading...'; },
+      reopen: function (t, p) { ui.openOnline(t, p); },
+    });
+    var top = ui.modals[ui.modals.length - 1];
+    if (top) top.quick = had ? 'cached' : 'loading';
+    ui.swapping = { m: top, at: Date.now() }; // (the server's list takes this one's place)
+  };
   var openOnline = U.openOnline;
   U.openOnline = function (tab, page, then) {
     var g = pubLive(), at = O.TABS.indexOf(HERE);
     if (g && at < 0) O.TABS.unshift(HERE);
     if (!g && at >= 0) O.TABS.splice(at, 1);
-    if (tab !== 'here') return openOnline.apply(this, arguments);
+    if (tab !== 'here') { quickOnline(this, tab, page); return openOnline.apply(this, arguments); }
     if (!g || !F.Net.available() || !O.on) return openOnline.call(this, 'visit', page, then);
     var self = this, n = g.here || Object.keys(g.ppl).length + 1, ids = nearest(g);
     var rows = ids.map(function (id) {

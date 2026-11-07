@@ -1041,7 +1041,12 @@
       self.listPanel(o);
       if (then) then();
     };
-    var fail = function (e) { self.swapping = null; self.toast(errText(e)); }; // a failed load lets the next tap try again
+    var fail = function (e) { // a failed load lets the next tap try again (and never leaves a 'Loading...' panel up)
+      self.swapping = null;
+      var top = self.modals[self.modals.length - 1];
+      if (top && top.quick === 'loading') self.closeModal();
+      self.toast(errText(e));
+    };
     // Report or block a player, then come back to this tab.
     var more = function (id, n, back) {
       return { label: 'More', color: GREY, cb: function () { self.closeModal(); self.playerMenu(id, n, function (then) { self.openOnline(back, 0, then); }); } };
