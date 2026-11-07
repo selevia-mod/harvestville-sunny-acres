@@ -1324,3 +1324,70 @@ test('REAL pub: a first answer too slow (the old way for now), then the server i
   await me.context.close();
   proxy.close();
 });
+
+test('PROBE: a Magayon tiger hit with the real bow from where the owner stood (bar drops and comes back?)', { skip: !process.env.TIGER_PROBE }, async () => {
+  const real = await realServer();
+  const server = createServer();
+  const me = await open(server, real.direct, 'Moon Meadow');
+  await me.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; });
+  await go(me, 'magayon', 'from_makiling');
+  await waitMode(me.page, 'live');
+  const tig = await me.page.evaluate(() => Farm.world.wild.animals.filter((a) => a.kind === 'tiger').map((a) => ({ s: a.slot, x: Math.round(a.x), y: Math.round(a.y), hp: a.hp })));
+  console.log('[tigers] ' + JSON.stringify(tig));
+  const slot = tig[0].s;
+  const log = [];
+  for (let i = 0; i < 12; i++) {
+    const r = await me.page.evaluate((n) => { const w = Farm.world, a = w.wild.animals.find((x) => x.slot === n); if (!a) return null; w.setFeet(a.x - 4.5 * 256, a.y); w.dir = 'right'; return { hp: a.hp, gsHp: a.gsHp, pend: (a.gsPend || []).length, mode: a.mode, x: Math.round(a.x) }; }, slot);
+    if (!r) { log.push('gone'); break; }
+    await sleep(400);
+    await me.page.evaluate(() => { Farm.ui.closeAll(); const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); Farm.world.shoot(); });
+    await sleep(900);
+    const after = await me.page.evaluate((n) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return a ? { hp: a.hp, gsHp: a.gsHp, pend: (a.gsPend || []).length, mode: a.mode } : null; }, slot);
+    log.push(JSON.stringify([r, after]));
+  }
+  console.log('[tiger probe]\n' + log.join('\n'));
+  await me.context.close();
+});
+
+// Owner, 7 Nov 2026: "villager sometimes they go in one place so they stack and cannot talk to the people" (Mayor Hollis
+// inside the fountain: the plaza's middle point is under it). In town at busy hours: every villager out stands on a tile
+// of their own, none inside anything solid, and each one is the one you talk to from in front of them.
+test('town: villagers at the same place stand apart, never inside the fountain, and each can be talked to', async () => {
+  const server = createServer();
+  const me = await open(server, null, 'Moon Meadow');
+  const out = {};
+  for (const hour of [9.5, 13.5, 17]) {
+    // (the hour in the Philippines, as the app's clock says it: the game keeps its own time from it)
+    await me.page.evaluate((h) => { const d = new Date(), at = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0) + (h - 8) * 3600000; window.gameHost.now = () => at; Farm.ui.closeAll(); }, hour);
+    await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel(Farm.world.mapKey === 'town' ? 'farm' : 'town', Farm.world.mapKey === 'town' ? 'from_town' : 'from_farm'); });
+    await me.page.waitForFunction(() => !Farm.world.busy && Farm.world.player.active, null, SLOW);
+    if (await me.page.evaluate(() => Farm.world.mapKey !== 'town')) {
+      await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('town', 'from_farm'); });
+    }
+    await me.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.villagers, null, SLOW);
+    await me.page.evaluate(() => Farm.ui.closeAll());
+    await sleep(800);
+    const r = await me.page.evaluate(() => {
+      const w = Farm.world, T = Farm.Config.TILE, vs = w.villagers.list.filter((v) => v.visible);
+      // where each is going (the end of its walk), and whether that tile is open ground
+      const ends = vs.map((v) => { const t = w.villagers.targetOf(v, w.state.time).point; return { k: v.key, x: t.x, y: t.y, tx: Math.floor(t.x / T), ty: Math.floor((t.y - 40) / T) }; });
+      const stack = [];
+      for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) if (Math.hypot(ends[i].x - ends[j].x, ends[i].y - ends[j].y) < 0.6 * T) stack.push(ends[i].k + '+' + ends[j].k);
+      const inside = ends.filter((e) => !w.walkable(e.tx, e.ty)).map((e) => e.k);
+      // each one, standing there: the one found in front of a farmer facing them
+      vs.forEach((v) => { const t = w.villagers.targetOf(v, w.state.time).point; w.villagers.put(v, t.x, t.y, true); });
+      const talk = vs.filter((v) => w.villagers.at(v.x, v.y - 0.3 * T) !== v).map((v) => v.key);
+      const dbg = stack.length ? ends.filter((e) => stack.some((p) => p.split('+').includes(e.k))).map((e) => e.k + '@' + e.tx + ',' + e.ty + ' ' + Math.round(e.x) + ',' + Math.round(e.y) + ' place=' + Farm.Logic.villagerAt(w.state, e.k, w.state.time) + ' errand=' + !!(vs.find((v) => v.key === e.k) || {}).errand) : [];
+      return { out: vs.length, stack, inside, talk, dbg };
+    });
+    out[hour] = r;
+  }
+  console.log('[villagers] ' + JSON.stringify(out));
+  for (const h of Object.keys(out)) {
+    assert.deepStrictEqual(out[h].stack, [], h + 'h: nobody on top of anybody');
+    assert.deepStrictEqual(out[h].inside, [], h + 'h: nobody inside the fountain or a wall');
+    assert.deepStrictEqual(out[h].talk, [], h + 'h: each one can be talked to');
+  }
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});

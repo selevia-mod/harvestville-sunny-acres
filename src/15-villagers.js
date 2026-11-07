@@ -55,7 +55,33 @@
       if (this.map === 'house') return place === 'home' ? { place: place, point: pts.spouse } : { place: place, point: null, hide: true };
       if (place.indexOf('in:') === 0) return { place: place, point: pts['door_' + place.slice(3)], hide: true };
       if (place === 'away' || place === 'home') return { place: place, point: pts.from_farm, hide: true };
-      return { place: place, point: pts[place] || pts.plaza_c };
+      return { place: place, point: this.spot(v, place, pts[place] || pts.plaza_c, time) };
+    }
+
+    // Where one villager stands at a place: a free tile of its own near the place's point, never inside something solid
+    // (the plaza's middle is under the Bayanihan fountain once it is built) and never on another villager there at the
+    // same time, so each one can be reached to talk (owner, 7 Nov 2026: "sometimes they go in one place so they stack
+    // and cannot talk to the people"). The same tile all hour: the nth villager there (by their place in the list) takes
+    // the nth free tile round the point.
+    spot(v, place, pt, time) {
+      var sc = this.scene, T0 = T, st = sc.state;
+      if (!pt || !sc.walkable) return pt;
+      // the tiles taken this minute (each villager's, in the list's order): none shares one, whatever place they go to
+      var mk = st.day + ':' + Math.floor(time);
+      if (!this.taken || this.taken.mk !== mk) this.taken = { mk: mk, by: {} };
+      var by = this.taken.by, mine = function (k) { return !by[k] || by[k] === v.key; };
+      Object.keys(by).forEach(function (k) { if (by[k] === v.key) delete by[k]; });
+      var tx = Math.floor(pt.x / T0), ty = Math.floor((pt.y - 40) / T0);
+      for (var r = 0; r <= 4; r++) {
+        for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          var x = tx + dx, y = ty + dy, k = x + ',' + y;
+          if (!sc.walkable(x, y) || !mine(k)) continue;
+          by[k] = v.key;
+          return { x: x * T0 + T0 / 2, y: y * T0 + T0 / 2 + 40 }; // (a tile's middle: two never closer than a tile)
+        }
+      }
+      return pt;
     }
 
     put(v, x, y, visible) {
