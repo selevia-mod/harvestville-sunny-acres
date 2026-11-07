@@ -429,14 +429,15 @@ test('v2.1 names what is live, the two server features included now the script i
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
 });
 
-test('v2.10 is the newest (friends\' arrows hit, 7 Nov 2026), v2.9 the Great Mammoth for everyone, v2.8 friends meet in dungeons, v2.7 chat with everyone in a hunting place, v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
-  assert.strictEqual(C.NEWS[0].v, '2.10');
-  assert.strictEqual(C.NEWS_LATEST, '2.10');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Friends\' arrows hit', 'Smoother players', 'Friend requests reach you']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['The Great Mammoth for everyone', 'Online opens at once', 'Villagers stand apart']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['Friends meet in dungeons', 'Who is hunting here', 'Fair hunting for everyone', 'Follow a friend', 'Smoother and neater']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[3].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[4].lines.map((l) => l[1]))), ['Hunt with everyone', 'Medal frames', 'Smoother dungeons with friends']);
+test('v2.11 is the newest (your buildings are back, 8 Nov 2026), v2.10 friends\' arrows hit, v2.9 the Great Mammoth for everyone, v2.8 friends meet in dungeons, v2.7 chat with everyone in a hunting place, v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
+  assert.strictEqual(C.NEWS[0].v, '2.11');
+  assert.strictEqual(C.NEWS_LATEST, '2.11');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Your buildings are back', 'Faster eggs and milk', 'Animals work while you are away']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Friends\' arrows hit', 'Smoother players', 'Friend requests reach you']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['The Great Mammoth for everyone', 'Online opens at once', 'Villagers stand apart']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[3].lines.map((l) => l[1]))), ['Friends meet in dungeons', 'Who is hunting here', 'Fair hunting for everyone', 'Follow a friend', 'Smoother and neater']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[4].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[5].lines.map((l) => l[1]))), ['Hunt with everyone', 'Medal frames', 'Smoother dungeons with friends']);
   const news = C.NEWS.filter((n) => n.v === '2.3')[0];
   assert.ok(news.lines.some((l) => l[1] === 'Every cabinet, its own storage'));
   const titles = C.NEWS.filter((n) => n.v === '2.2')[0].lines.map((l) => l[1]);

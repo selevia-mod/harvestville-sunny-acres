@@ -104,8 +104,14 @@ test('your birthday: month and day only; the mayor sends a cake once a year; vil
   assert.strictEqual(back.bd, 403);
   assert.strictEqual(back.bdy, 2026);
   const o = plain(L.serialize(s));
-  o.bd = [1399, 2026];
+  o.bb = [1399, 2026];
   assert.strictEqual(L.deserialize(o).bd, 0);
+  // (8 Nov 2026) the birthday is o.bb now, never over the builds list o.bd; a save from before still has it as o.bd
+  assert.ok(Array.isArray(o.bd) && o.bd.length === C.BUILD_KEYS.length, 'o.bd is the builds list');
+  const old = plain(L.serialize(s));
+  delete old.bb;
+  old.bd = [403, 2026];
+  assert.strictEqual(L.deserialize(old).bd, 403);
   // a February 29th birthday is on the 28th in other years
   const f = fresh(2027, 2, 28);
   L.setBirthday(f, 2, 29);

@@ -201,7 +201,7 @@ test('Kanor and Tita Luz are there at every hour, like every shop', () => {
   });
 });
 
-test('animals: a chicken lays 8 hours after eating, a cow 12; the night only checks who ate today; the timer survives a save', () => {
+test('animals: a chicken lays 4 hours after eating, a cow 6 (owner, 8 Nov 2026; it was 8 and 12); the night only checks who ate today; the timer survives a save', () => {
   clock.set(2026, 4, 1, 9, 0);
   const s = L.newState();
   s.gold = 1e6;
@@ -213,30 +213,36 @@ test('animals: a chicken lays 8 hours after eating, a cow 12; the night only che
   assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'ok');
   assert.strictEqual(L.feedAnimal(s, 1, slotOf(s, 'fodder')), 'ok');
   assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'already', 'one meal at a time');
-  assert.strictEqual(L.animalLeft(hen), 8 * 60);
-  assert.strictEqual(L.animalLeft(cow), 12 * 60);
+  assert.strictEqual(L.animalLeft(hen), 4 * 60);
+  assert.strictEqual(L.animalLeft(cow), 6 * 60);
   // the timer survives a save
   clock.advance(60);
   const back = roundTrip(s);
-  assert.strictEqual(L.animalLeft(back.animals[0]), 7 * 60);
+  assert.strictEqual(L.animalLeft(back.animals[0]), 3 * 60);
   assert.strictEqual(back.animals[0].fd, 1);
-  clock.advance(7 * 60); // 5 PM
+  clock.advance(3 * 60); // 1 PM
   L.catchUp(s, clock.ms);
-  assert.strictEqual(hen.ready, 1, 'the egg at 5 PM');
+  assert.strictEqual(hen.ready, 1, 'the egg at 1 PM');
   assert.strictEqual(cow.ready, 0, 'the milk not yet');
   assert.strictEqual(L.collect(s, 0), 'egg');
   assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'ok', 'fed again');
-  clock.advance(4 * 60); // 9 PM
+  clock.advance(2 * 60); // 3 PM
   L.catchUp(s, clock.ms);
-  assert.strictEqual(cow.ready, 1);
-  // midnight: both ate today, no one is hungry; the hen's second egg comes at 1 AM, after the night
+  assert.strictEqual(cow.ready, 1, 'the milk at 3 PM');
+  clock.advance(2 * 60); // 5 PM
+  L.catchUp(s, clock.ms);
+  assert.strictEqual(hen.ready, 1, 'the second egg at 5 PM');
+  assert.strictEqual(L.collect(s, 0), 'egg');
+  clock.advance(4 * 60); // 9 PM: fed for the night
+  assert.strictEqual(L.feedAnimal(s, 0, slotOf(s, 'chicken_feed')), 'ok');
+  // midnight: both ate today, no one is hungry; the hen's third egg comes at 1 AM, after the night
   clock.advance(3 * 60 + 30);
   const r = L.catchUp(s, clock.ms);
   assert.ok(r, 'a new day');
   assert.deepStrictEqual(plain(r.hungry), []);
   clock.advance(60);
   L.catchUp(s, clock.ms);
-  assert.strictEqual(hen.ready, 1, 'the second egg');
+  assert.strictEqual(hen.ready, 1, 'the egg after the night');
   // a day without food: hungry at midnight
   L.collect(s, 0); L.collect(s, 1);
   clock.advance(24 * 60);

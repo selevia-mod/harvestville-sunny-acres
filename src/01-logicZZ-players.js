@@ -248,8 +248,22 @@
     if (s.project2) o.p2 = [C.BUILD_KEYS.indexOf(s.project2.id), Math.max(0, s.project2.done - s.day)];
     // each animal: (minutes since it was fed + 1) x 2 + fed today, or 0
     var now = L.nowMin(), af = (s.animals || []).map(function (a) { return (a.fed && a.ft != null ? (Math.max(0, now - a.ft) + 1) * 2 : 0) + (a.fd ? 1 : 0); });
-    if (af.some(Boolean)) o.af = af;
+    if (af.some(Boolean)) { o.af = af; o.am = now; } // (am: the minute this was saved, so the time away counts)
     return o;
+  };
+  // The minute a save was written: o.am, or (older saves) its day and time of day, which follow the phone's clock
+  // every second (11-world.js tickClock). Owner, 8 Nov 2026 (players: "animals didn't give milk and eggs"): a load
+  // counted "minutes since fed" from the load itself, so the hours the game was closed never counted and an animal only
+  // gave when the game stayed open 8 or 12 hours. Never later than now (a clock set back), never more than 30 days ago.
+  L.savedMin = function (o, now) {
+    var at = Math.floor(Number(o && o.am));
+    if (!isFinite(at) || at <= 0) {
+      var day = Math.floor(Number(o && o.d)), t = Math.floor(Number(o && o.t));
+      if (!isFinite(day) || !isFinite(t) || day <= 0) return now;
+      var u = new Date(day * 864e5);
+      at = Math.floor(new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()).getTime() / 60000) + Math.max(0, Math.min(1439, t));
+    }
+    return Math.max(now - 30 * 1440, Math.min(now, at));
   };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
@@ -258,7 +272,7 @@
     // (energy above the max is kept: a paid refill stacks; the older loaders trimmed it to the max)
     var e = Math.floor(Number(o && o.e));
     if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST_COINS, e);
-    var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
+    var af = Array.isArray(o && o.af) ? o.af : [], now = L.savedMin(o, L.nowMin()); // (fed `ago` minutes before the save)
     s.animals.forEach(function (a, i) {
       var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
       delete a.fd; delete a.ft; // (only there when they mean something: an older save's animals look as they did)

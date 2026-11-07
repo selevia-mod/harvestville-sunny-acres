@@ -331,11 +331,11 @@ test('feeding needs the right feed, once a day', () => {
   assert.strictEqual(L.countItem(s, 'chicken_feed'), 4);
 });
 
-test('a fed chicken lays 8 hours later (5 Nov 2026: it was the next morning); collecting adds it to the bag', () => {
+test('a fed chicken lays 4 hours later (owner, 8 Nov 2026; 8 hours from 5 Nov, before that the next morning); collecting adds it to the bag', () => {
   const s = L.newState();
   assert.strictEqual(L.collect(s, 0), '!notready');
   L.feedAnimal(s, 0, slotOf(s, 'chicken_feed'));
-  clock.advance(8 * 60 - 1);
+  clock.advance(4 * 60 - 1);
   same(L.animalsTick(s), {});
   assert.strictEqual(L.animalLeft(s.animals[0]), 1);
   clock.advance(1);

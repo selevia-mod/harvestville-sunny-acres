@@ -1282,7 +1282,19 @@
       });
     }
     s.builds = {};
-    if (Array.isArray(o.bd)) C.BUILD_KEYS.forEach(function (k, i) { if (o.bd[i]) s.builds[k] = 1; });
+    // 29 Oct - 8 Nov 2026 (owner, 8 Nov: "Lets repair all of them"): a birthday was saved over this list, as
+    // [month * 100 + day, year], so the farm forgot its Stable, Bigger Coop, Bigger Barn and furniture, and the animals
+    // the small coop and barn could not hold were let go. Such a save (two numbers, never a builds list) keeps what it
+    // has now (the kitchen, and the big house when the year was there), gets the Bigger Coop and Bigger Barn, and the
+    // Stable when the horse is still there (the horse only comes with a Stable); the rest of the repair (the cat
+    // basket, the furniture in the house, the gift and the letter) is in 01-logicZZZZZZZZ-repair.js (s.repairBd).
+    if (Array.isArray(o.bd) && o.bd.length === 2) {
+      s.repairBd = 1;
+      s.builds.coop2 = s.builds.barn2 = 1;
+      if (o.bd[0]) s.builds.kitchen = 1;
+      if (o.bd[1]) s.builds.bighouse = 1;
+      if (Array.isArray(o.hs)) s.builds.stable = 1;
+    } else if (Array.isArray(o.bd)) C.BUILD_KEYS.forEach(function (k, i) { if (o.bd[i]) s.builds[k] = 1; });
     if (Array.isArray(o.pj) && C.BUILD_KEYS[o.pj[0]] && !s.builds[C.BUILD_KEYS[o.pj[0]]]) {
       s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) + shift };
     }

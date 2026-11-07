@@ -41,7 +41,7 @@
     'SELLING AND ANIMALS\n' +
     'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus. ' +
     'Something you don\'t need? Hold it and tap Drop in your Bag: it stays on the ground 5 minutes, and a friend with you can pick it up.\n\n' +
-    'Feed your animals: a chicken lays 8 hours later, and a cow, pig or carabao gives milk or a truffle 12 hours later (a Milker is needed for cows). Feed them again for the next one. Pet and brush them: happy animals give large produce.',
+    'Feed your animals: a chicken lays 4 hours later, and a cow, pig or carabao gives milk or a truffle 6 hours later (a Milker is needed for cows). Feed them again for the next one. Pet and brush them: happy animals give large produce.',
     'TOWN\n' +
     'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
     'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn: two jobs at once) and helps you craft yard pieces from your own flowers, cotton and wheat. Rosa feeds you, Ivy sells tonics. The shops never close. ' +

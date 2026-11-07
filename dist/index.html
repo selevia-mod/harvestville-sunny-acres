@@ -870,6 +870,14 @@ var C = F.Config;
 
 C.NEWS = [
 {
+v: '2.11', date: 'November 8, 2026', lines: [
+
+['chest', 'Your buildings are back', 'Setting a birthday made some farms forget their Stable, Bigger Coop and Bigger Barn. They are back, with a letter from the Mayor, 10,000 gold, lumber and stone.'],
+['egg', 'Faster eggs and milk', 'A chicken lays 4 hours after it eats, and a cow, pig or carabao gives 6 hours after.'],
+['heart', 'Animals work while you are away', 'Eggs and milk now come even when the game is closed. Feed them, come back later, and collect.'],
+],
+},
+{
 v: '2.10', date: 'November 7, 2026', lines: [
 
 ['bow', 'Friends\' arrows hit', 'A friend\'s arrow now leaves from where you see them and stops in the animal it reaches, so a hit no longer looks like a miss.'],
@@ -3093,7 +3101,8 @@ C.BUILDS.coop2.desc = 'Room for 8 chickens.';
 
 
 
-C.ANIMAL_HOURS = { chicken: 8, cow: 12, pig: 12, carabao: 12 };
+
+C.ANIMAL_HOURS = { chicken: 4, cow: 6, pig: 6, carabao: 6 };
 Object.keys(C.ANIMAL_HOURS).forEach(function (k) {
 var a = C.ANIMALS[k], h = C.ANIMAL_HOURS[k], what = { chicken: 'Lays an egg', cow: 'Gives milk', pig: 'Sniffs out a truffle', carabao: 'Gives creamy carabao milk' }[k];
 if (!a) return;
@@ -6557,7 +6566,19 @@ if (Array.isArray(f)) s.friends[key] = { pts: int(f[0], 0, C.FRIEND.max, 0), tal
 });
 }
 s.builds = {};
-if (Array.isArray(o.bd)) C.BUILD_KEYS.forEach(function (k, i) { if (o.bd[i]) s.builds[k] = 1; });
+
+
+
+
+
+
+if (Array.isArray(o.bd) && o.bd.length === 2) {
+s.repairBd = 1;
+s.builds.coop2 = s.builds.barn2 = 1;
+if (o.bd[0]) s.builds.kitchen = 1;
+if (o.bd[1]) s.builds.bighouse = 1;
+if (Array.isArray(o.hs)) s.builds.stable = 1;
+} else if (Array.isArray(o.bd)) C.BUILD_KEYS.forEach(function (k, i) { if (o.bd[i]) s.builds[k] = 1; });
 if (Array.isArray(o.pj) && C.BUILD_KEYS[o.pj[0]] && !s.builds[C.BUILD_KEYS[o.pj[0]]]) {
 s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) + shift };
 }
@@ -9649,7 +9670,7 @@ L.serialize = function (s) {
 var o = serialize(s), bk = [];
 Object.keys(s.basket || {}).forEach(function (id) { if (s.basket[id] > 0) bk.push(id, s.basket[id]); });
 if (bk.length) o.bk = bk;
-if (s.bd) o.bd = [s.bd, s.bdy];
+if (s.bd) o.bb = [s.bd, s.bdy];
 if (s.wv) o.wv = s.wv;
 return o;
 };
@@ -9666,9 +9687,10 @@ if (C.ITEMS[id] && n > 0) s.basket[id] = n;
 s.wv = typeof o.wv === 'string' && /^\d{1,3}(\.\d{1,3})?$/.test(o.wv) ? o.wv : '';
 s.bd = 0;
 s.bdy = 0;
-if (Array.isArray(o.bd)) {
-var md = int(o.bd[0], 0, 9999, 0);
-if (L.setBirthday(s, Math.floor(md / 100), md % 100) === 'ok') s.bdy = int(o.bd[1], 0, 9999, 0);
+var bb = Array.isArray(o.bb) ? o.bb : Array.isArray(o.bd) && o.bd.length === 2 ? o.bd : null;
+if (bb) {
+var md = int(bb[0], 0, 9999, 0);
+if (L.setBirthday(s, Math.floor(md / 100), md % 100) === 'ok') s.bdy = int(bb[1], 0, 9999, 0);
 }
 return s;
 };
@@ -13527,8 +13549,22 @@ var o = serialize(s);
 if (s.project2) o.p2 = [C.BUILD_KEYS.indexOf(s.project2.id), Math.max(0, s.project2.done - s.day)];
 
 var now = L.nowMin(), af = (s.animals || []).map(function (a) { return (a.fed && a.ft != null ? (Math.max(0, now - a.ft) + 1) * 2 : 0) + (a.fd ? 1 : 0); });
-if (af.some(Boolean)) o.af = af;
+if (af.some(Boolean)) { o.af = af; o.am = now; }
 return o;
+};
+
+
+
+
+L.savedMin = function (o, now) {
+var at = Math.floor(Number(o && o.am));
+if (!isFinite(at) || at <= 0) {
+var day = Math.floor(Number(o && o.d)), t = Math.floor(Number(o && o.t));
+if (!isFinite(day) || !isFinite(t) || day <= 0) return now;
+var u = new Date(day * 864e5);
+at = Math.floor(new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()).getTime() / 60000) + Math.max(0, Math.min(1439, t));
+}
+return Math.max(now - 30 * 1440, Math.min(now, at));
 };
 var deserialize = L.deserialize;
 L.deserialize = function (o) {
@@ -13537,7 +13573,7 @@ if (!s) return s;
 
 var e = Math.floor(Number(o && o.e));
 if (isFinite(e) && e > s.energy) s.energy = Math.min(C.ENERGY_MOST_COINS, e);
-var af = Array.isArray(o && o.af) ? o.af : [], now = L.nowMin();
+var af = Array.isArray(o && o.af) ? o.af : [], now = L.savedMin(o, L.nowMin());
 s.animals.forEach(function (a, i) {
 var v = Math.max(0, Math.min(1e7, Math.floor(Number(af[i])) || 0)), ago = Math.floor(v / 2) - 1;
 delete a.fd; delete a.ft;
@@ -15432,6 +15468,51 @@ F.Config.TIPS.push({ key: 'hunt_open_tour', text: 'HUNTING TOGETHER' });
 F.Config.TIPS.push({ key: 'play_together_tour', text: 'PLAYING TOGETHER' });
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZZZZZZ-repair.js
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var H = C.HOME;
+
+C.REPAIR_BD = { gold: 10000, lumber: 180, stone: 20 };
+C.LETTERS.sorry_bd = {
+from: 'hollis',
+text: 'We are so sorry! A mix-up in the town records made some farms forget their buildings, and some animals wandered off. Your Bigger Coop and Bigger Barn are built, your Stable is back if you had a horse, and we added 180 lumber and 20 stone. Here are 10,000 gold to make up for it. - Mayor Hollis',
+gift: ['gold', 10000],
+};
+var FURN = { f_plant: 'big_plant', f_music: 'music_box', f_aquarium: 'aquarium', f_cat: 'cat_bed' };
+
+
+var inHouse = function (s, key) {
+var t = H.typeIndex[key], home = s.home;
+if (t == null || !home) return false;
+if ((home.items || []).some(function (it) { return it.t === t; })) return true;
+return Object.keys(home.bag || {}).some(function (k) { return home.bag[k] > 0 && Number(k.split('.')[0]) === t; });
+};
+
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (!s || !s.repairBd) return s;
+delete s.repairBd;
+if (s.cat) s.builds.f_cat = 1;
+Object.keys(FURN).forEach(function (id) { if (inHouse(s, FURN[id])) s.builds[id] = 1; });
+s.lumber += C.REPAIR_BD.lumber;
+s.stone += C.REPAIR_BD.stone;
+if (s.mail.indexOf('sorry_bd') < 0) s.mail.unshift('sorry_bd');
+return s;
+};
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 
 (function (F) {
@@ -16690,7 +16771,7 @@ var HELP = [
 'SELLING AND ANIMALS\n' +
 'Sell crops, fish, ore and more at the market stall in the town plaza: right away, or on a shelf for more gold when a villager comes to buy it. The order board nearby has villagers\' requests that pay a bonus. ' +
 'Something you don\'t need? Hold it and tap Drop in your Bag: it stays on the ground 5 minutes, and a friend with you can pick it up.\n\n' +
-'Feed your animals: a chicken lays 8 hours later, and a cow, pig or carabao gives milk or a truffle 12 hours later (a Milker is needed for cows). Feed them again for the next one. Pet and brush them: happy animals give large produce.',
+'Feed your animals: a chicken lays 4 hours later, and a cow, pig or carabao gives milk or a truffle 6 hours later (a Milker is needed for cows). Feed them again for the next one. Pet and brush them: happy animals give large produce.',
 'TOWN\n' +
 'Willowbrook is down the road south. Talk to people every day and give gifts to make friends.\n\n' +
 'Bram upgrades tools, Mira builds (kitchen, bigger house, coop, barn: two jobs at once) and helps you craft yard pieces from your own flowers, cotton and wheat. Rosa feeds you, Ivy sells tonics. The shops never close. ' +

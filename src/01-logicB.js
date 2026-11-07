@@ -226,7 +226,7 @@
     var o = serialize(s), bk = [];
     Object.keys(s.basket || {}).forEach(function (id) { if (s.basket[id] > 0) bk.push(id, s.basket[id]); });
     if (bk.length) o.bk = bk;
-    if (s.bd) o.bd = [s.bd, s.bdy];
+    if (s.bd) o.bb = [s.bd, s.bdy]; // (its own key: until 8 Nov 2026 it was o.bd, written over the builds list: 01-logic.js)
     if (s.wv) o.wv = s.wv;
     return o;
   };
@@ -243,9 +243,10 @@
     s.wv = typeof o.wv === 'string' && /^\d{1,3}(\.\d{1,3})?$/.test(o.wv) ? o.wv : ''; // '' = a farm from before What's new
     s.bd = 0;
     s.bdy = 0;
-    if (Array.isArray(o.bd)) {
-      var md = int(o.bd[0], 0, 9999, 0);
-      if (L.setBirthday(s, Math.floor(md / 100), md % 100) === 'ok') s.bdy = int(o.bd[1], 0, 9999, 0);
+    var bb = Array.isArray(o.bb) ? o.bb : Array.isArray(o.bd) && o.bd.length === 2 ? o.bd : null; // (o.bd: a save from before 8 Nov 2026)
+    if (bb) {
+      var md = int(bb[0], 0, 9999, 0);
+      if (L.setBirthday(s, Math.floor(md / 100), md % 100) === 'ok') s.bdy = int(bb[1], 0, 9999, 0);
     }
     return s;
   };

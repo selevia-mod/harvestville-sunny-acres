@@ -28,7 +28,8 @@
   // Owner, 5 Nov 2026 (players: "24 hours for 1 egg is too long"), from the numbers: a chicken every 8 hours, a cow,
   // pig or carabao every 12. Prices stay; a full, happy ranch makes at most about 2.2 times what it did, and a player
   // who comes once a day makes the same as before.
-  C.ANIMAL_HOURS = { chicken: 8, cow: 12, pig: 12, carabao: 12 };
+  // Owner, 8 Nov 2026: "8 and 12 still far too long": an egg 4 hours after feeding, milk (and a truffle) 6.
+  C.ANIMAL_HOURS = { chicken: 4, cow: 6, pig: 6, carabao: 6 };
   Object.keys(C.ANIMAL_HOURS).forEach(function (k) {
     var a = C.ANIMALS[k], h = C.ANIMAL_HOURS[k], what = { chicken: 'Lays an egg', cow: 'Gives milk', pig: 'Sniffs out a truffle', carabao: 'Gives creamy carabao milk' }[k];
     if (!a) return;

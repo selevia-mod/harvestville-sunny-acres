@@ -55,7 +55,7 @@ test('no carabao: never Carabao Milk (nor Kesong Puti), on any farm, in any orde
   assert.ok(!L.requestPool(s).some((e) => e[0] === 'kesong_puti'), 'villagers\' requests too');
 });
 
-test('with a grown carabao and a milker: Carabao Milk can be asked, a day\'s worth at most (2 a day each)', () => {
+test('with a grown carabao and a milker: Carabao Milk can be asked, a day\'s worth at most (4 a day each: one every 6 hours)', () => {
   const s = fresh(3);
   s.animals.push(animal('carabao'));
   assert.ok(!L.orderCandidates(s).includes('carabao_milk'), 'no milker: it can\'t be milked (L.collect says !milker)');
@@ -64,9 +64,9 @@ test('with a grown carabao and a milker: Carabao Milk can be asked, a day\'s wor
   assert.strictEqual(L.orderCap(s, 'carabao_milk'), 24 / C.ANIMAL_HOURS.carabao);
   const milk = asked(s).filter((it) => it[0] === 'carabao_milk');
   assert.ok(milk.length > 0, 'it comes up');
-  milk.forEach((it) => assert.ok(it[1] >= 1 && it[1] <= 2, 'one carabao: at most 2, asked ' + it[1]));
+  milk.forEach((it) => assert.ok(it[1] >= 1 && it[1] <= 4, 'one carabao: at most 4, asked ' + it[1]));
   s.animals.push(animal('carabao'));
-  assert.strictEqual(L.orderCap(s, 'carabao_milk'), 4, 'two carabaos: 4');
+  assert.strictEqual(L.orderCap(s, 'carabao_milk'), 8, 'two carabaos: 8');
   // a calf gives nothing yet; a happy one gives its large kind (a cow's Large Milk, not Milk)
   const t = fresh(3);
   L.addItem(t, 'milker', 1);
