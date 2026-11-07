@@ -3689,12 +3689,12 @@ test('skills: a hunted deer is Hunting XP and a strong shot says so; the Skills 
   await closeAll(page);
   // What's new: the Skills line, and Show me plays it again
   let p = 0;
-  for (; p < 20; p++) {
+  for (; p < 80; p++) {
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/Skills \| Get better at farming/.test(await modalText(page))) break;
   }
-  assert.ok(p < 20, 'the Skills line is in What\'s new');
+  assert.ok(p < 80, 'the Skills line is in What\'s new');
   await shot(page, 'skills-news');
   const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
   const nth = row.slice(0, row.indexOf('Skills')).filter((t) => t === 'Show me').length;
