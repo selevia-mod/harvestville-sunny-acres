@@ -3040,6 +3040,45 @@ test('your dog comes hunting: it follows you, points at a hidden animal, fetches
   await context.close();
 });
 
+test('the Daily gift calendar fits its panel: every card inside the frame with even margins and gaps, labels on one line, no gap above Claim (owner, 7 Nov: "the design was off")', async () => {
+  const dir = process.env.GIFT_SHOTS || SHOTS;
+  for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }]) {
+    const save = await makeSave('s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
+    const { page, problems, context } = await open(save, START, viewport);
+    for (const day of [1, 4, 7]) {
+      await closeAll(page);
+      await page.evaluate((day) => {
+        const s = Farm.session.state, dn = Farm.Logic.dayNum(Farm.today());
+        s.lg = day > 1 ? { last: dn - 1, streak: day - 1, claimed: dn - 1 } : { last: 0, streak: 0, claimed: 0 };
+        Farm.ui.showLoginGift();
+      }, day);
+      await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+      await frames(page, 4);
+      const g = await page.evaluate(() => {
+        const c = Farm.ui.modals[Farm.ui.modals.length - 1].c, b = (o) => { const r = o.getBounds(); return { x: r.x, y: r.y - c.y, r: r.right, bot: r.bottom - c.y }; };
+        const panel = c.list[1], tiles = c.list.filter((o) => o.type === 'Container' && o.list[0] && /^ui-cal2-/.test(o.list[0].texture.key));
+        const btn = c.list.find((o) => o.type === 'Container' && o.list.some((t) => t.type === 'Text' && t.text === 'Claim'));
+        const labels = tiles.map((t) => t.list.filter((o) => o.type === 'Text').map((o) => ({ text: o.text, lines: o.text.split('\n').length, wrapped: o.getWrappedText ? o.getWrappedText().length : 1 })));
+        return { panel: { x: panel.x + 4, y: panel.y + 2, r: panel.x + 4 + panel.displayWidth - 8, bot: panel.y + 2 + panel.displayHeight - 10 }, tiles: tiles.map((t) => ({ x: t.x, y: t.y, w: t.list[0].displayWidth, h: t.list[0].displayHeight })), btn: { y: btn.y }, labels };
+      });
+      assert.strictEqual(g.tiles.length, 7, 'seven cards');
+      const L = g.tiles[0].x - g.panel.x, R = g.panel.r - (g.tiles[3].x + g.tiles[3].w);
+      assert.ok(L >= 12 && Math.abs(L - R) <= 1, 'row 1 inside the frame, even margins: ' + L + ' / ' + R);
+      assert.ok(Math.abs(g.tiles[4].x - g.tiles[0].x) <= 0.5 && Math.abs(g.tiles[6].x + g.tiles[6].w - (g.tiles[3].x + g.tiles[3].w)) <= 0.5, 'row 2 lines up with row 1');
+      const gaps = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6]].map(([a, b]) => g.tiles[b].x - (g.tiles[a].x + g.tiles[a].w));
+      assert.ok(gaps.every((x) => x === gaps[0]), 'even gaps ' + gaps);
+      assert.ok(g.tiles.slice(0, 6).every((t) => t.w === g.tiles[0].w && t.h === g.tiles[0].h) && g.tiles[6].w > g.tiles[0].w, 'same size cards, day 7 wider');
+      g.labels.slice(0, 6).forEach((l, k) => l.forEach((t) => assert.strictEqual(t.wrapped, 1, 'day ' + (k + 1) + ' "' + t.text + '" on one line')));
+      const gridBot = g.tiles[6].y + g.tiles[6].h;
+      assert.ok(g.btn.y - 21 - gridBot <= 24 && g.btn.y - 21 - gridBot >= 10, 'Claim right under the week');
+      assert.ok(g.panel.bot - (g.btn.y + 21) <= 24, 'no empty space under Claim');
+      if (dir) await page.screenshot({ path: path.join(dir, 'daily-gift-day' + day + '-' + viewport.width + 'x' + viewport.height + '.png') });
+    }
+    assert.deepStrictEqual(problems, []);
+    await context.close();
+  }
+});
+
 test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Claim pays once. Farm photo: a frame, Hi!, Snap sends the picture, and the buttons come back (owner, 4 Nov)', async () => {
   const save = await makeSave('s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;');
   const { page, problems, context } = await open(save);
@@ -3048,7 +3087,7 @@ test('the Daily gift calendar: a week of tiles, today glowing, day 7 a chest; Cl
   await page.evaluate(() => { const s = Farm.session.state, dn = Farm.Logic.dayNum(Farm.today()); s.lg = { last: dn - 1, streak: 2, claimed: dn - 1 }; Farm.ui.showLoginGift(); });
   await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
   const text = await modalText(page);
-  assert.match(text, /DAILY GIFT[\s\S]*Day 3 in a row![\s\S]*Day 1[\s\S]*Day 7[\s\S]*Big chest[\s\S]*Day 7: 1500G \+ 2 Sunbeams \+ Power-Up/);
+  assert.match(text, /DAILY GIFT[\s\S]*Day 3 in a row![\s\S]*Day 1[\s\S]*3 Treats[\s\S]*Day 7[\s\S]*Big chest[\s\S]*1500G\n\+ 2 Sunbeams\n\+ Power-Up/);
   assert.strictEqual((text.match(/✓/g) || []).length, 2, 'days 1 and 2 ticked');
   await shot(page, 'daily-calendar');
   const gold = await page.evaluate(() => Farm.session.state.gold);
