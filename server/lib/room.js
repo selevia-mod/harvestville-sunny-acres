@@ -198,16 +198,21 @@ class Room {
   hit(p, msg) {
     const R = this.R, now = this.game.now(), slot = Number(msg.s), n = num(msg.n, 0, 1e9, 0);
     const a = this.mons.filter((x) => x.slot === slot)[0];
-    if (!a) return; // (down already: its `dn` is on the way)
+    // (every refused hit is written down: owner, 7 Nov 2026, a tiger whose bar dropped and came back; game.refused)
+    if (!a) { this.game.refused(this, p, 'gone', { slot, ago: this.goneAt && this.goneAt.has(slot) ? now - this.goneAt.get(slot) : -1 }); return; } // (down already: its `dn` is on the way)
     const raw = Number(msg.d);
-    if (!isFinite(raw) || raw <= 0) return;
+    if (!isFinite(raw) || raw <= 0) { this.game.refused(this, p, 'damage', { slot, kind: a.kind, d: msg.d }); return; }
     const d = Math.max(1, Math.min(R.maxDamage, Math.floor(raw)));
     const last = p.lastHit[slot] || 0;
     // too soon after this phone's last hit on it, or from too far: not counted (the phone's bar is put right)
-    if (now - last < HIT_GAP || Math.hypot(a.x - p.x, a.y - p.y) > HIT_REACH * R.T) {
+    const dist = Math.hypot(a.x - p.x, a.y - p.y);
+    if (now - last < HIT_GAP || dist > HIT_REACH * R.T) {
+      this.game.refused(this, p, now - last < HIT_GAP ? 'soon' : 'far', { slot, kind: a.kind, gap: now - last, tiles: Math.round(dist / R.T * 10) / 10,
+        you: [Math.round(p.x / R.T), Math.round(p.y / R.T)], it: [Math.round(a.x / R.T), Math.round(a.y / R.T)], mode: a.mode, mvAgo: now - (p.mvAt || 0) });
       this.send(p, { t: 'hp', s: a.slot, hp: a.hp, by: p.id, n });
       return;
     }
+    this.game.stats.hitsOk = (this.game.stats.hitsOk || 0) + 1;
     p.lastHit[slot] = now;
     const down = this.game.wild.wildStruck(this.fl, a, p, d);
     this.broadcast({ t: 'hp', s: a.slot, hp: Math.max(0, a.hp), by: p.id, n });
@@ -216,6 +221,8 @@ class Room {
 
   // Hunted: everyone with a share (its minHits hits, and whoever landed the last one) gives themselves the drops.
   down(a, last) {
+    (this.goneAt = this.goneAt || new Map()).set(a.slot, this.game.now());
+    if (this.goneAt.size > 200) this.goneAt.clear();
     this.mons.splice(this.mons.indexOf(a), 1);
     this.sent.delete(a.slot);
     this.goneNow.push(a.slot);

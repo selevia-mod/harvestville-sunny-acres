@@ -207,6 +207,17 @@ class Game {
     if (list && list.get(room.ch) === room) list.delete(room.ch);
   }
 
+  // A hit not counted, written down (at most 30 lines a minute; all of them counted in the minute's line): why (gone: no
+  // such monster here, a kill already or one this phone still shows; soon: within 150 ms of its last on it; far: 12
+  // tiles or more by our count; damage: none), the room, the monster, how far, where we have the player and the monster.
+  refused(room, p, why, info) {
+    const s = this.stats;
+    s.refused = s.refused || {};
+    s.refused[why] = (s.refused[why] || 0) + 1;
+    if ((s.refusedLines = (s.refusedLines || 0) + 1) > 30) return;
+    this.log('[hit refused] ' + why + ' ' + (room.pub ? 'pub|' + room.map + '|' + room.ch : room.map + '|' + room.floor) + ' by ' + String(p.id).slice(0, 8) + ' ' + JSON.stringify(info));
+  }
+
   // ---------- every 50 ms ----------
   tick() {
     const now = this.now(), dt = Math.max(0, Math.min(100, now - this.last)), t0 = process.hrtime.bigint();
@@ -231,7 +242,8 @@ class Game {
     const now = this.now(), s = this.stats, secs = Math.max(0.001, (now - s.since) / 1000);
     let players = 0, pub = 0, pubPlayers = 0;
     this.rooms.forEach((r) => { players += r.players.size; if (r.pub) { pub++; pubPlayers += r.players.size; } });
-    const out = { rooms: this.rooms.size, players, pub, pubPlayers, conns: this.conns.size, inPerSec: s.in / secs, outPerSec: s.out / secs, kbOutPerSec: s.bytesOut / 1024 / secs, slowestMs: s.slowest, ticks: s.ticks };
+    const out = { rooms: this.rooms.size, players, pub, pubPlayers, conns: this.conns.size, inPerSec: s.in / secs, outPerSec: s.out / secs, kbOutPerSec: s.bytesOut / 1024 / secs, slowestMs: s.slowest, ticks: s.ticks,
+      hitsOk: s.hitsOk || 0, refused: s.refused || {} };
     this.stats = { in: 0, out: 0, bytesOut: 0, slowest: 0, ticks: 0, since: now };
     return out;
   }
