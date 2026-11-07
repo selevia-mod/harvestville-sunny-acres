@@ -581,12 +581,32 @@
     return best;
   };
 
-  // (shown: a friend's arrow, seen on your phone. Their phone says what it hit.)
-  P.wildArrow = function (x, y, ang, left, shown) {
+  // (shown: a friend's arrow, seen on your phone. Their phone says what it hit.) level: the bow's (yours, or the one a
+  // friend's shot says): Haliya's Moon Bow's arrow shines white and goes through the first creature it hits (00-zzzzzzzzzzzz-moon.js).
+  P.wildArrow = function (x, y, ang, left, shown, level) {
     F.ensureTexture(this, 'props/arrow_fly');
+    var moon = !!(L.moonShot && L.moonShot(level)), shine = moon ? C.MOON_BOW.shine : 0xffffff;
     var img = this.add.image(x, y, 'props/arrow_fly').setDisplaySize(0.85 * T, 0.28 * T).setRotation(ang).setDepth(DEPTH.fx);
-    var streak = this.add.rectangle(x, y, 1, 14, 0xffffff, 0.55).setOrigin(1, 0.5).setRotation(ang).setDepth(DEPTH.fx - 0.001);
-    this.wildArrows.push({ img: img, streak: streak, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: left, shown: shown, went: 0 });
+    if (moon) img.setTint(shine);
+    var streak = this.add.rectangle(x, y, 1, moon ? 20 : 14, shine, moon ? 0.85 : 0.55).setOrigin(1, 0.5).setRotation(ang).setDepth(DEPTH.fx - 0.001);
+    this.wildArrows.push({ img: img, streak: streak, x: x, y: y, vx: Math.cos(ang) * ARROW_SPEED, vy: Math.sin(ang) * ARROW_SPEED, left: left, shown: shown, went: 0,
+      moon: moon, pierce: moon ? L.bowPierce(level) : 0, through: [], sparkAt: 0 });
+  };
+  // The Moon Bow's shine (cheap: a few soft white dots, no new pictures): a dot left behind as the arrow flies, and a
+  // ring with sparkles where it hits. Friends see it on their phones too (their 'ar' says the bow's level).
+  var gone = function (o) { return function () { o.destroy(); }; };
+  P.moonSpark = function (x, y, big) {
+    var c = C.MOON_BOW.shine, n = big ? 6 : 1;
+    if (big) {
+      var ring = this.add.circle(x, y, 0.25 * T, c, 0).setStrokeStyle(10, c, 0.9).setDepth(DEPTH.fx + 0.02).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 380, ease: 'Quad.out', onComplete: function () { ring.destroy(); } });
+    }
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, r = big ? (0.2 + Math.random() * 0.5) * T : 0;
+      var dot = this.add.circle(x, y, (big ? 0.07 : 0.06 + Math.random() * 0.04) * T, c, 0.95).setDepth(DEPTH.fx + 0.01).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: dot, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r - (big ? 0.2 * T : 0), alpha: 0, scale: big ? 0.4 : 0.3,
+        duration: big ? 520 : 380, ease: 'Quad.out', onComplete: gone(dot) });
+    }
   };
 
   P.updateArrows = function (dt) {
@@ -598,15 +618,20 @@
       ar.left -= step;
       ar.went += step;
       ar.img.setPosition(ar.x, ar.y);
-      ar.streak.setPosition(ar.x, ar.y).setSize(Math.min(ar.went, STREAK), 14);
+      ar.streak.setPosition(ar.x, ar.y).setSize(Math.min(ar.went, ar.moon ? STREAK * 1.6 : STREAK), ar.moon ? 20 : 14);
+      if (ar.moon && ar.went >= ar.sparkAt) { ar.sparkAt = ar.went + 0.35 * T; self.moonSpark(ar.x, ar.y); }
       var hit = null;
       (self.wild ? self.wild.animals : []).forEach(function (a) {
-        if (!hit && a.hp > 0 && !(ar.shown && a.gsLocal) && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
+        if (!hit && a.hp > 0 && ar.through.indexOf(a) < 0 && !(ar.shown && a.gsLocal) && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
       });
+      if (hit && ar.moon) self.moonSpark(ar.x, ar.y, true);
+      // the Moon arrow goes on through the first one it hits (and hits the next): ar.pierce more to go
+      var on = !!(hit && ar.pierce > 0);
+      if (on) { ar.pierce -= 1; ar.through.push(hit); }
       // a friend's arrow stops in the animal it reaches here too (their hit is theirs to tell; owner, 7 Nov 2026: "the
       // arrow of my friends ... looks like it wasn't hitting the enemies": it flew through and stood in the ground past it)
-      if (hit && ar.shown) { ar.img.destroy(); ar.streak.destroy(); if (self.bits) self.bits.dust.explode(2, ar.x, ar.y); return false; }
-      if (hit) { ar.img.destroy(); ar.streak.destroy(); self.wildStruck(hit); return false; }
+      if (hit && ar.shown) { if (on) return true; ar.img.destroy(); ar.streak.destroy(); if (self.bits) self.bits.dust.explode(2, ar.x, ar.y); return false; }
+      if (hit) { if (!on) { ar.img.destroy(); ar.streak.destroy(); } self.wildStruck(hit); return on; }
       if (ar.left <= 0) { // a miss stands in the ground for a moment
         ar.streak.destroy();
         self.tweens.add({ targets: ar.img, y: ar.y + 0.16 * T, rotation: ar.img.rotation + (Math.cos(ar.img.rotation) < 0 ? -0.5 : 0.5), duration: 90, ease: 'Quad.in' });
@@ -895,7 +920,7 @@
       if (!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.a)) return;
       var ax = Number(p.x), ay = Number(p.y), ang = Number(p.a), range = Math.min(8 * T, Number(p.l) || 0), lv = Number(p.b) || 0, shooter = w.remotes && w.remotes[p.id];
       // their farmer draws and lets go (19w-bow.js remoteShot); if it can't, just their arrow and a flash of their bow
-      if (!(shooter && w.remoteShot(shooter, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+      if (!(shooter && w.remoteShot(shooter, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true, lv); w.bowFlash(ax, ay, ang, lv); }
       return;
     }
     if (event === 'bt') { if (isFinite(p.x) && isFinite(p.y) && !w.wildBait) w.layBait(Number(p.x), Number(p.y)); return; }

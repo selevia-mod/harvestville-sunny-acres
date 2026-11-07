@@ -15,7 +15,8 @@
     return needs.map(function (n) { return n[1] + ' ' + C.ITEMS[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
   // the row's own, shorter: every need fits its card ("40 Ember Shards (12), 3 Scales (0), 5 Obsidian (2)")
-  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian', bungisngis_tooth: 'Teeth' };
+  var SHORT = { ember_shard: 'Ember Shards', bakunawa_scale: 'Scales', santelmo_flame: 'Santelmo Flames', obsidian: 'Obsidian', bungisngis_tooth: 'Teeth',
+    fur_amomongo: 'Fur', moss_nuno: 'Moss', pearl_berberoka: 'Pearls', bark_kapre: 'Bark', feather_minokawa: 'Feathers' }; // (the Moon Bow's parts: 6 Fur (0), 3 Moss (0)...)
   var needShort = function (s, needs) {
     return needs.map(function (n) { return n[1] + ' ' + (SHORT[n[0]] || C.ITEMS[n[0]].name) + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ');
   };
@@ -56,6 +57,24 @@
           if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, m.needs) + '. Hunt in Bakunawa\'s Lair!', 3000); }
           if (r === 'ok') sfx('found');
           done(r, 'The Magma Bow! It shoots ' + C.WILD.bow.range[m.level] + ' tiles.');
+        } }] });
+    }
+    // Haliya's Moon Bow, after the Magma Bow (owner, 8 Nov 2026): the Magma Bow, every cave's boss part, scales, Gold
+    var mb = C.MOON_BOW;
+    if (mb && L.hasBow(s) && L.bowLevel(s) === mb.level - 1) {
+      var gold = String(mb.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G';
+      rows.unshift({ icon: C.ICON.bow_5, name: mb.name, desc: 'Arrows go through to hit the one behind. Your Magma Bow, ' + needShort(s, mb.needs) + '.',
+        buttons: [{ label: gold, color: has(s, mb.needs) && s.gold >= mb.gold ? GREEN : GREY, cb: function () {
+          var r = L.makeMoonBow(s);
+          if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, mb.needs) + '. Their bosses wait on floor 50 of each cave.', 3600); }
+          if (r === 'ok') sfx('fanfare');
+          done(r, "Haliya's Moon Bow! Each arrow goes through and hits the one behind.");
+          // its tour, once (new features get one: owner, 4 Oct)
+          if (r === 'ok' && !L.tipSeen(s, 'moonbow_tour') && !(window.gameHost && window.gameHost.quiet)) {
+            L.takeTip(s, 'moonbow_tour');
+            F.Host.save(s);
+            self.time.delayedCall(700, function () { if (!F.ui) return; F.ui.closeAll(); F.ui.tour('moonbow'); }); // (over Kanor's list, which came back)
+          }
         } }] });
     }
     return rows;
@@ -102,6 +121,40 @@
       },
     ],
   };
+  // Haliya's Moon Bow (00-zzzzzzzzzzzz-moon.js): what it is, the Moon arrow, the shine friends see
+  F.TOURS.moonbow = {
+    title: "HALIYA'S MOON BOW",
+    steps: [
+      {
+        text: 'Haliya keeps the moon safe from the Bakunawa. Her bow is yours now: it shoots as far and hits as hard as the Magma Bow.',
+        draw: function (ui, sc, move) {
+          var b = icon(ui, sc, 136, 66, C.ICON.bow_5, 0.5);
+          tw(ui, move, { targets: b, angle: 6, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        },
+      },
+      {
+        text: 'The Moon arrow: each arrow goes through the first creature it hits, and hits the one behind it too.',
+        draw: function (ui, sc, move) {
+          icon(ui, sc, 60, 66, C.ICON.bow_5, 0.3);
+          icon(ui, sc, 150, 66, C.ICON.santelmo_flame, 0.32);
+          icon(ui, sc, 220, 66, C.ICON.santelmo_flame, 0.32);
+          var a = ui.add.rectangle(84, 66, 34, 6, C.MOON_BOW.shine);
+          sc.add(a);
+          tw(ui, move, { targets: a, x: 250, duration: 900, repeat: -1, repeatDelay: 300 });
+        },
+      },
+      {
+        text: 'It shines with moonlight when you draw it, and your friends see your silver arrows fly. Hunt deep: the bosses wait on floor 50.',
+        draw: function (ui, sc, move) {
+          var g = ui.add.circle(136, 66, 46, C.MOON_BOW.shine, 0.35);
+          sc.add(g);
+          icon(ui, sc, 136, 66, C.ICON.bow_5, 0.42);
+          tw(ui, move, { targets: g, scale: 1.25, alpha: 0.15, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        },
+      },
+    ],
+  };
+
   var create = P.create;
   P.create = function () {
     create.call(this);

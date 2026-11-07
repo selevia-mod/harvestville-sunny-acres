@@ -217,7 +217,7 @@ async function nameFarm(page, name) {
     Farm.Online.chan.track(Farm.Online.myState());
   }), name);
 }
-const MAP = 'banaue_cave', FLOOR = 3;
+const MAP = 'banaue_cave', FLOOR = 13; // (50 floors since 8 Nov 2026: the tougher Cave Bayawak from floor 11)
 // The floor's creatures for the fake server: the game's own list for it, set out in its hunting zone (every other one
 // walking), each as strong as its kind.
 const floorSpec = (page) => page.evaluate(([map, floor]) => {

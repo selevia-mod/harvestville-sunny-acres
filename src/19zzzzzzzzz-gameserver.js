@@ -539,7 +539,7 @@
       if (g.dead || g.w !== w || !w.sys || !w.sys.isActive()) return;
       var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
       if (posed) return;
-      w.time.delayedCall(POSE_MS, function () { if (!g.dead && g.w === w) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); } });
+      w.time.delayedCall(POSE_MS, function () { if (!g.dead && g.w === w) { w.wildArrow(ax, ay, ang, range, true, lv); w.bowFlash(ax, ay, ang, lv); } });
     };
     if (wait > 0) w.time.delayedCall(wait, go); else go();
   };

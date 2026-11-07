@@ -2960,6 +2960,87 @@ test('downloads: without the Wild Lands you are asked first; a small badge while
   await ctx2.close();
 });
 
+test('e41: Haliya\'s Moon Bow: its arrow goes through the first creature and hits the one behind (a Magma arrow stops in the first); the moon shine; Kanor makes it; its tour (owner, 8 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; L.addItem(s, 'bow', 1); s.tools.bow = 5; L.addItem(s, 'arrows', 20);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.world.mapKey === 'pulag' && Farm.world.wild, null, SLOW);
+  await page.evaluate(() => { const w = Farm.world; w.wild.animals.forEach((a) => { a.img.destroy(); a.sh.destroy(); }); w.wild.animals = []; w.wild.next = 1e9; if (w.huntDog) w.huntDog.sniffIn = 1e9; });
+  const spot = await page.evaluate(() => {
+    const w = Farm.world, z = w.wild.zone;
+    for (let x = z.x0 + 3; x < z.x1 - 12; x++) for (let y = z.y0 + 3; y < z.y1 - 3; y++) {
+      let ok = true;
+      for (let k = 0; k <= 9 && ok; k++) ok = w.walkable(x + k, y);
+      if (ok) return [x, y];
+    }
+    return null;
+  });
+  assert.ok(spot, 'open ground');
+  // two deer in a row to your right, 3 and 5 tiles off, standing still, 10 health each
+  const line = (level) => page.evaluate(([x, y, level]) => {
+    const w = Farm.world, s = Farm.session.state;
+    w.wild.animals.forEach((a) => { a.img.destroy(); a.sh.destroy(); if (a.bar) { a.bar.bg.destroy(); a.bar.fill.destroy(); } });
+    w.wild.animals = [];
+    s.tools.bow = level;
+    w.setFeet((x + 0.5) * 256, (y + 0.5) * 256);
+    [3, 5].forEach((k, i) => { const a = w.addWildAnimal('deer', 90 + i, (x + 0.5 + k) * 256, (y + 0.5) * 256 + 0.3 * a_w(), 1); a.def = Object.assign({}, a.def, { shy: 0, angry: 0, hp: 10 }); a.hp = 10; a.mode = 'idle'; a.t = 1e9; });
+    function a_w() { return Farm.Config.WILD.animals.deer.w * 256; }
+    s.sel = s.inv.findIndex((it) => it && it.id === 'bow');
+    w.dir = 'right';
+    w.idle();
+  }, [spot[0], spot[1], level]);
+  const hps = () => page.evaluate(() => Farm.world.wild.animals.map((a) => a.hp));
+  // the Moon Bow: both are hit (3 each)
+  await line(5);
+  await frames(page, 3);
+  await page.evaluate(() => Farm.world.shoot());
+  await page.waitForFunction(() => Farm.world.shot && Farm.world.shot.halo, null, SLOW); // the moon glow round the bow while it is drawn
+  await page.waitForFunction(() => Farm.world.wildArrows.some((ar) => ar.moon), null, SLOW);
+  await page.waitForTimeout(120);
+  await shot(page, 'e41-moon-arrow');
+  await page.waitForFunction(() => Farm.world.wildArrows.length === 0, null, SLOW);
+  assert.deepStrictEqual(await hps(), [7, 7], 'the Moon arrow went through the first and hit the second');
+  // the Magma Bow: only the first is hit
+  await line(4);
+  await frames(page, 3);
+  await page.evaluate(() => Farm.world.shoot());
+  await page.waitForFunction(() => Farm.world.wildArrows.length > 0, null, SLOW);
+  assert.ok(await page.evaluate(() => !Farm.world.shot.halo && !Farm.world.wildArrows[0].moon), 'no moon shine on the Magma Bow');
+  await page.waitForFunction(() => Farm.world.wildArrows.length === 0, null, SLOW);
+  assert.deepStrictEqual(await hps(), [7, 10], 'a Magma arrow stops in the first');
+  // a friend's Moon arrow (their 'ar' says level 5) also goes through on your phone, and stops in the second
+  await line(3);
+  const left = await page.evaluate(([x, y]) => {
+    const w = Farm.world;
+    w.wildArrow((x + 1) * 256, (y + 0.5) * 256 - 0.3 * Farm.Config.WILD.animals.deer.w * 256, 0, 7 * 256, true, 5);
+    return new Promise((done) => { const t0 = Date.now(), tick = () => { const ar = w.wildArrows[0]; if (!ar) return done('gone'); if (ar.through.length) return done(ar.x / 256 - x); if (Date.now() - t0 > 3000) return done('timeout'); requestAnimationFrame(tick); }; tick(); });
+  }, spot);
+  assert.ok(typeof left === 'number' && left > 3, 'it flew on past the first deer: ' + left);
+  await page.waitForFunction(() => Farm.world.wildArrows.length === 0, null, SLOW);
+  assert.deepStrictEqual(await hps(), [10, 10], 'a friend\'s arrow is theirs to tell: no damage here');
+  // Kanor makes it from the Magma Bow: the row, then the bow, then its tour
+  await page.evaluate(() => { const s = Farm.session.state, M = Farm.Config.MOON_BOW; s.tools.bow = 4; s.gold = 600000; M.needs.forEach((n) => Farm.Logic.addItem(s, n[0], n[1])); window.gameHost.quiet = false; Farm.Logic.takeTip(s, 'wild'); Farm.Logic.takeTip(s, 'gear_tour'); Farm.ui.openKanor('buy', 0); });
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  let text = await modalText(page);
+  if (/HUNTER'S GEAR/.test(text)) { await closeAll(page); await page.evaluate(() => Farm.ui.openKanor('buy', 0)); text = await modalText(page); }
+  assert.match(text, /Haliya's Moon Bow \| Arrows go through to hit the one behind\. Your Magma Bow, 6 Fur \(6\), 3 Moss \(3\), 3 Pearls \(3\), 6 Bark \(6\), 6 Feathers \(6\), 5 Scales \(5\)\.[\s\S]*600,000G/);
+  assert.ok(await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return !out.some((t) => /…$/.test(t.text)); }), 'no words cut');
+  await shot(page, 'e41-kanor-moon-bow');
+  await tapButton(page, '600,000G');
+  await page.waitForFunction(() => Farm.Logic.bowLevel(Farm.session.state) === 5, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 0);
+  for (let t = 0; t < 40 && !/HALIYA'S MOON BOW/.test(await modalText(page)); t++) await page.waitForTimeout(150); // (the tour, after a moment)
+  assert.match(await modalText(page), /HALIYA'S MOON BOW[\s\S]*Haliya keeps the moon safe/);
+  for (let k = 0; k < 3; k++) {
+    await frames(page, 4);
+    await shot(page, 'e41-tour-moonbow-' + (k + 1));
+    await tapButton(page, k < 2 ? 'Next' : 'Got it');
+  }
+  assert.ok(await page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'moonbow_tour')));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('your dog comes hunting: it follows you, points at a hidden animal, fetches a drop into your bag; Hunter\'s gear from Kanor; the Big Quiver brings a missed arrow back; the three tours (owner, 3 Nov)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag';");
   const { page, problems, context } = await open(save);
@@ -5390,9 +5471,9 @@ test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and th
   assert.deepStrictEqual(f1, { fl: 1, kinds: ['siyokoy', 'siyokoy', 'siyokoy'], sheet: 'indoor-taal_crater', comp: true });
   await frames(page, 10);
   await shot(page, 'taal-crater-1');
-  // floor 5 (jumping there): the Lava Buwaya and its two
-  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 5));
-  await page.waitForFunction(() => Farm.session.lairFloor === 5 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 10 (jumping there): the Lava Buwaya and its two
+  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const guard = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
   assert.deepStrictEqual(guard, { kind: 'lava_buwaya', hp: 26, bar: true, n: 3 });
@@ -5400,9 +5481,9 @@ test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and th
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
   await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.places.taal.g), 1, 'the guard is down');
-  // floor 10: the Berberoka, soloable (no more for one); its chest
-  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 10));
-  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 50: the Berberoka, soloable (no more for one); its chest
+  await page.evaluate(() => Farm.world.travel('taal_crater', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.lairFloor === 50 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'berberoka'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
   assert.deepStrictEqual(boss, { hp: 40, max: 40, bar: true });
@@ -5508,18 +5589,18 @@ test('hunting places: Sierra Madre by the Jeep at 130 hunts; an Unggoy (its bana
   const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: [...new Set(Farm.world.wild.animals.map((a) => a.kind))], sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp }));
   assert.deepStrictEqual(f1, { fl: 1, kinds: ['anggitay'], sheet: 'indoor-sierra_cave', comp: true });
   await shot(page, 'sierra-cave-1');
-  // floor 5: the Anggitay Queen and her two
-  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 5));
-  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 10: the Anggitay Queen and her two
+  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const queen = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
   assert.deepStrictEqual(queen, { kind: 'anggitayqueen', hp: 30, bar: true, n: 3 });
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 1; w.wildStruck(a); }); });
   await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.places.sierra.g), 1, 'the guard is down');
-  // floor 10: the Kapre, soloable
-  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 10));
-  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 50: the Kapre, soloable
+  await page.evaluate(() => Farm.world.travel('sierra_cave', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.lairFloor === 50 && Farm.world.mapKey === 'sierra_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const kapre = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'kapre'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
   assert.deepStrictEqual(kapre, { hp: 41, max: 41, bar: true }, 'soloable: no more for one');
@@ -5628,18 +5709,18 @@ test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a 
   const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp, tabi: Farm.session.boholTabi === Farm.session.state.day }));
   assert.deepStrictEqual(f1, { fl: 1, kinds: ['duwendeputi', 'duwendeputi', 'duwendeputi'], sheet: 'indoor-bohol_cave', comp: true, tabi: true });
   await shot(page, 'bohol-cave-1');
-  // floor 5 (jumped to, as the lift would once you reach it): the Punso Golem and its two
-  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 5));
-  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 10 (jumped to): the Punso Golem and its two
+  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const g5 = await page.evaluate(() => { const a = Farm.world.wild.animals[0]; return { kind: a.kind, hp: a.hp, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
   assert.deepStrictEqual(g5, { kind: 'punsogolem', hp: 22, bar: true, n: 3 });
   await shot(page, 'bohol-cave-5');
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 1; w.wildStruck(a); }); });
   await page.waitForFunction(() => Farm.world.lair.open && Farm.session.state.places.bohol.g === 1, null, SLOW);
-  // floor 10: the Great Nuno, as strong as one hunter; down, he leaves the day's chest
-  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 10));
-  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // floor 50: the Great Nuno, as strong as one hunter; down, he leaves the day's chest
+  await page.evaluate(() => Farm.world.travel('bohol_cave', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.lairFloor === 50 && Farm.world.mapKey === 'bohol_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'greatnuno'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, gate: Farm.world.lair.gate }; });
   assert.deepStrictEqual(boss, { hp: 34, max: 34, bar: true, gate: null });
@@ -5766,9 +5847,9 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   const f1 = await page.evaluate(() => ({ fl: Farm.session.lairFloor, kinds: Farm.world.wild.animals.map((a) => a.kind), sheet: Farm.world.map.getTileset('indoor').image.key, comp: !!Farm.world.comp, props: Farm.world.props.length }));
   assert.deepStrictEqual(f1, { fl: 1, kinds: ['kibaan', 'kibaan', 'kibaan'], sheet: 'indoor-banaue_cave', comp: true, props: 5 });
   await shot(page, 'banaue-tunnels-1');
-  // (down to floor 5 at once) the Kibaan Chief and two, the gate opens when they are down
-  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 5));
-  await page.waitForFunction(() => Farm.session.lairFloor === 5 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // (down to floor 10 at once) the Kibaan Chief and two, the gate opens when they are down
+  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const f5 = await page.evaluate(() => ({ kinds: Farm.world.wild.animals.map((a) => a.kind), bar: !!Farm.world.wild.animals[0].bar, hp: Farm.world.wild.animals[0].hp }));
   assert.deepStrictEqual([f5.kinds[0], f5.kinds.length, f5.bar, f5.hp], ['kibaan_chief', 3, true, 14]);
@@ -5776,9 +5857,9 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
   await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.places.banaue.g), 1, 'the guard is down');
-  // (down to floor 10) the Amomongo: soloable, its full health for one
-  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 10));
-  await page.waitForFunction(() => Farm.session.lairFloor === 10 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  // (down to floor 50) the Amomongo: soloable, its full health for one
+  await page.evaluate(() => Farm.world.travel('banaue_cave', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.lairFloor === 50 && Farm.world.mapKey === 'banaue_cave' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && { hp: a.hp, max: a.max, bar: !!a.bar }; });
   assert.deepStrictEqual(boss, { hp: 30, max: 30, bar: true });
@@ -5894,8 +5975,8 @@ test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunt
   assert.deepStrictEqual(f1, { fl: 1, kinds: ['cave_crab', 'cave_crab', 'cave_crab'], sheet: 'indoor-palawan_cave', comp: true });
   await shot(page, 'palawan-cave-1');
   // floor 5: the Balinsasayaw Queen leads it, with her bar; down, the gate opens
-  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 5));
-  await page.waitForFunction(() => Farm.session.lairFloor === 5 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 10));
+  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   const queen = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'balinsasayaw'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, n: Farm.world.wild.animals.length }; });
   assert.deepStrictEqual(queen, { hp: 28, max: 28, bar: true, n: 3 });
   await shot(page, 'palawan-cave-5-queen');
@@ -5903,8 +5984,8 @@ test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunt
   await page.waitForFunction(() => Farm.world.lair.open, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.places.palawan.g), 1, 'the guard is down');
   // floor 10: the Minokawa, soloable (42 for one), and its daily chest
-  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 10));
-  await page.waitForFunction(() => Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await page.evaluate(() => Farm.world.travel('palawan_cave', 'entrance', 50));
+  await page.waitForFunction(() => Farm.session.lairFloor === 50 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await frames(page, 3);
   const boss = await page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'minokawa'); return a && { hp: a.hp, max: a.max, bar: !!a.bar, gate: Farm.world.lair.gate }; });
   assert.deepStrictEqual(boss, { hp: 42, max: 42, bar: true, gate: null });

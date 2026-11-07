@@ -2879,7 +2879,7 @@ test('online: two hunters on a dungeon floor (owner, 7 Nov 2026: "I just kill th
 });
 
 // ---------- Banaue Terraces (owner, 6 Nov 2026; src/00-zzzzzzzzzz-place-11-banaue.js) ----------
-test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 10, the Amomongo is stronger for two (30, 42), a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
+test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 50 (its bottom since 8 Nov 2026), the Amomongo is stronger for two (30, 42), a shared hunt gives each their own daily chest (owner, 6 Nov 2026)', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);
   await nameFarm(host.page, 'Moon Meadow');
@@ -2893,8 +2893,8 @@ test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 10, th
   const bottom = async (who) => {
     await who.page.evaluate(() => { Farm.ui.closeAll(); if (Farm.session.visit) Farm.session.visit.chase = null; Farm.world.travel('town', 'from_farm'); });
     await who.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
-    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('banaue_cave', 'entrance', 10); });
-    await who.page.waitForFunction(() => Farm.world.mapKey === 'banaue_cave' && Farm.session.lairFloor === 10 && !Farm.world.busy && Farm.world.wild, null, SLOW);
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('banaue_cave', 'entrance', 50); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'banaue_cave' && Farm.session.lairFloor === 50 && !Farm.world.busy && Farm.world.wild, null, SLOW);
     await who.page.evaluate(() => Farm.ui.closeAll());
   };
   const boss = (page) => page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a ? { hp: a.hp, max: a.max, bar: !!a.bar } : null; });
@@ -2903,7 +2903,7 @@ test('online: Banaue Terraces: two hunters on the Terrace Tunnels\' floor 10, th
   await bottom(guest);
   await waitRemotes(host.page, ['Ana Acres']);
   await waitRemotes(guest.page, ['Moon Meadow (owner)']);
-  assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 10, 'the same floor');
+  assert.strictEqual(await host.page.evaluate((id) => Farm.Online.others[id].fl, guest.uid), 50, 'the same floor');
   await host.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && a.max === 42; }, null, SLOW);
   await guest.page.waitForFunction(() => { const a = Farm.world.wild.animals.find((x) => x.kind === 'amomongo'); return a && a.max === 42 && a.hp === 42; }, null, SLOW);
   await shot(guest.page, 'banaue-online-boss');

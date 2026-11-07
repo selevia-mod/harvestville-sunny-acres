@@ -84,6 +84,7 @@
     var cx = Math.cos(shot.ang), cy = Math.sin(shot.ang), bow = shot.bow;
     bow.setPosition(x, y).setRotation(shot.ang - Phaser.Math.DegToRad(ICON.facing));
     var top = onBow(bow, ICON.top), low = onBow(bow, ICON.low);
+    if (shot.halo) shot.halo.setPosition((top.x + low.x) / 2, (top.y + low.y) / 2); // (the Moon Bow's glow, round the bow)
     var nx = (top.x + low.x) / 2 - cx * shot.pull * at.back, ny = (top.y + low.y) / 2 - cy * shot.pull * at.back;
     shot.nock = { x: nx, y: ny };
     shot.string.clear();
@@ -103,8 +104,16 @@
 
   // What a shot put on the map: the archer, the bow, the string, the arrow on it and the fist over the grip.
   var clear = function (shot) {
-    [shot.body, shot.bow, shot.string, shot.arrow, shot.fist].forEach(function (o) { if (o) o.destroy(); });
+    [shot.body, shot.bow, shot.string, shot.arrow, shot.fist, shot.halo].forEach(function (o) { if (o) o.destroy(); });
     shot.arrow = null;
+    shot.halo = null;
+  };
+  // Haliya's Moon Bow (00-zzzzzzzzzzzz-moon.js): a soft white moon glow round the bow while it is drawn, that breathes;
+  // friends see it too (their shot says the bow's level). Nothing for any other bow.
+  var moonHalo = function (w, shot, level) {
+    if (!(L.moonShot && L.moonShot(level))) return;
+    shot.halo = w.add.circle(shot.bow.x, shot.bow.y, 1.1 * T, C.MOON_BOW.shine, 0.32).setDepth(shot.bow.depth - 0.0005).setBlendMode(Phaser.BlendModes.ADD);
+    w.tweens.add({ targets: shot.halo, alpha: 0.5, scale: 1.12, duration: 160, yoyo: true, repeat: 2 });
   };
 
   var loose = function (w, shot) {
@@ -113,7 +122,7 @@
     shot.arrow.destroy();
     shot.arrow = null;
     shot.stage = LET_GO;
-    w.wildArrow(x, y, shot.ang, range, !!shot.remote);
+    w.wildArrow(x, y, shot.ang, range, !!shot.remote, shot.remote ? shot.level : L.bowLevel(s));
     if (!shot.remote) w.tellArrow({ x: Math.round(x), y: Math.round(y), a: shot.ang, l: range, b: L.bowLevel(s) });
     if (shot.remote) w.remoteSound(shot.r, 'bowshot');
     else sfx('bowshot');
@@ -166,6 +175,7 @@
     p.setVisible(false);
     this.acting = READY_MS + DRAW_MS + AFTER_MS;
     shot.pull = 0.1;
+    moonHalo(this, shot, L.bowLevel(s));
     pose(this, shot);
     sfx('bowdraw');
     this.time.delayedCall(READY_MS, function () {
@@ -195,9 +205,9 @@
     if (r.cs && F.lookReady && !F.lookReady(r.cs, r.look, true) && F.lookPending && F.lookPending(r.cs, r.look, true)) return false;
     var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
     var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, F.archerKeyFor ? F.archerKeyFor(r.look, r.cs) : r.look === 'girl' ? 'archer_girl' : 'archer');
-    var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
+    var icon = L.bowIcon ? L.bowIcon(level) : C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
     var shot = r.shot = {
-      remote: true, r: r, who: p, dir: dir, target: null, ang: ang, range: l, pull: 0.1, recoil: 0, nock: null, stage: READY,
+      remote: true, r: r, who: p, dir: dir, target: null, ang: ang, range: l, level: level, pull: 0.1, recoil: 0, nock: null, stage: READY,
       body: this.add.image(p.x, p.y, key, 0).setDepth(p.depth),
       bow: bowImage(this, icon, p.x, p.y, 0, at.scale).setDepth(depth),
       string: this.add.graphics().setDepth(depth + 0.0002),
@@ -210,6 +220,7 @@
     r.anim = null;
     p.anims.stop();
     p.setVisible(false);
+    moonHalo(this, shot, level);
     pose(this, shot);
     this.remoteSound(r, 'bowdraw');
     this.time.delayedCall(quick.ready, function () {
@@ -231,8 +242,12 @@
 
   // A friend's shot when their farmer can't play it (on a horse, already shooting): their bow, there for a moment where the arrow starts.
   P.bowFlash = function (x, y, ang, level) {
-    var icon = level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow';
-    var img = bowImage(this, C.ICON[icon], x - Math.cos(ang) * ARROW_W * 0.5, y - Math.sin(ang) * ARROW_W * 0.5, ang).setDepth(F.WorldScene.DEPTH.fx);
+    var icon = L.bowIcon ? L.bowIcon(level) : C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
+    var img = bowImage(this, icon, x - Math.cos(ang) * ARROW_W * 0.5, y - Math.sin(ang) * ARROW_W * 0.5, ang).setDepth(F.WorldScene.DEPTH.fx);
     this.tweens.add({ targets: img, alpha: 0, delay: 120, duration: 200, onComplete: function () { img.destroy(); } });
+    if (L.moonShot && L.moonShot(level)) {
+      var halo = this.add.circle(img.x, img.y, 1.1 * T, C.MOON_BOW.shine, 0.45).setDepth(img.depth - 0.0005).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: halo, alpha: 0, scale: 1.4, delay: 80, duration: 300, onComplete: function () { halo.destroy(); } });
+    }
   };
 })(window.Farm = window.Farm || {});

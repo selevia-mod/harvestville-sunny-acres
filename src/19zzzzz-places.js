@@ -590,6 +590,12 @@
     this.listPanel = function (o) {
       delete self.listPanel;
       o.tabs = [['buy', 'Buy'], ['sell', 'Sell'], ['job', 'Request'], ['make', 'Make'], ['pals', 'Pals']];
+      // the Moon Bow's row says six parts and the Magma Bow: taller cards while it is there (19zu-lair-ui.js)
+      if (tab === 'buy' && C.MOON_BOW && L.hasBow(s) && L.bowLevel(s) === C.MOON_BOW.level - 1) {
+        o.rowH = 96;
+        var mi = o.rows.findIndex(function (r) { return r.name === C.MOON_BOW.name; }); // (first: the reason to come)
+        if (mi > 0) o.rows.unshift(o.rows.splice(mi, 1)[0]);
+      }
       if (tab === 'make') {
         // (owner, 7 Nov 2026) gear stars: the first time you open Make with a piece of your own
         if ((s.gown || []).length && L.takeTip(s, 'gear_stars_tour') && !quiet()) { F.Host.save(s); return self.tour('gear_stars', function () { self.openKanor('make', page); }); }
