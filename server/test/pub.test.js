@@ -173,7 +173,7 @@ test('who sees whom: the 15 nearest within 18 tiles; walking into view is a `com
   assert.ok(a.last('tk').left.includes('d3'));
 });
 
-test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare one), divided by ceil(players / 4), at most 4; it walks back in out of sight', async () => {
+test('the fair rule: a hunted slot comes back after its own minutes x copies / players (each hunter finds as many as one alone), never under 45 s; a rare one keeps its own; it walks back in out of sight', async () => {
   const w = world(), R = w.game.R, T = R.T;
   const a = await w.pub('a', 'banaue', { x: 3 * T, y: 3 * T });
   const room = w.pubRoom('banaue', 1);
@@ -182,7 +182,7 @@ test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare o
     await w.pub('c' + i, 'banaue', { x: 3 * T + (i % 3) * 30, y: 3 * T + Math.floor(i / 3) * 30 });
     crowdFor[i] = room.crowd();
   }
-  assert.deepStrictEqual([3, 4, 5, 8, 9, 12, 13, 30].map((n) => crowdFor[n]), [1, 1, 2, 2, 3, 3, 4, 4]);
+  assert.deepStrictEqual([2, 3, 4, 8, 12, 30].map((n) => Math.round(crowdFor[n] * 100) / 100), [2, 3, 2, 2.67, 3, 7.5]);
   // the Great Mammoth's weekend is not a crowd's (30 here: 3 days, not one)
   room.gone.set(998, w.now());
   w.wait(4319 * 60000);
@@ -191,7 +191,8 @@ test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare o
   const def = R.WI.animals.itik, mins = def.respawn || R.WI.respawn;
   assert.strictEqual(mins, 6, 'its own 6 minutes (a farm\'s): 2 at most here');
   const leaveTo = (n) => { while (room.players.size > n) w.phones.filter((p) => !p.closed && !p.quiet && p.c.room === room).slice(-1)[0].say({ t: 'bye' }); };
-  [[30, 30], [10, 40], [5, 60], [3, 120]].forEach(([n, secs]) => {
+  // (alone 6 min as before; 4: 3 min; 8: 2 min 15 s; 12: 2 min; 30: 48 s)
+  [[30, 48], [12, 120], [8, 135], [4, 180], [1, 360]].forEach(([n, secs]) => {
     leaveTo(n);
     room.gone.set(999, w.now());
     w.wait(secs * 1000 - 1000);
@@ -199,13 +200,13 @@ test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare o
     w.wait(1000);
     assert.ok(!room.waiting(999, def), n + ' players: back after ' + secs + ' s');
   });
-  // a rare one keeps its own time, divided by the crowd (3 here: one)
+  // a rare one keeps its own time
   const rare = Object.keys(R.WI.animals).map((k) => R.WI.animals[k]).find((d) => d.rare && !d.great);
   room.gone.set(997, w.now());
   w.wait((rare.respawn || R.WI.respawn) * 60000 - 1000);
   assert.ok(room.waiting(997, rare), 'a rare one: its own minutes');
 
-  // in play, 10 hunters (crowd 3): an itik shot down is back after 40 s, not before, walking in from the edge
+  // in play, 10 hunters (3 copies: 6 x 3 / 10 = 1.8 min): an itik shot down is back after 108 s, not before, walking in from the edge
   const v = world(), V = v.game.R;
   const hunters = [];
   for (let i = 0; i < 10; i++) hunters.push(await v.pub('h' + i, 'banaue', { x: 3 * T + i * 20, y: 3 * T }));
@@ -215,12 +216,12 @@ test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare o
   hunters[0].say({ t: 'mv', x: 3 * T, y: 3 * T, dir: 'down', m: 0 });
   assert.ok(hunters[5].all('dn').some((d) => d.s === itik.slot));
   const t0 = v.now();
-  v.run(40000 - 2000);
-  assert.ok(!vr.mons.some((x) => x.slot === itik.slot), 'not back before 40 s');
+  v.run(108000 - 2000);
+  assert.ok(!vr.mons.some((x) => x.slot === itik.slot), 'not back before 108 s');
   const before = hunters[5].got.length;
   v.run(45000);
   const back = vr.mons.find((x) => x.slot === itik.slot);
-  assert.ok(back, 'back within the next 20-40 s after 40 s (' + (v.now() - t0) / 1000 + ' s)');
+  assert.ok(back, 'back within the next 20-40 s after 108 s (' + (v.now() - t0) / 1000 + ' s)');
   const first = hunters[5].got.slice(before).find((m) => m.t === 'tk' && m.m.some((r) => r[0] === itik.slot)).m.find((r) => r[0] === itik.slot);
   assert.ok(!near(first, hunters.map((h, i) => ({ x: 3 * T + i * 20, y: 3 * T })), 5.9, T), 'it walked in out of sight (6 tiles or more from every hunter)');
   assert.strictEqual(V.L.wildUnpack(first).mode, 'walk');

@@ -17,9 +17,10 @@ const VIEW_KEEP = 1; // tiles: one already in view stays to VIEW + this, and out
 // hunter back is energy and arrows, not an empty map:
 const COPY_EVERY = 4; // one more copy of the roster for each 4 players (1-3: the place's own, 4-7: two, 8-11: three) ...
 const COPIES = 4; // ... at most this many in all (slots 100 * copy + slot; the phones take up to 399)
-const PUB_RESPAWN = 2; // minutes: a hunted one comes back at most this late here (not a rare one, not the Great Mammoth) ...
-const CROWD_EACH = 4; // ... and ceil(players / 4) times sooner ...
-const CROWD_MOST = 4; // ... at most 4 times (30 s with 13 or more)
+// The fair rule (owner, 7 Nov 2026: "How to make it more balance to all users?"): each hunter finds about as many animals
+// an hour as one alone does. A hunted one comes back after its own minutes x copies / players (alone: as before, 6 min;
+// 4: 3 min; 12: 2 min; 30: 48 s), never sooner than RESPAWN_FLOOR. A rare one and the Great Mammoth keep their own.
+const RESPAWN_FLOOR = 0.75; // minutes
 const SWEEP = 5000; // ms: how often one no longer about (a wolf at sunrise, the rain's deer) is looked for, to walk off
 const AR_MAX = 8; // arrows in flight a second a phone (more are dropped)
 // Chat in a hunting place (owner, 7 Nov 2026: "It should be open to everyone ... Even strangers can talk to each
@@ -77,13 +78,14 @@ class PubRoom extends Room {
   }
   // How many copies of the roster a crowd this size gets: 1, then one more for each 4 players, at most 4.
   copies() { return Math.min(COPIES, 1 + Math.floor(this.players.size / COPY_EVERY)); }
-  crowd() { return Math.min(CROWD_MOST, Math.max(1, Math.ceil(this.players.size / CROWD_EACH))); }
+  // How much sooner a hunted one comes back for this crowd: players / copies (1 alone), so each hunter's share stays even.
+  crowd() { return Math.max(1, this.players.size / this.copies()); }
   // Is a hunted slot still waiting? Its respawn minutes, divided by the crowd (the Great Mammoth's weekend is not a crowd's).
   waiting(slot, def) {
     const at = this.gone.get(slot);
     if (at == null) return false;
     const own = def.respawn || this.R.WI.respawn;
-    const mins = def.great ? own : (def.rare ? own : Math.min(PUB_RESPAWN, own)) / this.crowd();
+    const mins = def.great || def.rare ? own : Math.max(Math.min(RESPAWN_FLOOR, own), own / this.crowd());
     if (this.game.now() - at >= mins * 60000) { this.gone.delete(slot); return false; }
     return true;
   }
