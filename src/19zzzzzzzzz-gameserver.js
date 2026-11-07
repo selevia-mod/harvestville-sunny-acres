@@ -45,7 +45,9 @@
     pSend: 100, // other players send a step this often while they walk (mvEvery) ...
     pMin: 150, // ... and are drawn between pMin + 50 and pMax + 50 ms behind, as their own line's jitter needs (owner,
     pMax: 300, // 7 Nov 2026, on e34: "still a little bit delay on walking"): a good line 200 ms, a bad one up to 350
-    holdMost: 900, // ms: a kill or a hit by another hunter waits at most this long for their arrow to land on this screen
+    holdMost: 1200, // ms: a kill or a hit by another hunter waits at most this long for their arrow to land on this screen
+    shotMost: 600, // ms: their arrow waits at most this long, to leave where their farmer is drawn (behind)
+    shotEase: 100, // ms: ... and this much more: their farmer eases onto their trail (19h-online.js, about 60 ms) and stops
     pEvery: 300, // other players: their steps come about this often (a move every 100 ms, and the road's jitter), so
     // they are drawn this much further in the past than the monsters (L.trailAt tr.every: 350 ms in all, as a farm room 400), always with
     // their next step already here (owner, 7 Nov 2026: "I cant see them walking, they just transporting")
@@ -451,6 +453,8 @@
     askFriends();
     return Promise.race([friends.p || Promise.resolve(), new Promise(function (r) { setTimeout(r, 1500); })]).catch(function () {});
   };
+  // a friend added or gone (19zm-hunt-together.js): asked again now, not in five minutes
+  O.friendsChanged = function () { friends.at = 0; askFriends(); };
   var isFriend = function (id) { return !!(id && (friends.ids[id] || (O.others && O.others[id]))); };
   var pubLeft = function (g, id) {
     delete g.ppl[id];
@@ -484,7 +488,17 @@
   // second). Their hit and their kill wait for it (owner, 7 Nov 2026: "The other users hit the bunny and it dies
   // instantly without hitting the arrow yet"), never more than GS.holdMost.
   var ARROW = 16 * T, POSE_MS = 160, shotsSeen = {};
-  var shotSeen = function (id, x, y, posed) { if (id) shotsSeen[id] = { at: Date.now(), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+  var shotSeen = function (id, x, y, posed, later) { if (id) shotsSeen[id] = { at: Date.now() + (later || 0), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+  // How far behind this hunter is drawn (L.trailAt: their clock's lead, GS.delay, and their line's own wait): their arrow
+  // waits as long, so it leaves where their farmer stands on this screen (owner, 7 Nov 2026, on e36: "the arrow of my
+  // friends ... looks like it wasn't hitting the enemies", "her character was junky or jumping": the shot came at once,
+  // from a spot their farmer was still walking to, and they jumped there when it ended).
+  var behind = function (id) {
+    var tr = O.trails && O.trails[id];
+    if (!tr || !tr.gs) return 0;
+    var d = Math.max(0, (Number(tr.play) || 0) - (Number(tr.off) || 0)) + GS.delay + Math.max(0, Math.min(Number(tr.every) || 0, 4000) - GS.every) + GS.shotEase;
+    return Math.max(0, Math.min(GS.shotMost, d));
+  };
   var landsIn = function (id, a) {
     var sh = shotsSeen[id];
     if (!sh || !a || Date.now() - sh.at > 1500) return 0;
@@ -513,9 +527,16 @@
     if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
     var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
     if (ax == null || ay == null) return;
-    var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
-    if (!posed) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
-    shotSeen(id, ax, ay, posed);
+    // their farmer draws (POSE_MS) and lets go when this screen has them where they shot from
+    var wait = Math.max(0, behind(id) - POSE_MS);
+    shotSeen(id, ax, ay, true, wait);
+    var go = function () {
+      if (g.dead || g.w !== w || !w.sys || !w.sys.isActive()) return;
+      var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
+      if (posed) return;
+      w.time.delayedCall(POSE_MS, function () { if (!g.dead && g.w === w) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); } });
+    };
+    if (wait > 0) w.time.delayedCall(wait, go); else go();
   };
   // The place's tame animal, your own (never the server's): out once the room says what is here, unless it is already.
   var tameOut = function (g) {
@@ -1016,11 +1037,11 @@
     var rows = ids.map(function (id) {
       var p = g.ppl[id], state = self.friendState ? self.friendState(id) : undefined;
       var buttons = [];
-      if (state !== 'friend' && state !== 'sent' && self.askFriend) buttons.push({ label: 'Add friend', color: 0x5fa84a, cb: function () { self.closeModal(); self.askFriend(id, p.name); } });
+      if (state !== 'friend' && state !== 'sent' && self.askFriend) buttons.push({ label: state === 'request' ? 'Accept' : 'Add friend', color: 0x5fa84a, cb: function () { self.closeModal(); self.askFriend(id, p.name); } });
       buttons.push({ label: 'More', color: 0xa08a68, cb: function () { self.closeModal(); self.playerMenu(id, p.name, function (next) { self.openOnline('here', 0, next); }); } });
       return {
         id: id, icon: C.ICON.bow, name: p.name, online: true,
-        desc: state === 'friend' ? 'Your friend, hunting with you.' : state === 'sent' ? 'Friend request sent.' : 'Hunting near you.',
+        desc: state === 'friend' ? 'Your friend, hunting with you.' : state === 'sent' ? 'Friend request sent.' : state === 'request' ? 'Wants to be your friend.' : 'Hunting near you.',
         buttons: buttons,
       };
     });

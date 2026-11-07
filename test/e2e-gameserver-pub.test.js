@@ -863,6 +863,66 @@ test('REAL pub: a stranger in a look keeps it when they shoot (its bow picture i
   await me.context.close();
 });
 
+// Owner, 7 Nov 2026 (on e36, a recording in a cave): "the arrow of my friends when playing is looks like it wasn't hitting
+// the enemies" and "sometimes her character was junky or jumping in frame". Another hunter is drawn 200-350 ms behind;
+// their arrow came at once, so it left from a spot their farmer was still walking to (and missed what it hit on their
+// screen), and they jumped there when the shot ended. Now it waits as long; and their arrow stops in what it reaches.
+test('REAL pub: another hunter who walks and shoots: the shot leaves where their farmer is drawn (no jump after), and their arrow stops in the animal it reaches', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const me = await open(server, real.direct, 'Moon Meadow');
+  await go(me);
+  await waitMode(me.page, 'live');
+  const f = await me.page.evaluate(() => Farm.world.feet());
+  const s = new WebSocket(real.direct);
+  await new Promise((res) => s.on('open', res));
+  const y = Math.round(f.y - 2 * T);
+  let x = Math.round(f.x - 4 * T);
+  s.send(JSON.stringify({ t: 'hi', v: 1, token: 'test-token:walker', topic: 'pub', map: MAP, floor: 0, name: 'Walker', look: 'girl', x, y, dir: 'right', hg: 0, sk: 0, b: 0, bk: 0, with: me.uid }));
+  await me.page.waitForFunction(() => Object.keys(Farm.world.remotes).length >= 1, null, SLOW);
+  await sleep(600);
+  // they walk right for a second (4.5 tiles a second, a step each 100 ms, on their clock), stop, and shoot at once
+  for (let i = 0; i < 10; i++) {
+    x += Math.round(0.45 * T);
+    s.send(JSON.stringify({ t: 'mv', x, y, dir: 'right', m: 1, hg: 0, sk: 0, b: 0, c: Date.now() }));
+    await sleep(100);
+  }
+  s.send(JSON.stringify({ t: 'mv', x, y, dir: 'right', m: 0, hg: 0, sk: 0, b: 0, c: Date.now() }));
+  // watch their farmer on this screen: where it is when their bow comes up, and after the shot
+  await me.page.evaluate(() => {
+    const w = Farm.world, r = Object.values(w.remotes)[0];
+    w.__seen = { atPose: null, after: [] };
+    w.__watch = setInterval(() => { if (r.shot && !w.__seen.atPose) w.__seen.atPose = { x: r.spr.x }; if (w.__seen.atPose && !r.shot) w.__seen.after.push(r.spr.x); }, 10);
+  });
+  s.send(JSON.stringify({ t: 'ar', x: x + Math.round(0.5 * T), y: y - Math.round(0.5 * T), a: 0, l: Math.round(4 * T), b: 1 }));
+  await me.page.waitForFunction(() => Farm.world.__seen.after.length > 20, null, SLOW);
+  const seen = await me.page.evaluate(() => { clearInterval(Farm.world.__watch); return Farm.world.__seen; });
+  const xs = [seen.atPose.x].concat(seen.after);
+  assert.ok(Math.abs(seen.atPose.x - x) < 0.35 * T, 'their bow comes up where they stopped: ' + Math.round((seen.atPose.x - x) / T * 100) / 100 + ' tiles off');
+  assert.ok(Math.max(...xs) - Math.min(...xs) < 0.35 * T, 'no jump after the shot: ' + Math.round((Math.max(...xs) - Math.min(...xs)) / T * 100) / 100 + ' tiles');
+  // a hunter's arrow (shown here, its hit is theirs) at an animal on this screen: it stops in it, and hurts nothing here
+  const hit = await me.page.evaluate(() => new Promise((res) => {
+    const w = Farm.world, a = w.wild.animals.find((q) => q.hp > 0 && !q.gsLocal);
+    if (!a) return res(null);
+    const hp = a.hp, ay = a.y - 0.3 * a.def.w * 256, sx = a.x - 3 * 256, n0 = w.wildArrows.length;
+    a.frozen = true;
+    const keep = { x: a.x, y: a.y }, hold = setInterval(() => { a.x = keep.x; a.y = keep.y; }, 5);
+    w.wildArrow(sx, ay, 0, 8 * 256, true);
+    const t0 = Date.now(), look = setInterval(() => {
+      const ar = w.wildArrows[w.wildArrows.length - 1];
+      if (w.wildArrows.length > n0 && ar && ar.x > keep.x + 1.2 * 256) { clearInterval(look); clearInterval(hold); res({ through: true, hp, now: a.hp }); }
+      if (w.wildArrows.length === n0) { clearInterval(look); clearInterval(hold); res({ through: false, hp, now: a.hp, ms: Date.now() - t0 }); }
+    }, 5);
+  }));
+  assert.ok(hit, 'an animal to shoot at');
+  assert.strictEqual(hit.through, false, 'it stopped in the animal, not past it');
+  assert.ok(hit.ms < 400, 'it stopped where the animal is (3 tiles), not at the end of its 8: ' + hit.ms + ' ms');
+  assert.strictEqual(hit.now, hit.hp, 'and hurt nothing on this phone');
+  s.terminate();
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
 test('REAL pub: strangers chat (the Chat button is there with no friends); a hunt is shared with the hunter\'s friends only', async () => {
   const real = await realServer();
   const server = createServer();
@@ -1183,6 +1243,43 @@ test('the player menu has Add friend: one tap sends the request, no code; then i
   await sun.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.askFriend(id, 'Moon Meadow'); }, [me.uid]);
   await sleep(800);
   await me.page.evaluate(() => { Farm.ui.closeAll(); });
+  for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([me.context.close(), sun.context.close()]);
+});
+
+// Owner, 7 Nov 2026 (on e36): "I add her as friend but she can't see it, she also add me as a friend and i cant see her
+// request". A request now comes to the other phone as a note with Accept (the list is looked at every 30 s: here at
+// once, O.friendsLook), their menu of you says Accept, and the one who asked hears that they said yes.
+test('a friend request reaches the other phone: a note with Accept, Accept on their menu; the one who asked hears the yes', async () => {
+  const server = createServer();
+  const me = await open(server, null, 'Moon Meadow'), sun = await open(server, null, 'Sun Patch');
+  const noteText = (page) => page.evaluate(() => { const b = Farm.ui.followBox, out = []; if (!b || !b.active) return ''; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(b.list); return out.join(' | '); });
+  const rowText = (page) => page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); if (m) walk(m.c.list); return out.join(' | '); });
+  for (const who of [me, sun]) await who.page.evaluate(() => { Farm.ui.closeAll(); return Farm.Online.friendsLook(); });
+  await me.page.evaluate(([id]) => Farm.ui.askFriend(id, 'Sun Patch'), [sun.uid]);
+  await me.page.waitForFunction(() => /Friend request sent to Sun Patch/.test(Farm.ui.toastText.text), null, SLOW);
+  // Sun's phone, at its next look: the note, and Accept on its menu of me
+  await sun.page.evaluate(() => Farm.Online.friendsLook());
+  await sun.page.waitForFunction(() => Farm.ui.followBox && Farm.ui.followBox.active, null, SLOW);
+  assert.match(await noteText(sun.page), /Moon Meadow wants to be your friend\. \| Accept/);
+  await sun.page.evaluate(([id]) => { Farm.ui.playerMenu(id, 'Moon Meadow'); }, [me.uid]);
+  await sleep(600);
+  assert.match(await rowText(sun.page), /Wants to be your friend \| Moon Meadow asked you\. Say yes\? \| Accept/);
+  await sun.page.evaluate(() => Farm.ui.closeAll());
+  // Sun taps the note's Accept
+  await sun.page.evaluate(() => Farm.Online.friendsLook());
+  await sun.page.waitForFunction(() => Farm.ui.followBox && Farm.ui.followBox.active, null, SLOW);
+  const pos = await sun.page.evaluate(() => { const b = Farm.ui.followBox; let at = null; const walk = (l) => l.forEach((o) => { if (!at && o.type === 'Text' && o.text === 'Accept') { const r = o.getBounds(); at = { x: r.centerX, y: r.centerY }; } if (o.list) walk(o.list); }); walk(b.list); return at; });
+  assert.ok(pos, 'the note\'s Accept is there');
+  await sun.page.touchscreen.tap(pos.x, pos.y);
+  await sun.page.waitForFunction(() => /You and Moon Meadow are friends now!/.test(Farm.ui.toastText.text), null, SLOW);
+  // looked at again: the same request is not told twice
+  await sun.page.evaluate(() => Farm.Online.friendsLook());
+  await sleep(400);
+  assert.strictEqual(await noteText(sun.page), '', 'told once');
+  await me.page.evaluate(() => Farm.Online.friendsLook());
+  await me.page.waitForFunction(() => /Sun Patch said yes! You are friends now\./.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual(await me.page.evaluate(([id]) => Farm.ui.friendState(id), [sun.uid]), 'friend');
   for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([me.context.close(), sun.context.close()]);
 });

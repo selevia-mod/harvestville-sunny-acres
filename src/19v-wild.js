@@ -600,9 +600,12 @@
       ar.img.setPosition(ar.x, ar.y);
       ar.streak.setPosition(ar.x, ar.y).setSize(Math.min(ar.went, STREAK), 14);
       var hit = null;
-      (self.wild && !ar.shown ? self.wild.animals : []).forEach(function (a) {
-        if (!hit && a.hp > 0 && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
+      (self.wild ? self.wild.animals : []).forEach(function (a) {
+        if (!hit && a.hp > 0 && !(ar.shown && a.gsLocal) && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
       });
+      // a friend's arrow stops in the animal it reaches here too (their hit is theirs to tell; owner, 7 Nov 2026: "the
+      // arrow of my friends ... looks like it wasn't hitting the enemies": it flew through and stood in the ground past it)
+      if (hit && ar.shown) { ar.img.destroy(); ar.streak.destroy(); if (self.bits) self.bits.dust.explode(2, ar.x, ar.y); return false; }
       if (hit) { ar.img.destroy(); ar.streak.destroy(); self.wildStruck(hit); return false; }
       if (ar.left <= 0) { // a miss stands in the ground for a moment
         ar.streak.destroy();

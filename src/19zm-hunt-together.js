@@ -108,21 +108,63 @@
   };
 
   // ---------- after a hunt together: add them as a friend? ----------
-  var friends = null, asked = {};
-  var knownFriends = function () {
-    if (friends) return Promise.resolve(friends);
-    return F.Net.rpc('farm_friends_v1', {}).then(function (list) {
-      friends = {};
-      (Array.isArray(list) ? list : []).forEach(function (f) { if (f && f.id) friends[String(f.id)] = f.status || 'friend'; });
-      return friends;
+  var friends = null, asked = {}, friendsAt = 0, friendsP = null, askedMe = {};
+  var FRIENDS_FRESH = 20000, FRIENDS_WATCH = 30000;
+  // What changed since the last list: someone asks you (a note with Accept, once each), or says yes to you (owner, 7 Nov
+  // 2026: "I add her as friend but she can't see it, she also add me as a friend and i cant see her request": the list
+  // was asked for once a session, and a request came to nobody's screen unless they opened Online, Friends).
+  var friendsSeen = function (before, now, names) {
+    var changed = false;
+    Object.keys(now).forEach(function (id) {
+      var was = before && before[id], is = now[id];
+      if (was !== is && (is === 'friend' || was === 'friend')) changed = true;
+      if (!F.ui || O.blocked[id]) return;
+      if (is === 'request' && !askedMe[id]) {
+        askedMe[id] = 1;
+        F.ui.followNote(names[id] + ' wants to be your friend.', 'Accept', function () {
+          F.Net.rpc('farm_friend_answer_v1', { p_other: id, p_accept: true }).then(function (r) {
+            if (r !== 'friends') return F.ui.toast('That friend request is gone.', 2200);
+            if (friends) friends[id] = 'friend';
+            sfx('found');
+            F.ui.toast('You and ' + names[id] + ' are friends now!', 2600, GREEN);
+            if (O.friendsChanged) O.friendsChanged();
+          }).catch(function () { F.ui.toast('Could not reach the online world. Check your connection.', 2400); });
+        }, function () { return !friends || friends[id] === 'request'; });
+      } else if (before && was === 'sent' && is === 'friend') {
+        sfx('found');
+        F.ui.toast(names[id] + ' said yes! You are friends now.', 2800, GREEN);
+      }
     });
+    if (before) Object.keys(before).forEach(function (id) { if (before[id] === 'friend' && !now[id]) changed = true; });
+    if (changed && O.friendsChanged) O.friendsChanged(); // (19zzzzzzzzz-gameserver.js: friends meet in caves, share loot)
+  };
+  var knownFriends = function (fresh) {
+    if (friends && (!fresh || Date.now() - friendsAt < FRIENDS_FRESH)) return Promise.resolve(friends);
+    if (friendsP) return friendsP;
+    friendsP = F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+      var now = {}, names = {}, before = friends;
+      (Array.isArray(list) ? list : []).forEach(function (f) { if (f && f.id) { now[String(f.id)] = f.status || 'friend'; names[String(f.id)] = name(f.farm_name); } });
+      friends = now;
+      friendsAt = Date.now();
+      friendsSeen(before, now, names);
+      return friends;
+    }).then(function (x) { friendsP = null; return x; }, function (e) { friendsP = null; throw e; });
+    return friendsP;
   };
   // 'friend' / 'sent' / 'request' / undefined: what this phone knows (19h-online.js playerMenu's Add friend row). The list
-  // is asked for the first time it is wanted; until it comes, the row says Add (the server says 'already' if so).
+  // is asked for the first time it is wanted, and again when it is older than FRIENDS_FRESH; until it comes, the row says
+  // Add (the server says 'already' if so).
   U.friendState = function (id) {
-    if (!friends) { knownFriends().catch(function () {}); return undefined; }
-    return friends[id];
+    if (!friends || Date.now() - friendsAt >= FRIENDS_FRESH) knownFriends(true).catch(function () {});
+    return friends ? friends[id] : undefined;
   };
+  // Looked at every FRIENDS_WATCH while online and awake: a request to you shows within half a minute.
+  O.friendsLook = function () {
+    if (!O.on || !O.me || O.huntOff || (F.Host && F.Host.sleeping) || !F.Net || !F.Net.available || !F.Net.available()) return Promise.resolve(null);
+    friendsAt = 0;
+    return knownFriends(true).catch(noop);
+  };
+  setInterval(function () { O.friendsLook(); }, FRIENDS_WATCH);
   O.huntedWith = function (ids, animal) {
     if (!O.on || O.huntOff || !ids.length) return;
     knownFriends().then(function (fr) {
@@ -145,7 +187,8 @@
   U.askFriend = function (id, who) {
     var self = this;
     F.Net.rpc('farm_friend_ask_v1', { p_other: id }).then(function (r) {
-      if (friends) friends[id] = r === 'friends' ? 'friend' : 'sent';
+      if (friends && (r === 'friends' || r === 'already' || r === 'requested' || r === 'waiting')) friends[id] = r === 'friends' || r === 'already' ? 'friend' : 'sent';
+      if (r === 'friends' && O.friendsChanged) O.friendsChanged();
       if (r === 'friends') { sfx('found'); return self.toast('You and ' + who + ' are friends now!', 2600, GREEN); }
       if (r === 'requested') return self.toast('Friend request sent to ' + who + '. You will be friends when they say yes.', 3000, GREEN);
       if (r === 'waiting' || r === 'already') return self.toast(r === 'already' ? 'You and ' + who + ' are friends already.' : 'You asked ' + who + ' already.', 2400);

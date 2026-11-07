@@ -25065,9 +25065,9 @@ rows: (F.session.visit && self.bookRow ? [self.bookRow(who)] : []).concat(F.sess
 
 
 self.askFriend && !blocked && id !== (O.me && O.me.id) && !(self.friendState && self.friendState(id) === 'friend') ? [{
-icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 'Friend request sent' : 'Add friend',
-desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : 'Send ' + who + ' a friend request. No code needed.',
-buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
+icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 'Friend request sent' : self.friendState && self.friendState(id) === 'request' ? 'Wants to be your friend' : 'Add friend',
+desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : self.friendState && self.friendState(id) === 'request' ? who + ' asked you. Say yes?' : 'Send ' + who + ' a friend request. No code needed.',
+buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: self.friendState && self.friendState(id) === 'request' ? 'Accept' : 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
 }] : []).concat([
 
 {
@@ -28810,9 +28810,12 @@ ar.went += step;
 ar.img.setPosition(ar.x, ar.y);
 ar.streak.setPosition(ar.x, ar.y).setSize(Math.min(ar.went, STREAK), 14);
 var hit = null;
-(self.wild && !ar.shown ? self.wild.animals : []).forEach(function (a) {
-if (!hit && a.hp > 0 && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
+(self.wild ? self.wild.animals : []).forEach(function (a) {
+if (!hit && a.hp > 0 && !(ar.shown && a.gsLocal) && Math.hypot(ar.x - a.x, ar.y - (a.y - 0.3 * a.def.w * T)) < Math.max(0.45, 0.55 * a.def.w) * T) hit = a;
 });
+
+
+if (hit && ar.shown) { ar.img.destroy(); ar.streak.destroy(); if (self.bits) self.bits.dust.explode(2, ar.x, ar.y); return false; }
 if (hit) { ar.img.destroy(); ar.streak.destroy(); self.wildStruck(hit); return false; }
 if (ar.left <= 0) {
 ar.streak.destroy();
@@ -32056,21 +32059,63 @@ return true;
 };
 
 
-var friends = null, asked = {};
-var knownFriends = function () {
-if (friends) return Promise.resolve(friends);
-return F.Net.rpc('farm_friends_v1', {}).then(function (list) {
-friends = {};
-(Array.isArray(list) ? list : []).forEach(function (f) { if (f && f.id) friends[String(f.id)] = f.status || 'friend'; });
-return friends;
+var friends = null, asked = {}, friendsAt = 0, friendsP = null, askedMe = {};
+var FRIENDS_FRESH = 20000, FRIENDS_WATCH = 30000;
+
+
+
+var friendsSeen = function (before, now, names) {
+var changed = false;
+Object.keys(now).forEach(function (id) {
+var was = before && before[id], is = now[id];
+if (was !== is && (is === 'friend' || was === 'friend')) changed = true;
+if (!F.ui || O.blocked[id]) return;
+if (is === 'request' && !askedMe[id]) {
+askedMe[id] = 1;
+F.ui.followNote(names[id] + ' wants to be your friend.', 'Accept', function () {
+F.Net.rpc('farm_friend_answer_v1', { p_other: id, p_accept: true }).then(function (r) {
+if (r !== 'friends') return F.ui.toast('That friend request is gone.', 2200);
+if (friends) friends[id] = 'friend';
+sfx('found');
+F.ui.toast('You and ' + names[id] + ' are friends now!', 2600, GREEN);
+if (O.friendsChanged) O.friendsChanged();
+}).catch(function () { F.ui.toast('Could not reach the online world. Check your connection.', 2400); });
+}, function () { return !friends || friends[id] === 'request'; });
+} else if (before && was === 'sent' && is === 'friend') {
+sfx('found');
+F.ui.toast(names[id] + ' said yes! You are friends now.', 2800, GREEN);
+}
 });
+if (before) Object.keys(before).forEach(function (id) { if (before[id] === 'friend' && !now[id]) changed = true; });
+if (changed && O.friendsChanged) O.friendsChanged();
 };
+var knownFriends = function (fresh) {
+if (friends && (!fresh || Date.now() - friendsAt < FRIENDS_FRESH)) return Promise.resolve(friends);
+if (friendsP) return friendsP;
+friendsP = F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+var now = {}, names = {}, before = friends;
+(Array.isArray(list) ? list : []).forEach(function (f) { if (f && f.id) { now[String(f.id)] = f.status || 'friend'; names[String(f.id)] = name(f.farm_name); } });
+friends = now;
+friendsAt = Date.now();
+friendsSeen(before, now, names);
+return friends;
+}).then(function (x) { friendsP = null; return x; }, function (e) { friendsP = null; throw e; });
+return friendsP;
+};
+
 
 
 U.friendState = function (id) {
-if (!friends) { knownFriends().catch(function () {}); return undefined; }
-return friends[id];
+if (!friends || Date.now() - friendsAt >= FRIENDS_FRESH) knownFriends(true).catch(function () {});
+return friends ? friends[id] : undefined;
 };
+
+O.friendsLook = function () {
+if (!O.on || !O.me || O.huntOff || (F.Host && F.Host.sleeping) || !F.Net || !F.Net.available || !F.Net.available()) return Promise.resolve(null);
+friendsAt = 0;
+return knownFriends(true).catch(noop);
+};
+setInterval(function () { O.friendsLook(); }, FRIENDS_WATCH);
 O.huntedWith = function (ids, animal) {
 if (!O.on || O.huntOff || !ids.length) return;
 knownFriends().then(function (fr) {
@@ -32093,7 +32138,8 @@ setTimeout(show, 2600);
 U.askFriend = function (id, who) {
 var self = this;
 F.Net.rpc('farm_friend_ask_v1', { p_other: id }).then(function (r) {
-if (friends) friends[id] = r === 'friends' ? 'friend' : 'sent';
+if (friends && (r === 'friends' || r === 'already' || r === 'requested' || r === 'waiting')) friends[id] = r === 'friends' || r === 'already' ? 'friend' : 'sent';
+if (r === 'friends' && O.friendsChanged) O.friendsChanged();
 if (r === 'friends') { sfx('found'); return self.toast('You and ' + who + ' are friends now!', 2600, GREEN); }
 if (r === 'requested') return self.toast('Friend request sent to ' + who + '. You will be friends when they say yes.', 3000, GREEN);
 if (r === 'waiting' || r === 'already') return self.toast(r === 'already' ? 'You and ' + who + ' are friends already.' : 'You asked ' + who + ' already.', 2400);
@@ -42648,7 +42694,9 @@ pendMs: 1500,
 pSend: 100,
 pMin: 150,
 pMax: 300,
-holdMost: 900,
+holdMost: 1200,
+shotMost: 600,
+shotEase: 100,
 pEvery: 300,
 
 
@@ -43054,6 +43102,8 @@ var friendsWait = function () {
 askFriends();
 return Promise.race([friends.p || Promise.resolve(), new Promise(function (r) { setTimeout(r, 1500); })]).catch(function () {});
 };
+
+O.friendsChanged = function () { friends.at = 0; askFriends(); };
 var isFriend = function (id) { return !!(id && (friends.ids[id] || (O.others && O.others[id]))); };
 var pubLeft = function (g, id) {
 delete g.ppl[id];
@@ -43087,7 +43137,17 @@ g.baits[id] = { x: x, y: y, until: Date.now() + left, img: w.add.image(x, y, 'it
 
 
 var ARROW = 16 * T, POSE_MS = 160, shotsSeen = {};
-var shotSeen = function (id, x, y, posed) { if (id) shotsSeen[id] = { at: Date.now(), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+var shotSeen = function (id, x, y, posed, later) { if (id) shotsSeen[id] = { at: Date.now() + (later || 0), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+
+
+
+
+var behind = function (id) {
+var tr = O.trails && O.trails[id];
+if (!tr || !tr.gs) return 0;
+var d = Math.max(0, (Number(tr.play) || 0) - (Number(tr.off) || 0)) + GS.delay + Math.max(0, Math.min(Number(tr.every) || 0, 4000) - GS.every) + GS.shotEase;
+return Math.max(0, Math.min(GS.shotMost, d));
+};
 var landsIn = function (id, a) {
 var sh = shotsSeen[id];
 if (!sh || !a || Date.now() - sh.at > 1500) return 0;
@@ -43116,9 +43176,16 @@ var w = g.w, id = typeof m.id === 'string' ? m.id : '';
 if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
 var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
 if (ax == null || ay == null) return;
+
+var wait = Math.max(0, behind(id) - POSE_MS);
+shotSeen(id, ax, ay, true, wait);
+var go = function () {
+if (g.dead || g.w !== w || !w.sys || !w.sys.isActive()) return;
 var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
-if (!posed) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
-shotSeen(id, ax, ay, posed);
+if (posed) return;
+w.time.delayedCall(POSE_MS, function () { if (!g.dead && g.w === w) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); } });
+};
+if (wait > 0) w.time.delayedCall(wait, go); else go();
 };
 
 var tameOut = function (g) {
@@ -43619,11 +43686,11 @@ var self = this, n = g.here || Object.keys(g.ppl).length + 1, ids = nearest(g);
 var rows = ids.map(function (id) {
 var p = g.ppl[id], state = self.friendState ? self.friendState(id) : undefined;
 var buttons = [];
-if (state !== 'friend' && state !== 'sent' && self.askFriend) buttons.push({ label: 'Add friend', color: 0x5fa84a, cb: function () { self.closeModal(); self.askFriend(id, p.name); } });
+if (state !== 'friend' && state !== 'sent' && self.askFriend) buttons.push({ label: state === 'request' ? 'Accept' : 'Add friend', color: 0x5fa84a, cb: function () { self.closeModal(); self.askFriend(id, p.name); } });
 buttons.push({ label: 'More', color: 0xa08a68, cb: function () { self.closeModal(); self.playerMenu(id, p.name, function (next) { self.openOnline('here', 0, next); }); } });
 return {
 id: id, icon: C.ICON.bow, name: p.name, online: true,
-desc: state === 'friend' ? 'Your friend, hunting with you.' : state === 'sent' ? 'Friend request sent.' : 'Hunting near you.',
+desc: state === 'friend' ? 'Your friend, hunting with you.' : state === 'sent' ? 'Friend request sent.' : state === 'request' ? 'Wants to be your friend.' : 'Hunting near you.',
 buttons: buttons,
 };
 });

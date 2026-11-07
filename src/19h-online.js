@@ -1300,9 +1300,9 @@
         // one tap, no code to type (owner, 7 Nov 2026: "add button Add friend for easy adding ... I need to type again the
         // code which is so hard"); not for a friend already, nor yourself
         self.askFriend && !blocked && id !== (O.me && O.me.id) && !(self.friendState && self.friendState(id) === 'friend') ? [{
-          icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 'Friend request sent' : 'Add friend',
-          desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : 'Send ' + who + ' a friend request. No code needed.',
-          buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
+          icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 'Friend request sent' : self.friendState && self.friendState(id) === 'request' ? 'Wants to be your friend' : 'Add friend',
+          desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : self.friendState && self.friendState(id) === 'request' ? who + ' asked you. Say yes?' : 'Send ' + who + ' a friend request. No code needed.',
+          buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: self.friendState && self.friendState(id) === 'request' ? 'Accept' : 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
         }] : []).concat([
         // (Report and Block on one row: with Add friend the menu stays one page, 7 Nov 2026)
         {
