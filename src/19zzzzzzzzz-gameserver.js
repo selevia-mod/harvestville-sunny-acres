@@ -659,7 +659,10 @@
     if (!kind) return;
     var mine = by.indexOf(g.you) >= 0, lh = typeof m.lh === 'string' ? m.lh : '';
     // a hunting place: a share is yours only when you landed the last hit or the one who did is your friend
-    var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh);
+    // ... but a great one (the Great Mammoth: it only comes out for two or more, a hunt for everyone there) is shared with
+    // everyone who landed its 3 hits, strangers too (owner, 7 Nov 2026: "for the Great Mammoth, yes")
+    var great = !!(kind && C.WILD.animals[kind] && C.WILD.animals[kind].great);
+    var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh) && !great;
     if (stranger) mine = false;
     if (!a) {
       if (w.lair) w.lair.down[m.s] = true;

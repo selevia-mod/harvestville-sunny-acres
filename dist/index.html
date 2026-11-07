@@ -43254,7 +43254,10 @@ var a = find(w, m.s), kind = kindOf(m.kind) || (a && a.kind), by = Array.isArray
 if (!kind) return;
 var mine = by.indexOf(g.you) >= 0, lh = typeof m.lh === 'string' ? m.lh : '';
 
-var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh);
+
+
+var great = !!(kind && C.WILD.animals[kind] && C.WILD.animals[kind].great);
+var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh) && !great;
 if (stranger) mine = false;
 if (!a) {
 if (w.lair) w.lair.down[m.s] = true;

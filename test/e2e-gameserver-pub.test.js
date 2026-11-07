@@ -1391,3 +1391,36 @@ test('town: villagers at the same place stand apart, never inside the fountain, 
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
 });
+
+// Owner, 7 Nov 2026 ("Zin got it" after the owner's many hits on the Great Mammoth): "for the Great Mammoth, yes": a
+// great one is shared with everyone who landed its 3 hits, strangers too; a usual one is still the hunter's and their
+// friends' only.
+test('public room: the Great Mammoth is shared with everyone who helped, a stranger\'s last hit too; a deer still is not', async () => {
+  const server = createServer();
+  const spec = { m: null };
+  const gsrv = await fakePubServer({ animals: (map) => (map === 'magayon' && spec.m ? spec.m.map((x) => ({ ...x })) : []) });
+  const me = await open(server, gsrv.url, 'Moon Meadow');
+  await me.page.evaluate(() => { Farm.session.state.wild.n = 60; });
+  spec.m = await me.page.evaluate(() => {
+    const W = Farm.Config.WILD, k = (kind) => (W.order.indexOf(kind) >= 0 ? W.order.indexOf(kind) : 1000 + (W.more || []).indexOf(kind));
+    return [{ slot: 7, kind: 'greatmammoth', k: k('greatmammoth'), hp: 30, x: 14 * 256, y: 12 * 256 }, { slot: 3, kind: 'deer', k: k('deer'), hp: 2, x: 12 * 256, y: 14 * 256 }];
+  });
+  await go(me, 'magayon', 'from_makiling');
+  await waitMode(me.page, 'live');
+  await me.page.waitForFunction(() => Farm.world.wild.animals.some((a) => a.slot === 7) && Farm.world.wild.animals.some((a) => a.slot === 3), null, SLOW);
+  const c = [...gsrv.rooms.values()][0].players.get(me.uid);
+  const n0 = await me.page.evaluate(() => Farm.session.state.wild.n);
+  // the stranger lands the last hit on both; I landed enough on both (I am in `by`)
+  c.sock.send(JSON.stringify({ t: 'dn', s: 7, kind: 'greatmammoth', x: 14 * 256, y: 12 * 256, by: [me.uid, 'stranger-zin'], lh: 'stranger-zin', size: 1 }));
+  await me.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.slot === 7), null, SLOW);
+  await sleep(500);
+  const n1 = await me.page.evaluate(() => Farm.session.state.wild.n);
+  assert.strictEqual(n1, n0 + 1, 'the Great Mammoth: my share, though a stranger landed the last hit');
+  c.sock.send(JSON.stringify({ t: 'dn', s: 3, kind: 'deer', x: 12 * 256, y: 14 * 256, by: [me.uid, 'stranger-zin'], lh: 'stranger-zin', size: 1 }));
+  await me.page.waitForFunction(() => !Farm.world.wild.animals.some((a) => a.slot === 3), null, SLOW);
+  await sleep(500);
+  assert.strictEqual(await me.page.evaluate(() => Farm.session.state.wild.n), n1, 'a deer: the stranger\'s and their friends\' only');
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+  await gsrv.close();
+});
