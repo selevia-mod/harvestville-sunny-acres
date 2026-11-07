@@ -38,10 +38,19 @@ test('a good hi: the whole floor (as a first visitor finds it), and the others s
   // ping
   a.say({ t: 'pi', c: 1234 });
   assert.deepStrictEqual(a.last('po'), { t: 'po', c: 1234, st: w.now() });
-  // a place's cave too: Banaue's tunnels, floor 5, its guard first
-  const c = await w.phone('cara', { map: 'banaue_cave', floor: 5 });
+  // a place's cave too: Banaue's tunnels, floor 10, its guard first (50 floors now: a guard every 10th)
+  const c = await w.phone('cara', { map: 'banaue_cave', floor: 10 });
   const g = L.wildUnpack(c.last('wl').mons[0]);
   assert.strictEqual(g.kind, 'kibaan_chief');
+});
+
+test('a place\'s cave is 50 floors (owner, 8 Nov 2026): its guard every 10th floor, tougher the deeper; its boss on 50; no floor 51', async () => {
+  const w = world(), L = w.game.R.L;
+  const hp = async (floor, who) => { const p = await w.phone(who, { map: 'banaue_cave', floor }); return L.wildUnpack(p.last('wl').mons[0]); };
+  const g10 = await hp(10, 'g10'), g40 = await hp(40, 'g40'), boss = await hp(50, 'b50');
+  assert.deepStrictEqual([g10.kind, g40.kind, boss.kind], ['kibaan_chief', 'kibaan_chief', 'amomongo']);
+  assert.strictEqual(g40.hp - g10.hp, 15, '0.5 more for each floor below floor 10');
+  assert.strictEqual((await w.phone('x', { map: 'banaue_cave', floor: 51 })).last('no').why, 'topic', 'no floor 51');
 });
 
 test('a refused hi: version, topic, auth (and the socket is closed)', async () => {
@@ -123,10 +132,10 @@ const shootAll = (w, phones, opts) => {
 
 test('a kill: dn to everyone with the shares (minHits hits, and the last hit); the floor clear: cl to everyone', async () => {
   const w = world();
-  const a = await w.phone('a', { map: 'banaue_cave', floor: 10 }); // the Amomongo: minHits 3
-  const b = await w.phone('b', { map: 'banaue_cave', floor: 10 });
-  const c = await w.phone('c', { map: 'banaue_cave', floor: 10 });
-  const room = w.room('banaue_cave', 10), boss = room.mons[0];
+  const a = await w.phone('a', { map: 'banaue_cave', floor: 50 }); // the Amomongo: minHits 3
+  const b = await w.phone('b', { map: 'banaue_cave', floor: 50 });
+  const c = await w.phone('c', { map: 'banaue_cave', floor: 50 });
+  const room = w.room('banaue_cave', 50), boss = room.mons[0];
   assert.strictEqual(boss.kind, 'amomongo');
   assert.strictEqual(boss.def.minHits, 3);
   const at = (p) => p.say({ t: 'mv', x: boss.x + 200, y: boss.y, dir: 'left', m: 0 });
@@ -146,10 +155,10 @@ test('a kill: dn to everyone with the shares (minHits hits, and the last hit); t
   assert.ok(!a.last('cl'), 'not clear yet: its escort is still about');
   w.run(50);
   assert.ok(a.last('tk').gone.includes(boss.slot));
-  shootAll(w, [a, b], { map: 'banaue_cave', floor: 10 });
+  shootAll(w, [a, b], { map: 'banaue_cave', floor: 50 });
   [a, b, c].forEach((p) => assert.strictEqual(p.all('cl').length, 1, 'cl once, to everyone'));
   // a friend who comes later finds it clear
-  const late = await w.phone('d', { map: 'banaue_cave', floor: 10 });
+  const late = await w.phone('d', { map: 'banaue_cave', floor: 50 });
   assert.deepStrictEqual(late.last('wl').mons, []);
   assert.ok(late.last('cl'));
 });
@@ -196,9 +205,9 @@ test('a shy one runs from you; walls, the zone and the gate hold every monster',
 
 test('a dropped phone: the others see it go; back, it gets the whole floor again, and its hits still count', async () => {
   const w = world();
-  const a = await w.phone('a', { map: 'bohol_cave', floor: 10 }); // the Great Nuno: minHits 3
-  const b = await w.phone('b', { map: 'bohol_cave', floor: 10 });
-  const room = w.room('bohol_cave', 10), boss = room.mons[0];
+  const a = await w.phone('a', { map: 'bohol_cave', floor: 50 }); // the Great Nuno: minHits 3
+  const b = await w.phone('b', { map: 'bohol_cave', floor: 50 });
+  const room = w.room('bohol_cave', 50), boss = room.mons[0];
   const at = (p) => p.say({ t: 'mv', x: boss.x + 200, y: boss.y, dir: 'left', m: 0 });
   for (let n = 1; n <= 3; n++) { at(a); a.say({ t: 'hit', s: boss.slot, d: 2, n }); w.wait(160); }
   const hp = boss.hp;
@@ -206,7 +215,7 @@ test('a dropped phone: the others see it go; back, it gets the whole floor again
   w.run(50);
   assert.deepStrictEqual(b.last('tk').left, ['a']);
   w.run(2000);
-  const back = await w.phone('a', { map: 'bohol_cave', floor: 10, x: 1500, y: 1500 });
+  const back = await w.phone('a', { map: 'bohol_cave', floor: 50, x: 1500, y: 1500 });
   const wl = back.last('wl');
   assert.deepStrictEqual(wl.ppl.map((p) => p[0]), ['b']);
   const row = wl.mons.filter((r) => r[0] === boss.slot)[0];
@@ -242,12 +251,12 @@ test('bye leaves the floor; an empty floor stays as it is 30 s, then goes', asyn
 
 test("a place's boss grows for each friend who comes down (L.dunHp), and never shrinks", async () => {
   const w = world(), L = w.game.R.L;
-  const a = await w.phone('a', { map: 'taal_crater', floor: 10 });
-  const room = w.room('taal_crater', 10), boss = room.mons[0];
+  const a = await w.phone('a', { map: 'taal_crater', floor: 50 });
+  const room = w.room('taal_crater', 50), boss = room.mons[0];
   assert.strictEqual(boss.kind, 'berberoka');
   assert.strictEqual(boss.hp, L.dunHp('berberoka', 1));
-  const b = await w.phone('b', { map: 'taal_crater', floor: 10 });
-  const c = await w.phone('c', { map: 'taal_crater', floor: 10 });
+  const b = await w.phone('b', { map: 'taal_crater', floor: 50 });
+  const c = await w.phone('c', { map: 'taal_crater', floor: 50 });
   assert.strictEqual(boss.max, L.dunHp('berberoka', 3));
   assert.strictEqual(L.wildUnpack(c.last('wl').mons[0]).max, L.dunHp('berberoka', 3));
   b.say({ t: 'bye' });

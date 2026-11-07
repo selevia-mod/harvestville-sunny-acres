@@ -167,19 +167,20 @@ test('the Terrace set: Kanor makes it from Banaue\'s drops; all four take 8 off 
   assert.strictEqual(L.chargeLoss(s, 9, 'kibaan_chief'), 3);
 });
 
-test('the Terrace Tunnels: 10 floors, more creatures deeper, the Kibaan Chief on 5, the Amomongo on 10, the lift at 1, 6', () => {
+test('the Terrace Tunnels: 50 floors (owner, 8 Nov 2026), more creatures deeper, the Kibaan Chief every 10th, the Amomongo on 50, the lift every 10', () => {
   const d = P().dungeon;
   const roster = (f) => plain(L.dunRoster(d.key, f)).map((x) => x.kind);
-  assert.deepStrictEqual([1, 2, 3, 4, 6, 7, 8, 9].map((f) => roster(f).length), [3, 3, 3, 4, 4, 4, 5, 5], '3, 4 from floor 4, 5 from floor 8');
+  assert.deepStrictEqual([1, 9, 11, 19, 21, 31, 41, 49].map((f) => roster(f).length), [3, 3, 4, 4, 5, 6, 7, 7], '3, one more every 10 floors, at most 7');
   assert.deepStrictEqual(roster(1), ['kibaan', 'kibaan', 'kibaan'], 'only Kibaan at first');
-  assert.ok(roster(9).includes('cave_bayawak'));
-  const bay = (from, to) => { let n = 0; for (let f = from; f <= to; f++) if (f !== 5) n += roster(f).filter((k) => k === 'cave_bayawak').length; return n; };
-  assert.ok(bay(7, 9) > bay(2, 4), 'more Cave Bayawak deeper');
-  assert.deepStrictEqual(roster(5).slice(0, 1).concat(roster(5).length), ['kibaan_chief', 3], 'the guard and two');
-  assert.deepStrictEqual(roster(10)[0], 'amomongo');
+  for (let f = 1; f <= 9; f++) assert.ok(!roster(f).includes('cave_bayawak'), 'no Cave Bayawak above floor 11');
+  assert.ok(roster(49).includes('cave_bayawak'));
+  const bay = (from, to) => { let n = 0; for (let f = from; f <= to; f++) if (f % 10) n += roster(f).filter((k) => k === 'cave_bayawak').length; return n; };
+  assert.ok(bay(31, 39) > bay(11, 19), 'more Cave Bayawak deeper');
+  [10, 20, 30, 40].forEach((f) => assert.deepStrictEqual(roster(f).slice(0, 1).concat(roster(f).length), ['kibaan_chief', 3], 'the guard and two, floor ' + f));
+  assert.deepStrictEqual(roster(50)[0], 'amomongo');
   const s = fresh();
-  for (let f = 1; f <= 10; f++) L.dunReach(s, d.key, f);
-  assert.deepStrictEqual(plain(L.dunStops(s, d.key)), [1, 6]);
+  for (let f = 1; f <= 50; f++) L.dunReach(s, d.key, f);
+  assert.deepStrictEqual(plain(L.dunStops(s, d.key)), [1, 11, 21, 31, 41]);
   // the daily chest: stacks to 3
   L.hunted(s, d.key, 0, d.boss, 1);
   s.day += 9;

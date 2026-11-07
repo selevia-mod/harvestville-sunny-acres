@@ -151,6 +151,10 @@
       d.floors = d.floors || 10;
       d.liftEvery = d.liftEvery || 5;
       d.guardFloor = d.guardFloor || 5;
+      // a guard on every guardEvery-th floor from guardFloor until the boss's (owner, 8 Nov 2026: the five caves 50 floors
+      // deep "similar to bakunawa": a guard every 10th floor, each tougher by guardHpPer for each floor below guardFloor)
+      d.guardEvery = d.guardEvery || 0;
+      d.guardHpPer = d.guardHpPer || 0;
       d.bossFloor = d.bossFloor || d.floors;
       d.count = d.count || { base: 3, per: 4, max: 6 };
       d.map = d.map || d.key;

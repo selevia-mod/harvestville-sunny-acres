@@ -139,22 +139,26 @@ test('Bohol food: Kaldereta cooks from goat meat too; Peanut Kisses and Kape Ala
   assert.strictEqual(L.sellToKanor(s, 'kape_alamid'), 2 * C.ITEMS.kape_alamid.sell);
 });
 
-test('the Hill Hollows: 10 floors, White Duwende from 1, Black from 3, the Punso Golem guards 5, the Great Nuno is 10; soloable; the lift; the daily chest stacks to 3', () => {
+test('the Hill Hollows: 50 floors (owner, 8 Nov 2026), White Duwende from 1, Black from 11, the Punso Golem guards every 10th, the Great Nuno is 50; soloable; the lift; the daily chest stacks to 3', () => {
   const d = P().dungeon, kinds = (f) => plain(L.dunRoster(CAVE, f).map((e) => e.kind));
-  assert.deepStrictEqual([d.floors, d.liftEvery, d.guardFloor, d.bossFloor], [10, 5, 5, 10]);
+  assert.deepStrictEqual([d.floors, d.liftEvery, d.guardFloor, d.guardEvery, d.bossFloor], [50, 10, 10, 10, 50]);
   assert.deepStrictEqual(kinds(1), ['duwendeputi', 'duwendeputi', 'duwendeputi']);
-  assert.ok(kinds(2).every((k) => k === 'duwendeputi'));
-  for (let f = 3; f <= 9; f++) if (f !== 5) assert.ok(kinds(f).every((k) => k === 'duwendeputi' || k === 'duwendeitim') && kinds(f).length >= 3 && kinds(f).length <= 5, 'floor ' + f);
-  assert.ok([3, 4, 6, 7, 8, 9].some((f) => kinds(f).includes('duwendeitim')), 'the Black Duwende is about');
-  assert.strictEqual(kinds(5)[0], 'punsogolem');
-  assert.strictEqual(kinds(5).length, 3, 'the guard and its two');
-  assert.strictEqual(kinds(10)[0], 'greatnuno');
-  assert.strictEqual(kinds(10).length, 3);
+  for (let f = 2; f <= 10; f++) if (f !== 10) assert.ok(kinds(f).every((k) => k === 'duwendeputi'), 'floor ' + f);
+  for (let f = 11; f <= 49; f++) if (f % 10) assert.ok(kinds(f).every((k) => k === 'duwendeputi' || k === 'duwendeitim') && kinds(f).length >= 3 && kinds(f).length <= 7, 'floor ' + f);
+  assert.ok([11, 12, 13, 14, 15, 16, 17, 18, 19].some((f) => kinds(f).includes('duwendeitim')), 'the Black Duwende is about');
+  [10, 20, 30, 40].forEach((f) => { assert.strictEqual(kinds(f)[0], 'punsogolem', 'floor ' + f); assert.strictEqual(kinds(f).length, 3, 'the guard and its two'); });
+  assert.strictEqual(kinds(5)[0], 'duwendeputi', 'floor 5 has no guard now');
+  assert.strictEqual(kinds(50)[0], 'greatnuno');
+  assert.strictEqual(kinds(50).length, 3);
+  assert.strictEqual(kinds(49).length, 7, 'the deepest floors: 7');
   assert.deepStrictEqual([L.dunHp('greatnuno', 1), L.dunHp('greatnuno', 2), L.dunHp('greatnuno', 4)], [34, 50, 82], 'soloable; 16 more for each friend');
   assert.strictEqual(L.dunHp('punsogolem', 3), 22, 'the guard is the guard');
+  assert.deepStrictEqual([10, 20, 30, 40].map((f) => L.dunHp('punsogolem', 1, f)), [22, 27, 32, 37], 'tougher on each guard floor down');
   const s = fresh();
   L.dunReach(s, CAVE, 7);
-  assert.deepStrictEqual(plain(L.dunStops(roundTrip(s), CAVE)), [1, 6], 'the lift: every 5 floors you reached');
+  assert.deepStrictEqual(plain(L.dunStops(roundTrip(s), CAVE)), [1], 'the lift: every 10 floors you reached');
+  L.dunReach(s, CAVE, 33);
+  assert.deepStrictEqual(plain(L.dunStops(roundTrip(s), CAVE)), [1, 11, 21, 31]);
   // the boss: its chest once a day, missed days add up to 3
   assert.strictEqual(L.hunted(s, CAVE, 0, 'greatnuno', 1).chests, 1);
   assert.strictEqual(L.hunted(s, CAVE, 0, 'greatnuno', 1).chests, 0, 'once a day');

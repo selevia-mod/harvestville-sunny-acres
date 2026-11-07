@@ -1,4 +1,4 @@
-// Place 15: Palawan Underground River (owner, 6 Nov 2026), opens at 160 hunts; its dungeon the River Caves (10 floors).
+// Place 15: Palawan Underground River (owner, 6 Nov 2026), opens at 160 hunts; its dungeon the River Caves (50 floors).
 // A jungle beach where a turquoise river runs into a limestone cliff (maps/palawan.json); the cave under the cliff
 // (maps/palawan_cave.json). The hardest of the first five places (above Sierra Madre, place 14), still below the
 // Lair's deep floors: the numbers are listed in docs/places/palawan.md. Engine contract: docs/hunting-places-engine.md.
@@ -67,26 +67,26 @@
     name: 'Mang Pido', look: 'hollis', sheet: 'npc_mang_pido', at: [21, 14], lines: [
       { text: 'Magandang araw! I am Pido, I row the bangka at Sabang. Up by the cliff the river goes into the rock: the River Caves. Hunt out here first. The Sawa will test you. Here, mangoes for the Paniki pups.', gift: [['mango', 3]] },
       { text: 'Not bad, hunter! The pups love mangoes. Walk slowly, feed one while it is calm, ten times, and it is your friend for life. Take some cashews for the road.', need: { hunts: 5 }, hint: 'Hunt here a few more times.', gift: [['cashew_palawan', 3]] },
-      { text: 'You beat the Balinsasayaw Queen? The swiftlets were singing about you all morning. Ingat on the way down. Take these arrows.', need: { guard: 1 }, hint: 'Beat the guard on floor 5 of the River Caves.', gift: [['arrows', 15]] },
-      { text: 'The Minokawa! My lolo said it wanted to swallow the moon. You only sent it home to the sky. My lola cooked this for you. Salamat, hunter!', need: { boss: 1 }, hint: 'Beat the boss on floor 10 of the River Caves.', gift: [['ginataang_alimasag', 1]] },
+      { text: 'You beat the Balinsasayaw Queen? The swiftlets were singing about you all morning. Ingat on the way down. Take these arrows.', need: { guard: 1 }, hint: 'Beat the guard on floor 10 of the River Caves.', gift: [['arrows', 15]] },
+      { text: 'The Minokawa! My lolo said it wanted to swallow the moon. You only sent it home to the sky. My lola cooked this for you. Salamat, hunter!', need: { boss: 1 }, hint: 'Beat the boss on floor 50 of the River Caves.', gift: [['ginataang_alimasag', 1]] },
     ] },
 
     dungeon: {
-      key: 'palawan_cave', name: 'River Caves', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
-      count: { base: 3, per: 3, max: 6 }, escort: 2,
+      key: 'palawan_cave', name: 'River Caves', floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50, // (owner, 8 Nov 2026: 50 floors, like the Lair)
+      count: { base: 3, per: 10, max: 7 }, escort: 2, // 3 a floor, one more every 10 floors, at most 7
       creatures: {
         cave_crab: { name: 'Cave Crab', sheet: 'wild_cavecrab', row: 0, sheetRow: 'sigbin', tint: 0x7ab4ff, px: 188, w: 1, ground: true, kg: 4, hp: 6, walk: 0.7, run: 4, angry: 2.6, hit: 14,
           drops: [['shell_crab', 1, 1], ['stalactite_chip', 1, 0.5]] },
         glow_eel: { name: 'Glow Eel', sheet: 'wild_gloweel', row: 0, sheetRow: 'santelmo', tint: 0x7affee, px: 188, w: 1, ground: true, kg: 6, hp: 7, walk: 0.9, run: 4.8, angry: 3.6, hit: 15,
           drops: [['glow_light', 1, 1], ['stalactite_chip', 1, 0.4]] },
-        // the floor 5 guard: a giant cave swiftlet
+        // the guard of every 10th floor: a giant cave swiftlet
         balinsasayaw: { name: 'Balinsasayaw Queen', sheet: 'wild_balinsasayaw', row: 0, sheetRow: 'labuyo', tint: 0xd8e0ff, px: 196, w: 2.2, kg: 30, hp: 28, walk: 0.8, run: 4.4, angry: 4, hit: 17, boss: true,
           drops: [['nest_swiftlet', 2, 1], ['stalactite_chip', 3, 1], ['glow_light', 1, 0.6]] },
-        // the floor 10 boss: the giant moon-eating bird of Bagobo legend, grand but cute; soloable, more with friends
+        // the floor 50 boss: the giant moon-eating bird of Bagobo legend, grand but cute; soloable, more with friends
         minokawa: { name: 'Minokawa', sheet: 'wild_minokawa', row: 0, sheetRow: 'bakunawa', tint: 0xe8f2ff, px: 214, w: 3.4, kg: 2500, hp: 42, hpEach: 14, minHits: 3,
           walk: 0.6, run: 3.4, angry: 3.6, hit: 20, ground: true, boss: true, drops: [['feather_minokawa', 2, 1], ['nest_swiftlet', 1, 1], ['golden_scale', 1, 0.1]] },
       },
-      floorKinds: [['cave_crab', 1, 10], ['glow_eel', 3, 10]],
+      floorKinds: [['cave_crab', 1, 50], ['glow_eel', 11, 50]],
       guard: 'balinsasayaw', boss: 'minokawa',
       // the boss's daily chest (stacks to 3)
       chest: [['feather_minokawa', 1, 1], ['stalactite_chip', 4, 1], ['arrows', 15, 1], ['golden_scale', 1, 0.25], ['cashew_palawan', 2, 0.5]],

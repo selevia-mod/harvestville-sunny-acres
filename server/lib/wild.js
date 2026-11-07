@@ -149,7 +149,7 @@ module.exports = function makeWild(R) {
     const def = a.def;
     if (!cfg.lair) { // a place's cave: its boss as strong as the crew (L.dunHp)
       if (!def.dungeon) return;
-      a.hp = a.max = L.dunHp(a.kind, crew);
+      a.hp = a.max = L.dunHp(a.kind, crew, floor);
       a.crew = crew;
       return;
     }

@@ -63,18 +63,17 @@ test('Taal Lake numbers: a step above Magayon and the Lair; the guard and boss s
   assert.ok(!A('tagak').tameOnly && A('tagak_bata').tameOnly, 'the grown Tagak is a hunt; the Little Tagak is fed, not hunted');
 });
 
-test('Taal Crater: 10 floors, the Lava Buwaya leads floor 5, the Berberoka floor 10, Kataw from floor 3, the lift every 5', () => {
+test('Taal Crater: 50 floors (owner, 8 Nov 2026), the Lava Buwaya leads every 10th floor, the Berberoka floor 50, Kataw from floor 11, the lift every 10', () => {
   const d = P().dungeon;
-  assert.ok(L.dunRoster('taal_crater', 1).every((e) => e.kind === 'siyokoy'), 'floors 1 and 2: Siyokoy only');
+  for (let f = 1; f <= 9; f++) assert.ok(L.dunRoster('taal_crater', f).every((e) => e.kind === 'siyokoy'), 'floors 1 to 9: Siyokoy only');
   assert.strictEqual(L.dunRoster('taal_crater', 1).length, 3);
-  assert.strictEqual(L.dunRoster('taal_crater', 9).length, 6);
-  assert.strictEqual(L.dunRoster('taal_crater', 5)[0].kind, 'lava_buwaya');
-  assert.strictEqual(L.dunRoster('taal_crater', 5).length, 3, 'the guard and its two');
-  assert.strictEqual(L.dunRoster('taal_crater', 10)[0].kind, 'berberoka');
-  for (let f = 3; f <= 9; f++) if (f !== 5) assert.ok(L.dunRoster('taal_crater', f).every((e) => e.kind === 'siyokoy' || e.kind === 'kataw'));
+  assert.strictEqual(L.dunRoster('taal_crater', 49).length, 7);
+  [10, 20, 30, 40].forEach((f) => { assert.strictEqual(L.dunRoster('taal_crater', f)[0].kind, 'lava_buwaya'); assert.strictEqual(L.dunRoster('taal_crater', f).length, 3, 'the guard and its two'); });
+  assert.strictEqual(L.dunRoster('taal_crater', 50)[0].kind, 'berberoka');
+  for (let f = 11; f <= 49; f++) if (f % 10) assert.ok(L.dunRoster('taal_crater', f).every((e) => e.kind === 'siyokoy' || e.kind === 'kataw'));
   const s = fresh();
-  [1, 4, 7, 10].forEach((f) => L.dunReach(s, 'taal_crater', f));
-  assert.deepStrictEqual(plain(L.dunStops(s, 'taal_crater')), [1, 6]);
+  [1, 4, 7, 10, 23].forEach((f) => L.dunReach(s, 'taal_crater', f));
+  assert.deepStrictEqual(plain(L.dunStops(s, 'taal_crater')), [1, 11, 21]);
   assert.strictEqual(d.lava.embers, false, 'steam, not lava sparks');
   // the boss's chest once a day, missed days add up to 3
   assert.strictEqual(L.bossDown(s, 'taal'), 1);

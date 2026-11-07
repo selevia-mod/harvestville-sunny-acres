@@ -5,8 +5,8 @@
 //  - the map (maps/bohol.json): rolling dome hills, a calm green river you can't walk in, nipa huts, coconut palms,
 //    bamboo fences, cogon grass, limestone rocks; the Jeep at the bottom left, the Hollows' round door up the trail.
 //    Its pictures are drawn stand-ins until the owner's are in (src/19zzzzzz-place-12-bohol.js).
-//  - the cave (maps/bohol_cave.json): 10 floors of cream limestone and cave pools. White and Black Duwende, the Punso
-//    Golem guards floor 5, the Great Nuno is the boss of floor 10 (grumpy but kind; soloable, more health with friends).
+//  - the cave (maps/bohol_cave.json): 50 floors of cream limestone and cave pools. White and Black Duwende, the Punso
+//    Golem guards every 10th floor, the Great Nuno is the boss of floor 50 (grumpy but kind; soloable, more health with friends).
 //  - Mang Tonyo, the Bohol guide: 4 lines of story, each with a small gift (src/01-logicZZZZZ-place-12-bohol.js).
 //  - Local food: Kaldereta (the dish from before) also cooks from goat meat, Peanut Kisses, Kape Alamid.
 // Item ids and the order of their 16 icons are fixed in docs/places-items.json ("bohol"). The icons are not in the items
@@ -81,14 +81,14 @@
       { text: 'You hunt like a Boholano now! See the little goat kid by the river? It is shy, but it loves cabbage. Hold some, go slowly while it is calm, and feed it. And try this kape alamid: the musang chose the beans!',
         need: { hunts: 5 }, hint: 'Hunt here a few more times.', gift: [['kape_alamid', 1], ['cabbage', 3]] },
       { text: 'You got past the Punso Golem? That anthill guards the Nuno\'s home. Lola always said: when you pass a punso, say "tabi tabi po" and walk softly. Be polite down there, and he will be fair with you.',
-        need: { guard: 1 }, hint: 'Beat the Punso Golem on floor 5 of the Hill Hollows.', gift: [['arrows', 15], ['peanut_kisses', 3]] },
+        need: { guard: 1 }, hint: 'Beat the Punso Golem on floor 10 of the Hill Hollows.', gift: [['arrows', 15], ['peanut_kisses', 3]] },
       { text: 'The Great Nuno himself! Grumpy, yes, but he has kept these hills safe for a hundred years. I think he let you win because you asked first. Salamat, hunter. Come and eat with us: kalderetang kambing!',
-        need: { boss: 1 }, hint: 'Beat the Great Nuno on floor 10 of the Hill Hollows.', gift: [['kaldereta', 2], ['peanut_kisses', 4]] },
+        need: { boss: 1 }, hint: 'Beat the Great Nuno on floor 50 of the Hill Hollows.', gift: [['kaldereta', 2], ['peanut_kisses', 4]] },
     ] },
 
     dungeon: {
-      key: 'bohol_cave', name: 'Hill Hollows', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
-      count: { base: 3, per: 4, max: 5 }, escort: 2,
+      key: 'bohol_cave', name: 'Hill Hollows', floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50, // (owner, 8 Nov 2026: 50 floors, like the Lair)
+      count: { base: 3, per: 10, max: 7 }, escort: 2, // 3 a floor, one more every 10 floors, at most 7
       creatures: {
         // knee-high and shy: they run and hide
         duwendeputi: { name: 'White Duwende', sheet: 'wild_duwendeputi', row: 0, sheetRow: 'bungisngis', tint: 0xe0ecff, px: 122, w: 0.8, kg: 5, hp: 3, walk: 0.9, run: 5, shy: 3.4,
@@ -96,14 +96,14 @@
         // cheeky: it runs at you
         duwendeitim: { name: 'Black Duwende', sheet: 'wild_duwendeitim', row: 0, sheetRow: 'bungisngis', tint: 0x6a5a8a, px: 134, w: 0.85, kg: 6, hp: 4, walk: 0.9, run: 4.8, angry: 3.4, hit: 12, ground: true,
           drops: [['pebble_duwende', 1, 0.6], ['limestone_chip', 1, 0.8]] },
-        // the guard of floor 5: a living anthill (punso)
+        // the guard of every 10th floor: a living anthill (punso)
         punsogolem: { name: 'Punso Golem', sheet: 'wild_punsogolem', row: 0, sheetRow: 'bear', tint: 0xa8784a, px: 171, w: 2.2, kg: 900, hp: 22, walk: 0.6, run: 3.2, angry: 3.4, hit: 15, ground: true, boss: true,
           drops: [['clay_golem', 2, 1], ['limestone_chip', 3, 1]] },
-        // the boss of floor 10: grumpy but kind. Soloable; 18 more for each friend with you
+        // the boss of floor 50: grumpy but kind. Soloable; 18 more for each friend with you
         greatnuno: { name: 'Great Nuno', sheet: 'wild_greatnuno', row: 0, sheetRow: 'bungisngis', tint: 0xd8d0b0, px: 184, w: 2.6, kg: 1200, hp: 34, hpEach: 16, minHits: 3, walk: 0.5, run: 3.2, angry: 4, hit: 18, ground: true, boss: true,
           drops: [['moss_nuno', 1, 1], ['clay_golem', 1, 1]] },
       },
-      floorKinds: [['duwendeputi', 1, 10], ['duwendeitim', 3, 10]],
+      floorKinds: [['duwendeputi', 1, 50], ['duwendeitim', 11, 50]],
       guard: 'punsogolem', boss: 'greatnuno',
       chest: [['moss_nuno', 1, 1], ['peanut_kisses', 3, 1], ['kape_alamid', 2, 1], ['limestone_chip', 4, 1], ['arrows', 15, 1], ['clay_golem', 1, 0.5]],
       // cream limestone, cave pools of still turquoise water

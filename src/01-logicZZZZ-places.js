@@ -59,17 +59,27 @@
     if (!d) return out;
     floor = int(floor, 1, d.floors, 1);
     var add = function (kind) { out.push({ slot: out.length, kind: kind }); };
-    var n = Math.min(d.count.max, d.count.base + Math.floor(floor / d.count.per));
-    if (floor === d.bossFloor && d.boss) { add(d.boss); n = d.escort != null ? d.escort : 2; } else if (floor === d.guardFloor && d.guard) { add(d.guard); n = d.escort != null ? d.escort : 2; }
+    var n = Math.min(d.count.max, d.count.base + Math.floor(floor / d.count.per)), who = L.dunWho(d, floor);
+    if (who) { add(who); n = d.escort != null ? d.escort : 2; }
     var pool = (d.floorKinds || []).filter(function (k) { return floor >= k[1] && floor <= k[2]; }).map(function (k) { return k[0]; });
     if (!pool.length) pool = Object.keys(d.creatures || {}).filter(function (k) { return k !== d.guard && k !== d.boss; });
     for (var i = 0; i < n && pool.length; i++) add(pool[Math.floor(L.rand(seedOf(key), floor, i) * pool.length)]);
     return out;
   };
-  // How tough one is: a boss is soloable, and takes hpEach more for each friend with you (like the Bakunawa).
-  L.dunHp = function (kind, crew) {
-    var def = WI.animals[kind];
-    return def.hp + (def.boss && def.hpEach ? def.hpEach * Math.max(0, (crew || 1) - 1) : 0);
+  // Who leads a floor: the boss on its floor, the guard on guardFloor (and every guardEvery-th floor after it, before the
+  // boss's), or null.
+  L.dunWho = function (d, floor) {
+    if (!d) return null;
+    if (floor === d.bossFloor && d.boss) return d.boss;
+    if (!d.guard || floor < d.guardFloor || floor >= d.bossFloor) return null;
+    return floor === d.guardFloor || (d.guardEvery && (floor - d.guardFloor) % d.guardEvery === 0) ? d.guard : null;
+  };
+  // How tough one is: a boss is soloable, and takes hpEach more for each friend with you (like the Bakunawa); a guard
+  // takes guardHpPer more for each floor below its first (floor: where it stands; none, its first floor's).
+  L.dunHp = function (kind, crew, floor) {
+    var def = WI.animals[kind], d = def && def.dungeon ? L.dunOf(def.dungeon) : null;
+    var deeper = d && kind === d.guard && floor > d.guardFloor ? Math.round((floor - d.guardFloor) * (d.guardHpPer || 0)) : 0;
+    return def.hp + deeper + (def.boss && def.hpEach ? def.hpEach * Math.max(0, (crew || 1) - 1) : 0);
   };
   L.dunReach = function (s, key, floor) {
     var d = L.dunOf(key), r = rec(s, C.DUNGEONS[key]);
@@ -391,7 +401,10 @@
     q[1] = 0; // (the checks of any animal from before; its own numbers below)
     var o = wildUnpack(q);
     if (!o) return null;
-    var def = WI.animals[kind], top = def.hp + (def.hpEach || 0) * 8;
+    // the most it can have: a boss with a full crew, or a guard on the deepest floor it guards (50 floors: L.dunHp; capped
+    // at its own, a floor-40 guard of 29 would show as 14/14 and fight on with its bar run out)
+    var def = WI.animals[kind], d = def.dungeon ? L.dunOf(def.dungeon) : null;
+    var top = Math.max(def.hp + (def.hpEach || 0) * 8, d ? L.dunHp(kind, 1, d.bossFloor - 1) : 0);
     o.kind = kind;
     o.hp = Math.max(0, Math.min(top, Number(r[7])));
     o.max = Math.max(1, Math.min(top, Number(r[10]) || def.hp));

@@ -2,8 +2,8 @@
 // with grass, the big blue lake (not walkable; fish from the wooden pier), fishing bancas on the shore, reeds, mango trees,
 // steaming rocks and nipa huts. Its animals: the Tagak (a shy egret that flies off), the Buwaya (a cute crocodile that
 // charges) and the rare Royal Tagak. A Little Tagak can be tamed with Small Fish. Its person is Mang Celso, the Taal
-// fisherman. Its cave is Taal Crater: 10 floors of steaming sulfur rock and green crater water, Siyokoy and Kataw, the
-// Lava Buwaya guarding floor 5 and the Berberoka at the bottom. The engine is docs/hunting-places-engine.md; the owner's
+// fisherman. Its cave is Taal Crater: 50 floors of steaming sulfur rock and green crater water, Siyokoy and Kataw, the
+// Lava Buwaya guarding every 10th floor and the Berberoka at the bottom. The engine is docs/hunting-places-engine.md; the owner's
 // page for this place is docs/places/taal.md (every number is listed there). Maps: maps/taal.json, maps/taal_crater.json
 // (tools/make-map.js). Mang Celso's small gifts for each story step are in 01-logicZZZZZ-place-13-taal.js.
 // Art (art-src/places/taal/, docs/places-items.json): every picture is wired by name below and the engine draws a
@@ -77,13 +77,13 @@
     npc: { name: 'Mang Celso', look: 'ewan', sheet: 'npc_mang_celso', at: [14, 15], lines: [
       { text: 'Magandang araw! I am Celso. I have fished Taal all my life. The tagak walk the shore, but mind the reeds: a buwaya sleeps there. Here, have a coffee.' },
       { text: 'You hunt well. A little tagak follows my banca for fish. Take these, hold one out, and go slowly. Fish from my pier when you run out.', need: { hunts: 5 }, hint: 'Hunt here a few times.' },
-      { text: 'The Lava Buwaya is down? Hay naku, my father said it guarded the crater for a hundred years! Eat, you will need it below.', need: { guard: 1 }, hint: 'Beat the guard on floor 5 of Taal Crater.' },
+      { text: 'The Lava Buwaya is down? Hay naku, my father said it guarded the crater for a hundred years! Eat, you will need it below.', need: { guard: 1 }, hint: 'Beat the guard on floor 10 of Taal Crater.' },
       { text: 'The Berberoka! It drank our lake dry in the old stories. Taal is yours too now. Come back for coffee anytime.', need: { boss: 1 }, hint: 'Beat the Berberoka at the bottom of Taal Crater.' },
     ] },
 
     dungeon: {
-      key: 'taal_crater', name: 'Taal Crater', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
-      count: { base: 3, per: 3, max: 7 }, escort: 2,
+      key: 'taal_crater', name: 'Taal Crater', floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50, // (owner, 8 Nov 2026: 50 floors, like the Lair)
+      count: { base: 3, per: 10, max: 7 }, escort: 2, // 3 a floor, one more every 10 floors, at most 7
       creatures: {
         siyokoy: { name: 'Siyokoy', sheet: 'wild_siyokoy', sheetRow: 'sigbin', tint: 0x7fd0a8, px: 117, w: 0.95, kg: 70, hp: 4, walk: 0.8, run: 4.4, angry: 3.2, hit: 12, ground: true,
           drops: [['fin_siyokoy', 1, 1], ['sulfur_chip', 1, 0.5]] },
@@ -95,7 +95,7 @@
         berberoka: { name: 'Berberoka', sheet: 'wild_berberoka', sheetRow: 'bungisngis', tint: 0x70d8c8, px: 174, w: 2.6, kg: 1200, hp: 40, hpEach: 18, minHits: 3, walk: 0.6, run: 3.4, angry: 4, hit: 19, ground: true, boss: true,
           drops: [['pearl_berberoka', 1, 1], ['pearl_kataw', 2, 1], ['sulfur_chip', 4, 1]] },
       },
-      floorKinds: [['siyokoy', 1, 10], ['kataw', 3, 10]],
+      floorKinds: [['siyokoy', 1, 50], ['kataw', 11, 50]],
       guard: 'lava_buwaya', boss: 'berberoka',
       chest: [['pearl_kataw', 2, 1], ['sulfur_chip', 4, 1], ['arrows', 15, 1], ['scale_lava', 1, 0.5], ['pearl_berberoka', 1, 0.25]],
       // yellow sulfur rock (dark to light), the pools green crater water, steam not embers

@@ -606,7 +606,7 @@
         line = bottom ? "Floor 50, the bottom of the Lair. The Bakunawa sleeps here: it rises only for two hunters or more."
           : "Bakunawa's Lair, floor " + floor + (boss ? '. A Bungisngis guards it!' : '. Clear it to open the gate down.');
       } else { // a place's cave: its guard and its boss
-        var d = cfg.d, who = floor === d.bossFloor && d.boss ? d.boss : floor === d.guardFloor && d.guard ? d.guard : null;
+        var d = cfg.d, who = L.dunWho(d, floor);
         line = cfg.name + ', floor ' + floor + (who ? '. ' + WI.animals[who].name + (who === d.boss ? ' waits at the bottom!' : ' guards it!') : '. Clear it to open the gate down.');
       }
       if (news && (floor - 1) % cfg.liftEvery === 0 && floor > 1) line = 'Floor ' + floor + '! The lift by the way in now stops here.';
@@ -642,7 +642,7 @@
   P.lairStrength = function (a) {
     if (this.lair && !this.lair.cfg.lair) { // a place's cave: its boss is as strong as the crew (L.dunHp)
       if (!a.def.dungeon) return;
-      a.hp = a.max = L.dunHp(a.kind, 1 + Object.keys(this.remotes || {}).length);
+      a.hp = a.max = L.dunHp(a.kind, 1 + Object.keys(this.remotes || {}).length, this.lair.floor);
       a.crew = 1 + Object.keys(this.remotes || {}).length;
       if (a.def.boss) this.wildBar(a);
       return;

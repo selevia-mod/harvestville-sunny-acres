@@ -103,15 +103,14 @@ test('Sierra Madre: Ka Ramon\'s four lines open with the hunts, the guard and th
   assert.ok(!/cigar|smok|tobacco/.test(words));
 });
 
-test('Kapre\'s Roots: 10 floors, the Anggitay Queen leads floor 5, the Kapre floor 10 (soloable, stronger with friends), the daily chest', () => {
+test('Kapre\'s Roots: 50 floors (owner, 8 Nov 2026), the Anggitay Queen leads every 10th, the Kapre floor 50 (soloable, stronger with friends), the daily chest', () => {
   const d = P().dungeon;
-  assert.strictEqual(d.floors, 10);
+  assert.strictEqual(d.floors, 50);
   assert.ok(L.dunRoster(d.key, 1).every((e) => e.kind === 'anggitay'), 'floor 1: Anggitay');
-  assert.ok(L.dunRoster(d.key, 4).some((e) => e.kind === 'woodspirit') || L.dunRoster(d.key, 6).some((e) => e.kind === 'woodspirit'), 'Wood Spirits deeper');
-  assert.deepStrictEqual(plain(L.dunRoster(d.key, 5).map((e) => e.kind)).slice(0, 1), ['anggitayqueen']);
-  assert.strictEqual(L.dunRoster(d.key, 5).length, 3, 'the guard and two with her');
-  assert.strictEqual(L.dunRoster(d.key, 10)[0].kind, 'kapre');
-  assert.ok(L.dunRoster(d.key, 9).length <= 6);
+  assert.ok([11, 12, 13, 14, 15, 16].some((f) => L.dunRoster(d.key, f).some((e) => e.kind === 'woodspirit')), 'Wood Spirits from floor 11');
+  [10, 20, 30, 40].forEach((f) => { assert.deepStrictEqual(plain(L.dunRoster(d.key, f).map((e) => e.kind)).slice(0, 1), ['anggitayqueen']); assert.strictEqual(L.dunRoster(d.key, f).length, 3, 'the guard and two with her'); });
+  assert.strictEqual(L.dunRoster(d.key, 50)[0].kind, 'kapre');
+  assert.ok(L.dunRoster(d.key, 49).length <= 7);
   assert.strictEqual(L.dunHp('kapre', 1), 41, 'soloable (41: between Taal\'s Berberoka 40 and Palawan\'s Minokawa 42, under the Lair\'s deep floors)');
   assert.strictEqual(L.dunHp('kapre', 3), 73, '16 more for each friend');
   assert.strictEqual(WA.kapre.minHits, 3);

@@ -4,8 +4,8 @@
 // they run and fly off), Bayawak (monitor lizards: they charge), and now and then a Golden Duck. One calm Wild Duck
 // wanders the paddies: feed it heirloom rice and it becomes your companion (a Spotter: it says when the Golden Duck is
 // out). Lola Bugan, the terrace elder, tells a short story as you go and gives a little gift at each step. Under the
-// terraces, the Terrace Tunnels: 10 floors of earthen tunnels with roots and an underground stream, Kibaan and Cave
-// Bayawak (more of them deeper), the Kibaan Chief guarding floor 5 and the Amomongo at the bottom (soloable; stronger
+// terraces, the Terrace Tunnels: 50 floors of earthen tunnels with roots and an underground stream, Kibaan and Cave
+// Bayawak (more of them deeper), the Kibaan Chief guarding every 10th floor and the Amomongo at the bottom (soloable; stronger
 // for each friend), who leaves a chest once a day. Kanor makes the Terrace set from what it all gives.
 // Respect (owner, 6 Nov 2026): the bulul, the sacred Ifugao rice-god carvings, are never enemies here; Lola Bugan only
 // speaks of them kindly. Everything is kept family-friendly: the Amomongo and the Kibaan are drawn cute and playful.
@@ -104,14 +104,14 @@
       { text: 'You hunt with care, I can see it. The paddies stay healthy when the hunters only take what they need. More rice for your duck, and some arrows. Under the terraces run old tunnels that carry our water. The Kibaan play down there.',
         need: { hunts: 5 }, hint: 'Hunt here a few more times, then visit Lola Bugan.', gift: [['heirloom_rice', 4], ['arrows', 10]] },
       { text: 'You beat the Kibaan Chief? Hay naku, he only wanted shiny things! Now the water flows freely again. Deep at the bottom lives the Amomongo. It is not wicked, only grumpy and hungry. Be brave, apo. Take these stones for your sandals.',
-        need: { guard: 1 }, hint: 'The Kibaan Chief guards floor 5 of the tunnels.', gift: [['terrace_stone', 6], ['heirloom_rice', 2]] },
+        need: { guard: 1 }, hint: 'The Kibaan Chief guards floor 10 of the tunnels.', gift: [['terrace_stone', 6], ['heirloom_rice', 2]] },
       { text: 'The Amomongo is calm and the stream sings again. The bulul by my granary watch over the harvest, and now you do too. You are family on these terraces. I cooked for you. Come back whenever the rice is golden.',
-        need: { boss: 1 }, hint: 'The Amomongo waits on floor 10 of the tunnels.', gift: [['adobong_itik', 2], ['heirloom_rice', 3]] },
+        need: { boss: 1 }, hint: 'The Amomongo waits on floor 50 of the tunnels.', gift: [['adobong_itik', 2], ['heirloom_rice', 3]] },
     ] },
 
     dungeon: {
-      key: 'banaue_cave', name: 'Terrace Tunnels', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
-      count: { base: 3, per: 4, max: 5 }, escort: 2, // 3 a floor, 4 from floor 4, 5 from floor 8
+      key: 'banaue_cave', name: 'Terrace Tunnels', floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50, // (owner, 8 Nov 2026: 50 floors, like the Lair)
+      count: { base: 3, per: 10, max: 7 }, escort: 2, // 3 a floor, one more every 10 floors, at most 7
       creatures: {
         // playful little folk who run off with your things; they flee more than they fight
         kibaan: { name: 'Kibaan', sheet: 'wild_kibaan', sheetRow: 'tikbalang', tint: 0x9ad08a, px: 128, w: 0.75, bar: 2.05, kg: 9, hp: 2,
@@ -125,7 +125,7 @@
           walk: 0.6, run: 3.4, angry: 3.6, hit: 15, ground: true, boss: true, drops: [['fur_amomongo', 2, 1], ['scale_cave', 2, 1], ['terrace_stone', 3, 1]] },
       },
       // Kibaan on every floor; Cave Bayawak from floor 3, and twice as likely from floor 7 (more of them deeper)
-      floorKinds: [['kibaan', 1, 10], ['cave_bayawak', 3, 10], ['cave_bayawak', 7, 10]],
+      floorKinds: [['kibaan', 1, 50], ['cave_bayawak', 11, 50], ['cave_bayawak', 31, 50]],
       guard: 'kibaan_chief', boss: 'amomongo',
       chest: [['fur_amomongo', 1, 1], ['heirloom_rice', 2, 1], ['terrace_stone', 3, 1], ['arrows', 10, 1], ['golden_feather', 1, 0.15]],
       // earthen tunnels with roots, and an underground stream (the 'void' pools: water)

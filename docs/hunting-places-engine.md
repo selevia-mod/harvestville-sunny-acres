@@ -74,7 +74,9 @@ load after `src/00-zzzzzzzzz-places.js` (nine z's) and after Central Park's `00-
     //   chests (how many) | floor (deepest cave floor). Lines open one after another; 3-4 lines (at most 6).
 
     dungeon: {
-      key: 'banaue_cave', name: 'Terrace Tunnels', floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
+      key: 'banaue_cave', name: 'Terrace Tunnels', floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50,
+      // (owner, 8 Nov 2026: 50 floors like the Lair: the guard on floors 10, 20, 30, 40, each 0.5 hp tougher for each floor
+      // below its first; the boss on 50. guardEvery 0 = the guard on guardFloor only, as the first caves were.)
       count: { base: 3, per: 4, max: 6 },   // creatures a floor: base + floor/per, at most max
       escort: 2,                            // how many come with the guard / the boss (default 2)
       creatures: {                          // the cave's own (they never walk in; the floor is the floor)

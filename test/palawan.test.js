@@ -25,7 +25,7 @@ const D = P.dungeon;
 const map = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'maps', name + '.json'), 'utf8'));
 
 test('Palawan: place 15 at 160 hunts, the fixed item ids, every art name wired, the River Caves', () => {
-  assert.deepStrictEqual([P.n, P.unlock, P.map, D.key, D.name, D.floors, D.guardFloor, D.bossFloor], [15, 160, 'palawan', 'palawan_cave', 'River Caves', 10, 5, 10]);
+  assert.deepStrictEqual([P.n, P.unlock, P.map, D.key, D.name, D.floors, D.guardFloor, D.bossFloor], [15, 160, 'palawan', 'palawan_cave', 'River Caves', 50, 10, 50]);
   // every id in docs/places-items.json is an item here, or a piece of the Cavern set
   const j = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'places-items.json'), 'utf8')).palawan;
   const gearArt = C.GEAR_SLOTS.map((k) => C.PLACE_GEAR[ID + '_' + k].art);
@@ -128,13 +128,13 @@ test('Mang Pido: each line\'s small gift once; a line skipped by doing two thing
   assert.deepStrictEqual([L.companion(t), L.companionSkill(t)], [ID, 'spot']);
 });
 
-test('the River Caves: crabs from floor 1, eels from floor 3, the Queen leads floor 5, the Minokawa floor 10; the daily chest; Ginataang Alimasag', () => {
+test('the River Caves (50 floors, owner 8 Nov 2026): crabs from floor 1, eels from floor 11, the Queen leads every 10th, the Minokawa floor 50; the daily chest; Ginataang Alimasag', () => {
   const kinds = (f) => L.dunRoster(D.key, f).map((e) => e.kind);
   assert.ok(kinds(1).every((k) => k === 'cave_crab') && kinds(1).length === 3);
-  assert.ok(kinds(4).length === 4 && kinds(4).some((k) => k === 'glow_eel'));
-  assert.deepStrictEqual([kinds(5)[0], kinds(5).length], ['balinsasayaw', 3]);
-  assert.deepStrictEqual([kinds(10)[0], kinds(10).length], ['minokawa', 3]);
-  assert.ok(kinds(9).length === 6, 'at most 6 a floor');
+  assert.ok([11, 12, 13, 14, 15].some((f) => kinds(f).length === 4 && kinds(f).some((k) => k === 'glow_eel')));
+  [10, 20, 30, 40].forEach((f) => assert.deepStrictEqual([kinds(f)[0], kinds(f).length], ['balinsasayaw', 3]));
+  assert.deepStrictEqual([kinds(50)[0], kinds(50).length], ['minokawa', 3]);
+  assert.ok(kinds(49).length === 7, 'at most 7 a floor');
   const s = fresh();
   assert.strictEqual(L.hunted(s, D.key, 0, D.boss, 1).chests, 1);
   const loot = plain(L.openBossChests(s, ID, () => 0));

@@ -5,8 +5,8 @@
 //    and the rare Silver Carabao.
 //  - The tame: a Little Unggoy (a young one, never for the Bow: the grown ones stay huntable), fed wild bananas; ~10
 //    feedings, it may run off; once tamed it picks up what a hunt leaves near you (fetch).
-//  - Kapre's Roots: 10 floors under the balete (root-woven earth, glowing mushrooms, glowing pools): Anggitay and Wood
-//    Spirits; the Anggitay Queen guards floor 5; floor 10 is the Kapre's, a huge gentle tree giant covered in moss
+//  - Kapre's Roots: 50 floors under the balete (root-woven earth, glowing mushrooms, glowing pools): Anggitay and Wood
+//    Spirits; the Anggitay Queen guards every 10th floor; floor 50 is the Kapre's, a huge gentle tree giant covered in moss
 //    (owner, 6 Nov 2026: no cigar or smoking, and he is a tree being, not a dark-skinned man). Soloable, more health with
 //    friends, a daily chest (up to 3 wait).
 //  - Ka Ramon, the forest ranger: four lines (first visit, a few hunts, the guard, the boss) about looking after the
@@ -90,14 +90,14 @@
       { text: 'You hunt like someone who listens to the forest. Did you see the Little Unggoy by the river? Hold out wild bananas, come slowly, and one day it may follow you home. These arrows are for you.',
         need: { hunts: 5 }, hint: 'Hunt here a few times.', gift: [['arrows', 10]] },
       { text: 'The Anggitay Queen let you pass? She guards the roots for the Kapre. He sleeps below her floors. He is gentle, but he tests everyone who comes. Take some narra wood, for luck.',
-        need: { guard: 1 }, hint: 'Go down under the balete and get past the guard of floor 5.', gift: [['narra_wood', 2]] },
+        need: { guard: 1 }, hint: 'Go down under the balete and get past the guard of floor 10.', gift: [['narra_wood', 2]] },
       { text: 'You met the Kapre, and the forest is still standing. Salamat! Plant a tree for every one you take, ha? My wife made you kare-kare.',
-        need: { boss: 1 }, hint: 'Meet the Kapre on floor 10 of his roots.', gift: [['kare_kare', 1], ['wild_honey', 1]] },
+        need: { boss: 1 }, hint: 'Meet the Kapre on floor 50 of his roots.', gift: [['kare_kare', 1], ['wild_honey', 1]] },
     ] },
 
     dungeon: {
-      key: 'sierra_cave', name: "Kapre's Roots", floors: 10, liftEvery: 5, guardFloor: 5, bossFloor: 10,
-      count: { base: 3, per: 3, max: 6 },
+      key: 'sierra_cave', name: "Kapre's Roots", floors: 50, liftEvery: 10, guardFloor: 10, guardEvery: 10, guardHpPer: 0.5, bossFloor: 50, // (owner, 8 Nov 2026: 50 floors, like the Lair)
+      count: { base: 3, per: 10, max: 7 }, // 3 a floor, one more every 10 floors, at most 7
       escort: 2,
       creatures: {
         // a small cheerful centaur girl: she gallops off when you come near
@@ -106,14 +106,14 @@
         // a walking mossy stump: slow, but it charges
         woodspirit: { name: 'Wood Spirit', sheet: 'wild_woodspirit', row: 0, sheetRow: 'sigbin', tint: 0x9cc080, px: 178, w: 1, kg: 30, hp: 10,
           walk: 0.6, run: 3.6, angry: 3, hit: 15, ground: true, drops: [['moss_spirit', 1, 1], ['narra_wood', 1, 0.4]] },
-        // the guard of floor 5
+        // the guard of every 10th floor
         anggitayqueen: { name: 'Anggitay Queen', sheet: 'wild_anggitayqueen', row: 0, sheetRow: 'tikbalang', tint: 0xfff2d8, px: 192, w: 1.5, bar: 2.6, kg: 300, hp: 30,
           walk: 0.8, run: 4.6, angry: 4, hit: 20, ground: true, boss: true, drops: [['ribbon_queen', 1, 1], ['mane_anggitay', 2, 1]] },
-        // floor 10: the Kapre, a huge gentle tree giant covered in moss; soloable, 22 more health for each friend
+        // floor 50: the Kapre, a huge gentle tree giant covered in moss; soloable, 22 more health for each friend
         kapre: { name: 'Kapre', sheet: 'wild_kapre', row: 0, sheetRow: 'bungisngis', tint: 0x86b070, px: 168, w: 3.2, kg: 2000, hp: 41, hpEach: 16, minHits: 3,
           walk: 0.5, run: 3.2, angry: 3.4, hit: 24, ground: true, boss: true, drops: [['bark_kapre', 2, 1], ['moss_spirit', 3, 1], ['narra_wood', 2, 0.6]] },
       },
-      floorKinds: [['anggitay', 1, 10], ['woodspirit', 3, 10]],
+      floorKinds: [['anggitay', 1, 50], ['woodspirit', 11, 50]],
       guard: 'anggitayqueen', boss: 'kapre',
       chest: [['bark_kapre', 2, 1], ['narra_wood', 3, 1], ['wild_honey', 2, 1], ['arrows', 12, 1], ['silver_horn', 1, 0.15]],
       // root-woven earth (dark to light), roots for walls, moss on the crust
