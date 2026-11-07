@@ -563,3 +563,43 @@ test('game server: a tick older than one already heard never brings a monster ba
   for (const who of [host, guest]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([host.context.close(), guest.context.close()]);
 });
+
+// Owner, 7 Nov 2026: "if I was in the dungeon and my friend go to dungeon, we will see each other or do i need always to
+// go to his/her farm first? ... it should be automatic". Two friends, each in their own game (no visit), go down the same
+// floor: they are on one floor (the same monsters), see each other in their looks, and talk; a friend of only one is not.
+test('the REAL game server: friends each in their own game meet on a dungeon floor, without a visit: one floor, seen, heard', async () => {
+  const real = await realServer(), server = createServer();
+  const A = await open(server, real.url), B = await open(server, real.url);
+  await nameFarm(A.page, 'Moon Meadow');
+  await nameFarm(B.page, 'Sun Patch');
+  // friends (as Online, Friends, Add does on both sides)
+  await A.page.evaluate((id) => Farm.Net.rpc('farm_friend_ask_v1', { p_other: id }), B.uid);
+  await B.page.evaluate((id) => Farm.Net.rpc('farm_friend_ask_v1', { p_other: id }), A.uid);
+  for (const who of [A, B]) await who.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 99); });
+  assert.ok(!(await A.page.evaluate(() => !!Farm.session.visit)) && !(await B.page.evaluate(() => !!Farm.session.visit)), 'nobody visits anybody');
+  await go(A, FLOOR);
+  await waitMode(A.page, 'live');
+  await go(B, FLOOR);
+  await waitMode(B.page, 'live');
+  // one floor: each draws the other, the same monsters
+  for (const [x, y] of [[A, B], [B, A]]) await x.page.waitForFunction((id) => !!Farm.world.remotes[id], y.uid, SLOW);
+  await until(async () => (await list(A.page)) === (await list(B.page)), 'the same monsters on both');
+  // talk: a line and a wave from B reach A
+  assert.strictEqual(await B.page.evaluate(() => Farm.Online.say('Andito ako!')), '');
+  await A.page.waitForFunction(() => Farm.Online.chatLines().some((l) => l.text === 'Andito ako!'), null, SLOW);
+  // a kill by A is gone on B
+  for (const who of [A, B]) await who.page.evaluate(() => Farm.world.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0, shy: 0 }); }));
+  const slot = Number((await list(A.page)).split(' ')[0].split(':')[0]);
+  assert.strictEqual(await hunt(A.page, slot), true);
+  await B.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  // a third player, a friend of nobody here: their own floor (they do not see A or B)
+  const C = await open(server, real.url);
+  await nameFarm(C.page, 'Rain Field');
+  await C.page.evaluate(() => { const s = Farm.session.state; s.wild.n = 60; });
+  await go(C, FLOOR);
+  await waitMode(C.page, 'live');
+  await sleep(1500);
+  assert.ok(!(await C.page.evaluate(([a, b]) => !!(Farm.world.remotes[a] || Farm.world.remotes[b]), [A.uid, B.uid])), 'a stranger is not on their floor');
+  for (const who of [A, B, C]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([A.context.close(), B.context.close(), C.context.close()]);
+});

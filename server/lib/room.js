@@ -4,6 +4,11 @@
 // a charge that reached one of them (`bp`, to that phone only) and the floor cleared (`cl`).
 'use strict';
 
+// A dungeon floor's own talk (owner, 7 Nov 2026: friends meet on a floor without going to each other's farm first, so
+// the farm's own live room no longer has everyone): chat, waves and arrows in flight go through the floor here too.
+const AR_MAX = 8, SAY_MAX = 60, SAY_GAP = 1200, SAY_MINUTE = 12;
+const EMOTES = { wave: 1, laugh: 1, wow: 1, yay: 1, aww: 1, heart: 1 };
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 const HIT_GAP = 150; // ms: at most one hit per phone per monster in this time
 const HIT_REACH = 12; // tiles: a hit from further than this from the monster is not counted (the longest bow is 7 + 1)
 const DIRS = { down: 1, up: 1, left: 1, right: 1, side: 1 };
@@ -29,6 +34,7 @@ class Room {
     this.cfg = cfg;
     this.cap = game.cap;
     this.players = new Map(); // id -> player
+    this.recent = new Map(); // player id -> when their line dropped (a reconnect comes back to this floor)
     this.mons = []; // the monsters still up
     this.started = false; // (the monsters are made when the first phone comes)
     this.clear = false;
@@ -107,17 +113,18 @@ class Room {
     else this.moved.add(p.id);
     const others = [];
     this.players.forEach((q) => { if (q !== p) others.push(this.pplRow(q)); });
-    this.send(p, { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: others, cap: this.cap, n: this.n, st: now });
+    this.send(p, { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: others, cap: this.cap, n: this.n, st: now, pp: 1 }); // (pp: who is here is ours to say)
     if (this.clear) this.send(p, { t: 'cl' }); // (a floor already cleared opens for a friend who comes later)
     return null;
   }
 
   // A phone left (bye, or its socket closed). A reconnect that already took its place leaves it be.
-  leave(conn) {
+  leave(conn, closed) {
     const p = conn.player;
     conn.room = null;
     conn.player = null;
     if (!p || p.conn !== conn) return;
+    if (closed) this.recent.set(p.id, this.game.now());
     this.players.delete(p.id);
     this.moved.delete(p.id);
     this.comeNow = this.comeNow.filter((id) => id !== p.id);
@@ -161,6 +168,31 @@ class Room {
     const c = Number(msg.c);
     p.mc = isFinite(c) && c > 0 && c < 1e14 ? Math.floor(c) : 0;
     this.moved.add(p.id);
+  }
+
+  arrow(p, msg) {
+    const T = this.R.T, sec = Math.floor(this.game.now() / 1000);
+    if (sec !== p.arSec) { p.arSec = sec; p.arN = 0; }
+    if (++p.arN > AR_MAX) return;
+    const x = num(msg.x, 0, this.fl.W * T, NaN), y = num(msg.y, 0, this.fl.H * T, NaN), a = num(msg.a, -7, 7, NaN);
+    if (!isFinite(x) || !isFinite(y) || !isFinite(a)) return;
+    this.broadcast({ t: 'ar', id: p.id, x: Math.round(x), y: Math.round(y), a: Math.round(a * 1000) / 1000, l: Math.round(num(msg.l, 0, 8 * T, 0)), b: num(msg.b, 0, 3, 0) | 0 }, p);
+  }
+  emote(p, msg) {
+    const sec = Math.floor(this.game.now() / 1000);
+    if (sec !== p.emSec) { p.emSec = sec; p.emN = 0; }
+    if (++p.emN > 2 || typeof msg.k !== 'string' || !EMOTES[msg.k]) return;
+    this.broadcast({ t: 'em', id: p.id, k: msg.k }, p);
+  }
+  say(p, msg) {
+    const now = this.game.now();
+    if (typeof msg.s !== 'string') return;
+    const s = msg.s.replace(CONTROL, '').replace(/\s+/g, ' ').trim().slice(0, SAY_MAX);
+    if (!s) return;
+    p.says = (p.says || []).filter((t) => now - t < 60000);
+    if (p.says.length >= SAY_MINUTE || (p.says.length && now - p.says[p.says.length - 1] < SAY_GAP)) return;
+    p.says.push(now);
+    this.broadcast({ t: 'say', id: p.id, n: p.name, s }, p);
   }
 
   hit(p, msg) {

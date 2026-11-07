@@ -365,11 +365,13 @@ test('bait: one a phone at a time, the nearest shy one walks to it and eats; the
   assert.strictEqual(room.baits.size, 0);
   a.say({ t: 'bt', x: 3 * T, y: 3 * T });
   assert.strictEqual(b.all('bt').length, 2);
-  // a cave keeps bait on the old relay (step 1): nothing happens
+  // a cave keeps bait on the old relay (step 1): nothing happens; its arrows in flight go through the floor now (friends
+  // meet there from their own farms, 7 Nov 2026)
   const k1 = await w.phone('k1', { floor: 2 }), k2 = await w.phone('k2', { floor: 2 });
   k1.say({ t: 'bt', x: 1000, y: 1000 });
   k1.say({ t: 'ar', x: 1000, y: 1000, a: 1, l: 500, b: 1 });
-  assert.ok(!k2.last('bt') && !k2.last('ar'));
+  assert.ok(!k2.last('bt'), 'no bait in a cave');
+  assert.deepStrictEqual(plain(k2.last('ar')), { t: 'ar', id: 'k1', x: 1000, y: 1000, a: 1, l: 500, b: 1 });
 });
 
 test('an arrow in flight goes to the phones that see the shooter, cleaned and small; never damage; at most 8 a second', async () => {

@@ -97,9 +97,9 @@ class Game {
     else if (msg.t === 'hit') room.hit(p, msg);
     else if (msg.t === 'bye') room.leave(c);
     else if (room.pub && msg.t === 'bt') room.bait(p, msg); // (a cave's bait and arrows stay on the old relay: step 1)
-    else if (room.pub && msg.t === 'ar') room.arrow(p, msg);
-    else if (room.pub && msg.t === 'say') room.say(p, msg); // (a cave's chat stays on the farm's room)
-    else if (room.pub && msg.t === 'em') room.emote(p, msg);
+    else if (msg.t === 'ar') room.arrow(p, msg);
+    else if (msg.t === 'say') room.say(p, msg); // (a cave's too: friends meet there from their own farms now)
+    else if (msg.t === 'em') room.emote(p, msg);
   }
   // A phone this far behind on what we sent (it misses ticks until it catches up).
   behind(c) { return c.sock.bufferedAmount > BUSY_BYTES; }
@@ -120,11 +120,43 @@ class Game {
     if (!c.open) return;
     if (!r || !r.uid) return this.refuse(c, r && r.why === 'topic' ? 'topic' : 'auth');
     if (c.room) c.room.leave(c); // (a new floor on the same socket)
-    const key = hi.topic + '|' + cfg.key + '|' + floor;
-    let room = this.rooms.get(key);
-    if (!room) { room = new Room(this, key, hi.topic, cfg.key, floor, cfg, map); this.rooms.set(key, room); }
-    const no = room.join(c, String(r.uid), hi);
+    const uid = String(r.uid);
+    c.busy = true;
+    let room = null;
+    try { room = await this.pickCave(c, hi, uid, cfg, floor, map); } catch (e) { room = null; }
+    c.busy = false;
+    if (!c.open || !room) return;
+    const no = room.join(c, uid, hi);
     if (no) return this.refuse(c, no);
+  }
+
+  // Which floor of a cave (owner, 7 Nov 2026: friends meet in the dungeon "automatic", without going to each other's farm
+  // first): the one you are already on (another line) or dropped from a moment ago; else your own farm's, if anyone is
+  // on it; else a friend's (one of `with`, the phone's friends) on this floor that has space and lets you in (the
+  // server's own check: friends, or a farm open to all); else your own farm's.
+  async pickCave(c, hi, uid, cfg, floor, map) {
+    const now = this.now(), key = hi.topic + '|' + cfg.key + '|' + floor;
+    const same = Array.from(this.rooms.values()).filter((r) => !r.pub && r.map === cfg.key && r.floor === floor);
+    const space = (r) => r.players.size < r.cap;
+    let room = same.filter((r) => r.players.has(uid))[0]
+      || same.filter((r) => space(r) && r.recent.has(uid) && now - r.recent.get(uid) < 30000)[0] || null;
+    const own = this.rooms.get(key);
+    if (!room && own && own.players.size && space(own)) room = own;
+    if (!room && Array.isArray(hi.with)) {
+      const want = new Set(hi.with.filter((x) => typeof x === 'string' && x.length <= 64).slice(0, 200));
+      const theirs = same.filter((r) => r.topic !== hi.topic && space(r) && Array.from(r.players.keys()).some((id) => want.has(id)));
+      for (const r of theirs) {
+        let ok = null;
+        try { ok = await this.auth.check(hi.token, r.topic); } catch (e) { ok = null; }
+        if (!c.open) return null;
+        if (ok && String(ok.uid) === uid && this.rooms.get(r.key) === r && space(r)) { room = r; break; }
+      }
+    }
+    if (!room) {
+      room = this.rooms.get(key);
+      if (!room) { room = new Room(this, key, hi.topic, cfg.key, floor, cfg, map); this.rooms.set(key, room); }
+    }
+    return room;
   }
 
   // A hunting place, open to everyone (docs/game-server.md "Step 2"): any good token; the server picks the room.

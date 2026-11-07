@@ -76,6 +76,8 @@
   var live = function () { return gs && !gs.dead && gs.mode === 'live' && gs.ws && gs.ws.readyState === 1 ? gs : null; };
   // the public room holding this world (also while it connects or gets its line back; the placeholder while the map opens)
   var pubHolding = function (w) { var g = holding(w); return g && (g.pub || (g.placeholder && pubMap(w.mapKey))) ? g : null; };
+  // the server says who is here (a public room; a cave floor too, now that friends meet there from their own farms)
+  var pplHolding = function (w) { var g = pubHolding(w) || holding(w); return g && (g.pub || g.pp || (g.placeholder && pubMap(w.mapKey))) ? g : null; };
   var send = function (g, m) {
     if (!g || g.dead || !g.ws || g.ws.readyState !== 1) return false;
     try { g.ws.send(JSON.stringify(m)); g.sent++; return true; } catch (e) { return false; }
@@ -84,6 +86,7 @@
   // ---------- a floor's session ----------
   var start = function (w) {
     var pub = pubMap(w.mapKey);
+    askFriends(); // (your friends, for a cave's hi: asked once every few minutes)
     gs = {
       w: w, gen: w.gsGen, url: url(), map: w.mapKey, floor: pub ? 0 : O.floorHere(w.mapKey), topic: pub ? 'pub' : O.topic || O.topicNow(), mode: 'connecting',
       ws: null, attempt: 0, tries: 0, everLive: false, you: '', n: 0, sent: 0, got: 0, connects: 0, rtt: null, ppl: {},
@@ -128,6 +131,14 @@
   };
 
   // A public room's 'with': the farm you visit (its owner), or a friend from your farm's room who is on this place now.
+  // Your friends (and whoever is in your farm's room) for a cave's hi: the server puts you with one of them on this floor.
+  var caveFriends = function () {
+    var out = {};
+    Object.keys(friends.ids || {}).forEach(function (id) { out[id] = 1; });
+    Object.keys(O.others || {}).forEach(function (id) { out[id] = 1; });
+    if (F.session.visit && F.session.visit.host) out[String(F.session.visit.host)] = 1;
+    return Object.keys(out).filter(function (id) { return !O.blocked[id]; }).slice(0, 200);
+  };
   var withWho = function (g) {
     var v = F.session.visit;
     if (v && v.host) return String(v.host);
@@ -141,7 +152,7 @@
     var my = ++g.attempt;
     clearTimeout(g.waitT);
     g.waitT = setTimeout(function () { if (g.attempt === my && g.ok !== my) fail(g, 'slow'); }, GS.wait);
-    F.Net.token().then(function (token) {
+    F.Net.token().then(function (token) { return g.pub ? token : friendsWait().then(function () { return token; }); }).then(function (token) {
       if (g.dead || g.attempt !== my || g.failed === my || g.mode === 'off') return;
       if (!token) return fail(g, 'token', true);
       var ws;
@@ -153,11 +164,12 @@
         var hi = { t: 'hi', v: 1, token: token, topic: g.topic, map: g.map, floor: g.floor, name: O.myName(), look: s.look === 'girl' ? 'girl' : 'boy',
           x: Math.round(f.x), y: Math.round(f.y), dir: w.dir || 'down', hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0,
           b: menu(), bk: !g.pub && L.bakunawaReady && L.bakunawaReady(s) ? 1 : 0 }; // (b: a menu open, the monsters leave you be; bk: the Bakunawa may rise for you today)
-        if (g.pub) { // a public room: who to be put with, and how you look
-          var ms = O.myState(), mate = withWho(g);
-          hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0 };
+        var ms = O.myState();
+        hi.lk = { cs: ms.cs || '', pt: ms.pt ? 1 : 0, rd: ms.rd ? 1 : 0 }; // (how you look: the others draw you from it)
+        if (g.pub) { // a public room: who to be put with
+          var mate = withWho(g);
           if (mate) hi.with = mate;
-        }
+        } else hi.with = caveFriends(); // a cave: your friends, so you land on a friend's floor (owner, 7 Nov 2026: "automatic")
         send(g, hi);
         g.lastMv = null;
         g.piMs = 0;
@@ -203,7 +215,7 @@
     dropTrails(g);
     dropBaits(g);
     restoreSn(g);
-    if (g.pub) { O.syncSprites(); F.bus.emit('pub'); } // (your farm's friends on this place, drawn as before)
+    if (g.pub || g.pp) { O.syncSprites(); F.bus.emit('pub'); } // (your farm's friends on this place, drawn as before)
     var w = g.w;
     if (g.dead || !w || w.gsGen !== g.gen || !w.wild || !w.sys || !w.sys.isActive()) return;
     // held back while it connected: the floor's creatures come out now, as they would have (unless a friend runs it)
@@ -220,7 +232,7 @@
     g.dead = true;
     if (g.mode !== 'off') { dropTrails(g); restoreSn(g, quiet); }
     dropBaits(g);
-    if (g.pub) F.bus.emit('pub');
+    if (g.pub || g.pp) { O.syncSprites(); F.bus.emit('pub'); } // (back to your farm's room's farmers)
     if (g.dbg) { try { g.dbg.destroy(); } catch (e) { /* its scene went */ } g.dbg = null; }
     if (gs === g) gs = null;
   };
@@ -416,12 +428,17 @@
   var askFriends = function () {
     if (friends.asking || Date.now() - friends.at < FRIENDS_EVERY || !F.Net || !F.Net.rpc) return;
     friends.asking = true;
-    F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+    friends.p = F.Net.rpc('farm_friends_v1', {}).then(function (list) {
       var ids = {};
       (list || []).forEach(function (f) { if (f && f.id && f.status !== 'request' && f.status !== 'sent') ids[String(f.id)] = 1; });
       friends.ids = ids;
       friends.at = Date.now();
     }).catch(function () { friends.at = Date.now() - FRIENDS_EVERY + 30000; }).then(function () { friends.asking = false; });
+  };
+  // A cave's hi waits for the list (at most 1.5 s) so it can say who your friends are.
+  var friendsWait = function () {
+    askFriends();
+    return Promise.race([friends.p || Promise.resolve(), new Promise(function (r) { setTimeout(r, 1500); })]).catch(function () {});
   };
   var isFriend = function (id) { return !!(id && (friends.ids[id] || (O.others && O.others[id]))); };
   var pubLeft = function (g, id) {
@@ -536,6 +553,14 @@
         if (F.GameServer && typeof F.GameServer.onPubLive === 'function') F.GameServer.onPubLive(g); // (the first time: its tour)
         return;
       }
+      if (m.pp) { // (who is here is the server's to say: drawn from its rows, a friend from another farm too)
+        g.pp = true;
+        g.ppl = {};
+        (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { pubRow(g, p, at); });
+        redraw(g);
+        askFriends();
+        return;
+      }
       (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
       return;
     }
@@ -549,8 +574,8 @@
       g.skew = Math.min(g.skew, Date.now() - st); // (the quickest a tick ever came: the server's clock against ours)
       apply(w, st, m.m, false);
       (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { if (held[slot]) { held[slot].q.push({ t: 'gone', s: slot }); return; } var a = find(w, slot); if (a) w.wildGone(a); });
-      if (g.pub) {
-        if (isFinite(Number(m.here)) && Math.floor(Number(m.here)) !== g.here) { g.here = Math.max(0, Math.floor(Number(m.here))); F.bus.emit('pub'); } // (someone came or went, near you or not)
+      if (g.pub || g.pp) {
+        if (g.pub && isFinite(Number(m.here)) && Math.floor(Number(m.here)) !== g.here) { g.here = Math.max(0, Math.floor(Number(m.here))); F.bus.emit('pub'); } // (someone came or went, near you or not)
         var changed = false, went = {};
         (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
         (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
@@ -575,14 +600,14 @@
       });
       return;
     }
-    if (t === 'say') { if (g.pub) pubSay(g, m); return; }
+    if (t === 'say') { if (g.pub || g.pp) pubSay(g, m); return; }
     if (t === 'em') {
       var eid = typeof m.id === 'string' ? m.id : '', k = typeof m.k === 'string' ? m.k : '';
-      if (g.pub && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
+      if ((g.pub || g.pp) && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
       return;
     }
     if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
-    if (t === 'ar') { if (g.pub) pubArrow(g, m); return; }
+    if (t === 'ar') { if (g.pub || g.pp) pubArrow(g, m); return; }
     if (t === 'hp') {
       if (holdFor(g, w, m, String(m.by))) return;
       var a = find(w, m.s);
@@ -683,7 +708,13 @@
   };
   var oSend = O.send;
   O.send = function (event, payload) {
-    var pg = pubHolding(F.world);
+    var pg = pubHolding(F.world), cg = !pg && pplHolding(F.world);
+    if (cg) { // a cave floor the server says who is on: your talk goes there (a friend from another farm hears it)
+      if (event === 'say') { if (cg.mode === 'live' && payload && typeof payload.s === 'string') send(cg, { t: 'say', s: payload.s }); return; }
+      if (event === 'emote') { if (cg.mode === 'live' && payload && typeof payload.k === 'string') send(cg, { t: 'em', k: payload.k }); return; }
+      if (event === 'ar') return; // (P.tellArrow sends it to the floor)
+      if (OLD[event]) return;
+    }
     if (pg) {
       if (HUNT[event]) return;
       // chat in a hunting place: to everyone in the room, on our server (owner, 7 Nov 2026: "open to everyone ... Even
@@ -711,7 +742,7 @@
   };
   var tellArrow = P.tellArrow;
   P.tellArrow = function (m) {
-    var g = pubHolding(this);
+    var g = pplHolding(this);
     if (!g) return tellArrow.call(this, m);
     var l = live();
     if (l === g) send(g, { t: 'ar', x: m.x, y: m.y, a: m.a, l: m.l, b: m.b });
@@ -719,7 +750,7 @@
   // who is here: the server's list (the 15 nearest; not a blocked one); your farm's room's farmers here only through it
   var drawnHere = O.drawnHere;
   O.drawnHere = function (w) {
-    var g = pubHolding(w);
+    var g = pplHolding(w);
     if (!g) return drawnHere.call(O, w);
     var want = {};
     if (g.ppl) nearest(g).forEach(function (id) { want[id] = g.ppl[id]; });
@@ -727,7 +758,7 @@
   };
   var who = O.who;
   O.who = function (id) {
-    var g = pubHolding(F.world);
+    var g = pplHolding(F.world);
     if (!g) return who.call(O, id);
     return (g.ppl && g.ppl[id]) || null;
   };
