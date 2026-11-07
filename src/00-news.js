@@ -8,6 +8,14 @@
 
   C.NEWS = [
     {
+      v: '2.9', date: 'November 7, 2026', lines: [
+        // (owner, 7 Nov 2026: "Push e36")
+        ['bow', 'The Great Mammoth for everyone', 'Everyone who lands 3 hits on the Great Mammoth gets a share, even when a stranger lands the last one.'],
+        ['star', 'Online opens at once', 'The Online menu opens straight away, and the number on the Online button comes back by itself after a weak signal.'],
+        ['heart', 'Villagers stand apart', 'Villagers no longer bunch up or stand inside the fountain, so you can always talk to them.'],
+      ],
+    },
+    {
       v: '2.8', date: 'November 7, 2026', lines: [
         // (draft for the owner: e35)
         ['heart', 'Friends meet in dungeons', 'Go down the same dungeon floor as a friend and you are there together. No need to visit their farm first.', 'play_together'],

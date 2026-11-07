@@ -429,12 +429,12 @@ test('v2.1 names what is live, the two server features included now the script i
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
 });
 
-test('v2.8 is the newest (friends meet in dungeons, 7 Nov 2026), v2.7 chat with everyone in a hunting place, v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
-  assert.strictEqual(C.NEWS[0].v, '2.8');
-  assert.strictEqual(C.NEWS_LATEST, '2.8');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Friends meet in dungeons', 'Who is hunting here', 'Fair hunting for everyone', 'Follow a friend', 'Smoother and neater']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['Hunt with everyone', 'Medal frames', 'Smoother dungeons with friends']);
+test('v2.9 is the newest (the Great Mammoth for everyone, 7 Nov 2026), v2.8 friends meet in dungeons, v2.7 chat with everyone in a hunting place, v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
+  assert.strictEqual(C.NEWS[0].v, '2.9');
+  assert.strictEqual(C.NEWS_LATEST, '2.9');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['The Great Mammoth for everyone', 'Online opens at once', 'Villagers stand apart']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Friends meet in dungeons', 'Who is hunting here', 'Fair hunting for everyone', 'Follow a friend', 'Smoother and neater']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
   const news = C.NEWS.filter((n) => n.v === '2.3')[0];
   assert.ok(news.lines.some((l) => l[1] === 'Every cabinet, its own storage'));
   const titles = C.NEWS.filter((n) => n.v === '2.2')[0].lines.map((l) => l[1]);
