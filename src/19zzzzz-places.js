@@ -61,6 +61,15 @@
     // a place's cave: its boss leaves the day's chest where it fell
     var lr = this.lair;
     if (lr && !lr.cfg.lair && a.def.boss && a.kind === lr.cfg.d.boss && a.mine && L.bossChests(s, lr.cfg.place) > 0) this.bossChestAt(a.x, a.y, true);
+    // its look, 1 in 10 for everyone with a share of the hunt (00-zzzzzzzzzzzz-cave-looks.js), after the chest's words
+    if (lr && !lr.cfg.lair && L.caveBossHunted && a.kind === lr.cfg.d.boss && a.mine && L.caveBossHunted(s, lr.cfg.place)) {
+      var look = L.lookDef(L.caveLookOf(lr.cfg.place));
+      F.Host.save(s);
+      this.time.delayedCall(5200, function () {
+        sfx('fanfare');
+        if (F.ui) F.ui.toast('Lucky! The ' + look.name + ' look is yours: wear it from Looks.', 4200, GOLD);
+      });
+    }
   };
   var medalsNow = function (w) { w.medalNews(L.medalCheck(w.state)); };
 

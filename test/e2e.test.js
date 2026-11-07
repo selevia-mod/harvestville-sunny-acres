@@ -4435,6 +4435,44 @@ test('the Fire look from Kanor: on his Buy tab at 500,000G and the Lair\'s best,
   await context.close();
 });
 
+test('e42: a look from each cave: Kanor lists the Lake Spirit at 500,000G and Taal\'s parts once Taal is open, then it is in My looks and can be worn (owner, 8 Nov 2026)', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.wild.n = 100; s.gold = 500000; L.addItem(s, 'pearl_berberoka', 4); L.addItem(s, 'scale_lava', 2);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const findPage = async (re) => {
+    for (let p = 0; p < 8; p++) {
+      await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('buy', p); }, p);
+      await frames(page, 2);
+      if (re.test(await modalText(page))) return p;
+    }
+    return -1;
+  };
+  assert.ok(await findPage(/Lake Spirit look/) >= 0, 'Kanor lists the Lake Spirit');
+  assert.strictEqual(await findPage(/Forest Guardian look/), -1, 'not Sierra Madre\'s: not open yet (130 hunts)');
+  await findPage(/Lake Spirit look/);
+  assert.match(await modalText(page), /Lake Spirit look[\s\S]*1 in 10 from the Berberoka\. Or 4 Pearls \(4\), 2 Lava Scale \(2\)[\s\S]*500,000G/);
+  assert.ok(await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return !out.some((t) => /…$/.test(t.text)); }), 'no words cut');
+  await shot(page, 'e42-cave-look-kanor');
+  const nth = (await modalText(page)).split(' | ').filter((t) => t === '500,000G' || / look$/.test(t)).filter((t, i, all) => / look$/.test(t)).indexOf('Lake Spirit look');
+  await tapButton(page, '500,000G', nth); // (Terrace, Hills and Lake each have a 500,000G button)
+  await page.waitForFunction(() => /The Lake Spirit look is yours! Wear it from Looks\./.test(Farm.ui.toastText.text), null, SLOW);
+  assert.strictEqual((await state(page)).gold, 0);
+  assert.strictEqual(await findPage(/Lake Spirit look/), -1, 'not offered again');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.drawTailor('mine', 0); });
+  await frames(page, 3);
+  for (let p = 0; p < 4 && !/Lake Spirit/.test(await modalText(page)); p++) { await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.drawTailor('mine', p); }, p + 1); await frames(page, 3); }
+  assert.match(await modalText(page), /Lake Spirit[\s\S]*Wear/);
+  await shot(page, 'e42-cave-look-mine');
+  await tapButton(page, 'Wear', 1); // (the Christmas Elf's is first)
+  await page.waitForFunction(() => Farm.Logic.wornLook(Farm.session.state) === 'lake', null, SLOW);
+  await page.waitForFunction(() => /lake/.test(Farm.world.player.texture.key), null, SLOW);
+  await closeAll(page);
+  await frames(page, 6);
+  await shot(page, 'e42-cave-look-worn');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('downloads by themselves: a few seconds after the game opens, every pack comes down onto the phone, one after another, the badge showing it (owner, 5 Nov)', async () => {
   const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST;");
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });

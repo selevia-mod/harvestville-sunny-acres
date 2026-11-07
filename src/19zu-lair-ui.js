@@ -49,6 +49,20 @@
           done(r, 'The ' + look.name + ' look is yours! Wear it from Looks.');
         } }] });
     }
+    // each cave's look (owner, 8 Nov 2026): Kanor makes it, once its place is open; 1 in 10 from its floor-50 boss
+    if (L.caveLookOf) C.PLACE_ORDER.filter(function (id) { return L.placeShown(id) && L.placeOpen(s, id) && L.caveLookOf(id); }).forEach(function (id) {
+      var key = L.caveLookOf(id), cl = L.lookDef(key), needs = L.caveLookNeeds(id), cg = C.CAVE_LOOK.gold;
+      if (!cl || !needs || L.ownsLook(s, key)) return;
+      if (F.ensureTexture) F.ensureTexture(self, 'looks_thumbs');
+      rows.push({ sheet: { key: 'looks_thumbs', frame: C.LOOK_INDEX[key] * 2 + (s.look === 'girl' ? 1 : 0), scale: 0.36 }, name: cl.name + ' look',
+        desc: '1 in 10 from the ' + C.WILD.animals[C.PLACES[id].dungeon.boss].name + '. Or ' + needShort(s, needs) + '.',
+        buttons: [{ label: String(cg).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', color: has(s, needs) && s.gold >= cg ? GREEN : GREY, cb: function () {
+          var r = L.buyCaveLook(s, id);
+          if (r === 'short') { sfx('nope'); return self.toast('You need ' + needText(s, needs) + '. They wait in ' + C.PLACES[id].dungeon.name + '.', 3200); }
+          if (r === 'ok') sfx('fanfare');
+          done(r, 'The ' + cl.name + ' look is yours! Wear it from Looks.');
+        } }] });
+    });
     // the Magma Bow, after the Gold Bow
     if (L.hasBow(s) && L.bowLevel(s) === m.level - 1) {
       rows.unshift({ icon: C.ICON.bow_4, name: m.name, desc: 'Range ' + C.WILD.bow.range[m.level] + '. Needs ' + needShort(s, m.needs) + '.',

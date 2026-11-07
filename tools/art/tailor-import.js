@@ -19,7 +19,7 @@ const { PROPS } = require('../tiles');
 const ROOT = path.join(__dirname, '..', '..');
 const ART = path.join(os.homedir(), 'Documents', 'harvest-hat-art');
 const OUT = path.join(ROOT, 'assets');
-const LOOKS = ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire'];
+const LOOKS = ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire', 'terrace', 'hills', 'lake', 'forest', 'feather']; // (the five caves' looks: 8 Nov 2026, tools/art/look-cut.cjs)
 const cutOf = (name) => {
   const here = path.join(ROOT, 'art-src', 'looks', 'cut', name + '.png');
   return fs.existsSync(here) ? here : path.join(ART, 'looks-cutter', 'out', name + '.png');

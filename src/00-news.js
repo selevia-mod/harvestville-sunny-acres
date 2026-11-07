@@ -10,8 +10,9 @@
     {
       v: '2.12', date: 'November 8, 2026', lines: [
         // (owner, 8 Nov 2026: e41)
-        ['ember_shard', 'Caves 50 floors deep', 'Every hunting place\'s cave now goes down 50 floors, like the Lair: a guard on every 10th floor, tougher each time, and the boss on floor 50. The lift stops every 10 floors.'],
+        ['ember_shard', 'The caves got deeper', 'Every hunting place\'s cave now goes down 50 floors, like the Lair: a guard on every 10th floor, tougher each time, and the boss on floor 50. Where you reached stays yours.'],
         ['bow', 'Haliya\'s Moon Bow', 'The new best bow. Kanor makes it from your Magma Bow, every cave boss\'s part, Bakunawa Scales and 600,000 Gold. Each arrow goes through the first creature and hits the one behind it.', 'moonbow'],
+        ['ribbon', 'A look from each cave', 'Terrace Keeper, Hill Wanderer, Lake Spirit, Forest Guardian and Moon Feather: 1 in 10 when you help beat a cave\'s floor-50 boss, or Kanor makes it.'],
         ['bow', 'Your bow on your back', 'When the Bow is in your hands, it hangs on your back, and everyone sees which bow you carry: Gold, Magma or the Moon Bow.'],
       ],
     },

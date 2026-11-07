@@ -16,11 +16,11 @@ L.weather = () => 'sunny';
 const fresh = () => { clock.set(2026, 11, 3, 10, 0); const s = L.newState(); s.seed = 11; L.takeNotes(); return s; };
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 
-test('eight looks at the owner\'s prices, then the Lair\'s Fire look, in a fixed order', () => {
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.LOOKS.map((l) => l.key))), ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire']);
+test('eight looks at the owner\'s prices, then the Lair\'s Fire look, then the five caves\' looks (8 Nov 2026), in a fixed order', () => {
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.LOOKS.map((l) => l.key))), ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire', 'terrace', 'hills', 'lake', 'forest', 'feather']);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(C.LOOKS.map((l) => [l.free || false, l.gold || 0, l.coins || 0, l.stars || 0]))),
     [[true, 0, 0, 0], [false, 50000, 0, 0], [false, 150000, 0, 0], [false, 300000, 0, 0], [false, 0, 100, 150], [false, 0, 150, 0], [false, 0, 150, 200], [false, 0, 150, 200],
-      [false, 0, 0, 0]]);
+      [false, 0, 0, 0], [false, 0, 0, 0], [false, 0, 0, 0], [false, 0, 0, 0], [false, 0, 0, 0], [false, 0, 0, 0]]);
 });
 
 test('the Fire look has no price in the game: it is yours only when the server says so, and then it is worn and saved', () => {

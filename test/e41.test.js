@@ -82,3 +82,36 @@ test('its tour is remembered once (the last tip: older saves keep theirs)', () =
   L.takeTip(s, 'moonbow_tour');
   assert.ok(L.tipSeen(roundTrip(s), 'moonbow_tour'));
 });
+
+// The caves' looks (owner, 8 Nov 2026): 1 in 10 from a cave's floor-50 boss, or Kanor makes one from 500,000 Gold and the
+// cave's boss and guard parts.
+test('a look from each cave: appended after the Fire look (the save keeps everyone\'s), 1 in 10 from its boss, or Kanor makes it', () => {
+  const keys = ['terrace', 'hills', 'lake', 'forest', 'feather'], places = ['banaue', 'bohol', 'taal', 'sierra', 'palawan'];
+  assert.deepStrictEqual(plain(C.LOOKS.slice(0, 9).map((l) => l.key)), ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire'], 'the old ones keep their places');
+  assert.deepStrictEqual(plain(C.LOOKS.slice(9).map((l) => l.key)), keys);
+  places.forEach((p, i) => assert.strictEqual(L.caveLookOf(p), keys[i], p));
+  assert.ok(C.LOOKS.slice(9).every((l) => !l.gold && !l.coins && !l.stars), 'never in the shop');
+  assert.deepStrictEqual(plain(L.caveLookNeeds('taal')), [['pearl_berberoka', 4], ['scale_lava', 2]]);
+  // the 1 in 10
+  const s = L.newState();
+  assert.strictEqual(L.caveBossHunted(s, 'bohol', 0.1), false, 'a roll of 0.1 or more: no');
+  assert.strictEqual(L.caveBossHunted(s, 'bohol', 0.099), true);
+  assert.ok(L.ownsLook(s, 'hills'));
+  assert.strictEqual(L.caveBossHunted(s, 'bohol', 0), false, 'only while you do not have it');
+  assert.strictEqual(L.caveBossHunted(s, 'magayon', 0), false, 'a place without a cave look');
+  // Kanor
+  assert.strictEqual(L.buyCaveLook(s, 'sierra'), 'gold');
+  s.gold = 500000;
+  assert.strictEqual(L.buyCaveLook(s, 'sierra'), 'short');
+  L.caveLookNeeds('sierra').forEach((n) => L.addItem(s, n[0], n[1]));
+  assert.strictEqual(L.buyCaveLook(s, 'sierra'), 'ok');
+  assert.strictEqual(s.gold, 0);
+  assert.strictEqual(L.buyCaveLook(s, 'sierra'), 'owned');
+  // kept by the save, with the old looks' bits untouched
+  s.lk |= 1 << C.LOOK_INDEX.fire;
+  const back = roundTrip(s);
+  ['hills', 'forest', 'fire'].forEach((k) => assert.ok(L.ownsLook(back, k), k));
+  assert.ok(!L.ownsLook(back, 'lake'));
+  assert.ok(L.wearLook(back, 'forest') !== false);
+  assert.strictEqual(L.wornLook(roundTrip(back)), 'forest');
+});
