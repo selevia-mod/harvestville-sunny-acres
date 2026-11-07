@@ -2516,6 +2516,28 @@ test('your birthday: the hat, confetti and the mayor\'s letter with a cake on th
   await context.close();
 });
 
+test('e40: a farm the birthday bug wiped opens with its Stable and Bigger Coop back, and the Mayor\'s sorry letter first (10,000 gold)', async () => {
+  const save = await makeSave("s.name = 'Ana'; L.setBirthday(s, 11, 16); s.builds.stable = 1; s.horse = { name: C.HORSE.name, love: 4, pet: 1 }; s.gold = 100;");
+  delete save.bb;
+  save.bd = [1116, 0]; // what the old code wrote over the builds list
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const st = await page.evaluate(() => { const s = Farm.session.state; return { stable: s.builds.stable, coop2: s.builds.coop2, barn2: s.builds.barn2, mail: s.mail.slice(), bd: s.bd }; });
+  assert.strictEqual(st.stable, 1);
+  assert.strictEqual(st.coop2, 1);
+  assert.strictEqual(st.barn2, 1);
+  assert.strictEqual(st.mail[0], 'sorry_bd');
+  assert.strictEqual(st.bd, 1116);
+  await page.evaluate(() => Farm.world.readMail());
+  await frames(page, 3);
+  const box = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1], b = m.c.getBounds(); return { y0: b.y, y1: b.y + b.height, h: Farm.world.scale.height }; });
+  assert.ok(box.y0 >= 0 && box.y1 <= box.h, 'the letter fits on the screen');
+  await shot(page, 'e40-sorry-letter');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 100 + 10000);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
