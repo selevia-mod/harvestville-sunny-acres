@@ -2516,7 +2516,7 @@ test('your birthday: the hat, confetti and the mayor\'s letter with a cake on th
   await context.close();
 });
 
-test('e40: a farm the birthday bug wiped opens with its Stable and Bigger Coop back, and the Mayor\'s sorry letter first (10,000 gold)', async () => {
+test('e40: a farm the birthday bug wiped opens with its Stable and Bigger Coop back, and the Mayor\'s sorry letter first (20,000 gold)', async () => {
   const save = await makeSave("s.name = 'Ana'; L.setBirthday(s, 11, 16); s.builds.stable = 1; s.horse = { name: C.HORSE.name, love: 4, pet: 1 }; s.gold = 100;");
   delete save.bb;
   save.bd = [1116, 0]; // what the old code wrote over the builds list
@@ -2533,7 +2533,7 @@ test('e40: a farm the birthday bug wiped opens with its Stable and Bigger Coop b
   const box = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1], b = m.c.getBounds(); return { y0: b.y, y1: b.y + b.height, h: Farm.world.scale.height }; });
   assert.ok(box.y0 >= 0 && box.y1 <= box.h, 'the letter fits on the screen');
   await shot(page, 'e40-sorry-letter');
-  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 100 + 10000);
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 100 + 20000);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -4138,6 +4138,34 @@ test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler wat
   // saved and reopened: the sprinkler is back in the bag, the Gold turnip still Gold
   const saved = await page.evaluate(() => { Farm.world.save(); return window.gameHost.state; });
   assert.deepStrictEqual(saved.ft.q.slice(0, 2), [3, 2]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('e40: a greenhouse on bought land can be farmed: Till inside, a melon in spring (owner, 8 Nov: "they cannot farm it")', async () => {
+  const save = await makeSave(`s.time = 600; s.gold = 9e6; while (L.buyLand(s) === 'ok');
+    const gh = C.OUTDOOR.index.greenhouse; L.buyYard(s, gh, 1); L.placeYard(s, Farm.farm(), gh, 43, 17);
+    L.addItem(s, 'seed_melon', 2); L.addItem(s, 'hoe', 1);`);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const GH = await page.evaluate(() => Farm.Config.OUTDOOR.index.greenhouse);
+  let s = await state(page);
+  assert.ok(s.yard.items.some((it) => it.t === GH && it.x === 43 && it.y === 17), 'placed on the bought land');
+  await hold(page, 'hoe');
+  await teleport(page, 44, 20, 'up');
+  const a = await page.evaluate(() => { const r = Farm.world.resolve(); return { label: r.label, disabled: !!r.disabled, why: r.why || '' }; });
+  assert.deepStrictEqual(a, { label: 'Till', disabled: false, why: '' }, 'the hoe works inside');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[19 * W + 44].w, 1, 'tilled, and the misters water it');
+  await hold(page, 'seed_melon');
+  assert.strictEqual(await actionLabel(page), 'Plant');
+  await tapAction(page);
+  s = await state(page);
+  assert.strictEqual(s.soil[19 * W + 44].c, 'melon', 'a summer melon in spring, inside');
+  // a yard piece on the bought land still keeps the hoe off (a path or a fence is not soil)
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.landTaken(Farm.session.state, 44, 19)), false);
+  await shot(page, 'e40-greenhouse-land');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

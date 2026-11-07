@@ -40,9 +40,11 @@
     }
     return false;
   };
-  // Is a yard piece standing here? (Nothing is tilled under one.)
+  // Is a yard piece standing here? (Nothing is tilled under one.) Not a Field Plot or the greenhouse: they are there to be
+  // tilled (owner, 8 Nov 2026: players with the greenhouse on their bought land "cannot farm it").
   L.landTaken = function (s, x, y) {
     return s.yard.items.some(function (it) {
+      if (L.isPlot && L.isPlot(it.t)) return false;
       return L.yardBox(it.t, it.x, it.y).some(function (p) { return p[0] === x && p[1] === y; });
     });
   };

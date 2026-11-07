@@ -10,9 +10,10 @@
     {
       v: '2.11', date: 'November 8, 2026', lines: [
         // (owner, 8 Nov 2026: e40)
-        ['chest', 'Your buildings are back', 'Setting a birthday made some farms forget their Stable, Bigger Coop and Bigger Barn. They are back, with a letter from the Mayor, 10,000 gold, lumber and stone.'],
+        ['chest', 'Your buildings are back', 'Setting a birthday made some farms forget their Stable, Bigger Coop and Bigger Barn. They are back, with a letter from the Mayor, 20,000 gold, lumber and stone.'],
         ['egg', 'Faster eggs and milk', 'A chicken lays 4 hours after it eats, and a cow, pig or carabao gives 6 hours after.'],
         ['heart', 'Animals work while you are away', 'Eggs and milk now come even when the game is closed. Feed them, come back later, and collect.'],
+        ['star', 'Greenhouse on your new land', 'A greenhouse on the land you bought can be tilled and planted now, like one in your field.'],
       ],
     },
     {

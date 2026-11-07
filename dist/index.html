@@ -872,9 +872,10 @@ C.NEWS = [
 {
 v: '2.11', date: 'November 8, 2026', lines: [
 
-['chest', 'Your buildings are back', 'Setting a birthday made some farms forget their Stable, Bigger Coop and Bigger Barn. They are back, with a letter from the Mayor, 10,000 gold, lumber and stone.'],
+['chest', 'Your buildings are back', 'Setting a birthday made some farms forget their Stable, Bigger Coop and Bigger Barn. They are back, with a letter from the Mayor, 20,000 gold, lumber and stone.'],
 ['egg', 'Faster eggs and milk', 'A chicken lays 4 hours after it eats, and a cow, pig or carabao gives 6 hours after.'],
 ['heart', 'Animals work while you are away', 'Eggs and milk now come even when the game is closed. Feed them, come back later, and collect.'],
+['star', 'Greenhouse on your new land', 'A greenhouse on the land you bought can be tilled and planted now, like one in your field.'],
 ],
 },
 {
@@ -10291,8 +10292,10 @@ if (!L.landOpen(s, px, py) || s.soil[py * C.FARM_W + px]) return true;
 return false;
 };
 
+
 L.landTaken = function (s, x, y) {
 return s.yard.items.some(function (it) {
+if (L.isPlot && L.isPlot(it.t)) return false;
 return L.yardBox(it.t, it.x, it.y).some(function (p) { return p[0] === x && p[1] === y; });
 });
 };
@@ -15483,11 +15486,11 @@ var C = F.Config;
 var L = F.Logic;
 var H = C.HOME;
 
-C.REPAIR_BD = { gold: 10000, lumber: 180, stone: 20 };
+C.REPAIR_BD = { gold: 20000, lumber: 180, stone: 20 };
 C.LETTERS.sorry_bd = {
 from: 'hollis',
-text: 'We are so sorry! A mix-up in the town records made some farms forget their buildings, and some animals wandered off. Your Bigger Coop and Bigger Barn are built, your Stable is back if you had a horse, and we added 180 lumber and 20 stone. Here are 10,000 gold to make up for it. - Mayor Hollis',
-gift: ['gold', 10000],
+text: 'We are so sorry! A mix-up in the town records made some farms forget their buildings, and some animals wandered off. Your Bigger Coop and Bigger Barn are built, your Stable is back if you had a horse, and we added 180 lumber and 20 stone. Here are 20,000 gold to bring back your animals. - Mayor Hollis',
+gift: ['gold', 20000],
 };
 var FURN = { f_plant: 'big_plant', f_music: 'music_box', f_aquarium: 'aquarium', f_cat: 'cat_bed' };
 

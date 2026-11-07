@@ -1,5 +1,5 @@
 // e40 (owner, 8 Nov 2026): a birthday no longer wipes the farm's buildings (and the farms it wiped are repaired once,
-// with a sorry letter: 10,000 gold, the lumber and stone), and animals give while the game is closed.
+// with a sorry letter: 20,000 gold, the lumber and stone), and animals give while the game is closed.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
@@ -51,7 +51,7 @@ test('a birthday no longer wipes the buildings: the Stable, the Bigger Coop and 
   assert.ok(!back.mail.includes('sorry_bd'), 'a farm the bug never touched gets no letter');
 });
 
-test('a farm the bug wiped (saved 29 Oct - 8 Nov 2026) is repaired once: buildings back, 180 lumber, 20 stone, the sorry letter with 10,000 gold', () => {
+test('a farm the bug wiped (saved 29 Oct - 8 Nov 2026) is repaired once: buildings back, 180 lumber, 20 stone, the sorry letter with 20,000 gold', () => {
   const s = builtFarm();
   L.setBirthday(s, 11, 16);
   s.bdy = 2026;
@@ -71,10 +71,10 @@ test('a farm the bug wiped (saved 29 Oct - 8 Nov 2026) is repaired once: buildin
   assert.strictEqual(r.stone, 5 + 20);
   assert.strictEqual(r.mail[0], 'sorry_bd', 'the letter is the first in the mailbox');
   assert.match(L.letter('sorry_bd').text, /sorry/i);
-  // the letter pays the 10,000 gold when it is read
+  // the letter pays the 20,000 gold when it is read
   const read = L.readMail(r);
   assert.strictEqual(read.key, 'sorry_bd');
-  assert.strictEqual(r.gold, 300 + 10000);
+  assert.strictEqual(r.gold, 300 + 20000);
   // room for 8 hens again: buy one
   assert.ok(L.capacity(r, 'chicken') >= 8);
   // saved and loaded again: no second repair, no second letter
