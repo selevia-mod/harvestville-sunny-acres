@@ -27809,15 +27809,15 @@ var show = function () {
 if (still && !still()) return;
 if ((fighting() || self.modals.length) && tries++ < 60) return setTimeout(show, 1000);
 if (self.followBox) { self.followBox.destroy(); self.followBox = null; }
-var K = F.UI_CONST, W = K.W, w = W - 32, h = 46, c = self.followBox = self.add.container(16, 122).setDepth(60).setAlpha(0);
+var K = F.UI_CONST, W = K.W, w = W - 86, h = 48, c = self.followBox = self.add.container(12, 122).setDepth(60).setAlpha(0);
 var bg = self.add.graphics();
 bg.fillStyle(0x24160b, 0.9).fillRoundedRect(0, 0, w, h, 12);
 bg.lineStyle(1.5, 0xffd23f, 0.8).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 11.25);
-var t = self.txt(12, h / 2, text, 12, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 110 }, maxLines: 2 }).setOrigin(0, 0.5);
+var t = self.txt(10, h / 2, text, 11, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 92 }, maxLines: 2 }).setOrigin(0, 0.5);
 c.add([bg, t]);
 var go = function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } act(); };
-self.button(c, w - 46, h / 2, 76, 30, label || 'Follow', go, 0x5fa84a);
-var z = self.add.zone(0, 0, w - 92, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+self.button(c, w - 40, h / 2, 68, 30, label || 'Follow', go, 0x5fa84a);
+var z = self.add.zone(0, 0, w - 78, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
 F.tapOn(z, go);
 c.add(z);
 if (F.Audio) F.Audio.sfx('found');

@@ -1218,3 +1218,12 @@ test('REAL pub: a tap on the Online button in a hunting place opens Here: the ro
   for (const who of [A, B]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([A.context.close(), B.context.close()]);
 });
+
+test('SHOT: the follow banner (for the owner)', { skip: !process.env.CHIP_SHOT }, async () => {
+  const server = createServer();
+  const me = await open(server, null, 'Sun Patch');
+  await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.followNote('Moon Meadow went down to floor 4 of the Banaue cave.', 'Follow', () => {}); });
+  await sleep(700);
+  await me.page.screenshot({ path: process.env.CHIP_SHOT + '/follow-banner.png' });
+  await me.context.close();
+});
