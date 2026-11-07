@@ -173,7 +173,7 @@ test('who sees whom: the 15 nearest within 18 tiles; walking into view is a `com
   assert.ok(a.last('tk').left.includes('d3'));
 });
 
-test('respawn by crowd: a hunted slot waits its minutes, divided by ceil(players / 5), at most 3; it walks back in out of sight', async () => {
+test('respawn by crowd: a hunted slot waits at most 2 minutes here (not a rare one), divided by ceil(players / 4), at most 4; it walks back in out of sight', async () => {
   const w = world(), R = w.game.R, T = R.T;
   const a = await w.pub('a', 'banaue', { x: 3 * T, y: 3 * T });
   const room = w.pubRoom('banaue', 1);
@@ -182,25 +182,30 @@ test('respawn by crowd: a hunted slot waits its minutes, divided by ceil(players
     await w.pub('c' + i, 'banaue', { x: 3 * T + (i % 3) * 30, y: 3 * T + Math.floor(i / 3) * 30 });
     crowdFor[i] = room.crowd();
   }
-  assert.deepStrictEqual([5, 6, 10, 11, 15, 16, 30].map((n) => crowdFor[n]), [1, 2, 2, 3, 3, 3, 3]);
+  assert.deepStrictEqual([3, 4, 5, 8, 9, 12, 13, 30].map((n) => crowdFor[n]), [1, 1, 2, 2, 3, 3, 4, 4]);
   // the Great Mammoth's weekend is not a crowd's (30 here: 3 days, not one)
   room.gone.set(998, w.now());
   w.wait(4319 * 60000);
   assert.ok(room.waiting(998, R.WI.animals.greatmammoth));
   // the rule itself, at each crowd
   const def = R.WI.animals.itik, mins = def.respawn || R.WI.respawn;
-  assert.strictEqual(mins, 6);
+  assert.strictEqual(mins, 6, 'its own 6 minutes (a farm\'s): 2 at most here');
   const leaveTo = (n) => { while (room.players.size > n) w.phones.filter((p) => !p.closed && !p.quiet && p.c.room === room).slice(-1)[0].say({ t: 'bye' }); };
-  [[30, 2], [10, 3], [5, 6]].forEach(([n, m]) => {
+  [[30, 30], [10, 40], [5, 60], [3, 120]].forEach(([n, secs]) => {
     leaveTo(n);
     room.gone.set(999, w.now());
-    w.wait(m * 60000 - 1000);
-    assert.ok(room.waiting(999, def), n + ' players: still waiting at ' + m + ' min less a second');
+    w.wait(secs * 1000 - 1000);
+    assert.ok(room.waiting(999, def), n + ' players: still waiting at ' + secs + ' s less a second');
     w.wait(1000);
-    assert.ok(!room.waiting(999, def), n + ' players: back after ' + m + ' min');
+    assert.ok(!room.waiting(999, def), n + ' players: back after ' + secs + ' s');
   });
+  // a rare one keeps its own time, divided by the crowd (3 here: one)
+  const rare = Object.keys(R.WI.animals).map((k) => R.WI.animals[k]).find((d) => d.rare && !d.great);
+  room.gone.set(997, w.now());
+  w.wait((rare.respawn || R.WI.respawn) * 60000 - 1000);
+  assert.ok(room.waiting(997, rare), 'a rare one: its own minutes');
 
-  // in play, 10 hunters (crowd 2): an itik shot down is back after 3 minutes, not before, walking in from the edge
+  // in play, 10 hunters (crowd 3): an itik shot down is back after 40 s, not before, walking in from the edge
   const v = world(), V = v.game.R;
   const hunters = [];
   for (let i = 0; i < 10; i++) hunters.push(await v.pub('h' + i, 'banaue', { x: 3 * T + i * 20, y: 3 * T }));
@@ -210,18 +215,18 @@ test('respawn by crowd: a hunted slot waits its minutes, divided by ceil(players
   hunters[0].say({ t: 'mv', x: 3 * T, y: 3 * T, dir: 'down', m: 0 });
   assert.ok(hunters[5].all('dn').some((d) => d.s === itik.slot));
   const t0 = v.now();
-  v.run(3 * 60000 - 2000);
-  assert.ok(!vr.mons.some((x) => x.slot === itik.slot), 'not back before 3 minutes');
+  v.run(40000 - 2000);
+  assert.ok(!vr.mons.some((x) => x.slot === itik.slot), 'not back before 40 s');
   const before = hunters[5].got.length;
   v.run(45000);
   const back = vr.mons.find((x) => x.slot === itik.slot);
-  assert.ok(back, 'back within the next 20-40 s after 3 minutes (' + (v.now() - t0) / 1000 + ' s)');
+  assert.ok(back, 'back within the next 20-40 s after 40 s (' + (v.now() - t0) / 1000 + ' s)');
   const first = hunters[5].got.slice(before).find((m) => m.t === 'tk' && m.m.some((r) => r[0] === itik.slot)).m.find((r) => r[0] === itik.slot);
   assert.ok(!near(first, hunters.map((h, i) => ({ x: 3 * T + i * 20, y: 3 * T })), 5.9, T), 'it walked in out of sight (6 tiles or more from every hunter)');
   assert.strictEqual(V.L.wildUnpack(first).mode, 'walk');
 });
 
-test('a crowd brings more copies of the roster: one more for each 6 beyond the first 6, at most 3 (slots 100 * copy + slot), never a second rare one', async () => {
+test('a crowd brings more copies of the roster: one more for each 4 players, at most 4 (slots 100 * copy + slot), never a second rare one', async () => {
   const w = world({ seed: 11 }), R = w.game.R, T = R.T;
   const ps = [await w.pub('p0', 'pulag', { x: 3 * T, y: 3 * T })];
   const room = w.pubRoom('pulag', 1), copies = [];
@@ -230,10 +235,10 @@ test('a crowd brings more copies of the roster: one more for each 6 beyond the f
     ps.push(await w.pub('p' + i, 'pulag', { x: 3 * T + (i % 6) * 40, y: 3 * T + Math.floor(i / 6) * 40 }));
   }
   copies[30] = room.copies();
-  assert.deepStrictEqual([1, 6, 11, 12, 17, 18, 24, 30].map((n) => copies[n]), [1, 1, 1, 2, 2, 3, 3, 3]);
+  assert.deepStrictEqual([1, 3, 4, 7, 8, 11, 12, 30].map((n) => copies[n]), [1, 1, 2, 2, 3, 3, 4, 4]);
   const at = ps.map((p, i) => (i ? { x: 3 * T + (i % 6) * 40, y: 3 * T + Math.floor(i / 6) * 40 } : { x: 3 * T, y: 3 * T }));
   const base = room.roster(0);
-  // a few minutes on: copies 1 and 2 walk in, one at a time per copy, out of everyone's sight
+  // a few minutes on: copies 1, 2 and 3 walk in, one at a time per copy, out of everyone's sight
   const firstSeen = new Map();
   for (let k = 0; k < 6 * 60 * 20; k++) {
     w.run(50);
@@ -244,7 +249,8 @@ test('a crowd brings more copies of the roster: one more for each 6 beyond the f
   const up = room.mons.map((a) => a.slot);
   assert.ok(up.some((s) => s >= 100 && s < 200), 'copy 1 is here');
   assert.ok(up.some((s) => s >= 200 && s < 300), 'copy 2 is here');
-  assert.ok(!up.some((s) => s >= 300), 'never a 4th');
+  assert.ok(up.some((s) => s >= 300 && s < 400), 'copy 3 is here');
+  assert.ok(!up.some((s) => s >= 400), 'never a 5th');
   room.mons.forEach((a) => {
     if (a.slot < 100) return;
     const e = base.find((x) => x.slot === a.slot % 100);
@@ -253,7 +259,7 @@ test('a crowd brings more copies of the roster: one more for each 6 beyond the f
   });
   firstSeen.forEach((r) => assert.ok(!near(r, at, 5.9, T), 'walked in out of sight: ' + r[0]));
   // the crowd goes: a copy no longer brought walks off once nobody can see it
-  for (let i = 29; i >= 6; i--) ps[i].say({ t: 'bye' });
+  for (let i = 29; i >= 3; i--) ps[i].say({ t: 'bye' });
   assert.strictEqual(room.copies(), 1);
   room.mons.forEach((a) => { if (a.slot >= 100) { a.x = 28 * T; a.y = 24 * T; a.mode = 'idle'; a.vx = a.vy = 0; a.t = 1e9; } });
   w.run(6000);
@@ -471,4 +477,19 @@ test('a wave or a reaction in a hunting place: to the phones that see them, stra
   a.say({ t: 'em', k: 'laugh' });
   a.say({ t: 'em', k: 'rude' });
   assert.deepStrictEqual(b.all('em').map((m) => m.k), ['wave', 'heart'], 'two a second; only the game\'s own');
+});
+
+test('a phone gone quiet in a hunting place (in a pocket, the screen off) is let go after 8 s, not 20; in a cave still 20', async () => {
+  const { PUB_IDLE, IDLE } = require('../lib/game');
+  assert.strictEqual(PUB_IDLE, 8000);
+  const w = world(), T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 3 * T, y: 3 * T });
+  const b = await w.pub('bo', 'pulag', { x: 4 * T, y: 3 * T });
+  b.quiet = true; // (says nothing more: no pings)
+  for (let i = 0; i < 7; i++) { a.say({ t: 'pi', c: i }); w.run(1000); }
+  assert.strictEqual(w.pubRoom('pulag', 1).players.size, 2, 'still here at 7 s');
+  for (let i = 0; i < 3; i++) { a.say({ t: 'pi', c: i }); w.run(1000); }
+  assert.strictEqual(w.pubRoom('pulag', 1).players.size, 1, 'let go by 10 s');
+  assert.ok(a.all('tk').some((m) => m.here === 1), 'Ann is told the room is 1 now');
+  assert.strictEqual(IDLE, 20000);
 });

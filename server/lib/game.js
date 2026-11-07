@@ -13,6 +13,7 @@ const TOPIC = /^farm:[0-9a-f-]{36}$/; // a farm's live room (step 1: caves only;
 const ROOM_KEEP = 30000; // ms an empty floor stays as it is (a dropped phone comes back to the same monsters)
 const HELLO_WAIT = 10000; // ms to say `hi` after connecting
 const IDLE = 20000; // ms with nothing heard (a phone pings every 2 s): its socket is closed
+const PUB_IDLE = 8000; // ... in a hunting place, sooner: a phone left in someone's pocket is not 'here' for long (owner, 7 Nov 2026: 'still says 3 here')
 const MSG_MAX = 60; // messages a second a phone may send (more are dropped; three times that closes it)
 const BUSY_BYTES = 1 << 20; // a phone this far behind on what we sent misses ticks until it catches up
 // the socket's close code after a `no` (4001 replaced by a reconnect, 4002 no hi, 4003 quiet)
@@ -185,7 +186,7 @@ class Game {
     // phones that never said hi, or went quiet
     this.conns.forEach((c) => {
       if (!c.said && now - c.at > HELLO_WAIT) this.close(c, 4002, 'no hi');
-      else if (now - c.heard > IDLE) this.close(c, 4003, 'quiet');
+      else if (now - c.heard > (c.room && c.room.pub ? PUB_IDLE : IDLE)) this.close(c, 4003, 'quiet');
     });
     const ms = Number(process.hrtime.bigint() - t0) / 1e6;
     this.stats.ticks++;
@@ -206,4 +207,4 @@ class Game {
   shutdown() { Array.from(this.conns).forEach((c) => this.close(c, 1001, 'server restarting')); }
 }
 
-module.exports = { Game, VERSION, ROOM_KEEP, IDLE };
+module.exports = { Game, VERSION, ROOM_KEEP, IDLE, PUB_IDLE };

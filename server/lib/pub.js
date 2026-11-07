@@ -13,10 +13,13 @@ const PUB_CAP = 30; // phones a room (owner, 7 Nov 2026: 30 now, maybe 100 later
 const VIEW = 18; // tiles: the players a phone hears of (a phone screen and a margin)
 const VIEW_MAX = 15; // at most this many of them, the nearest (a cheap phone never draws 30)
 const VIEW_KEEP = 1; // tiles: one already in view stays to VIEW + this, and outranks a newcomer by this (no flicker at the edge)
-const COPY_EVERY = 6; // one more copy of the roster for each 6 players beyond the first 6 ...
-const COPIES = 3; // ... at most this many in all (slots 100 * copy + slot)
-const CROWD_EACH = 5; // a hunted slot comes back ceil(players / 5) times sooner ...
-const CROWD_MOST = 3; // ... at most 3 times
+// Owner, 7 Nov 2026, on e34: "The wild animals can't accommodate many users since we are sharing on map". What holds a
+// hunter back is energy and arrows, not an empty map:
+const COPY_EVERY = 4; // one more copy of the roster for each 4 players (1-3: the place's own, 4-7: two, 8-11: three) ...
+const COPIES = 4; // ... at most this many in all (slots 100 * copy + slot; the phones take up to 399)
+const PUB_RESPAWN = 2; // minutes: a hunted one comes back at most this late here (not a rare one, not the Great Mammoth) ...
+const CROWD_EACH = 4; // ... and ceil(players / 4) times sooner ...
+const CROWD_MOST = 4; // ... at most 4 times (30 s with 13 or more)
 const SWEEP = 5000; // ms: how often one no longer about (a wolf at sunrise, the rain's deer) is looked for, to walk off
 const AR_MAX = 8; // arrows in flight a second a phone (more are dropped)
 // Chat in a hunting place (owner, 7 Nov 2026: "It should be open to everyone ... Even strangers can talk to each
@@ -72,14 +75,15 @@ class PubRoom extends Room {
     }
     return this.hereList;
   }
-  // How many copies of the roster a crowd this size gets: 1, then one more for each 6 beyond the first 6, at most 3.
-  copies() { return Math.min(COPIES, 1 + Math.floor(Math.max(0, this.players.size - COPY_EVERY) / COPY_EVERY)); }
+  // How many copies of the roster a crowd this size gets: 1, then one more for each 4 players, at most 4.
+  copies() { return Math.min(COPIES, 1 + Math.floor(this.players.size / COPY_EVERY)); }
   crowd() { return Math.min(CROWD_MOST, Math.max(1, Math.ceil(this.players.size / CROWD_EACH))); }
   // Is a hunted slot still waiting? Its respawn minutes, divided by the crowd (the Great Mammoth's weekend is not a crowd's).
   waiting(slot, def) {
     const at = this.gone.get(slot);
     if (at == null) return false;
-    const mins = (def.respawn || this.R.WI.respawn) / (def.great ? 1 : this.crowd());
+    const own = def.respawn || this.R.WI.respawn;
+    const mins = def.great ? own : (def.rare ? own : Math.min(PUB_RESPAWN, own)) / this.crowd();
     if (this.game.now() - at >= mins * 60000) { this.gone.delete(slot); return false; }
     return true;
   }

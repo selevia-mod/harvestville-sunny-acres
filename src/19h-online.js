@@ -569,7 +569,8 @@
         var by = at ? Math.min(d * (1 - Math.exp(-dt / 60)), rush) : d > 2 * T ? rush : step; // (a late step corrects softly)
         if (d) { r.x += dx / d * by; r.y += dy / d * by; }
       }
-      var moving = at ? at.moving || d > T : d > 8 || p.m, dir = at ? at.dir : p.dir; // (the way they face: their own, no flicker on a diagonal)
+      // (on our game server: the legs walk while they still move at all, so the last few steps never slide; 7 Nov 2026)
+      var tr0 = self.trails[id], moving = at ? at.moving || d > (tr0 && tr0.gs ? 8 : T) : d > 8 || p.m, dir = at ? at.dir : p.dir; // (the way they face: their own, no flicker on a diagonal)
       if (!at && moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
       var key = F.sheetFor(r.look, p.pt, r.cs); // (their look's picture may come a little later: then it changes here)
       if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; } // their birthday began or ended

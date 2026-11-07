@@ -24155,7 +24155,8 @@ else {
 var by = at ? Math.min(d * (1 - Math.exp(-dt / 60)), rush) : d > 2 * T ? rush : step;
 if (d) { r.x += dx / d * by; r.y += dy / d * by; }
 }
-var moving = at ? at.moving || d > T : d > 8 || p.m, dir = at ? at.dir : p.dir;
+
+var tr0 = self.trails[id], moving = at ? at.moving || d > (tr0 && tr0.gs ? 8 : T) : d > 8 || p.m, dir = at ? at.dir : p.dir;
 if (!at && moving && d > 8) dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
 var key = F.sheetFor(r.look, p.pt, r.cs);
 if (key !== r.key) { r.key = F.ensureTexture(w, key); r.spr.anims.stop(); r.spr.setTexture(key, IDLE_FRAME[dir]); r.anim = null; }
@@ -42396,6 +42397,10 @@ delay: 100,
 every: 50,
 ahead: 100,
 pendMs: 1500,
+pSend: 100,
+pMin: 150,
+pMax: 300,
+holdMost: 900,
 pEvery: 300,
 
 
@@ -42621,7 +42626,16 @@ var ptrail = function (src) { var t = trail(); t.every = GS.pEvery; t.src = src;
 var pnote = function (id, at, st, x, y, dir, m) {
 var c = Number(at), src = isFinite(c) && c > 0 ? 'c' : 's', tr = O.trails[id];
 if (!tr || !tr.gs || tr.src !== src) tr = O.trails[id] = ptrail(src);
-note(tr, src === 'c' ? c : st, x, y, dir, m);
+var t = src === 'c' ? c : st, had = tr.list.length;
+note(tr, t, x, y, dir, m);
+
+
+if (had && tr.list.length) {
+var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? (now - tr.jAt) * 0.02 : 0;
+tr.jAt = now;
+tr.jit = Math.max(isFinite(late) ? Math.max(0, late) : 0, (tr.jit || 0) - fade);
+tr.every = Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2));
+}
 };
 
 
@@ -42794,13 +42808,42 @@ if (old && old.img && old.img.active) old.img.destroy();
 g.baits[id] = { x: x, y: y, until: Date.now() + left, img: w.add.image(x, y, 'items', C.ICON.bait).setScale(0.7).setDepth(F.WorldScene.DEPTH.actor + y / 1e5) };
 };
 
+
+
+
+var ARROW = 16 * T, POSE_MS = 160, shotsSeen = {};
+var shotSeen = function (id, x, y, posed) { if (id) shotsSeen[id] = { at: Date.now(), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+var landsIn = function (id, a) {
+var sh = shotsSeen[id];
+if (!sh || !a || Date.now() - sh.at > 1500) return 0;
+var fly = Math.hypot(a.x - sh.x, (a.y - 0.3 * a.def.w * T) - sh.y) / ARROW * 1000;
+return Math.max(0, Math.min(GS.holdMost, sh.at + sh.pose + fly - Date.now()));
+};
+
+var held = {};
+var holdFor = function (g, w, m, who) {
+var slot = Number(m.s);
+if (m._held || !who || who === g.you) return false;
+if (held[slot]) { held[slot].q.push(m); return true; }
+var wait = landsIn(who, find(w, slot));
+if (wait < 30) return false;
+held[slot] = { q: [m] };
+setTimeout(function () {
+var h = held[slot];
+delete held[slot];
+if (!h || g.dead || g.w !== w) return;
+h.q.forEach(function (x) { x._held = 1; if (x.t === 'gone') { var a = find(w, slot); if (a) w.wildGone(a); } else hear(g, x, g.ok); });
+}, wait);
+return true;
+};
 var pubArrow = function (g, m) {
 var w = g.w, id = typeof m.id === 'string' ? m.id : '';
 if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
 var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
 if (ax == null || ay == null) return;
-var r = w.remotes && w.remotes[id];
-if (!(r && w.remoteShot(r, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
+if (!posed) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+shotSeen(id, ax, ay, posed);
 };
 
 var tameOut = function (g) {
@@ -42861,9 +42904,9 @@ if (isFinite(tn) && g.tickN != null && tn <= g.tickN) return;
 if (isFinite(tn)) g.tickN = tn;
 g.skew = Math.min(g.skew, Date.now() - st);
 apply(w, st, m.m, false);
-(Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { var a = find(w, slot); if (a) w.wildGone(a); });
+(Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { if (held[slot]) { held[slot].q.push({ t: 'gone', s: slot }); return; } var a = find(w, slot); if (a) w.wildGone(a); });
 if (g.pub) {
-if (isFinite(Number(m.here))) g.here = Math.max(0, Math.floor(Number(m.here)));
+if (isFinite(Number(m.here)) && Math.floor(Number(m.here)) !== g.here) { g.here = Math.max(0, Math.floor(Number(m.here))); F.bus.emit('pub'); }
 var changed = false, went = {};
 (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
 (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
@@ -42897,6 +42940,7 @@ return;
 if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
 if (t === 'ar') { if (g.pub) pubArrow(g, m); return; }
 if (t === 'hp') {
+if (holdFor(g, w, m, String(m.by))) return;
 var a = find(w, m.s);
 if (!a) return;
 if (String(m.by) === g.you) a.gsPend = (a.gsPend || []).filter(function (p) { return p.n > Number(m.n); });
@@ -42907,7 +42951,10 @@ if (w.bits) w.bits.dust.explode(2, a.x, a.y - 0.3 * a.def.w * T);
 setHp(w, a, Math.max(0, Math.min(a.max || a.def.hp, Number(m.hp) || 0)));
 return;
 }
-if (t === 'dn') return down(g, w, m);
+if (t === 'dn') {
+if (holdFor(g, w, m, typeof m.lh === 'string' && m.lh ? m.lh : (Array.isArray(m.by) ? String(m.by[m.by.length - 1] || '') : ''))) return;
+return down(g, w, m);
+}
 if (t === 'bp') {
 var b = find(w, m.s);
 if (!b || !F.ui || F.ui.blocking() || w.busy) return;
@@ -43007,6 +43054,7 @@ return oSend.call(O, event, payload);
 };
 var onMessage = O.onMessage;
 O.onMessage = function (event, payload) {
+if (event === 'ar' && payload && typeof payload.id === 'string' && holding(F.world) && !pubHolding(F.world)) shotSeen(payload.id, Number(payload.x), Number(payload.y), !!(F.world.remotes && F.world.remotes[payload.id]));
 if ((pubHolding(F.world) ? HUNT : OLD)[event] && holding(F.world)) return;
 return onMessage.call(O, event, payload);
 };
@@ -43082,13 +43130,21 @@ end(gs);
 return disconnect.apply(O, arguments);
 };
 
+
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+document.addEventListener('visibilitychange', function () {
+if (!document.hidden || !gs || gs.dead || gs.mode !== 'live') return;
+end(gs, true);
+});
+}
 var update = P.update;
 P.update = function (time, delta) {
 update.call(this, time, delta);
 if (this.busy || !this.sys.isActive()) return;
 var dt = Math.min(delta, 100);
 
-if ((!gs || gs.gen !== this.gsGen) && Math.floor(time / 1000) !== this.gsLook) {
+if ((!gs || gs.gen !== this.gsGen) && !(typeof document !== 'undefined' && document.hidden) && Math.floor(time / 1000) !== this.gsLook) {
 this.gsLook = Math.floor(time / 1000);
 if (url() && this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
 }
@@ -43175,10 +43231,42 @@ if (id) cardFor(id);
 this.pubChip();
 };
 
+
+
+
+var onlineLabel = function (ui) {
+var c = ui.onlineBtn && ui.onlineBtn.list[0], out = null;
+(c && c.list ? c.list : []).forEach(function (o) { if (!out && o.type === 'Text') out = o; });
+return out;
+};
+U.pubBadge = function (n, caption) {
+var cap = onlineLabel(this);
+if (cap) { if (cap.__online == null) cap.__online = cap.text; cap.setText(caption || cap.__online); }
+var c = this.onlineBtn && this.onlineBtn.list[0];
+if (!n || !c) { if (this.pubBadgeBox) this.pubBadgeBox.setVisible(false); return; }
+if (!this.pubBadgeBox || !this.pubBadgeBox.active) {
+this.pubBadgeBox = this.add.container(0, 0);
+this.pubBadgeBg = this.add.circle(0, 0, 10, 0x5fa84a).setStrokeStyle(2, 0xffffff);
+this.pubBadgeText = this.txt(0, 0, '', 11, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5);
+this.pubBadgeBox.add([this.pubBadgeBg, this.pubBadgeText]);
+this.onlineBtn.add(this.pubBadgeBox);
+}
+this.pubBadgeBox.setPosition(c.x + 16, c.y - 17).setVisible(true);
+var t = n > 99 ? '99+' : String(n);
+if (this.pubBadgeText.text !== t) { this.pubBadgeText.setText(t); this.pubBadgeBg.setRadius(t.length > 1 ? 12 : 10); }
+};
 U.pubChip = function () {
 var g = pubLive(), on = !!g && g.ch > 0 && !this.decorating;
-if (!on) { if (this.pubChipBox) this.pubChipBox.setVisible(false); return; }
+if (!on) { if (this.pubChipBox) this.pubChipBox.setVisible(false); this.pubBadge(0); this.pubShown = ''; return; }
 var n = g.here || Object.keys(g.ppl).length + 1, text = placeWord(g.map) + ' ' + g.ch + ' \u00b7 ' + n + ' here';
+if (this.onlineBtn && F.Net.available() && !F.session.visit) {
+if (this.pubChipBox) this.pubChipBox.setVisible(false);
+this.pubBadge(n, placeWord(g.map) + ' ' + g.ch);
+this.pubShown = text;
+return;
+}
+this.pubBadge(0);
+this.pubShown = text;
 if (!this.pubChipBox) {
 var c = this.pubChipBox = this.add.container(CHIP.x, CHIP.y).setDepth(45);
 this.pubChipBg = this.add.graphics();
@@ -43216,7 +43304,7 @@ baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; 
 state: function () {
 var g = gs;
 return g ? { mode: g.mode, why: g.why || '', you: g.you || '', rtt: g.rtt, connects: g.connects || 0, sent: g.sent || 0, got: g.got || 0, n: g.n || 0, map: g.map, floor: g.floor,
-pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubChipText && F.ui.pubChipBox.visible ? F.ui.pubChipText.text : '' } : null;
+pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubShown ? F.ui.pubShown : '' } : null;
 },
 };
 })(window.Farm = window.Farm || {});

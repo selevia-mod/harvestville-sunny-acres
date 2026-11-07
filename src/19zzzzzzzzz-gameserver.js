@@ -41,6 +41,10 @@
     every: 50, // the server's tick
     ahead: 100, // a tick that comes late: they keep going this long on their own
     pendMs: 1500, // a hit of yours the server never answered stops counting after this
+    pSend: 100, // other players send a step this often while they walk (mvEvery) ...
+    pMin: 150, // ... and are drawn between pMin + 50 and pMax + 50 ms behind, as their own line's jitter needs (owner,
+    pMax: 300, // 7 Nov 2026, on e34: "still a little bit delay on walking"): a good line 200 ms, a bad one up to 350
+    holdMost: 900, // ms: a kill or a hit by another hunter waits at most this long for their arrow to land on this screen
     pEvery: 300, // other players: their steps come about this often (a move every 100 ms, and the road's jitter), so
     // they are drawn this much further in the past than the monsters (L.trailAt tr.every: 350 ms in all, as a farm room 400), always with
     // their next step already here (owner, 7 Nov 2026: "I cant see them walking, they just transporting")
@@ -266,7 +270,16 @@
   var pnote = function (id, at, st, x, y, dir, m) {
     var c = Number(at), src = isFinite(c) && c > 0 ? 'c' : 's', tr = O.trails[id];
     if (!tr || !tr.gs || tr.src !== src) tr = O.trails[id] = ptrail(src);
-    note(tr, src === 'c' ? c : st, x, y, dir, m);
+    var t = src === 'c' ? c : st, had = tr.list.length;
+    note(tr, t, x, y, dir, m);
+    // their line's jitter (how much later than its quickest a step comes), the worst of late, fading 20 ms a second: they
+    // are drawn just far enough behind for the next step to be here (a good line: 200 ms; a bad one: up to 350)
+    if (had && tr.list.length) {
+      var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? (now - tr.jAt) * 0.02 : 0;
+      tr.jAt = now;
+      tr.jit = Math.max(isFinite(late) ? Math.max(0, late) : 0, (tr.jit || 0) - fade);
+      tr.every = Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2));
+    }
   };
   // Still where they stood (no step in this tick): only for one who stopped, and only on the server's clock. One still
   // walking just has its next step on the way: a "still here" point in between was a stop and a rush every tick.
@@ -439,13 +452,42 @@
     g.baits[id] = { x: x, y: y, until: Date.now() + left, img: w.add.image(x, y, 'items', C.ICON.bait).setScale(0.7).setDepth(F.WorldScene.DEPTH.actor + y / 1e5) };
   };
   // Someone's arrow in flight: their farmer lets it go (19w-bow.js remoteShot), or just the arrow and a flash of their bow.
+  // Another hunter's arrow on this screen: when it lands (it is drawn and let go first, then flies at ARROW 16 tiles a
+  // second). Their hit and their kill wait for it (owner, 7 Nov 2026: "The other users hit the bunny and it dies
+  // instantly without hitting the arrow yet"), never more than GS.holdMost.
+  var ARROW = 16 * T, POSE_MS = 160, shotsSeen = {};
+  var shotSeen = function (id, x, y, posed) { if (id) shotsSeen[id] = { at: Date.now(), x: x, y: y, pose: posed ? POSE_MS : 0 }; };
+  var landsIn = function (id, a) {
+    var sh = shotsSeen[id];
+    if (!sh || !a || Date.now() - sh.at > 1500) return 0;
+    var fly = Math.hypot(a.x - sh.x, (a.y - 0.3 * a.def.w * T) - sh.y) / ARROW * 1000;
+    return Math.max(0, Math.min(GS.holdMost, sh.at + sh.pose + fly - Date.now()));
+  };
+  // A monster another hunter's arrow is still flying at: what the server says of it waits (in order) until it lands.
+  var held = {};
+  var holdFor = function (g, w, m, who) {
+    var slot = Number(m.s);
+    if (m._held || !who || who === g.you) return false;
+    if (held[slot]) { held[slot].q.push(m); return true; }
+    var wait = landsIn(who, find(w, slot));
+    if (wait < 30) return false;
+    held[slot] = { q: [m] };
+    setTimeout(function () {
+      var h = held[slot];
+      delete held[slot];
+      if (!h || g.dead || g.w !== w) return;
+      h.q.forEach(function (x) { x._held = 1; if (x.t === 'gone') { var a = find(w, slot); if (a) w.wildGone(a); } else hear(g, x, g.ok); });
+    }, wait);
+    return true;
+  };
   var pubArrow = function (g, m) {
     var w = g.w, id = typeof m.id === 'string' ? m.id : '';
     if (!id || id === g.you || O.blocked[id] || !isFinite(m.x) || !isFinite(m.y) || !isFinite(m.a)) return;
     var ax = num(m.x), ay = num(m.y), ang = Number(m.a), range = Math.min(8 * T, Number(m.l) || 0), lv = Math.max(0, Math.min(3, Number(m.b) || 0));
     if (ax == null || ay == null) return;
-    var r = w.remotes && w.remotes[id];
-    if (!(r && w.remoteShot(r, ax, ay, ang, range, lv))) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+    var r = w.remotes && w.remotes[id], posed = !!(r && w.remoteShot(r, ax, ay, ang, range, lv));
+    if (!posed) { w.wildArrow(ax, ay, ang, range, true); w.bowFlash(ax, ay, ang, lv); }
+    shotSeen(id, ax, ay, posed);
   };
   // The place's tame animal, your own (never the server's): out once the room says what is here, unless it is already.
   var tameOut = function (g) {
@@ -506,9 +548,9 @@
       if (isFinite(tn)) g.tickN = tn;
       g.skew = Math.min(g.skew, Date.now() - st); // (the quickest a tick ever came: the server's clock against ours)
       apply(w, st, m.m, false);
-      (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { var a = find(w, slot); if (a) w.wildGone(a); });
+      (Array.isArray(m.gone) ? m.gone : []).forEach(function (slot) { if (held[slot]) { held[slot].q.push({ t: 'gone', s: slot }); return; } var a = find(w, slot); if (a) w.wildGone(a); });
       if (g.pub) {
-        if (isFinite(Number(m.here))) g.here = Math.max(0, Math.floor(Number(m.here)));
+        if (isFinite(Number(m.here)) && Math.floor(Number(m.here)) !== g.here) { g.here = Math.max(0, Math.floor(Number(m.here))); F.bus.emit('pub'); } // (someone came or went, near you or not)
         var changed = false, went = {};
         (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
         (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
@@ -542,6 +584,7 @@
     if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
     if (t === 'ar') { if (g.pub) pubArrow(g, m); return; }
     if (t === 'hp') {
+      if (holdFor(g, w, m, String(m.by))) return;
       var a = find(w, m.s);
       if (!a) return;
       if (String(m.by) === g.you) a.gsPend = (a.gsPend || []).filter(function (p) { return p.n > Number(m.n); }); // (counted)
@@ -552,7 +595,10 @@
       setHp(w, a, Math.max(0, Math.min(a.max || a.def.hp, Number(m.hp) || 0)));
       return;
     }
-    if (t === 'dn') return down(g, w, m);
+    if (t === 'dn') {
+      if (holdFor(g, w, m, typeof m.lh === 'string' && m.lh ? m.lh : (Array.isArray(m.by) ? String(m.by[m.by.length - 1] || '') : ''))) return;
+      return down(g, w, m);
+    }
     if (t === 'bp') {
       var b = find(w, m.s);
       if (!b || !F.ui || F.ui.blocking() || w.busy) return; // (a menu open: it never reaches you, as before)
@@ -652,6 +698,7 @@
   };
   var onMessage = O.onMessage;
   O.onMessage = function (event, payload) {
+    if (event === 'ar' && payload && typeof payload.id === 'string' && holding(F.world) && !pubHolding(F.world)) shotSeen(payload.id, Number(payload.x), Number(payload.y), !!(F.world.remotes && F.world.remotes[payload.id]));
     if ((pubHolding(F.world) ? HUNT : OLD)[event] && holding(F.world)) return;
     return onMessage.call(O, event, payload);
   };
@@ -727,13 +774,21 @@
     return disconnect.apply(O, arguments);
   };
 
+  // The game put away (another app, the screen off): goodbye at once, so the others' count is right; back on the place
+  // when it comes back (P.update below). (owner, 7 Nov 2026: "someone left, but still says Pulag 1 * 3 here")
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden || !gs || gs.dead || gs.mode !== 'live') return;
+      end(gs, true);
+    });
+  }
   var update = P.update;
   P.update = function (time, delta) {
     update.call(this, time, delta);
     if (this.busy || !this.sys.isActive()) return;
     var dt = Math.min(delta, 100);
     // online came after you went down (or the switch was turned on): the server from now on
-    if ((!gs || gs.gen !== this.gsGen) && Math.floor(time / 1000) !== this.gsLook) {
+    if ((!gs || gs.gen !== this.gsGen) && !(typeof document !== 'undefined' && document.hidden) && Math.floor(time / 1000) !== this.gsLook) { // (put away: back when it is seen again)
       this.gsLook = Math.floor(time / 1000);
       if (url() && this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
     }
@@ -820,10 +875,42 @@
     this.pubChip();
   };
   // "Banaue 2 · 4 here": the room and how many are here (those near you, and you; the whole room if the server says).
+  // Owner, 7 Nov 2026, on e34: "this Pulag 1 * X here is taking some space, need to adjust": on the Online button you
+  // already have, the room under it ("Pulag 1" for "Online") and how many are here in a small green badge on it. On a
+  // visit (no Online button there) the small chip as before.
+  var onlineLabel = function (ui) {
+    var c = ui.onlineBtn && ui.onlineBtn.list[0], out = null;
+    (c && c.list ? c.list : []).forEach(function (o) { if (!out && o.type === 'Text') out = o; });
+    return out;
+  };
+  U.pubBadge = function (n, caption) {
+    var cap = onlineLabel(this);
+    if (cap) { if (cap.__online == null) cap.__online = cap.text; cap.setText(caption || cap.__online); }
+    var c = this.onlineBtn && this.onlineBtn.list[0];
+    if (!n || !c) { if (this.pubBadgeBox) this.pubBadgeBox.setVisible(false); return; }
+    if (!this.pubBadgeBox || !this.pubBadgeBox.active) {
+      this.pubBadgeBox = this.add.container(0, 0);
+      this.pubBadgeBg = this.add.circle(0, 0, 10, 0x5fa84a).setStrokeStyle(2, 0xffffff);
+      this.pubBadgeText = this.txt(0, 0, '', 11, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5);
+      this.pubBadgeBox.add([this.pubBadgeBg, this.pubBadgeText]);
+      this.onlineBtn.add(this.pubBadgeBox);
+    }
+    this.pubBadgeBox.setPosition(c.x + 16, c.y - 17).setVisible(true);
+    var t = n > 99 ? '99+' : String(n);
+    if (this.pubBadgeText.text !== t) { this.pubBadgeText.setText(t); this.pubBadgeBg.setRadius(t.length > 1 ? 12 : 10); }
+  };
   U.pubChip = function () {
     var g = pubLive(), on = !!g && g.ch > 0 && !this.decorating;
-    if (!on) { if (this.pubChipBox) this.pubChipBox.setVisible(false); return; }
+    if (!on) { if (this.pubChipBox) this.pubChipBox.setVisible(false); this.pubBadge(0); this.pubShown = ''; return; }
     var n = g.here || Object.keys(g.ppl).length + 1, text = placeWord(g.map) + ' ' + g.ch + ' · ' + n + ' here';
+    if (this.onlineBtn && F.Net.available() && !F.session.visit) { // (the Online button is there)
+      if (this.pubChipBox) this.pubChipBox.setVisible(false);
+      this.pubBadge(n, placeWord(g.map) + ' ' + g.ch);
+      this.pubShown = text;
+      return;
+    }
+    this.pubBadge(0);
+    this.pubShown = text;
     if (!this.pubChipBox) {
       var c = this.pubChipBox = this.add.container(CHIP.x, CHIP.y).setDepth(45);
       this.pubChipBg = this.add.graphics();
@@ -861,7 +948,7 @@
     state: function () {
       var g = gs;
       return g ? { mode: g.mode, why: g.why || '', you: g.you || '', rtt: g.rtt, connects: g.connects || 0, sent: g.sent || 0, got: g.got || 0, n: g.n || 0, map: g.map, floor: g.floor,
-        pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubChipText && F.ui.pubChipBox.visible ? F.ui.pubChipText.text : '' } : null;
+        pub: !!g.pub, ch: g.ch || 0, cap: g.cap || 0, here: g.ppl ? Object.keys(g.ppl).length : 0, chip: F.ui && F.ui.pubShown ? F.ui.pubShown : '' } : null; // (what the Online button's badge, or the chip on a visit, says)
     },
   };
 })(window.Farm = window.Farm || {});
