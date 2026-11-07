@@ -3,4 +3,6 @@
 (function (F) {
   'use strict';
   F.Config.TIPS.push({ key: 'hunt_open_tour', text: 'HUNTING TOGETHER' });
+  // e35 (owner, 7 Nov 2026): friends meet in dungeons, Here, the follow note. Appended last.
+  F.Config.TIPS.push({ key: 'play_together_tour', text: 'PLAYING TOGETHER' });
 })(window.Farm = window.Farm || {});

@@ -429,17 +429,17 @@ test('v2.1 names what is live, the two server features included now the script i
   news.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2])); });
 });
 
-test('v2.7 is the newest (chat with everyone in a hunting place, 7 Nov 2026), v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
-  assert.strictEqual(C.NEWS[0].v, '2.7');
-  assert.strictEqual(C.NEWS_LATEST, '2.7');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Hunt with everyone', 'Medal frames', 'Smoother dungeons with friends']);
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['Gear stars', '999 in a slot', 'Chat in Central Park']);
+test('v2.8 is the newest (friends meet in dungeons, 7 Nov 2026), v2.7 chat with everyone in a hunting place, v2.6 hunt with everyone, v2.5 gear stars, v2.4 Central Park, v2.3 has a storage in every cabinet, v2.2 the Tailor Shop and playing together, every line with a real icon, the tours behind Show me', () => {
+  assert.strictEqual(C.NEWS[0].v, '2.8');
+  assert.strictEqual(C.NEWS_LATEST, '2.8');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Friends meet in dungeons', 'Who is hunting here', 'Fair hunting for everyone', 'Follow a friend', 'Smoother and neater']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Chat with everyone', 'Smoother hunting together', 'Hunts with friends']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[2].lines.map((l) => l[1]))), ['Hunt with everyone', 'Medal frames', 'Smoother dungeons with friends']);
   const news = C.NEWS.filter((n) => n.v === '2.3')[0];
   assert.ok(news.lines.some((l) => l[1] === 'Every cabinet, its own storage'));
   const titles = C.NEWS.filter((n) => n.v === '2.2')[0].lines.map((l) => l[1]);
   ['The Tailor Shop', 'Play together', 'Reactions', 'Big moments'].forEach((t) => assert.ok(titles.indexOf(t) >= 0, t));
   C.NEWS.forEach((n) => n.lines.forEach((l) => { assert.ok(C.ICON[l[0]] != null, l[1]); assert.ok(!/—/.test(l[2]), l[1]); }));
   const tours = [].concat(...C.NEWS.map((n) => n.lines.filter((l) => l[3]).map((l) => l[3])));
-  assert.deepStrictEqual(tours.sort(), ['ads', 'bh', 'breeds', 'contest', 'derby', 'double', 'event', 'farmhands', 'friends', 'gear', 'gear_slots', 'gear_stars', 'greenhouse', 'hall', 'hunt_dog', 'hunt_open', 'hunt_together', 'jeep', 'lair', 'land', 'medals', 'mine', 'nb', 'park', 'photo', 'players', 'quality', 'raid', 'rank', 'rare', 'skills', 'sprinkler', 'station', 'tailor', 'tame', 'town']);
+  assert.deepStrictEqual(tours.sort(), ['ads', 'bh', 'breeds', 'contest', 'derby', 'double', 'event', 'farmhands', 'friends', 'gear', 'gear_slots', 'gear_stars', 'greenhouse', 'hall', 'hunt_dog', 'hunt_open', 'hunt_together', 'jeep', 'lair', 'land', 'medals', 'mine', 'nb', 'park', 'photo', 'play_together', 'players', 'quality', 'raid', 'rank', 'rare', 'skills', 'sprinkler', 'station', 'tailor', 'tame', 'town']);
 });

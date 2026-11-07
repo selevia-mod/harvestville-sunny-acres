@@ -8,6 +8,16 @@
 
   C.NEWS = [
     {
+      v: '2.8', date: 'November 7, 2026', lines: [
+        // (draft for the owner: e35)
+        ['heart', 'Friends meet in dungeons', 'Go down the same dungeon floor as a friend and you are there together. No need to visit their farm first.', 'play_together'],
+        ['bow', 'Who is hunting here', 'Tap Online in a hunting place to see who is hunting near you, and add them as a friend in one tap.'],
+        ['bow', 'Fair hunting for everyone', 'More animals come out when more hunters are in a place, so everyone finds about as many as when hunting alone.'],
+        ['star', 'Follow a friend', 'When a friend goes somewhere, a small note at the top lets you follow them. No more pop-ups in the middle of a hunt.'],
+        ['chest', 'Smoother and neater', 'Hunters walk without sliding, a kill waits for the arrow, and the Daily Gift and Market orders look cleaner. Villagers only ask for what you can get.'],
+      ],
+    },
+    {
       v: '2.7', date: 'November 7, 2026', lines: [
         // (owner, 7 Nov 2026: approved as written)
         ['heart', 'Chat with everyone', 'Every hunting place has its Chat button now. Say hi to anyone hunting there, friends or not.'],

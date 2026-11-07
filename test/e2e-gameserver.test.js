@@ -603,3 +603,23 @@ test('the REAL game server: friends each in their own game meet on a dungeon flo
   for (const who of [A, B, C]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([A.context.close(), B.context.close(), C.context.close()]);
 });
+
+// e35: the PLAYING TOGETHER tour, the first time you are on a dungeon floor the server says who is on (and only once).
+test('the REAL game server: the first dungeon floor on the server shows the PLAYING TOGETHER tour, every step, once', async () => {
+  const real = await realServer(), server = createServer();
+  const A = await open(server, real.url);
+  await nameFarm(A.page, 'Moon Meadow');
+  await A.page.evaluate(() => { window.gameHost.quiet = false; const s = Farm.session.state; s.wild.n = 60; });
+  await go(A, FLOOR);
+  await waitMode(A.page, 'live');
+  const text = () => A.page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); if (m) walk(m.c.list); return out.join(' | '); });
+  await A.page.waitForFunction(() => Farm.Logic.tipSeen(Farm.session.state, 'play_together_tour') && Farm.ui.modals.length > 0, null, SLOW);
+  assert.match(await text(), /PLAYING TOGETHER[\s\S]*same dungeon floor as a friend/);
+  for (const [re, next] of [[/tap Online to see who is hunting near you/, 'Next'], [/a small note at the top says where/, 'Got it']]) {
+    await A.page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1]; let b = null; const walk = (l) => l.forEach((o) => { if (!b && o.type === 'Text' && o.text === 'Next' && o.parentContainer !== m.c) b = o; if (o.list) walk(o.list); }); walk(m.c.list); if (b) b.parentContainer.emit('pointerup'); });
+    void next;
+    await sleep(400);
+  }
+  assert.ok(await A.page.evaluate(() => Farm.Logic.tipSeen(Farm.session.state, 'play_together_tour')));
+  await A.context.close();
+});

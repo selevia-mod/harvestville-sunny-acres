@@ -559,6 +559,7 @@
         (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { pubRow(g, p, at); });
         redraw(g);
         askFriends();
+        if (F.GameServer && typeof F.GameServer.playTogether === 'function') F.GameServer.playTogether(); // (the first time: its tour)
         return;
       }
       (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
@@ -984,6 +985,7 @@
       };
     });
     var where = placeWord(g.map) + ' ' + g.ch;
+    if (F.GameServer && typeof F.GameServer.playTogether === 'function') F.GameServer.playTogether();
     this.listPanel({
       title: 'Online', tab: 'here', page: page || 0, tabs: O.TABS, rows: rows,
       reopen: function (t, p) { self.openOnline(t, p); },

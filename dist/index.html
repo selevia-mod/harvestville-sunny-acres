@@ -870,6 +870,16 @@ var C = F.Config;
 
 C.NEWS = [
 {
+v: '2.8', date: 'November 7, 2026', lines: [
+
+['heart', 'Friends meet in dungeons', 'Go down the same dungeon floor as a friend and you are there together. No need to visit their farm first.', 'play_together'],
+['bow', 'Who is hunting here', 'Tap Online in a hunting place to see who is hunting near you, and add them as a friend in one tap.'],
+['bow', 'Fair hunting for everyone', 'More animals come out when more hunters are in a place, so everyone finds about as many as when hunting alone.'],
+['star', 'Follow a friend', 'When a friend goes somewhere, a small note at the top lets you follow them. No more pop-ups in the middle of a hunt.'],
+['chest', 'Smoother and neater', 'Hunters walk without sliding, a kill waits for the arrow, and the Daily Gift and Market orders look cleaner. Villagers only ask for what you can get.'],
+],
+},
+{
 v: '2.7', date: 'November 7, 2026', lines: [
 
 ['heart', 'Chat with everyone', 'Every hunting place has its Chat button now. Say hi to anyone hunting there, friends or not.'],
@@ -15402,6 +15412,8 @@ return s;
 (function (F) {
 'use strict';
 F.Config.TIPS.push({ key: 'hunt_open_tour', text: 'HUNTING TOGETHER' });
+
+F.Config.TIPS.push({ key: 'play_together_tour', text: 'PLAYING TOGETHER' });
 })(window.Farm = window.Farm || {});
 
 // ---- src/02-host.js
@@ -43111,6 +43123,7 @@ g.ppl = {};
 (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { pubRow(g, p, at); });
 redraw(g);
 askFriends();
+if (F.GameServer && typeof F.GameServer.playTogether === 'function') F.GameServer.playTogether();
 return;
 }
 (Array.isArray(m.ppl) ? m.ppl.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) player(g, p[0], p[3], p[4], p[5], p[6], at); });
@@ -43536,6 +43549,7 @@ buttons: buttons,
 };
 });
 var where = placeWord(g.map) + ' ' + g.ch;
+if (F.GameServer && typeof F.GameServer.playTogether === 'function') F.GameServer.playTogether();
 this.listPanel({
 title: 'Online', tab: 'here', page: page || 0, tabs: O.TABS, rows: rows,
 reopen: function (t, p) { self.openOnline(t, p); },
@@ -43634,6 +43648,56 @@ tw(ui, move, { targets: h, scale: 0.32, duration: 420, yoyo: true, repeat: -1 })
 ],
 };
 
+
+
+F.TOURS.play_together = {
+title: 'PLAYING TOGETHER',
+steps: [
+{
+text: 'Go down the same dungeon floor as a friend and you are there together. No need to visit their farm first.',
+draw: function (ui, sc, move) {
+var a = farmer(ui, sc, 96, 130, false, false, 0.24), b = farmer(ui, sc, 186, 130, true, true, 0.24);
+tw(ui, move, { targets: [a, b], y: 122, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+var h = icon(ui, sc, 141, 46, C.ICON.heart, 0.28);
+tw(ui, move, { targets: h, scale: 0.34, duration: 420, yoyo: true, repeat: -1 });
+},
+},
+{
+text: 'In a hunting place, tap Online to see who is hunting near you. Add them as a friend in one tap.',
+draw: function (ui, sc, move) {
+var w = pill(ui, sc, 52, 50, 'Pulag 1 \u00b7 5 hunting here');
+var hand = words(ui, sc, 52 + w / 2, 88, '\u25b2', 18, '#a8740c');
+tw(ui, move, { targets: hand, y: 80, duration: 420, yoyo: true, repeat: -1 });
+farmer(ui, sc, 141, 146, true, false, 0.22);
+},
+},
+{
+text: 'When a friend goes somewhere, a small note at the top says where. Tap Follow to go with them.',
+draw: function (ui, sc, move) {
+var w = pill(ui, sc, 40, 54, 'Moon went down to floor 4');
+var f = words(ui, sc, 40 + w + 30, 54, 'Follow', 14, '#2f5a22');
+tw(ui, move, { targets: f, scale: 1.15, duration: 420, yoyo: true, repeat: -1 });
+farmer(ui, sc, 141, 146, false, false, 0.22);
+},
+},
+],
+};
+var together = false;
+F.GameServer.playTogether = function () {
+var s = F.session && F.session.state;
+if (together || !s || L.tipSeen(s, 'play_together_tour') || (window.gameHost && window.gameHost.quiet)) return;
+together = true;
+var tries = 0;
+var show = function () {
+var w = F.world;
+if (!F.ui || L.tipSeen(F.session.state, 'play_together_tour')) { together = false; return; }
+if ((F.ui.modals.length || !w || w.busy || document.getElementById('farm-ask')) && tries++ < 40) return setTimeout(show, 1500);
+if (!L.takeTip(F.session.state, 'play_together_tour')) return;
+F.Host.save(F.session.state);
+F.ui.tour('play_together');
+};
+setTimeout(show, 2800);
+};
 var asked = false;
 F.GameServer.onPubLive = function () {
 var s = F.session && F.session.state;

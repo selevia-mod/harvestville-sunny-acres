@@ -62,6 +62,56 @@
     ],
   };
 
+  // e35: playing together (friends meet on a dungeon floor, Here, the follow note): the first time you go down a dungeon
+  // floor on the game server, or open Here.
+  F.TOURS.play_together = {
+    title: 'PLAYING TOGETHER',
+    steps: [
+      {
+        text: 'Go down the same dungeon floor as a friend and you are there together. No need to visit their farm first.',
+        draw: function (ui, sc, move) {
+          var a = farmer(ui, sc, 96, 130, false, false, 0.24), b = farmer(ui, sc, 186, 130, true, true, 0.24);
+          tw(ui, move, { targets: [a, b], y: 122, duration: 380, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          var h = icon(ui, sc, 141, 46, C.ICON.heart, 0.28);
+          tw(ui, move, { targets: h, scale: 0.34, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+      {
+        text: 'In a hunting place, tap Online to see who is hunting near you. Add them as a friend in one tap.',
+        draw: function (ui, sc, move) {
+          var w = pill(ui, sc, 52, 50, 'Pulag 1 · 5 hunting here');
+          var hand = words(ui, sc, 52 + w / 2, 88, '▲', 18, '#a8740c');
+          tw(ui, move, { targets: hand, y: 80, duration: 420, yoyo: true, repeat: -1 });
+          farmer(ui, sc, 141, 146, true, false, 0.22);
+        },
+      },
+      {
+        text: 'When a friend goes somewhere, a small note at the top says where. Tap Follow to go with them.',
+        draw: function (ui, sc, move) {
+          var w = pill(ui, sc, 40, 54, 'Moon went down to floor 4');
+          var f = words(ui, sc, 40 + w + 30, 54, 'Follow', 14, '#2f5a22');
+          tw(ui, move, { targets: f, scale: 1.15, duration: 420, yoyo: true, repeat: -1 });
+          farmer(ui, sc, 141, 146, false, false, 0.22);
+        },
+      },
+    ],
+  };
+  var together = false;
+  F.GameServer.playTogether = function () {
+    var s = F.session && F.session.state;
+    if (together || !s || L.tipSeen(s, 'play_together_tour') || (window.gameHost && window.gameHost.quiet)) return;
+    together = true;
+    var tries = 0;
+    var show = function () {
+      var w = F.world;
+      if (!F.ui || L.tipSeen(F.session.state, 'play_together_tour')) { together = false; return; }
+      if ((F.ui.modals.length || !w || w.busy || document.getElementById('farm-ask')) && tries++ < 40) return setTimeout(show, 1500);
+      if (!L.takeTip(F.session.state, 'play_together_tour')) return;
+      F.Host.save(F.session.state);
+      F.ui.tour('play_together');
+    };
+    setTimeout(show, 2800);
+  };
   var asked = false;
   F.GameServer.onPubLive = function () {
     var s = F.session && F.session.state;
