@@ -363,7 +363,7 @@ test('public room (fake server): four on one place, two friends (with) and two s
   assert.deepStrictEqual([hiOf(guest).topic, hiOf(guest).map, hiOf(guest).floor, hiOf(guest).with], ['pub', MAP, 0, host.uid]);
   assert.strictEqual(hiOf(host).with, guest.uid, 'the owner: with the friend from their farm\'s room who is here');
   assert.strictEqual(hiOf(sun).with, undefined, 'a stranger: with nobody');
-  for (const who of all) assert.deepStrictEqual(Object.keys(hiOf(who).lk || {}).sort(), ['cs', 'pt', 'rd'], 'lk: how they look');
+  for (const who of all) assert.deepStrictEqual(Object.keys(hiOf(who).lk || {}).sort(), ['bw', 'cs', 'pt', 'rd'], 'lk: how they look (bw: the bow in their hands)');
   assert.strictEqual(hiOf(sun).bk, 0);
   const room = gsrv.roomOf(host.uid);
   for (const who of all) assert.strictEqual(gsrv.roomOf(who.uid), room, 'one room for the four');
