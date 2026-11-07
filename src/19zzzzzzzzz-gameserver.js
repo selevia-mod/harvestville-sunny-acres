@@ -33,7 +33,8 @@
   var P = F.WorldScene.prototype;
   var O = F.Online;
   var GS = {
-    wait: 3000, // no 'wl' by then: the old way
+    wait: 3000, // no 'wl' by then: the old way ...
+    again: 15000, // ... and the server is tried again this often while you stay (a 'no' is not tried again)
     retry: [0, 1000, 2000, 4000], // a dropped line: opened again at once, then after these
     mvEvery: 100, // at most 10 moves a second while you walk
     piEvery: 2000, // how often the round trip is measured
@@ -112,7 +113,8 @@
   var clearTimers = function (g) {
     clearTimeout(g.waitT);
     clearTimeout(g.retryT);
-    g.waitT = g.retryT = null;
+    clearTimeout(g.againT);
+    g.waitT = g.retryT = g.againT = null;
   };
   // the friends drawn from the server go back to what Supabase says of them
   var dropTrails = function (g) {
@@ -200,14 +202,14 @@
     g.waitT = null;
     if (g.dead || g.mode === 'off') return;
     g.why = why;
-    if (final || !g.everLive || g.tries >= GS.retry.length) return fallback(g, why);
+    if (final || !g.everLive || g.tries >= GS.retry.length) return fallback(g, why, final);
     g.mode = 'retry';
     clearTimeout(g.retryT);
     g.retryT = setTimeout(function () { attempt(g); }, GS.retry[g.tries++]);
   };
 
   // The old way for this floor: as today (the Supabase relay; whoever came first runs the monsters).
-  var fallback = function (g, why) {
+  var fallback = function (g, why, final) {
     clearTimers(g);
     closeSocket(g);
     g.mode = 'off';
@@ -220,6 +222,15 @@
     if (g.dead || !w || w.gsGen !== g.gen || !w.wild || !w.sys || !w.sys.isActive()) return;
     // held back while it connected: the floor's creatures come out now, as they would have (unless a friend runs it)
     if (!w.wildFollowing() && !w.wild.heard && !w.wild.animals.length) w.gsSpawn();
+    // a slow or dropped line (not a 'no'): try the server again now and then while you stay here, and come over to it
+    // when it answers (owner, 7 Nov 2026: "the 1 number icon on online is sometimes gone": a first answer over 3 s on
+    // mobile data left the whole visit on the old way)
+    if (!final) g.againT = setTimeout(function () {
+      if (g.dead || g.mode !== 'off' || g.w !== F.world || F.world.gsGen !== g.gen) return;
+      g.mode = 'connecting';
+      g.tries = 0;
+      attempt(g);
+    }, GS.again);
   };
 
   // Off the floor: 'bye', and the line closed.

@@ -1271,3 +1271,56 @@ test('Online opens at once: Loading... the first time, the last list after, then
   for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([me.context.close(), sun.context.close()]);
 });
+
+// Owner, 7 Nov 2026: "the 1 number icon on online is sometimes gone when going to places": after every arrival on a
+// hunting place the Online button says the room and the number; anywhere else, Online and no number.
+test('REAL pub: the Online button\'s room and number after every trip (to town and back, a cave and back, the park and back)', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const me = await open(server, real.direct, 'Moon Meadow');
+  const btn = () => me.page.evaluate(() => { const u = Farm.ui, c = u.onlineBtn.list[0], cap = c && c.list.find((o) => o.type === 'Text'); return { map: Farm.world.mapKey, vis: u.onlineBtn.visible, caption: cap ? cap.text : '?', badge: u.pubBadgeBox && u.pubBadgeBox.active && u.pubBadgeBox.visible ? u.pubBadgeText.text : '' }; });
+  const out = [];
+  const settle = async () => { await me.page.waitForFunction(() => !Farm.world.busy && Farm.world.player.active, null, SLOW); await sleep(3500); out.push(await btn()); };
+  await go(me); await waitMode(me.page, 'live'); await settle();
+  for (const [to, spawn] of [['town', 'from_pulag'], ['pulag', 'from_town'], ['banaue', null], ['pulag', 'from_town'], ['town', 'from_pulag'], ['park', 'gate'], ['town', 'from_park'], ['pulag', 'from_town']]) {
+    if (to === 'banaue') { await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('banaue', 'from_jeep'); }); }
+    else await me.page.evaluate(([t, s]) => { Farm.ui.closeAll(); Farm.world.travel(t, s); }, [to, spawn]);
+    await settle();
+  }
+  console.log('[online button] ' + JSON.stringify(out));
+  const bad = out.filter((b) => /^(pulag|banaue)$/.test(b.map) ? !(b.vis && /^(Pulag|Banaue)/.test(b.caption) && b.badge) : (b.badge || b.caption !== 'Online'));
+  assert.deepStrictEqual(bad, [], 'the button right after every trip');
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
+// Owner, 7 Nov 2026: "the 1 number icon on online is sometimes gone": a first answer slower than 3 s (mobile data, a
+// cold start) left the whole visit on the old way. Now the server is tried again while you stay, and you come over.
+test('REAL pub: a first answer too slow (the old way for now), then the server is tried again and you come over: the number is back', async () => {
+  const real = await realServer();
+  const ws = require('../server/node_modules/ws');
+  const proxy = new ws.WebSocketServer({ port: 0, host: '127.0.0.1' });
+  await new Promise((r) => proxy.on('listening', r));
+  let n = 0;
+  proxy.on('connection', (down) => {
+    if (++n === 1) return; // (the first line: says nothing, as a line that is far too slow)
+    const up = new ws.WebSocket(real.direct), q = [];
+    up.on('open', () => { while (q.length) up.send(q.shift()); });
+    down.on('message', (m) => { if (up.readyState === 1) up.send(String(m)); else q.push(String(m)); });
+    up.on('message', (m) => { if (down.readyState === 1) down.send(String(m)); });
+    up.on('close', () => { try { down.close(); } catch (e) { /* gone */ } });
+    down.on('close', () => { try { up.close(); } catch (e) { /* gone */ } });
+  });
+  const server = createServer();
+  const me = await open(server, 'ws://127.0.0.1:' + proxy.address().port + '/', 'Moon Meadow');
+  await me.page.evaluate(() => { Farm.GameServer.config.again = 3000; });
+  await go(me);
+  await waitMode(me.page, 'off');
+  assert.ok(await me.page.evaluate(() => Farm.world.wild.animals.length > 0), 'the old way meanwhile: the place has its animals');
+  await waitMode(me.page, 'live');
+  await me.page.waitForFunction(() => /^Pulag \d+ · 1 here$/.test((Farm.GameServer.state() || {}).chip), null, SLOW);
+  assert.ok(n >= 2, 'tried again');
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+  proxy.close();
+});

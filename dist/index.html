@@ -42603,6 +42603,7 @@ var P = F.WorldScene.prototype;
 var O = F.Online;
 var GS = {
 wait: 3000,
+again: 15000,
 retry: [0, 1000, 2000, 4000],
 mvEvery: 100,
 piEvery: 2000,
@@ -42681,7 +42682,8 @@ try { ws.close(); } catch (e) {   }
 var clearTimers = function (g) {
 clearTimeout(g.waitT);
 clearTimeout(g.retryT);
-g.waitT = g.retryT = null;
+clearTimeout(g.againT);
+g.waitT = g.retryT = g.againT = null;
 };
 
 var dropTrails = function (g) {
@@ -42769,14 +42771,14 @@ clearTimeout(g.waitT);
 g.waitT = null;
 if (g.dead || g.mode === 'off') return;
 g.why = why;
-if (final || !g.everLive || g.tries >= GS.retry.length) return fallback(g, why);
+if (final || !g.everLive || g.tries >= GS.retry.length) return fallback(g, why, final);
 g.mode = 'retry';
 clearTimeout(g.retryT);
 g.retryT = setTimeout(function () { attempt(g); }, GS.retry[g.tries++]);
 };
 
 
-var fallback = function (g, why) {
+var fallback = function (g, why, final) {
 clearTimers(g);
 closeSocket(g);
 g.mode = 'off';
@@ -42789,6 +42791,15 @@ var w = g.w;
 if (g.dead || !w || w.gsGen !== g.gen || !w.wild || !w.sys || !w.sys.isActive()) return;
 
 if (!w.wildFollowing() && !w.wild.heard && !w.wild.animals.length) w.gsSpawn();
+
+
+
+if (!final) g.againT = setTimeout(function () {
+if (g.dead || g.mode !== 'off' || g.w !== F.world || F.world.gsGen !== g.gen) return;
+g.mode = 'connecting';
+g.tries = 0;
+attempt(g);
+}, GS.again);
 };
 
 
