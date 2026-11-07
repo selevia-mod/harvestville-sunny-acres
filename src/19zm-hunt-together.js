@@ -117,6 +117,12 @@
       return friends;
     });
   };
+  // 'friend' / 'sent' / 'request' / undefined: what this phone knows (19h-online.js playerMenu's Add friend row). The list
+  // is asked for the first time it is wanted; until it comes, the row says Add (the server says 'already' if so).
+  U.friendState = function (id) {
+    if (!friends) { knownFriends().catch(function () {}); return undefined; }
+    return friends[id];
+  };
   O.huntedWith = function (ids, animal) {
     if (!O.on || O.huntOff || !ids.length) return;
     knownFriends().then(function (fr) {

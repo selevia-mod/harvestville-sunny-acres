@@ -1153,5 +1153,35 @@ test('SHOT: the room chip on a phone screen (for the owner)', { skip: !process.e
   await A.page.evaluate(() => Farm.ui.closeAll());
   await sleep(500);
   await A.page.screenshot({ path: process.env.CHIP_SHOT + '/chip-' + (process.env.CHIP_NAME || 'now') + '.png' });
+  if (process.env.CHIP_TAP) { // (and what a tap on it opens)
+    const at = await A.page.evaluate(() => { const c = Farm.ui.onlineBtn.list[0], m = c.getWorldTransformMatrix(); return { x: m.tx / Farm.R, y: m.ty / Farm.R }; });
+    await A.page.touchscreen.tap(at.x, at.y);
+    await sleep(1500);
+    await A.page.screenshot({ path: process.env.CHIP_SHOT + '/chip-' + (process.env.CHIP_NAME || 'now') + '-tapped.png' });
+  }
   await Promise.all([A.context.close(), B.context.close()]);
+});
+
+// Owner, 7 Nov 2026: "add button Add friend for easy adding because if someone accidentally tap the cancel button when
+// adding I need to type again the code". The player menu (stall / Report / Block) has Add friend: one tap, no code.
+test('the player menu has Add friend: one tap sends the request, no code; then it says the request is sent; never for a friend', async () => {
+  const server = createServer();
+  const me = await open(server, null, 'Moon Meadow'), sun = await open(server, null, 'Sun Patch');
+  const rowText = () => me.page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); if (m) walk(m.c.list); return out.join(' | '); });
+  await me.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.playerMenu(id, 'Sun Patch'); }, [sun.uid]);
+  await sleep(800);
+  assert.match(await rowText(), /Add friend \| Send Sun Patch a friend request\. No code needed\. \| Add/);
+  assert.match(await rowText(), /Report[\s\S]*Block/, 'Report and Block still there');
+  await tapButton(me.page, 'Add');
+  await me.page.waitForFunction(() => /Friend request sent to Sun Patch/.test(Farm.ui.toastText.text), null, SLOW);
+  await me.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.playerMenu(id, 'Sun Patch'); }, [sun.uid]);
+  await sleep(500);
+  assert.match(await rowText(), /Friend request sent \| Waiting for Sun Patch to say yes\./);
+  // Sun says yes: no Add friend row on Sun's menu of me any more
+  await sun.page.evaluate(([id]) => Farm.Net.rpc('farm_friend_ask_v1', { p_other: id }), [me.uid]);
+  await sun.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.askFriend(id, 'Moon Meadow'); }, [me.uid]);
+  await sleep(800);
+  await me.page.evaluate(() => { Farm.ui.closeAll(); });
+  for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([me.context.close(), sun.context.close()]);
 });

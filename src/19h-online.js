@@ -1295,7 +1295,14 @@
     this.listPanel({
       title: who, page: 0, sub: function () { return 'Keep Harvest Ville friendly.'; },
       reopen: function () { self.closeModal(); self.playerMenu(id, who, back); },
-      rows: (F.session.visit && self.bookRow ? [self.bookRow(who)] : []).concat(F.session.visit && self.marketRow ? [self.marketRow()] : []).concat(self.stallRow ? [self.stallRow(id, who, back)] : []).concat([
+      rows: (F.session.visit && self.bookRow ? [self.bookRow(who)] : []).concat(F.session.visit && self.marketRow ? [self.marketRow()] : []).concat(self.stallRow ? [self.stallRow(id, who, back)] : []).concat(
+        // one tap, no code to type (owner, 7 Nov 2026: "add button Add friend for easy adding ... I need to type again the
+        // code which is so hard"); not for a friend already, nor yourself
+        self.askFriend && !blocked && id !== (O.me && O.me.id) && !(self.friendState && self.friendState(id) === 'friend') ? [{
+          icon: C.ICON.heart, name: self.friendState && self.friendState(id) === 'sent' ? 'Friend request sent' : 'Add friend',
+          desc: self.friendState && self.friendState(id) === 'sent' ? 'Waiting for ' + who + ' to say yes.' : 'Send ' + who + ' a friend request. No code needed.',
+          buttons: self.friendState && self.friendState(id) === 'sent' ? [] : [{ label: 'Add', color: GREEN, cb: function () { self.closeModal(); self.askFriend(id, who); } }],
+        }] : []).concat([
         {
           icon: C.ICON.exclaim, name: 'Report', desc: 'A rude farm name or messages? Tell Selebox.',
           buttons: [{ label: 'Report', color: RED, cb: function () { self.closeModal(); self.reportPlayer(id, who, back); } }],
