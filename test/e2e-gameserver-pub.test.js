@@ -24,6 +24,7 @@ const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SLOW = { timeout: 90000 };
 const T = 256;
 const HUNT = { wa: 1, wh: 1, wd: 1, wb: 1, bt: 1, ar: 1 }; // what a farm's room must never carry for a public place
+const SPEED_T = 4.5; // a farmer walks 4.5 tiles a second (Config.SPEED)
 const MAP = 'pulag';
 const rand = (a, b) => a + Math.random() * (b - a);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -877,17 +878,27 @@ test('REAL pub: another hunter who walks and shoots: the shot leaves where their
   const s = new WebSocket(real.direct);
   await new Promise((res) => s.on('open', res));
   const y = Math.round(f.y - 2 * T);
-  let x = Math.round(f.x - 4 * T);
+  let x = Math.round(Math.max(2 * T, Math.min(f.x - 4 * T, 22 * T))); // (its 7 tiles of walk stay on the map: 32 wide)
   s.send(JSON.stringify({ t: 'hi', v: 1, token: 'test-token:walker', topic: 'pub', map: MAP, floor: 0, name: 'Walker', look: 'girl', x, y, dir: 'right', hg: 0, sk: 0, b: 0, bk: 0, with: me.uid }));
   await me.page.waitForFunction(() => Object.keys(Farm.world.remotes).length >= 1, null, SLOW);
   await sleep(600);
-  // they walk right for a second (4.5 tiles a second, a step each 100 ms, on their clock), stop, and shoot at once
-  for (let i = 0; i < 10; i++) {
-    x += Math.round(0.45 * T);
+  // they walk right for a second and a half (4.5 tiles a second, a step each 50 ms as a phone sends, on their clock),
+  // stop, and shoot at once. How far behind them this screen draws them: when it shows them where each step was.
+  await me.page.evaluate(() => { const w = Farm.world, r = Object.values(w.remotes)[0]; w.__drawn = []; const f = () => { w.__drawn.push([Date.now(), r.x]); if (w.__drawn.length < 400) requestAnimationFrame(f); }; requestAnimationFrame(f); });
+  const sent = [];
+  for (let i = 0; i < 30; i++) {
+    x += Math.round(SPEED_T * 0.05 * T);
+    sent.push([Date.now(), x]);
     s.send(JSON.stringify({ t: 'mv', x, y, dir: 'right', m: 1, hg: 0, sk: 0, b: 0, c: Date.now() }));
-    await sleep(100);
+    await sleep(50);
   }
   s.send(JSON.stringify({ t: 'mv', x, y, dir: 'right', m: 0, hg: 0, sk: 0, b: 0, c: Date.now() }));
+  await sleep(400);
+  const drawn = await me.page.evaluate(() => Farm.world.__drawn);
+  const lags = sent.slice(5, -5).map(([t, sx]) => { const d = drawn.find(([, dx]) => dx >= sx - 4); return d ? d[0] - t : null; }).filter((v) => v != null).sort((a, b) => a - b);
+  const lag = lags[lags.length >> 1];
+  console.log('[drawn behind] median ' + lag + ' ms, max ' + lags[lags.length - 1] + ' ms (' + lags.length + ' steps)');
+  assert.ok(lags.length >= 15 && lag < 170, 'drawn about 0.1 s behind on a good line (owner, 7 Nov 2026): ' + lag + ' ms');
   // watch their farmer on this screen: where it is when their bow comes up, and after the shot
   await me.page.evaluate(() => {
     const w = Farm.world, r = Object.values(w.remotes)[0];

@@ -562,7 +562,8 @@
       var rush = C.SPEED * 3 * dt / 1000; // (the quickest they catch up after a gap: a run, not a jump)
       if (d > ON.snapTiles * T || d <= step && !at) { r.x = tx; r.y = ty; }
       else {
-        var by = at ? Math.min(d * (1 - Math.exp(-dt / 60)), rush) : d > 2 * T ? rush : step; // (a late step corrects softly)
+        var ease = self.trails[id] && self.trails[id].gs ? 30 : 60; // (our game server's steps come 20 a second: a shorter ease, 7 Nov 2026)
+        var by = at ? Math.min(d * (1 - Math.exp(-dt / ease)), rush) : d > 2 * T ? rush : step; // (a late step corrects softly)
         if (d) { r.x += dx / d * by; r.y += dy / d * by; }
       }
       // (on our game server: the legs walk while they still move at all, so the last few steps never slide; 7 Nov 2026)

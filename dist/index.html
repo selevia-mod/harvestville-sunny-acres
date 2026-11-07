@@ -24327,7 +24327,8 @@ var dx = tx - r.x, dy = ty - r.y, d = Math.sqrt(dx * dx + dy * dy), step = C.SPE
 var rush = C.SPEED * 3 * dt / 1000;
 if (d > ON.snapTiles * T || d <= step && !at) { r.x = tx; r.y = ty; }
 else {
-var by = at ? Math.min(d * (1 - Math.exp(-dt / 60)), rush) : d > 2 * T ? rush : step;
+var ease = self.trails[id] && self.trails[id].gs ? 30 : 60;
+var by = at ? Math.min(d * (1 - Math.exp(-dt / ease)), rush) : d > 2 * T ? rush : step;
 if (d) { r.x += dx / d * by; r.y += dy / d * by; }
 }
 
@@ -42685,19 +42686,21 @@ var GS = {
 wait: 3000,
 again: 15000,
 retry: [0, 1000, 2000, 4000],
-mvEvery: 100,
+mvEvery: 50,
 piEvery: 2000,
 delay: 100,
 every: 50,
 ahead: 100,
 pendMs: 1500,
-pSend: 100,
-pMin: 150,
-pMax: 300,
+pSend: 50,
+pMin: 50,
+pMinOld: 150, pMaxOld: 300, pSendOld: 100,
+pMax: 250,
+
 holdMost: 1200,
 shotMost: 600,
-shotEase: 100,
-pEvery: 300,
+shotEase: 70,
+pEvery: 100,
 
 
 most: 15,
@@ -42949,10 +42952,13 @@ note(tr, t, x, y, dir, m);
 
 
 if (had && tr.list.length) {
-var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? (now - tr.jAt) * 0.02 : 0;
+
+
+var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? Math.min(now - tr.jAt, 250) * 0.02 : 0;
 tr.jAt = now;
 tr.jit = Math.max(isFinite(late) ? Math.max(0, late) : 0, (tr.jit || 0) - fade);
-tr.every = Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2));
+
+tr.every = src === 'c' ? Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2)) : Math.max(GS.pMinOld, Math.min(GS.pMaxOld, GS.pSendOld + tr.jit * 1.2));
 }
 };
 

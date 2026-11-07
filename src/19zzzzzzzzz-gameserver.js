@@ -36,20 +36,22 @@
     wait: 3000, // no 'wl' by then: the old way ...
     again: 15000, // ... and the server is tried again this often while you stay (a 'no' is not tried again)
     retry: [0, 1000, 2000, 4000], // a dropped line: opened again at once, then after these
-    mvEvery: 100, // at most 10 moves a second while you walk
+    mvEvery: 50, // at most 20 moves a second while you walk (the server's tick; owner, 7 Nov 2026: about 0.1 s, as big games do)
     piEvery: 2000, // how often the round trip is measured
     delay: 100, // monsters and friends are drawn this far behind the server (L.trailAt)
     every: 50, // the server's tick
     ahead: 100, // a tick that comes late: they keep going this long on their own
     pendMs: 1500, // a hit of yours the server never answered stops counting after this
-    pSend: 100, // other players send a step this often while they walk (mvEvery) ...
-    pMin: 150, // ... and are drawn between pMin + 50 and pMax + 50 ms behind, as their own line's jitter needs (owner,
-    pMax: 300, // 7 Nov 2026, on e34: "still a little bit delay on walking"): a good line 200 ms, a bad one up to 350
+    pSend: 50, // other players send a step this often while they walk (mvEvery) ...
+    pMin: 50, // ... and are drawn between pMin + 50 and pMax + 50 ms behind, as their own line's jitter needs (owner,
+    pMinOld: 150, pMaxOld: 300, pSendOld: 100, // ... (an older phone, its steps timed by the server's ticks, 10 a second: as before)
+    pMax: 250, // 7 Nov 2026: "0.2-0.35 seconds still too long, it will look like lag"): a good line 100 ms (two steps, as
+    // Counter-Strike's 100 ms), a bad one up to 300, only while it is bad
     holdMost: 1200, // ms: a kill or a hit by another hunter waits at most this long for their arrow to land on this screen
     shotMost: 600, // ms: their arrow waits at most this long, to leave where their farmer is drawn (behind)
-    shotEase: 100, // ms: ... and this much more: their farmer eases onto their trail (19h-online.js, about 60 ms) and stops
-    pEvery: 300, // other players: their steps come about this often (a move every 100 ms, and the road's jitter), so
-    // they are drawn this much further in the past than the monsters (L.trailAt tr.every: 350 ms in all, as a farm room 400), always with
+    shotEase: 70, // ms: ... and this much more: their farmer eases onto their trail (19h-online.js, about 30 ms) and stops
+    pEvery: 100, // other players: their steps come about this often at first (a move every 50 ms, and the road's jitter: measured
+    // from their next step on), so they are drawn this much further in the past than the monsters (L.trailAt tr.every), always with
     // their next step already here (owner, 7 Nov 2026: "I cant see them walking, they just transporting")
     most: 15, // a public room: never more others drawn than this (the server sends at most the 15 nearest)
     nearEvery: 1000, // a public room: who the nearest are, looked at again this often
@@ -300,10 +302,13 @@
     // their line's jitter (how much later than its quickest a step comes), the worst of late, fading 20 ms a second: they
     // are drawn just far enough behind for the next step to be here (a good line: 200 ms; a bad one: up to 350)
     if (had && tr.list.length) {
-      var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? (now - tr.jAt) * 0.02 : 0;
+      // (it fades only while their steps come: one who stood still a while keeps the jitter their line had, and their next
+      // walk starts as far behind as it needs, not with a stop at its first late step; 7 Nov 2026, at 20 steps a second)
+      var now = Date.now(), late = now - t - tr.off, fade = tr.jAt ? Math.min(now - tr.jAt, 250) * 0.02 : 0;
       tr.jAt = now;
       tr.jit = Math.max(isFinite(late) ? Math.max(0, late) : 0, (tr.jit || 0) - fade);
-      tr.every = Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2));
+      // an older phone (no clock of its own, src 's': its steps timed by the server's ticks) keeps the old floor
+      tr.every = src === 'c' ? Math.max(GS.pMin, Math.min(GS.pMax, GS.pSend + tr.jit * 1.2)) : Math.max(GS.pMinOld, Math.min(GS.pMaxOld, GS.pSendOld + tr.jit * 1.2));
     }
   };
   // Still where they stood (no step in this tick): only for one who stopped, and only on the server's clock. One still

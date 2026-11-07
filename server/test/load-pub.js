@@ -14,6 +14,7 @@ const { rules } = require('../lib/rules');
 
 const SECS = Number(process.env.SECS) || 60, PLACES = Number(process.env.PLACES) || 6, BOTS = Number(process.env.BOTS) || 30;
 const DELAY = [60, 250];
+const STEP_MS = Number(process.env.STEP_MS) || 100;
 const R = rules(), T = R.T, SPEED = R.C.SPEED;
 const MAPS = ['pulag', 'makiling', 'magayon', 'banaue', 'bohol', 'taal', 'sierra', 'palawan'];
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -95,7 +96,7 @@ function bot(url, uid, group, i) {
     } else if (m.t === 'po') b.rtt.push(now - m.c);
     else if (m.t === 'no') console.log('refused', uid, m.why);
   };
-  // the phone's own loop: 10 a second
+  // the phone's own loop: 10 a second (STEP_MS=50: 20 a second, as phones send from 7 Nov 2026)
   let lastPing = 0, still = false;
   b.timer = setInterval(() => {
     if (ws.readyState !== 1 || !b.joined) return;
@@ -109,7 +110,7 @@ function bot(url, uid, group, i) {
       to = b.goal;
     } else if (bd > 3 * T) to = { x: best[2], y: best[3] };
     if (to) {
-      const d = Math.hypot(to.x - b.x, to.y - b.y), k = Math.min(1, SPEED * 0.1 / Math.max(1, d));
+      const d = Math.hypot(to.x - b.x, to.y - b.y), k = Math.min(1, SPEED * STEP_MS / 1000 / Math.max(1, d));
       b.x += (to.x - b.x) * k;
       b.y += (to.y - b.y) * k;
       still = false;
@@ -121,7 +122,7 @@ function bot(url, uid, group, i) {
       if (bd < 4.5 * T) send({ t: 'hit', s: best[0], d: 2, n: ++b.n }); // (the bow reaches 3-6 tiles)
     }
     if (now - b.baitAt > 40000 && Math.random() < 0.002) { b.baitAt = now; send({ t: 'bt', x: Math.round(b.x + T), y: Math.round(b.y) }); }
-  }, 100);
+  }, STEP_MS);
   return b;
 }
 
