@@ -36,6 +36,12 @@
     F.fetchFile({ file: 'looks/v1/' + file }).then(function (url) { gotLook(key, !!archer, url); });
     return false;
   };
+  // still on its way (asked, not here yet, not failed): 19w-bow.js waits for it rather than show plain clothes
+  F.lookPending = function (cos, look, archer) {
+    if (!cos || C.LOOK_INDEX[cos] == null) return false;
+    var a = asked[keyOf(cos, look, archer)];
+    return !!a && a.state === 'loading';
+  };
   var gotLook = function (key, archer, url) {
     var sc = scene();
     if (!sc || typeof url !== 'string') { asked[key] = { state: 'failed', at: Date.now() }; return; }
@@ -55,6 +61,10 @@
   // The farmer's picture: their look when it is here, else their own clothes (and the party hat on their birthday).
   var sheetFor = F.sheetFor;
   F.sheetFor = function (look, party, cos) {
+    // on a hunting place, the look's bow picture too, ahead of the first shot: asked only when they shot, it came a
+    // moment late and their first shots showed plain clothes (owner, 7 Nov 2026: "they change to normal clothes and
+    // then change to costume after")
+    if (cos && F.world && F.world.wild) F.lookReady(cos, look, true);
     return cos && F.lookReady(cos, look) ? keyOf(cos, look) : sheetFor(look, party);
   };
   var walkSuffix = F.walkSuffix;

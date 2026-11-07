@@ -157,6 +157,9 @@ class Room {
     if (msg.hg != null) p.hg = num(msg.hg, 0, 0xffff, 0) | 0;
     if (msg.sk != null) p.sk = msg.sk ? 1 : 0;
     if (msg.b != null && (msg.b ? 1 : 0) !== p.b) { p.b = msg.b ? 1 : 0; this.crew(); }
+    // when, on their phone's clock (passed on as it is: the others draw their steps by it, never trusted for anything else)
+    const c = Number(msg.c);
+    p.mc = isFinite(c) && c > 0 && c < 1e14 ? Math.floor(c) : 0;
     this.moved.add(p.id);
   }
 
@@ -187,7 +190,7 @@ class Room {
     const need = a.def.minHits || 1;
     const by = Object.keys(a.hits).filter((id) => a.hits[id] >= need);
     if (last && by.indexOf(last) < 0) by.push(last);
-    this.broadcast({ t: 'dn', s: a.slot, kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), by, size: Math.round(a.size * 100) / 100 });
+    this.broadcast({ t: 'dn', s: a.slot, kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), by, lh: last || '', size: Math.round(a.size * 100) / 100 }); // (lh: the last hit's: a hunting place shares with their friends only, on each phone)
     if (!this.mons.length) this.cleared();
   }
 
@@ -237,7 +240,7 @@ class Room {
       m.push(row);
     });
     const moved = [], come = [];
-    this.moved.forEach((id) => { const p = this.players.get(id); if (p) moved.push({ id, s: JSON.stringify([id, Math.round(p.x), Math.round(p.y), p.dir, p.m]) }); });
+    this.moved.forEach((id) => { const p = this.players.get(id); if (p) moved.push({ id, s: JSON.stringify(p.mc ? [id, Math.round(p.x), Math.round(p.y), p.dir, p.m, p.mc] : [id, Math.round(p.x), Math.round(p.y), p.dir, p.m]) }); });
     this.comeNow.forEach((id) => { const p = this.players.get(id); if (p) come.push({ id, seq: p.seq, s: JSON.stringify(this.pplRow(p)) }); });
     const shared = m.length || this.goneNow.length || this.leftNow.length;
     if (shared || moved.length || come.length) {

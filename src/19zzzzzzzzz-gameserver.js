@@ -41,6 +41,9 @@
     every: 50, // the server's tick
     ahead: 100, // a tick that comes late: they keep going this long on their own
     pendMs: 1500, // a hit of yours the server never answered stops counting after this
+    pEvery: 300, // other players: their steps come about this often (a move every 100 ms, and the road's jitter), so
+    // they are drawn this much further in the past than the monsters (L.trailAt tr.every: 350 ms in all, as a farm room 400), always with
+    // their next step already here (owner, 7 Nov 2026: "I cant see them walking, they just transporting")
     most: 15, // a public room: never more others drawn than this (the server sends at most the 15 nearest)
     nearEvery: 1000, // a public room: who the nearest are, looked at again this often
   };
@@ -257,6 +260,21 @@
     return a.gsPend.reduce(function (n, p) { return n + p.d; }, 0);
   };
   var trail = function () { return { list: [], off: 0, heard: 0, gs: true }; };
+  // A player's steps: timed by THEIR phone's clock (c, in their mv) when the server passes it on, so a late message on
+  // their side never looks like a stop and a rush on ours (src 'c'); else by the server's tick (src 's').
+  var ptrail = function (src) { var t = trail(); t.every = GS.pEvery; t.src = src; return t; };
+  var pnote = function (id, at, st, x, y, dir, m) {
+    var c = Number(at), src = isFinite(c) && c > 0 ? 'c' : 's', tr = O.trails[id];
+    if (!tr || !tr.gs || tr.src !== src) tr = O.trails[id] = ptrail(src);
+    note(tr, src === 'c' ? c : st, x, y, dir, m);
+  };
+  // Still where they stood (no step in this tick): only for one who stopped, and only on the server's clock. One still
+  // walking just has its next step on the way: a "still here" point in between was a stop and a rush every tick.
+  var pstill = function (id, q, st) {
+    var tr = O.trails[id];
+    if (q.m || (tr && tr.gs && tr.src === 'c')) return;
+    pnote(id, null, st, q.x, q.y, q.dir, q.m);
+  };
   var feeding = false;
   var note = function (tr, st, x, y, dir, m) {
     feeding = true;
@@ -313,7 +331,7 @@
   };
 
   // Friends on the floor: their farmers walk along the server's ticks (Supabase still says who they are).
-  var player = function (g, id, x, y, dir, m, st) {
+  var player = function (g, id, x, y, dir, m, st, c, still) {
     if (typeof id !== 'string' || !id || id === g.you || id === (O.me && O.me.id)) return;
     x = num(x);
     y = num(y);
@@ -322,9 +340,10 @@
     var o = O.others[id];
     if (o) { o.x = x; o.y = y; o.dir = p.dir; }
     if (st == null) return;
+    if (still) return pstill(id, p, st);
     var tr = O.trails[id];
-    if (!tr || !tr.gs) tr = O.trails[id] = trail();
-    note(tr, st, p.x, p.y, p.dir, p.m);
+    if (c == null && tr && tr.gs && tr.src === 'c') return; // (a 'come' row has no clock of theirs: their steps go on)
+    pnote(id, c, st, p.x, p.y, p.dir, p.m);
   };
 
   // ---------- a public room's players: the server says who is here ----------
@@ -348,10 +367,10 @@
     void keep;
     if (st == null) return;
     var tr = O.trails[id];
-    if (!tr || !tr.gs) tr = O.trails[id] = trail();
-    note(tr, st, p.x, p.y, p.dir, p.m);
+    if (tr && tr.gs && tr.src === 'c') return; // (a 'come' row has no clock of theirs: their steps go on)
+    pnote(id, null, st, p.x, p.y, p.dir, p.m);
   };
-  var pubMove = function (g, id, x, y, dir, m, st) {
+  var pubMove = function (g, id, x, y, dir, m, st, c) {
     var p = g.ppl[id];
     if (!p) return; // (not in view: their 'come' says who they are first)
     x = num(x);
@@ -361,10 +380,37 @@
     p.y = y;
     p.dir = DIRS[dir] ? dir : p.dir;
     p.m = m ? 1 : 0;
-    var tr = O.trails[id];
-    if (!tr || !tr.gs) tr = O.trails[id] = trail();
-    note(tr, st, x, y, p.dir, p.m);
+    pnote(id, c, st, x, y, p.dir, p.m);
   };
+  // A line said in the room: shown as a friend's is (19m-chat.js), every phone checking the words, the speed and blocks.
+  var sayHeard = {};
+  var pubSay = function (g, m) {
+    var id = typeof m.id === 'string' ? m.id.slice(0, 64) : '';
+    if (!id || id === g.you || (O.blocked && O.blocked[id]) || !L.chatClean) return;
+    var line = L.chatClean(m.s);
+    if (!line || !L.chatAllowed(sayHeard[id] = sayHeard[id] || {}, Date.now())) return;
+    var p = g.ppl[id], name = (p && p.name) || (L.cleanName ? L.cleanName(m.n) : L.cleanText(m.n, 24)) || 'Farmer';
+    O.logLine(id, name, line);
+    var w = g.w;
+    if (w && w.remotes && w.remotes[id] && w.bubble) w.bubble(id, line);
+    if (F.Audio) F.Audio.sfx('talk');
+  };
+  // Your friends (farm_friends_v1), asked for as you come into a public room and again every few minutes: a hunt there
+  // is shared with the hunter's friends only (owner, 7 Nov 2026: "only just the drop and loot should be align with
+  // friends"); whoever is in your farm's room with you (a visit) counts too.
+  var FRIENDS_EVERY = 5 * 60000;
+  var friends = { ids: {}, at: 0, asking: false };
+  var askFriends = function () {
+    if (friends.asking || Date.now() - friends.at < FRIENDS_EVERY || !F.Net || !F.Net.rpc) return;
+    friends.asking = true;
+    F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+      var ids = {};
+      (list || []).forEach(function (f) { if (f && f.id && f.status !== 'request' && f.status !== 'sent') ids[String(f.id)] = 1; });
+      friends.ids = ids;
+      friends.at = Date.now();
+    }).catch(function () { friends.at = Date.now() - FRIENDS_EVERY + 30000; }).then(function () { friends.asking = false; });
+  };
+  var isFriend = function (id) { return !!(id && (friends.ids[id] || (O.others && O.others[id]))); };
   var pubLeft = function (g, id) {
     delete g.ppl[id];
     if (O.trails[id] && O.trails[id].gs) delete O.trails[id];
@@ -444,6 +490,7 @@
         tameOut(g);
         g.farmTold = false;
         redraw(g);
+        askFriends();
         if (F.GameServer && typeof F.GameServer.onPubLive === 'function') F.GameServer.onPubLive(g); // (the first time: its tour)
         return;
       }
@@ -466,12 +513,8 @@
         (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
         (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
         var stepped = {};
-        (Array.isArray(m.p) ? m.p.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { stepped[p[0]] = 1; pubMove(g, p[0], p[1], p[2], p[3], p[4], st); } });
-        Object.keys(g.ppl).forEach(function (id) { // (still: where they stood)
-          if (stepped[id]) return;
-          var q = g.ppl[id];
-          pubMove(g, id, q.x, q.y, q.dir, q.m, st);
-        });
+        (Array.isArray(m.p) ? m.p.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { stepped[p[0]] = 1; pubMove(g, p[0], p[1], p[2], p[3], p[4], st, p[5]); } });
+        Object.keys(g.ppl).forEach(function (id) { if (!stepped[id]) pstill(id, g.ppl[id], st); }); // (still: where they stood)
         if (changed) redraw(g);
         void went;
         return;
@@ -482,12 +525,18 @@
         if (O.trails[id] && O.trails[id].gs) delete O.trails[id];
       });
       var moved = {};
-      (Array.isArray(m.p) ? m.p.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) { moved[p[0]] = 1; player(g, p[0], p[1], p[2], p[3], p[4], st); } });
+      (Array.isArray(m.p) ? m.p.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) { moved[p[0]] = 1; player(g, p[0], p[1], p[2], p[3], p[4], st, p[5]); } });
       Object.keys(g.ppl).forEach(function (id) { // (still: where they stood)
         if (moved[id]) return;
         var q = g.ppl[id];
-        player(g, id, q.x, q.y, q.dir, q.m, st);
+        player(g, id, q.x, q.y, q.dir, q.m, st, null, true);
       });
+      return;
+    }
+    if (t === 'say') { if (g.pub) pubSay(g, m); return; }
+    if (t === 'em') {
+      var eid = typeof m.id === 'string' ? m.id : '', k = typeof m.k === 'string' ? m.k : '';
+      if (g.pub && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
       return;
     }
     if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
@@ -525,7 +574,10 @@
   var down = function (g, w, m) {
     var a = find(w, m.s), kind = kindOf(m.kind) || (a && a.kind), by = Array.isArray(m.by) ? m.by.map(String) : [];
     if (!kind) return;
-    var mine = by.indexOf(g.you) >= 0;
+    var mine = by.indexOf(g.you) >= 0, lh = typeof m.lh === 'string' ? m.lh : '';
+    // a hunting place: a share is yours only when you landed the last hit or the one who did is your friend
+    var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh);
+    if (stranger) mine = false;
     if (!a) {
       if (w.lair) w.lair.down[m.s] = true;
       if (!mine) return;
@@ -542,7 +594,12 @@
     a.by = {};
     by.forEach(function (id) { if (id !== g.you) a.by[id] = 9; });
     if (g.pub && a.slot >= 100) a.slot = a.slot % 100; // (a copy's: your record keeps the place's own slot, as the save does)
+    if (stranger) a.hits = 0; // (no "it took N hits" toast: it was shared, just not with you)
     w.wildDown(a);
+    if (stranger && F.ui) {
+      var q = g.ppl[lh];
+      F.ui.toast((q ? q.name : 'Another hunter') + ' got it. Hunts are shared with friends only: add them as a friend to share next time.', 3200);
+    }
   };
 
   // ---------- the old relay stands aside on this floor ----------
@@ -583,6 +640,11 @@
     var pg = pubHolding(F.world);
     if (pg) {
       if (HUNT[event]) return;
+      // chat in a hunting place: to everyone in the room, on our server (owner, 7 Nov 2026: "open to everyone ... Even
+      // strangers can talk"); not to your farm's room
+      if (event === 'say') { if (pg.mode === 'live' && payload && typeof payload.s === 'string') send(pg, { t: 'say', s: payload.s }); return; }
+      // a wave or a reaction: to everyone near you there, strangers too (your farm's room is not on this place)
+      if (event === 'emote') { if (pg.mode === 'live' && payload && typeof payload.k === 'string') send(pg, { t: 'em', k: payload.k }); return; }
       // a public room: your farm's room hears where you went (your first step here, and your presence), not each step
       if (event === 'mv' && payload && payload.map === pg.w.mapKey) { if (pg.farmTold) return; pg.farmTold = true; }
     } else if (OLD[event] && holding(F.world)) return;
@@ -683,7 +745,7 @@
       if (g.mvMs <= 0 && (moved || (last && last.m) || (last && last.b !== b))) { // (and a menu opening or closing)
         g.lastMv = { x: f.x, y: f.y, dir: this.dir, m: moved ? 1 : 0, b: b };
         g.mvMs = GS.mvEvery;
-        send(g, { t: 'mv', x: Math.round(f.x), y: Math.round(f.y), dir: this.dir || 'down', m: moved ? 1 : 0, hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0, b: b });
+        send(g, { t: 'mv', x: Math.round(f.x), y: Math.round(f.y), dir: this.dir || 'down', m: moved ? 1 : 0, hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0, b: b, c: Date.now() }); // (c: when, on our clock: the others draw our steps by it)
       }
       g.piMs -= dt;
       if (g.piMs <= 0) { g.piMs = GS.piEvery; send(g, { t: 'pi', c: Date.now() }); }
@@ -792,6 +854,9 @@
   // (for the tests and the debug line: what the line is doing)
   F.GameServer = {
     config: GS,
+    pubLive: function () { return !!pubLive(); }, // (19m-chat.js: the Chat button is always there in a hunting place)
+    isFriend: isFriend, // (tests)
+    friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); }, // (tests)
     baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; }, // (others' bait drawn here, by whose)
     state: function () {
       var g = gs;

@@ -424,3 +424,51 @@ test('how many are in the whole room: `here` in the wl, and in the next tk for e
   w.run(200);
   assert.ok(a.all('tk').slice(before).every((m) => m.here == null), 'said once, not every tick');
 });
+
+test('chat in a hunting place: a line goes to everyone in the room, strangers too (not back to the one who said it), short and slow; not in a cave', async () => {
+  const w = world(), T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 3 * T, y: 3 * T, name: 'Ann' });
+  const b = await w.pub('bo', 'pulag', { x: 30 * T, y: 25 * T }); // (far away: chat is the whole room's)
+  a.say({ t: 'say', s: '  Hi\u200b   everyone!  ' });
+  assert.deepStrictEqual(plain(b.last('say')), { t: 'say', id: 'ann', n: 'Ann', s: 'Hi everyone!' });
+  assert.strictEqual(a.all('say').length, 0, 'not back to Ann');
+  a.say({ t: 'say', s: 'too soon' });
+  assert.strictEqual(b.all('say').length, 1, '1.2 s apart');
+  w.wait(1250);
+  a.say({ t: 'say', s: 'x'.repeat(200) });
+  assert.strictEqual(b.last('say').s.length, 60);
+  a.say({ t: 'say', s: 42 });
+  w.wait(1250);
+  for (let i = 0; i < 20; i++) { a.say({ t: 'say', s: 'line ' + i }); w.wait(1250); }
+  assert.ok(b.all('say').length <= 12 + 2, '12 a minute at most');
+  // another place's room hears nothing
+  const c = await w.pub('cy', 'makiling');
+  a.say({ t: 'say', s: 'anyone?' });
+  assert.strictEqual(c.all('say').length, 0);
+});
+
+test('a kill says who landed the last hit (lh): each phone gives a share to the hunter and their friends only', async () => {
+  const w = world(), T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 3 * T, y: 3 * T });
+  const room = w.game.pub.get('pulag').get(1), m = room.mons[0];
+  kill(w, a, room, m);
+  const dn = a.last('dn');
+  assert.strictEqual(dn.lh, 'ann');
+  assert.ok(dn.by.includes('ann'));
+});
+
+test('a wave or a reaction in a hunting place: to the phones that see them, strangers too; only the game\'s own; at most 2 a second', async () => {
+  const w = world(), T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 3 * T, y: 3 * T });
+  const b = await w.pub('bo', 'pulag', { x: 5 * T, y: 3 * T });
+  const far = await w.pub('cy', 'pulag', { x: 30 * T, y: 26 * T });
+  w.run(50);
+  a.say({ t: 'em', k: 'wave' });
+  assert.deepStrictEqual(plain(b.last('em')), { t: 'em', id: 'ann', k: 'wave' });
+  assert.strictEqual(far.all('em').length, 0, 'out of view');
+  assert.strictEqual(a.all('em').length, 0, 'not back');
+  a.say({ t: 'em', k: 'heart' });
+  a.say({ t: 'em', k: 'laugh' });
+  a.say({ t: 'em', k: 'rude' });
+  assert.deepStrictEqual(b.all('em').map((m) => m.k), ['wave', 'heart'], 'two a second; only the game\'s own');
+});

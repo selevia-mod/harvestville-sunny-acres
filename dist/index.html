@@ -26764,7 +26764,8 @@ w.placeBubble(id);
 
 
 
-var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom())) && !w.busy);
+
+var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom()) || (F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive())) && !w.busy);
 if (some !== w.chatable) {
 w.chatable = some;
 F.bus.emit('chatable', some);
@@ -29271,6 +29272,9 @@ P.tellArrow = function (m) { if (Object.keys(this.remotes || {}).length) O.send(
 P.remoteShot = function (r, x, y, ang, l, level) {
 var self = this, p = r.spr;
 if (!p || !p.active || r.horse || r.shot) return false;
+
+
+if (r.cs && F.lookReady && !F.lookReady(r.cs, r.look, true) && F.lookPending && F.lookPending(r.cs, r.look, true)) return false;
 var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
 var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, F.archerKeyFor ? F.archerKeyFor(r.look, r.cs) : r.look === 'girl' ? 'archer_girl' : 'archer');
 var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];
@@ -30975,6 +30979,12 @@ var file = fileOf(cos, look, archer);
 F.fetchFile({ file: 'looks/v1/' + file }).then(function (url) { gotLook(key, !!archer, url); });
 return false;
 };
+
+F.lookPending = function (cos, look, archer) {
+if (!cos || C.LOOK_INDEX[cos] == null) return false;
+var a = asked[keyOf(cos, look, archer)];
+return !!a && a.state === 'loading';
+};
 var gotLook = function (key, archer, url) {
 var sc = scene();
 if (!sc || typeof url !== 'string') { asked[key] = { state: 'failed', at: Date.now() }; return; }
@@ -30994,6 +31004,10 @@ img.src = url;
 
 var sheetFor = F.sheetFor;
 F.sheetFor = function (look, party, cos) {
+
+
+
+if (cos && F.world && F.world.wild) F.lookReady(cos, look, true);
 return cos && F.lookReady(cos, look) ? keyOf(cos, look) : sheetFor(look, party);
 };
 var walkSuffix = F.walkSuffix;
@@ -42374,6 +42388,9 @@ delay: 100,
 every: 50,
 ahead: 100,
 pendMs: 1500,
+pEvery: 300,
+
+
 most: 15,
 nearEvery: 1000,
 };
@@ -42590,6 +42607,21 @@ a.gsPend = (a.gsPend || []).filter(function (p) { return now - p.at < GS.pendMs;
 return a.gsPend.reduce(function (n, p) { return n + p.d; }, 0);
 };
 var trail = function () { return { list: [], off: 0, heard: 0, gs: true }; };
+
+
+var ptrail = function (src) { var t = trail(); t.every = GS.pEvery; t.src = src; return t; };
+var pnote = function (id, at, st, x, y, dir, m) {
+var c = Number(at), src = isFinite(c) && c > 0 ? 'c' : 's', tr = O.trails[id];
+if (!tr || !tr.gs || tr.src !== src) tr = O.trails[id] = ptrail(src);
+note(tr, src === 'c' ? c : st, x, y, dir, m);
+};
+
+
+var pstill = function (id, q, st) {
+var tr = O.trails[id];
+if (q.m || (tr && tr.gs && tr.src === 'c')) return;
+pnote(id, null, st, q.x, q.y, q.dir, q.m);
+};
 var feeding = false;
 var note = function (tr, st, x, y, dir, m) {
 feeding = true;
@@ -42646,7 +42678,7 @@ else note(a.path, st, a.x, a.y, fresh(a), 1);
 };
 
 
-var player = function (g, id, x, y, dir, m, st) {
+var player = function (g, id, x, y, dir, m, st, c, still) {
 if (typeof id !== 'string' || !id || id === g.you || id === (O.me && O.me.id)) return;
 x = num(x);
 y = num(y);
@@ -42655,9 +42687,10 @@ var p = g.ppl[id] = { x: x, y: y, dir: DIRS[dir] ? dir : 'down', m: m ? 1 : 0 };
 var o = O.others[id];
 if (o) { o.x = x; o.y = y; o.dir = p.dir; }
 if (st == null) return;
+if (still) return pstill(id, p, st);
 var tr = O.trails[id];
-if (!tr || !tr.gs) tr = O.trails[id] = trail();
-note(tr, st, p.x, p.y, p.dir, p.m);
+if (c == null && tr && tr.gs && tr.src === 'c') return;
+pnote(id, c, st, p.x, p.y, p.dir, p.m);
 };
 
 
@@ -42681,10 +42714,10 @@ tr: O.others[id] ? O.others[id].tr || 0 : 0, pub: 1,
 void keep;
 if (st == null) return;
 var tr = O.trails[id];
-if (!tr || !tr.gs) tr = O.trails[id] = trail();
-note(tr, st, p.x, p.y, p.dir, p.m);
+if (tr && tr.gs && tr.src === 'c') return;
+pnote(id, null, st, p.x, p.y, p.dir, p.m);
 };
-var pubMove = function (g, id, x, y, dir, m, st) {
+var pubMove = function (g, id, x, y, dir, m, st, c) {
 var p = g.ppl[id];
 if (!p) return;
 x = num(x);
@@ -42694,10 +42727,37 @@ p.x = x;
 p.y = y;
 p.dir = DIRS[dir] ? dir : p.dir;
 p.m = m ? 1 : 0;
-var tr = O.trails[id];
-if (!tr || !tr.gs) tr = O.trails[id] = trail();
-note(tr, st, x, y, p.dir, p.m);
+pnote(id, c, st, x, y, p.dir, p.m);
 };
+
+var sayHeard = {};
+var pubSay = function (g, m) {
+var id = typeof m.id === 'string' ? m.id.slice(0, 64) : '';
+if (!id || id === g.you || (O.blocked && O.blocked[id]) || !L.chatClean) return;
+var line = L.chatClean(m.s);
+if (!line || !L.chatAllowed(sayHeard[id] = sayHeard[id] || {}, Date.now())) return;
+var p = g.ppl[id], name = (p && p.name) || (L.cleanName ? L.cleanName(m.n) : L.cleanText(m.n, 24)) || 'Farmer';
+O.logLine(id, name, line);
+var w = g.w;
+if (w && w.remotes && w.remotes[id] && w.bubble) w.bubble(id, line);
+if (F.Audio) F.Audio.sfx('talk');
+};
+
+
+
+var FRIENDS_EVERY = 5 * 60000;
+var friends = { ids: {}, at: 0, asking: false };
+var askFriends = function () {
+if (friends.asking || Date.now() - friends.at < FRIENDS_EVERY || !F.Net || !F.Net.rpc) return;
+friends.asking = true;
+F.Net.rpc('farm_friends_v1', {}).then(function (list) {
+var ids = {};
+(list || []).forEach(function (f) { if (f && f.id && f.status !== 'request' && f.status !== 'sent') ids[String(f.id)] = 1; });
+friends.ids = ids;
+friends.at = Date.now();
+}).catch(function () { friends.at = Date.now() - FRIENDS_EVERY + 30000; }).then(function () { friends.asking = false; });
+};
+var isFriend = function (id) { return !!(id && (friends.ids[id] || (O.others && O.others[id]))); };
 var pubLeft = function (g, id) {
 delete g.ppl[id];
 if (O.trails[id] && O.trails[id].gs) delete O.trails[id];
@@ -42777,6 +42837,7 @@ g.here = isFinite(Number(m.here)) ? Math.max(0, Math.floor(Number(m.here))) : 0;
 tameOut(g);
 g.farmTold = false;
 redraw(g);
+askFriends();
 if (F.GameServer && typeof F.GameServer.onPubLive === 'function') F.GameServer.onPubLive(g);
 return;
 }
@@ -42799,12 +42860,8 @@ var changed = false, went = {};
 (Array.isArray(m.left) ? m.left : []).forEach(function (id) { if (g.ppl[id]) { pubLeft(g, id); changed = true; went[id] = 1; } });
 (Array.isArray(m.come) ? m.come.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { pubRow(g, p, st); changed = true; } });
 var stepped = {};
-(Array.isArray(m.p) ? m.p.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { stepped[p[0]] = 1; pubMove(g, p[0], p[1], p[2], p[3], p[4], st); } });
-Object.keys(g.ppl).forEach(function (id) {
-if (stepped[id]) return;
-var q = g.ppl[id];
-pubMove(g, id, q.x, q.y, q.dir, q.m, st);
-});
+(Array.isArray(m.p) ? m.p.slice(0, 2 * GS.most) : []).forEach(function (p) { if (Array.isArray(p)) { stepped[p[0]] = 1; pubMove(g, p[0], p[1], p[2], p[3], p[4], st, p[5]); } });
+Object.keys(g.ppl).forEach(function (id) { if (!stepped[id]) pstill(id, g.ppl[id], st); });
 if (changed) redraw(g);
 void went;
 return;
@@ -42815,12 +42872,18 @@ delete g.ppl[id];
 if (O.trails[id] && O.trails[id].gs) delete O.trails[id];
 });
 var moved = {};
-(Array.isArray(m.p) ? m.p.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) { moved[p[0]] = 1; player(g, p[0], p[1], p[2], p[3], p[4], st); } });
+(Array.isArray(m.p) ? m.p.slice(0, 16) : []).forEach(function (p) { if (Array.isArray(p)) { moved[p[0]] = 1; player(g, p[0], p[1], p[2], p[3], p[4], st, p[5]); } });
 Object.keys(g.ppl).forEach(function (id) {
 if (moved[id]) return;
 var q = g.ppl[id];
-player(g, id, q.x, q.y, q.dir, q.m, st);
+player(g, id, q.x, q.y, q.dir, q.m, st, null, true);
 });
+return;
+}
+if (t === 'say') { if (g.pub) pubSay(g, m); return; }
+if (t === 'em') {
+var eid = typeof m.id === 'string' ? m.id : '', k = typeof m.k === 'string' ? m.k : '';
+if (g.pub && eid && eid !== g.you && !(O.blocked && O.blocked[eid]) && (k === 'heart' || (O.REACT_WORDS && O.REACT_WORDS[k])) && O.showEmote) O.showEmote(eid, k);
 return;
 }
 if (t === 'bt') { if (g.pub) pubBait(g, m); return; }
@@ -42858,7 +42921,10 @@ if (isFinite(c)) g.rtt = Math.max(0, Date.now() - c);
 var down = function (g, w, m) {
 var a = find(w, m.s), kind = kindOf(m.kind) || (a && a.kind), by = Array.isArray(m.by) ? m.by.map(String) : [];
 if (!kind) return;
-var mine = by.indexOf(g.you) >= 0;
+var mine = by.indexOf(g.you) >= 0, lh = typeof m.lh === 'string' ? m.lh : '';
+
+var stranger = g.pub && mine && lh && lh !== g.you && !isFriend(lh);
+if (stranger) mine = false;
 if (!a) {
 if (w.lair) w.lair.down[m.s] = true;
 if (!mine) return;
@@ -42875,7 +42941,12 @@ a.mine = mine;
 a.by = {};
 by.forEach(function (id) { if (id !== g.you) a.by[id] = 9; });
 if (g.pub && a.slot >= 100) a.slot = a.slot % 100;
+if (stranger) a.hits = 0;
 w.wildDown(a);
+if (stranger && F.ui) {
+var q = g.ppl[lh];
+F.ui.toast((q ? q.name : 'Another hunter') + ' got it. Hunts are shared with friends only: add them as a friend to share next time.', 3200);
+}
 };
 
 
@@ -42916,6 +42987,11 @@ O.send = function (event, payload) {
 var pg = pubHolding(F.world);
 if (pg) {
 if (HUNT[event]) return;
+
+
+if (event === 'say') { if (pg.mode === 'live' && payload && typeof payload.s === 'string') send(pg, { t: 'say', s: payload.s }); return; }
+
+if (event === 'emote') { if (pg.mode === 'live' && payload && typeof payload.k === 'string') send(pg, { t: 'em', k: payload.k }); return; }
 
 if (event === 'mv' && payload && payload.map === pg.w.mapKey) { if (pg.farmTold) return; pg.farmTold = true; }
 } else if (OLD[event] && holding(F.world)) return;
@@ -43016,7 +43092,7 @@ g.mvMs -= dt;
 if (g.mvMs <= 0 && (moved || (last && last.m) || (last && last.b !== b))) {
 g.lastMv = { x: f.x, y: f.y, dir: this.dir, m: moved ? 1 : 0, b: b };
 g.mvMs = GS.mvEvery;
-send(g, { t: 'mv', x: Math.round(f.x), y: Math.round(f.y), dir: this.dir || 'down', m: moved ? 1 : 0, hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0, b: b });
+send(g, { t: 'mv', x: Math.round(f.x), y: Math.round(f.y), dir: this.dir || 'down', m: moved ? 1 : 0, hg: L.gearBits ? L.gearBits(s) : 0, sk: L.power(s, 'sneak') ? 1 : 0, b: b, c: Date.now() });
 }
 g.piMs -= dt;
 if (g.piMs <= 0) { g.piMs = GS.piEvery; send(g, { t: 'pi', c: Date.now() }); }
@@ -43125,6 +43201,9 @@ if (g.dbg.text !== line) g.dbg.setText(line);
 
 F.GameServer = {
 config: GS,
+pubLive: function () { return !!pubLive(); },
+isFriend: isFriend,
+friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); },
 baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; },
 state: function () {
 var g = gs;

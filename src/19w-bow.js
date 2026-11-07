@@ -190,6 +190,9 @@
   P.remoteShot = function (r, x, y, ang, l, level) {
     var self = this, p = r.spr;
     if (!p || !p.active || r.horse || r.shot) return false;
+    // in a look whose bow picture is still coming: just the arrow and the bow's flash (the caller), not plain clothes
+    // for a moment (one that can't come at all: the plain archer, as before)
+    if (r.cs && F.lookReady && !F.lookReady(r.cs, r.look, true) && F.lookPending && F.lookPending(r.cs, r.look, true)) return false;
     var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
     var at = POSE[dir], depth = p.depth + (at.behind ? -0.001 : 0.001), key = F.ensureTexture(this, F.archerKeyFor ? F.archerKeyFor(r.look, r.cs) : r.look === 'girl' ? 'archer_girl' : 'archer');
     var icon = C.ICON[level > 0 ? 'bow_' + Math.min(3, Math.floor(level)) : 'bow'];

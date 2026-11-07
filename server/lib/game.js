@@ -97,6 +97,8 @@ class Game {
     else if (msg.t === 'bye') room.leave(c);
     else if (room.pub && msg.t === 'bt') room.bait(p, msg); // (a cave's bait and arrows stay on the old relay: step 1)
     else if (room.pub && msg.t === 'ar') room.arrow(p, msg);
+    else if (room.pub && msg.t === 'say') room.say(p, msg); // (a cave's chat stays on the farm's room)
+    else if (room.pub && msg.t === 'em') room.emote(p, msg);
   }
   // A phone this far behind on what we sent (it misses ticks until it catches up).
   behind(c) { return c.sock.bufferedAmount > BUSY_BYTES; }

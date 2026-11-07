@@ -19,6 +19,12 @@ const CROWD_EACH = 5; // a hunted slot comes back ceil(players / 5) times sooner
 const CROWD_MOST = 3; // ... at most 3 times
 const SWEEP = 5000; // ms: how often one no longer about (a wolf at sunrise, the rain's deer) is looked for, to walk off
 const AR_MAX = 8; // arrows in flight a second a phone (more are dropped)
+// Chat in a hunting place (owner, 7 Nov 2026: "It should be open to everyone ... Even strangers can talk to each
+// other"): a line to everyone in the room, as Central Park's. Each phone checks the words (L.chatClean) and blocks; the
+// server keeps lines short and slow (the game's C.CHAT: 60 characters, 1.2 s apart, 12 a minute).
+const SAY_MAX = 60, SAY_GAP = 1200, SAY_MINUTE = 12;
+const EMOTES = { wave: 1, laugh: 1, wow: 1, yay: 1, aww: 1, heart: 1 }; // (O.REACT_WORDS, 19h-online.js, and the heart)
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 const MANILA = 8 * 3600000; // the phones' clock is Philippine time (UTC+8, no summer time)
 const DAY = 864e5;
 
@@ -225,6 +231,26 @@ class PubRoom extends Room {
     this.players.forEach((q) => { if (q !== p && q.conn && q.view.has(p.id)) this.game.sendRaw(q.conn, s); });
   }
 
+  // A wave or a reaction ('Hi!', a heart...): to the phones that can see them, as an arrow in flight (at most 2 a second).
+  emote(p, msg) {
+    const sec = Math.floor(this.game.now() / 1000);
+    if (sec !== p.emSec) { p.emSec = sec; p.emN = 0; }
+    if (++p.emN > 2 || typeof msg.k !== 'string' || !EMOTES[msg.k]) return;
+    const s = JSON.stringify({ t: 'em', id: p.id, k: msg.k });
+    this.players.forEach((q) => { if (q !== p && q.conn && q.view.has(p.id)) this.game.sendRaw(q.conn, s); });
+  }
+
+  say(p, msg) {
+    const now = this.game.now();
+    if (typeof msg.s !== 'string') return;
+    const s = msg.s.replace(CONTROL, '').replace(/\s+/g, ' ').trim().slice(0, SAY_MAX);
+    if (!s) return;
+    p.says = (p.says || []).filter((t) => now - t < 60000);
+    if (p.says.length >= SAY_MINUTE || (p.says.length && now - p.says[p.says.length - 1] < SAY_GAP)) return;
+    p.says.push(now);
+    this.broadcast({ t: 'say', id: p.id, n: p.name, s }, p);
+  }
+
   // ---------- every 50 ms ----------
   step(dt) {
     if (!this.players.size || !this.started) return;
@@ -249,7 +275,7 @@ class PubRoom extends Room {
       m.push(row);
     });
     const moved = new Map(), rows = new Map();
-    this.moved.forEach((id) => { const p = this.players.get(id); if (p) moved.set(id, JSON.stringify([id, Math.round(p.x), Math.round(p.y), p.dir, p.m])); });
+    this.moved.forEach((id) => { const p = this.players.get(id); if (p) moved.set(id, JSON.stringify(p.mc ? [id, Math.round(p.x), Math.round(p.y), p.dir, p.m, p.mc] : [id, Math.round(p.x), Math.round(p.y), p.dir, p.m])); });
     const rowOf = (q) => { let s = rows.get(q.id); if (!s) rows.set(q.id, (s = JSON.stringify(this.pplRow(q)))); return s; };
     // how many are in the whole room (the phone's "Banaue 2 · 23 here"), when it changed
     const here = this.players.size, newHere = here !== this.hereSent;

@@ -778,3 +778,231 @@ test('the first time you are live in a public room: the HUNTING TOGETHER tour, e
   await me.context.close();
   await gsrv.close();
 });
+
+// How a stranger walking in a straight line is drawn on another phone (owner, 7 Nov 2026: "I cant see them walking,
+// they just transporting instantly place by place"): every frame, how far their farmer moved on screen.
+const walkProbe = async (url, label, sendEvery = 100, clock = true) => { // (clock: their own clock in each move, a different one from ours)
+  const server = createServer();
+  const me = await open(server, url, 'Moon Meadow');
+  await go(me);
+  await waitMode(me.page, 'live');
+  const f = await me.page.evaluate(() => Farm.world.feet());
+  const SPEED = await me.page.evaluate(() => Farm.Config.SPEED);
+  const s = new WebSocket(url);
+  const lo = f.x - 13 * T, hi = f.x - 1 * T; // (inside the map: the way in is at its east edge)
+  let x = lo, dirn = 1, timer = null;
+  const y = f.y + T;
+  await new Promise((res) => s.on('open', res));
+  s.send(JSON.stringify({ t: 'hi', v: 1, token: 'test-token:walker', topic: 'pub', map: MAP, floor: 0, name: 'Walker', look: 'boy', x: Math.round(x), y: Math.round(y), dir: 'right', hg: 0, sk: 0, b: 0, bk: 0, with: me.uid, lk: { cs: '', pt: 0, rd: 0 } }));
+  await me.page.waitForFunction(() => Object.keys(Farm.world.remotes).length >= 1, null, SLOW);
+  let last = Date.now();
+  timer = setInterval(() => { // (walks back and forth, 12 tiles, at a farmer's speed; a move every sendEvery ms, as a phone)
+    const now = Date.now(); x += dirn * SPEED * (now - last) / 1000; last = now;
+    if (x > hi) dirn = -1; if (x < lo) dirn = 1;
+    s.send(JSON.stringify({ t: 'mv', x: Math.round(x), y: Math.round(y), dir: dirn > 0 ? 'right' : 'left', m: 1, hg: 0, sk: 0, b: 0, c: clock ? Date.now() + 777777 : undefined }));
+  }, sendEvery);
+  await sleep(2000);
+  const r = await me.page.evaluate(() => new Promise((resolve) => {
+    const w = Farm.world, id = Object.keys(w.remotes)[0], out = [];
+    let px = null, t0 = performance.now(), prev = t0;
+    const tick = (t) => {
+      const rm = w.remotes[id];
+      if (rm) { if (px != null) out.push([t - prev, Math.abs(rm.x - px), rm.anim || '']); px = rm.x; }
+      prev = t;
+      if (t - t0 < 6000) requestAnimationFrame(tick); else resolve(out);
+    };
+    requestAnimationFrame(tick);
+  }));
+  clearInterval(timer); s.terminate();
+  const per = r.map(([dt, d]) => d / Math.max(1, dt) * 1000); // px a second, each frame
+  const still = r.filter(([, d]) => d < 0.5).length, jumps = r.filter(([dt, d]) => d > SPEED * 3 * Math.max(dt, 16) / 1000).length;
+  const sorted = per.slice().sort((a, b) => a - b), q = (k) => Math.round(sorted[Math.floor(sorted.length * k)] || 0);
+  const walking = r.filter(([, , a]) => /walk/.test(a)).length;
+  if (process.env.WALK_TRACE) console.log('[trace ' + label + '] ' + r.map(([dt, d]) => (d < 0.5 ? '.' : d > 40 ? 'J' : '-')).join(''));
+  console.log('[walk ' + label + '] frames ' + r.length + ', speed px/s p10 ' + q(0.1) + ' p50 ' + q(0.5) + ' p90 ' + q(0.9) + ' (theirs ' + SPEED + '), standing still ' + still + ', jumps ' + jumps + ', walking anim ' + walking);
+  await me.context.close();
+  return { frames: r.length, still, jumps, walking, p50: q(0.5), SPEED };
+};
+test('REAL pub: a stranger walking is drawn walking, not jumping (no stops, no rush), even on a bad signal', async () => {
+  const real = await realServer();
+  for (const [url, label, clock] of [[real.direct, 'direct', true], [real.url, 'bad signal 60-250 ms', true], [real.url, 'bad signal, an older phone (no clock)', false]]) {
+    const r = await walkProbe(url, label, 100, clock);
+    assert.ok(r.walking > r.frames * 0.85, label + ': walking almost every frame (' + r.walking + '/' + r.frames + ')');
+    assert.ok(r.still < r.frames * 0.12, label + ': hardly a frame standing (' + r.still + '/' + r.frames + ')');
+    assert.strictEqual(r.jumps, 0, label + ': never a jump');
+    assert.ok(r.p50 > r.SPEED * 0.8 && r.p50 < r.SPEED * 1.2, label + ': at their own speed (' + r.p50 + ')');
+  }
+});
+
+test('REAL pub: a stranger in a look keeps it when they shoot (its bow picture is fetched as soon as they are drawn)', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const me = await open(server, real.direct, 'Moon Meadow');
+  await go(me);
+  await waitMode(me.page, 'live');
+  const f = await me.page.evaluate(() => Farm.world.feet());
+  const cos = await me.page.evaluate(() => Object.keys(Farm.Config.LOOK_INDEX)[0]);
+  const s = new WebSocket(real.direct);
+  await new Promise((res) => s.on('open', res));
+  s.send(JSON.stringify({ t: 'hi', v: 1, token: 'test-token:archer', topic: 'pub', map: MAP, floor: 0, name: 'Archer', look: 'girl', x: Math.round(f.x - 3 * T), y: Math.round(f.y), dir: 'right', hg: 0, sk: 0, b: 0, bk: 0, with: me.uid, lk: { cs: cos, pt: 0, rd: 0 } }));
+  await me.page.waitForFunction(() => Object.keys(Farm.world.remotes).length >= 1, null, SLOW);
+  // before any shot: its bow picture is on this phone already
+  await me.page.waitForFunction((cos) => Farm.world.textures.exists('look_' + cos + '_girl_archer'), cos, SLOW);
+  await me.page.evaluate(() => { const w = Farm.world; w.__bodies = []; const add = w.add.image.bind(w.add); w.__add = add; w.add.image = function (x, y, key, fr) { w.__bodies.push(key); return add(x, y, key, fr); }; });
+  s.send(JSON.stringify({ t: 'ar', x: Math.round(f.x - 3 * T), y: Math.round(f.y), a: 0, l: 4, b: 1 }));
+  await me.page.waitForFunction(() => Farm.world.__bodies.some((k) => /archer/.test(k)), null, SLOW);
+  const keys = await me.page.evaluate(() => { const w = Farm.world; w.add.image = w.__add; return w.__bodies.filter((k) => /archer/.test(k)); });
+  assert.ok(keys.length && keys.every((k) => k === 'look_' + cos + '_girl_archer'), 'drawn in their look, never plain: ' + keys.join(','));
+  s.terminate();
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
+test('REAL pub: strangers chat (the Chat button is there with no friends); a hunt is shared with the hunter\'s friends only', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const me = await open(server, real.direct, 'Moon Meadow'), sun = await open(server, real.direct, 'Sun Patch');
+  for (const who of [me, sun]) { await go(who); await waitMode(who.page, 'live'); }
+  for (const [a, b] of [[me, sun], [sun, me]]) await a.page.waitForFunction((id) => !!Farm.world.remotes[id], b.uid, SLOW);
+  // no friends at all, and still a Chat button
+  for (const who of [me, sun]) {
+    assert.strictEqual(await who.page.evaluate(() => Object.keys(Farm.Online.others).length), 0, 'nobody in the farm room');
+    await who.page.waitForFunction(() => Farm.world.chatable === true, null, SLOW);
+  }
+  // a stranger's line: in my chat and over their head
+  assert.strictEqual(await sun.page.evaluate(() => Farm.Online.say('Hello hunters!')), '');
+  await me.page.waitForFunction(() => Farm.Online.chatLines().some((l) => l.text === 'Hello hunters!' && l.name === 'Sun Patch'), null, SLOW);
+  assert.ok(await me.page.evaluate((id) => !!Farm.world.bubbles[id], sun.uid), 'over their head');
+  // a rude one never shows
+  await sleep(1500);
+  await sun.page.evaluate(() => Farm.Online.say('you are a tanga'));
+  await sleep(1500);
+  assert.ok(!(await me.page.evaluate(() => Farm.Online.chatLines().some((l) => /tanga/.test(l.text)))));
+  // nothing of it went to the farm room
+  assert.deepStrictEqual(sun.relay.filter((m) => m.ev === 'say'), []);
+
+  // a hunt: I hit first, the stranger lands the last hit: theirs only
+  for (const who of [me, sun]) await calm(who.page);
+  // (ones that take two hits or more: my one arrow never brings it down myself)
+  const slots = (await list(me.page)).split(' ').filter(Boolean).filter((e) => Number(e.split(':')[2].split('/')[0]) >= 2).map((e) => Number(e.split(':')[0]));
+  assert.ok(slots.length >= 2, 'two that take two hits: ' + (await list(me.page)));
+  const share = async (slot) => {
+    const n0 = await me.page.evaluate(() => Farm.session.state.wild.n);
+    // (walk up first, as a player does: the server hears where you are before your arrow)
+    await me.page.evaluate((n) => { const w = Farm.world, a = w.wild.animals.find((x) => x.slot === n); w.setFeet(a.x, a.y + 384); }, slot);
+    await sleep(600);
+    await me.page.evaluate((n) => { const w = Farm.world, a = w.wild.animals.find((x) => x.slot === n); w.wildStruck(a); }, slot);
+    await sun.page.waitForFunction((n) => { const a = Farm.world.wild.animals.find((x) => x.slot === n); return !a || a.hp < (a.max || a.def.hp); }, slot, SLOW); // (the server counted it)
+    assert.strictEqual(await hunt(sun.page, slot), true);
+    await me.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+    await sleep(800);
+    return (await me.page.evaluate(() => Farm.session.state.wild.n)) - n0;
+  };
+  assert.strictEqual(await share(slots[0]), 0, 'a stranger\'s hunt: nothing for me');
+  // friends now: the next one is shared
+  await me.page.evaluate((id) => Farm.GameServer.friendsNow({ [id]: 1 }), sun.uid);
+  await sleep(1500);
+  assert.strictEqual(await share(slots[1]), 1, 'a friend\'s hunt: my share');
+  for (const who of [me, sun]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([me.context.close(), sun.context.close()]);
+});
+
+// Owner, 7 Nov 2026: "check if users and users can see each other right? ... Smooth walking, smooth hunting, some doing
+// anything and it was seen by other with smooth moving also". Two game pages, the real server, a bad signal between
+// (60-250 ms each way): A plays with the arrow keys; what B's screen shows, frame by frame.
+test('REAL pub, bad signal: two players see each other smoothly: walking, the animals, a shot, a wave, a line, a hunt', async () => {
+  const real = await realServer();
+  const server = createServer();
+  const A = await open(server, real.url, 'Moon Meadow'), B = await open(server, real.url, 'Sun Patch');
+  for (const who of [A, B]) { await go(who); await waitMode(who.page, 'live'); await calm(who.page); }
+  await B.page.waitForFunction((id) => !!Farm.world.remotes[id], A.uid, SLOW);
+  await A.page.waitForFunction((id) => !!Farm.world.remotes[id], B.uid, SLOW);
+  const out = {};
+  // B records, every frame, A's farmer and the animals
+  const record = (ms) => B.page.evaluate(([id, ms]) => new Promise((resolve) => {
+    const w = Farm.world, rows = [];
+    const t0 = performance.now();
+    const f = (t) => {
+      const r = w.remotes[id];
+      rows.push({ t, x: r ? r.x : null, y: r ? r.y : null, anim: r ? r.anim || '' : '', mons: w.wild.animals.filter((a) => !a.gsLocal).map((a) => [a.slot, a.x, a.y]) });
+      if (t - t0 < ms) requestAnimationFrame(f); else resolve(rows);
+    };
+    requestAnimationFrame(f);
+  }), [A.uid, ms]);
+  // 1) A walks: left 2.5 s, up 1.2 s, right 2 s, as a thumb on the pad would
+  await A.page.evaluate(() => Farm.ui.closeAll());
+  const walk = (async () => {
+    for (const [key, ms] of [['ArrowLeft', 2500], ['ArrowUp', 1200], ['ArrowRight', 2000]]) { await A.page.keyboard.down(key); await sleep(ms); await A.page.keyboard.up(key); }
+  })();
+  const selfRec = A.page.evaluate((ms) => new Promise((resolve) => { const w = Farm.world, out = []; let px = null, py = null; const t0 = performance.now(); const f = (t) => { const p = w.feet(); out.push(px == null ? '' : Math.hypot(p.x - px, p.y - py) < 0.5 ? '.' : '-'); px = p.x; py = p.y; if (t - t0 < ms) requestAnimationFrame(f); else resolve(out.join('')); }; requestAnimationFrame(f); }), 6600);
+  const rows = await record(6600);
+  await walk;
+  const aOwn = await selfRec;
+  if (process.env.WALK_TRACE) console.log('[trace A own] ' + aOwn);
+  const walking = rows.slice(30, -30); // (the middle: A is walking all of it, B draws A a moment behind)
+  let jumps = 0, still = 0, steps = [];
+  for (let i = 1; i < walking.length; i++) {
+    const d = Math.hypot(walking[i].x - walking[i - 1].x, walking[i].y - walking[i - 1].y), dt = walking[i].t - walking[i - 1].t;
+    if (d > 64) jumps++; if (d < 0.5) still++;
+    steps.push(d / Math.max(1, dt) * 1000);
+  }
+  steps.sort((a, b) => a - b);
+  const SPEED = await A.page.evaluate(() => Farm.Config.SPEED);
+  const bSaw = rows.map((r, i) => i ? (Math.hypot(r.x - rows[i - 1].x, r.y - rows[i - 1].y) < 0.5 ? '.' : /walk/.test(r.anim) ? '-' : 'o') : '').join('');
+  if (process.env.WALK_TRACE) console.log('[trace keys] ' + bSaw);
+  // (A stops where the map stops them: B must show the same walks and the same stops, a moment later, never more)
+  const runs = (str) => (str.match(/-{20,}/g) || []).map((x) => x.length);
+  out.walkVsA = { aMoving: (aOwn.match(/-/g) || []).length, bWalking: (bSaw.match(/-/g) || []).length, aWalks: runs(aOwn), bWalks: runs(bSaw) };
+  out.walk = { frames: walking.length, walkingAnim: walking.filter((r) => /walk/.test(r.anim)).length, still, jumps, speedP50: Math.round(steps[steps.length >> 1]), theirs: SPEED };
+  await sleep(1200);
+  const aAt = await A.page.evaluate(() => Farm.world.feet()), bSees = await B.page.evaluate((id) => ({ x: Farm.world.remotes[id].x, y: Farm.world.remotes[id].y }), A.uid);
+  out.walk.endOffTiles = Math.round(Math.hypot(aAt.x - bSees.x, aAt.y - bSees.y) / T * 100) / 100;
+  // 2) the animals: the same place on both screens, and gliding (never a jump)
+  const both = async () => Promise.all([A, B].map((who) => who.page.evaluate(() => Object.fromEntries(Farm.world.wild.animals.filter((a) => !a.gsLocal).map((a) => [a.slot, [a.x, a.y]])))));
+  const [ma, mb] = await both();
+  const offs = Object.keys(ma).filter((k) => mb[k]).map((k) => Math.hypot(ma[k][0] - mb[k][0], ma[k][1] - mb[k][1]) / T);
+  let mj = 0, mframes = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const prev = Object.fromEntries(rows[i - 1].mons.map((m) => [m[0], m]));
+    rows[i].mons.forEach((m) => { const p = prev[m[0]]; if (!p) return; mframes++; if (Math.hypot(m[1] - p[1], m[2] - p[2]) > 64) mj++; });
+  }
+  out.animals = { count: offs.length, offTilesAvg: Math.round(offs.reduce((s, x) => s + x, 0) / Math.max(1, offs.length) * 100) / 100, offTilesMax: Math.round(Math.max(0, ...offs) * 100) / 100, framesWatched: mframes, jumps: mj };
+  // 3) a shot, 4) a wave, 5) a line: each seen on B
+  await B.page.evaluate(() => { const w = Farm.world; w.__seen = { shot: 0, emote: [] }; const rs = w.remoteShot, wa = w.wildArrow; w.remoteShot = function () { const ok = rs.apply(this, arguments); if (ok) w.__seen.shot = performance.now(); return ok; }; w.wildArrow = function (x, y, a, l, shown) { if (shown) w.__seen.shot = w.__seen.shot || performance.now(); return wa.apply(this, arguments); }; const se = Farm.Online.showEmote; Farm.Online.showEmote = function (id, k) { w.__seen.emote.push([id, k, performance.now()]); return se.apply(this, arguments); }; });
+  const t0 = Date.now();
+  await A.page.evaluate(() => { Farm.ui.closeAll(); const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); Farm.world.shoot(); });
+  await B.page.waitForFunction(() => Farm.world.__seen.shot > 0, null, SLOW);
+  out.shotMs = Date.now() - t0;
+  const t1 = Date.now();
+  await A.page.evaluate(() => Farm.Online.react('wave'));
+  await B.page.waitForFunction((id) => Farm.world.__seen.emote.some((e) => e[0] === id && e[1] === 'wave'), A.uid, SLOW);
+  out.waveMs = Date.now() - t1;
+  await sleep(1300);
+  const t2 = Date.now();
+  assert.strictEqual(await A.page.evaluate(() => Farm.Online.say('Tara, hunt tayo!')), '');
+  await B.page.waitForFunction(() => Farm.Online.chatLines().some((l) => l.text === 'Tara, hunt tayo!'), null, SLOW);
+  out.chatMs = Date.now() - t2;
+  // 6) a hunt by A: gone on B too
+  const slot = Number((await list(A.page)).split(' ')[0].split(':')[0]);
+  const t3 = Date.now();
+  assert.strictEqual(await hunt(A.page, slot), true);
+  const killA = Date.now() - t3;
+  await B.page.waitForFunction((n) => !Farm.world.wild.animals.some((a) => a.slot === n), slot, SLOW);
+  out.hunt = { gone_on_A_ms: killA, gone_on_B_after_A_ms: Date.now() - t3 - killA };
+  await sleep(2000);
+  out.hunt.stillGoneOnB = !(await B.page.evaluate((n) => Farm.world.wild.animals.some((a) => a.slot === n), slot));
+  out.sameListAfter = (await list(A.page)) === (await list(B.page));
+  console.log('[see each other] ' + JSON.stringify(out));
+  // what a player would call smooth
+  const v = out.walkVsA;
+  assert.strictEqual(v.bWalks.length, v.aWalks.length, 'B shows each of A\'s walks as one walk, no stop in the middle');
+  assert.ok(v.bWalking >= v.aMoving * 0.9 && v.bWalking <= v.aMoving * 1.15, 'B shows A walking as long as A walked');
+  assert.strictEqual(out.walk.jumps, 0, 'A never jumps');
+  assert.ok(Math.abs(out.walk.speedP50 - SPEED) < SPEED * 0.2, 'at A\'s own speed');
+  assert.ok(out.walk.endOffTiles < 0.3, 'and stands where A stands');
+  assert.strictEqual(out.animals.jumps, 0, 'animals glide');
+  assert.ok(out.animals.offTilesAvg < 1, 'the animals are in the same place on both');
+  assert.ok(out.hunt.stillGoneOnB && out.sameListAfter, 'a hunt is gone for both');
+  for (const who of [A, B]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([A.context.close(), B.context.close()]);
+});
