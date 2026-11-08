@@ -18,6 +18,17 @@ on." "We cannot change the monthly quest now ... we will change the daily and we
 - **Find**: sparkling spots in that place (1 to 3 pieces); the dog sniffs them out.
 - **Hunt**: one creature there wears a small quest mark and drops it when caught.
 - Prizes: find 1 piece = the medium prize (gold or a Treat); find 3 or hunt = a hard prize (Power-up, Star or Pet Meal).
+
+### How hard (owner, 8 Nov 2026: "a little bit hard but not too hard"): about 5 to 8 minutes each
+- The dog takes you to the place, not to the item. There it sniffs: it wags and barks faster the closer you are
+  (warmer, colder). After 2 minutes without finding the next one, it leads you straight to it (no one is stuck).
+- One-piece items are hidden: no sparkle until you are within 4 tiles.
+- Three-piece items sparkle, but far apart: at least 15 tiles between them, one off the paths.
+- Hunts: the marked creature is a big one (twice the hits, a little faster) and runs. It always drops the item; if it
+  escapes, it comes back a minute later.
+- Each day's 3 adventures are one of each: an easy one (hidden, 1 piece), a medium one (3 pieces) and a hard one
+  (hunt). With 5 of 6 needed, a player can skip the hardest.
+- No timer, no energy cost beyond the normal hunting and travel.
 - Only places you have opened. A farm with none gets the 3 starter adventures (farm, town, mine).
 
 ## The 16 quest items (art: art-src/QUEST-ITEMS-PROMPTS.md, same order)
