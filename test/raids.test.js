@@ -97,3 +97,20 @@ test('practice: the prize comes from the game; first stars count more; the next 
   if (r.stars) assert.ok(L.banditOpen(s, 1));
   assert.strictEqual(roundTrip(s).fr.pts, r.pts);
 });
+
+test('a real farm: raiders find the way round its walls, and come down only on open ground away from it all', () => {
+  // a wall across the middle with one gap at the right; crops behind it
+  const w = 12, h = 10, rows = [];
+  for (let y = 0; y < h; y++) { let row = ''; for (let x = 0; x < w; x++) row += (y === 5 && x < 10) ? '1' : '0'; rows.push(row); }
+  const farm = { w, h, solid: rows.join(''), defs: [], loot: [{ kind: 'crops', x: 2, y: 8, n: 10 }] };
+  farm.drop = L.frDropCells(farm);
+  const b = L.frStart(farm, { goat: { n: 1, lv: 1 } }, 1);
+  assert.ok(!L.frEdge(b, 2, 7), 'not right by the crops');
+  assert.ok(!L.frEdge(b, 5, 5), 'not in the wall');
+  assert.ok(L.frEdge(b, 2, 1), 'open ground far away');
+  L.frDrop(b, 'goat', 2, 1);
+  let crossed = false;
+  for (let i = 0; i < 600 && !b.end; i++) { L.frStep(b); const r = b.raiders[0]; if (Math.floor(r.y) === 5) { crossed = true; assert.ok(Math.floor(r.x) >= 10, 'through the gap only: ' + r.x); } }
+  assert.ok(crossed, 'it went round');
+  assert.ok(b.taken.crops > 0, 'and ate');
+});

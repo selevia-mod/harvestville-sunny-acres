@@ -175,7 +175,21 @@
     return b;
   };
   // where a raider may come down: the edge of the farm (R.battle.edge tiles)
-  L.frEdge = function (b, x, y) { var e = R.battle.edge, w = b.farm.w, h = b.farm.h; return x >= 0 && y >= 0 && x < w && y < h && (x < e || y < e || x >= w - e || y >= h - e); };
+  L.frEdge = function (b, x, y) {
+    var e = R.battle.edge, w = b.farm.w, h = b.farm.h;
+    if (x < 0 || y < 0 || x >= w || y >= h) return false;
+    if (b.farm.drop) return b.farm.drop.charCodeAt(y * w + x) === 49; // (a real farm: open ground away from it all)
+    return x < e || y < e || x >= w - e || y >= h - e;
+  };
+  // where raiders may come down on a real farm: open ground at least R.battle.keep tiles from any loot or defense
+  L.frDropCells = function (farm) {
+    var w = farm.w, h = farm.h, out = [], keep = R.battle.keep, things = farm.loot.concat(farm.defs);
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var ok = !(farm.solid && farm.solid.charCodeAt(y * w + x) === 49) && !things.some(function (o) { return Math.abs(o.x - x) < keep && Math.abs(o.y - y) < keep; });
+      out.push(ok ? '1' : '0');
+    }
+    return out.join('');
+  };
   L.frDrop = function (b, k, x, y) {
     var l = b.left[k];
     if (b.end || !l || l.n <= 0 || !L.frEdge(b, x, y)) return null;
@@ -185,6 +199,33 @@
     b.raiders.push(r);
     b.moves.push([b.t, k, x, y]);
     return r;
+  };
+  // the farm's own walls (a real farm: trees, buildings, water): farm.solid, a string of '1' / '0' a tile, w x h. Fences
+  // are not in it: they are defenses, and a raider breaks through them.
+  var solid = function (b, x, y) { var f = b.farm; if (x < 0 || y < 0 || x >= f.w || y >= f.h) return true; return !!f.solid && f.solid.charCodeAt(y * f.w + x) === 49; };
+  // the way over open ground (4 ways) from a raider to its target's tile or one beside it: [[x, y]...] or null
+  var route = function (b, r, tg) {
+    var f = b.farm, w = f.w, h = f.h, sx = Math.floor(r.x), sy = Math.floor(r.y), gx = Math.floor(tg.x), gy = Math.floor(tg.y);
+    if (!f.solid) return null;
+    var from = new Int32Array(w * h).fill(-1), q = [sy * w + sx], head = 0, end = -1;
+    from[sy * w + sx] = sy * w + sx;
+    while (head < q.length) {
+      var k = q[head++], x = k % w, y = (k - x) / w;
+      if (Math.abs(x - gx) + Math.abs(y - gy) <= 1) { end = k; break; }
+      var nb = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+      for (var i = 0; i < 4; i++) {
+        var nx = nb[i][0], ny = nb[i][1];
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        var n = ny * w + nx;
+        if (from[n] >= 0 || solid(b, nx, ny)) continue;
+        from[n] = k;
+        q.push(n);
+      }
+    }
+    if (end < 0) return null;
+    var path = [];
+    for (var c = end; c !== sy * w + sx; c = from[c]) path.unshift([c % w + 0.5, Math.floor(c / w) + 0.5]);
+    return path;
   };
   var fenceAt = function (b, x, y) { for (var i = 0; i < b.defs.length; i++) { var d = b.defs[i]; if (d.t === 'fence' && d.hp > 0 && Math.floor(d.x) === Math.floor(x) && Math.floor(d.y) === Math.floor(y)) return d; } return null; };
   // what a raider goes for: its favourite, else any loot left, else a defense
@@ -239,8 +280,16 @@
       if (!tg) return;
       var dd = dist(r.x, r.y, tg.x, tg.y), reach = tg.left != null ? 0.6 : 1.0;
       if (dd > reach) {
-        var nx = r.x + (tg.x - r.x) / dd * sp, ny = r.y + (tg.y - r.y) / dd * sp, f = !d.flies && !d.through ? fenceAt(b, nx, ny) : null;
-        if (f && f !== tg) { r.target = f; return; } // a fence in the way: through it
+        // on a real farm: the way round its walls (fliers go straight); a fresh way when the target changes
+        var wx = tg.x, wy = tg.y;
+        if (b.farm.solid && !d.flies) {
+          if (r.routeFor !== tg.id) { r.route = route(b, r, tg) || []; r.routeFor = tg.id; }
+          while (r.route.length && dist(r.x, r.y, r.route[0][0], r.route[0][1]) < 0.15) r.route.shift();
+          if (r.route.length) { wx = r.route[0][0]; wy = r.route[0][1]; }
+        }
+        var wd = dist(r.x, r.y, wx, wy) || 1, step = Math.min(sp, wd);
+        var nx = r.x + (wx - r.x) / wd * step, ny = r.y + (wy - r.y) / wd * step, f = !d.flies && !d.through ? fenceAt(b, nx, ny) : null;
+        if (f && f !== tg) { r.target = f; r.routeFor = null; return; } // a fence in the way: through it
         r.x = nx; r.y = ny;
         return;
       }
