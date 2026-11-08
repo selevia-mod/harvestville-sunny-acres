@@ -24,12 +24,15 @@
   };
 
   // ---------- the snapshot ----------
+  C.SNAP_SOIL = 700; // (about 10 KB of soil at most: the server keeps a snapshot up to 32 KB; the biggest is 17 KB)
   L.snapshot = function (s) {
     var soil = [];
-    Object.keys(s.soil).forEach(function (idx) {
+    // [tile, crop + 1, its stage now (0 seeds .. 3 ripe, 4 withered), watered]; the planted tiles first, then the bare,
+    // up to C.SNAP_SOIL (9 Nov 2026: a farm with its six land blocks planted has more than the 400 there were room for)
+    var keys = Object.keys(s.soil), planted = keys.filter(function (k) { return s.soil[k].c; }), bare = keys.filter(function (k) { return !s.soil[k].c; });
+    planted.concat(bare).forEach(function (idx) {
       var t = s.soil[idx];
-      // [tile, crop + 1, its stage now (0 seeds .. 3 ripe, 4 withered), watered]
-      if (soil.length < 400) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.c ? L.cropStage(t) : 0, t.w ? 1 : 0]);
+      if (soil.length < C.SNAP_SOIL) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.c ? L.cropStage(t) : 0, t.w ? 1 : 0]);
     });
     var debris = [];
     Object.keys(s.debris).forEach(function (idx) { if (debris.length < 800) debris.push([Number(idx), C.DEBRIS_KEYS.indexOf(s.debris[idx])]); });
@@ -90,7 +93,7 @@
       if (e.length > 3 && L.treeOf && L.treeOf(t)) { var f = int(e[3], 0, 1e9, -1); if (f >= 0) (s.fruit = s.fruit || {})[it.x + ',' + it.y] = f; } // last picked
     });
     s.soil = {};
-    (Array.isArray(snap.soil) ? snap.soil : []).slice(0, 400).forEach(function (e) {
+    (Array.isArray(snap.soil) ? snap.soil : []).slice(0, C.SNAP_SOIL).forEach(function (e) {
       if (!Array.isArray(e)) return;
       var idx = int(e[0], -1, 1e6, -1), crop = C.CROP_KEYS[int(e[1], 0, 1e6, 0) - 1] || null;
       if (idx > 1e5) return;
