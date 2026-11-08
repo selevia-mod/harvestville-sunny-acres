@@ -1327,6 +1327,43 @@ test('online: visitors follow the owner to town and into the mine: asked, Follow
   for (const p of [host, guest]) await p.context.close();
 });
 
+test('online: a message to a friend shows in the chat at once: the chat stays open while it sends (no flicker), and a second one too', async () => {
+  // owner, 8 Nov 2026: "Sending DM looks like off, its flickering or junky" (it closed, waited for the server, opened again)
+  const server = createServer();
+  const a = await open(server), b = await open(server);
+  await nameFarm(a.page, 'Moon Meadow');
+  await nameFarm(b.page, 'Sun Patch');
+  const code = await b.page.evaluate(() => Farm.Online.me.code);
+  await a.page.evaluate((c) => Farm.Net.rpc('farm_friend_add_v1', { p_code: c }), code);
+  await b.page.evaluate((id) => Farm.Net.rpc('farm_friend_answer_v1', { p_other: id, p_accept: true }), a.uid);
+  await a.page.evaluate(([id]) => Farm.ui.openChat(id, 'Sun Patch'), [b.uid]);
+  await waitModal(a.page, /No messages yet/);
+  for (const [n, text] of [[1, 'Saan ka na'], [2, 'Saan ka na?']]) {
+    // watch every frame: the chat panel is the same one the whole time, never gone
+    await a.page.evaluate(() => {
+      const panel = Farm.ui.modals[0];
+      window.__chat = { panel, lost: 0 };
+      const watch = () => { if (Farm.ui.modals[0] !== panel) window.__chat.lost++; window.__chat.raf = requestAnimationFrame(watch); };
+      watch();
+    });
+    await tapButton(a.page, 'Write');
+    await type(a.page, text);
+    await waitModal(a.page, new RegExp('(^| \\| )' + text.replace('?', '\\?') + '( \\| |$)'));
+    await a.page.waitForFunction((k) => Farm.ui.modals.length === 1 && !document.querySelector('#farm-ask'), n, SLOW);
+    await a.page.waitForTimeout(600);
+    const lost = await a.page.evaluate(() => { cancelAnimationFrame(window.__chat.raf); return window.__chat.lost; });
+    assert.strictEqual(lost, 0, 'the chat never closed or swapped while sending (' + text + ')');
+    assert.strictEqual(server.db.messages.length, n, 'sent to the server');
+  }
+  assert.deepStrictEqual(server.db.messages.map((m) => m.body), ['Saan ka na', 'Saan ka na?']);
+  // the friend sees both
+  await b.page.evaluate(([id]) => Farm.ui.openChat(id, 'Moon Meadow'), [a.uid]);
+  await waitModal(b.page, /Saan ka na\?/);
+  await shot(a.page, 'online-dm-sent');
+  for (const p of [a, b]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [a, b]) await p.context.close();
+});
+
 test('online: keeping it friendly: rude words refused, report and block, unblock', async () => {
   const server = createServer();
   const owner = await open(server), troll = await open(server);

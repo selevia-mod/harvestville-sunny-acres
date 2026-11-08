@@ -584,6 +584,8 @@ test('the REAL game server: friends each in their own game meet on a dungeon flo
   // one floor: each draws the other, the same monsters
   for (const [x, y] of [[A, B], [B, A]]) await x.page.waitForFunction((id) => !!Farm.world.remotes[id], y.uid, SLOW);
   await until(async () => (await list(A.page)) === (await list(B.page)), 'the same monsters on both');
+  // the Chat button is there for both: a friend is on the floor (owner, 8 Nov 2026: "Missing chat on dungeon")
+  for (const who of [A, B]) await who.page.waitForFunction(() => Farm.world.chatable === true && Farm.ui.chatBtn.visible, null, SLOW);
   // talk: a line and a wave from B reach A
   assert.strictEqual(await B.page.evaluate(() => Farm.Online.say('Andito ako!')), '');
   await A.page.waitForFunction(() => Farm.Online.chatLines().some((l) => l.text === 'Andito ako!'), null, SLOW);
@@ -600,6 +602,7 @@ test('the REAL game server: friends each in their own game meet on a dungeon flo
   await waitMode(C.page, 'live');
   await sleep(1500);
   assert.ok(!(await C.page.evaluate(([a, b]) => !!(Farm.world.remotes[a] || Farm.world.remotes[b]), [A.uid, B.uid])), 'a stranger is not on their floor');
+  assert.strictEqual(await C.page.evaluate(() => !!Farm.world.chatable), false, 'alone on a floor: no Chat button');
   for (const who of [A, B, C]) assert.deepStrictEqual(who.problems, []);
   await Promise.all([A.context.close(), B.context.close(), C.context.close()]);
 });

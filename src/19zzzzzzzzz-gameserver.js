@@ -1087,6 +1087,9 @@
   F.GameServer = {
     config: GS,
     pubLive: function () { return !!pubLive(); }, // (19m-chat.js: the Chat button is always there in a hunting place)
+    // How many others are on your cave floor, as the server says (19m-chat.js: the Chat button shows while one is; owner,
+    // 8 Nov 2026: "Missing chat on dungeon" - a friend from another farm is not in your farm's room, only here)
+    floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
     isFriend: isFriend, // (tests)
     friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); }, // (tests)
     baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; }, // (others' bait drawn here, by whose)

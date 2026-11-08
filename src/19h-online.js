@@ -1263,30 +1263,53 @@
         self.closeModal();
         self.playerMenu(id, who, function (then) { if (O.blocked[id]) self.openOnline('friends', 0, then); else self.openChat(id, who, then); });
       }, GREY);
-      var top = 128, bottom = 540, y = bottom, shown = 0;
-      (list || []).some(function (m) { // newest first: stack upwards until the panel is full
-        var mine = !!m.mine, t = self.txt(mine ? W - 34 : 34, 0, L.cleanText(m.body, 200), 13, mine ? '#1f4a7a' : INK, { wordWrap: { width: 220 }, align: mine ? 'right' : 'left', lineSpacing: 2 }).setOrigin(mine ? 1 : 0, 1);
-        var h = t.height + 18;
-        if (y - h < top) { t.destroy(); return true; }
-        var bg = self.add.rectangle(mine ? W - 26 : 26, y + 2, t.width + 16, t.height + 10, mine ? 0xbfdcf5 : 0xe8cf98).setOrigin(mine ? 1 : 0, 1);
-        t.setY(y - 3);
-        c.add([bg, t]);
-        y -= h;
-        shown++;
-        return false;
-      });
-      if (!shown) c.add(self.txt(W / 2, 300, 'No messages yet. Say hello!', 15, INK).setOrigin(0.5));
+      // the messages: their own layer, drawn again in place when you send one (owner, 8 Nov 2026: "Sending DM looks like
+      // off, its flickering or junky" - it closed, waited for the server, then opened again)
+      var msgs = (list || []).slice(), box = self.add.container(0, 0), sending = false;
+      c.add(box);
+      var draw = function () {
+        box.removeAll(true);
+        var top = 128, bottom = 540, y = bottom, shown = 0;
+        msgs.some(function (m) { // newest first: stack upwards until the panel is full
+          var mine = !!m.mine, t = self.txt(mine ? W - 34 : 34, 0, L.cleanText(m.body, 200), 13, mine ? '#1f4a7a' : INK, { wordWrap: { width: 220 }, align: mine ? 'right' : 'left', lineSpacing: 2 }).setOrigin(mine ? 1 : 0, 1);
+          var h = t.height + 18;
+          if (y - h < top) { t.destroy(); return true; }
+          var bg = self.add.rectangle(mine ? W - 26 : 26, y + 2, t.width + 16, t.height + 10, mine ? 0xbfdcf5 : 0xe8cf98).setOrigin(mine ? 1 : 0, 1);
+          if (m.pending) { bg.setAlpha(0.6); t.setAlpha(0.7); } // (on its way: a little faded until the server has it)
+          t.setY(y - 3);
+          box.add([bg, t]);
+          y -= h;
+          shown++;
+          return false;
+        });
+        if (!shown) box.add(self.txt(W / 2, 300, 'No messages yet. Say hello!', 15, INK).setOrigin(0.5));
+      };
+      draw();
       if (then) then();
       self.button(c, W / 2 - 70, 572, 120, 38, 'Back', function () { self.closeModal(); self.openOnline('friends', 0); }, GREY);
       self.button(c, W / 2 + 70, 572, 120, 38, 'Write', function () {
+        if (sending) return;
         self.askText('Message to ' + who, '', 200, function (body) {
           body = L.cleanText(body, 200);
           if (!body) return;
+          // shown at once, at the bottom of this same chat; taken back if the server says no
+          var m = { mine: true, body: body, pending: true };
+          msgs.unshift(m);
+          sending = true;
+          draw();
+          var back = function (say) {
+            sending = false;
+            var i = msgs.indexOf(m);
+            if (i >= 0) msgs.splice(i, 1);
+            if (box.active) draw();
+            if (say) self.toast(say);
+          };
           F.Net.rpc('farm_message_send_v1', { p_to: id, p_body: body }).then(function (r) {
-            if (r !== 'ok') return self.toast(r === 'limit' ? 'That is 50 messages today. More tomorrow!' : r === 'word' ? 'Please keep it kind: that message has a word that is not allowed.' : 'That message could not be sent.');
-            self.closeModal();
-            self.openChat(id, who);
-          }).catch(function (e) { self.toast(errText(e)); });
+            if (r !== 'ok') return back(r === 'limit' ? 'That is 50 messages today. More tomorrow!' : r === 'word' ? 'Please keep it kind: that message has a word that is not allowed.' : 'That message could not be sent.');
+            sending = false;
+            delete m.pending;
+            if (box.active) draw();
+          }).catch(function (e) { back(errText(e)); });
         }, { ok: 'Send' });
       }, BLUE);
     }).catch(function (e) { self.toast(errText(e)); });

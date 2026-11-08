@@ -82,7 +82,10 @@
     // too (owner, 7 Nov 2026: "chat is not showing in the central park"): a public place, where the next one to come in
     // can be greeted
     // and in a hunting place on our game server: everyone there (owner, 7 Nov 2026: "Even strangers can talk")
-    var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom()) || (F.GameServer && F.GameServer.pubLive && F.GameServer.pubLive())) && !w.busy);
+    // and on a cave floor on our game server while someone else is on it (owner, 8 Nov 2026: "Missing chat on dungeon")
+    var GSV = F.GameServer;
+    var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom()) || (GSV && GSV.pubLive && GSV.pubLive()) ||
+      (GSV && GSV.floorOthers && GSV.floorOthers() > 0)) && !w.busy);
     if (some !== w.chatable) {
       w.chatable = some;
       F.bus.emit('chatable', some);
