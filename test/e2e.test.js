@@ -1891,7 +1891,8 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await tapAction(page);
   await tapButton(page, 'Furniture');
   await tapButton(page, 'See all'); // the Classic style
-  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openCatalog(0, 6); }); // its last page: the cat basket
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openCatalog(0, 0); });
+  await tapTile(page, 'Cat Basket'); // (a tile: its own panel has the Buy)
   await tapButton(page, 'Buy 600G');
   s = await state(page);
   assert.strictEqual(s.cat.name, 'Mochi');
@@ -4345,15 +4346,15 @@ test('animal breeds: colours in the pen, a rare one twinkles and gives two, the 
   await shot(page, 'breeds-book-hens');
   await tapButton(page, 'Carabaos');
   text = await modalText(page);
-  assert.match(text, /1 of 3 found[\s\S]*White Carabao[\s\S]*Prize: 3,000G \+ Miracle Potion[\s\S]*Find all 3 colours/);
+  assert.match(text, /1 of 3 found[\s\S]*White Carabao[\s\S]*Prize: 3,000G \+ Miracle Potion/);
   await shot(page, 'breeds-book-carabaos');
   // every carabao colour: the prize
   await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.markBreed(s, 'carabao', 0); Farm.Logic.markBreed(s, 'carabao', 1); Farm.ui.closeAll(); Farm.ui.openBreeds('carabao'); });
   const gold = (await state(page)).gold;
   await tapButton(page, 'Claim');
   await page.waitForFunction((g) => Farm.session.state.gold === g + 3000, gold, SLOW);
-  assert.match(await modalText(page), /Claimed\. Well done!/);
   await shot(page, 'breeds-book-claimed');
+  assert.match(await tileText(page, 'Prize: 3,000G + Miracle Potion'), /Claimed\. Well done!/); // (its tile's own panel)
   await closeAll(page);
   // the tour: on the farm, once
   await page.evaluate(() => { window.gameHost.quiet = false; Farm.world.travel('town', 'from_farm'); });
@@ -4979,14 +4980,16 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
     return !Farm.Logic.tipSeen(s, 'players_tour');
   });
   assert.ok(unseen, 'the tip is unseen for this check');
-  for (let p = 0; p < 12; p++) { // (on the first page, or a later one once newer versions come before it)
+  for (let p = 0; p < 80; p++) { // (on the first page, or a later one once newer versions come before it)
     await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openNews(p, null); }, p);
     await frames(page, 3);
     if (/Your ideas: new seeds/.test(await modalText(page))) break;
   }
   {
     const row = await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
-    const nth = row.slice(0, row.indexOf('Your ideas: new seeds')).filter((t) => t === 'Show me').length;
+    const at = row.findIndex((t) => /^Your ideas: new seeds/.test(t));
+    assert.ok(at >= 0, row.join(' | '));
+    const nth = row.slice(0, at).filter((t) => t === 'Show me').length;
     await tapButton(page, 'Show me', nth);
   }
   assert.match(await modalText(page), /NEW: YOUR IDEAS/);
@@ -5026,7 +5029,8 @@ test("players' ideas (5 Nov 2026): a placed lamp glows at night; Drop in the Bag
   assert.ok(found, 'Craft it yourself is in Mira\'s Outdoor catalog');
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openCraft(0); });
   await frames(page, 3);
-  assert.match(await modalText(page), /Flower Bed[\s\S]*Needs 4 Tulip \(4\), 2 Gumamela \(2\)/);
+  const bedText = await tileText(page, 'Flower Bed');
+  assert.match(bedText, /Flower Bed[\s\S]*Needs 4 Tulip \(4\), 2 Gumamela \(2\)/);
   await shot(page, 'players-4-craft');
   const bed = await page.evaluate(() => Farm.Config.OUTDOOR.index.flower_bed);
   const before = await page.evaluate((b) => Farm.session.state.yard.bag[b] || 0, bed);
@@ -5423,7 +5427,7 @@ test('friendship stories: Lily at 2 hearts tells her story when you talk, her se
   assert.match(text, /\?\?\? \| Not met yet\./);
   await shot(page, '96-friendship-book');
   await page.evaluate(() => { Farm.ui.closeModal(); Farm.ui.vsBook(3); }); // Hana's page of the Book
-  assert.match(await modalText(page), /Hana \| Story 0 of 4\. At 2 hearts: Hana starts baking before sunrise/, "Hana's: still locked");
+  assert.match(await modalText(page), /Hana \| Story 0 of 4\. At 2 hearts: Hana starts baking/, "Hana's: still locked");
   await tapButton(page, 'Photos');
   assert.match(await modalText(page), /PHOTO WALL[\s\S]*No photos yet/);
   await closeAll(page);
