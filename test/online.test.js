@@ -26,7 +26,8 @@ test('the snapshot has the house, furniture, yard, crops and animals, and nothin
   s.yard.items.push({ t: 0, x: 25, y: 10 });
   const snap = plain(L.snapshot(s));
   assert.strictEqual(snap.home.items.length, s.home.items.length);
-  assert.deepStrictEqual(snap.yard, [[0, 25, 10]]);
+  assert.deepStrictEqual(snap.yard, [], 'a fence is a tile: in the runs');
+  assert.deepStrictEqual(snap.yr, [0, 25, 10, 1]);
   assert.deepStrictEqual(snap.soil, [[5 * 38 + 6, 0, 0, 0]]);
   assert.deepStrictEqual(snap.animals, [['chicken', 'Clucky', 0]]);
   const text = JSON.stringify(snap);

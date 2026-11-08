@@ -628,6 +628,7 @@
     if (row.online) { // (a friend online: a green dot after the name)
       var ox = x + name.displayWidth + 8;
       r.add(this.add.circle(ox, 13, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
+      r.add(this.txt(ox + 7, 13, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
     }
     var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
     var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);

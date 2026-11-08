@@ -12,7 +12,8 @@
   var U = 128, CELL = 3 * U, GAP = 16, COLS = 6; // the yard sheet's layout (tools/art/outdoor.js)
   var WHY = {
     outside: "It doesn't fit there.", blocked: "You can't build there.", taken: "Something's already there.",
-    blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' pieces out, the most a farm can hold (every path tile and fence piece counts as one). Put something away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
+    blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' decorations out, the most a farm can hold. Put one away first (paths and fences have their own room).',
+    fulltiles: 'You have ' + (C.YARD_TILES_MAX || 1500) + ' path and fence tiles out, the most a farm can hold. Put some away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
   };
   var TILE_KINDS = { fence: 1, path: 1, hedge: 1 };
 

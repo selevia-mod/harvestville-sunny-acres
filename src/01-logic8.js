@@ -37,7 +37,9 @@
       v: 1, day: s.day, look: s.look === 'girl' ? 'girl' : 'boy',
       home: { level: s.home.level, wall: s.home.wall, floor: s.home.floor, items: s.home.items.map(function (it) { return [it.t, it.v, it.x, it.y, it.f]; }) },
       // a fruit tree also says when it was last picked, so visitors see it bare or with fruit as you do
-      yard: s.yard.items.map(function (it) { var f = s.fruit && s.fruit[it.x + ',' + it.y]; return L.treeOf(it.t) && f != null ? [it.t, it.x, it.y, f] : [it.t, it.x, it.y]; }),
+      // decorations one by one, paths and fences as runs (a visit saw only 360 pieces before: 8 Nov 2026)
+      yard: s.yard.items.filter(function (it) { return !L.isYardTile || !L.isYardTile(it.t); }).map(function (it) { var f = s.fruit && s.fruit[it.x + ',' + it.y]; return L.treeOf(it.t) && f != null ? [it.t, it.x, it.y, f] : [it.t, it.x, it.y]; }),
+      yr: L.yardRuns ? L.yardRuns(s.yard.items) : undefined,
       soil: soil,
       debris: debris,
       animals: s.animals.slice(0, 40).map(function (a) { return [a.kind, a.name, a.young ? 1 : 0]; }),
@@ -78,7 +80,8 @@
       s.home.items.push({ t: t, v: v, x: x, y: y, f: e[4] ? 1 : 0 });
     });
     s.yard = { items: [], bag: {} };
-    (Array.isArray(snap.yard) ? snap.yard : []).slice(0, 360).forEach(function (e) {
+    if (L.yardUnrun) { var nt = 0; L.yardUnrun(snap.yr, function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); }); }
+    (Array.isArray(snap.yard) ? snap.yard : []).slice(0, (C.YARD_MAX || 360) + (snap.yr ? 0 : C.YARD_TILES_MAX || 0)).forEach(function (e) {
       if (!Array.isArray(e)) return;
       var t = int(e[0], -1, 1e6, -1);
       if (!O.types[t]) return;

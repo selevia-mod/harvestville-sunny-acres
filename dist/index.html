@@ -7947,6 +7947,14 @@ var L = F.Logic;
 var O = C.OUTDOOR;
 var MAX = function () { return C.YARD_MAX || 360; };
 
+
+
+C.YARD_TILES_MAX = 1500;
+L.isYardTile = function (t) { var ty = O.types[t]; return !!ty && (ty.kind === 'path' || ty.kind === 'fence' || ty.kind === 'hedge') && ty.w === 1 && ty.h === 1; };
+L.yardCount = function (s, tiles) { return s.yard.items.filter(function (it) { return L.isYardTile(it.t) === !!tiles; }).length; };
+
+L.yardRoom = function (s, t) { var tile = L.isYardTile(t); return Math.max(0, (tile ? C.YARD_TILES_MAX : MAX()) - L.yardCount(s, tile)); };
+
 var newState = L.newState;
 L.newState = function (info) {
 var s = newState(info);
@@ -8109,7 +8117,7 @@ return farm.needs.every(function (g) { return g.some(function (i) { return seen[
 
 L.placeYard = function (s, farm, t, x, y) {
 if (!s.yard.bag[t]) return 'none';
-if (s.yard.items.length >= MAX()) return 'full';
+if (L.yardRoom(s, t) <= 0) return L.isYardTile(t) ? 'fulltiles' : 'full';
 var why = L.yardCantPlace(s, farm, t, x, y, null);
 if (why) return why;
 if (--s.yard.bag[t] <= 0) delete s.yard.bag[t];
@@ -8184,12 +8192,39 @@ var homeBeauty = L.homeBeauty;
 L.homeBeauty = function (s) { return homeBeauty(s) + (s.yard ? L.yardBeauty(s) : 0); };
 
 
+L.yardRuns = function (items) {
+var at = {}, out = [];
+items.forEach(function (it) { if (L.isYardTile(it.t)) at[it.x + ',' + it.y] = it.t; });
+var keys = Object.keys(at).map(function (k) { var p = k.split(','); return [Number(p[0]), Number(p[1])]; })
+.sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
+var used = {};
+var take = function (x, y, dx, dy) { var t = at[x + ',' + y], n = 0; while (n < 120 && at[(x + dx * n) + ',' + (y + dy * n)] === t && !used[(x + dx * n) + ',' + (y + dy * n)]) n++; return n; };
+keys.forEach(function (p) {
+var x = p[0], y = p[1];
+if (used[x + ',' + y]) return;
+var t = at[x + ',' + y], across = take(x, y, 1, 0), down = take(x, y, 0, 1), n, k;
+if (down > across) { for (k = 0; k < down; k++) used[x + ',' + (y + k)] = 1; out.push(t, x, y, -down); }
+else { n = Math.max(1, across); for (k = 0; k < n; k++) used[(x + k) + ',' + y] = 1; out.push(t, x, y, n); }
+});
+return out;
+};
+
+L.yardUnrun = function (runs, put) {
+if (!Array.isArray(runs)) return;
+for (var i = 0; i + 3 < runs.length; i += 4) {
+var t = int(runs[i], -1, 999, -1), x = int(runs[i + 1], 0, 999, -1), y = int(runs[i + 2], 0, 999, -1), n = int(runs[i + 3], -120, 120, 0);
+if (!L.isYardTile(t) || x < 0 || y < 0 || !n) continue;
+for (var k = 0; k < Math.abs(n); k++) put(n > 0 ? { t: t, x: x + k, y: y } : { t: t, x: x, y: y + k });
+}
+};
+
+
 var serialize = L.serialize;
 L.serialize = function (s) {
 var o = serialize(s), flat = [], bag = [];
-s.yard.items.forEach(function (it) { flat.push(it.t, it.x, it.y); });
+s.yard.items.forEach(function (it) { if (!L.isYardTile(it.t)) flat.push(it.t, it.x, it.y); });
 Object.keys(s.yard.bag).forEach(function (t) { bag.push(Number(t), s.yard.bag[t]); });
-o.yd = [flat, bag];
+o.yd = [flat, bag, L.yardRuns(s.yard.items)];
 o.fw = C.FARM_W;
 return o;
 };
@@ -8221,11 +8256,15 @@ if (s.forage) delete s.forage.farm;
 var yd = Array.isArray(o.yd) ? o.yd : null;
 if (!yd) { s.yard = L.newYard(); return s; }
 s.yard = { items: [], bag: {} };
-var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [];
-for (var i = 0; i + 2 < flat.length && s.yard.items.length < MAX(); i += 3) {
+var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [], nd = 0, nt = 0;
+
+for (var i = 0; i + 2 < flat.length; i += 3) {
 var t = int(flat[i], -1, 999, -1);
-if (O.types[t]) s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
+if (!O.types[t]) continue;
+if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) continue;
+s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
 }
+L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); });
 for (var k = 0; k + 1 < bag.length; k += 2) {
 var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 9999, 0);
 if (O.types[bt] && n > 0) s.yard.bag[bt] = n;
@@ -8768,7 +8807,9 @@ return {
 v: 1, day: s.day, look: s.look === 'girl' ? 'girl' : 'boy',
 home: { level: s.home.level, wall: s.home.wall, floor: s.home.floor, items: s.home.items.map(function (it) { return [it.t, it.v, it.x, it.y, it.f]; }) },
 
-yard: s.yard.items.map(function (it) { var f = s.fruit && s.fruit[it.x + ',' + it.y]; return L.treeOf(it.t) && f != null ? [it.t, it.x, it.y, f] : [it.t, it.x, it.y]; }),
+
+yard: s.yard.items.filter(function (it) { return !L.isYardTile || !L.isYardTile(it.t); }).map(function (it) { var f = s.fruit && s.fruit[it.x + ',' + it.y]; return L.treeOf(it.t) && f != null ? [it.t, it.x, it.y, f] : [it.t, it.x, it.y]; }),
+yr: L.yardRuns ? L.yardRuns(s.yard.items) : undefined,
 soil: soil,
 debris: debris,
 animals: s.animals.slice(0, 40).map(function (a) { return [a.kind, a.name, a.young ? 1 : 0]; }),
@@ -8809,7 +8850,8 @@ if (L.cantPlace(s, t, x, y, null)) return;
 s.home.items.push({ t: t, v: v, x: x, y: y, f: e[4] ? 1 : 0 });
 });
 s.yard = { items: [], bag: {} };
-(Array.isArray(snap.yard) ? snap.yard : []).slice(0, 360).forEach(function (e) {
+if (L.yardUnrun) { var nt = 0; L.yardUnrun(snap.yr, function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); }); }
+(Array.isArray(snap.yard) ? snap.yard : []).slice(0, (C.YARD_MAX || 360) + (snap.yr ? 0 : C.YARD_TILES_MAX || 0)).forEach(function (e) {
 if (!Array.isArray(e)) return;
 var t = int(e[0], -1, 1e6, -1);
 if (!O.types[t]) return;
@@ -23440,7 +23482,8 @@ var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
 var U = 128, CELL = 3 * U, GAP = 16, COLS = 6;
 var WHY = {
 outside: "It doesn't fit there.", blocked: "You can't build there.", taken: "Something's already there.",
-blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' pieces out, the most a farm can hold (every path tile and fence piece counts as one). Put something away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
+blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' decorations out, the most a farm can hold. Put one away first (paths and fences have their own room).',
+fulltiles: 'You have ' + (C.YARD_TILES_MAX || 1500) + ' path and fence tiles out, the most a farm can hold. Put some away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
 };
 var TILE_KINDS = { fence: 1, path: 1, hedge: 1 };
 
@@ -26409,6 +26452,7 @@ r.add(name);
 if (row.online) {
 var ox = x + name.displayWidth + 8;
 r.add(this.add.circle(ox, 13, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
+r.add(this.txt(ox + 7, 13, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
 }
 var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
 var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);

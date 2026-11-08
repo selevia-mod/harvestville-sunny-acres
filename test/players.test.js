@@ -161,13 +161,16 @@ test('crafting at Mira\'s: the goods (and lumber) leave, the piece goes into yar
   });
 });
 
-test('the yard holds 500 pieces, and a maxed farm with a full yard and full cabinets still saves under the limit', () => {
+test('the yard holds 500 decorations and 1,500 path and fence tiles, and a maxed farm with a full yard and full cabinets still saves under the limit', () => {
   assert.strictEqual(C.YARD_MAX, 500);
   const s = L.newState();
-  const path = C.OUTDOOR.index.stone_path;
-  for (let i = 0; i < 500; i++) s.yard.items.push({ t: path, x: 1 + (i % 60), y: 1 + Math.floor(i / 60) });
-  s.yard.bag[path] = 1;
-  assert.strictEqual(L.placeYard(s, { w: 64, h: 40, noPlace: new Uint8Array(64 * 40), solid: new Uint8Array(64 * 40), needs: [], start: -1 }, path, 2, 30), 'full');
+  const path = C.OUTDOOR.index.stone_path, bench = C.OUTDOOR.index.bench;
+  for (let i = 0; i < 500; i++) s.yard.items.push({ t: bench, x: 1 + (i % 60), y: 1 + Math.floor(i / 60) });
+  for (let i = 0; i < 1500; i++) s.yard.items.push({ t: path, x: 1 + (i % 60), y: 20 + Math.floor(i / 60) });
+  s.yard.bag[path] = 1; s.yard.bag[bench] = 1;
+  const farm = { w: 64, h: 60, noPlace: new Uint8Array(64 * 60), solid: new Uint8Array(64 * 60), needs: [], start: -1 };
+  assert.strictEqual(L.placeYard(s, farm, bench, 2, 50), 'full');
+  assert.strictEqual(L.placeYard(s, farm, path, 2, 50), 'fulltiles');
   C.ANIMAL_KEYS.forEach((k) => { for (let i = 0; i < C.ANIMALS[k].max; i++) s.animals.push({ kind: k, name: 'Buttercup 99', love: 100, fed: 1, pet: 1, ready: 2 }); });
   for (let i = 0; i < 24 * 38; i++) if (!s.debris[i]) s.soil[i] = { w: 1, c: 'pumpkin', d: 9 };
   L.resizeBag(s, C.BAG_SIZES.length - 1);
@@ -176,7 +179,7 @@ test('the yard holds 500 pieces, and a maxed farm with a full yard and full cabi
   s.project2 = { id: 'barn2', done: s.day + 1 };
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size + ' bytes (limit ' + C.MAX_SAVE_BYTES + ')');
-  assert.strictEqual(roundTrip(s).yard.items.length, 500);
+  assert.strictEqual(roundTrip(s).yard.items.length, 2000);
 });
 
 test('the clearing quest asks for 15 at most; shops never close but night is still night; anything but a tool can be dropped', () => {

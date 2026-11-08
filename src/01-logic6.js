@@ -6,7 +6,15 @@
   var C = F.Config;
   var L = F.Logic;
   var O = C.OUTDOOR;
-  var MAX = function () { return C.YARD_MAX || 360; }; // keeps the save small (every path tile and fence piece is one; 00-zzzzzzzz-players.js)
+  var MAX = function () { return C.YARD_MAX || 360; }; // decorations (00-zzzzzzzz-players.js)
+  // Paths, fences and hedges: tiles, saved as runs (one entry for a row or a column of the same tile), with their own
+  // limit (owner, 8 Nov 2026: "500 pieces is out"; approved: decorations keep 500, tiles get about 1,500). The server
+  // refuses a save over 32 KB: a full farm's runs keep it well under.
+  C.YARD_TILES_MAX = 1500;
+  L.isYardTile = function (t) { var ty = O.types[t]; return !!ty && (ty.kind === 'path' || ty.kind === 'fence' || ty.kind === 'hedge') && ty.w === 1 && ty.h === 1; };
+  L.yardCount = function (s, tiles) { return s.yard.items.filter(function (it) { return L.isYardTile(it.t) === !!tiles; }).length; };
+  // How many more of this kind fit (tiles or decorations)
+  L.yardRoom = function (s, t) { var tile = L.isYardTile(t); return Math.max(0, (tile ? C.YARD_TILES_MAX : MAX()) - L.yardCount(s, tile)); };
 
   var newState = L.newState;
   L.newState = function (info) {
@@ -170,7 +178,7 @@
   // From storage onto the farm. Returns the new item's index, or why it can't.
   L.placeYard = function (s, farm, t, x, y) {
     if (!s.yard.bag[t]) return 'none';
-    if (s.yard.items.length >= MAX()) return 'full';
+    if (L.yardRoom(s, t) <= 0) return L.isYardTile(t) ? 'fulltiles' : 'full';
     var why = L.yardCantPlace(s, farm, t, x, y, null);
     if (why) return why;
     if (--s.yard.bag[t] <= 0) delete s.yard.bag[t];
@@ -244,13 +252,40 @@
   var homeBeauty = L.homeBeauty;
   L.homeBeauty = function (s) { return homeBeauty(s) + (s.yard ? L.yardBeauty(s) : 0); };
 
+  // ---------- tiles as runs: [t, x, y, n, ...]: n > 0 is n tiles along the row from x, n < 0 is -n down the column ----------
+  L.yardRuns = function (items) {
+    var at = {}, out = [];
+    items.forEach(function (it) { if (L.isYardTile(it.t)) at[it.x + ',' + it.y] = it.t; });
+    var keys = Object.keys(at).map(function (k) { var p = k.split(','); return [Number(p[0]), Number(p[1])]; })
+      .sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
+    var used = {};
+    var take = function (x, y, dx, dy) { var t = at[x + ',' + y], n = 0; while (n < 120 && at[(x + dx * n) + ',' + (y + dy * n)] === t && !used[(x + dx * n) + ',' + (y + dy * n)]) n++; return n; };
+    keys.forEach(function (p) { // rows of 2 or more first, then columns, then what is left one by one
+      var x = p[0], y = p[1];
+      if (used[x + ',' + y]) return;
+      var t = at[x + ',' + y], across = take(x, y, 1, 0), down = take(x, y, 0, 1), n, k;
+      if (down > across) { for (k = 0; k < down; k++) used[x + ',' + (y + k)] = 1; out.push(t, x, y, -down); }
+      else { n = Math.max(1, across); for (k = 0; k < n; k++) used[(x + k) + ',' + y] = 1; out.push(t, x, y, n); }
+    });
+    return out;
+  };
+  // Calls put({ t, x, y }) for each tile of the runs (from a save or another player: checked; a run is 120 at most).
+  L.yardUnrun = function (runs, put) {
+    if (!Array.isArray(runs)) return;
+    for (var i = 0; i + 3 < runs.length; i += 4) {
+      var t = int(runs[i], -1, 999, -1), x = int(runs[i + 1], 0, 999, -1), y = int(runs[i + 2], 0, 999, -1), n = int(runs[i + 3], -120, 120, 0);
+      if (!L.isYardTile(t) || x < 0 || y < 0 || !n) continue;
+      for (var k = 0; k < Math.abs(n); k++) put(n > 0 ? { t: t, x: x + k, y: y } : { t: t, x: x, y: y + k });
+    }
+  };
+
   // ---------- save ----------
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s), flat = [], bag = [];
-    s.yard.items.forEach(function (it) { flat.push(it.t, it.x, it.y); });
+    s.yard.items.forEach(function (it) { if (!L.isYardTile(it.t)) flat.push(it.t, it.x, it.y); });
     Object.keys(s.yard.bag).forEach(function (t) { bag.push(Number(t), s.yard.bag[t]); });
-    o.yd = [flat, bag];
+    o.yd = [flat, bag, L.yardRuns(s.yard.items)];
     o.fw = C.FARM_W;
     return o;
   };
@@ -282,11 +317,15 @@
     var yd = Array.isArray(o.yd) ? o.yd : null;
     if (!yd) { s.yard = L.newYard(); return s; }
     s.yard = { items: [], bag: {} };
-    var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [];
-    for (var i = 0; i + 2 < flat.length && s.yard.items.length < MAX(); i += 3) {
+    var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [], nd = 0, nt = 0;
+    // (an older save has every piece in flat, tiles too: each counts against its own limit)
+    for (var i = 0; i + 2 < flat.length; i += 3) {
       var t = int(flat[i], -1, 999, -1);
-      if (O.types[t]) s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
+      if (!O.types[t]) continue;
+      if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) continue;
+      s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
     }
+    L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); });
     for (var k = 0; k + 1 < bag.length; k += 2) {
       var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 9999, 0);
       if (O.types[bt] && n > 0) s.yard.bag[bt] = n;
