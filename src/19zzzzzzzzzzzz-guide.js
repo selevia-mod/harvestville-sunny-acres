@@ -268,10 +268,8 @@
     this.qcText = this.txt(42, 9, '', 11, '#fff6d8', { fontStyle: 'bold' });
     this.qcSub = this.txt(42, 25, '', 10, '#d9c49a');
     this.qcGo = this.add.container(G.card.w - 22, G.card.h / 2);
-    var goBg = this.add.graphics();
-    goBg.fillStyle(BLUE, 0.85).fillCircle(0, 0, 10);
-    goBg.fillStyle(0xffffff, 1).fillTriangle(-3, -5, -3, 5, 5, 0); // (a small "go" arrow)
-    this.qcGo.add([goBg]);
+    // a small blue "Go" (owner, 8 Nov 2026): the word to tap, though anywhere on the card goes
+    this.qcGo.add([this.txt(0, 0, 'Go', 11, '#8fd0ff', { fontStyle: 'bold' }).setOrigin(0.5)]);
     var z = this.qcZone = this.add.zone(G.card.w / 2, G.card.h / 2, G.card.w, G.card.h).setInteractive({ useHandCursor: true });
     F.tapOn(z, function () { self.questCardTap(); });
     c.add([this.qcBg, this.qcRing, this.qcIcon, this.qcText, this.qcSub, this.qcGo, z]);
@@ -328,7 +326,7 @@
     text.setText(q.text).setColor(card.ready ? '#4a2a08' : '#fff6d8').setScale(1).setPosition(36, 4).setFontSize(10);
     if (text.width > room) text.setScale(room / text.width);
     sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : p + '/' + q.n + (go ? '' : '  ·  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
-    var Wd = open ? Math.max(text.displayWidth, sub.width) + 36 + (go && !guiding ? 26 : 10) : H;
+    var Wd = open ? Math.max(text.displayWidth, sub.width) + 36 + (go && !guiding ? 30 : 10) : H;
     this.qcBg.clear().fillStyle(card.ready ? 0xe9a91c : 0x24160b, card.ready ? 0.88 : 0.5).fillRoundedRect(0, 0, Wd, H, R);
     this.qcBg.lineStyle(1, 0xffffff, card.ready ? 0.6 : 0.22).strokeRoundedRect(0.5, 0.5, Wd - 1, H - 1, R - 0.5);
     this.qcRing.clear().lineStyle(3, card.ready ? 0x7a4d12 : 0x000000, card.ready ? 0.9 : 0.3).strokeCircle(R, H / 2, ring);
@@ -337,7 +335,7 @@
     this.qcIcon.setFrame(iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
     text.setVisible(open);
     sub.setVisible(open);
-    this.qcGo.setVisible(open && go && !guiding).setPosition(Wd - 15, H / 2);
+    this.qcGo.setVisible(open && go && !guiding).setPosition(Wd - 17, H / 2);
     this.qcZone.setPosition(Wd / 2, H / 2).setSize(Wd, H);
     if (this.qcZone.input) this.qcZone.input.hitArea.setSize(Wd, H);
     this.qcTip.setY(G.card.y + H + 6);
