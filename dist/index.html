@@ -24937,22 +24937,20 @@ if (this.visitBar) { this.visitBar.destroy(); this.visitBar = null; }
 if (this.goalBar) this.refreshGoal();
 if (!v) return;
 var c = this.visitBar = this.add.container(0, 0).setDepth(40);
-if (F.world && L.isWildMap(F.world.mapKey)) {
-[['Wave', BLUE, function () { O.wave(); }], ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]].forEach(function (b, i) {
-self.button(c, 38 + i * 60, 170, 54, 24, b[0], b[2], b[1]);
-});
-return;
-}
+
+
 
 var name = this.txt(8, FAN.y + 25, v.name, 11, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 });
 if (name.width > FAN.name) name.setScale(FAN.name / name.width);
 c.add(name);
 var list = [['like', function () { self.likeFarm(); }], ['gift', function () { self.giftFarm(); }], ['wave', function () { O.wave(); }],
 ['more', function () { self.playerMenu(v.host, v.name); }], ['home', function () { O.leaveVisit(); }]];
+var spots = FAN.at;
+if (F.world && L.isWildMap(F.world.mapKey)) { list = list.slice(2); spots = FAN.at.slice(2); }
 var fan = this.add.container(0, 0).setVisible(false);
 c.add(fan);
 var toggle, items = list.map(function (b, i) {
-return self.fanButton(fan, FAN.at[i][0], FAN.at[i][1], b[0], function () { toggle(false); b[1](); });
+return self.fanButton(fan, spots[i][0], spots[i][1], b[0], function () { toggle(false); b[1](); });
 });
 var closed = this.fanButton(c, FAN.x, FAN.y, 'visit', function () { toggle(true); });
 var shut = this.roundButton(c, FAN.x, FAN.y, 20, GREY, 'close', null, function () { toggle(false); }).setVisible(false);
@@ -24964,7 +24962,7 @@ fan.setVisible(on);
 if (on) { sfx('pick'); name.setVisible(true); }
 if (!on) return;
 items.forEach(function (b, i) {
-var at = FAN.at[i];
+var at = spots[i];
 self.tweens.killTweensOf(b);
 b.setPosition(FAN.x, FAN.y).setScale(0.3);
 self.tweens.add({ targets: b, x: at[0], y: at[1], scale: 1, duration: 170, delay: i * 25, ease: 'Back.out' });
@@ -44075,7 +44073,8 @@ if (d < bd) { bd = d; best = id; }
 return best;
 };
 var U = F.UIScene.prototype;
-var CHIP = { x: 8, y: 164, visitY: 130, h: 24 };
+
+var CHIP = { x: 8, y: 164, visitX: 60, visitY: 76, h: 24 };
 var uiCreate = U.create;
 U.create = function () {
 uiCreate.apply(this, arguments);
@@ -44139,7 +44138,7 @@ this.pubChipText = this.txt(22, CHIP.h / 2, '', 12, '#fff6d8', { fontStyle: 'bol
 c.add([this.pubChipBg, this.pubChipDot, this.pubChipText]);
 this.tweens.add({ targets: this.pubChipDot, alpha: 0.4, duration: 900, yoyo: true, repeat: -1 });
 }
-this.pubChipBox.setY(F.session.visit ? CHIP.visitY : CHIP.y);
+this.pubChipBox.setPosition(F.session.visit ? CHIP.visitX : CHIP.x, F.session.visit ? CHIP.visitY : CHIP.y);
 if (this.pubChipText.text !== text) {
 this.pubChipText.setText(text);
 var w = Math.ceil(this.pubChipText.width) + 32;

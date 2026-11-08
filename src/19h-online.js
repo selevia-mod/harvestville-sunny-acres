@@ -864,22 +864,20 @@
     if (this.goalBar) this.refreshGoal();
     if (!v) return;
     var c = this.visitBar = this.add.container(0, 0).setDepth(40);
-    if (F.world && L.isWildMap(F.world.mapKey)) { // out hunting: only what you need, out of the way of the map
-      [['Wave', BLUE, function () { O.wave(); }], ['More', GREY, function () { self.playerMenu(v.host, v.name); }], ['Home', GREEN, function () { O.leaveVisit(); }]].forEach(function (b, i) {
-        self.button(c, 38 + i * 60, 170, 54, 24, b[0], b[2], b[1]);
-      });
-      return;
-    }
     // Owner, 2 Nov 2026: "taking much space", then option 4 of 5: one round button that fans out. (The goal waits at home.)
+    // Out hunting the same button, with what you need there: Wave, More and Home, in their places on a farm (owner,
+    // 8 Nov 2026: "A"; they were plain buttons under the place's chip, which now sits beside the button: 19zzzzzzzzz-gameserver.js).
     var name = this.txt(8, FAN.y + 25, v.name, 11, '#ffffff', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 });
     if (name.width > FAN.name) name.setScale(FAN.name / name.width); // the whole name, always (owner, 2 Nov): a long one shrinks
     c.add(name);
     var list = [['like', function () { self.likeFarm(); }], ['gift', function () { self.giftFarm(); }], ['wave', function () { O.wave(); }],
       ['more', function () { self.playerMenu(v.host, v.name); }], ['home', function () { O.leaveVisit(); }]];
+    var spots = FAN.at;
+    if (F.world && L.isWildMap(F.world.mapKey)) { list = list.slice(2); spots = FAN.at.slice(2); }
     var fan = this.add.container(0, 0).setVisible(false);
     c.add(fan);
     var toggle, items = list.map(function (b, i) {
-      return self.fanButton(fan, FAN.at[i][0], FAN.at[i][1], b[0], function () { toggle(false); b[1](); });
+      return self.fanButton(fan, spots[i][0], spots[i][1], b[0], function () { toggle(false); b[1](); });
     });
     var closed = this.fanButton(c, FAN.x, FAN.y, 'visit', function () { toggle(true); });
     var shut = this.roundButton(c, FAN.x, FAN.y, 20, GREY, 'close', null, function () { toggle(false); }).setVisible(false);
@@ -891,7 +889,7 @@
       if (on) { sfx('pick'); name.setVisible(true); }
       if (!on) return;
       items.forEach(function (b, i) {
-        var at = FAN.at[i];
+        var at = spots[i];
         self.tweens.killTweensOf(b);
         b.setPosition(FAN.x, FAN.y).setScale(0.3);
         self.tweens.add({ targets: b, x: at[0], y: at[1], scale: 1, duration: 170, delay: i * 25, ease: 'Back.out' });

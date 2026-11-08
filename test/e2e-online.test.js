@@ -1126,6 +1126,31 @@ async function huntInPulag(server, setup) {
   await new Promise((r) => setTimeout(r, 300));
   return { host, guest };
 }
+// owner, 8 Nov 2026 ("A"): on a visit, a hunting place has the same round visit button as a farm, its painted Wave, More
+// and Home in the same places, and the place's chip ("Pulag 1 · 2 here") beside it, not plain buttons under the chip.
+test('online: visiting, out hunting: the round visit button as on a farm (Wave, More, Home fan out), the place beside it', async () => {
+  const server = createServer();
+  const { host, guest } = await huntInPulag(server);
+  const plain = await guest.page.evaluate(() => {
+    const out = [], walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
+    walk(Farm.ui.visitBar.list);
+    return out;
+  });
+  assert.ok(!plain.includes('Wave') && !plain.includes('Home'), 'no plain Wave / Home buttons: ' + plain.join(', '));
+  assert.strictEqual(await guest.page.evaluate(() => typeof Farm.ui.visitFan), 'function');
+  // Wave from the fan
+  await guest.page.evaluate(() => { const w = Farm.Online.wave; window.__waves = 0; Farm.Online.wave = function () { window.__waves++; return w.apply(this, arguments); }; });
+  await tapVisit(guest.page, 'Wave');
+  assert.strictEqual(await guest.page.evaluate(() => window.__waves), 1);
+  await waitModal(guest.page, /SAY SOMETHING/); // (Wave's own picker, as on a farm)
+  await guest.page.evaluate(() => Farm.ui.closeAll());
+  // Home from the fan: back to your own farm
+  await tapVisit(guest.page, 'Home');
+  await guest.page.waitForFunction(() => !Farm.session.visit && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
+  for (const p of [host, guest]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, guest]) await p.context.close();
+});
+
 const hereIn = (who, map) => who.page.waitForFunction((m) => Farm.world.mapKey === m && !Farm.world.busy && Farm.world.wild, map, SLOW);
 const drawn = (who, id) => who.page.evaluate((id) => { const r = Farm.world.remotes[id]; return !!(r && r.spr.active && r.spr.visible); }, id);
 const within = async (ms, fn) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 100)); } return !!(await fn()); };

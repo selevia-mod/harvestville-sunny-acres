@@ -940,7 +940,8 @@
     return best;
   };
   var U = F.UIScene.prototype;
-  var CHIP = { x: 8, y: 164, visitY: 130, h: 24 }; // (where Central Park's chip is; on a visit the visit's buttons are there, so above them)
+  // (where Central Park's chip is; on a visit beside the round visit button, 19h-online.js FAN: owner, 8 Nov 2026 "A")
+  var CHIP = { x: 8, y: 164, visitX: 60, visitY: 76, h: 24 };
   var uiCreate = U.create;
   U.create = function () {
     uiCreate.apply(this, arguments);
@@ -1004,7 +1005,7 @@
       c.add([this.pubChipBg, this.pubChipDot, this.pubChipText]);
       this.tweens.add({ targets: this.pubChipDot, alpha: 0.4, duration: 900, yoyo: true, repeat: -1 });
     }
-    this.pubChipBox.setY(F.session.visit ? CHIP.visitY : CHIP.y);
+    this.pubChipBox.setPosition(F.session.visit ? CHIP.visitX : CHIP.x, F.session.visit ? CHIP.visitY : CHIP.y);
     if (this.pubChipText.text !== text) {
       this.pubChipText.setText(text);
       var w = Math.ceil(this.pubChipText.width) + 32;
