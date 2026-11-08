@@ -130,8 +130,29 @@ async function tapButton(page, label, nth = 0) {
     return b && { x: b.centerX, y: b.centerY };
   }, [label, nth]);
   assert.ok(pos, `button "${label}" is on screen`);
+  const n0 = await page.evaluate(() => Farm.ui.modals.length);
   await page.touchscreen.tap(pos.x, pos.y);
   await frames(page);
+  // a tile (a shop's picture: 19i-look.js) opens its own panel first: its button of the same name is the one meant
+  if (await page.evaluate((n0) => Farm.ui.modals.length === n0 + 1 && !!Farm.ui.modals[n0].c.tileDetail, n0)) await tapButton(page, label);
+}
+// A tile's own panel (its words), by its name: opened, read, closed.
+async function tileText(page, name, keep) {
+  const pos = await page.evaluate((name) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    let hit = null; const walk = (l) => l.forEach((o) => { if (!hit && o.type === 'Text' && o.text === name && o.parentContainer && o.parentContainer.rowH) hit = o; if (o.list) walk(o.list); });
+    walk(m.c.list);
+    if (!hit) return null;
+    if (m.c.slimInto) m.c.slimInto(hit);
+    const b = hit.getBounds();
+    return { x: b.centerX, y: b.centerY };
+  }, name);
+  assert.ok(pos, `tile "${name}" is on screen`);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page, 2);
+  const text = await modalText(page);
+  if (!keep) await page.evaluate(() => { if (Farm.ui.modals[Farm.ui.modals.length - 1].c.tileDetail) Farm.ui.closeModal(); });
+  return text;
 }
 
 // Taps the k-th slot of the open bag page (the slots' own zones, in order).
@@ -945,7 +966,8 @@ test('the Wild Lands: the road west to Pulag, Kanor sells a Bow, a hunted deer l
   await tapButton(page, 'Shop');
   await tapButton(page, 'Buy 800G');
   await tapButton(page, 'Buy 60G');
-  assert.match(await modalText(page), /Copper Bow.*You have 10/);
+  assert.match(await modalText(page), /Copper Bow/); // (Kanor's Buy tab is tiles now: the next bow is there)
+  assert.match(await tileText(page, 'Arrows x10'), /You have 10/);
   await shot(page, '42-kanor');
   await closeAll(page);
   // hold the Bow, face a deer that stands still, shoot it down (2 arrows), walk over its venison
@@ -2744,11 +2766,10 @@ test('slim lists (Quests): every row in one list that scrolls; a row out of view
   // all 11 rows (the chest and 10 quests) are there; the last one's Claim is out of view and takes no taps yet
   const before = await page.evaluate(() => {
     const m = Farm.ui.modals[0], list = m.c.list.find((o) => o.type === 'Container' && o.mask);
-    const claim = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === 'Claim') claim.push(o); if (o.list) walk(o.list); }); walk(list.list);
-    const z = claim[0].parentContainer.list.find((o) => o.type === 'Zone');
-    return { rows: list.list.length, enabled: z.input.enabled };
+    const last = list.list[list.list.length - 1], zs = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Zone' && o.input) zs.push(o); if (o.list) walk(o.list); }); walk([last]);
+    return { rows: list.list.length, enabled: zs.some((z) => z.input.enabled), first: list.list[0].list.some((o) => o.type === 'Container' && o.list.some((x) => x.text === 'Claim')) };
   });
-  assert.deepStrictEqual(before, { rows: 11, enabled: false });
+  assert.deepStrictEqual(before, { rows: 11, enabled: false, first: true }, 'the ready one first; the last row out of view takes no taps');
   // a drag that starts on a Go: the list moves, nothing is pressed
   const go = await page.evaluate(() => { const m = Farm.ui.modals[0]; let g = null; const walk = (l) => l.forEach((o) => { if (!g && o.type === 'Text' && o.text === 'Go') g = o.getBounds(); if (o.list) walk(o.list); }); walk(m.c.list); return { x: g.centerX, y: g.centerY }; });
   await page.mouse.move(go.x, go.y);
@@ -2759,9 +2780,12 @@ test('slim lists (Quests): every row in one list that scrolls; a row out of view
   assert.strictEqual(await page.evaluate(() => !!Farm.world.guide), false, 'no Go pressed');
   assert.ok(await page.evaluate(() => Farm.ui.modals[0].c.list.find((o) => o.type === 'Container' && o.mask).y < -40), 'the list moved up');
   await shot(page, 'slim-scrolled');
-  // Claim on the last row (scrolled into view): claimed
+  // Claim (a quest ready to claim comes first): claimed, and it goes to the bottom with a tick
   await tapButton(page, 'Claim');
   assert.strictEqual(await page.evaluate(() => Farm.session.state.dq.list[9].done), 1);
+  const order = await page.evaluate(() => { const list = Farm.ui.modals[0].c.list.find((o) => o.type === 'Container' && o.mask); return list.list.map((r) => { let n = ''; r.list.forEach((o) => { if (!n && o.type === 'Text' && o.style && o.style.fontSize === '12px') n = o.text; }); return n; }); });
+  const q9 = await page.evaluate(() => Farm.session.state.dq.list[9].text);
+  assert.strictEqual(order[order.length - 1], q9, 'the done one at the bottom: ' + order.join(' | '));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -3251,7 +3275,8 @@ test('e41: Haliya\'s Moon Bow: its arrow goes through the first creature and hit
   await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
   let text = await modalText(page);
   if (/HUNTER'S GEAR/.test(text)) { await closeAll(page); await page.evaluate(() => Farm.ui.openKanor('buy', 0)); text = await modalText(page); }
-  assert.match(text, /Haliya's Moon Bow \| Arrows go through to hit the one behind\. Your Magma Bow, 6 Fur \(6\), 3 Moss \(3\), 3 Pearls \(3\), 6 Bark \(6\), 6 Feathers \(6\), 5 Scales \(5\)\.[\s\S]*600,000G/);
+  assert.match(text, /Haliya's Moon Bow[\s\S]*600,000G/);
+  assert.match(await tileText(page, "Haliya's Moon Bow", true), /Haliya's Moon Bow \| Arrows go through to hit the one behind\. Your Magma Bow, 6 Fur \(6\), 3 Moss \(3\), 3 Pearls \(3\), 6 Bark \(6\), 6 Feathers \(6\), 5 Scales \(5\)\.[\s\S]*600,000G/);
   assert.ok(await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return !out.some((t) => /…$/.test(t.text)); }), 'no words cut');
   await shot(page, 'e41-kanor-moon-bow');
   await tapButton(page, '600,000G');
@@ -3352,7 +3377,7 @@ test('your dog comes hunting: it follows you, points at a hidden animal, fetches
   // Hunter's gear at Kanor's: bought once, for Gold
   await page.evaluate(() => { const s = Farm.session.state; s.gold = 20000; Farm.Logic.addItem(s, 'bow', 1); Farm.Logic.addItem(s, 'arrows', 10); Farm.ui.openKanor('buy', 0); });
   await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
-  assert.match(await modalText(page), /Camo Cloak[\s\S]*Animals notice you later/);
+  assert.match(await tileText(page, 'Camo Cloak'), /Camo Cloak[\s\S]*Animals notice you later/);
   await tapButton(page, '3000G');
   await page.waitForFunction(() => Farm.Logic.hasGear(Farm.session.state, 'cloak'), null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 17000);
@@ -4662,7 +4687,7 @@ test('the Fire look from Kanor: on his Buy tab at 500,000G and the Lair\'s best,
   };
   const at = await findPage();
   assert.ok(at >= 0, 'Kanor lists the Fire look');
-  assert.match(await modalText(page), /Lair Fire look[\s\S]*1 in 10 from a Bakunawa\. Or 80 Ember Shards \(80\), 4 Scales \(4\), 2 Teeth \(2\)[\s\S]*500,000G/);
+  assert.match(await tileText(page, 'Lair Fire look', true), /Lair Fire look[\s\S]*1 in 10 from a Bakunawa\. Or 80 Ember Shards \(80\), 4 Scales \(4\), 2 Teeth \(2\)[\s\S]*500,000G/);
   await shot(page, 'fire-look-kanor');
   await tapButton(page, '500,000G');
   await page.waitForFunction(() => /The Lair Fire look is yours! Wear it from Looks\./.test(Farm.ui.toastText.text), null, SLOW);
@@ -4692,11 +4717,10 @@ test('e42: a look from each cave: Kanor lists the Lake Spirit at 500,000G and Ta
   assert.ok(await findPage(/Lake Spirit look/) >= 0, 'Kanor lists the Lake Spirit');
   assert.strictEqual(await findPage(/Forest Guardian look/), -1, 'not Sierra Madre\'s: not open yet (130 hunts)');
   await findPage(/Lake Spirit look/);
-  assert.match(await modalText(page), /Lake Spirit look[\s\S]*1 in 10 from the Berberoka\. Or 4 Pearls \(4\), 2 Lava Scale \(2\)[\s\S]*500,000G/);
+  assert.match(await tileText(page, 'Lake Spirit look', true), /Lake Spirit look[\s\S]*1 in 10 from the Berberoka\. Or 4 Pearls \(4\), 2 Lava Scale \(2\)[\s\S]*500,000G/);
   assert.ok(await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return !out.some((t) => /…$/.test(t.text)); }), 'no words cut');
   await shot(page, 'e42-cave-look-kanor');
-  const nth = (await modalText(page)).split(' | ').filter((t) => t === '500,000G' || / look$/.test(t)).filter((t, i, all) => / look$/.test(t)).indexOf('Lake Spirit look');
-  await tapButton(page, '500,000G', nth); // (Terrace, Hills and Lake each have a 500,000G button)
+  await tapButton(page, '500,000G'); // (in the Lake Spirit's own panel, open)
   await page.waitForFunction(() => /The Lake Spirit look is yours! Wear it from Looks\./.test(Farm.ui.toastText.text), null, SLOW);
   assert.strictEqual((await state(page)).gold, 0);
   assert.strictEqual(await findPage(/Lake Spirit look/), -1, 'not offered again');
@@ -5488,11 +5512,11 @@ test('999 in a slot, and gear stars at Kanor\'s: the first-time tour, the star b
   // the Terrace Hat's row: yours, and its first star for 1,500G (Banaue's rows come after the trophies)
   const pageOf = await page.evaluate(() => { const C = Farm.Config, shown = C.PLACE_ORDER.filter(Farm.Logic.placeShown); return Math.floor((C.WILD.trophies.length + 4 * shown.slice(0, shown.indexOf('banaue')).filter((id) => C.PLACE_GEAR[id + '_head']).length) / 4); });
   await page.evaluate((p) => { Farm.ui.closeAll(); Farm.ui.openKanor('make', p); }, pageOf);
-  assert.match(await modalText(page), /Terrace Hat \(yours\) \| Head, 1 off\. Next ★: 1 Amomongo Fur, 1 Kibaan Staff \|/, 'the whole line, not cut');
+  assert.match(await tileText(page, 'Terrace Hat (yours)', true), /Terrace Hat \(yours\) \| Head, 1 off\. Next ★: 1 Amomongo Fur, 1 Kibaan Staff \|/, 'the whole line, not cut');
   await tapButton(page, '★1 1,500G');
   await page.waitForFunction(() => Farm.Logic.gearStars(Farm.session.state, 'banaue_head') === 1, null, SLOW);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.gold), 3500);
-  assert.match(await modalText(page), /Terrace Hat ★ \| Head, 2 off\. Next ★: 2 Amomongo Fur, 2 Kibaan Staff \|/);
+  assert.match(await tileText(page, 'Terrace Hat ★'), /Terrace Hat ★ \| Head, 2 off\. Next ★: 2 Amomongo Fur, 2 Kibaan Staff \|/);
   await shot(page, 'gear-stars-make');
   // the Gear page: the hat with its star
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openGear(); });

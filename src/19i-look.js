@@ -279,6 +279,7 @@
     try { return listPanel.call(this, o); } finally { ROW_H = h0; ROW_STEP = s0; }
   };
   var listPanel = function (o) {
+    if (o.tiles) return tilePanel.call(this, o);
     if (o.slim) return slimPanel.call(this, o);
     var self = this, c = this.openModal();
     // the list's layout first, so a short list gets a shorter panel (a paged one keeps the full height)
@@ -346,72 +347,223 @@
     if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
     if (empty) { c.add(empty); return o; }
     // the rows: one container, masked to the panel, moved by a finger
-    var top = y0 - 4, bottom = 76 + ph - 12, view = bottom - top, list = this.add.container(0, 0);
+    var top = y0 - 4, bottom = 76 + ph - 12, list = this.add.container(0, 0);
     rows.forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
     c.add(list);
+    this.scrollList(c, list, top, bottom, full - 10 - y0 + 4, SLIM.h);
+    return o;
+  };
+  // A list in a panel that scrolls: masked between top and bottom (panel units), content `height` tall; a finger drags
+  // it (a flick glides), the mouse wheel too; a thin bar at the right; a child out of view takes no taps; a drag that
+  // starts on a button does not press it (F.dragTap). c.slimInto(obj) scrolls obj's row into view (tests).
+  U.scrollList = function (c, list, top, bottom, height, rowH) {
+    var self = this, view = bottom - top;
     var shape = this.make.graphics({ add: false });
     shape.fillStyle(0xffffff).fillRect(16, top + c.y, W - 32, view);
     list.setMask(shape.createGeometryMask());
-    var span = Math.max(0, full - 10 - y0 + 4 - view), at = 0, bar = null;
-    if (span > 0) { // a thin bar at the right: how far down you are
+    var span = Math.max(0, height - view), at = 0, bar = null;
+    if (span > 0) {
       bar = this.add.rectangle(W - 21, top, 4, Math.max(30, view * view / (view + span)), 0x7a4d26, 0.45).setOrigin(0.5, 0);
       c.add(bar);
     }
-    var hit = function (o2) { return o2.list ? o2.list.some(hit) : false; };
     var place = function (y) {
       at = Math.max(-span, Math.min(0, y));
       list.y = at;
       if (bar) bar.y = top + (view - bar.height) * (span ? -at / span : 0);
-      // a row out of view takes no taps (its buttons sit under the panel's edge or the bag)
       list.list.forEach(function (r) {
-        var ry = r.y + at, on = ry + SLIM.h / 2 > top && ry + SLIM.h / 2 < bottom;
+        var h = r.rowH || rowH, ry = r.y + at, on = ry + h / 2 > top && ry + h / 2 < bottom;
         var walk = function (x) { if (x.input) x.input.enabled = on; if (x.list) x.list.forEach(walk); };
         walk(r);
       });
     };
     place(0);
-    c.slimScroll = function (y) { place(y); }; // (the tests: and scroll a row into view)
+    c.slimScroll = function (y) { place(y); };
+    var glide = null;
     c.slimInto = function (obj) {
+      if (glide) { glide.stop(); glide = null; }
       var r = obj; while (r && r.parentContainer !== list) r = r.parentContainer;
       if (!r) return;
-      if (r.y + at < top) place(top - r.y); else if (r.y + SLIM.h + at > bottom) place(bottom - SLIM.h - r.y);
+      var h = r.rowH || rowH;
+      if (r.y + at < top) place(top - r.y); else if (r.y + h + at > bottom) place(bottom - h - r.y);
     };
-    if (span <= 0) return o;
+    if (span <= 0) return place;
+    // (the pointer in the panel's own units: the UI camera is zoomed to the screen's pixels)
+    var cam = this.cameras.main, wy = function (p) { return cam.getWorldPoint(p.x, p.y).y; };
     var drag = null, input = this.input;
     var down = function (p) {
-      if (self.modals[self.modals.length - 1] === undefined || self.modals[self.modals.length - 1].c !== c) return;
-      var y = p.y - c.y;
+      var m = self.modals[self.modals.length - 1];
+      if (!m || m.c !== c) return;
+      var py = wy(p), y = py - c.y;
       if (y < top || y > bottom) return;
-      drag = { y: p.y, at: at, moved: false, t: Date.now(), vy: 0, ly: p.y };
+      if (glide) { glide.stop(); glide = null; } // (a finger stops a glide)
+      drag = { y: py, at: at, moved: false, t: Date.now(), vy: 0, ly: py };
       F.dragTap = false;
     };
     var move = function (p) {
       if (!drag || !p.isDown) return;
-      var dy = p.y - drag.y, now = Date.now();
+      var py = wy(p), dy = py - drag.y, now = Date.now();
       if (!drag.moved && Math.abs(dy) > 8) { drag.moved = true; F.dragTap = true; }
       if (!drag.moved) return;
-      drag.vy = (p.y - drag.ly) / Math.max(1, now - drag.t);
-      drag.t = now; drag.ly = p.y;
+      drag.vy = (py - drag.ly) / Math.max(1, now - drag.t);
+      drag.t = now; drag.ly = py;
       place(drag.at + dy);
     };
     var up = function () {
       if (!drag) return;
       var v = drag.vy, moved = drag.moved;
       drag = null;
-      if (moved && Math.abs(v) > 0.2) { // a flick glides on, slowing
+      if (moved && Math.abs(v) > 0.2) {
         var from = at, to = at + v * 260;
-        self.tweens.addCounter({ from: 0, to: 1, duration: 420, ease: 'Quad.out', onUpdate: function (tw) { if (c.active) place(from + (to - from) * tw.getValue()); } });
+        glide = self.tweens.addCounter({ from: 0, to: 1, duration: 420, ease: 'Quad.out', onUpdate: function (tw) { if (c.active) place(from + (to - from) * tw.getValue()); } });
       }
       self.time.delayedCall(0, function () { F.dragTap = false; });
     };
-    var wheel = function (p, over, dx, dy) { if (self.modals.length && self.modals[self.modals.length - 1].c === c) place(at - dy * 0.6); };
+    var wheel = function (p, over, dx, dy) { var m = self.modals[self.modals.length - 1]; if (m && m.c === c) place(at - dy * 0.6); };
     input.on('pointerdown', down);
     input.on('pointermove', move);
     input.on('pointerup', up);
     input.on('wheel', wheel);
     c.once('destroy', function () { input.off('pointerdown', down); input.off('pointermove', move); input.off('pointerup', up); input.off('wheel', wheel); });
+    return place;
+  };
+  // ---------- tiles and filters (owner, 8 Nov 2026: B and C, "the default style" for the panels you browse by picture) ----------
+  // o.tiles: the same rows as pictures, three a line, scrolled; a tap opens one (its words and its buttons). Sorted into
+  // what you can get now, what needs more (gold or parts), and what you have. o.filters [[key, label]] + o.groupOf(row):
+  // chips at the top (the choice is kept while the panel is reopened). A row's state: row.state, else done = have,
+  // a grey button = need, else can.
+  var TILE = { w: 98, h: 112, gap: 6, cols: 3 }, GREY_ANY = [0xa08a68, 0x9a8a72, 0x8a8a8a];
+  var SECTIONS = { can: 'You can get now', need: 'Needs more gold or parts', have: 'You have it' };
+  U.tileFilters = {};
+  U.rowState = function (row) {
+    if (row.state) return row.state;
+    if (row.done) return 'have';
+    var b = (row.buttons || [])[0];
+    if (!b) return 'have';
+    return b.color != null && (GREY_ANY.indexOf(b.color) >= 0 || b.color === GREY_BTN) ? 'need' : 'can';
+  };
+  var tilePanel = function (o) {
+    var self = this, c = this.openModal(), y0 = o.tabs ? 178 : 140, ph = 530;
+    this.panelImg(c, 12, 76, W - 24, ph);
+    var title = this.txt(W / 2, 79, o.title, 17, '#fff6d8', { fontStyle: 'bold', stroke: '#5a1a12', strokeThickness: 3 }).setOrigin(0.5);
+    fit(title, W - 150);
+    this.ribbon(c, W / 2, 79, Math.min(W - 110, Math.max(150, title.displayWidth + 54)));
+    c.add(title);
+    this.closeButton(c, W - 26, 84, function () { self.closeModal(); });
+    if (o.corner) this.pillButton(c, 58, 113, 64, 26, o.corner.label, o.corner.cb, o.corner.color || GREY_BTN);
+    var subW = o.corner ? 200 : W - 110, sub = this.txt(o.corner ? W / 2 + 30 : W / 2, 104, '', 13, '#6a4a2a', { align: 'center' }).setOrigin(0.5, 0);
+    c.add(sub);
+    var showSub = function () { sub.setText(o.sub ? o.sub() : '').setScale(1); if (sub.width > subW) sub.setScale(subW / sub.width); };
+    showSub();
+    o.refresh = showSub;
+    if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
+    var key = o.title + '|' + (o.tab || ''), pick = o.filters ? (U.tileFilters[key] || o.filters[0][0]) : null, top = y0;
+    // the filter chips
+    if (o.filters) {
+      var fx = 24;
+      o.filters.forEach(function (f) {
+        var on = f[0] === pick, t = self.txt(0, 0, f[1], 11, on ? '#ffffff' : '#5a3a1e', { fontStyle: 'bold' }).setOrigin(0.5);
+        var w = Math.max(44, t.width + 18), chip = self.add.container(fx + w / 2, y0 + 10);
+        var g = self.add.graphics();
+        g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(-w / 2, -11, w, 22, 11);
+        chip.add([g, t]);
+        var z = self.add.zone(0, 0, w, 26).setInteractive({ useHandCursor: true });
+        F.tapOn(z, function () { if (on) return; sfx('pick'); U.tileFilters[key] = f[0]; self.swapTo(function () { o.reopen(o.tab, 0); }); });
+        chip.add(z);
+        c.add(chip);
+        fx += w + 6;
+      });
+      top = y0 + 28;
+    }
+    var rows = o.rows.filter(function (r) { return !pick || pick === 'all' || (o.groupOf && o.groupOf(r) === pick); });
+    var bottom = 76 + ph - 12;
+    if (!rows.length) {
+      c.add(this.txt(W / 2, top + 40, o.empty || 'Nothing here yet.', 14, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
+      return o;
+    }
+    var list = this.add.container(0, 0), y = top + 2, x0 = (W - (TILE.cols * TILE.w + (TILE.cols - 1) * TILE.gap)) / 2;
+    var groups = { can: [], need: [], have: [] };
+    rows.forEach(function (r) { groups[U.rowState(r)].push(r); });
+    var many = ['can', 'need', 'have'].filter(function (k) { return groups[k].length; }).length > 1;
+    ['can', 'need', 'have'].forEach(function (k) {
+      if (!groups[k].length) return;
+      if (many) {
+        var hd = self.txt(x0 + 2, y + 2, (o.sections && o.sections[k]) || SECTIONS[k], 11, k === 'can' ? '#2f6a1a' : '#8a6a42', { fontStyle: 'bold' });
+        list.add(hd);
+        y += 20;
+      }
+      groups[k].forEach(function (r, i) {
+        var col = i % TILE.cols;
+        if (i && !col) y += TILE.h + TILE.gap;
+        self.tile(list, x0 + col * (TILE.w + TILE.gap), y, r, k, o);
+      });
+      y += TILE.h + TILE.gap + 4;
+    });
+    c.add(list);
+    this.scrollList(c, list, top - 2, bottom, y - top, TILE.h);
     return o;
   };
+  // One tile: its picture, its name (two lines at most), its price or a tick.
+  U.tile = function (parent, x, y, row, state, o) {
+    var self = this, r = this.add.container(x, y), w = TILE.w, h = TILE.h, b = (row.buttons || [])[0];
+    r.rowH = h;
+    var g = this.add.graphics();
+    g.fillStyle(0x7a4d26, 0.18).fillRoundedRect(0, 3, w, h, 10);
+    g.fillStyle(state === 'have' ? 0xf0e6cf : 0xfffbf0, 1).fillRoundedRect(0, 0, w, h, 10);
+    g.lineStyle(1.5, state === 'can' ? 0x7fbf5a : 0xd9b77f, 1).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 10);
+    r.add(g);
+    r.add(this.add.circle(w / 2, 36, 27, 0xf2d79a, 0.9));
+    var pic = this.tilePicture(row, w / 2, 36, 48);
+    if (pic) { if (state === 'have') pic.setAlpha(0.6); r.add(pic); }
+    var name = this.txt(w / 2, 68, row.name || '', 10, state === 'have' ? '#8a7a5a' : INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 10 } }).setOrigin(0.5, 0);
+    if (name.height > 26) name.setScale(26 / name.height);
+    r.add(name);
+    var price = state === 'have' ? '✓ Yours' : b ? b.label : '';
+    if (price) {
+      var pt = this.txt(w / 2, h - 11, price, 10, state === 'can' ? '#2f6a1a' : state === 'need' ? '#9a7a5a' : '#5a8a3a', { fontStyle: 'bold' }).setOrigin(0.5);
+      if (pt.width > w - 8) pt.setScale((w - 8) / pt.width);
+      r.add(pt);
+    }
+    if (row.tag) r.add(this.txt(w - 6, 6, row.tag, 8, '#ffffff', { fontStyle: 'bold', backgroundColor: '#c0503a', padding: { x: 3, y: 1 } }).setOrigin(1, 0));
+    var z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
+    z.on('pointerdown', function () { r.setScale(0.97); });
+    z.on('pointerout', function () { r.setScale(1); });
+    F.tapOn(z, function () { r.setScale(1); sfx('pick'); self.tileOpen(row, state, o); });
+    r.add(z);
+    parent.add(r);
+    return r;
+  };
+  // A row's picture: an item icon, a furniture or look picture (row.img { key, frame }, row.sheet { key, frame }).
+  U.tilePicture = function (row, x, y, size) {
+    var im = null;
+    if (row.sheet) im = this.add.image(x, y, row.sheet.key, row.sheet.frame);
+    else if (row.img) im = this.add.image(x, y, row.img.furn != null ? F.furnTexture(this, row.img.furn) : row.img.key, row.img.frame); // (furniture: its style's sheet)
+    else if (row.icon != null) im = this.add.image(x, y, 'items', row.icon);
+    if (im) { var k = size / Math.max(im.width, im.height); im.setScale(k); }
+    return im;
+  };
+  // A tile opened: a small panel over the list with its picture, name, words and buttons.
+  U.tileOpen = function (row, state, o) {
+    var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.buttons || [];
+    c.tileDetail = row.name || true; // (the tests: a tile's own panel)
+    var desc = this.txt(W / 2, 0, row.desc || '', 12, '#6a4a2a', { align: 'center', wordWrap: { width: W - 90 }, lineSpacing: 2 }).setOrigin(0.5, 0);
+    var h = 170 + desc.height + (b.length ? 56 : 10), y0 = Math.round((640 - h) / 2);
+    this.panelImg(c, 24, y0, W - 48, h);
+    c.add(this.add.circle(W / 2, y0 + 48, 34, 0xf2d79a));
+    var pic = this.tilePicture(row, W / 2, y0 + 48, 60);
+    if (pic) c.add(pic);
+    var name = this.txt(W / 2, y0 + 92, row.name || '', 16, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: W - 90 } }).setOrigin(0.5, 0);
+    c.add(name);
+    desc.setY(y0 + 100 + name.height);
+    c.add(desc);
+    if (row.progress) c.add(this.txt(W / 2, desc.y + desc.height + 6, row.progress[0] + ' of ' + row.progress[1], 11, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    this.closeButton(c, W - 38, y0 + 12, function () { self.closeModal(); });
+    var bw = Math.min(150, (W - 90 - (b.length - 1) * 10) / Math.max(1, b.length));
+    b.forEach(function (btn, k) {
+      var x = W / 2 + (k - (b.length - 1) / 2) * (bw + 10);
+      self.pillButton(c, x, y0 + h - 34, bw, 36, btn.label, function () { self.closeModal(); btn.cb(); }, btn.color || GREEN);
+    });
+  };
+
   // A slim row: a 56 px card; the icon; the name (and a HARD tag); under it a small bar with its count and the prize, then
   // one line of description; the button on the right (two: side by side, smaller), or a Done tick.
   U.slimRow = function (parent, y, row) {
@@ -429,7 +581,7 @@
       g.stroke();
     }));
     r.add(this.add.circle(46, H / 2, 17, 0xf2d79a).setStrokeStyle(1.5, 0xd9b77f));
-    if (row.img) r.add(this.add.image(46, H / 2, row.img.key, row.img.frame).setDisplaySize(26, 26));
+    if (row.img || row.sheet) { var pi = this.tilePicture(row, 46, H / 2, 28); if (pi) r.add(pi); }
     else if (row.icon != null) r.add(this.add.image(46, H / 2, 'items', row.icon).setScale(0.2).setAlpha(row.done ? 0.55 : 1));
     var x = 70, textW = W - 44 - (x - 22) - right - 10;
     var name = this.txt(x, 6, row.name || '', 12, row.done ? '#8a7a5a' : INK, { fontStyle: 'bold' });

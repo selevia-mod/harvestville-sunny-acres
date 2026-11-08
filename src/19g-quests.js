@@ -288,6 +288,10 @@
         });
       });
     }
+    // ready to claim first, then what is left to do, the done ones at the bottom (owner, 8 Nov 2026: "when quest is done,
+    // it will go to the bottom"); a stable sort, so each group keeps its order
+    var rank = function (r) { return r.done ? 2 : (r.buttons || []).some(function (b) { return b.label === 'Claim' || b.label === 'Open'; }) ? 0 : 1; };
+    rows = rows.map(function (r, k) { return [r, k]; }).sort(function (a, b) { return rank(a[0]) - rank(b[0]) || a[1] - b[1]; }).map(function (x) { return x[0]; });
     var month = C.MONTHLY.names[Number(today.slice(5, 7)) - 1];
     this.listPanel({
       title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); }, slim: true, // (owner, 8 Nov 2026: slim rows that scroll)

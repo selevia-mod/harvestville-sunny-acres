@@ -16,7 +16,7 @@
   U.gearRows = function (s, done) {
     return C.GEAR.map(function (g) {
       if (L.hasGear(s, g.key)) return { icon: g.icon, name: g.name + ' (yours)', desc: g.desc + ' Always on in the Wild Lands.' };
-      return { icon: g.icon, name: g.name, desc: g.desc, buttons: [{ label: g.gold + 'G', cb: function () {
+      return { icon: g.icon, name: g.name, desc: g.desc, buttons: [{ label: g.gold + 'G', color: s.gold >= g.gold ? 0x5fa84a : 0xa08a68, cb: function () {
         var r = L.buyGear(s, g.key);
         if (r === 'ok' && F.Online && F.Online.retrack && F.Online.on) F.Online.retrack(); // (friends' phones go by it too)
         done(r, g.name + '! Always on when you hunt.');

@@ -1025,7 +1025,7 @@
     if (tab === 'buy') {
       if (!L.hasBow(s)) {
         rows.push({ icon: I.bow.icon, name: 'Bow', desc: 'Shoots up to ' + WI.bow.range[0] + ' tiles. You need arrows too.',
-          buttons: [{ label: 'Buy ' + WI.bow.price + 'G', cb: function () {
+          buttons: [{ label: 'Buy ' + WI.bow.price + 'G', color: s.gold >= WI.bow.price ? GREEN_BTN : GREY_BTN, cb: function () {
             var r = L.buyBow(s);
             if (r === 'ok') { s.inv.forEach(function (x, i) { if (x && x.id === 'bow') s.sel = i; }); self.refresh(); } // in your hands right away
             done(r, 'A Bow! You are holding it: tap Shoot.');
@@ -1035,13 +1035,13 @@
         if (up) {
           rows.push({ icon: C.ICON['bow_' + (lv + 1)], name: C.TOOL_LEVELS[lv + 1] + ' Bow',
             desc: 'Shoots ' + WI.bow.range[lv + 1] + ' tiles' + (WI.bow.damage[lv + 1] > WI.bow.damage[lv] ? ' and hits twice as hard' : '') + '. Needs ' + up.n + ' ' + I[up.ore].name + '.',
-            buttons: [{ label: up.gold + 'G', cb: function () { done(L.upgradeBow(s), 'Your Bow is now a ' + C.TOOL_LEVELS[lv + 1] + ' Bow!'); } }] });
+            buttons: [{ label: up.gold + 'G', color: s.gold >= up.gold && L.countItem(s, up.ore) >= up.n ? GREEN_BTN : GREY_BTN, cb: function () { done(L.upgradeBow(s), 'Your Bow is now a ' + C.TOOL_LEVELS[lv + 1] + ' Bow!'); } }] });
         }
       }
       rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.',
-        buttons: [{ label: 'Buy ' + I.arrows.price + 'G', cb: function () { done(L.buyWild(s, 'arrows'), WI.arrowPack + ' arrows.'); } }] });
+        buttons: [{ label: 'Buy ' + I.arrows.price + 'G', color: s.gold >= I.arrows.price ? GREEN_BTN : GREY_BTN, cb: function () { done(L.buyWild(s, 'arrows'), WI.arrowPack + ' arrows.'); } }] });
       rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.',
-        buttons: [{ label: 'Buy ' + I.bait.price + 'G', cb: function () { done(L.buyWild(s, 'bait'), 'Berry Bait.'); } }] });
+        buttons: [{ label: 'Buy ' + I.bait.price + 'G', color: s.gold >= I.bait.price ? GREEN_BTN : GREY_BTN, cb: function () { done(L.buyWild(s, 'bait'), 'Berry Bait.'); } }] });
       if (self.gearRows) self.gearRows(s, done).forEach(function (r) { rows.push(r); }); // Hunter's gear (19zo-gear.js)
     } else if (tab === 'sell') {
       L.wildGoods(s).forEach(function (id) {
@@ -1067,7 +1067,8 @@
         var ti = C.HOME.typeIndex[t.type], type = C.HOME.types[ti];
         rows.push({ img: self.furnImg(ti, 0), name: type.name,
           desc: t.needs.map(function (n) { return n[1] + ' ' + I[n[0]].name + ' (' + L.countItem(s, n[0]) + ')'; }).join(', ') + '. +' + type.beauty + ' beauty.',
-          buttons: [{ label: String(t.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', cb: function () { // (200,000G: the Lair's pieces are dear)
+          // (grey when short: the tiles sort it under "Needs more", 19i-look.js)
+          buttons: [{ label: String(t.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G', color: s.gold >= t.gold && t.needs.every(function (n) { return L.countItem(s, n[0]) >= n[1]; }) ? GREEN_BTN : GREY_BTN, cb: function () { // (200,000G: the Lair's pieces are dear)
             var r = L.makeTrophy(s, k);
             if (r === 'short') { sfx('nope'); return self.toast('You need more for that one. Hunt some more!'); }
             done(r, type.name + ' done! Find it in your furniture storage: Decorate at home.');

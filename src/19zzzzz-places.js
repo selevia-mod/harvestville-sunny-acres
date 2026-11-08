@@ -648,6 +648,24 @@
         o.empty = 'Tame an animal in a hunting place: hold its favourite food and sneak up while it is calm. One comes along with you; the others wait here.';
         o.sub = function () { return 'One comes along with you at a time.'; };
       }
+      // tiles for what you browse (Buy, Sell, Make), slim rows for the rest (owner, 8 Nov 2026: B and C, and A)
+      if (o.tab === 'buy' || o.tab === 'sell' || o.tab === 'make') {
+        o.tiles = true;
+        var bowIcons = [C.ICON.bow, C.ICON.bow_1, C.ICON.bow_2, C.ICON.bow_3, C.ICON.bow_4, C.ICON.bow_5];
+        if (o.tab === 'buy') {
+          o.filters = [['all', 'All'], ['bows', 'Bows'], ['gear', 'Gear'], ['looks', 'Looks'], ['supplies', 'Supplies']];
+          o.groupOf = function (r) {
+            if (r.sheet) return 'looks';
+            if (bowIcons.indexOf(r.icon) >= 0) return 'bows';
+            if (r.icon === C.ITEMS.arrows.icon || r.icon === C.ITEMS.bait.icon) return 'supplies';
+            return 'gear';
+          };
+        } else if (o.tab === 'make') {
+          o.filters = [['all', 'All'], ['trophies', 'Trophies'], ['gear', 'Gear']];
+          o.groupOf = function (r) { return r.img ? 'trophies' : 'gear'; };
+          o.sections = { can: 'You can make now', need: 'Needs more gold or parts', have: 'You have it' };
+        }
+      } else o.slim = true;
       return (list || U.listPanel).call(self, o);
     };
     try { return openKanor.call(this, tab === 'pals' ? 'make' : tab, page); } finally { delete this.listPanel; }
