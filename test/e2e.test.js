@@ -2043,7 +2043,10 @@ test('the Tannery: bought and placed, hides go in, leather comes out; a Gold too
   // Lily says what a big bag wants
   await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.resizeBag(s, 7); s.gold = 1e6; Farm.ui.openShop('supplies'); });
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
-  assert.match(await modalText(page), /Also needs: \| 5 Soft Leather/); // (its own chip since 5 Nov 2026)
+  assert.match(await modalText(page), /Bigger Bag \| Buy 38000G \| 5 Soft Leather/); // (its own chip since 5 Nov 2026; on its tile since 9 Nov)
+  await shot(page, 'lily-bag-tile');
+  await tapTile(page, 'Bigger Bag');
+  assert.match(await modalText(page), /Also needs: \| 5 Soft Leather/, 'and in its panel');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

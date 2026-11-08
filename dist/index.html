@@ -8918,12 +8918,15 @@ return Array.isArray(b) && UUID.test(String(b[0])) && (b[1] === 'coins' || b[1] 
 };
 
 
+C.SNAP_SOIL = 700;
 L.snapshot = function (s) {
 var soil = [];
-Object.keys(s.soil).forEach(function (idx) {
-var t = s.soil[idx];
 
-if (soil.length < 400) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.c ? L.cropStage(t) : 0, t.w ? 1 : 0]);
+
+var keys = Object.keys(s.soil), planted = keys.filter(function (k) { return s.soil[k].c; }), bare = keys.filter(function (k) { return !s.soil[k].c; });
+planted.concat(bare).forEach(function (idx) {
+var t = s.soil[idx];
+if (soil.length < C.SNAP_SOIL) soil.push([Number(idx), t.c ? C.CROP_KEYS.indexOf(t.c) + 1 : 0, t.c ? L.cropStage(t) : 0, t.w ? 1 : 0]);
 });
 var debris = [];
 Object.keys(s.debris).forEach(function (idx) { if (debris.length < 800) debris.push([Number(idx), C.DEBRIS_KEYS.indexOf(s.debris[idx])]); });
@@ -8984,7 +8987,7 @@ s.yard.items.push(it);
 if (e.length > 3 && L.treeOf && L.treeOf(t)) { var f = int(e[3], 0, 1e9, -1); if (f >= 0) (s.fruit = s.fruit || {})[it.x + ',' + it.y] = f; }
 });
 s.soil = {};
-(Array.isArray(snap.soil) ? snap.soil : []).slice(0, 400).forEach(function (e) {
+(Array.isArray(snap.soil) ? snap.soil : []).slice(0, C.SNAP_SOIL).forEach(function (e) {
 if (!Array.isArray(e)) return;
 var idx = int(e[0], -1, 1e6, -1), crop = C.CROP_KEYS[int(e[1], 0, 1e6, 0) - 1] || null;
 if (idx > 1e5) return;
@@ -26882,6 +26885,19 @@ var pt = this.txt(w / 2, h - 11, price, 10, state === 'can' ? '#2f6a1a' : state 
 if (pt.width > w - 8) pt.setScale((w - 8) / pt.width);
 r.add(pt);
 }
+
+
+if (row.reward && state !== 'have' && !row.done) {
+var ch = this.add.container(0, 0);
+this.rewardChips(ch, 0, 0, 10000, row.reward, null);
+var chw = 0;
+ch.list.forEach(function (o2) { chw = Math.max(chw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX === 0.5 ? 0.5 : 1)); });
+var k = Math.min(0.85, (w - 8) / Math.max(1, chw));
+ch.setScale(k).setPosition((w - chw * k) / 2, 78);
+r.add(ch);
+name.setY(63);
+if (name.displayHeight > 14) name.setScale(Math.min(name.scaleX, 14 / name.height));
+}
 if (row.tag) r.add(this.txt(w - 6, 6, row.tag, 8, '#ffffff', { fontStyle: 'bold', backgroundColor: '#c0503a', padding: { x: 3, y: 1 } }).setOrigin(1, 0));
 var z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
 z.on('pointerdown', function () { r.setScale(0.97); });
@@ -26921,6 +26937,14 @@ c.add(name);
 desc.setY(y0 + 100 + name.height);
 c.add(desc);
 if (row.progress) c.add(this.txt(W / 2, desc.y + desc.height + 6, row.progress[0] + ' of ' + row.progress[1], 11, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+if (row.reward && !row.done) {
+var rc = this.add.container(0, 0);
+this.rewardChips(rc, 0, 0, W - 90, row.reward, row.rewardPrefix);
+var rcw = 0;
+rc.list.forEach(function (o2) { rcw = Math.max(rcw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX === 0.5 ? 0.5 : 1)); });
+rc.setPosition((W - rcw) / 2, desc.y + desc.height + (row.progress ? 24 : 6));
+c.add(rc);
+}
 this.closeButton(c, W - 38, y0 + 12, function () { self.closeModal(); });
 var bw = Math.min(150, (W - 90 - (b.length - 1) * 10) / Math.max(1, b.length));
 b.forEach(function (btn, k) {
@@ -26976,10 +27000,13 @@ r.add(cnt);
 lx += bw + 8 + cnt.width + 6;
 }
 if (row.reward && !row.done) {
-var tmp = this.add.container(0, 0);
-this.rewardChips(tmp, lx, ly - 3, x + textW - lx, row.reward, row.rewardPrefix);
 
-tmp.list.slice().forEach(function (o2) { if (o2.y > ly + 14) o2.destroy(); });
+
+var tmp = this.add.container(lx, ly - 3), room = x + textW - lx;
+this.rewardChips(tmp, 0, 0, 10000, row.reward, row.rewardPrefix);
+var cw = 0;
+tmp.list.forEach(function (o2) { cw = Math.max(cw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); });
+if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
 r.add(tmp);
 }
 if (desc) {

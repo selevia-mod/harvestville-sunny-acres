@@ -593,6 +593,19 @@
       if (pt.width > w - 8) pt.setScale((w - 8) / pt.width);
       r.add(pt);
     }
+    // what else it takes or gives (row.reward: "Also needs: 5 Soft Leather"), small, above the price (9 Nov 2026: a
+    // Bigger Bag's leather was only in its opened panel)
+    if (row.reward && state !== 'have' && !row.done) {
+      var ch = this.add.container(0, 0);
+      this.rewardChips(ch, 0, 0, 10000, row.reward, null); // (the words "Also needs": in its opened panel)
+      var chw = 0;
+      ch.list.forEach(function (o2) { chw = Math.max(chw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX === 0.5 ? 0.5 : 1)); });
+      var k = Math.min(0.85, (w - 8) / Math.max(1, chw));
+      ch.setScale(k).setPosition((w - chw * k) / 2, 78);
+      r.add(ch);
+      name.setY(63); // (one line of name above it, the price below)
+      if (name.displayHeight > 14) name.setScale(Math.min(name.scaleX, 14 / name.height));
+    }
     if (row.tag) r.add(this.txt(w - 6, 6, row.tag, 8, '#ffffff', { fontStyle: 'bold', backgroundColor: '#c0503a', padding: { x: 3, y: 1 } }).setOrigin(1, 0));
     var z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { r.setScale(0.97); });
@@ -632,6 +645,14 @@
     desc.setY(y0 + 100 + name.height);
     c.add(desc);
     if (row.progress) c.add(this.txt(W / 2, desc.y + desc.height + 6, row.progress[0] + ' of ' + row.progress[1], 11, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    if (row.reward && !row.done) { // (its chips too: what it costs besides, what it gives)
+      var rc = this.add.container(0, 0);
+      this.rewardChips(rc, 0, 0, W - 90, row.reward, row.rewardPrefix);
+      var rcw = 0;
+      rc.list.forEach(function (o2) { rcw = Math.max(rcw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX === 0.5 ? 0.5 : 1)); });
+      rc.setPosition((W - rcw) / 2, desc.y + desc.height + (row.progress ? 24 : 6));
+      c.add(rc);
+    }
     this.closeButton(c, W - 38, y0 + 12, function () { self.closeModal(); });
     var bw = Math.min(150, (W - 90 - (b.length - 1) * 10) / Math.max(1, b.length));
     b.forEach(function (btn, k) {
@@ -687,10 +708,13 @@
       lx += bw + 8 + cnt.width + 6;
     }
     if (row.reward && !row.done) {
-      var tmp = this.add.container(0, 0);
-      this.rewardChips(tmp, lx, ly - 3, x + textW - lx, row.reward, row.rewardPrefix);
-      // one line of chips only: the rest go
-      tmp.list.slice().forEach(function (o2) { if (o2.y > ly + 14) o2.destroy(); });
+      // one line of chips, all of them: a little smaller when they do not fit (9 Nov 2026: a Gold tool's "2 Boar Tusk"
+      // chip was dropped from Bram's list)
+      var tmp = this.add.container(lx, ly - 3), room = x + textW - lx;
+      this.rewardChips(tmp, 0, 0, 10000, row.reward, row.rewardPrefix);
+      var cw = 0;
+      tmp.list.forEach(function (o2) { cw = Math.max(cw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); });
+      if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
       r.add(tmp);
     }
     if (desc) { // (under the bar and prize; right under the name when the row has neither)
