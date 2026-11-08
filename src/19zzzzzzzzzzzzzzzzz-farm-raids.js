@@ -63,7 +63,7 @@
   L.raiderIcon = function (k) { if (C.FRAID_ICONS_IN && C.ICON['ri_' + k] != null) return C.ICON['ri_' + k]; var n = RAIDER_ICON[k]; return C.ICON[n] != null ? C.ICON[n] : C.ICON.star; };
   L.defenseIcon = function (k) { var n = DEF_ICON[k]; return n && C.ICON[n] != null ? C.ICON[n] : k === 'scarecrow' ? C.ICON.star : C.ICON.sparkle; };
   // a defense's own picture: props/def_<k> (tools/art/raids-import.js), the yard's scarecrow, a copper sprinkler, the dog
-  var DEF_PROP = { beebox: 1, mudpit: 1, tower: 1, sili: 1, kampana: 1, fence: 1 };
+  var DEF_PROP = { beebox: 1, mudpit: 1, tower: 1, sili: 1, kampana: 1, fence: 1, sprinkler: 1 };
   F.defensePic = function (scene, k) {
     if (DEF_PROP[k] && F.images['props/def_' + k]) return { key: F.ensureTexture(scene, 'props/def_' + k), frame: undefined };
     if (k === 'scarecrow' && F.yardImg) { var y = F.yardImg(scene, O.index.scarecrow); return { key: y.key, frame: y.frame }; }
@@ -73,6 +73,8 @@
     return { key: 'items', frame: L.defenseIcon(k) };
   };
   if (F.SHEETS) { ['raid_crow', 'guard_goose', 'raid_cat'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
+  if (F.SHEETS) F.SHEETS.raid_fx = { frameWidth: 128, frameHeight: 128 }; // the battle's effects (C.FRAID_FX)
+  F.raidFx = function (k) { return C.FRAID_FX.indexOf(k); };
 
   // ---------- the first-time tour (owner, 4 Oct 2026: every new feature gets one) ----------
   // (its tip goes last of all, after the dog's name: a tip's place is its bit in the save; 'raid_tour' is the Town Raid's)
@@ -415,7 +417,7 @@
       h.add(card);
       var line = function (y, str, size, color) { var t = self.add.text(W / 2, y, str, { fontFamily: F.UI_FONT || 'sans-serif', fontSize: size + 'px', color: color || INK, fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setResolution(F.R); h.add(t); return t; };
       line(y0 + 28, prize.stars ? 'Raid won!' : 'Raid over', 18);
-      line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
+      if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
       line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
       line(y0 + 136, '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points', 14, '#2f5a22');
       var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
@@ -511,6 +513,18 @@
     if (this.raidLoot.width > W - 120) this.raidLoot.setScale((W - 120) / this.raidLoot.width);
     this.raidStars.setText('★★★'.slice(0, st) + '☆☆☆'.slice(st));
   };
+  // the stars won: the owner's gold stars (raid_fx) popping in one by one, the ones not won faint; false: no picture
+  F.raidGoldStars = function (sc, h, x, y, n) {
+    if (!F.images.raid_fx) return false;
+    var key = F.ensureTexture(sc, 'raid_fx');
+    for (var i = 0; i < 3; i++) {
+      var star = sc.add.image(x + (i - 1) * 54, y - (i === 1 ? 4 : 0), key, F.raidFx('star')).setScale(0);
+      if (i >= n) star.setTint(0x6b5a40).setAlpha(0.35);
+      h.add(star);
+      sc.tweens.add({ targets: star, scale: i === 1 ? 0.42 : 0.35, duration: 320, delay: 200 + i * 260, ease: 'Back.out' });
+    }
+    return true;
+  };
   U.raidResult = function (b, prize) {
     var self = this, h = this.raidBox;
     if (!h) return;
@@ -521,7 +535,7 @@
     h.add(card);
     var line = function (y, str, size, color) { var t = self.add.text(W / 2, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color || INK, fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setResolution(F.R); h.add(t); return t; };
     line(y0 + 28, prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over', 18);
-    line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
+    if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
     line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
     line(y0 + 136, prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points', 14, '#2f5a22');
     var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();

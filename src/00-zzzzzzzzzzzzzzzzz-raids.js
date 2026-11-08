@@ -95,8 +95,12 @@
     { key: 'def_sili', name: 'Sili Patch', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 900, beauty: 2, hd: 'def_sili', defense: 'sili', what: 'a patch of hot red chili plants' },
     { key: 'def_kampana', name: 'Kampana', kind: 'prop', cat: 'defenses', w: 1, h: 2, foot: 1, price: 2500, beauty: 3, hd: 'def_kampana', defense: 'kampana', what: 'a bronze bell in a little wooden frame' },
     { key: 'def_fence', name: 'Strong Fence', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 300, beauty: 1, hd: 'def_fence', defense: 'fence', strong: true, what: 'a fence section with iron bands' },
+    // (appended: a piece's place is its index in the save)
+    { key: 'def_sprinkler', name: 'Sprinkler Blaster', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 2200, beauty: 2, hd: 'def_sprinkler', defense: 'sprinkler', what: 'a brass sprinkler with a water tank' },
   ];
   C.FRAID_PIECES.forEach(function (p) { if (O.index[p.key] == null) { O.index[p.key] = O.types.length; O.types.push(p); } });
   // the yard pieces that defend in a raid (beside the new ones): which defense each one is
   C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
+  // the battle's effects: frames of assets/raid_fx (tools/art/raids-import.js, prompt #7), in this order
+  C.FRAID_FX = ['bees', 'pebble', 'water', 'mud', 'honk', 'star', 'puff'];
 })(window.Farm = window.Farm || {});

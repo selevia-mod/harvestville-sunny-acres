@@ -103,7 +103,7 @@
   var create = P.create;
   P.create = function () {
     // (a restarted scene is the same object: last raid's battle must not carry over)
-    this.raidB = null; this.raidDone = false; this.raidStarted = false; this.raidUnits = {}; this.raidDefs = []; this.raidDown = null;
+    this.raidB = null; this.raidDone = false; this.raidStarted = false; this.raidUnits = {}; this.raidDefs = []; this.raidDown = null; this.raidShotAt = null;
     create.call(this);
     if (!raiding(this)) return;
     var self = this;
@@ -239,6 +239,47 @@
       if (dd.hp > 0) img.setFrame(C.DOG.frame0 + (mv ? 6 + [1, 0, 2, 0][Math.floor(time / 120) % 4] : 9)).setFlipX(mv ? dd.x * T > img.x : img.flipX);
       img.setPosition(dd.x * T, dd.y * T).setDepth(F.WorldScene.DEPTH.actor + dd.y * T / 1e5).setAlpha(dd.hp > 0 ? 1 : 0.3);
     });
+    this.raidShots(time);
+  };
+  // ---------- the battle's effects (the owner's raid_fx: prompt #7) ----------
+  // a defense at work: the watchtower's pebble flies, the sprinkler sprays, the bees swarm, the goose honks
+  var SHOT = { tower: { fx: 'pebble', every: 700 }, sprinkler: { fx: 'water', every: 500 }, beebox: { fx: 'bees', every: 900 }, goose: { fx: 'honk', every: 800 } };
+  P.raidFx = function (k, x, y, scale) {
+    if (!F.images.raid_fx) return null;
+    F.ensureTexture(this, 'raid_fx');
+    return this.add.image(x, y, 'raid_fx', F.raidFx(k)).setScale((scale || 0.8) * T / 128).setDepth(F.WorldScene.DEPTH.fx);
+  };
+  P.raidShots = function (time) {
+    var self = this, b = this.raidB, last = this.raidShotAt || (this.raidShotAt = {});
+    if (!F.images.raid_fx || !this.raidStarted || b.end) return;
+    b.defs.forEach(function (d) {
+      var sh = SHOT[d.t], tg = d.aim != null && b.raiders.filter(function (r) { return r.id === d.aim; })[0];
+      if (!sh || d.hp <= 0 || !tg || tg.hp <= 0 || time - (last[d.id] || 0) < sh.every) return;
+      last[d.id] = time;
+      var x0 = d.x * T, y0 = d.y * T - 0.6 * T, x1 = tg.x * T, y1 = tg.y * T - 0.5 * T, ang = Math.atan2(y1 - y0, x1 - x0), im;
+      if (sh.fx === 'pebble') { // from the top of the tower
+        im = self.raidFx('pebble', x0, y0 - 1.2 * T, 0.45).setRotation(ang);
+        self.tweens.add({ targets: im, x: x1, y: y1, duration: 260, onComplete: function () { im.destroy(); } });
+      } else if (sh.fx === 'bees') { // a swarm over the raider, buzzing
+        im = self.raidFx('bees', x1, y1 - 0.4 * T, 0.75);
+        self.tweens.add({ targets: im, x: x1 + 0.15 * T, yoyo: true, repeat: 1, duration: 140 });
+        self.tweens.add({ targets: im, alpha: 0, delay: 500, duration: 300, onComplete: function () { im.destroy(); } });
+      } else { // the spray and the honk: from the defense toward the raider (both drawn facing right)
+        var far = Math.min(Math.hypot(x1 - x0, y1 - y0), 2.2 * T);
+        im = self.raidFx(sh.fx, x0 + Math.cos(ang) * far * 0.5, y0 + Math.sin(ang) * far * 0.5, sh.fx === 'water' ? 1.1 : 0.7).setRotation(ang).setAlpha(0.95);
+        if (Math.abs(ang) > Math.PI / 2) im.setFlipY(true); // (never upside down)
+        self.tweens.add({ targets: im, alpha: 0, scale: im.scale * 1.15, duration: 420, onComplete: function () { im.destroy(); } });
+      }
+    });
+  };
+  // a splash, a puff: where something happened
+  P.raidBurst = function (k, x, y, scale) {
+    var im = this.raidFx(k, x, y, scale);
+    if (!im) return;
+    var s0 = im.scale;
+    im.setScale(s0 * 0.5);
+    this.tweens.add({ targets: im, scale: s0, duration: 180, ease: 'Back.out' });
+    this.tweens.add({ targets: im, alpha: 0, delay: 450, duration: 350, onComplete: function () { im.destroy(); } });
   };
   P.raidEvents = function (from) {
     var self = this, b = this.raidB;
@@ -246,6 +287,8 @@
       var who = e[2], at = b.raiders.filter(function (x) { return x.id === who; })[0] || b.defs.filter(function (x) { return x.id === who; })[0];
       var word = { scared: 'Eek!', stuck: 'Stuck!', gone: 'Out!', down: 'Down!', alarm: 'DONG!' }[e[1]];
       if (at && word) self.floatTextAt(at.x * T, at.y * T - 1.2 * T, word);
+      if (at && e[1] === 'stuck') self.raidBurst('mud', at.x * T, at.y * T - 0.2 * T, 0.9);
+      if (at && (e[1] === 'gone' || e[1] === 'down')) self.raidBurst('puff', at.x * T, at.y * T - 0.4 * T, 0.9);
       if (e[1] === 'alarm') sfx('found');
     });
   };
@@ -319,6 +362,7 @@
     near('scarecrow', b0(s.banditDefs.scarecrow), fx + 5, fy + 1, 4);
     near('def_sili', b0(s.banditDefs.sili), fx + 5, fy + 1, 5);
     near('def_mudpit', b0(s.banditDefs.mudpit), fx + 5, fy - 3, 4);
+    near('def_sprinkler', b0(s.banditDefs.sprinkler), fx + 5, fy + 1, 5);
     var px = pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
     near('def_goose', b0(s.banditDefs.goose), px, py, 3);
     near('def_beebox', b0(s.banditDefs.beebox), px, py, 4);

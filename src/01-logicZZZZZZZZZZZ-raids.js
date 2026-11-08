@@ -307,6 +307,7 @@
       var dx = R.defenses[x.t];
       if (x.hp <= 0 || !dx.dps) return;
       var reach = dx.range, foes = alive.filter(function (r) { return r.hp > 0 && dist(r.x, r.y, x.x, x.y) <= reach * (dx.chases ? 2 : 1); });
+      x.aim = null; // (who it is at, for the pictures: 19zz...-farm-raids-world.js; the battle never reads it)
       if (!foes.length) { if (dx.chases && dist(x.x, x.y, x.hx, x.hy) > 0.1) { var bl = dist(x.x, x.y, x.hx, x.hy); x.x += (x.hx - x.x) / bl * Math.min(bl, 2 * DT); x.y += (x.hy - x.y) / bl * Math.min(bl, 2 * DT); } return; }
       // the one it beats first, else the nearest
       foes.sort(function (p, q) { return (q.k === dx.beats) - (p.k === dx.beats) || dist(p.x, p.y, x.x, x.y) - dist(q.x, q.y, x.x, x.y); });
@@ -314,6 +315,7 @@
       if (dx.chases && fd > 0.9) { x.x += (f.x - x.x) / fd * 2.2 * DT; x.y += (f.y - x.y) / fd * 2.2 * DT; return; }
       if (!dx.chases && fd > reach) return;
       var hit = dx.dps * boost * DT * (f.k === dx.beats ? 2 : 1);
+      x.aim = f.id;
       (dx.area ? foes.filter(function (r) { return dist(r.x, r.y, x.x, x.y) <= reach; }) : [f]).forEach(function (r) {
         r.hp -= hit;
         if (dx.slows) r.slow = Math.round(1 / DT);

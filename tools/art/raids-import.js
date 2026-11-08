@@ -57,6 +57,24 @@ const DEFS = [['beebox', 1.3], ['mudpit', 1.2], ['tower', 1.8], ['sili', 1.2], [
     }, data(path.join(OUT, 'guard_goose.png')));
     save(path.join(OUT, 'props', 'def_goose.png'), r.png); save(path.join(OUT, 'props', 'def_goose.webp'), r.webp); done.push('goose piece');
   }
+  // the Sprinkler Blaster's yard piece and the battle's 7 effects (a 4 x 2 grid; prompt #7):
+  //   cell 0 -> assets/props/def_sprinkler.*; cells 1-7 -> assets/raid_fx.* (a strip of 128 x 128 frames, C.FRAID_FX order)
+  if (fs.existsSync(path.join(ART, 'raid_fx.png'))) {
+    const src = data(path.join(ART, 'raid_fx.png'));
+    const r = await one(src, 4, 2, 0, Math.round(1.3 * PPT));
+    save(path.join(OUT, 'props', 'def_sprinkler.png'), r.png); save(path.join(OUT, 'props', 'def_sprinkler.webp'), r.webp);
+    const fx = await p.evaluate(async ([s, n]) => {
+      const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 4, 2, 0.02), o = W.canvas(128 * n, 128), g = o.getContext('2d');
+      for (let i = 0; i < n; i++) {
+        const x = cl[i + 1];
+        if (!x) throw new Error('effect ' + i + ' is missing');
+        W.draw(g, x.c, x, Math.min(128 * 0.92 / x.w, 128 * 0.92 / x.h), 64 + i * 128, null, 64);
+      }
+      return W.out(o, 0.85);
+    }, [src, C.FRAID_FX.length]);
+    save(path.join(OUT, 'raid_fx.png'), fx.png); save(path.join(OUT, 'raid_fx.webp'), fx.webp);
+    done.push('sprinkler + ' + C.FRAID_FX.length + ' effects');
+  }
   if (fs.existsSync(path.join(ART, 'raid_icons.png'))) {
     const icons = await p.evaluate(async ([src, names]) => {
       const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), 4, 3, 0.02), out = {};
