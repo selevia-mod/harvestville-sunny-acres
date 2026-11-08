@@ -5,7 +5,7 @@
   'use strict';
   var C = F.Config;
   C.FRAID = {
-    battle: { secs: 120, tick: 100, w: 26, h: 20, edge: 2 }, // a battle: 2 minutes, 10 steps a second, a 26 x 20 farm
+    battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2 }, // a battle: 2 minutes, 10 steps a second, a 16 x 22 farm (a phone held upright)
     // the Raid Camp: its level opens raiders and makes the raid party bigger (housing space)
     camp: { price: 3000, levels: [
       { space: 10, gold: 0, open: ['goat', 'crow'] },
@@ -68,4 +68,10 @@
     ],
     points: [0, 10, 25, 50], // Raid Points by stars
   };
+  // the raid icons (art-src/raids/raid_icons.png: the 8 raiders' heads, Raid Points, a shield, the raid flag, a bandit),
+  // appended to the icons (nothing moves); C.FRAID_ICONS_IN once their picture is in (tools/art/raids-import.js)
+  C.FRAID_ICONS = ['ri_goat', 'ri_crow', 'ri_cat', 'ri_carabao', 'ri_monkey', 'ri_boar', 'ri_rooster', 'ri_bayawak', 'ri_points', 'ri_shield', 'ri_flag', 'ri_bandit'];
+  C.FRAID_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
+  C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
+  C.FRAID_ICONS_IN = true;
 })(window.Farm = window.Farm || {});

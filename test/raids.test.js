@@ -76,7 +76,7 @@ test('a battle: raiders from the edge only; goats eat crops; the same moves give
 });
 
 test('weak to: the scarecrow scares crows away; the dog beats the cat; a mud pit holds a boar', () => {
-  const one = (defs, k, lv) => { const farm = { w: 26, h: 20, defs, loot: [{ kind: 'crops', x: 6, y: 10, n: 50 }, { kind: 'produce', x: 6, y: 10, n: 50 }] }; const b = L.frStart(farm, { [k]: { n: 1, lv: lv || 1 } }, 1); L.frDrop(b, k, 0, 10); for (let i = 0; i < 200 && !b.end; i++) L.frStep(b); return b; };
+  const one = (defs, k, lv) => { const farm = { w: 16, h: 22, defs, loot: [{ kind: 'crops', x: 6, y: 10, n: 50 }, { kind: 'produce', x: 6, y: 10, n: 50 }] }; const b = L.frStart(farm, { [k]: { n: 1, lv: lv || 1 } }, 1); L.frDrop(b, k, 0, 10); for (let i = 0; i < 200 && !b.end; i++) L.frStep(b); return b; };
   const free = one([], 'crow'), guarded = one([{ t: 'scarecrow', x: 5, y: 10, lv: 1 }], 'crow');
   assert.ok((guarded.taken.crops || 0) < (free.taken.crops || 0), 'less with a scarecrow');
   assert.ok(guarded.events.some((e) => e[1] === 'scared'));

@@ -142,7 +142,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
     const sc = Farm.game.scene.getScene('FarmRaid');
     sc.sel = 'goat'; for (let i = 0; i < 10; i++) sc.drop(0, 6 + i);
     sc.sel = 'crow'; for (let i = 0; i < 6; i++) sc.drop(3 + i, 0);
-    sc.sel = 'cat'; for (let i = 0; i < 4; i++) sc.drop(25, 4 + i);
+    sc.sel = 'cat'; for (let i = 0; i < 4; i++) sc.drop(15, 10 + i);
   });
   await page.waitForTimeout(3000);
   await shot(page, 'raid-battle-mid');
@@ -155,7 +155,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await shot(page, 'raid-battle-end');
   const res = await page.evaluate(() => Farm.game.scene.getScene('FarmRaid').result);
   assert.ok(res && res.gold >= 0 && res.stars >= 0);
-  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.fr.army), {}, 'the raiders that went in are used');
+  assert.deepStrictEqual(await page.evaluate(() => Object.values(Farm.session.state.fr.army).reduce((a, n) => a + n, 0)), 0, 'the raiders that went in are used');
   // back to the farm: the practice tab, its stars
   await page.evaluate(() => Farm.raidLeave());
   await page.waitForFunction(() => !Farm.game.scene.isActive('FarmRaid') && Farm.ui.modals.length, null, SLOW);

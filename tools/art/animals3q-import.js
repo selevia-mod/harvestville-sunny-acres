@@ -74,7 +74,12 @@ const placeSheets = {};
   placeSheets[d.sheet] = true;
   SETS.push({ name: d.sheet, shade: d.sheet + 'shade', dir: 'places/' + d.place, ground: 358, store: 0.75, place: true, rows: [[d.sheet, { front: 9, ground: !!d.ground, fit: true }]] });
 });
-const RUN = process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
+// Farm Raids (owner, 9 Nov 2026; art-src/RAID-PROMPTS.md): the crows (a raider) and the guard goose (a defense), each a
+// one-row sheet of its own like a place's creature. node tools/art/animals3q-import.js raids
+['raid_crow', 'guard_goose'].forEach((k) => {
+  if (fs.existsSync(path.join(ROOT, 'art-src', 'raids', k + '.png'))) SETS.push({ name: k, shade: k + 'shade', dir: 'raids', ground: 358, store: 0.75, raid: true, rows: [[k, { front: 9, ground: k === 'guard_goose', fit: true, clean: true }]] });
+});
+const RUN = process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {

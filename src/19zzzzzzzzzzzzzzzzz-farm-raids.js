@@ -21,7 +21,7 @@
   if (O.index.raid_camp == null) {
     O.index.raid_camp = O.types.length;
     O.types.push({ key: 'raid_camp', name: 'Raid Camp', kind: 'prop', cat: 'workshops', w: 3, h: 3, foot: 2, price: R.camp.price, beauty: 4, one: true,
-      hd: 'ws_tannery', what: 'a bamboo raid camp with a pennant flag' }); // (its own picture: raids/raid_camp.png, art-src/RAID-PROMPTS.md)
+      hd: 'raid_camp', what: 'a bamboo raid camp with a pennant flag' }); // (its picture: tools/art/raids-import.js)
   }
   var campAt = function (s, x, y) {
     var items = (s.yard && s.yard.items) || [];
@@ -35,15 +35,26 @@
   var farm2Action = P.farm2Action;
   P.farm2Action = function (t) {
     var s = this.state;
-    if (campAt(s, t.x, t.y)) return { label: 'Raids', icon: C.ICON.act_board != null ? C.ICON.act_board : C.ICON.star, run: function () { F.ui.openRaidCamp('party'); } };
+    if (campAt(s, t.x, t.y)) return { label: 'Raids', icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, run: function () { F.ui.openRaidCamp('party'); } };
     return farm2Action.call(this, t);
   };
 
   // ---------- pictures (borrowed until the raid art is in) ----------
   var RAIDER_ICON = { goat: 'horn_goat', crow: 'feather_labuyo', cat: 'cat_basket', carabao: 'horn_carabao', monkey: 'banana_wild', boar: 'tusk', rooster: 'feather_labuyo', bayawak: 'scale_bayawak' };
   var DEF_ICON = { dog: 'dog', scarecrow: null, fence: null, goose: 'egg', beebox: 'wild_honey', mudpit: null, sprinkler: 'act_wish', tower: 'act_board', sili: 'chili', kampana: 'act_bell' };
-  L.raiderIcon = function (k) { var n = RAIDER_ICON[k]; return C.ICON[n] != null ? C.ICON[n] : C.ICON.star; };
+  L.raiderIcon = function (k) { if (C.FRAID_ICONS_IN && C.ICON['ri_' + k] != null) return C.ICON['ri_' + k]; var n = RAIDER_ICON[k]; return C.ICON[n] != null ? C.ICON[n] : C.ICON.star; };
   L.defenseIcon = function (k) { var n = DEF_ICON[k]; return n && C.ICON[n] != null ? C.ICON[n] : k === 'scarecrow' ? C.ICON.star : C.ICON.sparkle; };
+  // a defense's own picture: props/def_<k> (tools/art/raids-import.js), the yard's scarecrow, a copper sprinkler, the dog
+  var DEF_PROP = { beebox: 1, mudpit: 1, tower: 1, sili: 1, kampana: 1, fence: 1 };
+  F.defensePic = function (scene, k) {
+    if (DEF_PROP[k] && F.images['props/def_' + k]) return { key: F.ensureTexture(scene, 'props/def_' + k), frame: undefined };
+    if (k === 'scarecrow' && F.yardImg) { var y = F.yardImg(scene, O.index.scarecrow); return { key: y.key, frame: y.frame }; }
+    if (k === 'goose' && F.images.guard_goose) return { key: F.ensureTexture(scene, 'guard_goose'), frame: 0 };
+    if (k === 'dog') return { key: F.ensureTexture(scene, 'animals'), frame: C.DOG.frame0 };
+    if (k === 'sprinkler') return { key: 'items', frame: C.ICON.sprinkler_copper };
+    return { key: 'items', frame: L.defenseIcon(k) };
+  };
+  if (F.SHEETS) { ['raid_crow', 'guard_goose'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
 
   // ---------- the panel ----------
   var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
@@ -57,7 +68,7 @@
     var rows = [];
     if (tab === 'party') {
       var next = R.camp.levels[r.camp];
-      rows.push({ icon: C.ICON.act_board != null ? C.ICON.act_board : C.ICON.star, name: 'Raid Camp, level ' + r.camp, tag: null,
+      rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid Camp, level ' + r.camp, tag: null,
         desc: 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '.' + (next ? ' Next level: room for ' + next.space + (next.open.length ? ', opens the ' + R.raiders[next.open[0]].name : '') + '.' : ' Top level!'),
         buttons: next && r.camp ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s), 'The Raid Camp is bigger!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {
@@ -74,13 +85,14 @@
     } else if (tab === 'defenses') {
       R.defenseOrder.forEach(function (k) {
         var d = R.defenses[k], lv = L.defenseLv(s, k), gold = R.defLevel.gold[lv];
-        rows.push({ icon: L.defenseIcon(k), name: d.name + '  Lv ' + lv, desc: d.say,
+        var pic = F.defensePic(self, k), sz = pic.key === 'items' ? null : { key: pic.key, frame: pic.frame, w: 128, h: 128 };
+        rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: d.say,
           buttons: lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
       });
     } else {
       R.bandits.forEach(function (b, i) {
         var stars = r.won[b.key] || 0, open = L.banditOpen(s, i);
-        rows.push({ icon: C.ICON.chest, name: b.name + '  ' + ['☆☆☆', '★☆☆', '★★☆', '★★★'][stars], desc: open ? 'Up to ' + b.loot.gold.toLocaleString('en-US') + ' Gold and its crops, eggs and stall goods.' : 'Win a star on the one before.',
+        rows.push({ icon: C.ICON.ri_bandit != null ? C.ICON.ri_bandit : C.ICON.chest, name: b.name + '  ' + ['☆☆☆', '★☆☆', '★★☆', '★★★'][stars], desc: open ? 'Up to ' + b.loot.gold.toLocaleString('en-US') + ' Gold and its crops, eggs and stall goods.' : 'Win a star on the one before.',
           buttons: open ? [{ label: 'Raid', color: RED, cb: function () { self.startRaid(b.key); } }] : [] });
       });
     }
@@ -105,14 +117,21 @@
   };
 
   // ---------- the battle screen ----------
-  var PX = 26; // screen pixels a tile
+  var PX = 21; // screen pixels a tile (16 tiles: the width of the screen)
   var WI = C.WILD;
   var STAND = { goat: 'kambing', crow: 'labuyo', cat: 'musang', carabao: 'carabaoligaw', monkey: 'unggoy', boar: 'boar', rooster: 'labuyo', bayawak: 'bayawak' };
   var TINT = { crow: 0x3a3a4a };
+  var CROW = { w: 0.8, px: 178 }; // (its sheet: tools/art/animals3q-import.js raids)
   var sheetFrame = function (scene, k, f) { // a raider's picture: its own sheet, else the wild sheet's row
+    if (k === 'crow' && F.images.raid_crow) return { key: F.ensureTexture(scene, 'raid_crow'), frame: f, def: CROW, own: true };
     var kind = STAND[k], def = WI.animals[kind] || WI.animals.rabbit;
     if (def.sheet && F.images[def.sheet]) return { key: F.ensureTexture(scene, def.sheet), frame: (def.row || 0) * 12 + f, def: def };
-    return { key: F.ensureTexture(scene, 'wild'), frame: WI.order.indexOf(def.sheetRow || kind) * 12 + f, def: def };
+    var row = WI.order.indexOf(def.sheetRow || kind);
+    if (row >= 0 && F.images.wild) return { key: F.ensureTexture(scene, 'wild'), frame: row * 12 + f, def: def };
+    // its sheet is in a pack not here yet (the Wild Lands', a place's): its icon for now, the sheet asked for
+    if (def.sheet && F.needImage) F.needImage(def.sheet);
+    if (F.needImage) F.needImage('wild');
+    return { key: 'items', frame: L.raiderIcon(k), def: { w: 1, px: 128 * 0.9 }, icon: true };
   };
   F.RaidScene = class extends Phaser.Scene {
     constructor() { super('FarmRaid'); }
@@ -120,13 +139,14 @@
     create() {
       var self = this, d = this.data0, farm = d.farm, Wd = farm.w * PX, Hd = farm.h * PX;
       this.b = L.frStart(farm, d.army, d.seed);
+      Object.keys(d.army).forEach(function (k) { sheetFrame(self, k, 6); }); // (asks for any sheet not here yet)
       this.acc = 0;
       this.started = false;
       this.sel = Object.keys(d.army)[0];
       this.layer = this.add.container(0, 0);
       this.hud = this.add.container(0, 0);
       var cam = this.cameras.main;
-      cam.setZoom(F.R).setBounds(-40, -60, Wd + 80, Hd + 200).centerOn(Wd / 2, Hd / 2 + 40);
+      cam.setZoom(F.R).setBounds(-12, -70, Wd + 24, Hd + 200).centerOn(Wd / 2, Hd / 2 + 20);
       cam.setBackgroundColor('#3a6b2a');
       this.hudCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setZoom(F.R).centerOn(W / 2, C.VIEW_H / 2);
       cam.ignore(this.hud);
@@ -169,13 +189,15 @@
         return c;
       });
       // the defenses
-      var fenceKey = F.yardImg ? F.yardImg(this, O.index.wood_fence, 'h') : null, scare = F.yardImg ? F.yardImg(this, O.index.scarecrow) : null;
-      this.defImgs = this.b.defs.map(function (dd) {
-        var c = self.add.container(dd.x * PX, dd.y * PX);
-        if (dd.t === 'fence' && fenceKey) c.add(self.add.image(0, PX * 0.45, fenceKey.key, fenceKey.frame).setOrigin(0.5, 1).setDisplaySize(PX, PX * 0.9));
-        else if (dd.t === 'scarecrow' && scare) c.add(self.add.image(0, PX * 0.45, scare.key, scare.frame).setOrigin(0.5, 1).setDisplaySize(PX * 1.1, PX * 1.6));
-        else if (dd.t === 'mudpit') c.add(self.add.ellipse(0, 2, PX * 0.95, PX * 0.6, 0x5a3a1e, 0.55));
-        else { c.add(self.add.circle(0, 0, PX * 0.48, 0x2e1c0c, 0.25)); c.add(self.add.image(0, 0, 'items', L.defenseIcon(dd.t)).setScale(PX * 0.95 / 128)); }
+            this.defImgs = this.b.defs.map(function (dd) {
+        var c = self.add.container(dd.x * PX, dd.y * PX), pic = F.defensePic(self, dd.t), SIZE = { fence: 1.05, mudpit: 1.1, tower: 1.7, beebox: 1.2, sili: 1.1, kampana: 1.3, scarecrow: 1.2, goose: 1.1, dog: 1.0 };
+        var im = self.add.image(0, PX * 0.45, pic.key, pic.frame).setOrigin(0.5, 1);
+        if (pic.key === 'items') im.setOrigin(0.5).setPosition(0, 0).setScale(PX * 0.95 / 128);
+        else { var wd = (SIZE[dd.t] || 1) * PX; im.setScale(wd / im.width); if (dd.t === 'mudpit') im.setOrigin(0.5).setPosition(0, 0); }
+        if (dd.t === 'dog' || dd.t === 'goose') { im.setOrigin(0.5, 0.92).setPosition(0, PX * 0.3); im.setScale((dd.t === 'dog' ? C.DOG.w * PX / C.DOG.px : 1.0 * PX / 176)); }
+        if (dd.t === 'mudpit') im.setAlpha(0.75); // (hidden in the game's rules: the raider does not see it; you do, faintly)
+        c.add(im);
+        c.pic = im;
         if (R.defenses[dd.t].dps) c.add(self.add.circle(0, 0, R.defenses[dd.t].range * PX, 0xffffff, 0.04).setStrokeStyle(1, 0xffffff, 0.12));
         self.layer.add(c);
         return c;
@@ -275,21 +297,31 @@
       b.raiders.forEach(function (r) {
         var u = self.unitImgs[r.id];
         if (!u) {
-          var fr = sheetFrame(self, r.k, 6), sc = (fr.def.w || 1) * PX / (fr.def.px || 140) * (r.k === 'crow' ? 0.7 : 1);
+          var fr = sheetFrame(self, r.k, 6), sc = (fr.def.w || 1) * PX / (fr.def.px || 140) * (r.k === 'crow' && !fr.own ? 0.7 : 1);
           u = self.unitImgs[r.id] = { img: self.add.image(r.x * PX, r.y * PX, fr.key, fr.frame).setOrigin(0.5, 0.92).setScale(sc), bar: self.add.rectangle(r.x * PX, r.y * PX - 22, 18, 3, 0x7fd05a).setOrigin(0, 0.5), lx: r.x, step: 0 };
-          if (TINT[r.k]) u.img.setTint(TINT[r.k]);
+          if (TINT[r.k] && !fr.own) u.img.setTint(TINT[r.k]);
           self.layer.add([u.img, u.bar]);
         }
         if (r.hp <= 0) { if (!u.gone) { u.gone = true; self.tweens.add({ targets: [u.img, u.bar], alpha: 0, duration: 400 }); } return; }
         var moving = Math.abs(r.x - u.lx) > 0.001, left = r.x < u.lx;
         u.step = moving ? u.step + 1 : 0;
         var f = sheetFrame(self, r.k, moving ? 6 + [1, 0, 2, 0][Math.floor(time / 120) % 4] : 6);
-        u.img.setFrame(f.frame).setFlipX(moving ? !left : u.img.flipX).setPosition(r.x * PX, r.y * PX).setDepth(r.y);
+        if (f.key !== u.img.texture.key) { u.img.setTexture(f.key, f.frame).setScale((f.def.w || 1) * PX / (f.def.px || 140)); if (!f.icon && TINT[r.k] && !f.own) u.img.setTint(TINT[r.k]); else u.img.clearTint(); }
+        u.img.setFrame(f.frame).setFlipX(moving && !f.icon ? !left : u.img.flipX).setPosition(r.x * PX, r.y * PX - (f.icon ? Math.abs(Math.sin(time / 110 + r.x)) * 3 : 0)).setDepth(r.y);
         u.img.setAlpha(r.stuck > 0 ? 0.7 : 1);
         u.bar.setPosition(r.x * PX - 9, r.y * PX - 24).setSize(18 * Math.max(0, r.hp / r.max), 3).setVisible(r.hp < r.max);
         u.lx = r.x;
       });
-      b.defs.forEach(function (dd, i) { var img = self.defImgs[i]; if (img && R.defenses[dd.t].chases) img.setPosition(dd.x * PX, dd.y * PX); });
+      b.defs.forEach(function (dd, i) {
+        var img = self.defImgs[i];
+        if (!img || !R.defenses[dd.t].chases) return;
+        var mv = Math.abs(dd.x * PX - img.x) > 0.05, left = dd.x * PX < img.x;
+        img.setPosition(dd.x * PX, dd.y * PX).setDepth(dd.y);
+        if (img.pic && dd.hp > 0) {
+          var base = dd.t === 'dog' ? C.DOG.frame0 : 0, k = mv ? 6 + [1, 0, 2, 0][Math.floor(time / 120) % 4] : 9;
+          img.pic.setFrame(base + k).setFlipX(mv ? !left : img.pic.flipX);
+        }
+      });
       b.loot.forEach(function (p, i) { var img = self.lootImgs[i]; if (img) img.setAlpha(0.3 + 0.7 * Math.max(0, p.left / p.n)); });
     }
     finish() {

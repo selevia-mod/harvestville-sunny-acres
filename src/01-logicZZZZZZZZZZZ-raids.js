@@ -116,10 +116,11 @@
       }
       return null;
     };
-    var e = R.battle.edge + 2;
-    // the field (crops), the pen (eggs, milk), the stall, the Gold pot by the house
-    var field = { x0: e + 1, y0: e + 1, x1: e + 7, y1: e + 5 }, pen = { x0: W - e - 7, y0: e + 1, x1: W - e - 2, y1: e + 4 };
-    var house = { x: Math.floor(W / 2), y: H - e - 3 }, stall = { x: e + 2, y: H - e - 2 };
+    var e = R.battle.edge + 1;
+    // upright: the field (crops) at the top, the pen (eggs, milk) in the middle, the Gold pot by the house and the stall
+    // at the bottom; the edge all round is where raiders come in
+    var field = { x0: e, y0: e, x1: W - e - 1, y1: e + 5 }, pen = { x0: Math.floor(W / 2) - 1, y0: e + 8, x1: W - e - 1, y1: e + 12 };
+    var house = { x: Math.floor(W / 2), y: H - e - 2 }, stall = { x: e + 1, y: H - e - 3 };
     var piles = function (r, kind, total, n) { for (var i = 0; i < n; i++) { var p = free(r.x0 + 1, r.y0 + 1, r.x1 - 1, r.y1 - 1); if (p) loot.push({ kind: kind, x: p.x, y: p.y, n: Math.round(total / n) }); } };
     piles(field, 'crops', b.loot.crops, 6);
     piles(pen, 'produce', b.loot.produce, 3);
@@ -141,7 +142,7 @@
     fence(pen, Math.floor(nf * 0.4));
     // the other defenses near what they guard
     var near = { scarecrow: field, sili: field, mudpit: field, dog: pen, goose: pen, beebox: pen,
-      tower: { x0: house.x - 3, y0: house.y - 4, x1: house.x + 3, y1: house.y - 1 }, kampana: { x0: house.x - 2, y0: house.y - 2, x1: house.x + 2, y1: house.y },
+      tower: { x0: e, y0: e + 7, x1: e + 3, y1: e + 12 }, kampana: { x0: house.x - 2, y0: house.y - 2, x1: house.x + 2, y1: house.y },
       sprinkler: field };
     R.defenseOrder.forEach(function (k) {
       if (k === 'fence') return;
