@@ -73,26 +73,44 @@
       line(g, [[cx, cy - a], [cx, cy + a]], 3, '#ffffff');
     },
     // the Decorate panel's (owner, 8 Nov 2026: "Lets improve this panel"): a quarter-turn arrow, into the box, a tick
-    turn: function (g, cx, cy, r) {
-      var a = r * 0.42;
-      g.lineCap = g.lineJoin = 'round';
+    turn: function (g, cx, cy, r) { // a circular arrow going round (clockwise), its head a filled triangle
+      var a = r * 0.44, s = -Math.PI / 2 + 0.6, e = s + Math.PI * 2 - 1.25; // (the gap at the top, the head pointing round into it)
+      g.lineCap = 'round';
       [[5.5, EDGE], [3, '#ffffff']].forEach(function (st) {
         g.beginPath();
-        g.arc(cx, cy, a, -Math.PI * 0.95, Math.PI * 0.45);
+        g.arc(cx, cy, a, s, e, false);
         g.lineWidth = st[0];
         g.strokeStyle = st[1];
         g.stroke();
       });
-      var ex = cx + a * Math.cos(Math.PI * 0.45), ey = cy + a * Math.sin(Math.PI * 0.45);
-      line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 5.5, EDGE);
-      line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 3, '#ffffff');
+      var px = cx + a * Math.cos(e), py = cy + a * Math.sin(e), tx = -Math.sin(e), ty = Math.cos(e), nx = Math.cos(e), ny = Math.sin(e), h = r * 0.34, w = r * 0.27;
+      g.beginPath();
+      g.moveTo(px + tx * h, py + ty * h);
+      g.lineTo(px + nx * w - tx * 2, py + ny * w - ty * 2);
+      g.lineTo(px - nx * w - tx * 2, py - ny * w - ty * 2);
+      g.closePath();
+      g.lineJoin = 'round';
+      g.lineWidth = 2.6;
+      g.strokeStyle = EDGE;
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.fill();
     },
-    store: function (g, cx, cy, r) {
-      var a = r * 0.42;
-      line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 5.5, EDGE);
-      line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 5.5, EDGE);
-      line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 3, '#ffffff');
-      line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 3, '#ffffff');
+    store: function (g, cx, cy, r) { // a storage box with its lid on
+      var a = r * 0.44;
+      rrect(g, cx - a, cy - a * 0.3, a * 2, a * 1.3, 3);
+      g.fillStyle = '#ffffff';
+      g.fill();
+      g.lineWidth = 2.2;
+      g.strokeStyle = EDGE;
+      g.stroke();
+      rrect(g, cx - a * 1.15, cy - a * 0.78, a * 2.3, a * 0.52, 3);
+      g.fillStyle = '#fff3d6';
+      g.fill();
+      g.stroke();
+      rrect(g, cx - a * 0.38, cy + a * 0.08, a * 0.76, a * 0.22, 2); // its handle
+      g.fillStyle = EDGE;
+      g.fill();
     },
     tick: function (g, cx, cy, r) {
       var a = r * 0.42;
