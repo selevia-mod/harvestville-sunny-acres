@@ -20,7 +20,7 @@
   var world = function () { return F.world; };
 
   C.TIPS.push({ key: 'dog_name', text: 'NAME YOUR DOG' }); // (asked once: last, so older saves keep their tips)
-  var G = F.GUIDE = { card: { x: 8, y: 104, w: 186, h: 42 }, ahead: 1.6, near: 0.32, tipEvery: 150000, tipStill: 6000, stuck: 1300 };
+  var G = F.GUIDE = { card: { x: 8, y: 104, w: 186, h: 42 }, ahead: 1.6, lead: 1.8, near: 0.32, tipEvery: 150000, tipStill: 6000, stuck: 1300 };
 
   // ---------- your dog's name ----------
   var WHY = { empty: 'Type a name for your dog.', rude: "Let's keep Harvest Ville friendly. Try another name." };
@@ -79,6 +79,18 @@
       return { exit: o, walk: walk, goal: function (x, y) { return nearRect(o, x, y, walk); } };
     }
     var to = place.to;
+    if (to === 'villager') {
+      var f0 = this.feet(), vs = (this.villagers && this.villagers.list || []).filter(function (v) {
+        return v.visible && v.sprite && v.sprite.visible && !(L.friend(s, v.key) || {})[place.not || 'talked'];
+      }).sort(function (a, b) { return Math.hypot(a.sprite.x - f0.x, a.sprite.y - f0.y) - Math.hypot(b.sprite.x - f0.x, b.sprite.y - f0.y); });
+      if (vs.length) {
+        var v = vs[0], vx = Math.floor(v.sprite.x / T), vy = Math.floor(v.sprite.y / T);
+        return { who: v, goal: function (x, y) { return Math.abs(x - vx) + Math.abs(y - vy) === 1; } };
+      }
+      to = 'fountain';
+      var fo = this.objects.filter(function (x) { return x.name === to; })[0];
+      return fo ? { goal: function (x, y) { return nearRect(fo, x, y); } } : null;
+    }
     if (to === 'water') return { goal: function (x, y) { return self.isWater(x + 1, y) || self.isWater(x - 1, y) || self.isWater(x, y + 1) || self.isWater(x, y - 1); } };
     if (to === 'debris') return { goal: function (x, y) { var w = self.map.width; return !!(s.debris[(y + 1) * w + x] || s.debris[(y - 1) * w + x] || s.debris[y * w + x + 1] || s.debris[y * w + x - 1]); } };
     if (to === 'field') { var fs = this.objects.filter(function (x) { return x.name === 'field_sign'; })[0]; if (fs) return { goal: function (x, y) { return nearRect(fs, x, y); } }; }
@@ -137,8 +149,11 @@
     if (!path) { spot = this.guideGoal(g.local && g.local === this.mapKey ? { map: this.mapKey, to: g.place.to } : g.place); path = spot && this.guidePath(spot.goal); }
     if (!path) { this.guideStop(this.mapKey === g.place.map ? 'here' : 'lost'); return false; }
     this.guide = { path: path, k: 0, spot: spot, last: this.feet(), at: Date.now(), tries: (this.guide && this.guide.tries) || 0 };
-    if (!path.length) this.guideArrive();
-    else this.guideDogShow();
+    if (!path.length) { // already there: say so (owner: "nothing happen")
+      this.guideDogShow();
+      F.ui.toast(L.dogName(this.state) + ': we\'re here! ' + (g.place.say || ''), 2200, 0x2f5a22);
+      this.guideArrive();
+    } else this.guideDogShow();
     return true;
   };
   // why: 'arrived' | 'stopped' (the joystick) | 'lost' | 'blocked' | 'here'
@@ -154,6 +169,14 @@
   };
   P.guideArrive = function () {
     var g = this.guide;
+    // a villager walks on: follow them until you are beside them (a few times at most)
+    if (g && g.spot.who && g.spot.who.sprite && g.spot.who.visible) {
+      var f = this.feet(), v = g.spot.who.sprite, chase = (g.chase || 0) + 1;
+      if (Math.hypot(v.x - f.x, v.y - f.y) > 1.8 * T && chase <= 6) {
+        var spot = this.guideGoal(F.session.guide.local ? { map: this.mapKey, to: 'villager', not: F.session.guide.place.not } : F.session.guide.place), path = spot && this.guidePath(spot.goal);
+        if (path && path.length) { this.guide = { path: path, k: 0, spot: spot, last: f, at: Date.now(), tries: g.tries, chase: chase }; return; }
+      }
+    }
     if (g && g.spot.exit) { // a door or a road on: through it, and on from the next map
       var o = g.spot.exit;
       this.guide = null;
@@ -189,6 +212,14 @@
       }
       g.last = f;
       g.at = now;
+    }
+    if (g.spot.who && now - (g.aimed || g.at) > 900) { // (a villager on the move: aim again now and then)
+      g.aimed = now;
+      var end = g.path[g.path.length - 1], vs = g.spot.who.sprite;
+      if (vs && Math.hypot((end.x + 0.5) * T - vs.x, (end.y + 0.5) * T - vs.y) > 2 * T) {
+        var sp2 = this.guideGoal(F.session.guide.local ? { map: this.mapKey, to: 'villager', not: F.session.guide.place.not } : F.session.guide.place), p2 = sp2 && this.guidePath(sp2.goal);
+        if (p2 && p2.length) { g.path = p2; g.k = 0; g.spot = sp2; }
+      }
     }
     var w = g.path[g.k], dx = (w.x + 0.5) * T - f.x, dy = (w.y + 0.5) * T - f.y, len = Math.hypot(dx, dy) || 1;
     F.input.jx = dx / len;
@@ -233,25 +264,41 @@
     update.call(this, time, delta);
     var d = this.guideDog;
     if (!d || !this.sys || !this.sys.isActive() || !this.player) return;
-    var dt = Math.min(delta, 100), g = this.guide, f = this.feet(), tx = f.x, ty = f.y;
-    if (g && g.path.length) { // a little ahead on the way
-      var k = Math.min(g.path.length - 1, g.k + Math.round(G.ahead)), t = g.path[k];
-      tx = (t.x + 0.5) * T; ty = (t.y + 0.5) * T;
+    var dt = Math.min(delta, 100), g = this.guide, f = this.feet(), tx = f.x, ty = f.y, leading = !!(g && g.path.length);
+    if (leading) {
+      // a point that slides along the way, G.lead ahead of you (owner, 8 Nov 2026: it ran, stopped, ran, stopped: it
+      // aimed at the next tile and stopped on each one); the dog runs to it at your pace, so it never stops while you go
+      var left = G.lead * T, px = f.x, py = f.y;
+      for (var k = g.k; k < g.path.length && left > 0; k++) {
+        var qx = (g.path[k].x + 0.5) * T, qy = (g.path[k].y + 0.5) * T, seg = Math.hypot(qx - px, qy - py);
+        if (seg >= left) { px += (qx - px) * left / seg; py += (qy - py) * left / seg; left = 0; break; }
+        left -= seg; px = qx; py = qy;
+      }
+      tx = px; ty = py;
     } else { tx = f.x + 0.7 * T; ty = f.y + 0.1 * T; }
-    var dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy), moving = dist > 0.2 * T, fr;
+    var dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy), fr;
+    var bv = this.player.body && this.player.body.velocity, walking = !!bv && Math.hypot(bv.x, bv.y) > 40;
+    var moving = leading ? (dist > 0.04 * T || walking) : dist > 0.2 * T; // (while you walk after it, it runs)
     if (dist > 10 * T) { d.x = tx; d.y = ty; dist = 0; moving = false; }
     if (moving) {
-      var step = Math.min(dist, C.SPEED * 1.25 * dt / 1000 * Math.min(1, dist / (0.6 * T) + 0.4));
-      d.x += dx / dist * step; d.y += dy / dist * step;
-      A.face(d, dx, dy);
+      // your pace, a little quicker when behind, easing (not stopping) when ahead of the point
+      var pace = C.SPEED * (dist > 1.2 * T ? 1.5 : dist > 0.3 * T ? 1.05 : 0.9), want = Math.min(dist, pace * dt / 1000);
+      d.vel = (d.vel || 0) + (want - (d.vel || 0)) * Math.min(1, dt / 90);
+      var step = Math.min(dist, d.vel);
+      if (dist > 0.5) { d.x += dx / dist * step; d.y += dy / dist * step; }
+      if (dist > 0.12 * T) A.face(d, dx, dy); // (not turning on the spot when it is right at the point)
       d.still = 0;
-      fr = d.dir === 'side' ? 6 + STEPS[Math.floor(time / 120) % 4] : FACING[d.dir] + STEPS[Math.floor(time / 120) % 4];
+      // (its legs keep their own beat, not restarted each step)
+      d.run = (d.run || 0) + dt;
+      // running: the gallop sideways (the hunting dog's two running frames), quick steps up and down
+      fr = d.dir === 'side' ? (Math.floor(d.run / 110) % 2 ? 11 : 7) : FACING[d.dir] + STEPS[Math.floor(d.run / 95) % 4];
       if (time - d.printAt > 260) { // paw prints behind it
         d.printAt = time;
         var p = this.add.image(d.x + (d.flip ? -1 : 1) * 0.12 * T, d.y + 0.05 * T, pawTex(this)).setScale(0.55).setAngle(Math.atan2(dy, dx) * 180 / Math.PI + 90).setDepth(DEPTH.flat + 0.1).setAlpha(0.8);
         this.tweens.add({ targets: p, alpha: 0, delay: 900, duration: 1400, onComplete: function () { p.destroy(); } });
       }
     } else {
+      d.vel = 0;
       d.still += dt;
       if (Math.abs(f.x - d.x) > 20) d.flip = f.x > d.x;
       fr = d.still > 600 ? 9 : FACING[d.dir];

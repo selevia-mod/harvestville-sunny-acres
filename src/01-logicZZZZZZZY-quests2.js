@@ -36,8 +36,10 @@
     collect: { map: 'farm', to: 'zone:pen', say: 'To the animals!' },
     pet: { map: 'farm', to: 'zone:dogarea', say: 'Pet me, pet me!' },
     forage: { map: 'farm', to: 'zone:forage', here: true, say: 'I smell something!' },
-    talk: { map: 'town', to: 'fountain', say: 'To the town!' },
-    gift: { map: 'town', to: 'fountain', say: 'To the town!' },
+    // (to a villager you have not talked to / given a gift to today, the nearest; the fountain when none is out:
+    // owner, 8 Nov 2026, "I tap Go for talk to 5 villagers and nothing happen")
+    talk: { map: 'town', to: 'villager', not: 'talked', here: true, say: 'Let\'s say hi!' },
+    gift: { map: 'town', to: 'villager', not: 'gifted', here: true, say: 'Give them a gift!' },
     earned: { map: 'town', to: 'farm_stand', say: 'To the market!' },
     cooked: { map: 'farm', to: 'house_door', say: 'To your kitchen!' },
     order: { map: 'town', to: 'order_board', say: 'To the order board!' },

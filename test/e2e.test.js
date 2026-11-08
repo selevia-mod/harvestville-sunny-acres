@@ -2674,6 +2674,25 @@ test('quests v2: the card shows one quest; Go and your dog leads the farmer to t
   await shot(page, 'qv2-badge');
   await tapCard(page);
   assert.ok(await page.evaluate(() => !!Farm.world.guide && !!Farm.world.guideDog), 'the dog leads');
+  // it runs smoothly while it leads: it does not stop and go (owner, 8 Nov 2026: "stopping then running then stopping")
+  const stops = await page.evaluate(() => new Promise((done) => {
+    const w = Farm.world, A = Farm.Anim, base = Farm.Config.DOG.frame0; let last = null, n = 0, slow = 0, pose = 0; const v = [];
+    const standing = [A.FACING.down, A.FACING.up, A.FACING.side, 9].map((k) => base + k);
+    const tick = () => {
+      const d = w.guideDog;
+      if (!w.guide || !d || n > 120) { const med = v.slice().sort((a, b) => a - b)[v.length >> 1]; return done({ n, slow: v.filter((m) => m < med * 0.35).length, pose, med }); }
+      if (last && n > 15) { const m = Math.hypot(d.x - last.x, d.y - last.y); v.push(m); if (d.dir === 'side' && Number(d.sprite.frame.name) === base + A.FACING.side) pose++; }
+      last = { x: d.x, y: d.y }; n++;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+  const slowFrames = await page.evaluate(() => 0);
+  void slowFrames;
+  assert.ok(stops.n > 30, 'led for a while');
+  assert.ok(stops.pose / stops.n < 0.05, 'the dog stood (side) in ' + stops.pose + ' of ' + stops.n + ' frames while leading');
+  const dips = await page.evaluate(() => 0); void dips;
+  assert.ok(stops.slow / stops.n < 0.1, 'speed dips in ' + stops.slow + ' of ' + stops.n + ' frames (median step ' + stops.med + ')');
   await page.waitForTimeout(700);
   await shot(page, 'qv2-leading');
   await page.waitForFunction(() => !Farm.world.guide, null, SLOW);
@@ -2704,6 +2723,25 @@ test('quests v2: a fish quest in town: the dog leads to the town\'s river, not t
   const at = await page.evaluate(() => { const w = Farm.world, f = w.feet(), T = Farm.Config.TILE, x = Math.floor(f.x / T), y = Math.floor(f.y / T); return [w.mapKey, w.isWater(x + 1, y) || w.isWater(x - 1, y) || w.isWater(x, y + 1) || w.isWater(x, y - 1)]; });
   assert.deepStrictEqual(at, ['town', true], 'by the water in town');
   await shot(page, 'qv2-town-river');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('quests v2: talk to villagers: the dog leads to the nearest villager you have not talked to today (owner, 8 Nov 2026)', async () => {
+  const save = await makeSave(QV2 + " L.setDogName(s, 'Choco'); s.time = 600;");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await page.waitForFunction(() => Farm.world.villagers && Farm.world.villagers.list.some((v) => v.visible && v.sprite.visible), null, SLOW);
+  await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
+  await pinTo(page, 'talk');
+  await tapCard(page);
+  assert.ok(await page.evaluate(() => !!Farm.world.guideDog), 'the dog comes');
+  await page.waitForFunction(() => !Farm.world.guide && !Farm.session.guide, null, { timeout: 120000 });
+  const near = await page.evaluate(() => { const w = Farm.world, f = w.feet(); return w.villagers.list.filter((v) => v.visible && v.sprite.visible).map((v) => Math.hypot(v.sprite.x - f.x, v.sprite.y - f.y) / Farm.Config.TILE).sort((a, b) => a - b)[0]; });
+  assert.ok(near < 3, 'next to a villager: ' + near);
+  await shot(page, 'qv2-talk');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
