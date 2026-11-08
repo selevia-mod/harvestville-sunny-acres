@@ -201,28 +201,15 @@
   };
 
   // ---------- where Skills opens ----------
-  // the farmer card in the pause menu: "Skills" at the right of the date line
+  // the farmer card in the pause menu: "Skills", last on the card's row of links (16-panels.js U.pauseLinks)
   var openPause = U.openPause;
   U.openPause = function () {
     openPause.apply(this, arguments);
     var self = this, m = this.modals[this.modals.length - 1];
-    if (!m || F.session.visit) return;
-    var c = m.c, date = null, R0 = W - 42;
-    c.list.forEach(function (o) { if (o.type === 'Text' && / · /.test(o.text) && /\d{4}/.test(o.text)) date = o; });
-    if (!date) return;
-    var y = date.y, sum = SK.order.reduce(function (a, k) { return a + L.skillLevel(F.session.state, k); }, 0);
-    var link = this.add.container(0, 0);
-    var t = this.txt(R0 - 12, y, 'Skills', 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-    var star = this.add.image(t.x - t.width - 9, y, 'items', C.ICON.star).setScale(0.13);
-    link.add([star, t]);
-    var left = star.x - 9;
-    if (date.x + date.displayWidth > left - 4) date.setScale((left - 4 - date.x) / date.width); // (a long date makes room)
-    var z = this.add.zone((left + R0) / 2, y, R0 - left + 6, 28).setInteractive({ useHandCursor: true });
-    F.tapOn(z, function () { self.closeModal(); self.openSkills(null, null, function () { self.openPause(); }); });
-    link.add(z);
-    link.name = 'skills-link';
+    if (!m || F.session.visit || !m.c.pauseLinks) return;
+    var sum = SK.order.reduce(function (a, k) { return a + L.skillLevel(F.session.state, k); }, 0);
+    var link = this.pauseLink(m.c, 'skills-link', C.ICON.star, 'Skills', function () { self.openSkills(null, null, function () { self.openPause(); }); });
     link.sum = sum;
-    c.add(link);
   };
   // the Collection: a Skills button in its row of books (16-panels.js, collectionButton)
   var openCollection = U.openCollection;

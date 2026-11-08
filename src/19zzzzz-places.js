@@ -718,32 +718,13 @@
       chests: 'Find every hidden chest in ' + p.name + '.', story: 'Hear the whole story of ' + (p.npc ? p.npc.name : 'its person') + '.', hunt: 'Hunt one in ' + p.name + '.',
       giant: 'Hunt a giant one.' }[m.kind] || '';
   };
-  // the pause menu's farmer card: "Medals" under Rename, at the right of the birthday line
+  // the pause menu's farmer card: "Medals", first on the card's row of links (16-panels.js U.pauseLinks)
   var openPause = U.openPause;
   U.openPause = function () {
     openPause.apply(this, arguments);
-    var self = this, m = this.modals[this.modals.length - 1], ren = null;
-    if (!m || F.session.visit) return;
-    var find = function (list) { list.forEach(function (o) { if (o.type === 'Text' && o.text === 'Rename') ren = o; if (o.list) find(o.list); }); };
-    find(m.c.list);
-    if (!ren) return;
-    var y = ren.y + 23, x1 = ren.x, link = this.add.container(0, 0);
-    // Town Rank's link (19zzzz-rank.js) sits at the right of the same line: Medals goes just left of its badge, and the
-    // birthday line shrinks to fit before it (6 Nov 2026: the two were drawn one over the other)
-    var rank = m.c.list.filter(function (o) { return o.name === 'rank-link'; })[0], dot = rank && rank.list.filter(function (o) { return o.type === 'Arc'; })[0];
-    if (dot) { x1 = dot.x - 16; y = dot.y; }
-    var t = this.txt(x1, y, 'Medals ' + L.medalCount(F.session.state), 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-    if (dot) {
-      var bday = null, findB = function (list) { list.forEach(function (o) { if (o.type === 'Text' && /^(Birthday:|Set your birthday)/.test(o.text)) bday = o; if (o.list) findB(o.list); }); };
-      findB(m.c.list);
-      var room = t.x - t.width - 10;
-      if (bday && bday.x + bday.width * bday.scaleX > room) bday.setScale(Math.max(0.5, (room - bday.x) / bday.width));
-    }
-    var z = this.add.zone(x1 - t.width / 2, y, t.width + 10, 24).setInteractive({ useHandCursor: true });
-    F.tapOn(z, function () { self.closeModal(); self.openMedals(null, null, function () { self.openPause(); }); });
-    link.add([t, z]);
-    link.name = 'medals-link';
-    m.c.add(link);
+    var self = this, m = this.modals[this.modals.length - 1];
+    if (!m || F.session.visit || !m.c.pauseLinks) return;
+    this.pauseLink(m.c, 'medals-link', C.ICON.ribbon, 'Medals ' + L.medalCount(F.session.state), function () { self.openMedals(null, null, function () { self.openPause(); }); });
   };
   // the Collection: Medals and Gear in its row of books
   var openCollection = U.openCollection;

@@ -154,13 +154,16 @@
     var canShare = !!(window.gameHost && typeof window.gameHost.share === 'function');
     var inApp = !!(window.gameHost && typeof window.gameHost.remind === 'function');
     var reopen = function () { self.closeModal(); self.openPause(); };
-    var PH = 422, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W - 42; // centred, like every panel
+    // (owner, 8 Nov 2026: the card's text was cramped - Medals, the rank and Skills were squeezed onto the birthday and
+    // date lines, shrinking them: they have a row of their own now, at the bottom of the card, U.pauseLinks)
+    var CH = 102, PH = 446, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W - 42; // centred, like every panel
     this.panelImg(c, 30, top, W - 60, PH);
     c.add(this.txt(W / 2, top + 10, 'Paused', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     // the card
     var cy = top + 44, card = this.add.graphics();
-    card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, 78, 12);
-    card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, 78, 12);
+    card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, CH, 12);
+    card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, CH, 12);
+    card.lineStyle(1, 0x7a4d26, 0.18).lineBetween(L0 + 14, cy + 75, R0 - 14, cy + 75); // (over the links' row)
     card.fillStyle(0xf2d79a, 1).fillCircle(L0 + 36, cy + 39, 28);
     c.add(card);
     var face = this.add.image(L0 + 36, cy + 41, F.playerKey(this), 0).setCrop(0, 0, 256, 250);
@@ -187,7 +190,8 @@
     }
     c.add(this.txt(L0 + 74, cy + 62, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  ·  ' + L.formatTime(s.time), 12, '#8a6a4a').setOrigin(0, 0.5));
     // Resume and Leave game
-    var by = cy + 108, half = (R0 - L0 - 10) / 2;
+    c.pauseLinks = { y: cy + 89, x0: L0 + 16, x1: R0 - 16 }; // (U.pauseLinks lays the links out on it)
+    var by = cy + CH + 30, half = (R0 - L0 - 10) / 2;
     if (canLeave) {
       this.button(c, L0 + half / 2, by, half, 44, 'Resume', function () { self.closeModal(); }, GREEN);
       // In the Selebox app the host offers gameHost.exit: save, then hand the screen back to the app.
@@ -243,6 +247,41 @@
     }));
     c.add(ng);
     if (C.NEWS_LATEST) c.add(this.txt(R0 - 4, fy, 'Harvest Ville v' + C.NEWS_LATEST, 12, '#8a6a4a').setOrigin(1, 0.5));
+  };
+
+  // The farmer card's links (Medals, the rank, Skills: 19zzzzz-places.js, 19zzzz-rank.js, 19zz-skills.js) on their own
+  // row at the bottom of the card, in that order, spread evenly across it. Each link is a container named '<k>-link',
+  // drawn from x 0 (its .w wide) at y 0; this places them.
+  M.pauseLinks = function (c) {
+    var row = c && c.pauseLinks;
+    if (!row) return;
+    var order = ['medals-link', 'rank-link', 'skills-link'];
+    var links = order.map(function (n) { return c.list.filter(function (o) { return o.name === n; })[0]; }).filter(Boolean);
+    if (!links.length) return;
+    var total = links.reduce(function (a, l) { return a + l.w; }, 0), span = row.x1 - row.x0;
+    var gap = links.length > 1 ? Math.max(8, (span - total) / (links.length - 1)) : 0;
+    var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2;
+    if (total + gap * (links.length - 1) > span) { // (too long: one scale for all, so they still fit)
+      var k = span / (total + gap * (links.length - 1));
+      links.forEach(function (l) { l.setScale(k); });
+      gap *= k;
+      links.forEach(function (l) { l.w *= k; });
+    }
+    links.forEach(function (l) { l.setPosition(x, row.y); x += l.w + gap; });
+  };
+  // A link for the card: a small icon (an items frame, or a coloured dot: { dot: color }), its blue word, the tap.
+  M.pauseLink = function (c, name, icon, word, onTap) {
+    var self = this, link = this.add.container(0, 0);
+    var t = this.txt(18, 0, word, 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    var mark = icon && icon.dot != null ? this.add.circle(7, 0, 6, icon.dot).setStrokeStyle(1.5, 0x3d2614) : this.add.image(7, 0, 'items', icon).setScale(0.13);
+    var z = this.add.zone((18 + t.width) / 2, 0, 18 + t.width + 10, 28).setInteractive({ useHandCursor: true });
+    F.tapOn(z, function () { self.closeModal(); onTap(); });
+    link.add([t, mark, z]); // (the word first: tests read list[0])
+    link.name = name;
+    link.w = 18 + t.width;
+    c.add(link);
+    this.pauseLinks(c);
+    return link;
   };
 
   // ---------- a new farm: play as the boy or the girl ----------

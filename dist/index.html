@@ -19953,13 +19953,16 @@ var canLeave = !!(window.gameHost && typeof window.gameHost.exit === 'function')
 var canShare = !!(window.gameHost && typeof window.gameHost.share === 'function');
 var inApp = !!(window.gameHost && typeof window.gameHost.remind === 'function');
 var reopen = function () { self.closeModal(); self.openPause(); };
-var PH = 422, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W - 42;
+
+
+var CH = 102, PH = 446, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W - 42;
 this.panelImg(c, 30, top, W - 60, PH);
 c.add(this.txt(W / 2, top + 10, 'Paused', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
 
 var cy = top + 44, card = this.add.graphics();
-card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, 78, 12);
-card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, 78, 12);
+card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, CH, 12);
+card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, CH, 12);
+card.lineStyle(1, 0x7a4d26, 0.18).lineBetween(L0 + 14, cy + 75, R0 - 14, cy + 75);
 card.fillStyle(0xf2d79a, 1).fillCircle(L0 + 36, cy + 39, 28);
 c.add(card);
 var face = this.add.image(L0 + 36, cy + 41, F.playerKey(this), 0).setCrop(0, 0, 256, 250);
@@ -19986,7 +19989,8 @@ c.add(bd);
 }
 c.add(this.txt(L0 + 74, cy + 62, L.formatDate(s.day) + ', ' + L.date(s.day).year + '  \u00b7  ' + L.formatTime(s.time), 12, '#8a6a4a').setOrigin(0, 0.5));
 
-var by = cy + 108, half = (R0 - L0 - 10) / 2;
+c.pauseLinks = { y: cy + 89, x0: L0 + 16, x1: R0 - 16 };
+var by = cy + CH + 30, half = (R0 - L0 - 10) / 2;
 if (canLeave) {
 this.button(c, L0 + half / 2, by, half, 44, 'Resume', function () { self.closeModal(); }, GREEN);
 
@@ -20042,6 +20046,41 @@ self.newGame();
 }));
 c.add(ng);
 if (C.NEWS_LATEST) c.add(this.txt(R0 - 4, fy, 'Harvest Ville v' + C.NEWS_LATEST, 12, '#8a6a4a').setOrigin(1, 0.5));
+};
+
+
+
+
+M.pauseLinks = function (c) {
+var row = c && c.pauseLinks;
+if (!row) return;
+var order = ['medals-link', 'rank-link', 'skills-link'];
+var links = order.map(function (n) { return c.list.filter(function (o) { return o.name === n; })[0]; }).filter(Boolean);
+if (!links.length) return;
+var total = links.reduce(function (a, l) { return a + l.w; }, 0), span = row.x1 - row.x0;
+var gap = links.length > 1 ? Math.max(8, (span - total) / (links.length - 1)) : 0;
+var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2;
+if (total + gap * (links.length - 1) > span) {
+var k = span / (total + gap * (links.length - 1));
+links.forEach(function (l) { l.setScale(k); });
+gap *= k;
+links.forEach(function (l) { l.w *= k; });
+}
+links.forEach(function (l) { l.setPosition(x, row.y); x += l.w + gap; });
+};
+
+M.pauseLink = function (c, name, icon, word, onTap) {
+var self = this, link = this.add.container(0, 0);
+var t = this.txt(18, 0, word, 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+var mark = icon && icon.dot != null ? this.add.circle(7, 0, 6, icon.dot).setStrokeStyle(1.5, 0x3d2614) : this.add.image(7, 0, 'items', icon).setScale(0.13);
+var z = this.add.zone((18 + t.width) / 2, 0, 18 + t.width + 10, 28).setInteractive({ useHandCursor: true });
+F.tapOn(z, function () { self.closeModal(); onTap(); });
+link.add([t, mark, z]);
+link.name = name;
+link.w = 18 + t.width;
+c.add(link);
+this.pauseLinks(c);
+return link;
 };
 
 
@@ -36714,23 +36753,10 @@ var openPause = U.openPause;
 U.openPause = function () {
 openPause.apply(this, arguments);
 var self = this, m = this.modals[this.modals.length - 1];
-if (!m || F.session.visit) return;
-var c = m.c, date = null, R0 = W - 42;
-c.list.forEach(function (o) { if (o.type === 'Text' && / \u00b7 /.test(o.text) && /\d{4}/.test(o.text)) date = o; });
-if (!date) return;
-var y = date.y, sum = SK.order.reduce(function (a, k) { return a + L.skillLevel(F.session.state, k); }, 0);
-var link = this.add.container(0, 0);
-var t = this.txt(R0 - 12, y, 'Skills', 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-var star = this.add.image(t.x - t.width - 9, y, 'items', C.ICON.star).setScale(0.13);
-link.add([star, t]);
-var left = star.x - 9;
-if (date.x + date.displayWidth > left - 4) date.setScale((left - 4 - date.x) / date.width);
-var z = this.add.zone((left + R0) / 2, y, R0 - left + 6, 28).setInteractive({ useHandCursor: true });
-F.tapOn(z, function () { self.closeModal(); self.openSkills(null, null, function () { self.openPause(); }); });
-link.add(z);
-link.name = 'skills-link';
+if (!m || F.session.visit || !m.c.pauseLinks) return;
+var sum = SK.order.reduce(function (a, k) { return a + L.skillLevel(F.session.state, k); }, 0);
+var link = this.pauseLink(m.c, 'skills-link', C.ICON.star, 'Skills', function () { self.openSkills(null, null, function () { self.openPause(); }); });
 link.sum = sum;
-c.add(link);
 };
 
 var openCollection = U.openCollection;
@@ -41736,24 +41762,9 @@ var openPause = U.openPause;
 U.openPause = function () {
 openPause.apply(this, arguments);
 var self = this, m = this.modals[this.modals.length - 1];
-if (!m || F.session.visit) return;
-var c = m.c, line = null, date = null, R0 = W - 42;
-c.list.forEach(function (o) {
-if (o.type === 'Text' && / \u00b7 /.test(o.text) && /\d{4}/.test(o.text)) date = o;
-if (o.type === 'Container') o.list.forEach(function (x) { if (x.type === 'Text' && /^(Birthday:|Set your birthday)/.test(x.text)) line = x; });
-});
-if (!date) return;
-var y = line ? line.y : date.y - 21, me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
-var link = this.add.container(0, 0);
-var t = this.txt(R0 - 12, y, d ? d.name : best ? 'Best: ' + best.name : 'Rank', 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-var dot = this.add.circle(t.x - t.width - 9, y, 6, (d || best || { color: 0xd8c8a8 }).color).setStrokeStyle(1.5, 0x3d2614);
-link.add([dot, t]);
-if (line && line.x + line.width > dot.x - 12) line.setScale(Math.max(0.6, (dot.x - 12 - line.x) / line.width));
-var z = this.add.zone((dot.x - 8 + R0) / 2, y, R0 - dot.x + 14, 26).setInteractive({ useHandCursor: true });
-F.tapOn(z, function () { self.closeModal(); self.openTownRank(0, function () { self.openPause(); }); });
-link.add(z);
-link.name = 'rank-link';
-c.add(link);
+if (!m || F.session.visit || !m.c.pauseLinks) return;
+var me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
+this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xd8c8a8 }).color }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
 };
 
 
@@ -42560,28 +42571,9 @@ giant: 'Hunt a giant one.' }[m.kind] || '';
 var openPause = U.openPause;
 U.openPause = function () {
 openPause.apply(this, arguments);
-var self = this, m = this.modals[this.modals.length - 1], ren = null;
-if (!m || F.session.visit) return;
-var find = function (list) { list.forEach(function (o) { if (o.type === 'Text' && o.text === 'Rename') ren = o; if (o.list) find(o.list); }); };
-find(m.c.list);
-if (!ren) return;
-var y = ren.y + 23, x1 = ren.x, link = this.add.container(0, 0);
-
-
-var rank = m.c.list.filter(function (o) { return o.name === 'rank-link'; })[0], dot = rank && rank.list.filter(function (o) { return o.type === 'Arc'; })[0];
-if (dot) { x1 = dot.x - 16; y = dot.y; }
-var t = this.txt(x1, y, 'Medals ' + L.medalCount(F.session.state), 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-if (dot) {
-var bday = null, findB = function (list) { list.forEach(function (o) { if (o.type === 'Text' && /^(Birthday:|Set your birthday)/.test(o.text)) bday = o; if (o.list) findB(o.list); }); };
-findB(m.c.list);
-var room = t.x - t.width - 10;
-if (bday && bday.x + bday.width * bday.scaleX > room) bday.setScale(Math.max(0.5, (room - bday.x) / bday.width));
-}
-var z = this.add.zone(x1 - t.width / 2, y, t.width + 10, 24).setInteractive({ useHandCursor: true });
-F.tapOn(z, function () { self.closeModal(); self.openMedals(null, null, function () { self.openPause(); }); });
-link.add([t, z]);
-link.name = 'medals-link';
-m.c.add(link);
+var self = this, m = this.modals[this.modals.length - 1];
+if (!m || F.session.visit || !m.c.pauseLinks) return;
+this.pauseLink(m.c, 'medals-link', C.ICON.ribbon, 'Medals ' + L.medalCount(F.session.state), function () { self.openMedals(null, null, function () { self.openPause(); }); });
 };
 
 var openCollection = U.openCollection;

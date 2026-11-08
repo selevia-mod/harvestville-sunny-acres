@@ -512,29 +512,14 @@
       show([kindRow('ranks'), meRow(), { icon: C.ICON.exclaim, name: 'Coming soon', desc: 'The Top 100 opens very soon. Your points are kept.' }], '', null);
     });
   };
-  // the farmer card in the pause menu: your rank this month, at the right of the birthday line (best ever on the page)
+  // the farmer card in the pause menu: your rank this month (best ever on the page), on the card's row of links
   var openPause = U.openPause;
   U.openPause = function () {
     openPause.apply(this, arguments);
     var self = this, m = this.modals[this.modals.length - 1];
-    if (!m || F.session.visit) return;
-    var c = m.c, line = null, date = null, R0 = W - 42;
-    c.list.forEach(function (o) {
-      if (o.type === 'Text' && / · /.test(o.text) && /\d{4}/.test(o.text)) date = o;
-      if (o.type === 'Container') o.list.forEach(function (x) { if (x.type === 'Text' && /^(Birthday:|Set your birthday)/.test(x.text)) line = x; });
-    });
-    if (!date) return;
-    var y = line ? line.y : date.y - 21, me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
-    var link = this.add.container(0, 0);
-    var t = this.txt(R0 - 12, y, d ? d.name : best ? 'Best: ' + best.name : 'Rank', 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(1, 0.5);
-    var dot = this.add.circle(t.x - t.width - 9, y, 6, (d || best || { color: 0xd8c8a8 }).color).setStrokeStyle(1.5, 0x3d2614);
-    link.add([dot, t]);
-    if (line && line.x + line.width > dot.x - 12) line.setScale(Math.max(0.6, (dot.x - 12 - line.x) / line.width));
-    var z = this.add.zone((dot.x - 8 + R0) / 2, y, R0 - dot.x + 14, 26).setInteractive({ useHandCursor: true });
-    F.tapOn(z, function () { self.closeModal(); self.openTownRank(0, function () { self.openPause(); }); });
-    link.add(z);
-    link.name = 'rank-link';
-    c.add(link);
+    if (!m || F.session.visit || !m.c.pauseLinks) return;
+    var me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
+    this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xd8c8a8 }).color }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
   };
 
   // ---------- the first-time tours (owner, 4 Oct 2026: every new feature gets one; the card: 19ze-tours.js) ----------
