@@ -74,4 +74,23 @@
   C.FRAID_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
   C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
   C.FRAID_ICONS_IN = true;
+
+  // ---------- what you place on your farm (owner, 9 Nov 2026: "use the real farm design, let the player design it") ----------
+  // The Raid Camp (Workshops) and the new defenses (their own group at Mira's); your fences, scarecrows and dog defend too.
+  // Appended to the yard's pieces (a save keeps their numbers: only ever add at the end).
+  var O = C.OUTDOOR;
+  if (!O.cats.some(function (c) { return c[0] === 'defenses'; })) O.cats.push(['defenses', 'Defenses', 'They guard your farm in a raid. Fences, scarecrows and your dog help too. Level them up at your Raid Camp.']);
+  C.FRAID_PIECES = [
+    { key: 'raid_camp', name: 'Raid Camp', kind: 'prop', cat: 'workshops', w: 3, h: 3, foot: 2, price: C.FRAID.camp.price, beauty: 4, one: true, hd: 'raid_camp', what: 'a bamboo raid camp with a pennant flag' },
+    { key: 'def_goose', name: 'Guard Goose', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 1500, beauty: 2, hd: 'def_goose', defense: 'goose', what: 'a brave guard goose in a little cap' },
+    { key: 'def_beebox', name: 'Bee Box', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 1800, beauty: 2, hd: 'def_beebox', defense: 'beebox', what: 'a wooden bee box with bees' },
+    { key: 'def_mudpit', name: 'Mud Pit', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 0, price: 1200, beauty: 0, hd: 'def_mudpit', defense: 'mudpit', flat: true, what: 'a gooey mud pit' },
+    { key: 'def_tower', name: 'Bamboo Watchtower', kind: 'prop', cat: 'defenses', w: 1, h: 2, foot: 1, price: 3000, beauty: 3, hd: 'def_tower', defense: 'tower', what: 'a bamboo watchtower with a farmhand' },
+    { key: 'def_sili', name: 'Sili Patch', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 900, beauty: 2, hd: 'def_sili', defense: 'sili', what: 'a patch of hot red chili plants' },
+    { key: 'def_kampana', name: 'Kampana', kind: 'prop', cat: 'defenses', w: 1, h: 2, foot: 1, price: 2500, beauty: 3, hd: 'def_kampana', defense: 'kampana', what: 'a bronze bell in a little wooden frame' },
+    { key: 'def_fence', name: 'Strong Fence', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 300, beauty: 1, hd: 'def_fence', defense: 'fence', strong: true, what: 'a fence section with iron bands' },
+  ];
+  C.FRAID_PIECES.forEach(function (p) { if (O.index[p.key] == null) { O.index[p.key] = O.types.length; O.types.push(p); } });
+  // the yard pieces that defend in a raid (beside the new ones): which defense each one is
+  C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
 })(window.Farm = window.Farm || {});

@@ -50,7 +50,7 @@ test('three sprinklers, five new items with icons, two fertilizers at Lily, the 
   assert.deepStrictEqual([C.ITEMS.fert.price, C.ITEMS.fert_rich.price], [10, 30]);
   const gh = C.OUTDOOR.types[GH];
   assert.ok(gh.key === 'greenhouse' && gh.kind === 'plot' && gh.cat === 'land' && gh.one && gh.w === 4 && gh.h === 3);
-  assert.ok(C.OUTDOOR.types.slice(GH + 1).every((t) => t.cat === 'none'), 'appended last (later files append only pieces that are not sold: Bayanihan Projects\' rewards)');
+  assert.ok(C.OUTDOOR.types.slice(GH + 1).every((t) => t.cat === 'none' || C.FRAID_PIECES.indexOf(t) >= 0), 'appended last (later files append only pieces that are not sold: Bayanihan Projects\' rewards; and the Farm Raids pieces, 9 Nov 2026)');
   ['sprinkler_tour', 'quality_tour', 'greenhouse_tour'].forEach((k) => assert.ok(C.TIPS.some((t) => t.key === k), k));
   const news = C.NEWS.find((n) => n.v === '2.2').lines.map((l) => l[3]);
   ['sprinkler', 'quality', 'greenhouse'].forEach((k) => assert.ok(news.includes(k), k + ' in What\'s new'));

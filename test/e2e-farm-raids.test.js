@@ -132,34 +132,55 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
     await shot(page, 'raid-tab-' + tab);
   }
   assert.match(await modalText(page), /Bandit Shack.*Raid/);
-  // a party, and the first bandit farm
+  // a party, and the first bandit farm: on the real farm map
+  const sendIn = async (counts) => page.evaluate((counts) => {
+    const w = Farm.world, f = w.raidB.farm, cells = [];
+    for (let i = 0; i < f.drop.length; i++) if (f.drop[i] === '1') cells.push([i % f.w, Math.floor(i / f.w)]);
+    // the open ground nearest the house door
+    const door = w.objects.find((o) => o.name === 'house_door');
+    cells.sort((p, q) => Math.hypot(p[0] - door.x0, p[1] - door.y1) - Math.hypot(q[0] - door.x0, q[1] - door.y1));
+    let k = 0;
+    Object.keys(counts).forEach((r) => { Farm.ui.raidSel = r; for (let i = 0; i < counts[r]; i++) w.raidDropAt(cells[k][0], cells[k++][1]); });
+    return w.raidB.raiders.length;
+  }, counts);
   await page.evaluate(() => { const r = Farm.session.state.fr; r.army = { goat: 10, crow: 6, cat: 4 }; Farm.ui.startRaid('b1'); });
-  await page.waitForFunction(() => Farm.game.scene.isActive('FarmRaid'), null, SLOW);
-  await page.waitForTimeout(500);
-  await shot(page, 'raid-battle-start');
-  // send them in from the edge (as taps on the scene would)
-  await page.evaluate(() => {
-    const sc = Farm.game.scene.getScene('FarmRaid');
-    sc.sel = 'goat'; for (let i = 0; i < 10; i++) sc.drop(0, 6 + i);
-    sc.sel = 'crow'; for (let i = 0; i < 6; i++) sc.drop(3 + i, 0);
-    sc.sel = 'cat'; for (let i = 0; i < 4; i++) sc.drop(15, 10 + i);
-  });
-  await page.waitForTimeout(3000);
-  await shot(page, 'raid-battle-mid');
-  const mid = await page.evaluate(() => { const b = Farm.game.scene.getScene('FarmRaid').b; return { t: b.t, raiders: b.raiders.length, taken: Object.values(b.taken).reduce((a, x) => a + x, 0) }; });
-  assert.strictEqual(mid.raiders, 20, 'all 20 went in');
-  assert.ok(mid.t > 10, 'the clock runs');
-  // the rest of the battle at once, then the results
-  await page.evaluate(() => { const sc = Farm.game.scene.getScene('FarmRaid'); while (!sc.b.end) Farm.Logic.frStep(sc.b); sc.finish(); });
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForTimeout(800);
+  const setup = await page.evaluate(() => { const b = Farm.world.raidB; return { map: Farm.world.mapKey, crops: b.loot.filter((p) => p.kind === 'crops').length, defs: b.defs.map((d) => d.t), drop: b.farm.drop.split('').filter((c) => c === '1').length, visit: !!Farm.session.visit }; });
+  await shot(page, 'raid-farm-start');
+  assert.strictEqual(setup.map, 'farm');
+  assert.ok(setup.crops >= 10, 'its ripe crops in the field: ' + setup.crops);
+  assert.ok(setup.defs.includes('fence') && setup.defs.includes('scarecrow'), setup.defs.join());
+  assert.ok(setup.drop > 50, 'open ground to come down on');
+  await shot(page, 'raid-farm-start');
+  assert.strictEqual(await sendIn({ goat: 10, crow: 6, cat: 4 }), 20, 'all 20 went in');
+  await page.waitForTimeout(4000);
+  assert.ok(await page.evaluate(() => { const sc = Farm.game.scene.getScenes(true).map((x) => x.sys.settings.key); return sc.indexOf('UI') > sc.indexOf('World'); }), 'the raid\'s buttons over the farm');
+  await shot(page, 'raid-farm-mid');
+  assert.ok(await page.evaluate(() => Farm.world.raidB.t > 10), 'the clock runs');
+  await page.evaluate(() => { const w = Farm.world; while (!w.raidB.end) Farm.Logic.frStep(w.raidB); w.raidFinish(); });
   await page.waitForTimeout(400);
-  await shot(page, 'raid-battle-end');
-  const res = await page.evaluate(() => Farm.game.scene.getScene('FarmRaid').result);
-  assert.ok(res && res.gold >= 0 && res.stars >= 0);
-  assert.deepStrictEqual(await page.evaluate(() => Object.values(Farm.session.state.fr.army).reduce((a, n) => a + n, 0)), 0, 'the raiders that went in are used');
-  // back to the farm: the practice tab, its stars
-  await page.evaluate(() => Farm.raidLeave());
-  await page.waitForFunction(() => !Farm.game.scene.isActive('FarmRaid') && Farm.ui.modals.length, null, SLOW);
-  assert.match(await modalText(page), /Bandit Shack/);
+  await shot(page, 'raid-farm-end');
+  const res = await page.evaluate(() => Farm.ui.raidPrize);
+  assert.ok(res && res.stars >= 0);
+  assert.strictEqual(await page.evaluate(() => Object.values(Farm.session.state.fr.army).reduce((a, n) => a + n, 0)), 0, 'the raiders that went in are used');
+  // home again
+  await page.evaluate(() => Farm.raidFarmLeave());
+  await page.waitForFunction(() => !Farm.session.visit && Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.player.visible, null, SLOW);
+  // Test my farm: a copy of your own (a fence, a scarecrow and a goose of yours on it)
+  await page.evaluate(() => {
+    const s = Farm.session.state, O = Farm.Config.OUTDOOR, L = Farm.Logic, d = Farm.world.objects.find((o) => o.name === 'house_door');
+    // (where the yard's own rules let them stand)
+    const place = (t) => { for (let r = 2; r < 12; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = d.x0 + dx, y = d.y1 + 2 + dy; if (!L.yardCantPlace(s, Farm.farm(), t, x, y, null)) { s.yard.items.push({ t, x, y }); return; } } };
+    place(O.index.def_goose); place(O.index.scarecrow);
+    s.fr.army = { goat: 5 }; Farm.ui.openRaidCamp('practice', 0);
+  });
+  await page.waitForTimeout(300);
+  assert.match(await modalText(page), /Test my farm/);
+  await page.evaluate(() => Farm.raidFarmStart({ kind: 'test' }));
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.raidB.defs.some((d) => d.t === 'goose') && Farm.world.raidB.defs.some((d) => d.t === 'scarecrow')), 'your own defenses');
+  await shot(page, 'raid-test-farm');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

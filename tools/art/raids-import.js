@@ -48,6 +48,15 @@ const DEFS = [['beebox', 1.3], ['mudpit', 1.2], ['tower', 1.8], ['sili', 1.2], [
       done.push(DEFS[i][0]);
     }
   }
+  // the guard goose standing (frame 9 of its sheet: tools/art/animals3q-import.js raids) as its yard piece
+  if (fs.existsSync(path.join(OUT, 'guard_goose.png'))) {
+    const r = await p.evaluate(async (src) => {
+      const im = await W.load(src), fw = im.width / 12, o = W.canvas(Math.round(fw), im.height);
+      o.getContext('2d').drawImage(im, 9 * fw, 0, fw, im.height, 0, 0, fw, im.height);
+      return W.out(o, 0.85);
+    }, data(path.join(OUT, 'guard_goose.png')));
+    save(path.join(OUT, 'props', 'def_goose.png'), r.png); save(path.join(OUT, 'props', 'def_goose.webp'), r.webp); done.push('goose piece');
+  }
   if (fs.existsSync(path.join(ART, 'raid_icons.png'))) {
     const icons = await p.evaluate(async ([src, names]) => {
       const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), 4, 3, 0.02), out = {};

@@ -18,11 +18,7 @@
   var world = function () { return F.world; };
 
   // ---------- the Raid Camp on the farm (a workshop-like piece: one per farm) ----------
-  if (O.index.raid_camp == null) {
-    O.index.raid_camp = O.types.length;
-    O.types.push({ key: 'raid_camp', name: 'Raid Camp', kind: 'prop', cat: 'workshops', w: 3, h: 3, foot: 2, price: R.camp.price, beauty: 4, one: true,
-      hd: 'raid_camp', what: 'a bamboo raid camp with a pennant flag' }); // (its picture: tools/art/raids-import.js)
-  }
+  // (the Raid Camp and the defenses you place: 00-zzzzzzzzzzzzzzzzz-raids.js)
   var campAt = function (s, x, y) {
     var items = (s.yard && s.yard.items) || [];
     for (var i = 0; i < items.length; i++) {
@@ -95,6 +91,8 @@
         rows.push({ icon: C.ICON.ri_bandit != null ? C.ICON.ri_bandit : C.ICON.chest, name: b.name + '  ' + ['☆☆☆', '★☆☆', '★★☆', '★★★'][stars], desc: open ? 'Up to ' + b.loot.gold.toLocaleString('en-US') + ' Gold and its crops, eggs and stall goods.' : 'Win a star on the one before.',
           buttons: open ? [{ label: 'Raid', color: RED, cb: function () { self.startRaid(b.key); } }] : [] });
       });
+      rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: 'Test my farm', desc: 'Raid a copy of your own farm: see how your fences and defenses hold. Nothing of yours is taken.',
+        buttons: [{ label: 'Test', color: BLUE, cb: function () { if (F.raidFarmStart) F.raidFarmStart({ kind: 'test' }); } }] });
     }
     this.listPanel({
       title: 'Raid Camp', tab: tab, page: page || 0, rows: rows, tabs: TABS, slim: true,
@@ -113,6 +111,8 @@
     if (!Object.keys(army).length) { sfx('nope'); return this.toast('Train some raiders first (Party).', 2400); }
     var b = R.bandits.filter(function (x) { return x.key === key; })[0], seed = (Date.now() & 0x7fffffff) || 1;
     this.closeAll();
+    // (owner, 9 Nov 2026: on the real farm map, 19zzzzzzzzzzzzzzzzzz-farm-raids-world.js)
+    if (F.raidFarmStart) return F.raidFarmStart({ kind: 'bandit', key: key });
     F.raidBattle({ bandit: b, farm: L.banditFarm(b, seed), army: army, seed: seed });
   };
 
@@ -353,6 +353,112 @@
       this.result = prize;
     }
   };
+  // ---------- the raid's HUD over the real farm (the UI scene; your own buttons hide meanwhile) ----------
+  var FONT = function () { return F.UI_FONT || 'sans-serif'; };
+  U.raidHudOn = function (b, name) {
+    var self = this;
+    this.raidHudOff();
+    this.raidHidden = this.children.list.filter(function (o) { return o.visible; });
+    this.raidHidden.forEach(function (o) { o.setVisible(false); });
+    var h = this.raidBox = this.add.container(0, 0).setDepth(95);
+    var top = this.add.graphics();
+    top.fillStyle(0x24160b, 0.78).fillRoundedRect(8, 8, W - 16, 48, 14);
+    h.add(top);
+    var tx = function (x, y, str, size, color, ox) { var t = self.add.text(x, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color, fontStyle: 'bold' }).setOrigin(ox || 0, 0).setResolution(F.R); h.add(t); return t; };
+    tx(20, 14, name, 13, '#fff6d8');
+    this.raidTime = tx(W - 20, 14, '2:00', 15, '#ffe680', 1);
+    this.raidLoot = tx(20, 34, '', 11, '#e8dcc0');
+    this.raidStars = tx(W - 20, 33, '☆☆☆', 14, '#ffd23f', 1);
+    var keys = Object.keys(b.left), bw = Math.min(70, (W - 24 - 8 * (keys.length - 1)) / Math.max(1, keys.length)), y = C.VIEW_H - 62, bar = this.add.graphics();
+    bar.fillStyle(0x24160b, 0.78).fillRoundedRect(6, y - 50, W - 12, 108, 14);
+    h.add(bar);
+    this.raidSel = keys[0];
+    this.raidCards = {};
+    keys.forEach(function (k, i) {
+      var x = 12 + bw / 2 + i * (bw + 8), c = self.add.container(x, y), bg = self.add.graphics();
+      c.add([bg, self.add.image(0, -10, 'items', L.raiderIcon(k)).setScale(0.3)]);
+      var n = self.add.text(0, 18, '', { fontFamily: FONT(), fontSize: '11px', color: '#fff6d8', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R);
+      c.add(n);
+      var z = self.add.zone(0, 0, bw, 64).setInteractive({ useHandCursor: true });
+      F.tapOn(z, function () { self.raidSel = k; self.raidHudRefresh(); });
+      c.add(z);
+      h.add(c);
+      self.raidCards[k] = { c: c, bg: bg, n: n, w: bw };
+    });
+    this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then tap the light ground to send it in.', 11, '#fff6d8', 0.5);
+    this.raidHint.setFontStyle('normal');
+    var end = this.add.container(W - 44, 82), eb = this.add.graphics();
+    eb.fillStyle(RED, 1).fillRoundedRect(-34, -14, 68, 28, 12);
+    end.add([eb, this.add.text(0, 0, 'End', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);
+    var ez = this.add.zone(0, 0, 68, 28).setInteractive({ useHandCursor: true });
+    F.tapOn(ez, function () { var w = F.world; if (!w || !w.raidB) return; if (!w.raidB.end) { w.raidB.end = 'stopped'; w.raidFinish(); } });
+    end.add(ez);
+    h.add(end);
+    this.raidB = b;
+    this.raidHudRefresh();
+  };
+  U.raidHudOff = function () {
+    if (this.raidBox) { this.raidBox.destroy(); this.raidBox = null; }
+    (this.raidHidden || []).forEach(function (o) { if (o.active) o.setVisible(true); });
+    this.raidHidden = null;
+    this.raidB = null;
+  };
+  // (the UI's own refreshes show its pieces again now and then: in a raid, they stay hidden and the raid's HUD shows)
+  var uiUpdate = U.update;
+  U.update = function (time, delta) {
+    uiUpdate.call(this, time, delta);
+    if (!this.raidBox) return;
+    if (!this.raidBox.visible) this.raidBox.setVisible(true);
+    var box = this.raidBox;
+    this.children.list.forEach(function (o) { if (o !== box && o.visible && o.depth < 200 && o.type !== 'Text' || (o !== box && o.visible && o.type === 'Text' && !o.raidKeep && o.depth < 200 && o.depth !== 95)) o.setVisible(false); });
+  };
+  U.raidOnHud = function (p) { if (!this.raidBox) return false; var y = p.y / F.R; return y > C.VIEW_H - 115 || y < 100; };
+  U.raidSay = function (msg) {
+    var self = this;
+    if (!this.raidHint) return;
+    this.raidHint.setText(msg).setColor('#ffd23f');
+    if (this.raidSayT) this.raidSayT.remove();
+    this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then tap the light ground to send it in.').setColor('#fff6d8'); });
+  };
+  U.raidHudRefresh = function () {
+    var self = this, b = this.raidB;
+    if (!b || !this.raidBox) return;
+    Object.keys(this.raidCards).forEach(function (k) {
+      var cd = self.raidCards[k], left = b.left[k] ? b.left[k].n : 0, on = self.raidSel === k;
+      cd.bg.clear().fillStyle(on ? 0xe9a91c : 0x5a3a1e, on ? 0.95 : 0.8).fillRoundedRect(-cd.w / 2, -30, cd.w, 60, 10);
+      cd.n.setText(R.raiders[k].name + ' x' + left);
+      if (cd.n.width > cd.w - 4) cd.n.setScale((cd.w - 4) / cd.n.width);
+      cd.c.setAlpha(left ? 1 : 0.45);
+    });
+    var tk = b.taken, secs = Math.max(0, Math.ceil((b.ticks - b.t) * R.battle.tick / 1000)), st = L.frStars(b);
+    this.raidTime.setText(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'));
+    this.raidLoot.setText('Crops ' + Math.floor(tk.crops || 0) + '  ·  Eggs/milk ' + Math.floor(tk.produce || 0) + '  ·  Stall ' + Math.floor(tk.stall || 0) + '  ·  Gold ' + Math.floor(tk.gold || 0));
+    if (this.raidLoot.width > W - 120) this.raidLoot.setScale((W - 120) / this.raidLoot.width);
+    this.raidStars.setText('★★★'.slice(0, st) + '☆☆☆'.slice(st));
+  };
+  U.raidResult = function (b, prize) {
+    var self = this, h = this.raidBox;
+    if (!h) return;
+    var y0 = C.VIEW_H / 2 - 120, card = this.add.graphics();
+    card.fillStyle(0x000000, 0.45).fillRect(0, 0, W, C.VIEW_H);
+    card.fillStyle(0xfff6dc, 1).fillRoundedRect(24, y0, W - 48, 230, 18).lineStyle(3, 0x7a4d26, 1).strokeRoundedRect(24, y0, W - 48, 230, 18);
+    card.setInteractive(new Phaser.Geom.Rectangle(0, 0, W, C.VIEW_H), Phaser.Geom.Rectangle.Contains); // (keeps taps off the farm)
+    h.add(card);
+    var line = function (y, str, size, color) { var t = self.add.text(W / 2, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color || INK, fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setResolution(F.R); h.add(t); return t; };
+    line(y0 + 28, prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over', 18);
+    line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
+    line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
+    line(y0 + 136, prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points', 14, '#2f5a22');
+    var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
+    bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
+    btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);
+    var z = this.add.zone(0, 0, 160, 40).setInteractive({ useHandCursor: true });
+    F.tapOn(z, function () { if (F.raidFarmLeave) F.raidFarmLeave(); });
+    btn.add(z);
+    h.add(btn);
+    this.raidPrize = prize;
+  };
+
   // open and close the battle over the game (the farm waits underneath)
   F.raidBattle = function (data) {
     var g = F.game;
