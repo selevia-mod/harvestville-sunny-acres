@@ -5560,6 +5560,10 @@ C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
 C.FRAID_ICONS_IN = true;
 
 
+C.ITEMS.farm_shield = { name: 'Farm Shield', icon: C.ICON.ri_shield, kind: 'boost', desc: 'Use it: nobody can raid your farm for 24 hours. Raiding another farm breaks it.' };
+C.FRAID.shield = { hours: 24 };
+
+
 
 
 var O = C.OUTDOOR;
@@ -16821,10 +16825,30 @@ L.frUse = function (s, used) { var r = L.frState(s); Object.keys(used).forEach(f
 L.banditOpen = function (s, i) { return i === 0 || (L.frState(s).won[R.bandits[i - 1].key] || 0) >= 1; };
 
 
+L.shieldLeft = function (s, now) { return Math.max(0, (L.frState(s).shield || 0) - now); };
+
+L.useShield = function (s, slotIndex, now) {
+var slot = s.inv[slotIndex];
+if (!slot || slot.id !== 'farm_shield') return 'none';
+L.removeAt(s, slotIndex, 1);
+L.frState(s).shield = now + R.shield.hours * 3600000;
+return 'ok';
+};
+
+L.shieldBreak = function (s) { L.frState(s).shield = 0; };
+
+var advStart = L.advStart;
+if (advStart) L.advStart = function (s, a, dn) {
+var q = advStart(s, a, dn);
+if (a.story) q.reward = { gold: (q.reward && q.reward.gold) || 300, item: 'farm_shield', n: 1 };
+return q;
+};
+
+
 var serialize = L.serialize;
 L.serialize = function (s) {
 var o = serialize(s), r = s.fr;
-if (r && (r.camp || r.pts)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won];
+if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0];
 return o;
 };
 var num = function (v, lo, hi) { v = Math.floor(Number(v)) || 0; return Math.max(lo, Math.min(hi, v)); };
@@ -16838,7 +16862,7 @@ if (a) {
 s.fr = {
 camp: num(a[0], 0, R.camp.levels.length), army: map(a[1], R.raiderOrder, 0, 999), lv: map(a[2], R.raiderOrder, 1, 5), dlv: map(a[3], R.defenseOrder, 1, 5),
 train: (Array.isArray(a[4]) ? a[4] : []).filter(function (t) { return Array.isArray(t) && R.raiders[t[0]]; }).slice(0, 60).map(function (t) { return { k: t[0], until: Number(t[1]) || 0 }; }),
-pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3),
+pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0),
 };
 }
 return s;
@@ -47613,6 +47637,28 @@ return farm2Action.call(this, t);
 };
 
 
+var resolveShield = P.resolve;
+P.resolve = function () {
+var s = this.state, held = L.held ? L.held(s) : null, self = this;
+if (held && held.id === 'farm_shield' && !F.session.visit) {
+return { label: 'Use', icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, run: function () {
+var left = L.shieldLeft(s, Date.now());
+var go = function () {
+if (L.useShield(s, s.sel, Date.now()) !== 'ok') return;
+sfx('found');
+self.floatTextAt(self.feet().x, self.feet().y - 1.6 * C.TILE, 'SHIELDED!');
+F.ui.toast('Your farm is shielded for 24 hours. Raiding another farm breaks it.', 3200, 0x2f5a22);
+self.changed();
+self.save();
+};
+if (left > 3600000) return F.ui.confirm('USE ANOTHER SHIELD?\nYour shield still has ' + Math.floor(left / 3600000) + ' hours. A new one starts 24 hours from now.', go);
+go();
+} };
+}
+return resolveShield.call(this);
+};
+
+
 var RAIDER_ICON = { goat: 'horn_goat', crow: 'feather_labuyo', cat: 'cat_basket', carabao: 'horn_carabao', monkey: 'banana_wild', boar: 'tusk', rooster: 'feather_labuyo', bayawak: 'scale_bayawak' };
 var DEF_ICON = { dog: 'dog', scarecrow: null, fence: null, goose: 'egg', beebox: 'wild_honey', mudpit: null, sprinkler: 'act_wish', tower: 'act_board', sili: 'chili', kampana: 'act_bell' };
 L.raiderIcon = function (k) { if (C.FRAID_ICONS_IN && C.ICON['ri_' + k] != null) return C.ICON['ri_' + k]; var n = RAIDER_ICON[k]; return C.ICON[n] != null ? C.ICON[n] : C.ICON.star; };
@@ -47688,6 +47734,10 @@ var redo = function (t, p) { self.closeModal(); self.openRaidCamp(t || tab, p ==
 var act = function (res, ok) { if (res !== 'ok') { sfx('nope'); return self.toast(why[res] || 'Not now.', 2200); } sfx('coin'); if (world()) { world().changed(); world().save(); } redo(); if (ok) self.toast(ok, 2000, 0x2f5a22); };
 var rows = [];
 if (tab === 'party') {
+
+var left = L.shieldLeft(s, now), hh = Math.floor(left / 3600000), mm = Math.floor(left % 3600000 / 60000), have = L.countItem(s, 'farm_shield');
+rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: left ? 'Shielded: ' + hh + 'h ' + mm + 'm left' : 'No shield',
+desc: left ? 'Nobody can raid your farm. Raiding someone breaks it.' : have ? 'You have ' + have + ' Farm Shield' + (have > 1 ? 's' : '') + ': use one from your bag (24 hours).' : 'Finish a day\'s story chapter for a Farm Shield.' });
 var next = R.camp.levels[r.camp];
 rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid Camp, level ' + r.camp, tag: null,
 desc: 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '.' + (next ? ' Next level: room for ' + next.space + (next.open.length ? ', opens the ' + R.raiders[next.open[0]].name : '') + '.' : ' Top level!'),

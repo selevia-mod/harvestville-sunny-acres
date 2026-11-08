@@ -17,6 +17,9 @@ and for 2 minutes they grab what is out in the open while that farm's defenses f
   strengths).
 - **Protection:** an 8-hour shield after being raided (raiding drops it); new farms safe for 7 days; 5 raids a day,
   energy per raid; Revenge free.
+- **Farm Shield** (owner, 9 Nov 2026): each day's story chapter gives one. Used from the bag: nobody can raid your farm
+  for 24 hours; it breaks when you raid another player's farm (practice does not). A player who never wants to be
+  raided can finish the story chapter and use a shield every day.
 - **Fair play:** the server picks the farm and sends a frozen copy + a seed; the phone plays it and sends its moves;
   the game server replays them and only then gives the loot and records the defender's loss (applied when they next
   open the game, with a report, Replay and Revenge). A farm is locked while it is raided.

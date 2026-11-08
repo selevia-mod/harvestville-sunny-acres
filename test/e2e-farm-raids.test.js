@@ -223,3 +223,20 @@ test('farm raids: like Clash of Clans, press on the light ground and drag: raide
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the Farm Shield (owner, 9 Nov 2026): used from the bag, 24 hours; the Raid Camp shows it', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 1; Farm.Logic.addItem(s, 'farm_shield', 2); s.sel = s.inv.findIndex((x) => x && x.id === 'farm_shield'); Farm.ui.refresh(); });
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.actionLabel.text), 'Use');
+  await page.evaluate(() => Farm.world.resolve().run());
+  await page.waitForFunction(() => /shielded for 24 hours/.test(Farm.ui.toastText ? Farm.ui.toastText.text : ''), null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.Logic.shieldLeft(Farm.session.state, Date.now()) > 23.9 * 3600000));
+  await page.evaluate(() => Farm.ui.openRaidCamp('party', 0));
+  await page.waitForTimeout(300);
+  assert.match(await modalText(page), /Shielded: 2[34]h \d+m left/);
+  await shot(page, 'raid-shield');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

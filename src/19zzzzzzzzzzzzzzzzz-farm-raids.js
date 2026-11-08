@@ -35,6 +35,28 @@
     return farm2Action.call(this, t);
   };
 
+  // the Farm Shield in your hands: Use (24 hours); one already up: it says so
+  var resolveShield = P.resolve;
+  P.resolve = function () {
+    var s = this.state, held = L.held ? L.held(s) : null, self = this;
+    if (held && held.id === 'farm_shield' && !F.session.visit) {
+      return { label: 'Use', icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, run: function () {
+        var left = L.shieldLeft(s, Date.now());
+        var go = function () {
+          if (L.useShield(s, s.sel, Date.now()) !== 'ok') return;
+          sfx('found');
+          self.floatTextAt(self.feet().x, self.feet().y - 1.6 * C.TILE, 'SHIELDED!');
+          F.ui.toast('Your farm is shielded for 24 hours. Raiding another farm breaks it.', 3200, 0x2f5a22);
+          self.changed();
+          self.save();
+        };
+        if (left > 3600000) return F.ui.confirm('USE ANOTHER SHIELD?\nYour shield still has ' + Math.floor(left / 3600000) + ' hours. A new one starts 24 hours from now.', go);
+        go();
+      } };
+    }
+    return resolveShield.call(this);
+  };
+
   // ---------- pictures (borrowed until the raid art is in) ----------
   var RAIDER_ICON = { goat: 'horn_goat', crow: 'feather_labuyo', cat: 'cat_basket', carabao: 'horn_carabao', monkey: 'banana_wild', boar: 'tusk', rooster: 'feather_labuyo', bayawak: 'scale_bayawak' };
   var DEF_ICON = { dog: 'dog', scarecrow: null, fence: null, goose: 'egg', beebox: 'wild_honey', mudpit: null, sprinkler: 'act_wish', tower: 'act_board', sili: 'chili', kampana: 'act_bell' };
@@ -111,6 +133,10 @@
     var act = function (res, ok) { if (res !== 'ok') { sfx('nope'); return self.toast(why[res] || 'Not now.', 2200); } sfx('coin'); if (world()) { world().changed(); world().save(); } redo(); if (ok) self.toast(ok, 2000, 0x2f5a22); };
     var rows = [];
     if (tab === 'party') {
+      // the Farm Shield (owner, 9 Nov 2026): how long, or how to get one
+      var left = L.shieldLeft(s, now), hh = Math.floor(left / 3600000), mm = Math.floor(left % 3600000 / 60000), have = L.countItem(s, 'farm_shield');
+      rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: left ? 'Shielded: ' + hh + 'h ' + mm + 'm left' : 'No shield',
+        desc: left ? 'Nobody can raid your farm. Raiding someone breaks it.' : have ? 'You have ' + have + ' Farm Shield' + (have > 1 ? 's' : '') + ': use one from your bag (24 hours).' : 'Finish a day\'s story chapter for a Farm Shield.' });
       var next = R.camp.levels[r.camp];
       rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid Camp, level ' + r.camp, tag: null,
         desc: 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '.' + (next ? ' Next level: room for ' + next.space + (next.open.length ? ', opens the ' + R.raiders[next.open[0]].name : '') + '.' : ' Top level!'),

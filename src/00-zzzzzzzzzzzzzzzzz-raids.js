@@ -76,6 +76,10 @@
   C.FRAID_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
   C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
   C.FRAID_ICONS_IN = true;
+  // the Farm Shield (owner, 9 Nov 2026): a day's story chapter gives one; used from the bag, nobody can raid your farm
+  // for 24 hours, and it breaks when you raid another player's farm (practice does not break it)
+  C.ITEMS.farm_shield = { name: 'Farm Shield', icon: C.ICON.ri_shield, kind: 'boost', desc: 'Use it: nobody can raid your farm for 24 hours. Raiding another farm breaks it.' };
+  C.FRAID.shield = { hours: 24 };
 
   // ---------- what you place on your farm (owner, 9 Nov 2026: "use the real farm design, let the player design it") ----------
   // The Raid Camp (Workshops) and the new defenses (their own group at Mira's); your fences, scarecrows and dog defend too.

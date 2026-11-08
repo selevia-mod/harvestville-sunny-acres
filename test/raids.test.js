@@ -114,3 +114,19 @@ test('a real farm: raiders find the way round its walls, and come down only on o
   assert.ok(crossed, 'it went round');
   assert.ok(b.taken.crops > 0, 'and ate');
 });
+
+test('the Farm Shield (owner): a story chapter gives one; used, 24 hours safe; a real raid breaks it; kept in the save', () => {
+  const s = L.newState(); s.wild.n = 200;
+  L.refreshQuests(s, '2026-11-09');
+  const q = s.dq.list.find((x) => x.c === 'adv' && L.advOf(x).story);
+  assert.deepStrictEqual(plain([q.reward.item, q.reward.n]), ['farm_shield', 1]); assert.ok(q.reward.gold >= 300, 'and its Gold');
+  L.addItem(s, 'farm_shield', 1);
+  const slot = s.inv.findIndex((x) => x && x.id === 'farm_shield'), now = 1e12;
+  assert.strictEqual(L.shieldLeft(s, now), 0);
+  assert.strictEqual(L.useShield(s, slot, now), 'ok');
+  assert.strictEqual(L.shieldLeft(s, now + 3600000), 23 * 3600000);
+  assert.ok(!s.inv.some((x) => x && x.id === 'farm_shield'), 'used up');
+  assert.strictEqual(L.shieldLeft(roundTrip(s), now), 24 * 3600000, 'kept in the save');
+  L.shieldBreak(s);
+  assert.strictEqual(L.shieldLeft(s, now), 0);
+});

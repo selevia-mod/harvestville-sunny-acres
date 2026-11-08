@@ -363,11 +363,31 @@
   // a bandit farm opens when the one before has a star
   L.banditOpen = function (s, i) { return i === 0 || (L.frState(s).won[R.bandits[i - 1].key] || 0) >= 1; };
 
+  // ---------- the Farm Shield (owner, 9 Nov 2026) ----------
+  L.shieldLeft = function (s, now) { return Math.max(0, (L.frState(s).shield || 0) - now); };
+  // from the bag: 24 hours from now ('ok'), or 'none'
+  L.useShield = function (s, slotIndex, now) {
+    var slot = s.inv[slotIndex];
+    if (!slot || slot.id !== 'farm_shield') return 'none';
+    L.removeAt(s, slotIndex, 1);
+    L.frState(s).shield = now + R.shield.hours * 3600000;
+    return 'ok';
+  };
+  // raiding another player's farm (step 2) breaks it; practice does not
+  L.shieldBreak = function (s) { L.frState(s).shield = 0; };
+  // a day's story chapter: a Farm Shield with its prize
+  var advStart = L.advStart;
+  if (advStart) L.advStart = function (s, a, dn) {
+    var q = advStart(s, a, dn);
+    if (a.story) q.reward = { gold: (q.reward && q.reward.gold) || 300, item: 'farm_shield', n: 1 };
+    return q;
+  };
+
   // ---------- the save ----------
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s), r = s.fr;
-    if (r && (r.camp || r.pts)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won];
+    if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0];
     return o;
   };
   var num = function (v, lo, hi) { v = Math.floor(Number(v)) || 0; return Math.max(lo, Math.min(hi, v)); };
@@ -381,7 +401,7 @@
       s.fr = {
         camp: num(a[0], 0, R.camp.levels.length), army: map(a[1], R.raiderOrder, 0, 999), lv: map(a[2], R.raiderOrder, 1, 5), dlv: map(a[3], R.defenseOrder, 1, 5),
         train: (Array.isArray(a[4]) ? a[4] : []).filter(function (t) { return Array.isArray(t) && R.raiders[t[0]]; }).slice(0, 60).map(function (t) { return { k: t[0], until: Number(t[1]) || 0 }; }),
-        pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3),
+        pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0),
       };
     }
     return s;
