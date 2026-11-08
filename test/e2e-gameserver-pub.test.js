@@ -1242,7 +1242,7 @@ test('the player menu has Add friend: one tap sends the request, no code; then i
   const rowText = () => me.page.evaluate(() => { const out = [], m = Farm.ui.modals[Farm.ui.modals.length - 1]; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); if (m) walk(m.c.list); return out.join(' | '); });
   await me.page.evaluate(([id]) => { Farm.ui.closeAll(); Farm.ui.playerMenu(id, 'Sun Patch'); }, [sun.uid]);
   await sleep(800);
-  assert.match(await rowText(), /Add friend \| Send Sun Patch a friend request\. No code needed\. \| Add/);
+  assert.match(await rowText(), /Add friend \| Send Sun Patch a friend request\. No(…| code needed\.) \| Add/); // (a slim row ends its words in … when they are long: 19i-look.js)
   assert.match(await rowText(), /Report[\s\S]*Block/, 'Report and Block still there');
   await tapButton(me.page, 'Add');
   await me.page.waitForFunction(() => /Friend request sent to Sun Patch/.test(Farm.ui.toastText.text), null, SLOW);
@@ -1476,7 +1476,7 @@ test('town: villagers at the same place stand apart, never inside the fountain, 
     await me.page.evaluate(() => Farm.ui.closeAll());
     await sleep(800);
     const r = await me.page.evaluate(() => {
-      const w = Farm.world, T = Farm.Config.TILE, vs = w.villagers.list.filter((v) => v.visible);
+      const w = Farm.world, T = Farm.Config.TILE, vs = w.villagers.list.filter((v) => v.visible && !v.shopper); // (the market's shoppers are not villagers)
       // where each is going (the end of its walk), and whether that tile is open ground
       const ends = vs.map((v) => { const t = w.villagers.targetOf(v, w.state.time).point; return { k: v.key, x: t.x, y: t.y, tx: Math.floor(t.x / T), ty: Math.floor((t.y - 40) / T) }; });
       const stack = [];

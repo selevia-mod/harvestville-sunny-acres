@@ -79,8 +79,25 @@
     }
     return r;
   };
+  // (a tile's picture too: Mira's catalog is tiles since 8 Nov 2026)
+  var tilePicture = U.tilePicture;
+  U.tilePicture = function (row, x, y, size) {
+    var im = tilePicture.apply(this, arguments), img = row && row.img;
+    if (im && img && img.furn && missing('furn_' + img.furn)) (this.furnWaiting = this.furnWaiting || []).push({ o: im, v: img.furn, t: img.frame, size: size });
+    return im;
+  };
   F.bus.on('packart', function (key) {
     var w = F.world, ui = F.ui, m = /^furn_(\d+)$/.exec(key), v = m ? Number(m[1]) : null;
+    // a style's turned pieces in the house (19d-home.js: F.furnTurnTexture)
+    var mt = /^furnturn_(\d+)$/.exec(key), vt = mt ? Number(mt[1]) : null;
+    if (vt != null && w && w.sys && w.sys.isActive() && w.state && w.mapKey === 'house' && w.homeSprites && L.furnView) {
+      var its = (w.state.home && w.state.home.items) || [];
+      w.homeSprites.forEach(function (img, i) {
+        var it = its[i], type = it && H.types[it.t], view = it && L.furnView(it.t, it.f);
+        if (!img || !img.active || !type || !view || it.v !== vt || img.texture.key === key) return;
+        img.setTexture(F.furnTurnTexture(w, vt), view.frame).setDisplaySize(type.w * T, type.h * T);
+      });
+    }
     if (w && w.sys && w.sys.isActive() && w.state) {
       if (v != null && w.mapKey === 'house' && w.homeSprites) {
         var items = (w.state.home && w.state.home.items) || [];
@@ -100,6 +117,7 @@
         if (!q.o.active || !q.o.scene) return false;
         if (q.v !== v) return true;
         q.o.setTexture(F.furnTexture(ui, v), q.t); // (its frame is the same size: the scale stays)
+        if (q.size) q.o.setScale(q.size / Math.max(q.o.width, q.o.height)); // (a tile's: fitted again)
         return false;
       });
     }

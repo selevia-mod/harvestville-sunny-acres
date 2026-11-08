@@ -120,11 +120,15 @@ async function tapButton(page, label, nth = 0) {
   const pos = await page.evaluate(([label, nth]) => {
     const m = Farm.ui.modals[Farm.ui.modals.length - 1];
     const found = [];
+    // (a slim list's rows out of view are hidden: still found, then scrolled into view: 19i-look.js)
+    const shown = (o) => { for (let p = o.parentContainer; p && p !== m.c; p = p.parentContainer) if (!p.visible && !(m.c.slimInto && p.rowH)) return false; return true; };
     const walk = (list) => list.forEach((o) => {
-      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o);
+      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && shown(o)) found.push(o);
       if (o.list) walk(o.list);
     });
     walk(m.c.list);
+    // not on screen: a tile that offers it in its own panel (Buy 5, a second button)
+    if (!found[nth]) { const tiles = []; const walk2 = (l) => l.forEach((o) => { if (o.row && (o.row.buttons || []).some((x) => x.label === label)) tiles.push(o); if (o.list) walk2(o.list); }); walk2(m.c.list); if (tiles[nth]) { if (m.c.slimInto) m.c.slimInto(tiles[nth].list[0]); const tb = tiles[nth].getBounds(); return { x: tb.centerX, y: tb.centerY, tile: true }; } }
     if (found[nth] && m.c.slimInto) m.c.slimInto(found[nth]); // (a slim list scrolls it into view: 19i-look.js)
     const b = found[nth] && found[nth].getBounds();
     return b && { x: b.centerX, y: b.centerY };
@@ -962,7 +966,7 @@ test('the deeper Mine: the lift stops at a band you reached, its cave has its ow
   assert.match(await modalText(page), /Floor 401 \| Green Jade Deep: its first floor/);
   await page.evaluate(() => { Farm.ui.closeModal(); Farm.ui.openLift(2); }); // (9 stops, 4 a page: floor 1 is on the last)
   assert.match(await modalText(page), /Floor 1 \| The Mine: its first floor/);
-  await tapButton(page, 'Go', 0);
+  await tapButton(page, 'Go', await page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out.slice(0, out.indexOf('Floor 1')).filter((x) => x === 'Go').length; })); // (one list now: the Go on Floor 1's row)
   await page.waitForFunction(() => Farm.session.mineFloor === 1 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   assert.strictEqual(await sheet(), 'indoor');
   assert.deepStrictEqual(problems, []);
@@ -4336,8 +4340,8 @@ test('animal breeds: colours in the pen, a rare one twinkles and gives two, the 
   await tapButton(page, 'Breeds');
   let text = await modalText(page);
   assert.match(text, /Breeds book[\s\S]*2 of 4 found/);
-  assert.match(text, /Golden Hen[\s\S]*Gives 2 a day/);
-  assert.match(text, /\?\?\?[\s\S]*Lily sells it/, 'the Brown Hen: not found yet');
+  assert.match(await tileText(page, 'Golden Hen'), /Gives 2 a day/); // (a tile: its words in its own panel)
+  assert.match(await tileText(page, '???'), /Lily sells it/, 'the Brown Hen: not found yet');
   await shot(page, 'breeds-book-hens');
   await tapButton(page, 'Carabaos');
   text = await modalText(page);
@@ -4466,7 +4470,7 @@ test('Willowbrook Station: its tour, a cargo order filled crate by crate, the To
   s = await state(page);
   assert.ok(s.tw.o.full && s.tw.done === 1 && s.stars >= o.prize.stars);
   await tapButton(page, 'Hooray!');
-  await waitText(/TOWN LEVEL 2!.*each shelf holds 30.*\+500G/);
+  await waitText(/TOWN LEVEL 2!.*each shelf holds 150.*\+500G/); // (100 a shelf since 8 Nov 2026)
   await shot(page, 'station-level-2');
   await tapButton(page, 'OK');
   s = await state(page);
@@ -5051,7 +5055,7 @@ test("the forge: each row is named after the upgrade you get, and everything it 
     await frames(page, 3);
     text = await modalText(page);
   }
-  assert.match(text, /Upgrade to Gold Hammer \| Breaks a 3 x 5 patch at once/);
+  assert.match(text, /Upgrade to Gold Hammer[\s\S]*Breaks a 3 x 5 patch at once/); // (its cost chips before its words)
   assert.ok(!/Also needs/.test(text), 'nothing hidden in the text');
   const tusk = await page.evaluate(() => Farm.Logic.upgradeCost(Farm.session.state, 'hammer').needs);
   assert.ok(tusk && tusk.length, 'the Gold Hammer takes a hunt\'s goods');
@@ -5526,9 +5530,9 @@ test('friendship stories: a favour (the mayor asks for 20 Stone, you bring them 
     Farm.Logic.addItem(s, 'wheat', 2);
     Farm.ui.openKitchen(null, Math.floor((n - 1) / 4)); // its last page
   });
-  assert.match(await modalText(page), /Fresh Bread \| Needs Wheat \+ Wheat/);
   await shot(page, '99-kitchen-bread');
-  await tapButton(page, 'Cook', (await page.evaluate(() => Farm.Logic.vsRecipes(Farm.session.state).length + Farm.Config.RECIPES.length - 1)) % 4);
+  assert.match(await tileText(page, 'Fresh Bread', true), /Needs Wheat \+ Wheat/); // (a tile: its words in its own panel)
+  await tapButton(page, 'Cook');
   assert.strictEqual(count(await state(page), 'bread'), 1, 'baked at home');
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -5670,7 +5674,7 @@ test('999 in a slot, and gear stars at Kanor\'s: the first-time tour, the star b
   await shot(page, 'gear-stars-make');
   // the Gear page: the hat with its star
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openGear(); });
-  assert.match(await modalText(page), /Head: Terrace Hat ★[\s\S]*2 less energy when something of Banaue Terraces charges you/);
+  assert.match(await tileText(page, 'Head: Terrace Hat ★'), /2 less energy when something of Banaue Terraces charges you/); // (a tile: its own panel)
   // a charge from a Banaue creature: 2 off now (1 and its star)
   assert.strictEqual(await page.evaluate(() => Farm.Logic.chargeLoss(Farm.session.state, 12, 'kibaan_chief')), 10);
   assert.deepStrictEqual(problems, []);

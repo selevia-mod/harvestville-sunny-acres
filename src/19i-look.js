@@ -576,6 +576,7 @@
   U.tile = function (parent, x, y, row, state, o) {
     var self = this, r = this.add.container(x, y), w = TILE.w, h = TILE.h, b = (row.buttons || [])[0];
     r.rowH = h;
+    r.row = row; // (the tests: a tile by what its panel offers)
     var g = this.add.graphics();
     g.fillStyle(0x7a4d26, 0.18).fillRoundedRect(0, 3, w, h, 10);
     g.fillStyle(state === 'have' ? 0xf0e6cf : 0xfffbf0, 1).fillRoundedRect(0, 0, w, h, 10);
