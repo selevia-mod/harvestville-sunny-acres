@@ -4,35 +4,35 @@
 //  - a battle, worked out here step by step from a seed and the raider drops: the same moves give the same battle on
 //    any phone or on the game server (step 2 replays a raid there before anyone gets loot). No Math.random, no trig.
 //  - the bandit farms (practice): their farm made from a seed; points and Gold come from the game.
-// Saved: 'rd'.
+// Saved: 'frd' (not 'fr': friends; the Town Raid has C.RAID, s.raid: 01-logicZZZZ-raid.js).
 (function (F) {
   'use strict';
   var C = F.Config;
   var L = F.Logic;
-  var R = C.RAID;
+  var R = C.FRAID;
 
   // ---------- your raid things ----------
-  L.raidState = function (s) {
-    if (!s.raid) s.raid = { camp: 0, army: {}, lv: {}, dlv: {}, train: [], pts: 0, won: {} };
-    return s.raid;
+  L.frState = function (s) {
+    if (!s.fr) s.fr = { camp: 0, army: {}, lv: {}, dlv: {}, train: [], pts: 0, won: {} };
+    return s.fr;
   };
   L.raiderOpen = function (s, k) {
-    var r = L.raidState(s);
+    var r = L.frState(s);
     for (var i = 0; i < r.camp; i++) if (R.camp.levels[i].open.indexOf(k) >= 0) return true;
     return false;
   };
-  L.raiderLv = function (s, k) { return L.raidState(s).lv[k] || 1; };
-  L.defenseLv = function (s, k) { return L.raidState(s).dlv[k] || 1; };
-  L.campSpace = function (s) { var r = L.raidState(s); return r.camp ? R.camp.levels[r.camp - 1].space : 0; };
+  L.raiderLv = function (s, k) { return L.frState(s).lv[k] || 1; };
+  L.defenseLv = function (s, k) { return L.frState(s).dlv[k] || 1; };
+  L.campSpace = function (s) { var r = L.frState(s); return r.camp ? R.camp.levels[r.camp - 1].space : 0; };
   L.armySpace = function (s) {
-    var r = L.raidState(s), n = 0;
+    var r = L.frState(s), n = 0;
     Object.keys(r.army).forEach(function (k) { n += (r.army[k] || 0) * R.raiders[k].space; });
     r.train.forEach(function (t) { n += R.raiders[t.k].space; });
     return n;
   };
   // Farm Power: raiders' levels + defenses' levels + the farm's level (weights: R.power)
   L.farmPower = function (s) {
-    var r = L.raidState(s), p = 0;
+    var r = L.frState(s), p = 0;
     R.raiderOrder.forEach(function (k) { if (L.raiderOpen(s, k)) p += L.raiderLv(s, k) * R.power.raider; });
     R.defenseOrder.forEach(function (k) { p += L.defenseLv(s, k) * R.power.defense; });
     return p + (s.home ? s.home.level : 1) * R.power.farm + r.camp * R.power.raider;
@@ -40,7 +40,7 @@
 
   // the Raid Camp: buy it (level 1), then upgrade. 'ok' | 'gold' | 'top'
   L.campUpgrade = function (s) {
-    var r = L.raidState(s), next = R.camp.levels[r.camp];
+    var r = L.frState(s), next = R.camp.levels[r.camp];
     if (!next) return 'top';
     var cost = r.camp ? next.gold : R.camp.price;
     if (s.gold < cost) return 'gold';
@@ -50,7 +50,7 @@
   };
   // train one raider: 'ok' | 'locked' | 'space' | 'gold'
   L.trainRaider = function (s, k, now) {
-    var r = L.raidState(s), d = R.raiders[k];
+    var r = L.frState(s), d = R.raiders[k];
     if (!d || !L.raiderOpen(s, k)) return 'locked';
     if (L.armySpace(s) + d.space > L.campSpace(s)) return 'space';
     if (s.gold < d.gold) return 'gold';
@@ -61,13 +61,13 @@
   };
   // the trained ones join the party; returns how many joined
   L.trainDone = function (s, now) {
-    var r = L.raidState(s), n = 0;
+    var r = L.frState(s), n = 0;
     while (r.train.length && r.train[0].until <= now) { var t = r.train.shift(); r.army[t.k] = (r.army[t.k] || 0) + 1; n++; }
     return n;
   };
   // level a raider up: 'ok' | 'locked' | 'top' | 'gold' | 'need'
   L.raiderUp = function (s, k) {
-    var r = L.raidState(s), lv = L.raiderLv(s, k);
+    var r = L.frState(s), lv = L.raiderLv(s, k);
     if (!L.raiderOpen(s, k)) return 'locked';
     if (lv >= R.level.mult.length) return 'top';
     var gold = R.level.gold[lv], need = R.level.need[lv];
@@ -79,7 +79,7 @@
     return 'ok';
   };
   L.defenseUp = function (s, k) {
-    var r = L.raidState(s), lv = L.defenseLv(s, k);
+    var r = L.frState(s), lv = L.defenseLv(s, k);
     if (!R.defenses[k]) return 'none';
     if (lv >= R.level.mult.length) return 'top';
     var gold = R.defLevel.gold[lv];
@@ -90,7 +90,7 @@
   };
 
   // ---------- the loot cap by power (owner: 10% .. 30%) ----------
-  L.lootCap = function (mine, theirs) {
+  L.frLootCap = function (mine, theirs) {
     var x = theirs / Math.max(1, mine), lo = R.loot.weaker, hi = R.loot.stronger;
     if (x >= hi) return R.loot.high;
     if (x <= lo) return R.loot.low;
@@ -99,7 +99,7 @@
   };
 
   // ---------- a seeded random (the same numbers on every device) ----------
-  L.raidRand = function (seed) {
+  L.frRand = function (seed) {
     var a = seed >>> 0;
     return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   };
@@ -107,7 +107,7 @@
   // ---------- a bandit farm (practice) ----------
   // { w, h, defs: [{ t, x, y, lv }], loot: [{ kind, x, y, n }], name }: fields and a pen fenced in, the stall, the Gold pot
   L.banditFarm = function (b, seed) {
-    var W = R.battle.w, H = R.battle.h, rnd = L.raidRand(seed), defs = [], loot = [], used = {};
+    var W = R.battle.w, H = R.battle.h, rnd = L.frRand(seed), defs = [], loot = [], used = {};
     var take = function (x, y) { var k = x + ',' + y; if (used[k]) return false; used[k] = 1; return true; };
     var free = function (x0, y0, x1, y1) {
       for (var t = 0; t < 60; t++) {
@@ -154,15 +154,15 @@
   };
 
   // ---------- the battle ----------
-  // L.raidStart(farm, army: { k: { n, lv } }, seed) -> a battle; L.raidDrop(b, k, x, y) puts one raider down at the
-  // edge (now); L.raidStep(b) moves it on by one tick. b.end: 'time' | 'gone' | 'all'. b.taken: { kind: n }.
+  // L.frStart(farm, army: { k: { n, lv } }, seed) -> a battle; L.frDrop(b, k, x, y) puts one raider down at the
+  // edge (now); L.frStep(b) moves it on by one tick. b.end: 'time' | 'gone' | 'all'. b.taken: { kind: n }.
   var DT = R.battle.tick / 1000;
   var dist = function (ax, ay, bx, by) { var dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); };
-  L.raidStart = function (farm, army, seed) {
+  L.frStart = function (farm, army, seed) {
     var total = {};
     farm.loot.forEach(function (p) { total[p.kind] = (total[p.kind] || 0) + p.n; });
     var b = {
-      farm: farm, t: 0, ticks: Math.round(R.battle.secs / DT), rnd: L.raidRand(seed), seed: seed, next: 1,
+      farm: farm, t: 0, ticks: Math.round(R.battle.secs / DT), rnd: L.frRand(seed), seed: seed, next: 1,
       raiders: [], defs: farm.defs.map(function (d, i) {
         var def = R.defenses[d.t], m = R.level.mult[(d.lv || 1) - 1];
         return { id: 'd' + i, t: d.t, x: d.x + 0.5, y: d.y + 0.5, hx: d.x + 0.5, hy: d.y + 0.5, lv: d.lv || 1, hp: def.hp * m, max: def.hp * m, dps: def.dps * m, cool: 0, used: false };
@@ -174,10 +174,10 @@
     return b;
   };
   // where a raider may come down: the edge of the farm (R.battle.edge tiles)
-  L.raidEdge = function (b, x, y) { var e = R.battle.edge, w = b.farm.w, h = b.farm.h; return x >= 0 && y >= 0 && x < w && y < h && (x < e || y < e || x >= w - e || y >= h - e); };
-  L.raidDrop = function (b, k, x, y) {
+  L.frEdge = function (b, x, y) { var e = R.battle.edge, w = b.farm.w, h = b.farm.h; return x >= 0 && y >= 0 && x < w && y < h && (x < e || y < e || x >= w - e || y >= h - e); };
+  L.frDrop = function (b, k, x, y) {
     var l = b.left[k];
-    if (b.end || !l || l.n <= 0 || !L.raidEdge(b, x, y)) return null;
+    if (b.end || !l || l.n <= 0 || !L.frEdge(b, x, y)) return null;
     l.n--;
     var d = R.raiders[k], m = R.level.mult[l.lv - 1];
     var r = { id: 'r' + (b.next++), k: k, x: x + 0.5, y: y + 0.5, hp: d.hp * m, max: d.hp * m, dmg: d.dmg * m, speed: d.speed, carry: d.carry * m, target: null, stuck: 0, flee: 0, fx: 0, fy: 0, slow: 0, cool: 0, got: 0 };
@@ -200,7 +200,7 @@
     list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
     return best;
   };
-  L.raidStep = function (b) {
+  L.frStep = function (b) {
     if (b.end) return;
     b.t++;
     var alive = b.raiders.filter(function (r) { return r.hp > 0; });
@@ -278,18 +278,18 @@
     else if (!stillIn) b.end = 'gone';
   };
   // the share of all the loot that was taken (0..1), and the stars (30% / 60% / 90%)
-  L.raidShare = function (b) {
+  L.frShare = function (b) {
     var all = 0, got = 0;
     Object.keys(b.total).forEach(function (k) { all += b.total[k]; got += b.taken[k] || 0; });
     return all ? got / all : 0;
   };
-  L.raidStars = function (b) { var x = L.raidShare(b); return x >= 0.9 ? 3 : x >= 0.6 ? 2 : x >= 0.3 ? 1 : 0; };
+  L.frStars = function (b) { var x = L.frShare(b); return x >= 0.9 ? 3 : x >= 0.6 ? 2 : x >= 0.3 ? 1 : 0; };
   // replays the moves (step 2: the game server does this): the same result
-  L.raidReplay = function (farm, army, seed, moves) {
-    var b = L.raidStart(farm, army, seed), k = 0;
+  L.frReplay = function (farm, army, seed, moves) {
+    var b = L.frStart(farm, army, seed), k = 0;
     while (!b.end) {
-      while (k < moves.length && moves[k][0] === b.t) { L.raidDrop(b, moves[k][1], moves[k][2], moves[k][3]); k++; }
-      L.raidStep(b);
+      while (k < moves.length && moves[k][0] === b.t) { L.frDrop(b, moves[k][1], moves[k][2], moves[k][3]); k++; }
+      L.frStep(b);
     }
     return b;
   };
@@ -297,7 +297,7 @@
   // ---------- practice on a bandit farm: the prize (from the game) ----------
   // { gold, pts, stars }; the raiders sent are used up, as in a real raid
   L.banditPrize = function (s, key, b) {
-    var bd = R.bandits.filter(function (x) { return x.key === key; })[0], stars = L.raidStars(b), r = L.raidState(s);
+    var bd = R.bandits.filter(function (x) { return x.key === key; })[0], stars = L.frStars(b), r = L.frState(s);
     var gold = Math.round((b.taken.gold || 0) + (b.taken.crops || 0) * 15 + (b.taken.produce || 0) * 25 + (b.taken.stall || 0) * 20);
     var first = stars > (r.won[key] || 0);
     var pts = first ? R.points[stars] - R.points[r.won[key] || 0] : Math.round(R.points[stars] / 5);
@@ -308,15 +308,15 @@
     return { gold: gold, pts: pts, stars: stars };
   };
   // the raiders that went in are gone from the party (used: { k: n })
-  L.raidUse = function (s, used) { var r = L.raidState(s); Object.keys(used).forEach(function (k) { r.army[k] = Math.max(0, (r.army[k] || 0) - used[k]); }); };
+  L.frUse = function (s, used) { var r = L.frState(s); Object.keys(used).forEach(function (k) { r.army[k] = Math.max(0, (r.army[k] || 0) - used[k]); }); };
   // a bandit farm opens when the one before has a star
-  L.banditOpen = function (s, i) { return i === 0 || (L.raidState(s).won[R.bandits[i - 1].key] || 0) >= 1; };
+  L.banditOpen = function (s, i) { return i === 0 || (L.frState(s).won[R.bandits[i - 1].key] || 0) >= 1; };
 
   // ---------- the save ----------
   var serialize = L.serialize;
   L.serialize = function (s) {
-    var o = serialize(s), r = s.raid;
-    if (r && (r.camp || r.pts)) o.rd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won];
+    var o = serialize(s), r = s.fr;
+    if (r && (r.camp || r.pts)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won];
     return o;
   };
   var num = function (v, lo, hi) { v = Math.floor(Number(v)) || 0; return Math.max(lo, Math.min(hi, v)); };
@@ -325,9 +325,9 @@
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
-    var a = Array.isArray(o.rd) ? o.rd : null;
+    var a = Array.isArray(o.frd) ? o.frd : null;
     if (a) {
-      s.raid = {
+      s.fr = {
         camp: num(a[0], 0, R.camp.levels.length), army: map(a[1], R.raiderOrder, 0, 999), lv: map(a[2], R.raiderOrder, 1, 5), dlv: map(a[3], R.defenseOrder, 1, 5),
         train: (Array.isArray(a[4]) ? a[4] : []).filter(function (t) { return Array.isArray(t) && R.raiders[t[0]]; }).slice(0, 60).map(function (t) { return { k: t[0], until: Number(t[1]) || 0 }; }),
         pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3),

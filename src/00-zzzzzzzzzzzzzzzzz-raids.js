@@ -4,7 +4,7 @@
 (function (F) {
   'use strict';
   var C = F.Config;
-  C.RAID = {
+  C.FRAID = {
     battle: { secs: 120, tick: 100, w: 26, h: 20, edge: 2 }, // a battle: 2 minutes, 10 steps a second, a 26 x 20 farm
     // the Raid Camp: its level opens raiders and makes the raid party bigger (housing space)
     camp: { price: 3000, levels: [
