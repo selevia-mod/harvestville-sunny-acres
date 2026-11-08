@@ -878,6 +878,7 @@ test('the deeper Mine: the lift stops at a band you reached, its cave has its ow
   const sheet = () => page.evaluate(() => Farm.world.map.getTileset('indoor').image.key);
   assert.strictEqual(await sheet(), 'indoor', 'the first 200 floors look as they did');
   await teleport(page, 4, 3, 'left');
+  assert.strictEqual(await page.evaluate((() => Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/mine_lift'))), true, 'the lift is its picture (8 Nov 2026), not the drawing');
   assert.strictEqual(await actionLabel(page), 'Lift');
   await tapAction(page);
   assert.match(await modalText(page), /Mine Lift/);
@@ -3411,7 +3412,9 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
   await page.evaluate(() => { Farm.session.state.lair.deep = 25; Farm.world.travel('lair', 'entrance', 1); });
   await page.waitForFunction(() => Farm.session.lairFloor === 1 && !Farm.world.busy && Farm.world.player.active, null, SLOW);
   await teleport(page, 4, 3, 'left');
+  assert.strictEqual(await page.evaluate((() => Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/mine_lift'))), true, 'the Lair\'s lift is the picture too');
   assert.strictEqual(await actionLabel(page), 'Lift', 'even with the Bow in your hands');
+  await shot(page, 'lair-lift-picture');
   await tapAction(page);
   assert.match(await modalText(page), /Lair Lift[\s\S]*Floor 21[\s\S]*Floor 11[\s\S]*Floor 1/);
   await shot(page, 'lair-lift');

@@ -21,7 +21,8 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
 (async () => {
   // (and wheat: its growing frame held the old withered picture, so a growing wheat field looked dead, until 5 Nov 2026)
   // (a crop with its generated picture in art-src/crops/ is tools/art/players-import.js's, and stays as it is)
-  const keys = ['wheat'].concat((C.NEW_CROPS || []).filter((k) => !fs.existsSync(path.join(ROOT, 'art-src', 'crops', k + '.png'))));
+  // (wheat too, once its picture is in: tools/art/workshop-import.js, 8 Nov 2026)
+  const keys = ['wheat'].concat(C.NEW_CROPS || []).filter((k) => !fs.existsSync(path.join(ROOT, 'art-src', 'crops', k + '.png')));
   const b = await chromium.launch(), p = await b.newPage();
   await p.setContent('<canvas id="x"></canvas>');
   for (const f of ['draw.js', 'crops2.js']) await p.addScriptTag({ path: path.join(__dirname, f) });

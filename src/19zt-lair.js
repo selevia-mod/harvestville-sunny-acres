@@ -496,8 +496,10 @@
       g.stroke();
     });
   };
-  // The lift: an iron cage in a frame of dark stone, with its wheel on top.
+  // The lift: the Mine's picture (owner, 8 Nov 2026: "lift also need an art"; 19y-mine.js), or this drawing of an iron
+  // cage in a frame of dark stone, with its wheel on top, when the picture is not there.
   var liftTexture = function (w) {
+    if (F.images && F.images['props/mine_lift']) return F.ensureTexture(w, 'props/mine_lift');
     return canvasTex(w, 'fx-lairlift', 336, 440, function (g, W, H) {
       var line = '#160c0a', beam = function (x, y, bw, bh, up) {
         var gr = up ? g.createLinearGradient(x, 0, x + bw, 0) : g.createLinearGradient(0, y, 0, y + bh);

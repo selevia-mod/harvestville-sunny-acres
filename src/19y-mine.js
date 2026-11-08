@@ -115,8 +115,10 @@
     return key;
   };
 
-  // The lift: a timber shaft with a wheel and a cage on its ropes (drawn here until there is art for it).
+  // The lift: its picture (owner, 8 Nov 2026: "lift also need an art"; tools/art/workshop-import.js, the Lair's and the
+  // caves' too), or this drawing of a timber shaft with a wheel and a cage on its ropes when the picture is not there.
   var liftTexture = function (w) {
+    if (F.images && F.images['props/mine_lift']) return F.ensureTexture(w, 'props/mine_lift');
     if (w.textures.exists('fx-minelift')) return 'fx-minelift';
     var W = 336, H = 440, c = w.textures.createCanvas('fx-minelift', W, H), g = c.getContext();
     var line = '#24140a', timber = function (x, y, tw, th, vertical) {
