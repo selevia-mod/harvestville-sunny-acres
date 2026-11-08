@@ -290,7 +290,7 @@
     }
     var month = C.MONTHLY.names[Number(today.slice(5, 7)) - 1];
     this.listPanel({
-      title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); },
+      title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); }, slim: true, // (owner, 8 Nov 2026: slim rows that scroll)
       sub: function () {
         var when = { daily: 'New quests at midnight', weekly: 'New goals every Monday', monthly: month + ' goals: new on the 1st', badges: 'Badges for big milestones' }[tab];
         return when + '   ·   Sunbeams: ' + s.stars;

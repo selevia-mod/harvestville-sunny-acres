@@ -17163,7 +17163,7 @@ z.on('pointerout', function () { z.pressedBy = null; });
 z.on('pointerup', function (p) {
 var mine = z.pressedBy === p.id;
 z.pressedBy = null;
-if (mine) fn.apply(this, arguments);
+if (mine && !F.dragTap) fn.apply(this, arguments);
 });
 return z;
 };
@@ -24176,7 +24176,7 @@ buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(
 }
 var month = C.MONTHLY.names[Number(today.slice(5, 7)) - 1];
 this.listPanel({
-title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); },
+title: 'Quests', tab: tab, page: page, rows: rows, tabs: TABS, reopen: function (t, p) { self.openQuests(t, p); }, slim: true,
 sub: function () {
 var when = { daily: 'New quests at midnight', weekly: 'New goals every Monday', monthly: month + ' goals: new on the 1st', badges: 'Badges for big milestones' }[tab];
 return when + '   \u00b7   Sunbeams: ' + s.stars;
@@ -26020,6 +26020,7 @@ if (o.rowH) { ROW_H = o.rowH; ROW_STEP = o.rowH + 6; }
 try { return listPanel.call(this, o); } finally { ROW_H = h0; ROW_STEP = s0; }
 };
 var listPanel = function (o) {
+if (o.slim) return slimPanel.call(this, o);
 var self = this, c = this.openModal();
 
 var rows = o.rows, page = o.page || 0, per = rows.length * ROW_STEP > 400 ? Math.floor(320 / ROW_STEP) : Math.floor(400 / ROW_STEP);
@@ -26061,6 +26062,159 @@ if (pages > 1) this.pager(c, y0 + per * ROW_STEP + 18, page, pages, function (p)
 return o;
 };
 var GREY_BTN = 0xa08a68;
+
+
+
+
+var SLIM = { h: 56, step: 60 };
+var slimPanel = function (o) {
+var self = this, c = this.openModal(), rows = o.rows;
+var y0 = o.tabs ? 178 : 140, full = y0 + rows.length * SLIM.step + 10;
+var empty = !rows.length && o.empty ? this.txt(W / 2, y0 + 40, o.empty, 15, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0) : null;
+var ph = Math.max(220, Math.min(530, (empty ? y0 + 40 + empty.height + 40 : full) - 76));
+this.panelImg(c, 12, 76, W - 24, ph);
+var title = this.txt(W / 2, 79, o.title, 17, '#fff6d8', { fontStyle: 'bold', stroke: '#5a1a12', strokeThickness: 3 }).setOrigin(0.5);
+fit(title, W - 150);
+this.ribbon(c, W / 2, 79, Math.min(W - 110, Math.max(150, title.displayWidth + 54)));
+c.add(title);
+this.closeButton(c, W - 26, 84, function () { self.closeModal(); });
+if (o.corner) this.pillButton(c, 58, 113, 64, 26, o.corner.label, o.corner.cb, o.corner.color || GREY_BTN);
+var subW = o.corner ? 200 : W - 110, sub = this.txt(o.corner ? W / 2 + 30 : W / 2, 104, '', 13, '#6a4a2a', { align: 'center' }).setOrigin(0.5, 0);
+c.add(sub);
+var showSub = function () { sub.setText(o.sub ? o.sub() : '').setScale(1); if (sub.width > subW) sub.setScale(subW / sub.width); };
+showSub();
+o.refresh = showSub;
+if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(function () { o.reopen(key, 0); }); });
+if (empty) { c.add(empty); return o; }
+
+var top = y0 - 4, bottom = 76 + ph - 12, view = bottom - top, list = this.add.container(0, 0);
+rows.forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
+c.add(list);
+var shape = this.make.graphics({ add: false });
+shape.fillStyle(0xffffff).fillRect(16, top + c.y, W - 32, view);
+list.setMask(shape.createGeometryMask());
+var span = Math.max(0, full - 10 - y0 + 4 - view), at = 0, bar = null;
+if (span > 0) {
+bar = this.add.rectangle(W - 21, top, 4, Math.max(30, view * view / (view + span)), 0x7a4d26, 0.45).setOrigin(0.5, 0);
+c.add(bar);
+}
+var hit = function (o2) { return o2.list ? o2.list.some(hit) : false; };
+var place = function (y) {
+at = Math.max(-span, Math.min(0, y));
+list.y = at;
+if (bar) bar.y = top + (view - bar.height) * (span ? -at / span : 0);
+
+list.list.forEach(function (r) {
+var ry = r.y + at, on = ry + SLIM.h / 2 > top && ry + SLIM.h / 2 < bottom;
+var walk = function (x) { if (x.input) x.input.enabled = on; if (x.list) x.list.forEach(walk); };
+walk(r);
+});
+};
+place(0);
+c.slimScroll = function (y) { place(y); };
+c.slimInto = function (obj) {
+var r = obj; while (r && r.parentContainer !== list) r = r.parentContainer;
+if (!r) return;
+if (r.y + at < top) place(top - r.y); else if (r.y + SLIM.h + at > bottom) place(bottom - SLIM.h - r.y);
+};
+if (span <= 0) return o;
+var drag = null, input = this.input;
+var down = function (p) {
+if (self.modals[self.modals.length - 1] === undefined || self.modals[self.modals.length - 1].c !== c) return;
+var y = p.y - c.y;
+if (y < top || y > bottom) return;
+drag = { y: p.y, at: at, moved: false, t: Date.now(), vy: 0, ly: p.y };
+F.dragTap = false;
+};
+var move = function (p) {
+if (!drag || !p.isDown) return;
+var dy = p.y - drag.y, now = Date.now();
+if (!drag.moved && Math.abs(dy) > 8) { drag.moved = true; F.dragTap = true; }
+if (!drag.moved) return;
+drag.vy = (p.y - drag.ly) / Math.max(1, now - drag.t);
+drag.t = now; drag.ly = p.y;
+place(drag.at + dy);
+};
+var up = function () {
+if (!drag) return;
+var v = drag.vy, moved = drag.moved;
+drag = null;
+if (moved && Math.abs(v) > 0.2) {
+var from = at, to = at + v * 260;
+self.tweens.addCounter({ from: 0, to: 1, duration: 420, ease: 'Quad.out', onUpdate: function (tw) { if (c.active) place(from + (to - from) * tw.getValue()); } });
+}
+self.time.delayedCall(0, function () { F.dragTap = false; });
+};
+var wheel = function (p, over, dx, dy) { if (self.modals.length && self.modals[self.modals.length - 1].c === c) place(at - dy * 0.6); };
+input.on('pointerdown', down);
+input.on('pointermove', move);
+input.on('pointerup', up);
+input.on('wheel', wheel);
+c.once('destroy', function () { input.off('pointerdown', down); input.off('pointermove', move); input.off('pointerup', up); input.off('wheel', wheel); });
+return o;
+};
+
+
+U.slimRow = function (parent, y, row) {
+var self = this, r = this.add.container(0, y), b = row.buttons || [], H = SLIM.h;
+var right = b.length ? (b.length > 1 ? 2 * 62 + 4 : 72) : row.done ? 34 : 0;
+r.add(this.canvasImg(null, 22, 0, 'ui-slimrow', W - 44, H + 3, function (g) {
+rrect(g, 0, 3, W - 44, H, 10);
+g.fillStyle = 'rgba(122,77,38,0.18)';
+g.fill();
+rrect(g, 0, 0, W - 44, H, 10);
+g.fillStyle = vgrad(g, 0, H, '#fffdf6', '#f5e4bd');
+g.fill();
+g.lineWidth = 1.5;
+g.strokeStyle = '#d9b77f';
+g.stroke();
+}));
+r.add(this.add.circle(46, H / 2, 17, 0xf2d79a).setStrokeStyle(1.5, 0xd9b77f));
+if (row.img) r.add(this.add.image(46, H / 2, row.img.key, row.img.frame).setDisplaySize(26, 26));
+else if (row.icon != null) r.add(this.add.image(46, H / 2, 'items', row.icon).setScale(0.2).setAlpha(row.done ? 0.55 : 1));
+var x = 70, textW = W - 44 - (x - 22) - right - 10;
+var name = this.txt(x, 6, row.name || '', 12, row.done ? '#8a7a5a' : INK, { fontStyle: 'bold' });
+var tagW = 0;
+if (row.tag) {
+var tg = this.txt(0, 7, row.tag, 9, '#ffffff', { fontStyle: 'bold', backgroundColor: '#c0503a', padding: { x: 4, y: 1 } });
+tagW = tg.width + 5;
+r.add(tg);
+self.time.delayedCall(0, function () { if (tg.active) tg.setX(x + name.displayWidth + 5); });
+}
+if (name.width > textW - tagW) name.setScale((textW - tagW) / name.width);
+r.add(name);
+var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
+var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
+if (m && Number(m[2]) > 0) { progress = [Number(m[1]), Number(m[2])]; desc = desc.slice(m[0].length); }
+if (progress && progress[1] > 0 && !row.done) {
+var have = Math.min(progress[0], progress[1]), need = progress[1], bw = 54, fw = Math.max(0, Math.round((bw - 2) * have / need));
+r.add(this.add.rectangle(lx, ly + 5, bw, 8, 0x6a4a2a).setOrigin(0, 0.5));
+if (fw > 0) r.add(this.add.rectangle(lx + 1, ly + 5, fw, 6, have >= need ? 0xe9a91c : 0x5fb84a).setOrigin(0, 0.5));
+var cnt = this.txt(lx + bw + 4, ly + 5, have + '/' + need, 10, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+r.add(cnt);
+lx += bw + 8 + cnt.width + 6;
+}
+if (row.reward && !row.done) {
+var tmp = this.add.container(0, 0);
+this.rewardChips(tmp, lx, ly - 3, x + textW - lx, row.reward, row.rewardPrefix);
+
+tmp.list.slice().forEach(function (o2) { if (o2.y > ly + 14) o2.destroy(); });
+r.add(tmp);
+}
+if (desc) {
+var d = this.txt(x, 40, desc, 10, '#7a5a3a');
+var words = desc.split(' ');
+while (d.width > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '\u2026'); }
+r.add(d);
+}
+var bx = W - 22 - 8;
+if (b.length === 1) this.pillButton(r, bx - 32, H / 2, 64, 28, b[0].label, b[0].cb, b[0].color || GREEN);
+else if (b.length > 1) b.slice(0, 2).forEach(function (btn, k) { self.pillButton(r, bx - 30 - (1 - k) * 66, H / 2, 60, 26, btn.label, btn.cb, btn.color || GREEN); });
+else if (row.done) r.add(this.txt(bx - 14, H / 2, '\u2713', 18, '#3fa535', { fontStyle: 'bold' }).setOrigin(0.5));
+if (row.onTap) { var zt = this.add.zone(22 + (W - 44 - right) / 2, H / 2, W - 44 - right, H).setInteractive({ useHandCursor: true }); F.tapOn(zt, row.onTap); r.addAt(zt, 1); }
+parent.add(r);
+return r;
+};
 
 
 

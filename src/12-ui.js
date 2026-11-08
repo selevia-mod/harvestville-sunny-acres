@@ -22,7 +22,7 @@
     z.on('pointerup', function (p) {
       var mine = z.pressedBy === p.id;
       z.pressedBy = null;
-      if (mine) fn.apply(this, arguments);
+      if (mine && !F.dragTap) fn.apply(this, arguments); // (not when the finger was scrolling a list: 19i-look.js)
     });
     return z;
   };

@@ -67,11 +67,12 @@ async function tapButton(page, label, nth = 0) {
     const m = Farm.ui.modals[Farm.ui.modals.length - 1];
     const found = [];
     const walk = (list) => list.forEach((o) => {
-      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o.getBounds());
+      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o);
       if (o.list) walk(o.list);
     });
     walk(m.c.list);
-    const b = found[nth];
+    if (found[nth] && m.c.slimInto) m.c.slimInto(found[nth]); // (a slim list scrolls it into view: 19i-look.js)
+    const b = found[nth] && found[nth].getBounds();
     return b && { x: b.centerX, y: b.centerY };
   }, [label, nth]);
   assert.ok(pos, `button "${label}" is on screen`);

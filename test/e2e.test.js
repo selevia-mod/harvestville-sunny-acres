@@ -121,11 +121,12 @@ async function tapButton(page, label, nth = 0) {
     const m = Farm.ui.modals[Farm.ui.modals.length - 1];
     const found = [];
     const walk = (list) => list.forEach((o) => {
-      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o.getBounds());
+      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o);
       if (o.list) walk(o.list);
     });
     walk(m.c.list);
-    const b = found[nth];
+    if (found[nth] && m.c.slimInto) m.c.slimInto(found[nth]); // (a slim list scrolls it into view: 19i-look.js)
+    const b = found[nth] && found[nth].getBounds();
     return b && { x: b.centerX, y: b.centerY };
   }, [label, nth]);
   assert.ok(pos, `button "${label}" is on screen`);
@@ -2730,6 +2731,37 @@ test('quests v2: the Daily list: each quest says its villager\'s reason; Go puts
   assert.ok(text.includes(reason.slice(0, 18)), 'its reason was on the list: ' + reason);
   assert.ok(await page.evaluate((i) => !!Farm.Logic.questPlace(Farm.session.state.dq.list[i].c), i));
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'the panel closed: the dog leads');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('slim lists (Quests): every row in one list that scrolls; a row out of view takes no taps; a drag over a button does not press it', async () => {
+  const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state, q = s.dq.list[9]; q.b = Farm.Logic.count(s, q.c) - q.n; Farm.ui.openQuests('daily', 0); });
+  await frames(page, 3);
+  // all 11 rows (the chest and 10 quests) are there; the last one's Claim is out of view and takes no taps yet
+  const before = await page.evaluate(() => {
+    const m = Farm.ui.modals[0], list = m.c.list.find((o) => o.type === 'Container' && o.mask);
+    const claim = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.text === 'Claim') claim.push(o); if (o.list) walk(o.list); }); walk(list.list);
+    const z = claim[0].parentContainer.list.find((o) => o.type === 'Zone');
+    return { rows: list.list.length, enabled: z.input.enabled };
+  });
+  assert.deepStrictEqual(before, { rows: 11, enabled: false });
+  // a drag that starts on a Go: the list moves, nothing is pressed
+  const go = await page.evaluate(() => { const m = Farm.ui.modals[0]; let g = null; const walk = (l) => l.forEach((o) => { if (!g && o.type === 'Text' && o.text === 'Go') g = o.getBounds(); if (o.list) walk(o.list); }); walk(m.c.list); return { x: g.centerX, y: g.centerY }; });
+  await page.mouse.move(go.x, go.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 8; k++) await page.mouse.move(go.x, go.y - k * 25);
+  await page.mouse.up();
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => !!Farm.world.guide), false, 'no Go pressed');
+  assert.ok(await page.evaluate(() => Farm.ui.modals[0].c.list.find((o) => o.type === 'Container' && o.mask).y < -40), 'the list moved up');
+  await shot(page, 'slim-scrolled');
+  // Claim on the last row (scrolled into view): claimed
+  await tapButton(page, 'Claim');
+  assert.strictEqual(await page.evaluate(() => Farm.session.state.dq.list[9].done), 1);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
