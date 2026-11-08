@@ -72,6 +72,33 @@
       line(g, [[cx - a, cy], [cx + a, cy]], 3, '#ffffff');
       line(g, [[cx, cy - a], [cx, cy + a]], 3, '#ffffff');
     },
+    // the Decorate panel's (owner, 8 Nov 2026: "Lets improve this panel"): a quarter-turn arrow, into the box, a tick
+    turn: function (g, cx, cy, r) {
+      var a = r * 0.42;
+      g.lineCap = g.lineJoin = 'round';
+      [[5.5, EDGE], [3, '#ffffff']].forEach(function (st) {
+        g.beginPath();
+        g.arc(cx, cy, a, -Math.PI * 0.95, Math.PI * 0.45);
+        g.lineWidth = st[0];
+        g.strokeStyle = st[1];
+        g.stroke();
+      });
+      var ex = cx + a * Math.cos(Math.PI * 0.45), ey = cy + a * Math.sin(Math.PI * 0.45);
+      line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 5.5, EDGE);
+      line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 3, '#ffffff');
+    },
+    store: function (g, cx, cy, r) {
+      var a = r * 0.42;
+      line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 5.5, EDGE);
+      line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 5.5, EDGE);
+      line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 3, '#ffffff');
+      line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 3, '#ffffff');
+    },
+    tick: function (g, cx, cy, r) {
+      var a = r * 0.42;
+      line(g, [[cx - a, cy], [cx - a * 0.25, cy + a * 0.7], [cx + a, cy - a * 0.6]], 6, EDGE);
+      line(g, [[cx - a, cy], [cx - a * 0.25, cy + a * 0.7], [cx + a, cy - a * 0.6]], 3.2, '#ffffff');
+    },
     // an ×
     close: function (g, cx, cy, r) {
       var a = r * 0.36;

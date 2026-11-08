@@ -154,3 +154,38 @@ test('turning furniture: Turn goes front, facing left, back, facing right; a pie
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the Decorate panels (owner, 8 Nov 2026: "Lets improve this panel"): a card for the piece, a bar of tabs, nothing past the edge', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await go(page, 'house');
+  await page.evaluate(() => Farm.world.startDecor());
+  await page.waitForFunction(() => Farm.ui.decorBar, null, SLOW);
+  await frames(page, 3);
+  const texts = () => page.evaluate(() => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text' && o.visible) out.push(o.text); if (o.list) walk(o.list); }); walk(Farm.ui.decorBar.list); return out.join(' | '); });
+  assert.match(await texts(), /Decorate your home.*Tap a piece, then drag it to move it\..*Storage.*Walls.*Floor.*Done/);
+  await shot(page, 'decor-none');
+  const bed = await page.evaluate(() => Farm.session.state.home.items.findIndex((it) => Farm.Config.HOME.types[it.t].key === 'bed'));
+  await page.evaluate((i) => Farm.world.decorSelect(i), bed);
+  await frames(page, 3);
+  assert.match(await texts(), /Bed \| \+\d+ beauty \| Turn \| Put away \| OK/);
+  // everything inside the panel
+  const out = await page.evaluate(() => { const W = 360, bad = []; const walk = (l) => l.forEach((o) => { if (o.getBounds && o.visible && o.type !== 'Container' && o.type !== 'Zone' && o.type !== 'Rectangle' && o.type !== 'NineSlice') { const b = o.getBounds(); if (b.x < 5 || b.right > W - 5) bad.push(o.type + ':' + (o.text || o.texture && o.texture.key) + ' ' + Math.round(b.x) + '-' + Math.round(b.right)); } if (o.list) walk(o.list); }); walk(Farm.ui.decorBar.list); return bad; });
+  assert.deepStrictEqual(out, [], 'nothing past the edges');
+  await shot(page, 'decor-sel');
+  // Turn on the card turns it
+  await page.touchscreen.tap(...(await page.evaluate(() => { let p = null; const walk = (l) => l.forEach((o) => { if (!p && o.type === 'Text' && o.text === 'Turn') p = [o.getBounds().centerX, o.getBounds().y - 20]; if (o.list) walk(o.list); }); walk(Farm.ui.decorBar.list); return p; })));
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate((i) => Farm.session.state.home.items[i].f, bed), 2);
+  await shot(page, 'decor-turned');
+  // the yard's
+  await page.evaluate(() => Farm.world.endDecor());
+  await go(page, 'farm', 'house_door');
+  await page.evaluate(() => Farm.world.startYard ? Farm.world.startYard() : Farm.ui.openYard());
+  await page.waitForFunction(() => Farm.world.yd && Farm.ui.decorBar, null, SLOW);
+  await frames(page, 3);
+  assert.match(await texts(), /Decorate your yard.*Tap a piece, then drag it to move it\..*Storage.*Done/);
+  await shot(page, 'decor-yard');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

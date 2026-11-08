@@ -26264,6 +26264,33 @@ line(g, [[cx - a, cy], [cx + a, cy]], 3, '#ffffff');
 line(g, [[cx, cy - a], [cx, cy + a]], 3, '#ffffff');
 },
 
+turn: function (g, cx, cy, r) {
+var a = r * 0.42;
+g.lineCap = g.lineJoin = 'round';
+[[5.5, EDGE], [3, '#ffffff']].forEach(function (st) {
+g.beginPath();
+g.arc(cx, cy, a, -Math.PI * 0.95, Math.PI * 0.45);
+g.lineWidth = st[0];
+g.strokeStyle = st[1];
+g.stroke();
+});
+var ex = cx + a * Math.cos(Math.PI * 0.45), ey = cy + a * Math.sin(Math.PI * 0.45);
+line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 5.5, EDGE);
+line(g, [[ex - r * 0.3, ey + r * 0.02], [ex, ey], [ex + r * 0.06, ey - r * 0.3]], 3, '#ffffff');
+},
+store: function (g, cx, cy, r) {
+var a = r * 0.42;
+line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 5.5, EDGE);
+line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 5.5, EDGE);
+line(g, [[cx - a, cy + a * 0.1], [cx - a, cy + a], [cx + a, cy + a], [cx + a, cy + a * 0.1]], 3, '#ffffff');
+line(g, [[cx, cy - a], [cx, cy + a * 0.45], [cx - a * 0.4, cy + a * 0.05], [cx, cy + a * 0.45], [cx + a * 0.4, cy + a * 0.05]], 3, '#ffffff');
+},
+tick: function (g, cx, cy, r) {
+var a = r * 0.42;
+line(g, [[cx - a, cy], [cx - a * 0.25, cy + a * 0.7], [cx + a, cy - a * 0.6]], 6, EDGE);
+line(g, [[cx - a, cy], [cx - a * 0.25, cy + a * 0.7], [cx + a, cy - a * 0.6]], 3.2, '#ffffff');
+},
+
 close: function (g, cx, cy, r) {
 var a = r * 0.36;
 line(g, [[cx - a, cy - a], [cx + a, cy + a]], 5, EDGE);
@@ -46441,6 +46468,157 @@ if (F.world) F.world.save();
 return this.tour('adventure', function () { openQuests.call(self, tab, page); });
 }
 return openQuests.call(this, tab, page);
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzz-decor-panel.js
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var H = C.HOME;
+var U = F.UIScene.prototype;
+var K = F.UI_CONST, W = K.W, HGT = K.H, INK = K.INK;
+var D = F.UI_DRAW, rrect = D.rrect, vgrad = D.vgrad;
+var BLUE = 0x4a90c9, GREY = 0xa08a68, GREEN = 0x5fa84a;
+var TOP = 440, CARD = { x: 16, y: TOP + 60, h: 70 }, BAR = { y: HGT - 42, h: 40 };
+var world = function () { return F.world; };
+var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+
+
+U.decorFrame = function (label) {
+if (this.decorBar) this.decorBar.destroy();
+this.decorating = true;
+if (this.decorBtn) this.decorBtn.setVisible(false);
+F.input.reset();
+var c = this.decorBar = this.add.container(0, C.EXTRA).setDepth(90);
+c.add(this.add.rectangle(0, TOP, W, HGT - TOP, 0x000000, 0.001).setOrigin(0).setInteractive());
+this.panelImg(c, 6, TOP, W - 12, HGT - TOP - 6);
+this.decorHeader(c, label);
+return c;
+};
+
+U.decorCard = function (c) {
+var w = W - 2 * CARD.x;
+this.canvasImg(c, CARD.x, CARD.y, 'ui-decor-card-' + w, w, CARD.h, function (g) {
+rrect(g, 1, 1, w - 2, CARD.h - 2, 12);
+g.fillStyle = vgrad(g, 0, CARD.h, '#fffaea', '#f3e2bd');
+g.fill();
+g.lineWidth = 1.5;
+g.strokeStyle = 'rgba(122,77,38,0.45)';
+g.stroke();
+});
+};
+
+U.decorRound = function (c, x, glyph, color, word, onTap) {
+var y = CARD.y + 28;
+this.roundButton(c, x, y, 18, color, glyph, null, onTap);
+var t = this.txt(x, y + 27, word, 10, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+c.add(t);
+return t;
+};
+
+U.decorPiece = function (c, pic, name, sub) {
+var cx = CARD.x + 34, cy = CARD.y + CARD.h / 2;
+c.add(this.add.circle(cx, cy, 25, 0xf2d79a).setStrokeStyle(2, 0xd9b77f));
+if (pic) {
+var im = this.add.image(cx, cy + 2, pic.key, pic.frame).setFlipX(!!pic.flip);
+im.setScale(Math.min(42 / im.width, 42 / im.height));
+c.add(im);
+}
+var room = W - CARD.x - 150 - (CARD.x + 66);
+var n = this.txt(CARD.x + 66, cy - 10, name, 13, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+if (n.width > room) n.setScale(room / n.width);
+c.add(n);
+c.add(this.txt(CARD.x + 66, cy + 10, sub, 11, '#2f7a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+};
+
+U.decorHint = function (c, line1, line2) {
+c.add(this.add.image(CARD.x + 30, CARD.y + CARD.h / 2, 'items', C.ICON.sparkle).setScale(0.2));
+c.add(this.txt(CARD.x + 54, CARD.y + CARD.h / 2 - 10, line1, 12, INK, { fontStyle: 'bold', wordWrap: { width: W - 2 * CARD.x - 66 } }).setOrigin(0, 0.5));
+c.add(this.txt(CARD.x + 54, CARD.y + CARD.h / 2 + 12, line2, 11, '#7a5a3a', { wordWrap: { width: W - 2 * CARD.x - 66 } }).setOrigin(0, 0.5));
+};
+
+U.decorTabs = function (c, tabs, onDone) {
+var self = this, doneW = tabs.length > 1 ? 84 : 100, x0 = 16, x1 = W - 16 - doneW - 8, w = x1 - x0, sw = w / tabs.length, y = BAR.y - BAR.h / 2;
+this.canvasImg(c, x0, y, 'ui-decor-tabs-' + Math.round(w) + '-' + tabs.length, Math.round(w), BAR.h + 3, function (g) {
+rrect(g, 1, 3, w - 2, BAR.h - 2, 12);
+g.fillStyle = 'rgba(60,35,15,0.25)';
+g.fill();
+rrect(g, 1, 1, w - 2, BAR.h - 2, 12);
+g.fillStyle = vgrad(g, 0, BAR.h, '#b9844e', '#8a5a2e');
+g.fill();
+g.lineWidth = 1.5;
+g.strokeStyle = '#5a3a1e';
+g.stroke();
+for (var k = 1; k < tabs.length; k++) {
+g.beginPath();
+g.moveTo(Math.round(k * sw) + 0.5, 8);
+g.lineTo(Math.round(k * sw) + 0.5, BAR.h - 9);
+g.lineWidth = 1;
+g.strokeStyle = 'rgba(255,240,210,0.35)';
+g.stroke();
+}
+});
+tabs.forEach(function (tab, k) {
+var cx = x0 + sw * k + sw / 2, box = self.add.container(cx, BAR.y);
+var t = self.txt(0, 0, tab[0], 13, '#fff6d8', { fontStyle: 'bold', stroke: '#4a2a12', strokeThickness: 3 }).setOrigin(0.5);
+if (t.width > sw - 10) t.setScale((sw - 10) / t.width);
+var z = self.add.zone(0, 0, sw, BAR.h).setInteractive({ useHandCursor: true });
+z.on('pointerdown', function () { box.setScale(0.94); });
+z.on('pointerout', function () { box.setScale(1); });
+F.tapOn(z, function () { box.setScale(1); tab[1](); });
+box.add([t, z]);
+c.add(box);
+});
+this.button(c, W - 16 - doneW / 2, BAR.y, doneW, BAR.h - 2, 'Done', onDone, GREEN);
+};
+
+
+U.drawDecorBar = function (info) {
+var self = this, s = F.session.state, w = world(), c = this.decorFrame('Decorate your home');
+this.decorCard(c);
+var it = info.sel != null ? s.home.items[info.sel] : null;
+if (it) {
+var view = L.furnView ? L.furnView(it.t, it.f) : null;
+var pic = view ? { key: F.furnTurnTexture(this, it.v), frame: view.frame, flip: view.flip } : { key: F.furnTexture(this, it.v), frame: it.t, flip: it.f === 1 };
+this.decorPiece(c, pic, L.furnName(it.t, it.v), '+' + L.furnBeauty(it.t, it.v) + ' beauty');
+var rx = W - CARD.x - 26;
+this.decorRound(c, rx - 96, 'turn', BLUE, L.furnTurns && L.furnTurns(it.t) ? 'Turn' : 'Flip', function () { w.decorTurn(); });
+this.decorRound(c, rx - 48, 'store', GREY, 'Put away', function () { w.decorStore(); });
+this.decorRound(c, rx, 'tick', GREEN, 'OK', function () { w.decorSelect(null); });
+} else {
+this.decorHint(c, 'Tap a piece, then drag it to move it.', 'More furniture at Mira\'s Woodshop in town.');
+}
+var n = Object.keys(s.home.bag).reduce(function (sum, k) { return sum + s.home.bag[k]; }, 0);
+this.decorTabs(c, [['Storage' + (n ? ' ' + n : ''), function () { self.openStorage(0); }], ['Walls', function () { self.openSurfaces('wall', 0); }],
+['Floor', function () { self.openSurfaces('floor', 0); }]], function () { w.endDecor(); sfx('pick'); });
+};
+
+
+U.drawYardBar = function (info) {
+var self = this, s = F.session.state, w = world(), c = this.decorFrame('Decorate your yard'), O = C.OUTDOOR;
+this.decorCard(c);
+var yardPic = function (t) { var im = F.yardImg ? F.yardImg(self, t) : null; return im && im.key ? { key: im.key, frame: im.frame } : null; };
+if (info.brush != null) {
+var bt = O.types[info.brush];
+this.decorPiece(c, yardPic(info.brush), bt.name, (s.yard.bag[info.brush] || 0) + ' left: tap the grass to place');
+this.decorRound(c, W - CARD.x - 26, 'tick', GREEN, 'Done', function () { w.yd.brush = null; w.yardChanged(); });
+} else if (info.sel != null) {
+var it = s.yard.items[info.sel], type = O.types[it.t], rx = W - CARD.x - 26;
+this.decorPiece(c, yardPic(it.t), type.name, '+' + type.beauty + ' beauty');
+this.decorRound(c, rx - 48, 'store', GREY, 'Put away', function () { w.yardStore(); });
+this.decorRound(c, rx, 'tick', GREEN, 'OK', function () { w.yardSelect(null); });
+} else {
+this.decorHint(c, 'Tap a piece, then drag it to move it.', 'Place more from Storage. Buy them at Mira\'s (Outdoor).');
+}
+var n = Object.keys(s.yard.bag).reduce(function (sum, k) { return sum + s.yard.bag[k]; }, 0);
+this.decorTabs(c, [['Storage' + (n ? ' ' + n : ''), function () { self.openYardStorage(0); }]], function () { w.endYard(); sfx('pick'); });
 };
 })(window.Farm = window.Farm || {});
 
