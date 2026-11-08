@@ -8,6 +8,15 @@
 
   C.NEWS = [
     {
+      v: '2.13', date: 'November 8, 2026', lines: [
+        // (owner, 8 Nov 2026: e43)
+        ['letter', 'Talk in the caves', 'When a friend is on your cave floor, the Chat button is there. And a message to a friend shows at once.'],
+        ['seed_melon', 'A new greenhouse', 'Walk in through its door. The soil sits in its wooden beds, with plants on the back wall.'],
+        ['heart', 'Visiting out hunting', 'The round visit button is there too: tap it for Wave, More and Home.'],
+        ['wheat', 'New pictures', 'Wheat, mango, apple, orange, peach, their jams and the lift, and a softer mark on the tile you face.'],
+      ],
+    },
+    {
       v: '2.12', date: 'November 8, 2026', lines: [
         // (owner, 8 Nov 2026: e41)
         ['ember_shard', 'The caves got deeper', 'Every hunting place\'s cave now goes down 50 floors, like the Lair: a guard on every 10th floor, tougher each time, and the boss on floor 50. Where you reached stays yours.'],
