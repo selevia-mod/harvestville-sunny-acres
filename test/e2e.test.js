@@ -2914,6 +2914,23 @@ test('the market stall: 100 of one thing on a shelf (owner, 8 Nov 2026: "maximum
   await context.close();
 });
 
+test('the action button: its own pictures (a door for Enter, a speech bubble for Talk) on the painted ring (owner, 8 Nov 2026)', async () => {
+  const save = await makeSave("s.goal = 99; s.time = 600;");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await go(page, 'town', 'from_farm');
+  await teleport(page, 4, 19, 'up');
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  const look = () => page.evaluate(() => ({ icon: Farm.ui.actionIcon.visible ? Number(Farm.ui.actionIcon.frame.name) : -1, ring: Farm.ui.actionRing.texture.key }));
+  assert.deepStrictEqual(await look(), { icon: await page.evaluate(() => Farm.Config.ICON.act_enter), ring: 'props/action_ring' });
+  await page.waitForTimeout(300);
+  await shot(page, 'action-enter');
+  assert.strictEqual(await page.evaluate(() => Farm.actionArt({ label: 'Lift', icon: Farm.Config.ICON.crate })), await page.evaluate(() => Farm.Config.ICON.act_lift));
+  assert.strictEqual(await page.evaluate(() => Farm.actionArt({ label: 'Read', icon: Farm.Config.ICON.letter })), null, 'a letter keeps its own');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
