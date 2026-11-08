@@ -6648,6 +6648,12 @@ if (Array.isArray(o.hs)) s.builds.stable = 1;
 if (Array.isArray(o.pj) && C.BUILD_KEYS[o.pj[0]] && !s.builds[C.BUILD_KEYS[o.pj[0]]]) {
 s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) + shift };
 }
+
+
+
+C.ANIMAL_KEYS.forEach(function (kind) {
+if (L.animalCount(s, kind) > C.ANIMALS[kind].max) s.builds[kind === 'chicken' ? 'coop2' : 'barn2'] = 1;
+});
 C.ANIMAL_KEYS.forEach(function (kind) {
 var seen = 0;
 s.animals = s.animals.filter(function (a) { return a.kind !== kind || ++seen <= L.capacity(s, kind); });
@@ -15674,6 +15680,42 @@ var t = H.typeIndex[key], home = s.home;
 if (t == null || !home) return false;
 if ((home.items || []).some(function (it) { return it.t === t; })) return true;
 return Object.keys(home.bag || {}).some(function (k) { return home.bag[k] > 0 && Number(k.split('.')[0]) === t; });
+};
+
+
+
+
+
+
+C.LETTERS.breeds_back = {
+from: 'lily',
+text: 'Good news! The animals that wandered off in the mix-up found their way home. One of each colour in your Breeds book is back in your coop and barn. Take good care of them! - Lily',
+};
+
+L.breedsBack = function (s) {
+var n = 0;
+C.ANIMAL_KEYS.forEach(function (kind) {
+var defs = C.BREEDS[kind] || [];
+for (var b = 1; b < defs.length; b++) {
+if (!L.breedFound(s, kind, b) || L.space(s, kind) <= 0) continue;
+if (s.animals.some(function (a) { return a.kind === kind && L.breedOf(a) === b; })) continue;
+s.animals.push({ kind: kind, name: L.nextName(s, kind), love: 0, fed: 0, pet: 0, ready: 0, brushed: 0, young: 0, preg: 0, br: b });
+n++;
+}
+});
+return n;
+};
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s);
+o.rb = 1;
+return o;
+};
+var deserializeB = L.deserialize;
+L.deserialize = function (o) {
+var s = deserializeB(o);
+if (s && !o.rb && L.breedsBack(s) && s.mail.indexOf('breeds_back') < 0) s.mail.unshift('breeds_back');
+return s;
 };
 
 var deserialize = L.deserialize;

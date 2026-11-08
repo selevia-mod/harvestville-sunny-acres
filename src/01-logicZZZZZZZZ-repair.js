@@ -28,6 +28,42 @@
     return Object.keys(home.bag || {}).some(function (k) { return home.bag[k] > 0 && Number(k.split('.')[0]) === t; });
   };
 
+  // The coloured animals (owner, 8 Nov 2026: "Add a small extra repair"). The animals let go were the newest, so the ones
+  // bred or bought in a colour; the colours are still in the Breeds book (s.brf), and an animal never leaves a farm any
+  // other way, so a colour in the book with none in the pen was lost: one grown animal of each comes home while there is
+  // room (the plain colour aside: everyone has it), with a letter from Lily. Once per farm: every save written from now
+  // on says so (o.rb), new farms included (they lost nothing).
+  C.LETTERS.breeds_back = {
+    from: 'lily',
+    text: 'Good news! The animals that wandered off in the mix-up found their way home. One of each colour in your Breeds book is back in your coop and barn. Take good care of them! - Lily',
+  };
+  // Brings back the lost colours; returns how many came.
+  L.breedsBack = function (s) {
+    var n = 0;
+    C.ANIMAL_KEYS.forEach(function (kind) {
+      var defs = C.BREEDS[kind] || [];
+      for (var b = 1; b < defs.length; b++) {
+        if (!L.breedFound(s, kind, b) || L.space(s, kind) <= 0) continue;
+        if (s.animals.some(function (a) { return a.kind === kind && L.breedOf(a) === b; })) continue;
+        s.animals.push({ kind: kind, name: L.nextName(s, kind), love: 0, fed: 0, pet: 0, ready: 0, brushed: 0, young: 0, preg: 0, br: b });
+        n++;
+      }
+    });
+    return n;
+  };
+  var serialize = L.serialize;
+  L.serialize = function (s) {
+    var o = serialize(s);
+    o.rb = 1;
+    return o;
+  };
+  var deserializeB = L.deserialize;
+  L.deserialize = function (o) {
+    var s = deserializeB(o);
+    if (s && !o.rb && L.breedsBack(s) && s.mail.indexOf('breeds_back') < 0) s.mail.unshift('breeds_back');
+    return s;
+  };
+
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
     var s = deserialize(o);

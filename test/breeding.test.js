@@ -248,7 +248,8 @@ test('breeds survive the save (with a waiting bonus); an old save is all first c
     assert.ok(b.brp >= 0 && b.brp < 16);
     b.brf.forEach((m, i) => assert.ok(m >= 0 && m < (1 << C.BREEDS[C.ANIMAL_KEYS[i]].length)));
   });
-  // a save with more animals than the barn holds: the ones kept keep their own colours
+  // a save with more animals than the small barn holds (the Bigger Barn forgotten): every animal stays, in its own
+  // colour, and the Bigger Barn is back (owner, 8 Nov 2026: "this will not happen again right?")
   const s3 = fresh();
   s3.builds.barn2 = 0;
   L.buyAnimal(s3, 'pig');
@@ -261,7 +262,9 @@ test('breeds survive the save (with a waiting bonus); an old save is all first c
   const o3 = L.serialize(s3);
   o3.bd = o3.bd.map((v, i) => (C.BUILD_KEYS[i] === 'barn2' ? 0 : v));
   const b3 = L.deserialize(JSON.parse(JSON.stringify(o3)));
-  assert.deepStrictEqual(plain(b3.animals.map((a) => a.kind + L.breedOf(a))), ['chicken0', 'pig0', 'pig2', 'cow3']);
+  assert.deepStrictEqual(plain(b3.animals.map((a) => a.kind + L.breedOf(a))), plain(s3.animals.map((a) => a.kind + L.breedOf(a))));
+  assert.strictEqual(b3.animals.length, 5, 'the third pig stays');
+  assert.strictEqual(b3.builds.barn2, 1);
 });
 
 test("friends see your colours on a visit (the snapshot's 4th field), checked like everything from another player", () => {

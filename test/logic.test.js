@@ -408,7 +408,12 @@ test('bad animal save data is sanitised', () => {
   o.a = [[9, 1, 1, 1, 1, 'Ghost'], 'junk', [1, 500, 1, 0, 0, 12345], ...Array(6).fill([0, 10, 0, 0, 0, 'Hen'])];
   const s = L.deserialize(o);
   same(s.animals[0], { kind: 'cow', name: 'Daisy', love: C.LOVE.max, fed: 1, pet: 0, ready: 0, brushed: 0, young: 0, preg: 0 });
-  assert.strictEqual(L.animalCount(s, 'chicken'), C.ANIMALS.chicken.max);
+  // 6 hens: more than the small coop holds, so the farm had the Bigger Coop (8 Nov 2026: animals are never let go)
+  assert.strictEqual(L.animalCount(s, 'chicken'), 6);
+  assert.strictEqual(s.builds.coop2, 1);
+  // but never more than even the Bigger Coop holds
+  o.a = Array(12).fill([0, 10, 0, 0, 0, 'Hen']);
+  assert.strictEqual(L.animalCount(L.deserialize(o), 'chicken'), 2 * C.ANIMALS.chicken.max);
 });
 
 test('calendar: the real date; seasons by month', () => {

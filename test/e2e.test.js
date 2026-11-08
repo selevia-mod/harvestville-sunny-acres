@@ -2538,6 +2538,34 @@ test('e40: a farm the birthday bug wiped opens with its Stable and Bigger Coop b
   await context.close();
 });
 
+test('e42: a farm the bug wiped gets its lost colours back: drawn in the pen, and Lily\'s letter after the Mayor\'s', async () => {
+  // jeshhhh's farm on 8 Nov: 4 plain hens, 4 cows, 2 pigs, 2 carabaos; the Breeds book has 2 cow, 2 pig and 1 carabao colours
+  const save = await makeSave("s.goal = 99; s.wv = C.NEWS_LATEST; s.animals = [];" +
+    "['chicken','chicken','chicken','chicken','cow','cow','cow','cow','pig','pig','carabao','carabao'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });" +
+    "s.brf = [1, 7, 7, 3];");
+  delete save.bb;
+  delete save.rb;
+  save.bd = [724, 0];
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const s = await state(page);
+  assert.deepStrictEqual(s.animals.filter((a) => a.br).map((a) => a.kind + ':' + a.br), ['cow:1', 'cow:2', 'pig:1', 'pig:2', 'carabao:1']);
+  await page.waitForFunction(() => !Farm.world.breedQueue, null, SLOW);
+  const keys = await page.evaluate(() => Farm.world.herd.members.map((m) => m.sprite.texture.key).filter((k) => /_br_/.test(k)));
+  assert.deepStrictEqual(keys, ['animals_br_cow_1', 'animals_br_cow_2', 'animals_br_pig_1', 'animals_br_pig_2', 'animals_br_carabao_1']);
+  assert.deepStrictEqual(await page.evaluate(() => Farm.session.state.mail.slice(0, 2)), ['sorry_bd', 'breeds_back']);
+  await page.evaluate(() => Farm.world.readMail());
+  await frames(page, 3);
+  await page.evaluate(() => Farm.ui.closeModal());
+  await page.evaluate(() => Farm.world.readMail());
+  await frames(page, 3);
+  const box = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1], b = m.c.getBounds(); return { y0: b.y, y1: b.y + b.height, h: Farm.world.scale.height }; });
+  assert.ok(box.y0 >= 0 && box.y1 <= box.h, 'Lily\'s letter fits on the screen');
+  await shot(page, 'e42-breeds-back-letter');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);

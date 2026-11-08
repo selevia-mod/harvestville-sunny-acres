@@ -1298,6 +1298,12 @@
     if (Array.isArray(o.pj) && C.BUILD_KEYS[o.pj[0]] && !s.builds[C.BUILD_KEYS[o.pj[0]]]) {
       s.project = { id: C.BUILD_KEYS[o.pj[0]], done: int(o.pj[1], 1, 1e6, s.day + 1) + shift };
     }
+    // More animals than the small coop or barn holds: the farm had the bigger one (an animal only comes when there is
+    // room), so it keeps it and every animal (owner, 8 Nov 2026: "this will not happen again right?" - the birthday bug
+    // above forgot the buildings and let the animals go).
+    C.ANIMAL_KEYS.forEach(function (kind) {
+      if (L.animalCount(s, kind) > C.ANIMALS[kind].max) s.builds[kind === 'chicken' ? 'coop2' : 'barn2'] = 1;
+    });
     C.ANIMAL_KEYS.forEach(function (kind) { // never more than a building holds
       var seen = 0;
       s.animals = s.animals.filter(function (a) { return a.kind !== kind || ++seen <= L.capacity(s, kind); });
