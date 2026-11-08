@@ -52,11 +52,59 @@
   };
   if (F.SHEETS) { ['raid_crow', 'guard_goose'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
 
+  // ---------- the first-time tour (owner, 4 Oct 2026: every new feature gets one) ----------
+  // (its tip goes last of all, after the dog's name: a tip's place is its bit in the save; 'raid_tour' is the Town Raid's)
+  C.TIPS.push({ key: 'farmraid_tour', text: 'FARM RAIDS' });
+  var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+  var ri = function (k) { return C.ICON['ri_' + k] != null ? C.ICON['ri_' + k] : C.ICON.star; };
+  F.TOURS.raids = {
+    title: 'FARM RAIDS',
+    steps: [
+      {
+        text: 'Train raiders at your Raid Camp: goats eat crops, crows fly over fences, cats take eggs and milk.',
+        draw: function (ui, sc, move) {
+          ['goat', 'crow', 'cat', 'carabao'].forEach(function (k, n) {
+            var im = icon(ui, sc, 52 + n * 56, 66, ri(k), 0.36);
+            if (move) ui.tweens.add({ targets: im, y: 56, duration: 380, delay: n * 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          });
+        },
+      },
+      {
+        text: 'Raid a farm: press and drag on the light ground to send them in. Two minutes to grab what you can.',
+        draw: function (ui, sc, move) {
+          var f = icon(ui, sc, 80, 70, ri('flag'), 0.38), g = icon(ui, sc, 180, 70, ri('goat'), 0.3);
+          if (move) ui.tweens.add({ targets: g, x: 220, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+          void f;
+        },
+      },
+      {
+        text: 'Guard your own farm: buy defenses at Mira\'s (Defenses) and place them with Decorate. Fences and your dog help too.',
+        draw: function (ui, sc, move) {
+          icon(ui, sc, 90, 70, ri('shield'), 0.38);
+          var d = icon(ui, sc, 180, 70, C.ICON.dog, 0.34);
+          if (move) ui.tweens.add({ targets: d, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 });
+        },
+      },
+      {
+        text: 'Practice on the bandit farms first, or test your own. Stars win Gold and Raid Points.',
+        draw: function (ui, sc, move) {
+          icon(ui, sc, 90, 70, ri('bandit'), 0.38);
+          var p = icon(ui, sc, 180, 70, ri('points'), 0.36);
+          if (move) ui.tweens.add({ targets: p, scale: p.scale * 1.15, duration: 420, yoyo: true, repeat: -1 });
+        },
+      },
+    ],
+  };
+
   // ---------- the panel ----------
   var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
   var why = { gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first.', buy: 'Buy a Raid Camp at Mira\'s first.' };
   U.openRaidCamp = function (tab, page) {
     var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
+    if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'farmraid_tour')) { // (the first time: the tour first)
+      if (F.world) F.world.save();
+      return this.tour('raids', function () { self.openRaidCamp(tab, page); });
+    }
     if (!r.camp && L.hasRaidCamp(s)) r.camp = 1; // (the camp you placed is level 1)
     L.trainDone(s, now);
     var redo = function (t, p) { self.closeModal(); self.openRaidCamp(t || tab, p == null ? page : p); };
