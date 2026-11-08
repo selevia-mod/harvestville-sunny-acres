@@ -233,7 +233,7 @@
     var why = L.cantPlace(s, t, x, y, null);
     if (why) return why;
     if (--s.home.bag[k] <= 0) delete s.home.bag[k];
-    s.home.items.push({ t: t, v: v, x: x, y: y, f: f ? 1 : 0 });
+    s.home.items.push({ t: t, v: v, x: x, y: y, f: L.furnF(t, f) }); // (0..4 turned: 01-logicZZZZZZZZZZ-furn-turn.js)
     return s.home.items.length - 1;
   };
 
@@ -244,7 +244,7 @@
     if (why) return why;
     it.x = x;
     it.y = y;
-    if (f != null) it.f = f ? 1 : 0;
+    if (f != null) it.f = L.furnF(it.t, f);
     return 'ok';
   };
 
@@ -312,7 +312,8 @@
       var hm = s.home = { level: lv, wall: int(o.hm[1], 0, ns - 1, 0), floor: int(o.hm[2], 0, ns - 1, 0), walls: int(o.hm[3], 0, (1 << ns) - 1, 1) | 1, floors: int(o.hm[4], 0, (1 << ns) - 1, 1) | 1, bag: {}, items: [] };
       var flat = Array.isArray(o.hm[5]) ? o.hm[5] : [];
       for (var i = 0; i + 4 < flat.length && hm.items.length < 200; i += 5) {
-        var it = { t: int(flat[i], 0, nt - 1, 0), v: int(flat[i + 1], 0, ns - 1, 0), x: int(flat[i + 2], 0, 40, 1), y: int(flat[i + 3], 0, 40, 2), f: flat[i + 4] ? 1 : 0 };
+        var it = { t: int(flat[i], 0, nt - 1, 0), v: int(flat[i + 1], 0, ns - 1, 0), x: int(flat[i + 2], 0, 40, 1), y: int(flat[i + 3], 0, 40, 2) };
+        it.f = L.furnF(it.t, flat[i + 4]);
         if (!L.cantPlace(s, it.t, it.x, it.y, null)) hm.items.push(it);
         else hm.bag[L.furnKey(it.t, it.v)] = (hm.bag[L.furnKey(it.t, it.v)] || 0) + 1; // doesn't fit: into storage
       }

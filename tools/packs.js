@@ -13,7 +13,7 @@ const WILD_PROPS = ['trail_sign', 'pili_tree', 'hot_spring', 'sulfur_vent', 'lav
 // The furniture styles past Classic (furn_1, furn_2, ...) and their beds with the farmer asleep in them
 // (props/sleepbed[2]_v<style>_<boy|girl>). Classic (furn_0, props/sleepbed[2]_<who>) stays in the page: it is what a
 // style's piece shows as until its sheet is in (19zl2-packs-art.js).
-const STYLES = fs.readdirSync(ASSETS).filter((f) => /^furn_[1-9]\d*\.png$/.test(f)).map((f) => f.slice(0, -4))
+const STYLES = fs.readdirSync(ASSETS).filter((f) => /^furn(turn)?_[1-9]\d*\.png$/.test(f)).map((f) => f.slice(0, -4)) // (and their turned pieces)
   .concat(fs.readdirSync(path.join(ASSETS, 'props')).filter((f) => /^sleepbed2?_v\d+_(boy|girl)\.png$/.test(f)).map((f) => 'props/' + f.slice(0, -4)))
   .sort();
 module.exports = {

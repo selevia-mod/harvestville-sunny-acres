@@ -32,6 +32,20 @@
     return key;
   };
 
+  // A style's turned pieces (the side and back of the bed, double bed, chair, armchair, sofa and table): 12 cells of 256,
+  // each piece in its footprint's shape (L.furnTurnBox). A style whose sheet is not in yet: Classic's (19zl2-packs-art.js).
+  F.furnTurnTexture = function (scene, v) {
+    var key = 'furnturn_' + v;
+    if (scene.textures.exists(key) && scene.textures.get(key).frameTotal > 1) return key;
+    F.ensureTexture(scene, key);
+    var tex = scene.textures.get(key);
+    Object.keys(C.FURN_TURNS).forEach(function (k) {
+      var t = H.typeIndex[k], box = L.furnTurnBox(t, 256);
+      for (var j = 0; j < 2; j++) { var i = C.FURN_TURNS[k] * 2 + j; tex.add(i, 0, (i % 4) * 256 + box.x, Math.floor(i / 4) * 256 + box.y, box.w, box.h); }
+    });
+    return key;
+  };
+
   // A wallpaper or floor tile as its own frame of the indoor texture (for previews in the panels).
   F.surfaceFrame = function (scene, kind, v) {
     var key = F.ensureTexture(scene, 'indoor'), tex = scene.textures.get(key), name = kind + (v ? '_' + v : '');
@@ -136,8 +150,9 @@
   };
 
   P.furnSprite = function (it) {
-    var type = H.types[it.t], key = F.furnTexture(this, it.v);
-    var img = this.add.image(it.x * T, (it.y + type.h) * T, key, it.t).setOrigin(0, 1).setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
+    var type = H.types[it.t], view = L.furnView(it.t, it.f); // (turned: its side or back picture: 01-logicZZZZZZZZZZ-furn-turn.js)
+    var key = view ? F.furnTurnTexture(this, it.v) : F.furnTexture(this, it.v);
+    var img = this.add.image(it.x * T, (it.y + type.h) * T, key, view ? view.frame : it.t).setOrigin(0, 1).setDisplaySize(type.w * T, type.h * T).setFlipX(view ? view.flip : it.f === 1);
     img.setDepth(type.place === 'flat' ? DEPTH.flat : type.place === 'wall' ? DEPTH.Walls + 0.1 : DEPTH.actor + (it.y + type.h) * T / 1e5);
     return img;
   };
@@ -293,7 +308,7 @@
   P.decorTurn = function () {
     var d = this.decor, it = d && this.state.home.items[d.sel];
     if (!it) return;
-    L.moveFurn(this.state, d.sel, it.x, it.y, !it.f);
+    L.moveFurn(this.state, d.sel, it.x, it.y, L.nextTurn(it.t, it.f)); // (a quarter turn; a piece that cannot turn flips)
     sfx('stepWood');
     this.placeHome();
     this.decorChanged();

@@ -44,12 +44,12 @@
     s.asleep = true;
     // where the head is (for the Zzz): on a single bed in the middle, on a double bed the left pillow (the other is for your spouse)
     var cx = (it.x + type.w / 2) * T, img;
-    if (type.w >= 3) cx = (it.x + (it.f ? type.w - 1.17 : 1.17)) * T; // the double bed's art is 2 tiles wide in its 3: its left pillow
+    if (type.w >= 3) cx = (it.x + (it.f === 1 ? type.w - 1.17 : 1.17)) * T; // the double bed's art is 2 tiles wide in its 3: its left pillow
     // the owner's pictures of the whole bed with you in it, one per style (classic 29 Oct, the others 30 Oct), laid
     // exactly over the bed: props/sleepbed[2]_<who> for Classic, props/sleepbed[2]_v<style>_<who> for the others
     var whole = { bed: 'props/sleepbed_', double_bed: 'props/sleepbed2_' }[type.key] + (it.v ? 'v' + it.v + '_' : '') + who;
     img = this.add.image(it.x * T, (it.y + type.h) * T, F.ensureTexture(this, whole)).setOrigin(0, 1)
-      .setDisplaySize(type.w * T, type.h * T).setFlipX(!!it.f);
+      .setDisplaySize(type.w * T, type.h * T).setFlipX(it.f === 1); // (asleep: the bed's front picture, however it is turned)
     img.setDepth(DEPTH.actor + (it.y + type.h) * T / 1e5 + 1e-6);
     this.sleeping = { img: img, zzz: [], head: { x: cx + 0.28 * T, y: it.y * T + 0.3 * T }, at: 0 };
     this.player.setVisible(false);

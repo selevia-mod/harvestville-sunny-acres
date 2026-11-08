@@ -22,6 +22,14 @@
     }
     return furnTexture(scene, v);
   };
+  var furnTurnTexture = F.furnTurnTexture; // (a style's turned pieces: Classic's until its sheet is in)
+  F.furnTurnTexture = function (scene, v) {
+    if (v && missing('furnturn_' + v)) {
+      F.needImage('furnturn_' + v);
+      return furnTurnTexture(scene, 0);
+    }
+    return furnTurnTexture(scene, v);
+  };
   // a style's bed with you in it -> Classic's (props/sleepbed[2]_v<style>_<who> -> props/sleepbed[2]_<who>)
   var STAND_IN = /^(props\/sleepbed2?_)v\d+_(boy|girl)$/;
   var ensureTexture = F.ensureTexture;

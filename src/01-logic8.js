@@ -77,7 +77,7 @@
       if (!H.types[t] || !H.styles[v]) return; // unknown pieces are dropped, not guessed
       var x = int(e[2], 0, 40, 0), y = int(e[3], 0, 40, 0);
       if (L.cantPlace(s, t, x, y, null)) return; // keeps the room walkable and every piece in bounds
-      s.home.items.push({ t: t, v: v, x: x, y: y, f: e[4] ? 1 : 0 });
+      s.home.items.push({ t: t, v: v, x: x, y: y, f: L.furnF(t, e[4]) });
     });
     s.yard = { items: [], bag: {} };
     if (L.yardUnrun) { var nt = 0; L.yardUnrun(snap.yr, function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); }); }
