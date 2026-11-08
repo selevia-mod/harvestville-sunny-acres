@@ -154,15 +154,24 @@
       if (still && !still()) return;
       if ((fighting() || self.modals.length) && tries++ < 60) return setTimeout(show, 1000);
       if (self.followBox) { self.followBox.destroy(); self.followBox = null; }
-      var K = F.UI_CONST, W = K.W, w = W - 86, h = 48, c = self.followBox = self.add.container(12, 122).setDepth(60).setAlpha(0); // (clear of the round buttons on the right: Quests, Online)
+      // a small see-through pill, like the quest card (owner, 8 Nov 2026: "Ristin wants to be your friend. [Accept]" too
+      // big): one line, the action a small coloured word at its end; a tap anywhere on it does it. Under the quest card.
+      var K = F.UI_CONST, W = K.W, maxW = W - 86;
+      var lab = self.txt(0, 0, label || 'Follow', 11, '#9ff08a', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+      var room = maxW - 12 - lab.width - 22;
+      var t = self.txt(12, 0, text, 10, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: room }, lineSpacing: 1 }).setOrigin(0, 0.5);
+      var h = Math.max(30, Math.ceil(t.height) + 12); // (two short lines when it is long: never cut)
+      t.setY(h / 2);
+      lab.setY(h / 2);
+      var w = Math.min(maxW, 12 + t.width + 14 + lab.width + 12);
+      var c = self.followBox = self.add.container(8, 142).setDepth(60).setAlpha(0);
       var bg = self.add.graphics();
-      bg.fillStyle(0x24160b, 0.9).fillRoundedRect(0, 0, w, h, 12);
-      bg.lineStyle(1.5, 0xffd23f, 0.8).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 11.25);
-      var t = self.txt(10, h / 2, text, 11, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 92 }, maxLines: 2 }).setOrigin(0, 0.5);
-      c.add([bg, t]);
+      bg.fillStyle(0x24160b, 0.62).fillRoundedRect(0, 0, w, h, Math.min(15, h / 2));
+      bg.lineStyle(1, 0xffffff, 0.22).strokeRoundedRect(0.5, 0.5, w - 1, h - 1, Math.min(15, h / 2) - 0.5);
+      lab.setX(w - 12);
+      c.add([bg, t, lab]);
       var go = function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } act(); };
-      self.button(c, w - 40, h / 2, 68, 30, label || 'Follow', go, 0x5fa84a);
-      var z = self.add.zone(0, 0, w - 78, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      var z = self.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       F.tapOn(z, go);
       c.add(z);
       if (F.Audio) F.Audio.sfx('found');

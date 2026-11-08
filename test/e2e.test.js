@@ -2845,6 +2845,19 @@ test('slim lists (Quests): every row in one list that scrolls; a row out of view
   await context.close();
 });
 
+test('slim rows show their pictures: the Post Office\'s villagers have their faces (owner, 8 Nov 2026: empty circles)', async () => {
+  const save = await makeSave("s.goal = 99; ['lily', 'hollis', 'mira', 'leo'].forEach(function (k) { L.friend(s, k).met = 1; });");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => Farm.ui.openPost(0));
+  await frames(page, 3);
+  const faces = await page.evaluate(() => { const m = Farm.ui.modals[0], list = m.c.list.find((o) => o.type === 'Container' && o.mask); return list.list.map((r) => r.list.some((o) => o.type === 'Image' && o.texture && o.texture.key === 'people')); });
+  assert.ok(faces.length >= 4 && faces.every(Boolean), 'a face on every row: ' + faces);
+  await shot(page, 'slim-post-office');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);

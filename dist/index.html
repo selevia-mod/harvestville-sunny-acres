@@ -26294,7 +26294,13 @@ return r;
 
 U.tilePicture = function (row, x, y, size) {
 var im = null;
-if (row.sheet) im = this.add.image(x, y, row.sheet.key, row.sheet.frame);
+if (row.people) {
+F.ensureTexture(this, 'people');
+im = this.add.image(x, y - size / 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 0).setCrop(0, 0, 128, 150);
+im.setScale(size / 150);
+return im;
+}
+if (row.sheet) { F.ensureTexture(this, row.sheet.key); im = this.add.image(x, y, row.sheet.key, row.sheet.frame || 0); }
 else if (row.img) im = this.add.image(x, y, row.img.furn != null ? F.furnTexture(this, row.img.furn) : row.img.key, row.img.frame);
 else if (row.icon != null) im = this.add.image(x, y, 'items', row.icon);
 if (im) { var k = size / Math.max(im.width, im.height); im.setScale(k); }
@@ -26340,7 +26346,7 @@ g.strokeStyle = '#d9b77f';
 g.stroke();
 }));
 r.add(this.add.circle(46, H / 2, 17, 0xf2d79a).setStrokeStyle(1.5, 0xd9b77f));
-if (row.img || row.sheet) { var pi = this.tilePicture(row, 46, H / 2, 28); if (pi) r.add(pi); }
+if (row.img || row.sheet || row.people) { var pi = this.tilePicture(row, 46, H / 2, row.people ? 32 : 28); if (pi) r.add(pi); }
 else if (row.icon != null) r.add(this.add.image(46, H / 2, 'items', row.icon).setScale(0.2).setAlpha(row.done ? 0.55 : 1));
 var x = 70, textW = W - 44 - (x - 22) - right - 10;
 var name = this.txt(x, 6, row.name || '', 12, row.done ? '#8a7a5a' : INK, { fontStyle: 'bold' });
@@ -26376,7 +26382,7 @@ tmp.list.slice().forEach(function (o2) { if (o2.y > ly + 14) o2.destroy(); });
 r.add(tmp);
 }
 if (desc) {
-var d = this.txt(x, 40, desc, 10, '#7a5a3a');
+var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
 var words = desc.split(' ');
 while (d.width > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '\u2026'); }
 r.add(d);
@@ -28765,15 +28771,24 @@ var show = function () {
 if (still && !still()) return;
 if ((fighting() || self.modals.length) && tries++ < 60) return setTimeout(show, 1000);
 if (self.followBox) { self.followBox.destroy(); self.followBox = null; }
-var K = F.UI_CONST, W = K.W, w = W - 86, h = 48, c = self.followBox = self.add.container(12, 122).setDepth(60).setAlpha(0);
+
+
+var K = F.UI_CONST, W = K.W, maxW = W - 86;
+var lab = self.txt(0, 0, label || 'Follow', 11, '#9ff08a', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+var room = maxW - 12 - lab.width - 22;
+var t = self.txt(12, 0, text, 10, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: room }, lineSpacing: 1 }).setOrigin(0, 0.5);
+var h = Math.max(30, Math.ceil(t.height) + 12);
+t.setY(h / 2);
+lab.setY(h / 2);
+var w = Math.min(maxW, 12 + t.width + 14 + lab.width + 12);
+var c = self.followBox = self.add.container(8, 142).setDepth(60).setAlpha(0);
 var bg = self.add.graphics();
-bg.fillStyle(0x24160b, 0.9).fillRoundedRect(0, 0, w, h, 12);
-bg.lineStyle(1.5, 0xffd23f, 0.8).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 11.25);
-var t = self.txt(10, h / 2, text, 11, '#fff6d8', { fontStyle: 'bold', wordWrap: { width: w - 92 }, maxLines: 2 }).setOrigin(0, 0.5);
-c.add([bg, t]);
+bg.fillStyle(0x24160b, 0.62).fillRoundedRect(0, 0, w, h, Math.min(15, h / 2));
+bg.lineStyle(1, 0xffffff, 0.22).strokeRoundedRect(0.5, 0.5, w - 1, h - 1, Math.min(15, h / 2) - 0.5);
+lab.setX(w - 12);
+c.add([bg, t, lab]);
 var go = function () { if (self.followBox === c) { c.destroy(); self.followBox = null; } act(); };
-self.button(c, w - 40, h / 2, 68, 30, label || 'Follow', go, 0x5fa84a);
-var z = self.add.zone(0, 0, w - 78, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+var z = self.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
 F.tapOn(z, go);
 c.add(z);
 if (F.Audio) F.Audio.sfx('found');

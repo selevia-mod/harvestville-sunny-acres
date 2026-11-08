@@ -547,7 +547,13 @@
   // A row's picture: an item icon, a furniture or look picture (row.img { key, frame }, row.sheet { key, frame }).
   U.tilePicture = function (row, x, y, size) {
     var im = null;
-    if (row.sheet) im = this.add.image(x, y, row.sheet.key, row.sheet.frame);
+    if (row.people) { // a villager's face: the top of their first frame (Post Office, Friendship Book...)
+      F.ensureTexture(this, 'people');
+      im = this.add.image(x, y - size / 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 0).setCrop(0, 0, 128, 150);
+      im.setScale(size / 150);
+      return im;
+    }
+    if (row.sheet) { F.ensureTexture(this, row.sheet.key); im = this.add.image(x, y, row.sheet.key, row.sheet.frame || 0); }
     else if (row.img) im = this.add.image(x, y, row.img.furn != null ? F.furnTexture(this, row.img.furn) : row.img.key, row.img.frame); // (furniture: its style's sheet)
     else if (row.icon != null) im = this.add.image(x, y, 'items', row.icon);
     if (im) { var k = size / Math.max(im.width, im.height); im.setScale(k); }
@@ -593,7 +599,7 @@
       g.stroke();
     }));
     r.add(this.add.circle(46, H / 2, 17, 0xf2d79a).setStrokeStyle(1.5, 0xd9b77f));
-    if (row.img || row.sheet) { var pi = this.tilePicture(row, 46, H / 2, 28); if (pi) r.add(pi); }
+    if (row.img || row.sheet || row.people) { var pi = this.tilePicture(row, 46, H / 2, row.people ? 32 : 28); if (pi) r.add(pi); }
     else if (row.icon != null) r.add(this.add.image(46, H / 2, 'items', row.icon).setScale(0.2).setAlpha(row.done ? 0.55 : 1));
     var x = 70, textW = W - 44 - (x - 22) - right - 10;
     var name = this.txt(x, 6, row.name || '', 12, row.done ? '#8a7a5a' : INK, { fontStyle: 'bold' });
@@ -628,8 +634,8 @@
       tmp.list.slice().forEach(function (o2) { if (o2.y > ly + 14) o2.destroy(); });
       r.add(tmp);
     }
-    if (desc) {
-      var d = this.txt(x, 40, desc, 10, '#7a5a3a');
+    if (desc) { // (under the bar and prize; right under the name when the row has neither)
+      var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
       var words = desc.split(' ');
       while (d.width > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '…'); }
       r.add(d);
