@@ -40,7 +40,7 @@
   C.STORY_ICONS.push('fiesta_pandesal');
   C.STORY_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
   C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
-  C.STORY_ICONS_IN = false; // (true once their picture is in the items sheet)
+  C.STORY_ICONS_IN = true; // (their picture is in the items sheet: tools/art/story-items-import.js, 9 Nov 2026)
   // the keepsake dish: Grandma's Fiesta Pandesal (its recipe: the story's keepsake)
   // (until its own picture is in: the plain Pandesal's)
   C.ITEMS.fiesta_pandesal = { name: 'Fiesta Pandesal', kind: 'dish', energy: 120, sell: 320, icon: C.STORY_ICONS_IN ? C.ICON.fiesta_pandesal : C.ITEMS.pandesal.icon,

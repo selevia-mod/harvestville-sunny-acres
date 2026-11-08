@@ -303,7 +303,7 @@
         var daily = tab === 'daily' && L.questReason, why = daily ? L.questReason(s, i) : null;
         var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
         var adv = L.advOf && L.advOf(q), advDesc = adv && (q.done ? adv.thanks : (q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) + '.'
-          : (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + ' in ') + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
+          : (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + (adv.map === 'farm' ? ' on ' : ' in ')) + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
         rows.push({
           icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? (adv.story ? 'STORY' : 'ADVENTURE') : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
           progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,

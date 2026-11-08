@@ -307,6 +307,10 @@ test('Hana\'s Fiesta Bread: today\'s chapter is a STORY adventure; the Weekly ta
   await page.waitForTimeout(300);
   assert.match(await modalText(page), /STORY \| Hana: /);
   await shot(page, 'story-daily');
+  // all 8 pictures, each its own (not the sparkle): the 7 chapters' and the Fiesta Pandesal
+  const icons = await page.evaluate(() => { const C = Farm.Config; return C.STORY_ICONS.map((n) => C.ICON[n]).concat([C.ITEMS.fiesta_pandesal.icon, C.ICON.sparkle]); });
+  assert.strictEqual(new Set(icons).size, 9);
+  assert.strictEqual(icons[7], icons[8], 'the dish shows its own picture');
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openQuests('weekly', 0); });
   await page.waitForTimeout(300);
   assert.match(await modalText(page), /Hana's Fiesta Bread.*0\/5/);
