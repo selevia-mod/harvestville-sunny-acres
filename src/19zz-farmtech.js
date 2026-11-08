@@ -55,11 +55,10 @@
       }
     });
   };
-  // The greenhouse's pictures (tools/art/farmtech-import.js), 128 px a tile: the floor under the soil, the glass frame
-  // over it (its roof standing ROOF px above the top row), and the whole greenhouse for lists, the tour and Decorate.
+  // The greenhouse's pictures, 128 px a tile: the floor under the soil (tools/art/farmtech-import.js), its walls (v2 below,
+  // the roof standing ROOF px above the top row), and the whole greenhouse for lists, the tour and Decorate.
   var ROOF = 112;
   var ghFloorTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_floor'); };
-  var ghFrameTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_frame'); };
   var ghWholeTex = function (scene) { return F.ensureTexture(scene, 'props/ws_greenhouse'); };
   // A list row or Decorate shows the whole greenhouse; the farm draws its floor here and its frame over the crops.
   var yardImg = F.yardImg;
@@ -133,21 +132,46 @@
     refreshAllSoil.call(this);
     this.ftRefreshAll();
   };
-  // the greenhouse: its floor under the soil (a plot), its glass frame over the crops
+  // The greenhouse (v2, owner 8 Nov 2026: "Greenhouse looks odd, need to polish and improve"; tools/art/greenhouse2-import.js):
+  // its floor under the soil (a plot); its beds over the tilled soil, so the soil shows only inside each wooden bed; its
+  // back wall and low roof behind the crops; its side walls and front with the open door sorted with the farmers by
+  // their feet, so you walk in behind the front wall, which fades while you are inside.
+  var ghBedsTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_beds'); };
+  var ghBackTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_back'); };
+  var ghFrontTex = function (scene) { return F.ensureTexture(scene, 'props/greenhouse_front'); };
+  F.GH_FRONT_INSIDE = 0.45; // the front wall's alpha while you stand inside
   var renderYard = P.renderYard;
   P.renderYard = function () {
     var self = this;
     (this.ftFrames || []).forEach(function (img) { img.destroy(); });
     this.ftFrames = [];
+    this.ghFronts = [];
     renderYard.call(this);
     this.state.yard.items.forEach(function (it, i) {
       if (it.t !== GH || !self.yardSprites[i]) return;
-      var type = OD.types[GH];
-      self.yardSprites[i].setTexture(ghFloorTex(self)).setDisplaySize(type.w * T, type.h * T);
-      self.ftFrames.push(self.add.image(it.x * T, (it.y + type.h) * T, ghFrameTex(self)).setOrigin(0, 1)
-        .setDisplaySize(type.w * T, (type.h + ROOF / 128) * T).setDepth(DEPTH.crops + 0.5));
+      var type = OD.types[GH], x = it.x * T, foot = (it.y + type.h) * T, w = type.w * T, h = (type.h + ROOF / 128) * T;
+      self.yardSprites[i].setTexture(ghFloorTex(self)).setDisplaySize(w, type.h * T);
+      self.ftFrames.push(self.add.image(x, foot, ghBedsTex(self)).setOrigin(0, 1).setDisplaySize(w, type.h * T).setDepth(DEPTH.Soil + 0.1));
+      self.ftFrames.push(self.add.image(x, foot, ghBackTex(self)).setOrigin(0, 1).setDisplaySize(w, h).setDepth(DEPTH.crops - 0.1));
+      var front = self.add.image(x, foot, ghFrontTex(self)).setOrigin(0, 1).setDisplaySize(w, h).setDepth(DEPTH.actor + foot / 1e5);
+      front.ghBox = { x0: x, x1: x + w, y0: it.y * T, y1: foot };
+      self.ftFrames.push(front);
+      self.ghFronts.push(front);
     });
     this.ftRefreshAll();
+  };
+  // the front wall fades while you stand inside (and comes back as you step out)
+  var ghUpdate = P.update;
+  P.update = function (time, delta) {
+    ghUpdate.call(this, time, delta);
+    if (!this.ghFronts || !this.ghFronts.length || !this.player) return;
+    var f = this.feet ? this.feet() : { x: this.player.x, y: this.player.y };
+    this.ghFronts.forEach(function (fr) {
+      if (!fr.active) return;
+      var b = fr.ghBox, inside = f.x > b.x0 && f.x < b.x1 && f.y > b.y0 && f.y < b.y1, want = inside ? F.GH_FRONT_INSIDE : 1;
+      if (fr.alpha === want) return;
+      fr.setAlpha(Math.abs(fr.alpha - want) < 0.03 ? want : fr.alpha + (want - fr.alpha) * Math.min(1, delta / 120));
+    });
   };
   // Putting a plot away gives its sprinklers back: say so when the bag can't hold them.
   var yardStore = P.yardStore;

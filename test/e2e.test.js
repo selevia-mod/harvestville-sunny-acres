@@ -2566,6 +2566,31 @@ test('e42: a farm the bug wiped gets its lost colours back: drawn in the pen, an
   await context.close();
 });
 
+test('a list row with a bar: a long count (214/1500, 99999/100000) stays clear of the row\'s button (owner, 8 Nov: Bayanihan wheat)', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  const gaps = await page.evaluate(() => {
+    const u = Farm.ui, out = [];
+    [[214, 1500], [99999, 100000], [1, 600]].forEach((p) => {
+      u.listPanel({ title: 'Bars', page: 0, reopen: () => {}, rows: [{ icon: 0, name: 'Wheat ' + p[0] + '/' + p[1], desc: 'You have 0. Today 0 of 60. +1 point each.', progress: p, buttons: [{ label: 'Give', cb: () => {} }] }] });
+      const m = u.modals[u.modals.length - 1], texts = [], walk = (list, ox, oy) => list.forEach((o) => {
+        if (o.type === 'Text') texts.push({ o, x: ox + o.x, y: oy + o.y });
+        if (o.list) walk(o.list, ox + (o.x || 0), oy + (o.y || 0));
+      });
+      walk(m.c.list, m.c.x || 0, m.c.y || 0);
+      const count = texts.find((t) => t.o.text === p[0] + '/' + p[1]), give = texts.find((t) => t.o.text === 'Give');
+      const gb = give.o.getBounds(), cb = count.o.getBounds();
+      // the button (88 px, 19i-look.js) is centred on its word
+      out.push({ count: count.o.text, right: Math.round(cb.right), btnLeft: Math.round(gb.centerX - 44) });
+      u.closeModal();
+    });
+    return out;
+  });
+  gaps.forEach((g) => assert.ok(g.right <= g.btnLeft - 4, g.count + ' ends at ' + g.right + ', the Give button starts at ' + g.btnLeft));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
@@ -4324,11 +4349,23 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   const GH = await page.evaluate(() => Farm.Config.OUTDOOR.index.greenhouse);
   assert.ok(s.yard.items.some((it) => it.t === GH && it.x === 24 && it.y === 20), 'placed');
   assert.ok(s.soil[21 * W + 25].w, 'its soil is wet');
-  // the real pictures: the floor under the soil, the glass frame over the crops (art-src/props, not drawn canvases)
+  // the real pictures (v2, 8 Nov 2026): the floor under the soil, the beds over it (soil only inside each bed), the back
+  // wall behind the crops, the front walls sorted with the farmers by their feet
   assert.deepStrictEqual(await page.evaluate((gh) => {
-    const w = Farm.world, i = Farm.session.state.yard.items.findIndex((it) => it.t === gh);
-    return [w.yardSprites[i].texture.key, w.ftFrames.map((f) => f.texture.key), w.textures.exists('ft-gh-floor') || w.textures.exists('ft-gh-frame')];
-  }, GH), ['props/greenhouse_floor', ['props/greenhouse_frame'], false]);
+    const w = Farm.world, i = Farm.session.state.yard.items.findIndex((it) => it.t === gh), D = Farm.WorldScene.DEPTH;
+    return [w.yardSprites[i].texture.key, w.ftFrames.map((f) => f.texture.key), w.textures.exists('ft-gh-floor') || w.textures.exists('ft-gh-frame'),
+      w.ftFrames[0].depth > D.Soil && w.ftFrames[0].depth < D.crops, w.ftFrames[1].depth < D.crops, w.ftFrames[2].depth > D.actor];
+  }, GH), ['props/greenhouse_floor', ['props/greenhouse_beds', 'props/greenhouse_back', 'props/greenhouse_front'], false, true, true, true]);
+  // walking in: the front wall is over you and fades; stepping out in front of it: you are over it, and it is whole again
+  const front = () => page.evaluate(() => { const w = Farm.world, f = w.ghFronts[0]; return { a: Math.round(f.alpha * 100) / 100, over: f.depth > w.player.depth }; });
+  await teleport(page, 25, 21, 'up');
+  await page.waitForFunction(() => Math.abs(Farm.world.ghFronts[0].alpha - Farm.GH_FRONT_INSIDE) < 0.02, null, SLOW);
+  assert.deepStrictEqual(await front(), { a: 0.45, over: true }, 'inside: behind the front wall, which fades');
+  await shot(page, 'greenhouse-v2-inside');
+  await teleport(page, 25, 24, 'up');
+  await page.waitForFunction(() => Farm.world.ghFronts[0].alpha > 0.98, null, SLOW);
+  assert.deepStrictEqual(await front(), { a: 1, over: false }, 'in front of it: over the wall, the wall whole');
+  await shot(page, 'greenhouse-v2-outside');
   // Mira's catalog: the Greenhouse under More land, one only
   await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
   assert.match(await modalText(page), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);

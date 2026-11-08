@@ -540,7 +540,10 @@
       desc = desc.slice(m[0].length);
     }
     if (progress && progress[1] > 0) {
-      var have = Math.min(progress[0], progress[1]), need = progress[1], bw = Math.min(110, textW - 38);
+      // the count first: the bar takes what is left beside it (owner, 8 Nov 2026: Bayanihan's "214/1500" ran under Give)
+      var have = Math.min(progress[0], progress[1]), need = progress[1];
+      var count = this.txt(0, my + 6.5, have + '/' + need, 10, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      var bw = Math.max(30, Math.min(110, textW - Math.ceil(count.width) - 8));
       mid.add(this.canvasImg(null, 90, my + 1, 'ui-rowbar-' + bw, bw, 11, function (g) {
         rrect(g, 0, 0, bw, 11, 5.5);
         g.fillStyle = '#6a4a2a';
@@ -557,7 +560,7 @@
           g.fill();
         }));
       }
-      mid.add(this.txt(90 + bw + 6, my + 6.5, have + '/' + need, 10, '#6a4a2a', { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      mid.add(count.setX(90 + bw + 6));
       my += 16;
     }
     if (desc && !(row.reward && row.done)) {
