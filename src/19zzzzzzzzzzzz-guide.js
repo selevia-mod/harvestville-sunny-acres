@@ -269,10 +269,10 @@
     this.qcSub = this.txt(42, 25, '', 10, '#d9c49a');
     this.qcGo = this.add.container(G.card.w - 22, G.card.h / 2);
     var goBg = this.add.graphics();
-    goBg.fillStyle(BLUE, 1).fillRoundedRect(-17, -11, 34, 22, 11);
-    goBg.lineStyle(1.5, 0xffffff, 0.6).strokeRoundedRect(-17, -11, 34, 22, 11);
-    this.qcGo.add([goBg, this.txt(0, 0, 'Go', 11, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
-    var z = this.add.zone(G.card.w / 2, G.card.h / 2, G.card.w, G.card.h).setInteractive({ useHandCursor: true });
+    goBg.fillStyle(BLUE, 0.85).fillCircle(0, 0, 10);
+    goBg.fillStyle(0xffffff, 1).fillTriangle(-3, -5, -3, 5, 5, 0); // (a small "go" arrow)
+    this.qcGo.add([goBg]);
+    var z = this.qcZone = this.add.zone(G.card.w / 2, G.card.h / 2, G.card.w, G.card.h).setInteractive({ useHandCursor: true });
     F.tapOn(z, function () { self.questCardTap(); });
     c.add([this.qcBg, this.qcRing, this.qcIcon, this.qcText, this.qcSub, this.qcGo, z]);
     // the dog's tip, under the card
@@ -305,6 +305,10 @@
     w.guideTo(card.i);
     this.refreshQuestCard();
   };
+  // Soft and small (owner, 8 Nov 2026: "Too strong, its blocking the view"): a see-through card that opens for a few
+  // seconds when its quest or progress changes (and while the dog leads), then folds to a small round badge (the icon in
+  // its progress ring), as Today's Event does. A tap on either: the dog leads (or claims, when it is done: a gold badge).
+  G.open = 5000;
   U.refreshQuestCard = function () {
     var box = this.questCardBox;
     if (!box) return;
@@ -312,22 +316,31 @@
     var show = !!card && !!w && !F.session.visit && !this.decorating && !(this.photo);
     box.setVisible(show);
     if (!show) { this.qcTip.setVisible(false); return; }
-    var q = card.q, p = L.questProgress(s, q), go = !card.ready && !!L.questPlace(q.c), guiding = !!(w && w.guide);
-    var key = [card.i, q.text, p, card.ready, go, guiding].join('|');
+    var q = card.q, p = L.questProgress(s, q), go = !card.ready && !!L.questPlace(q.c), guiding = !!(w && w.guide), now = Date.now();
+    var what = [card.i, q.text, p, card.ready, guiding].join('|');
+    if (what !== this.qcWhat) { this.qcWhat = what; this.qcOpenUntil = now + G.open; }
+    var open = guiding || now < (this.qcOpenUntil || 0);
+    var key = what + '|' + open + '|' + go;
     if (key === this.qcKey) return;
     this.qcKey = key;
-    var Wd = G.card.w, H = G.card.h;
-    this.qcBg.clear().fillStyle(card.ready ? 0xe9a91c : 0x24160b, card.ready ? 0.96 : 0.82).fillRoundedRect(0, 0, Wd, H, 12);
-    this.qcBg.lineStyle(2, card.ready ? 0xfff3c8 : 0xffd23f, 0.9).strokeRoundedRect(1, 1, Wd - 2, H - 2, 11);
-    this.qcRing.clear().lineStyle(4, card.ready ? 0x7a4d12 : 0x6a4a2a, 1).strokeCircle(22, H / 2, 15);
+    var H = 32, R = 16, ring = 11;
+    var room = 130, text = this.qcText, sub = this.qcSub;
+    text.setText(q.text).setColor(card.ready ? '#4a2a08' : '#fff6d8').setScale(1).setPosition(36, 4).setFontSize(10);
+    if (text.width > room) text.setScale(room / text.width);
+    sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : p + '/' + q.n + (go ? '' : '  ·  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
+    var Wd = open ? Math.max(text.displayWidth, sub.width) + 36 + (go && !guiding ? 26 : 10) : H;
+    this.qcBg.clear().fillStyle(card.ready ? 0xe9a91c : 0x24160b, card.ready ? 0.88 : 0.5).fillRoundedRect(0, 0, Wd, H, R);
+    this.qcBg.lineStyle(1, 0xffffff, card.ready ? 0.6 : 0.22).strokeRoundedRect(0.5, 0.5, Wd - 1, H - 1, R - 0.5);
+    this.qcRing.clear().lineStyle(3, card.ready ? 0x7a4d12 : 0x000000, card.ready ? 0.9 : 0.3).strokeCircle(R, H / 2, ring);
     var frac = Math.min(1, p / Math.max(1, q.n));
-    if (frac > 0) this.qcRing.lineStyle(4, card.ready ? 0xfff3c8 : 0x7fd05a, 1).beginPath().arc(22, H / 2, 15, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).strokePath();
-    this.qcIcon.setFrame(iconOf(q.c));
-    var room = (go ? Wd - 44 : Wd - 8) - 42;
-    this.qcText.setText(q.text).setColor(card.ready ? '#4a2a08' : '#fff6d8').setScale(1);
-    if (this.qcText.width > room) this.qcText.setScale(room / this.qcText.width);
-    this.qcSub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : p + '/' + q.n + (go ? '' : '  ·  anywhere')).setColor(card.ready ? '#4a2a08' : '#d9c49a');
-    this.qcGo.setVisible(go && !guiding);
+    if (frac > 0) this.qcRing.lineStyle(3, card.ready ? 0xfff3c8 : 0x7fd05a, 0.95).beginPath().arc(R, H / 2, ring, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).strokePath();
+    this.qcIcon.setFrame(iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
+    text.setVisible(open);
+    sub.setVisible(open);
+    this.qcGo.setVisible(open && go && !guiding).setPosition(Wd - 15, H / 2);
+    this.qcZone.setPosition(Wd / 2, H / 2).setSize(Wd, H);
+    if (this.qcZone.input) this.qcZone.input.hitArea.setSize(Wd, H);
+    this.qcTip.setY(G.card.y + H + 6);
   };
   // the dog's tip: the reason, now and then, when you stand still
   U.questTip = function () {

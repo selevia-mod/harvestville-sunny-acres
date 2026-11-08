@@ -2644,6 +2644,11 @@ test('quests v2: the card shows one quest; Go and your dog leads the farmer to t
   assert.match(await page.evaluate(() => Farm.ui.qcText.text), /fish/i);
   assert.strictEqual(await page.evaluate(() => Farm.ui.qcGo.visible), true, 'Go');
   await shot(page, 'qv2-card');
+  // soft, and it folds to a small badge after a few seconds (owner, 8 Nov: "Too strong, its blocking the view")
+  await page.evaluate(() => { Farm.ui.qcOpenUntil = Date.now() - 1; Farm.ui.refreshQuestCard(); });
+  const folded = await page.evaluate(() => { return { text: Farm.ui.qcText.visible, go: Farm.ui.qcGo.visible, w: Farm.ui.qcZone.width }; });
+  assert.deepStrictEqual(folded, { text: false, go: false, w: 32 });
+  await shot(page, 'qv2-badge');
   await tapCard(page);
   assert.ok(await page.evaluate(() => !!Farm.world.guide && !!Farm.world.guideDog), 'the dog leads');
   await page.waitForTimeout(700);
