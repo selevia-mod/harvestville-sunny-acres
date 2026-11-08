@@ -191,6 +191,7 @@
   var STAND = { goat: 'kambing', crow: 'labuyo', cat: 'musang', carabao: 'carabaoligaw', monkey: 'unggoy', boar: 'boar', rooster: 'labuyo', bayawak: 'bayawak' };
   var frameOf = function (scene, k, f) {
     if (k === 'crow' && F.images.raid_crow) return { key: F.ensureTexture(scene, 'raid_crow'), frame: f, w: 0.8, px: 178 };
+    if (k === 'cat' && F.images.raid_cat) return { key: F.ensureTexture(scene, 'raid_cat'), frame: f, w: 0.85, px: 178 }; // (the owner's masked cat, 9 Nov 2026)
     var WI = C.WILD, kind = STAND[k], def = WI.animals[kind] || WI.animals.rabbit;
     if (def.sheet && F.images[def.sheet]) return { key: F.ensureTexture(scene, def.sheet), frame: (def.row || 0) * 12 + f, w: def.w, px: def.px };
     var row = WI.order.indexOf(def.sheetRow || kind);

@@ -72,7 +72,7 @@
     if (k === 'sprinkler') return { key: 'items', frame: C.ICON.sprinkler_copper };
     return { key: 'items', frame: L.defenseIcon(k) };
   };
-  if (F.SHEETS) { ['raid_crow', 'guard_goose'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
+  if (F.SHEETS) { ['raid_crow', 'guard_goose', 'raid_cat'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
 
   // ---------- the first-time tour (owner, 4 Oct 2026: every new feature gets one) ----------
   // (its tip goes last of all, after the dog's name: a tip's place is its bit in the save; 'raid_tour' is the Town Raid's)
@@ -198,6 +198,7 @@
   var CROW = { w: 0.8, px: 178 }; // (its sheet: tools/art/animals3q-import.js raids)
   var sheetFrame = function (scene, k, f) { // a raider's picture: its own sheet, else the wild sheet's row
     if (k === 'crow' && F.images.raid_crow) return { key: F.ensureTexture(scene, 'raid_crow'), frame: f, def: CROW, own: true };
+    if (k === 'cat' && F.images.raid_cat) return { key: F.ensureTexture(scene, 'raid_cat'), frame: f, def: { w: 0.85, px: 178 }, own: true };
     var kind = STAND[k], def = WI.animals[kind] || WI.animals.rabbit;
     if (def.sheet && F.images[def.sheet]) return { key: F.ensureTexture(scene, def.sheet), frame: (def.row || 0) * 12 + f, def: def };
     var row = WI.order.indexOf(def.sheetRow || kind);

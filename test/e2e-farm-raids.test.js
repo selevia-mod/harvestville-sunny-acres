@@ -159,6 +159,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await shot(page, 'raid-farm-start');
   assert.strictEqual(await sendIn({ goat: 10, crow: 6, cat: 4 }), 20, 'all 20 went in');
   await page.waitForTimeout(4000);
+  assert.ok(await page.evaluate(() => Object.values(Farm.world.raidUnits).some((u) => u.img.texture.key === 'raid_cat')), 'the cats in their own picture');
   assert.ok(await page.evaluate(() => { const sc = Farm.game.scene.getScenes(true).map((x) => x.sys.settings.key); return sc.indexOf('UI') > sc.indexOf('World'); }), 'the raid\'s buttons over the farm');
   await shot(page, 'raid-farm-mid');
   assert.ok(await page.evaluate(() => Farm.world.raidB.t > 10), 'the clock runs');
