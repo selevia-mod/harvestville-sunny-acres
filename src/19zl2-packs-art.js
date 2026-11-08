@@ -7,6 +7,7 @@
 (function (F) {
   'use strict';
   var C = F.Config;
+  var L = F.Logic;
   var H = C.HOME;
   var T = C.TILE;
   var P = F.WorldScene.prototype;

@@ -265,7 +265,11 @@
   };
   var onMessage = O.onMessage;
   O.onMessage = function (event, payload) {
-    if (event === 'help' && !F.session.visit && payload && O.others[payload.id]) { O.claimHelps().catch(noop); return; }
+    if (event === 'help' && !F.session.visit && payload && typeof payload.id === 'string') {
+      if (O.others[payload.id]) O.claimHelps().catch(noop);
+      else setTimeout(function () { if (O.others[payload.id] && !F.session.visit) O.claimHelps().catch(noop); }, 4000); // (as a pick: 19p-basket.js)
+      return;
+    }
     onMessage.call(O, event, payload);
   };
 

@@ -143,6 +143,18 @@ async function tapButton(page, label, nth = 0) {
   // a tile (a shop's picture: 19i-look.js) opens its own panel first: its button of the same name is the one meant
   if (await page.evaluate((n0) => Farm.ui.modals.length === n0 + 1 && !!Farm.ui.modals[n0].c.tileDetail, n0)) await tapButton(page, label);
 }
+// A boss's chest: stand at it and tap Open; again if a pet or the companion walked up meanwhile and the button became Talk.
+async function openBossChest(page) {
+  let saw = false;
+  for (let i = 0; i < 6 && (await page.evaluate(() => !!Farm.world.bossChest)); i++) {
+    await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
+    await frames(page, 3);
+    if ((await actionLabel(page)) === 'Open') { saw = true; await tapAction(page); }
+    await page.waitForFunction(() => !Farm.world.bossChest, null, { timeout: 8000 }).catch(() => {});
+  }
+  assert.ok(saw, 'the chest says Open');
+  assert.strictEqual(await page.evaluate(() => Farm.world.bossChest), null, 'the chest is open');
+}
 // A tile, by its name: tapped (scrolled into view first).
 async function tapTile(page, name) {
   const pos = await page.evaluate((name) => {
@@ -5795,8 +5807,8 @@ test('hunting places (SAMPLE): Kanor makes a gear set; the Jeep to the sample pl
   await frames(page, 10);
   await shot(page, 'places-companion');
   // its skill: it fetches what lies near you
+  const hides = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'sample_hide')); // (before: it can be fetched at once)
   await page.evaluate(() => { const w = Farm.world, f = w.feet(); w.dropWild('sample_hide', f.x + 2.4 * 256, f.y + 0.5 * 256); });
-  const hides = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'sample_hide'));
   await page.waitForFunction((n) => Farm.Logic.countItem(Farm.session.state, 'sample_hide') === n + 1 && !Farm.world.wildDrops.length, hides, SLOW);
   // the hidden chest shows as you come near, and opens once
   await teleport(page, 4, 4, 'up');
@@ -6010,15 +6022,7 @@ test('hunting places: Taal Lake: the Jeep at 100 hunts; a Tagak, a Buwaya and th
   await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
   const pearlsNow = () => page.evaluate(() => { const s = Farm.session.state; return Farm.Logic.countItem(s, 'pearl_kataw') + (s.basket.pearl_kataw || 0) + Farm.world.wildDrops.filter((d) => d.id === 'pearl_kataw').length; }); // (a full bag: the rest waits in the basket)
   const pearls = await pearlsNow();
-  // (stand at it and tap Open; again if a pet or the companion walked up in between and the button became Talk)
-  for (let i = 0; i < 4 && (await page.evaluate(() => !!Farm.world.bossChest)); i++) {
-    await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
-    await frames(page, 3);
-    if (i === 0) assert.strictEqual(await actionLabel(page), 'Open');
-    if ((await actionLabel(page)) === 'Open') await tapAction(page);
-    await page.waitForFunction(() => !Farm.world.bossChest, null, { timeout: 8000 }).catch(() => {});
-  }
-  assert.strictEqual(await page.evaluate(() => Farm.world.bossChest), null, 'the chest is open');
+  await openBossChest(page);
   assert.ok((await pearlsNow()) >= pearls + 2, 'the chest\'s 2 Kataw Pearls');
   await shot(page, 'taal-boss-chest');
   // medals: first hunt, guard, boss, tame, each animal and the rare one
@@ -6124,12 +6128,8 @@ test('hunting places: Sierra Madre by the Jeep at 130 hunts; an Unggoy (its bana
   await shot(page, 'sierra-kapre');
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'kapre'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
   await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
-  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
-  await frames(page, 3);
-  assert.strictEqual(await actionLabel(page), 'Open');
   const bark = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'bark_kapre'));
-  await tapAction(page);
-  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  await openBossChest(page);
   assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'bark_kapre') + Farm.world.wildDrops.filter((d) => d.id === 'bark_kapre').length >= n + 2, bark));
   assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'sierra')), 0);
   // the medals: first hunt, the guard, the boss, the tame, the three animals
@@ -6243,12 +6243,8 @@ test('hunting places: Chocolate Hills: the Jeep at 80 hunts, the hills drawn, a 
   await shot(page, 'bohol-nuno');
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'greatnuno'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); });
   await page.waitForFunction(() => !!Farm.world.bossChest && /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
-  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
-  await frames(page, 3);
-  assert.strictEqual(await actionLabel(page), 'Open');
   const moss = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'moss_nuno') + (Farm.session.state.basket.moss_nuno || 0));
-  await tapAction(page);
-  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  await openBossChest(page);
   // his own on the floor, the chest's in the bag (or the basket at home, the bag being full by now)
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'moss_nuno') + (Farm.session.state.basket.moss_nuno || 0) + Farm.world.wildDrops.filter((d) => d.id === 'moss_nuno').length), moss + 2);
   await shot(page, 'bohol-nuno-chest');
@@ -6384,12 +6380,8 @@ test('hunting places: Banaue Terraces: Kanor\'s Jeep (open at 60 hunts); a Wild 
   await page.evaluate(() => { const w = Farm.world, a = w.wild.animals.find((x) => x.kind === 'amomongo'); a.def = Object.assign({}, a.def, { angry: 0 }); a.hp = 3; w.wildStruck(a); w.wildStruck(a); w.wildStruck(a); }); // (a share is 3 hits)
   await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
   await toasted(page, /The boss left a chest/);
-  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
-  await frames(page, 3);
-  assert.strictEqual(await actionLabel(page), 'Open');
   const fur = await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo'));
-  await tapAction(page);
-  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  await openBossChest(page);
   await toasted(page, /The chest: [\s\S]*Amomongo Fur/);
   assert.ok(await page.evaluate((n) => Farm.Logic.countItem(Farm.session.state, 'fur_amomongo') + Farm.world.wildDrops.filter((d) => d.id === 'fur_amomongo').length >= n + 1, fur));
   assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'banaue')), 0);
@@ -6510,12 +6502,9 @@ test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunt
   await page.waitForFunction(() => !!Farm.world.bossChest, null, SLOW);
   await page.waitForFunction(() => /The boss left a chest/.test(Farm.ui.toastText.text), null, SLOW);
   await closeAll(page); // (a Hunting level-up card may be up)
-  await page.evaluate(() => { const w = Farm.world, b = w.bossChest; w.setFeet(b.x, b.y + 0.75 * 256); w.dir = 'up'; w.idle(); });
-  await page.waitForFunction(() => Farm.ui.actionLabel.text === 'Open' && !Farm.ui.modals.length, null, SLOW);
   const feathers = () => page.evaluate(() => { const s = Farm.session.state; return Farm.Logic.countItem(s, 'feather_minokawa') + (s.basket.feather_minokawa || 0); }); // (a full bag: the basket at home)
   const had = await feathers();
-  await tapAction(page);
-  await page.waitForFunction(() => !Farm.world.bossChest, null, SLOW);
+  await openBossChest(page);
   assert.ok((await feathers()) >= had + 1, 'its Minokawa Feather');
   await shot(page, 'palawan-boss-chest');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.bossChests(Farm.session.state, 'palawan')), 0);

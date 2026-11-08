@@ -28057,7 +28057,11 @@ return collect.call(O, auto).then(function (got) { O.claimHelps().catch(noop); r
 };
 var onMessage = O.onMessage;
 O.onMessage = function (event, payload) {
-if (event === 'help' && !F.session.visit && payload && O.others[payload.id]) { O.claimHelps().catch(noop); return; }
+if (event === 'help' && !F.session.visit && payload && typeof payload.id === 'string') {
+if (O.others[payload.id]) O.claimHelps().catch(noop);
+else setTimeout(function () { if (O.others[payload.id] && !F.session.visit) O.claimHelps().catch(noop); }, 4000);
+return;
+}
 onMessage.call(O, event, payload);
 };
 
@@ -29194,7 +29198,12 @@ return collect.call(O, auto).then(function (got) { O.claimPicks().catch(noop); r
 };
 var onMessage = O.onMessage;
 O.onMessage = function (event, payload) {
-if (event === 'pick' && !F.session.visit && payload && O.others[payload.id]) { O.claimPicks().catch(noop); return; }
+if (event === 'pick' && !F.session.visit && payload && typeof payload.id === 'string') {
+
+if (O.others[payload.id]) O.claimPicks().catch(noop);
+else setTimeout(function () { if (O.others[payload.id] && !F.session.visit) O.claimPicks().catch(noop); }, 4000);
+return;
+}
 onMessage.call(O, event, payload);
 };
 })(window.Farm = window.Farm || {});
@@ -33544,6 +33553,7 @@ Promise.all(want.map(F.loadPack)).then(function (r) { if (done) return; done = t
 (function (F) {
 'use strict';
 var C = F.Config;
+var L = F.Logic;
 var H = C.HOME;
 var T = C.TILE;
 var P = F.WorldScene.prototype;

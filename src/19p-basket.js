@@ -178,7 +178,12 @@
   };
   var onMessage = O.onMessage;
   O.onMessage = function (event, payload) {
-    if (event === 'pick' && !F.session.visit && payload && O.others[payload.id]) { O.claimPicks().catch(noop); return; }
+    if (event === 'pick' && !F.session.visit && payload && typeof payload.id === 'string') {
+      // (a friend who picks the moment they arrive can be ahead of their presence here: asked again a little later)
+      if (O.others[payload.id]) O.claimPicks().catch(noop);
+      else setTimeout(function () { if (O.others[payload.id] && !F.session.visit) O.claimPicks().catch(noop); }, 4000);
+      return;
+    }
     onMessage.call(O, event, payload);
   };
 })(window.Farm = window.Farm || {});
