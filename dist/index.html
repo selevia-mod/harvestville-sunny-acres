@@ -27011,8 +27011,11 @@ r.add(tmp);
 }
 if (desc) {
 var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
+
+var fit = Math.max(0.8, Math.min(1, textW / d.width));
+d.setScale(fit);
 var words = desc.split(' ');
-while (d.width > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '\u2026'); }
+while (d.width * fit > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '\u2026'); }
 r.add(d);
 }
 var bx = W - 22 - 8;

@@ -719,8 +719,11 @@
     }
     if (desc) { // (under the bar and prize; right under the name when the row has neither)
       var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
+      // a little smaller first (down to 80%: "20 a day, 60G a work day" whole, 9 Nov 2026), then cut with …
+      var fit = Math.max(0.8, Math.min(1, textW / d.width));
+      d.setScale(fit);
       var words = desc.split(' ');
-      while (d.width > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '…'); }
+      while (d.width * fit > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '…'); }
       r.add(d);
     }
     var bx = W - 22 - 8;
