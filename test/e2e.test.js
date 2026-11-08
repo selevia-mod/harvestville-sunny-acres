@@ -2623,6 +2623,92 @@ test('the tile marker: soft fading corners that breathe, not a white square; non
   await context.close();
 });
 
+// e44 quests v2 (owner, 8 Nov 2026; docs/quests-v2.md): one quest card, your dog leads the way, its name is yours.
+const QV2 = "s.name = 'Ana'; s.time = 600; s.goal = 99; s.wv = C.NEWS_LATEST; s.tips = s.tips || [];";
+const pinTo = (page, c) => page.evaluate((c) => {
+  const s = Farm.session.state, L = Farm.Logic;
+  let i = s.dq.list.findIndex((q) => q.c === c && !q.done);
+  if (i < 0) { s.dq.list[0] = { c, n: 2, text: 'Quest ' + c, reward: { gold: 100 }, b: L.count(s, c), done: 0, tier: 'easy' }; i = 0; }
+  L.pinQuest(s, i);
+  Farm.ui.qcKey = null;
+  Farm.ui.refreshQuestCard();
+  return i;
+}, c);
+const tapCard = (page) => page.evaluate(() => Farm.ui.questCardTap());
+test('quests v2: the card shows one quest; Go and your dog leads the farmer to the water; the joystick stops it', async () => {
+  const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
+  await pinTo(page, 'fish');
+  assert.match(await page.evaluate(() => Farm.ui.qcText.text), /fish/i);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.qcGo.visible), true, 'Go');
+  await shot(page, 'qv2-card');
+  await tapCard(page);
+  assert.ok(await page.evaluate(() => !!Farm.world.guide && !!Farm.world.guideDog), 'the dog leads');
+  await page.waitForTimeout(700);
+  await shot(page, 'qv2-leading');
+  await page.waitForFunction(() => !Farm.world.guide, null, SLOW);
+  const at = await page.evaluate(() => { const w = Farm.world, f = w.feet(), T = Farm.Config.TILE, x = Math.floor(f.x / T), y = Math.floor(f.y / T); return [w.isWater(x + 1, y) || w.isWater(x - 1, y) || w.isWater(x, y + 1) || w.isWater(x, y - 1), Farm.session.guide]; });
+  assert.deepStrictEqual(at, [true, null], 'at the water\'s edge, and done');
+  await shot(page, 'qv2-arrived');
+  // the joystick stops it at once
+  await pinTo(page, 'care');
+  await tapCard(page);
+  assert.ok(await page.evaluate(() => !!Farm.world.guide));
+  await page.evaluate(() => { Farm.input.jx = 1; });
+  await page.waitForFunction(() => !Farm.world.guide, null, SLOW);
+  await page.evaluate(() => { Farm.input.jx = 0; });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('quests v2: a town quest: the dog leads down the road into town and on to the order board', async () => {
+  const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
+  await pinTo(page, 'order');
+  await tapCard(page);
+  await page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, { timeout: 120000 });
+  await page.waitForFunction(() => !Farm.session.guide && !Farm.world.guide, null, { timeout: 120000 });
+  const near = await page.evaluate(() => { const w = Farm.world, f = w.feet(), T = Farm.Config.TILE, o = w.objects.find((x) => x.name === 'order_board'), x = Math.floor(f.x / T), y = Math.floor(f.y / T); return x >= o.x0 - 1 && x <= o.x1 + 1 && y >= o.y0 - 1 && y <= o.y1 + 1; });
+  assert.strictEqual(near, true, 'by the order board');
+  await shot(page, 'qv2-town');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('quests v2: a done quest turns the card gold and claims from it; an unnamed dog asks for its name first; the Paused card shows it', async () => {
+  const save = await makeSave(QV2);
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
+  const i = await pinTo(page, 'water');
+  await page.evaluate((i) => { const s = Farm.session.state, q = s.dq.list[i]; q.b = Farm.Logic.count(s, q.c) - q.n; Farm.ui.qcKey = null; Farm.ui.refreshQuestCard(); }, i);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.qcSub.text), 'Tap to claim!');
+  await shot(page, 'qv2-claim');
+  const gold = await page.evaluate(() => Farm.session.state.gold);
+  await tapCard(page);
+  assert.ok(await page.evaluate((g) => Farm.session.state.gold > g, gold), 'claimed');
+  assert.strictEqual(await page.evaluate((i) => Farm.session.state.dq.list[i].done, i), 1);
+  // the dog has no name yet: Go asks first, then leads
+  await pinTo(page, 'fish');
+  await tapCard(page);
+  await page.waitForSelector('#farm-ask input', SLOW);
+  assert.match(await page.evaluate(() => document.getElementById('farm-ask').innerText), /Name your dog/);
+  await page.fill('#farm-ask input', 'Choco');
+  await page.click('#farm-ask button:last-child');
+  await page.waitForFunction(() => Farm.Logic.dogName(Farm.session.state) === 'Choco' && !!Farm.world.guide, null, SLOW);
+  await page.evaluate(() => Farm.world.guideStop('stopped'));
+  await page.evaluate(() => Farm.ui.openPause());
+  const link = await page.evaluate(() => { const l = Farm.ui.modals[0].c.list.find((o) => o.name === 'dog-link'); return l && l.list[0].text; });
+  assert.strictEqual(link, 'Choco');
+  await shot(page, 'qv2-pause');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('X on a list whose next page is still loading keeps it closed (owner, 29 Oct)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
