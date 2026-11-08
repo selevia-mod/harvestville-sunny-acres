@@ -5487,7 +5487,7 @@ C.STORY_RECIPES = { fiesta_pandesal: { dish: 'fiesta_pandesal', needs: ['wheat',
 'use strict';
 var C = F.Config;
 C.FRAID = {
-battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 4 },
+battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 },
 
 camp: { price: 3000, levels: [
 { space: 10, gold: 0, open: ['goat', 'crow'] },
@@ -47959,7 +47959,7 @@ c.add(z);
 h.add(c);
 self.raidCards[k] = { c: c, bg: bg, n: n, w: bw };
 });
-this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then tap the light ground to send it in.', 11, '#fff6d8', 0.5);
+this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then press and drag on the light ground.', 11, '#fff6d8', 0.5);
 this.raidHint.setFontStyle('normal');
 var end = this.add.container(W - 44, 82), eb = this.add.graphics();
 eb.fillStyle(RED, 1).fillRoundedRect(-34, -14, 68, 28, 12);
@@ -47992,7 +47992,7 @@ var self = this;
 if (!this.raidHint) return;
 this.raidHint.setText(msg).setColor('#ffd23f');
 if (this.raidSayT) this.raidSayT.remove();
-this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then tap the light ground to send it in.').setColor('#fff6d8'); });
+this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then press and drag on the light ground.').setColor('#fff6d8'); });
 };
 U.raidHudRefresh = function () {
 var self = this, b = this.raidB;
@@ -48196,24 +48196,47 @@ self.raidDefs[i] = img;
 if (this.raidInputs) this.raidInputs.forEach(function (e) { self.input.off(e[0], e[1]); });
 this.raidInputs = [];
 var on = function (ev, fn) { self.input.on(ev, fn); self.raidInputs.push([ev, fn]); };
-on('pointerdown', function (p) { if (!self.raidB) return; self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY }; self.raidDragged = false; });
+
+
+var tileOf = function (p) { var wp = cam.getWorldPoint(p.x, p.y); return { x: Math.floor(wp.x / T), y: Math.floor(wp.y / T) }; };
+on('pointerdown', function (p) {
+if (!self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) { self.raidDown = null; return; }
+var tl = tileOf(p);
+if (L.frEdge(self.raidB, tl.x, tl.y)) {
+self.raidDown = { deploy: true, last: tl, at: Date.now() };
+self.raidDropAt(tl.x, tl.y);
+} else self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
+});
 on('pointermove', function (p) {
-if (!self.raidB || !p.isDown || !self.raidDown || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
-var dx = (p.x - self.raidDown.x) / cam.zoom, dy = (p.y - self.raidDown.y) / cam.zoom;
-if (Math.abs(dx) + Math.abs(dy) > 8) self.raidDragged = true;
-if (self.raidDragged) cam.setScroll(self.raidDown.sx - dx, self.raidDown.sy - dy);
+var d = self.raidDown;
+if (!self.raidB || !p.isDown || !d) return;
+if (d.deploy) {
+var tl = tileOf(p);
+if ((tl.x !== d.last.x || tl.y !== d.last.y) && L.frEdge(self.raidB, tl.x, tl.y)) { d.last = tl; d.at = Date.now(); self.raidDropAt(tl.x, tl.y, true); }
+return;
+}
+var dx = (p.x - d.x) / cam.zoom, dy = (p.y - d.y) / cam.zoom;
+if (Math.abs(dx) + Math.abs(dy) > 8) d.moved = true;
+if (d.moved) cam.setScroll(d.sx - dx, d.sy - dy);
 });
 on('pointerup', function (p) {
-if (!self.raidB || self.raidDragged || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
-var wp = cam.getWorldPoint(p.x, p.y);
-self.raidDropAt(Math.floor(wp.x / T), Math.floor(wp.y / T));
+var d = self.raidDown;
+self.raidDown = null;
+if (!d || d.deploy || d.moved || !self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
+var tl = tileOf(p);
+self.raidDropAt(tl.x, tl.y);
 });
 if (F.ui && F.ui.raidHudOn) F.ui.raidHudOn(this.raidB, F.session.visit.name);
 };
-P.raidDropAt = function (x, y) {
+P.raidDropAt = function (x, y, quiet) {
 var b = this.raidB, k = F.ui.raidSel;
-if (!k || !b.left[k] || b.left[k].n <= 0) return F.ui.raidSay('None left. Pick another raider.');
-if (!L.frEdge(b, x, y)) return F.ui.raidSay('Send raiders in on the light ground, away from the farm.');
+if (!k || !b.left[k] || b.left[k].n <= 0) {
+
+k = Object.keys(b.left).filter(function (x2) { return b.left[x2].n > 0; })[0];
+if (!k) return quiet ? null : F.ui.raidSay('Everyone is in!');
+F.ui.raidSel = k;
+}
+if (!L.frEdge(b, x, y)) return quiet ? null : F.ui.raidSay('Send raiders in on the light ground.');
 if (!L.frDrop(b, k, x, y)) return;
 this.raidStarted = true;
 sfx('pick');
@@ -48235,7 +48258,8 @@ var update = P.update;
 P.update = function (time, delta) {
 update.call(this, time, delta);
 if (!this.raidB || !raiding(this)) return;
-var b = this.raidB;
+var b = this.raidB, hold = this.raidDown;
+if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
 if (this.raidStarted && !b.end) {
 this.raidAcc += Math.min(delta, 250);
 while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; L.frStep(b); this.raidEvents(ev); }

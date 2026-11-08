@@ -141,24 +141,47 @@
     if (this.raidInputs) this.raidInputs.forEach(function (e) { self.input.off(e[0], e[1]); });
     this.raidInputs = [];
     var on = function (ev, fn) { self.input.on(ev, fn); self.raidInputs.push([ev, fn]); };
-    on('pointerdown', function (p) { if (!self.raidB) return; self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY }; self.raidDragged = false; });
+    // like Clash of Clans: press on the light ground and drag: raiders come down along your finger (hold still: they
+    // keep coming); press anywhere else and drag: look around
+    var tileOf = function (p) { var wp = cam.getWorldPoint(p.x, p.y); return { x: Math.floor(wp.x / T), y: Math.floor(wp.y / T) }; };
+    on('pointerdown', function (p) {
+      if (!self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) { self.raidDown = null; return; }
+      var tl = tileOf(p);
+      if (L.frEdge(self.raidB, tl.x, tl.y)) {
+        self.raidDown = { deploy: true, last: tl, at: Date.now() };
+        self.raidDropAt(tl.x, tl.y);
+      } else self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
+    });
     on('pointermove', function (p) {
-      if (!self.raidB || !p.isDown || !self.raidDown || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
-      var dx = (p.x - self.raidDown.x) / cam.zoom, dy = (p.y - self.raidDown.y) / cam.zoom;
-      if (Math.abs(dx) + Math.abs(dy) > 8) self.raidDragged = true;
-      if (self.raidDragged) cam.setScroll(self.raidDown.sx - dx, self.raidDown.sy - dy);
+      var d = self.raidDown;
+      if (!self.raidB || !p.isDown || !d) return;
+      if (d.deploy) {
+        var tl = tileOf(p);
+        if ((tl.x !== d.last.x || tl.y !== d.last.y) && L.frEdge(self.raidB, tl.x, tl.y)) { d.last = tl; d.at = Date.now(); self.raidDropAt(tl.x, tl.y, true); }
+        return;
+      }
+      var dx = (p.x - d.x) / cam.zoom, dy = (p.y - d.y) / cam.zoom;
+      if (Math.abs(dx) + Math.abs(dy) > 8) d.moved = true;
+      if (d.moved) cam.setScroll(d.sx - dx, d.sy - dy);
     });
     on('pointerup', function (p) {
-      if (!self.raidB || self.raidDragged || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
-      var wp = cam.getWorldPoint(p.x, p.y);
-      self.raidDropAt(Math.floor(wp.x / T), Math.floor(wp.y / T));
+      var d = self.raidDown;
+      self.raidDown = null;
+      if (!d || d.deploy || d.moved || !self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
+      var tl = tileOf(p);
+      self.raidDropAt(tl.x, tl.y); // (a tap where they cannot come down: it says where they can)
     });
     if (F.ui && F.ui.raidHudOn) F.ui.raidHudOn(this.raidB, F.session.visit.name);
   };
-  P.raidDropAt = function (x, y) {
+  P.raidDropAt = function (x, y, quiet) {
     var b = this.raidB, k = F.ui.raidSel;
-    if (!k || !b.left[k] || b.left[k].n <= 0) return F.ui.raidSay('None left. Pick another raider.');
-    if (!L.frEdge(b, x, y)) return F.ui.raidSay('Send raiders in on the light ground, away from the farm.');
+    if (!k || !b.left[k] || b.left[k].n <= 0) {
+      // (that one is all in: the next one that has any left)
+      k = Object.keys(b.left).filter(function (x2) { return b.left[x2].n > 0; })[0];
+      if (!k) return quiet ? null : F.ui.raidSay('Everyone is in!');
+      F.ui.raidSel = k;
+    }
+    if (!L.frEdge(b, x, y)) return quiet ? null : F.ui.raidSay('Send raiders in on the light ground.');
     if (!L.frDrop(b, k, x, y)) return;
     this.raidStarted = true;
     sfx('pick');
@@ -180,7 +203,8 @@
   P.update = function (time, delta) {
     update.call(this, time, delta);
     if (!this.raidB || !raiding(this)) return;
-    var b = this.raidB;
+    var b = this.raidB, hold = this.raidDown;
+    if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
     if (this.raidStarted && !b.end) {
       this.raidAcc += Math.min(delta, 250);
       while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; L.frStep(b); this.raidEvents(ev); }

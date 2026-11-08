@@ -385,7 +385,7 @@
       h.add(c);
       self.raidCards[k] = { c: c, bg: bg, n: n, w: bw };
     });
-    this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then tap the light ground to send it in.', 11, '#fff6d8', 0.5);
+    this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then press and drag on the light ground.', 11, '#fff6d8', 0.5);
     this.raidHint.setFontStyle('normal');
     var end = this.add.container(W - 44, 82), eb = this.add.graphics();
     eb.fillStyle(RED, 1).fillRoundedRect(-34, -14, 68, 28, 12);
@@ -418,7 +418,7 @@
     if (!this.raidHint) return;
     this.raidHint.setText(msg).setColor('#ffd23f');
     if (this.raidSayT) this.raidSayT.remove();
-    this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then tap the light ground to send it in.').setColor('#fff6d8'); });
+    this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then press and drag on the light ground.').setColor('#fff6d8'); });
   };
   U.raidHudRefresh = function () {
     var self = this, b = this.raidB;

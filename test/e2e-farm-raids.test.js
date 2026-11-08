@@ -184,3 +184,38 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('farm raids: like Clash of Clans, press on the light ground and drag: raiders come down along the finger; hold still: they keep coming', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 3; s.fr.army = { goat: 10, crow: 10 }; Farm.ui.startRaid('b1'); });
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForTimeout(600);
+  // a run of open ground on screen, in a row
+  const line = await page.evaluate(() => {
+    const w = Farm.world, f = w.raidB.farm, cam = w.cameras.main, R = 2;
+    for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w - 4; x++) {
+      let ok = true;
+      for (let k = 0; k < 4; k++) ok = ok && f.drop[y * f.w + x + k] === '1';
+      if (!ok) continue;
+      const a = cam.getScreenPoint ? null : null;
+      const sx = ((x + 0.5) * Farm.Config.TILE - cam.worldView.x) * cam.zoom, sy = ((y + 0.5) * Farm.Config.TILE - cam.worldView.y) * cam.zoom;
+      const sx2 = ((x + 3.5) * Farm.Config.TILE - cam.worldView.x) * cam.zoom;
+      if (sx > 20 && sx2 < 700 && sy > 260 && sy < 1000) return { x1: sx / R, x2: sx2 / R, y: sy / R };
+    }
+    return null;
+  });
+  assert.ok(line, 'open ground on screen');
+  await page.mouse.move(line.x1, line.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 12; k++) await page.mouse.move(line.x1 + (line.x2 - line.x1) * k / 12, line.y);
+  const dragged = await page.evaluate(() => Farm.world.raidB.raiders.length);
+  assert.ok(dragged >= 3, 'along the finger: ' + dragged);
+  await page.waitForTimeout(1500); // hold still
+  await page.mouse.up();
+  const held = await page.evaluate(() => Farm.world.raidB.raiders.length);
+  assert.ok(held > dragged, 'holding: more come (' + dragged + ' -> ' + held + ')');
+  await shot(page, 'raid-drag');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
