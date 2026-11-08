@@ -5428,6 +5428,57 @@ C.ADVENTURE_FEEL = { hidden: 4, apart: 15, away: 10, help: 120000, back: 60000, 
 C.ADVENTURE_PEOPLE = { luz: { name: 'Tita Luz', map: 'park' }, kanor: { name: 'Mang Kanor', map: 'pulag' } };
 })(window.Farm = window.Farm || {});
 
+// ---- src/00-zzzzzzzzzzzzzzz-stories.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+C.STORIES = [{
+key: 'hana_bread', who: 'hana', title: 'Hana\'s Fiesta Bread',
+intro: 'The town fiesta is on Sunday, and Hana wants to bake her grandmother\'s fiesta bread for everyone.',
+keepsake: { stars: 3 }, recipe: 'fiesta_pandesal', need: 5,
+thanks: 'You made the fiesta! Take Grandma\'s Fiesta Pandesal recipe: it\'s yours now. Bake it in your kitchen any time.',
+chapters: [
+{ key: 'hb_card', item: 'Grandma\'s Recipe Card', map: 'town', how: 'find', n: 1, tier: 'easy',
+say: 'The wind took Grandma\'s fiesta bread recipe! It\'s somewhere in town.', thanks: 'Grandma\'s card! "A pinch of love," she always wrote.' },
+{ key: 'hb_honey', item: 'Wild Honeycomb', items: 'Wild Honeycombs', map: 'pulag', how: 'find', n: 3, tier: 'medium',
+say: 'Fiesta bread needs wild honey from Pulag. Three honeycombs, please!', thanks: 'Golden and sweet! The bees of Pulag are the best.' },
+{ key: 'hb_wheat', item: 'Golden Wheat Stalk', items: 'Golden Wheat Stalks', map: 'farm', how: 'find', n: 3, tier: 'medium',
+say: 'Three golden wheat stalks grew on your farm today. Only today!', thanks: 'Golden wheat! The flour will be like sunshine.' },
+{ key: 'hb_pan', item: 'Copper Bread Pan', map: 'mine', how: 'find', n: 1, tier: 'easy',
+say: 'Bram borrowed my copper bread pan and dropped it in the mine!', thanks: 'My good pan! Bram owes me a cake now.' },
+{ key: 'hb_egg', item: 'Lucky Egg', map: 'pulag', how: 'hunt', n: 1, tier: 'hard', kind: 'labuyo',
+say: 'A wild Labuyo ran off with my lucky egg! It\'s in Pulag.', thanks: 'My lucky egg! Every fiesta bread starts with it.' },
+{ key: 'hb_pandan', item: 'Pandan Leaf', items: 'Pandan Leaves', map: 'farm', how: 'find', n: 3, tier: 'medium',
+say: 'Three pandan leaves, for the smell of fiesta.', thanks: 'Smell that! It smells like home.' },
+{ key: 'hb_bread', item: 'Fiesta Bread', map: 'house', how: 'find', n: 1, tier: 'easy', open: true,
+say: 'The bread is baking in your kitchen! Bring it to me, the fiesta is starting!', thanks: 'The whole town is cheering! You saved my fiesta.' },
+],
+}];
+C.STORY_ICONS = [];
+C.STORIES.forEach(function (st) {
+st.chapters.forEach(function (ch, k) {
+ch.who = st.who;
+ch.story = st.key;
+ch.day = k;
+C.ADVENTURES.push(ch);
+C.STORY_ICONS.push('qi_' + ch.key);
+});
+});
+C.STORY_ICONS.push('fiesta_pandesal');
+C.STORY_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
+C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
+C.STORY_ICONS_IN = false;
+
+
+C.ITEMS.fiesta_pandesal = { name: 'Fiesta Pandesal', kind: 'dish', energy: 120, sell: 320, icon: C.STORY_ICONS_IN ? C.ICON.fiesta_pandesal : C.ITEMS.pandesal.icon,
+desc: 'Hana\'s grandmother\'s fiesta bread, soft and sweet with wild honey and pandan.' };
+C.STORY_RECIPES = { fiesta_pandesal: { dish: 'fiesta_pandesal', needs: ['wheat', 'egg', 'milk'] } };
+})(window.Farm = window.Farm || {});
+
 // ---- src/01-logic.js
 
 
@@ -16022,7 +16073,7 @@ C.ADVENTURES.forEach(function (a, i) { a.i = i; BY[a.key] = a; });
 L.advDef = function (key) { return BY[key] || null; };
 L.advOf = function (q) { return q && q.c === 'adv' ? BY[q.a] || null : null; };
 L.advWho = function (a) { return C.ADVENTURE_PEOPLE[a.who] ? C.ADVENTURE_PEOPLE[a.who].name : C.VILLAGERS[a.who] ? C.VILLAGERS[a.who].name : a.who; };
-L.advIcon = function (a) { return C.ADVENTURE_ICONS_IN ? C.ICON['qi_' + a.key] : C.ICON.sparkle; };
+L.advIcon = function (a) { return (a.story ? C.STORY_ICONS_IN : C.ADVENTURE_ICONS_IN) ? C.ICON['qi_' + a.key] : C.ICON.sparkle; };
 L.advItemName = function (a, n) { return n > 1 ? (a.items || a.item + 's') : a.item; };
 L.advText = function (a) { return L.advWho(a) + ': ' + (a.n > 1 ? a.n + ' ' : '') + L.advItemName(a, a.n); };
 
@@ -16030,12 +16081,13 @@ L.advWhere = function (a) {
 if (a.map === 'farm') return 'your farm';
 if (a.map === 'town') return 'town';
 if (a.map === 'mine') return 'the mine';
+if (a.map === 'house') return 'your kitchen';
 var w = C.WILD.areas[a.map];
 return w ? w.name : a.map;
 };
 
 L.advOpen = function (s, a) {
-if (a.map === 'farm' || a.map === 'town' || a.map === 'mine') return true;
+if (a.map === 'farm' || a.map === 'town' || a.map === 'mine' || a.map === 'house') return true;
 return L.isWildMap(a.map) && L.wildOpen(s, a.map);
 };
 
@@ -16052,12 +16104,15 @@ return out;
 };
 
 L.advPick = function (s, dn) {
-var open = C.ADVENTURES.filter(function (a) { return L.advOpen(s, a); }), out = [];
+var open = C.ADVENTURES.filter(function (a) { return !a.story && L.advOpen(s, a); }), out = [];
+
+var ch = L.storyChapter(dn);
+if (ch && L.advOpen(s, ch)) out.push(ch);
 var take = function (pool, seed) {
 pool = pool.filter(function (a) { return out.indexOf(a) < 0 && !out.some(function (o) { return o.who === a.who; }); });
 if (pool.length) out.push(pool[Math.floor(L.rand(s.seed || 1, seed, 11) * pool.length) % pool.length]);
 };
-['easy', 'medium', 'hard'].forEach(function (t, k) { take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
+['easy', 'medium', 'hard'].forEach(function (t, k) { if (!out.some(function (o) { return o.tier === t; })) take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
 for (var k = 0; out.length < 3 && k < 3; k++) take(open, dn * 7 + 50 + k);
 return out;
 };
@@ -16079,7 +16134,7 @@ return { c: q.c, n: q.n, text: q.text.replace('{n}', q.n), reward: q.reward, b: 
 s.dq = { d: dn, all: 0, v: 2, six: 0, list: normal.concat(L.advPick(s, dn).map(function (a) { return L.advStart(s, a, dn); })) };
 delete s.qp;
 }
-if (news.weekly && s.wq) { s.wq.v = 2; s.wq.good = 0; s.wq.list = []; }
+if (news.weekly && s.wq) { s.wq.v = 2; s.wq.good = 0; s.wq.st = 0; s.wq.list = []; }
 return news;
 };
 L.daily2 = function (s) { return !!(s.dq && s.dq.v === 2); };
@@ -16158,6 +16213,37 @@ return D.six;
 };
 
 
+
+L.storyOf = function (dn) { return C.STORIES.length ? C.STORIES[Math.floor(L.weekOf(dn) / 7) % C.STORIES.length] : null; };
+L.storyChapter = function (dn) { var st = L.storyOf(dn); return st ? st.chapters[dn - L.weekOf(dn)] || null : null; };
+
+L.storyDone = function (s) { var b = (s.wq && s.wq.st) || 0, n = 0; while (b) { n += b & 1; b >>= 1; } return n; };
+
+L.storyKept = function (s, key) { return !!(s.stk && s.stk.indexOf(key) >= 0); };
+var handOver = L.advHandOver;
+L.advHandOver = function (s, i) {
+var q = s.dq && s.dq.list[i], a = L.advOf(q), was = q && q.gv;
+var r = handOver(s, i);
+if (typeof r !== 'object' || !a || !a.story || was || !s.wq) return r;
+s.wq.st = (s.wq.st || 0) | (1 << a.day);
+var st = L.storyOf(s.dq.d);
+if (st && st.key === a.story && L.storyDone(s) >= st.need && !L.storyKept(s, st.key)) {
+s.stk = (s.stk || []).concat([st.key]);
+L.giveReward(s, st.keepsake);
+r = merge(r, st.keepsake);
+r.keepsake = st.key;
+}
+return r;
+};
+
+var vsRecipes = L.vsRecipes;
+L.vsRecipes = function (s) {
+var out = vsRecipes ? vsRecipes(s) : [];
+C.STORIES.forEach(function (st) { if (st.recipe && L.storyKept(s, st.key)) out.push({ dish: C.STORY_RECIPES[st.recipe].dish, needs: C.STORY_RECIPES[st.recipe].needs.slice(), story: st.key }); });
+return out;
+};
+
+
 L.dailyDone = function (s) { return s.dq ? s.dq.list.filter(function (q) { return q.done; }).length : 0; };
 var chestReady = L.chestReady;
 L.chestReady = function (s, kind) {
@@ -16196,8 +16282,9 @@ av.d = [s.dq.d, s.dq.six ? 1 : 0];
 av.q = [];
 s.dq.list.forEach(function (q, i) { if (q.c === 'adv') av.q.push([i, q.a, q.got || 0, q.gb || 0, q.gv ? 1 : 0]); });
 }
-if (L.weekly2(s)) av.w = [s.wq.w, s.wq.good || 0];
-if (av.d || av.w) o.av = av;
+if (L.weekly2(s)) av.w = [s.wq.w, s.wq.good || 0, s.wq.st || 0];
+if (s.stk && s.stk.length) av.k = s.stk.slice();
+if (av.d || av.w || av.k) o.av = av;
 return o;
 };
 var deserialize = L.deserialize;
@@ -16219,7 +16306,8 @@ q.gv = e[4] ? 1 : 0;
 });
 }
 if (s.dq && s.dq.list) s.dq.list = s.dq.list.filter(function (q) { return q.c !== 'adv' || BY[q.a]; });
-if (s.wq && Array.isArray(av.w) && Number(av.w[0]) === s.wq.w) { s.wq.v = 2; s.wq.good = (Number(av.w[1]) || 0) & 127; }
+if (s.wq && Array.isArray(av.w) && Number(av.w[0]) === s.wq.w) { s.wq.v = 2; s.wq.good = (Number(av.w[1]) || 0) & 127; s.wq.st = (Number(av.w[2]) || 0) & 127; }
+s.stk = (Array.isArray(av.k) ? av.k : []).filter(function (k) { return C.STORIES.some(function (st) { return st.key === k; }); });
 return s;
 };
 })(window.Farm = window.Farm || {});
@@ -24600,6 +24688,16 @@ chestName = 'Weekly chest: 5 good days';
 chestDesc = 'A good day: open the daily chest. ' + (days.length ? 'So far: ' + days.join(', ') + '.' : 'None yet this week.');
 chestBar = [Math.min(C.DAILY2.goodDays, L.goodDays(s)), C.DAILY2.goodDays];
 }
+
+var story = tab === 'weekly' && L.weekly2 && L.weekly2(s) && L.storyOf ? L.storyOf(set.w) : null;
+if (story) {
+var kept = L.storyKept(s, story.key), n = L.storyDone(s);
+rows.push({
+people: story.who, name: story.title, tag: 'STORY', done: kept,
+desc: kept ? 'Done! ' + C.ITEMS[story.recipe].name + ' is in your Kitchen.' : story.intro + ' A chapter each day, as an adventure. ' + story.need + ' chapters: ' + C.ITEMS[story.recipe].name + ' recipe.',
+progress: kept ? null : [Math.min(n, story.need), story.need], reward: story.keepsake,
+});
+}
 rows.push({
 icon: C.ICON.chest, name: chestName, desc: chestDesc, progress: chestDone ? null : chestBar, reward: chest, done: !!chestDone,
 buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
@@ -24613,7 +24711,7 @@ var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
 var adv = L.advOf && L.advOf(q), advDesc = adv && (q.done ? adv.thanks : (q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) + '.'
 : (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + ' in ') + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
 rows.push({
-icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? 'ADVENTURE' : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
+icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? (adv.story ? 'STORY' : 'ADVENTURE') : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
 progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
 buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
 : go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],
@@ -46408,7 +46506,12 @@ if (r === 'full') { sfx('nope'); return F.ui.toast(L.advWho(a) + ' says thank yo
 if (typeof r !== 'object') return;
 sfx('coin');
 if (v && this.villagers) { this.villagers.greet(v, this.dir); this.emote(v, C.ICON.heart); }
-var done = function () { F.ui.toast('Adventure prize: ' + L.rewardLabel(r) + (C.VILLAGERS[a.who] ? ' and a heart with ' + L.advWho(a) : '') + '!', 2800, 0x7a4d12); };
+var done = function () {
+F.ui.toast('Adventure prize: ' + L.rewardLabel(r) + (C.VILLAGERS[a.who] ? ' and a heart with ' + L.advWho(a) : '') + '!', 2800, 0x7a4d12);
+
+var st = r.keepsake && C.STORIES.filter(function (x) { return x.key === r.keepsake; })[0];
+if (st) F.ui.time.delayedCall(900, function () { sfx('fanfare'); F.ui.dialog(st.title.toUpperCase() + '\n' + L.advWho(a) + ': "' + st.thanks + '"', [{ label: 'Thank you!' }]); });
+};
 if (mail) F.ui.dialog('FINN\nI\'ll take it to ' + L.advWho(a) + ' right away! ' + L.advWho(a) + ' says: "' + a.thanks + '"', [{ label: 'OK', cb: done }]);
 else if (C.VILLAGERS[a.who] && F.ui.say) { F.ui.say(a.who, L.advWho(a), a.thanks); done(); }
 else F.ui.dialog(L.advWho(a).toUpperCase() + '\n' + a.thanks, [{ label: 'OK', cb: done }]);
@@ -46637,6 +46740,275 @@ this.decorHint(c, 'Tap a piece, then drag it to move it.', 'Place more from Stor
 }
 var n = Object.keys(s.yard.bag).reduce(function (sum, k) { return sum + s.yard.bag[k]; }, 0);
 this.decorTabs(c, [['Storage' + (n ? ' ' + n : ''), function () { self.openYardStorage(0); }]], function () { w.endYard(); sfx('pick'); });
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzz-secrets.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var T = C.TILE;
+var P = F.WorldScene.prototype;
+var U = F.UIScene.prototype;
+var DEPTH = F.WorldScene.DEPTH;
+var INK = F.UI_CONST.INK, W = F.UI_CONST.W;
+var sfx = function (name, soft) { if (F.Audio) { if (soft && F.Audio.sfxSoft) F.Audio.sfxSoft(name, 0.5); else F.Audio.sfx(name); } };
+var mine = function () { return F.session.state; };
+
+
+var qTex = function (scene) {
+var key = 'fx-askq';
+if (scene.textures.exists(key)) return key;
+var t = scene.textures.createCanvas(key, 96, 96), g = t.getContext();
+g.beginPath(); g.arc(48, 50, 40, 0, Math.PI * 2);
+g.fillStyle = '#5a3a1e'; g.fill();
+g.beginPath(); g.arc(48, 46, 38, 0, Math.PI * 2);
+var gr = g.createLinearGradient(0, 8, 0, 84); gr.addColorStop(0, '#ffe680'); gr.addColorStop(1, '#e9a91c');
+g.fillStyle = gr; g.fill();
+g.lineWidth = 4; g.strokeStyle = '#5a3a1e'; g.stroke();
+g.font = 'bold 56px "Trebuchet MS", Verdana, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+g.lineWidth = 6; g.strokeStyle = '#5a3a1e'; g.strokeText('?', 48, 48);
+g.fillStyle = '#ffffff'; g.fillText('?', 48, 48);
+t.refresh();
+return key;
+};
+
+P.askMarksWanted = function () {
+var s = this.state, out = {};
+if (F.session.visit) return out;
+(this.villagers && this.villagers.list || []).forEach(function (v) {
+if (v.shopper || !v.visible || !v.sprite || !v.sprite.visible) return;
+var i = L.requestFor(s, v.key), q = L.advFor(s, v.key) >= 0 || (i >= 0 && L.canFinishRequest(s, i));
+if (q || i >= 0) out[v.key] = { v: v, q: q };
+});
+if (this.tailor && this.tailor.img.visible && L.advFor(s, 'luz') >= 0) out.luz = { x: this.tailor.x, y: this.tailor.y, q: true };
+if (this.kanor && this.kanor.img.visible && L.advFor(s, 'kanor') >= 0) out.kanor = { x: this.kanor.x, y: this.kanor.y, q: true };
+return out;
+};
+P.updateAskMark = function (time) {
+if (this.askMark) this.askMark.setVisible(false);
+var self = this, now = Date.now(), marks = this.askMarks = this.askMarks || {};
+if (!this.askWant || now - (this.askAt || 0) > 300) { this.askAt = now; this.askWant = this.askMarksWanted(); }
+var want = this.askWant;
+Object.keys(marks).forEach(function (k) {
+var m = marks[k];
+if (!want[k] || m.q !== want[k].q) { m.img.destroy(); delete marks[k]; }
+});
+Object.keys(want).forEach(function (k) {
+var w = want[k], m = marks[k];
+if (!m) m = marks[k] = { q: w.q, img: w.q ? self.add.image(0, 0, qTex(self)).setDisplaySize(0.9 * T, 0.9 * T) : self.add.image(0, 0, 'items', C.ICON.exclaim).setScale(0.9) };
+var x = w.v ? w.v.x : w.x, y = w.v ? w.v.y : w.y;
+m.img.setPosition(x, y - 2.1 * T + Math.sin(time / 220 + x) * 20).setDepth(DEPTH.Above + 1);
+});
+};
+
+
+var S = C.SECRETS = { perDay: 2, first: [90000, 180000], every: [240000, 480000], maps: ['farm', 'town', 'pulag'], min: 7, max: 18,
+chest: [[{ gold: 400 }, 30], [{ gold: 800 }, 18], [{ item: 'ore_silver', n: 3 }, 14], [{ item: 'gem', n: 1 }, 10], [{ item: 'treat', n: 2 }, 16], [{ item: 'power_up', n: 1 }, 8], [{ stars: 1 }, 4]] };
+var rand = function (a) { return a[0] + Math.random() * (a[1] - a[0]); };
+
+L.secretsLeft = function (s) { var d = s.dsec && s.dsec[0] === s.day ? s.dsec[1] : 0; return Math.max(0, S.perDay - d); };
+L.secretFound = function (s) { s.dsec = [s.day, (s.dsec && s.dsec[0] === s.day ? s.dsec[1] : 0) + 1]; };
+L.chestPrize = function (r) {
+var sum = 0, k;
+for (k = 0; k < S.chest.length; k++) sum += S.chest[k][1];
+var x = r * sum;
+for (k = 0; k < S.chest.length; k++) { x -= S.chest[k][1]; if (x < 0) return S.chest[k][0]; }
+return S.chest[0][0];
+};
+var serialize = L.serialize;
+L.serialize = function (s) { var o = serialize(s); if (s.dsec) o.ds = s.dsec.slice(); return o; };
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (s && Array.isArray(o.ds)) s.dsec = [Number(o.ds[0]) || 0, Math.max(0, Math.min(S.perDay, Number(o.ds[1]) || 0))];
+return s;
+};
+
+var create = P.create;
+P.create = function () {
+create.call(this);
+this.secret = null;
+if (!F.session.secretAt) F.session.secretAt = Date.now() + rand(S.first);
+};
+
+P.secretSpot = function (kind) {
+var f = this.feet(), fx = Math.floor(f.x / T), fy = Math.floor(f.y / T), w = this.map.width, h = this.map.height, self = this;
+for (var t = 0; t < 200; t++) {
+var x = 1 + Math.floor(Math.random() * (w - 2)), y = 1 + Math.floor(Math.random() * (h - 2)), d = Math.abs(x - fx) + Math.abs(y - fy);
+if (d < S.min || d > S.max) continue;
+if (kind === 'fish') {
+if (!this.isWater || !this.isWater(x, y)) continue;
+var edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(function (e) { return [x + e[0], y + e[1]]; }).filter(function (p) { return self.inMap(p[0], p[1]) && self.walkable(p[0], p[1]) && !self.blocked[self.idx(p[0], p[1])]; })[0];
+if (!edge) continue;
+var path = this.guidePath(function (a, b) { return a === edge[0] && b === edge[1]; });
+if (path) return { x: x, y: y, sx: edge[0], sy: edge[1] };
+} else {
+if (!this.inMap(x, y) || !this.walkable(x, y) || this.blocked[this.idx(x, y)]) continue;
+if (this.isWater && this.isWater(x, y)) continue;
+var p2 = this.guidePath(function (a, b) { return a === x && b === y; });
+if (p2) return { x: x, y: y, sx: x, sy: y };
+}
+}
+return null;
+};
+
+P.secretTry = function () {
+var s = this.state;
+if (F.session.visit || S.maps.indexOf(this.mapKey) < 0 || this.secret || this.guide || F.session.sniff || this.busy || !L.secretsLeft(s)) return false;
+if (!F.ui || F.ui.modals.length || (F.ui.blocking && F.ui.blocking()) || F.ui.decorating) return false;
+var kinds = ['chest', 'forage'].concat(this.isWater ? ['fish'] : []), kind = kinds[Math.floor(Math.random() * kinds.length)];
+var spot = this.secretSpot(kind) || (kind === 'fish' ? this.secretSpot('chest') : null);
+if (!spot) return false;
+if (kind === 'fish' && !(spot.x !== spot.sx || spot.y !== spot.sy)) kind = 'chest';
+this.secret = { kind: kind, x: spot.x, y: spot.y, sx: spot.sx, sy: spot.sy, map: this.mapKey, shown: false };
+var line = { chest: 'Arf! I smell something buried over there!', forage: 'Arf! Something smells yummy nearby!', fish: 'Arf! The fish are jumping somewhere close!' }[kind];
+var self = this;
+F.ui.dogSays(L.dogName(s) + ': ' + line, function () { self.secretGo(); });
+sfx('woof', true);
+return true;
+};
+P.secretGo = function () {
+var sc = this.secret;
+if (!sc || sc.map !== this.mapKey || this.guide) return;
+this.secretShow();
+var path = this.guidePath(function (x, y) { return x === sc.sx && y === sc.sy; });
+if (!path) return;
+F.session.guide = { i: -1, c: 'secret', place: { map: this.mapKey, to: 'secret', say: '' } };
+this.guideDogShow();
+this.guide = { path: path, k: 0, spot: { goal: function () { return false; }, secret: true }, last: this.feet(), at: Date.now(), tries: 0 };
+};
+var arrive = P.guideArrive;
+P.guideArrive = function () {
+var g = this.guide;
+if (!g || !g.spot || !g.spot.secret) return arrive.call(this);
+this.guide = null;
+F.session.guide = null;
+F.bus.emit('guide', 'arrived');
+var sc = this.secret, d = this.guideDog;
+if (d && this.huntDogBark) this.huntDogBark(d, 2); else sfx('woof');
+if (sc) F.ui.toast(L.dogName(this.state) + ': ' + ({ chest: 'here! Dig right here!', forage: 'here! Pick it up!', fish: 'here! Cast your line right there!' }[sc.kind]), 2600, 0x2f5a22);
+var self = this;
+this.time.delayedCall(2600, function () { if (!self.guide) self.guideDogHide(true); });
+};
+
+P.secretShow = function () {
+var sc = this.secret;
+if (!sc || sc.shown) return;
+sc.shown = true;
+var x = (sc.x + 0.5) * T, y = (sc.y + 0.6) * T, self = this;
+if (sc.kind === 'fish') {
+sc.img = this.add.container(x, y - 0.1 * T).setDepth(DEPTH.flat + 0.3);
+for (var k = 0; k < 4; k++) {
+var b = this.add.circle((k % 2 ? 1 : -1) * 0.18 * T * (k > 1 ? 0.5 : 1), (k - 1.5) * 0.08 * T, 0.07 * T + k * 0.012 * T, 0xffffff, 0.75).setStrokeStyle(2, 0x8fd0ff, 0.9);
+sc.img.add(b);
+this.tweens.add({ targets: b, y: b.y - 0.25 * T, alpha: 0, duration: 900 + k * 180, repeat: -1, delay: k * 200 });
+}
+} else {
+var icon = sc.kind === 'chest' ? C.ICON.chest : C.ITEMS.truffle.icon;
+sc.img = this.add.container(x, y);
+sc.img.add(this.add.ellipse(0, 0.02 * T, 0.8 * T, 0.32 * T, 0x7a4d26, sc.kind === 'chest' ? 0.85 : 0.25));
+var it = this.add.image(0, -0.25 * T, 'items', icon).setScale((sc.kind === 'chest' ? 0.5 : 0.65) * T / 128).setAlpha(sc.kind === 'chest' ? 0 : 1);
+sc.img.add(it);
+sc.icon = it;
+sc.img.setDepth(DEPTH.actor + y / 1e5);
+this.tweens.add({ targets: sc.img, scaleX: 1.06, scaleY: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+}
+void self;
+};
+P.secretDone = function () {
+var sc = this.secret;
+if (sc && sc.img) sc.img.destroy();
+this.secret = null;
+L.secretFound(this.state);
+F.session.secretAt = Date.now() + rand(S.every);
+this.changed();
+this.save();
+};
+
+var resolve = P.resolve;
+P.resolve = function () {
+var sc = this.secret, self = this;
+if (sc && sc.shown && sc.kind !== 'fish' && sc.map === this.mapKey) {
+var f = this.feet(), pt = this.front(0.7), cx = (sc.x + 0.5) * T, cy = (sc.y + 0.5) * T;
+if (Math.hypot(f.x - cx, f.y - cy) < 0.7 * T || Math.hypot(pt.x - cx, pt.y - cy) < 0.6 * T) {
+if (sc.kind === 'chest') return { label: 'Dig', icon: C.ICON.chest, run: function () { self.secretDig(); } };
+return { label: 'Pick', icon: C.ITEMS.truffle.icon, run: function () { self.secretPick(); } };
+}
+}
+return resolve.call(this);
+};
+P.secretDig = function () {
+var s = this.state, prize = L.chestPrize(Math.random()), sc = this.secret;
+if (!L.rewardFits(s, prize)) { sfx('nope'); return F.ui.toast('Your bag is full! Make room first.'); }
+L.giveReward(s, prize);
+sfx('found');
+this.iconPop((sc.x + 0.5) * T, (sc.y + 0.2) * T, prize.stars ? C.ICON.sunbeam : prize.item ? C.ITEMS[prize.item].icon : C.ICON.coin);
+F.ui.toast('A buried chest! ' + L.rewardLabel(prize) + '!', 2800, 0x7a4d12);
+this.secretDone();
+};
+P.secretPick = function () {
+var s = this.state, sc = this.secret, n = 1 + (Math.random() < 0.35 ? 1 : 0);
+if (!L.canAdd(s, 'truffle', n)) { sfx('nope'); return F.ui.toast('Your bag is full! Make room first.'); }
+L.addItem(s, 'truffle', n);
+L.discover(s, 'truffle');
+sfx('pick');
+this.iconPop((sc.x + 0.5) * T, (sc.y + 0.2) * T, C.ITEMS.truffle.icon);
+F.ui.toast((n > 1 ? n + ' Truffles' : 'A Truffle') + '! A rare find.', 2600, 0x7a4d12);
+this.secretDone();
+};
+
+var rollFish = L.rollFish;
+L.rollFish = function (water, r) {
+var w = F.world, sc = w && w.secret;
+if (sc && sc.kind === 'fish' && sc.shown && sc.map === w.mapKey && w.player) {
+var f = w.feet();
+if (Math.hypot(f.x - (sc.x + 0.5) * T, f.y - (sc.y + 0.5) * T) < 2.6 * T) {
+var big = Math.random() < 0.3 ? 'fish_k' : 'fish_l';
+w.time.delayedCall(1200, function () { if (F.ui) F.ui.toast('The secret spot! A big one!', 2400, 0x7a4d12); });
+w.secretDone();
+return big;
+}
+}
+return rollFish(water, r);
+};
+
+var update = P.update;
+P.update = function (time, delta) {
+update.call(this, time, delta);
+if (!this.player || !this.sys || !this.sys.isActive() || F.session.visit) return;
+var now = Date.now();
+if (this.secret && this.secret.map !== this.mapKey) this.secret = null;
+if (now > (F.session.secretAt || 0)) {
+if (this.secretTry()) F.session.secretAt = now + rand(S.every);
+else F.session.secretAt = now + 20000;
+}
+};
+
+
+U.dogSays = function (line, onTap) {
+var t = this.qcTip, self = this;
+if (!t) return;
+t.removeAll(true);
+var words = this.txt(30, 8, line, 10, INK, { wordWrap: { width: 180 }, lineSpacing: 1 });
+var h = Math.max(30, words.height + 14), wd = Math.min(W - 24, Math.max(150, words.width + 40)), bg = this.add.graphics();
+bg.fillStyle(0xfff6dc, 0.97).fillRoundedRect(0, 0, wd, h, 10).lineStyle(1.5, 0x7a4d26, 0.6).strokeRoundedRect(0, 0, wd, h, 10);
+bg.fillStyle(0xfff6dc, 0.97).fillTriangle(18, 0, 30, 0, 22, -7);
+var face = this.add.image(15, h / 2, 'items', C.ICON.dog).setScale(0.14);
+var z = this.add.zone(wd / 2, h / 2, wd, h).setInteractive({ useHandCursor: true });
+F.tapOn(z, function () { t.setVisible(false); onTap(); });
+t.add([bg, face, words, z]);
+t.setAlpha(0).setVisible(true);
+this.tweens.killTweensOf(t);
+this.tweens.add({ targets: t, alpha: 1, duration: 250 });
+this.time.delayedCall(9000, function () { self.tweens.add({ targets: t, alpha: 0, duration: 400, onComplete: function () { t.setVisible(false); } }); });
 };
 })(window.Farm = window.Farm || {});
 

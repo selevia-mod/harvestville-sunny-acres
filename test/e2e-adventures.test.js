@@ -247,3 +247,70 @@ test('adventures: Go takes you to the place (through Kanor\'s jeep); the dog sni
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('marks over people: "!" for a request, "?" once you have it (and for an adventure to hand over)', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await go(page, 'town');
+  await page.waitForTimeout(800);
+  const who = await page.evaluate(() => { const v = Farm.world.villagers.list.find((x) => !x.shopper && x.visible && x.sprite && x.sprite.visible); return v && v.key; });
+  assert.ok(who, 'a villager out in town');
+  await page.evaluate((who) => { const s = Farm.session.state; Farm.Logic.ensureRequests(s); s.rq.list = [{ from: who, id: 'turnip', n: 2, gold: 100, where: 'person', done: 0 }]; Farm.world.askWant = null; }, who);
+  await page.waitForFunction((who) => Farm.world.askMarks && Farm.world.askMarks[who] && !Farm.world.askMarks[who].q, who, SLOW);
+  await page.evaluate(() => { Farm.Logic.addItem(Farm.session.state, 'turnip', 2); Farm.world.askWant = null; });
+  await page.waitForFunction((who) => Farm.world.askMarks[who] && Farm.world.askMarks[who].q, who, SLOW);
+  await page.evaluate((who) => { const v = Farm.world.villagers.list.find((x) => x.key === who); Farm.world.setFeet(v.sprite.x, v.sprite.y + 2.5 * Farm.Config.TILE); }, who);
+  await frames(page, 3);
+  await shot(page, 'mark-q');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the dog\'s secrets: it smells something, says so; a tap leads there; Dig, Pick, or a big fish by the bubbles; two a day', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { Farm.session.secretAt = 0; });
+  await page.waitForFunction(() => Farm.world.secret && Farm.ui.qcTip.visible, null, SLOW);
+  const kind = await page.evaluate(() => Farm.world.secret.kind);
+  const tip = await page.evaluate(() => { const out = []; Farm.ui.qcTip.list.forEach((o) => { if (o.type === 'Text') out.push(o.text); }); return out.join(' '); });
+  assert.match(tip, /Arf! (I smell something buried|Something smells yummy|The fish are jumping)/);
+  await shot(page, 'secret-tip');
+  // the tap: the dog leads, the farmer follows to the spot
+  await page.evaluate(() => Farm.world.secretGo());
+  await page.waitForFunction(() => !Farm.world.guide, null, { timeout: 120000 });
+  const at = await page.evaluate(() => { const sc = Farm.world.secret, f = Farm.world.feet(), T = Farm.Config.TILE; return Math.hypot(f.x - (sc.sx + 0.5) * T, f.y - (sc.sy + 0.5) * T) / T; });
+  assert.ok(at < 0.8, 'there: ' + at);
+  await shot(page, 'secret-there');
+  if (kind === 'fish') {
+    const fish = await page.evaluate(() => Farm.Logic.rollFish('pond', 0.01));
+    assert.ok(['fish_l', 'fish_k'].includes(fish), fish);
+  } else {
+    await frames(page, 3);
+    assert.strictEqual(await page.evaluate(() => Farm.ui.actionLabel.text), kind === 'chest' ? 'Dig' : 'Pick');
+    await page.evaluate(() => Farm.world.resolve().run());
+    assert.match(await toast(page), kind === 'chest' ? /A buried chest! / : /Truffle/);
+  }
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.session.state.dsec[1], !!Farm.world.secret]), [1, false]);
+  // two a day
+  await page.evaluate(() => { Farm.session.state.dsec[1] = 2; Farm.session.secretAt = 0; });
+  await page.waitForTimeout(1500);
+  assert.strictEqual(await page.evaluate(() => !!Farm.world.secret), false, 'no third today');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('Hana\'s Fiesta Bread: today\'s chapter is a STORY adventure; the Weekly tab shows the story and its keepsake', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; s.wild.n = 200; s.dq = null; s.wq = null; Farm.Logic.refreshQuests(s, Farm.today()); });
+  await page.evaluate(() => Farm.ui.openQuests('daily', 0));
+  await page.waitForTimeout(300);
+  assert.match(await modalText(page), /STORY \| Hana: /);
+  await shot(page, 'story-daily');
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openQuests('weekly', 0); });
+  await page.waitForTimeout(300);
+  assert.match(await modalText(page), /Hana's Fiesta Bread.*0\/5/);
+  await shot(page, 'story-weekly');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

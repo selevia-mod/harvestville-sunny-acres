@@ -21,7 +21,7 @@
   L.advDef = function (key) { return BY[key] || null; };
   L.advOf = function (q) { return q && q.c === 'adv' ? BY[q.a] || null : null; };
   L.advWho = function (a) { return C.ADVENTURE_PEOPLE[a.who] ? C.ADVENTURE_PEOPLE[a.who].name : C.VILLAGERS[a.who] ? C.VILLAGERS[a.who].name : a.who; };
-  L.advIcon = function (a) { return C.ADVENTURE_ICONS_IN ? C.ICON['qi_' + a.key] : C.ICON.sparkle; };
+  L.advIcon = function (a) { return (a.story ? C.STORY_ICONS_IN : C.ADVENTURE_ICONS_IN) ? C.ICON['qi_' + a.key] : C.ICON.sparkle; };
   L.advItemName = function (a, n) { return n > 1 ? (a.items || a.item + 's') : a.item; };
   L.advText = function (a) { return L.advWho(a) + ': ' + (a.n > 1 ? a.n + ' ' : '') + L.advItemName(a, a.n); };
   // the place's name ('the mine', 'your farm', 'town', a hunting place's)
@@ -29,12 +29,13 @@
     if (a.map === 'farm') return 'your farm';
     if (a.map === 'town') return 'town';
     if (a.map === 'mine') return 'the mine';
+    if (a.map === 'house') return 'your kitchen';
     var w = C.WILD.areas[a.map];
     return w ? w.name : a.map;
   };
   // Can this farm go there? (the mine, the farm and town: anyone; a hunting place: once open)
   L.advOpen = function (s, a) {
-    if (a.map === 'farm' || a.map === 'town' || a.map === 'mine') return true;
+    if (a.map === 'farm' || a.map === 'town' || a.map === 'mine' || a.map === 'house') return true;
     return L.isWildMap(a.map) && L.wildOpen(s, a.map);
   };
   // Bram's hammer lies on one floor of the mine (1 to 10, no deeper than you have been, the same all day)
@@ -51,12 +52,15 @@
   };
   // today's 3 adventures: one of each tier when it can (a tier with none open: another tier's), never one person twice
   L.advPick = function (s, dn) {
-    var open = C.ADVENTURES.filter(function (a) { return L.advOpen(s, a); }), out = [];
+    var open = C.ADVENTURES.filter(function (a) { return !a.story && L.advOpen(s, a); }), out = [];
+    // this week's story: today's chapter first (owner, 9 Nov 2026: Hana's Fiesta Bread)
+    var ch = L.storyChapter(dn);
+    if (ch && L.advOpen(s, ch)) out.push(ch);
     var take = function (pool, seed) {
       pool = pool.filter(function (a) { return out.indexOf(a) < 0 && !out.some(function (o) { return o.who === a.who; }); });
       if (pool.length) out.push(pool[Math.floor(L.rand(s.seed || 1, seed, 11) * pool.length) % pool.length]);
     };
-    ['easy', 'medium', 'hard'].forEach(function (t, k) { take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
+    ['easy', 'medium', 'hard'].forEach(function (t, k) { if (!out.some(function (o) { return o.tier === t; })) take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
     for (var k = 0; out.length < 3 && k < 3; k++) take(open, dn * 7 + 50 + k);
     return out;
   };
@@ -78,7 +82,7 @@
       s.dq = { d: dn, all: 0, v: 2, six: 0, list: normal.concat(L.advPick(s, dn).map(function (a) { return L.advStart(s, a, dn); })) };
       delete s.qp;
     }
-    if (news.weekly && s.wq) { s.wq.v = 2; s.wq.good = 0; s.wq.list = []; }
+    if (news.weekly && s.wq) { s.wq.v = 2; s.wq.good = 0; s.wq.st = 0; s.wq.list = []; }
     return news;
   };
   L.daily2 = function (s) { return !!(s.dq && s.dq.v === 2); };
@@ -156,6 +160,37 @@
     return D.six;
   };
 
+  // ---------- the week's story ----------
+  // this week's story (one a week, in turn) and today's chapter of it
+  L.storyOf = function (dn) { return C.STORIES.length ? C.STORIES[Math.floor(L.weekOf(dn) / 7) % C.STORIES.length] : null; };
+  L.storyChapter = function (dn) { var st = L.storyOf(dn); return st ? st.chapters[dn - L.weekOf(dn)] || null : null; };
+  // chapters handed over this week (bits, Monday = 1)
+  L.storyDone = function (s) { var b = (s.wq && s.wq.st) || 0, n = 0; while (b) { n += b & 1; b >>= 1; } return n; };
+  // the keepsakes you have (story keys), and the recipes they gave
+  L.storyKept = function (s, key) { return !!(s.stk && s.stk.indexOf(key) >= 0); };
+  var handOver = L.advHandOver;
+  L.advHandOver = function (s, i) {
+    var q = s.dq && s.dq.list[i], a = L.advOf(q), was = q && q.gv;
+    var r = handOver(s, i);
+    if (typeof r !== 'object' || !a || !a.story || was || !s.wq) return r;
+    s.wq.st = (s.wq.st || 0) | (1 << a.day);
+    var st = L.storyOf(s.dq.d);
+    if (st && st.key === a.story && L.storyDone(s) >= st.need && !L.storyKept(s, st.key)) {
+      s.stk = (s.stk || []).concat([st.key]);
+      L.giveReward(s, st.keepsake);
+      r = merge(r, st.keepsake);
+      r.keepsake = st.key;
+    }
+    return r;
+  };
+  // the recipes a story gave, with a friend's (19zzzz-friends.js: the Kitchen's list)
+  var vsRecipes = L.vsRecipes;
+  L.vsRecipes = function (s) {
+    var out = vsRecipes ? vsRecipes(s) : [];
+    C.STORIES.forEach(function (st) { if (st.recipe && L.storyKept(s, st.key)) out.push({ dish: C.STORY_RECIPES[st.recipe].dish, needs: C.STORY_RECIPES[st.recipe].needs.slice(), story: st.key }); });
+    return out;
+  };
+
   // ---------- the day's chest and the week's ----------
   L.dailyDone = function (s) { return s.dq ? s.dq.list.filter(function (q) { return q.done; }).length : 0; };
   var chestReady = L.chestReady;
@@ -195,8 +230,9 @@
       av.q = [];
       s.dq.list.forEach(function (q, i) { if (q.c === 'adv') av.q.push([i, q.a, q.got || 0, q.gb || 0, q.gv ? 1 : 0]); });
     }
-    if (L.weekly2(s)) av.w = [s.wq.w, s.wq.good || 0];
-    if (av.d || av.w) o.av = av;
+    if (L.weekly2(s)) av.w = [s.wq.w, s.wq.good || 0, s.wq.st || 0];
+    if (s.stk && s.stk.length) av.k = s.stk.slice();
+    if (av.d || av.w || av.k) o.av = av;
     return o;
   };
   var deserialize = L.deserialize;
@@ -218,7 +254,8 @@
       });
     }
     if (s.dq && s.dq.list) s.dq.list = s.dq.list.filter(function (q) { return q.c !== 'adv' || BY[q.a]; }); // (an adventure without its own: dropped)
-    if (s.wq && Array.isArray(av.w) && Number(av.w[0]) === s.wq.w) { s.wq.v = 2; s.wq.good = (Number(av.w[1]) || 0) & 127; }
+    if (s.wq && Array.isArray(av.w) && Number(av.w[0]) === s.wq.w) { s.wq.v = 2; s.wq.good = (Number(av.w[1]) || 0) & 127; s.wq.st = (Number(av.w[2]) || 0) & 127; }
+    s.stk = (Array.isArray(av.k) ? av.k : []).filter(function (k) { return C.STORIES.some(function (st) { return st.key === k; }); });
     return s;
   };
 })(window.Farm = window.Farm || {});

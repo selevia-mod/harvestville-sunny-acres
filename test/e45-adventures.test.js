@@ -19,27 +19,28 @@ const fresh = (hunts) => { const s = L.newState(); s.seed = 11; s.wild.n = hunts
 const advs = (s) => s.dq.list.filter((q) => q.c === 'adv').map((q) => L.advOf(q));
 
 test('16 adventures, each its own item and icon slot, people who exist, places that exist', () => {
-  assert.strictEqual(C.ADVENTURES.length, 16);
-  assert.strictEqual(new Set(C.ADVENTURES.map((a) => a.key)).size, 16);
+  const daily = C.ADVENTURES.filter((a) => !a.story);
+  assert.strictEqual(daily.length, 16);
+  assert.strictEqual(new Set(C.ADVENTURES.map((a) => a.key)).size, C.ADVENTURES.length, 'every key its own (the stories\' too)');
   C.ADVENTURES.forEach((a) => {
     assert.ok(C.VILLAGERS[a.who] || C.ADVENTURE_PEOPLE[a.who], a.key + ': ' + a.who);
-    assert.ok(['farm', 'town', 'mine'].includes(a.map) || C.WILD.areas[a.map], a.key + ': ' + a.map);
+    assert.ok(['farm', 'town', 'mine', 'house'].includes(a.map) || C.WILD.areas[a.map], a.key + ': ' + a.map);
     assert.ok(a.how === 'find' ? a.n >= 1 && a.n <= 3 : a.n === 1 && C.WILD.animals[a.kind] && C.WILD.areas[a.map].animals[a.kind], a.key);
     assert.ok(C.ICON['qi_' + a.key] >= 0);
     assert.ok(!C.ITEMS[a.key] || true);
   });
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16)), plain(C.ADVENTURE_ICONS), 'appended: nothing moves');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16 - C.STORY_ICONS.length, -C.STORY_ICONS.length)), plain(C.ADVENTURE_ICONS), 'appended: nothing moves');
 });
 
 test('a new farm gets adventures it can reach (farm, town, mine, Pulag); a hunter gets one of each kind', () => {
   for (let d = 2; d < 30; d++) {
     const s = fresh(0);
     L.refreshQuests(s, '2026-11-' + String(d).padStart(2, '0'));
-    advs(s).forEach((a) => assert.ok(['farm', 'town', 'mine', 'pulag'].includes(a.map), a.key));
+    advs(s).forEach((a) => assert.ok(['farm', 'town', 'mine', 'pulag', 'house'].includes(a.map), a.key));
     assert.strictEqual(advs(s).length, 3);
     const h = fresh(200);
     L.refreshQuests(h, '2026-11-' + String(d).padStart(2, '0'));
-    assert.deepStrictEqual(plain(advs(h).map((a) => a.tier)), ['easy', 'medium', 'hard'], 'one of each');
+    assert.deepStrictEqual(plain(advs(h).map((a) => a.tier).sort()), ['easy', 'hard', 'medium'], 'one of each');
   }
 });
 
@@ -107,4 +108,31 @@ test('the reason on the list: the person\'s own words', () => {
   L.refreshQuests(s, '2026-11-12');
   const i = s.dq.list.findIndex((q) => q.c === 'adv');
   assert.strictEqual(L.questReason(s, i).text, L.advOf(s.dq.list[i]).say);
+});
+
+test('the week\'s story (owner, 9 Nov 2026): Hana\'s Fiesta Bread, a chapter a day; 5 handed over: the recipe and 3 Sunbeams, once', () => {
+  const s = fresh(200);
+  const days = ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14', '2026-11-15'];
+  let kept = null;
+  days.forEach((day, k) => {
+    L.refreshQuests(s, day);
+    const i = s.dq.list.findIndex((q) => q.c === 'adv' && L.advOf(q).story);
+    assert.ok(i >= 0, day + ': its chapter is one of the day\'s adventures');
+    const a = L.advOf(s.dq.list[i]);
+    assert.strictEqual(a.day, k, 'chapter ' + (k + 1) + ' on day ' + (k + 1));
+    assert.strictEqual(a.who, 'hana');
+    assert.ok(!advs(s).some((x) => x !== a && x.who === 'hana'), 'Hana asks once a day');
+    if (k === 2 || k === 3) return; // (two days missed: 5 of 7 still do it)
+    for (let p = 0; p < a.n; p++) (a.how === 'hunt' ? L.advHunted(s, i) : L.advFind(s, i, p));
+    const stars = s.stars, r = L.advHandOver(s, i);
+    assert.ok(typeof r === 'object', day);
+    if (r.keepsake) { kept = day; assert.strictEqual(s.stars, stars + (s.dq.list[i].reward.stars || 0) + 3); }
+    if (k === 6) assert.strictEqual(L.storyDone(s), 5);
+  });
+  assert.strictEqual(kept, '2026-11-15', 'on the 5th chapter');
+  assert.ok(L.storyKept(s, 'hana_bread'));
+  const back = roundTrip(s);
+  assert.ok(L.storyKept(back, 'hana_bread'), 'kept in the save');
+  assert.deepStrictEqual(plain(L.vsRecipes(back).filter((r) => r.story === 'hana_bread').map((r) => r.dish)), ['fiesta_pandesal'], 'in the Kitchen');
+  assert.strictEqual(back.wq.st, s.wq.st);
 });

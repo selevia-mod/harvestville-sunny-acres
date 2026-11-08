@@ -282,6 +282,16 @@
         chestDesc = 'A good day: open the daily chest. ' + (days.length ? 'So far: ' + days.join(', ') + '.' : 'None yet this week.');
         chestBar = [Math.min(C.DAILY2.goodDays, L.goodDays(s)), C.DAILY2.goodDays];
       }
+      // this week's story (owner, 9 Nov 2026: Hana's Fiesta Bread): its chapters come as daily adventures
+      var story = tab === 'weekly' && L.weekly2 && L.weekly2(s) && L.storyOf ? L.storyOf(set.w) : null;
+      if (story) {
+        var kept = L.storyKept(s, story.key), n = L.storyDone(s);
+        rows.push({
+          people: story.who, name: story.title, tag: 'STORY', done: kept,
+          desc: kept ? 'Done! ' + C.ITEMS[story.recipe].name + ' is in your Kitchen.' : story.intro + ' A chapter each day, as an adventure. ' + story.need + ' chapters: ' + C.ITEMS[story.recipe].name + ' recipe.',
+          progress: kept ? null : [Math.min(n, story.need), story.need], reward: story.keepsake,
+        });
+      }
       rows.push({
         icon: C.ICON.chest, name: chestName, desc: chestDesc, progress: chestDone ? null : chestBar, reward: chest, done: !!chestDone,
         buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
@@ -295,7 +305,7 @@
         var adv = L.advOf && L.advOf(q), advDesc = adv && (q.done ? adv.thanks : (q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) + '.'
           : (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + ' in ') + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
         rows.push({
-          icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? 'ADVENTURE' : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
+          icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? (adv.story ? 'STORY' : 'ADVENTURE') : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
           progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
           buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
             : go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],

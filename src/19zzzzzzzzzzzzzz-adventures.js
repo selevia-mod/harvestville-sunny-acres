@@ -290,7 +290,12 @@
     if (typeof r !== 'object') return;
     sfx('coin');
     if (v && this.villagers) { this.villagers.greet(v, this.dir); this.emote(v, C.ICON.heart); }
-    var done = function () { F.ui.toast('Adventure prize: ' + L.rewardLabel(r) + (C.VILLAGERS[a.who] ? ' and a heart with ' + L.advWho(a) : '') + '!', 2800, 0x7a4d12); };
+    var done = function () {
+      F.ui.toast('Adventure prize: ' + L.rewardLabel(r) + (C.VILLAGERS[a.who] ? ' and a heart with ' + L.advWho(a) : '') + '!', 2800, 0x7a4d12);
+      // the story's keepsake (5 chapters): its person says so
+      var st = r.keepsake && C.STORIES.filter(function (x) { return x.key === r.keepsake; })[0];
+      if (st) F.ui.time.delayedCall(900, function () { sfx('fanfare'); F.ui.dialog(st.title.toUpperCase() + '\n' + L.advWho(a) + ': "' + st.thanks + '"', [{ label: 'Thank you!' }]); });
+    };
     if (mail) F.ui.dialog('FINN\nI\'ll take it to ' + L.advWho(a) + ' right away! ' + L.advWho(a) + ' says: "' + a.thanks + '"', [{ label: 'OK', cb: done }]);
     else if (C.VILLAGERS[a.who] && F.ui.say) { F.ui.say(a.who, L.advWho(a), a.thanks); done(); }
     else F.ui.dialog(L.advWho(a).toUpperCase() + '\n' + a.thanks, [{ label: 'OK', cb: done }]);
