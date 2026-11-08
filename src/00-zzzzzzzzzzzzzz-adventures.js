@@ -45,7 +45,7 @@
   C.ADVENTURE_ICONS = C.ADVENTURES.map(function (a) { return 'qi_' + a.key; });
   C.ADVENTURE_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
   C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
-  C.ADVENTURE_ICONS_IN = false; // (true once their picture is painted into the items sheet: tools/art/quest-items-import.js)
+  C.ADVENTURE_ICONS_IN = true; // (their picture is in the items sheet: tools/art/quest-items-import.js, 8 Nov 2026)
   // the day: 3 normal quests and 3 adventures, any 5 open the day's chest; all 6, one Sunbeam more
   C.DAILY2 = { normal: 3, need: 5, six: { stars: 1 }, goodDays: 5 };
   // prizes: one hidden piece, three pieces, a hunt
