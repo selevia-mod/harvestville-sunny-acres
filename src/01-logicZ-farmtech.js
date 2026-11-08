@@ -500,4 +500,27 @@
     L.autoWaterAll(s);
     return s;
   };
+
+  // ---------- visitors see your sprinklers (owner, 8 Nov 2026: "Sprinkler on snows park farm when i visit, i cannot see
+  // them"): the snapshot says where each stands and its kind, [tile, kind + 1, ...]; a visit puts them back on their soil
+  // (from another player: checked, a planted tile or an unknown kind is dropped; the visit never waters with them) ----------
+  var snapshot = L.snapshot;
+  L.snapshot = function (s) {
+    var snap = snapshot.apply(this, arguments), sp = [];
+    Object.keys(s.soil || {}).forEach(function (k) { var t = s.soil[k]; if (t && t.sp && sp.length < 120) sp.push(Number(k), t.sp); });
+    if (snap && sp.length) snap.sp = sp;
+    return snap;
+  };
+  var visitState = L.visitState;
+  L.visitState = function (snap, mine) {
+    var s = visitState.apply(this, arguments);
+    if (!s || !snap || !Array.isArray(snap.sp)) return s;
+    for (var k = 0; k + 1 < Math.min(snap.sp.length, 120); k += 2) {
+      var idx = Number(snap.sp[k]), v = Number(snap.sp[k + 1]), t = s.soil[idx];
+      if (!t || t.c || !(v >= 1 && v <= C.SPRINKLERS.length) || Math.floor(v) !== v) continue;
+      t.sp = v;
+      t.w = 0;
+    }
+    return s;
+  };
 })(window.Farm = window.Farm || {});

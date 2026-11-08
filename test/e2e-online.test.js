@@ -496,6 +496,30 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: a visitor sees the owner\'s sprinklers, each its own kind (owner, 8 Nov 2026: "i cannot see them")', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Snow Park');
+  await nameFarm(friend.page, 'Ana Acres');
+  const tiles = await host.page.evaluate(() => {
+    const s = Farm.session.state, W = Farm.world.map.width, a = 21 * W + 25, b = 22 * W + 28;
+    [a, b].forEach((k) => Farm.Logic.till(s, k));
+    s.soil[a].sp = 1; s.soil[b].sp = 3;
+    return [a, b];
+  });
+  await host.page.evaluate(() => Farm.Online.publish(true));
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await friend.page.waitForFunction(() => Farm.world && Farm.world.state && Farm.world.state.isVisit && !Farm.world.busy, null, SLOW);
+  await friend.page.waitForTimeout(2500); // (the owner's phone sends the whole field once the visitor is there: 19zg-live-farm.js)
+  await friend.page.waitForFunction((t) => t.every((k) => Farm.world.ftSp && Farm.world.ftSp[k]), tiles, SLOW);
+  assert.deepStrictEqual(await friend.page.evaluate((t) => t.map((k) => Farm.world.state.soil[k].sp), tiles), [1, 3]);
+  await friend.page.evaluate((t) => { const W = Farm.world.map.width, T = Farm.Config.TILE; Farm.world.player.body.reset((t[0] % W) * T + T / 2, (Math.floor(t[0] / W) + 2) * T); }, tiles);
+  await friend.page.waitForTimeout(500);
+  await shot(friend.page, 'visit-sprinklers');
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: hold food, face a friend: Give puts it in their bag at once; not friends, it stays yours (owner, 30 Oct)', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);

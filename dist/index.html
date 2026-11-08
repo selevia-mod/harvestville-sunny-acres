@@ -12629,6 +12629,29 @@ if (n) s.box.push(q ? { id: e[0], n: n, q: q } : { id: e[0], n: n });
 L.autoWaterAll(s);
 return s;
 };
+
+
+
+
+var snapshot = L.snapshot;
+L.snapshot = function (s) {
+var snap = snapshot.apply(this, arguments), sp = [];
+Object.keys(s.soil || {}).forEach(function (k) { var t = s.soil[k]; if (t && t.sp && sp.length < 120) sp.push(Number(k), t.sp); });
+if (snap && sp.length) snap.sp = sp;
+return snap;
+};
+var visitState = L.visitState;
+L.visitState = function (snap, mine) {
+var s = visitState.apply(this, arguments);
+if (!s || !snap || !Array.isArray(snap.sp)) return s;
+for (var k = 0; k + 1 < Math.min(snap.sp.length, 120); k += 2) {
+var idx = Number(snap.sp[k]), v = Number(snap.sp[k + 1]), t = s.soil[idx];
+if (!t || t.c || !(v >= 1 && v <= C.SPRINKLERS.length) || Math.floor(v) !== v) continue;
+t.sp = v;
+t.w = 0;
+}
+return s;
+};
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logicZ-skills.js
@@ -31394,8 +31417,10 @@ var MAX_TILES = 64 * 64;
 
 
 var sentSoil = null, sentDebris = null, known = {}, soon = null;
-var packSoil = function (t) { return t ? [t.w ? 1 : 0, t.c || '', Math.round(t.p || 0), Math.round(t.r || 0)] : 0; };
-var same = function (a, b) { return a === b || (a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]); };
+
+
+var packSoil = function (t) { return t ? [t.w ? 1 : 0, t.c || '', Math.round(t.p || 0), Math.round(t.r || 0), t.sp || 0, t.f || 0] : 0; };
+var same = function (a, b) { return a === b || (a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5]); };
 var ownFarm = function (w) { return w && w.mapKey === 'farm' && w.state && !w.state.isVisit && !F.session.visit && w.sys && w.sys.isActive(); };
 var visitors = function () { return Object.keys(O.others).filter(function (k) { return O.others[k].map === 'farm'; }); };
 
@@ -31444,7 +31469,11 @@ var tileOf = function (w, idx) { return { x: idx % w.map.width, y: Math.floor(id
 var readSoil = function (row) {
 if (!Array.isArray(row) || row.length < 5) return null;
 var c = typeof row[2] === 'string' && C.CROPS[row[2]] ? row[2] : null;
-return { w: row[1] ? 1 : 0, c: c, p: Number(row[3]) || 0, r: Number(row[4]) || 0 };
+var t = { w: row[1] ? 1 : 0, c: c, p: Number(row[3]) || 0, r: Number(row[4]) || 0 };
+var sp = Math.floor(Number(row[5])), f = Math.floor(Number(row[6]));
+if (!c && sp >= 1 && sp <= ((C.SPRINKLERS && C.SPRINKLERS.length) || 0)) { t.sp = sp; t.w = 0; }
+else if (f >= 1 && f <= ((C.FERTS && C.FERTS.length) || 0)) t.f = f;
+return t;
 };
 var okIdx = function (w, i) { return Number.isInteger(i) && i >= 0 && i < Math.min(MAX_TILES, w.map.width * w.map.height); };
 

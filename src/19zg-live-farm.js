@@ -16,8 +16,10 @@
 
   // ---------- the owner's side ----------
   var sentSoil = null, sentDebris = null, known = {}, soon = null;
-  var packSoil = function (t) { return t ? [t.w ? 1 : 0, t.c || '', Math.round(t.p || 0), Math.round(t.r || 0)] : 0; };
-  var same = function (a, b) { return a === b || (a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]); };
+  // [watered, crop, planted, regrow, sprinkler kind + 1, fertilizer level] (the last two: owner, 8 Nov 2026, "Sprinkler on
+  // snows park farm when i visit, i cannot see them" - the whole field sent on arrival rebuilt each tile without them)
+  var packSoil = function (t) { return t ? [t.w ? 1 : 0, t.c || '', Math.round(t.p || 0), Math.round(t.r || 0), t.sp || 0, t.f || 0] : 0; };
+  var same = function (a, b) { return a === b || (a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] && a[4] === b[4] && a[5] === b[5]); };
   var ownFarm = function (w) { return w && w.mapKey === 'farm' && w.state && !w.state.isVisit && !F.session.visit && w.sys && w.sys.isActive(); };
   var visitors = function () { return Object.keys(O.others).filter(function (k) { return O.others[k].map === 'farm'; }); };
 
@@ -66,7 +68,11 @@
   var readSoil = function (row) {
     if (!Array.isArray(row) || row.length < 5) return null; // [idx, 0]: the soil is gone
     var c = typeof row[2] === 'string' && C.CROPS[row[2]] ? row[2] : null;
-    return { w: row[1] ? 1 : 0, c: c, p: Number(row[3]) || 0, r: Number(row[4]) || 0 };
+    var t = { w: row[1] ? 1 : 0, c: c, p: Number(row[3]) || 0, r: Number(row[4]) || 0 };
+    var sp = Math.floor(Number(row[5])), f = Math.floor(Number(row[6]));
+    if (!c && sp >= 1 && sp <= ((C.SPRINKLERS && C.SPRINKLERS.length) || 0)) { t.sp = sp; t.w = 0; } // (an older phone sends neither)
+    else if (f >= 1 && f <= ((C.FERTS && C.FERTS.length) || 0)) t.f = f;
+    return t;
   };
   var okIdx = function (w, i) { return Number.isInteger(i) && i >= 0 && i < Math.min(MAX_TILES, w.map.width * w.map.height); };
 
