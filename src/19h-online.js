@@ -714,6 +714,9 @@
       var mine = F.session.state;
       F.session.state = v.state;
       try { create.call(this); } finally { F.session.state = mine; }
+      // you in what you wear: the farmer was drawn while their copy stood in, which has no look of yours (owner, 8 Nov
+      // 2026: "when i visit ... it was in old clothes and when i start moving it will retrieve my original costume")
+      if (this.player && this.applyLook && this.player.texture.key !== F.playerKey()) this.applyLook();
       F.bus.emit('hud'); // the top bar is yours: your gold, energy, date and bag (it was drawn from their copy)
       // ...and so is the weather on screen, so the rain sound follows it (29 Oct, OPPO: their copy's rainy day buzzed on a dry visit)
       if (F.Audio) {

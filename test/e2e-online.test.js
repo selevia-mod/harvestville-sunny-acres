@@ -1826,9 +1826,15 @@ test('online: on a visit the top bar is yours: your gold, your bag, your date (2
     Farm.ui.refresh();
     return { day: Farm.ui.dayText.text, slot2: s.inv[2] && s.inv[2].id };
   });
+  // wearing a look (owner, 8 Nov 2026: "when i visit and my character landed, it was in old clothes")
+  server.db.looksOwned.set(guest.uid, ['fire']);
+  await guest.page.evaluate(() => Farm.Online.loadLooks());
+  await guest.page.evaluate(() => Farm.ui.wearLook('fire'));
+  await guest.page.waitForFunction(() => Farm.world.player.texture.key === 'look_fire_boy', null, SLOW);
   await guest.page.waitForTimeout(1500);
   await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
   await waitWorld(guest.page, true);
+  assert.strictEqual(await guest.page.evaluate(() => Farm.world.player.texture.key), 'look_fire_boy', 'you land in your look, before a step');
   await guest.page.waitForTimeout(300); // well before the clock's next minute
   const hud = await guest.page.evaluate(() => ({
     gold: Farm.ui.goldText.text, day: Farm.ui.dayText.text,
