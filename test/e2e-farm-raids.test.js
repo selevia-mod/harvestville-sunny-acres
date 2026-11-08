@@ -119,7 +119,11 @@ async function go(page, map, spawn) {
 test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), training, and a practice raid on a bandit farm', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
-  await page.evaluate(() => { const s = Farm.session.state; s.gold = 50000; const r = Farm.Logic.frState(s); r.camp = 3; Farm.ui.openRaidCamp('party', 0); });
+  await page.evaluate(() => { window.gameHost.quiet = false; const s = Farm.session.state; s.gold = 50000; const r = Farm.Logic.frState(s); r.camp = 3; Farm.ui.openRaidCamp('party', 0); });
+  await page.waitForTimeout(400);
+  assert.match(await modalText(page), /FARM RAIDS.*Train raiders at your Raid Camp/, 'the first time: its tour');
+  await shot(page, 'raid-tour');
+  await page.evaluate(() => { window.gameHost.quiet = true; Farm.ui.closeAll(); Farm.ui.openRaidCamp('party', 0); });
   await page.waitForTimeout(400);
   assert.match(await modalText(page), /Raid Camp.*Power \d+.*Raid Camp, level 3.*Goat.*Crows.*Cat.*Carabao/);
   await shot(page, 'raid-camp');
@@ -150,7 +154,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await shot(page, 'raid-farm-start');
   assert.strictEqual(setup.map, 'farm');
   assert.ok(setup.crops >= 10, 'its ripe crops in the field: ' + setup.crops);
-  assert.ok(setup.defs.includes('fence') && setup.defs.includes('scarecrow'), setup.defs.join());
+  assert.ok(setup.defs.includes('fence'), setup.defs.join()); // (the first bandit farm: fences only, 9 Nov 2026)
   assert.ok(setup.drop > 50, 'open ground to come down on');
   await shot(page, 'raid-farm-start');
   assert.strictEqual(await sendIn({ goat: 10, crow: 6, cat: 4 }), 20, 'all 20 went in');

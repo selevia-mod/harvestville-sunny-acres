@@ -5523,7 +5523,7 @@ raiderOrder: ['goat', 'crow', 'cat', 'carabao', 'monkey', 'boar', 'rooster', 'ba
 level: { mult: [1, 1.25, 1.55, 1.9, 2.3], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
 
 defenses: {
-dog: { name: 'Guard Dog', hp: 160, dps: 14, range: 3, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
+dog: { name: 'Guard Dog', hp: 140, dps: 10, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
 scarecrow: { name: 'Scarecrow', hp: 90, dps: 0, range: 3, scares: ['crow', 'goat'], beats: 'crow', say: 'Scares crows and goats away nearby.' },
 fence: { name: 'Strong Fence', hp: 120, dps: 0, range: 0, blocks: true, beats: 'goat', say: 'Blocks the way. Carabao and boar break it.' },
 goose: { name: 'Guard Goose', hp: 110, dps: 10, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
@@ -5542,13 +5542,15 @@ loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
 power: { raider: 3, defense: 4, farm: 10 },
 
 bandits: [
-{ key: 'b1', name: 'Bandit Shack', defs: { scarecrow: 1, fence: 4 }, lv: 1, loot: { gold: 800, crops: 12, produce: 6, stall: 4 } },
-{ key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 2, fence: 6, dog: 1 }, lv: 1, loot: { gold: 1500, crops: 20, produce: 10, stall: 8 } },
-{ key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1 }, lv: 2, loot: { gold: 2600, crops: 28, produce: 14, stall: 12 } },
-{ key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 3, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 2, tower: 1 }, lv: 2, loot: { gold: 4000, crops: 36, produce: 18, stall: 16 } },
-{ key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 3, fence: 10, dog: 1, goose: 2, beebox: 2, mudpit: 2, tower: 2, sili: 2, sprinkler: 1, kampana: 1 }, lv: 3, loot: { gold: 7000, crops: 48, produce: 24, stall: 24 } },
+{ key: 'b1', name: 'Bandit Shack', defs: { fence: 4 }, lv: 1, loot: { gold: 400, crops: 12, produce: 6, stall: 4 } },
+{ key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 1, fence: 6 }, lv: 1, loot: { gold: 600, crops: 20, produce: 10, stall: 8 } },
+{ key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
+{ key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1 }, lv: 2, loot: { gold: 1300, crops: 36, produce: 18, stall: 16 } },
+{ key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 2, fence: 10, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1, sili: 1, sprinkler: 1, kampana: 1 }, lv: 2, loot: { gold: 2000, crops: 48, produce: 24, stall: 24 } },
 ],
+
 points: [0, 10, 25, 50],
+lootValue: { gold: 1, crops: 15, produce: 25, stall: 20 },
 };
 
 
@@ -16783,9 +16785,10 @@ else if (b.t >= b.ticks) b.end = 'time';
 else if (!stillIn) b.end = 'gone';
 };
 
+
 L.frShare = function (b) {
-var all = 0, got = 0;
-Object.keys(b.total).forEach(function (k) { all += b.total[k]; got += b.taken[k] || 0; });
+var all = 0, got = 0, v = R.lootValue;
+Object.keys(b.total).forEach(function (k) { all += b.total[k] * (v[k] || 1); got += (b.taken[k] || 0) * (v[k] || 1); });
 return all ? got / all : 0;
 };
 L.frStars = function (b) { var x = L.frShare(b); return x >= 0.9 ? 3 : x >= 0.6 ? 2 : x >= 0.3 ? 1 : 0; };
@@ -16803,7 +16806,7 @@ return b;
 
 L.banditPrize = function (s, key, b) {
 var bd = R.bandits.filter(function (x) { return x.key === key; })[0], stars = L.frStars(b), r = L.frState(s);
-var gold = Math.round((b.taken.gold || 0) + (b.taken.crops || 0) * 15 + (b.taken.produce || 0) * 25 + (b.taken.stall || 0) * 20);
+var v = R.lootValue, gold = Math.round((b.taken.gold || 0) * v.gold + (b.taken.crops || 0) * v.crops + (b.taken.produce || 0) * v.produce + (b.taken.stall || 0) * v.stall);
 var first = stars > (r.won[key] || 0);
 var pts = first ? R.points[stars] - R.points[r.won[key] || 0] : Math.round(R.points[stars] / 5);
 if (first) r.won[key] = stars;
@@ -47627,10 +47630,58 @@ return { key: 'items', frame: L.defenseIcon(k) };
 if (F.SHEETS) { ['raid_crow', 'guard_goose'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
 
 
+
+C.TIPS.push({ key: 'farmraid_tour', text: 'FARM RAIDS' });
+var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+var ri = function (k) { return C.ICON['ri_' + k] != null ? C.ICON['ri_' + k] : C.ICON.star; };
+F.TOURS.raids = {
+title: 'FARM RAIDS',
+steps: [
+{
+text: 'Train raiders at your Raid Camp: goats eat crops, crows fly over fences, cats take eggs and milk.',
+draw: function (ui, sc, move) {
+['goat', 'crow', 'cat', 'carabao'].forEach(function (k, n) {
+var im = icon(ui, sc, 52 + n * 56, 66, ri(k), 0.36);
+if (move) ui.tweens.add({ targets: im, y: 56, duration: 380, delay: n * 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+});
+},
+},
+{
+text: 'Raid a farm: press and drag on the light ground to send them in. Two minutes to grab what you can.',
+draw: function (ui, sc, move) {
+var f = icon(ui, sc, 80, 70, ri('flag'), 0.38), g = icon(ui, sc, 180, 70, ri('goat'), 0.3);
+if (move) ui.tweens.add({ targets: g, x: 220, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+void f;
+},
+},
+{
+text: 'Guard your own farm: buy defenses at Mira\'s (Defenses) and place them with Decorate. Fences and your dog help too.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 90, 70, ri('shield'), 0.38);
+var d = icon(ui, sc, 180, 70, C.ICON.dog, 0.34);
+if (move) ui.tweens.add({ targets: d, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 });
+},
+},
+{
+text: 'Practice on the bandit farms first, or test your own. Stars win Gold and Raid Points.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 90, 70, ri('bandit'), 0.38);
+var p = icon(ui, sc, 180, 70, ri('points'), 0.36);
+if (move) ui.tweens.add({ targets: p, scale: p.scale * 1.15, duration: 420, yoyo: true, repeat: -1 });
+},
+},
+],
+};
+
+
 var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
 var why = { gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first.', buy: 'Buy a Raid Camp at Mira\'s first.' };
 U.openRaidCamp = function (tab, page) {
 var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
+if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'farmraid_tour')) {
+if (F.world) F.world.save();
+return this.tour('raids', function () { self.openRaidCamp(tab, page); });
+}
 if (!r.camp && L.hasRaidCamp(s)) r.camp = 1;
 L.trainDone(s, now);
 var redo = function (t, p) { self.closeModal(); self.openRaidCamp(t || tab, p == null ? page : p); };

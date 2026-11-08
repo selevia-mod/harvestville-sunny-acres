@@ -41,7 +41,7 @@
     level: { mult: [1, 1.25, 1.55, 1.9, 2.3], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
     // 10 defenses: hp, damage a second, range (tiles), what it does; per level x the same mult. place: how it is set.
     defenses: {
-      dog: { name: 'Guard Dog', hp: 160, dps: 14, range: 3, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
+      dog: { name: 'Guard Dog', hp: 140, dps: 10, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
       scarecrow: { name: 'Scarecrow', hp: 90, dps: 0, range: 3, scares: ['crow', 'goat'], beats: 'crow', say: 'Scares crows and goats away nearby.' },
       fence: { name: 'Strong Fence', hp: 120, dps: 0, range: 0, blocks: true, beats: 'goat', say: 'Blocks the way. Carabao and boar break it.' },
       goose: { name: 'Guard Goose', hp: 110, dps: 10, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
@@ -59,14 +59,16 @@
     // Farm Power: these weights (adjustable)
     power: { raider: 3, defense: 4, farm: 10 },
     // practice: the bandit farms (step 1), from easy to hard; points and gold come from the game, never from a player
-    bandits: [
-      { key: 'b1', name: 'Bandit Shack', defs: { scarecrow: 1, fence: 4 }, lv: 1, loot: { gold: 800, crops: 12, produce: 6, stall: 4 } },
-      { key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 2, fence: 6, dog: 1 }, lv: 1, loot: { gold: 1500, crops: 20, produce: 10, stall: 8 } },
-      { key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1 }, lv: 2, loot: { gold: 2600, crops: 28, produce: 14, stall: 12 } },
-      { key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 3, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 2, tower: 1 }, lv: 2, loot: { gold: 4000, crops: 36, produce: 18, stall: 16 } },
-      { key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 3, fence: 10, dog: 1, goose: 2, beebox: 2, mudpit: 2, tower: 2, sili: 2, sprinkler: 1, kampana: 1 }, lv: 3, loot: { gold: 7000, crops: 48, produce: 24, stall: 24 } },
+    bandits: [ // (9 Nov 2026: tuned by playing each with the party a camp of its level holds: docs/raids.md)
+      { key: 'b1', name: 'Bandit Shack', defs: { fence: 4 }, lv: 1, loot: { gold: 400, crops: 12, produce: 6, stall: 4 } },
+      { key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 1, fence: 6 }, lv: 1, loot: { gold: 600, crops: 20, produce: 10, stall: 8 } },
+      { key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
+      { key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1 }, lv: 2, loot: { gold: 1300, crops: 36, produce: 18, stall: 16 } },
+      { key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 2, fence: 10, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1, sili: 1, sprinkler: 1, kampana: 1 }, lv: 2, loot: { gold: 2000, crops: 48, produce: 24, stall: 24 } },
     ],
+
     points: [0, 10, 25, 50], // Raid Points by stars
+    lootValue: { gold: 1, crops: 15, produce: 25, stall: 20 }, // each kind's worth in Gold: the stars and a practice prize
   };
   // the raid icons (art-src/raids/raid_icons.png: the 8 raiders' heads, Raid Points, a shield, the raid flag, a bandit),
   // appended to the icons (nothing moves); C.FRAID_ICONS_IN once their picture is in (tools/art/raids-import.js)

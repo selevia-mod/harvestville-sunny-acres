@@ -328,9 +328,10 @@
     else if (!stillIn) b.end = 'gone';
   };
   // the share of all the loot that was taken (0..1), and the stars (30% / 60% / 90%)
+  // (each kind by its worth in Gold: 800 Gold must not outweigh a field of crops, 9 Nov 2026)
   L.frShare = function (b) {
-    var all = 0, got = 0;
-    Object.keys(b.total).forEach(function (k) { all += b.total[k]; got += b.taken[k] || 0; });
+    var all = 0, got = 0, v = R.lootValue;
+    Object.keys(b.total).forEach(function (k) { all += b.total[k] * (v[k] || 1); got += (b.taken[k] || 0) * (v[k] || 1); });
     return all ? got / all : 0;
   };
   L.frStars = function (b) { var x = L.frShare(b); return x >= 0.9 ? 3 : x >= 0.6 ? 2 : x >= 0.3 ? 1 : 0; };
@@ -348,7 +349,7 @@
   // { gold, pts, stars }; the raiders sent are used up, as in a real raid
   L.banditPrize = function (s, key, b) {
     var bd = R.bandits.filter(function (x) { return x.key === key; })[0], stars = L.frStars(b), r = L.frState(s);
-    var gold = Math.round((b.taken.gold || 0) + (b.taken.crops || 0) * 15 + (b.taken.produce || 0) * 25 + (b.taken.stall || 0) * 20);
+    var v = R.lootValue, gold = Math.round((b.taken.gold || 0) * v.gold + (b.taken.crops || 0) * v.crops + (b.taken.produce || 0) * v.produce + (b.taken.stall || 0) * v.stall);
     var first = stars > (r.won[key] || 0);
     var pts = first ? R.points[stars] - R.points[r.won[key] || 0] : Math.round(R.points[stars] / 5);
     if (first) r.won[key] = stars;
