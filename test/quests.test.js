@@ -39,14 +39,14 @@ test('actions are counted: harvesting, watering, gifts, a talk once a day per vi
   assert.strictEqual(L.count(s, 'earned'), 900, 'some counters come from the records');
 });
 
-test('10 daily quests a day: 5 easy, 2 medium, 3 hard with a Power-Up, a Star and a Pet Meal', () => {
+test('6 daily quests a day (owner, 8 Nov 2026): 3 normal ones and 3 adventures', () => {
   const s = fresh();
   const news = L.refreshQuests(s, TODAY);
   assert.ok(news.daily && news.weekly && news.monthly);
-  assert.strictEqual(s.dq.list.length, 10);
-  assert.deepStrictEqual(plain(s.dq.list.map((q) => q.tier)), ['easy', 'easy', 'easy', 'easy', 'easy', 'medium', 'medium', 'hard', 'hard', 'hard']);
-  assert.deepStrictEqual(plain(s.dq.list.slice(7).map((q) => q.reward)), [{ item: 'power_up', n: 1 }, { stars: 1 }, { item: 'pet_meal', n: 1 }]);
-  assert.strictEqual(new Set(s.dq.list.slice(0, 5).map((q) => q.c)).size, 5, 'the easy ones are all different');
+  assert.strictEqual(s.dq.list.length, 6);
+  assert.deepStrictEqual(plain(s.dq.list.map((q) => q.tier)), ['easy', 'easy', 'easy', 'adventure', 'adventure', 'adventure']);
+  assert.strictEqual(new Set(s.dq.list.slice(0, 3).map((q) => q.c)).size, 3, 'the normal ones are all different');
+  assert.strictEqual(new Set(s.dq.list.slice(3).map((q) => L.advOf(q).who)).size, 3, 'three different people ask');
   const again = JSON.stringify(s.dq);
   L.refreshQuests(s, TODAY);
   assert.strictEqual(JSON.stringify(s.dq), again, 'the same list all day');
@@ -65,7 +65,7 @@ test('winter has crops too, so crop quests come up all year', () => {
   assert.ok(crop > 0);
 });
 
-test('claiming quests: only when done, only once; all 10 give a bonus; they count for the month', () => {
+test('claiming quests: only when done, only once; any 5 open the chest, all 6 a Sunbeam more; they count for the month', () => {
   const s = fresh();
   L.refreshQuests(s, TODAY);
   const q = s.dq.list[0];
@@ -78,35 +78,51 @@ test('claiming quests: only when done, only once; all 10 give a bonus; they coun
   assert.ok(s.gold > gold || s.stars > stars || L.countItem(s, r.item) > 0);
   assert.strictEqual(L.claimQuest(s, 'daily', 0), 'done');
   assert.strictEqual(L.count(s, 'dquest'), 1);
-  // finish the rest
+  // the other two normal ones, and two adventures: found, then handed over
   s.dq.list.forEach((x) => { x.b = -1e9; });
-  for (let i = 1; i < 10; i++) assert.ok(typeof L.claimQuest(s, 'daily', i) === 'object', 'quest ' + i);
-  assert.ok(L.chestReady(s, 'daily'));
+  for (let i = 1; i < 3; i++) assert.ok(typeof L.claimQuest(s, 'daily', i) === 'object', 'quest ' + i);
+  assert.strictEqual(L.claimQuest(s, 'daily', 3), 'notyet', 'an adventure: not before it is handed over');
+  [3, 4].forEach((i) => { for (let k = 0; k < s.dq.list[i].n; k++) L.advFind(s, i, k); assert.ok(typeof L.advHandOver(s, i) === 'object'); });
+  assert.ok(L.chestReady(s, 'daily'), '5 of 6');
   const st = s.stars;
   L.claimChest(s, 'daily');
   assert.strictEqual(s.stars, st + 1);
   assert.strictEqual(L.claimChest(s, 'daily'), 'notyet', 'once');
+  // the 6th: a Sunbeam more, once
+  for (let k = 0; k < s.dq.list[5].n; k++) L.advFind(s, 5, k);
+  const st2 = s.stars, r6 = L.advHandOver(s, 5);
+  assert.strictEqual(s.stars, st2 + (s.dq.list[5].reward.stars || 0) + 1, 'all 6: +1');
+  assert.ok(r6.stars >= 1);
   const month = s.mq.list.find((x) => x.c === 'dquest');
-  assert.strictEqual(L.questProgress(s, month), 10, 'counted for the month');
-  assert.ok(!L.questReady(s, month), 'which wants 20');
+  assert.strictEqual(L.questProgress(s, month), 6, 'counted for the month');
+  assert.strictEqual(L.count(s, 'adv'), 3);
 });
 
-test('weekly goals: 5 a week, a chest when all are done, counted for the month', () => {
+test('the week (owner, 8 Nov 2026): its chest opens with 5 good days, and counts for the month', () => {
   const s = fresh();
   L.refreshQuests(s, TODAY);
-  assert.strictEqual(s.wq.list.length, 5);
-  s.wq.list.forEach((q) => { q.b = -1e9; });
-  for (let i = 0; i < 5; i++) L.claimQuest(s, 'weekly', i);
+  assert.ok(L.weekly2(s));
+  assert.strictEqual(s.wq.list.length, 0);
+  const goodDay = (day) => {
+    L.refreshQuests(s, day);
+    s.dq.list.forEach((x) => { x.b = -1e9; });
+    for (let i = 0; i < 3; i++) L.claimQuest(s, 'daily', i);
+    [3, 4].forEach((i) => { for (let k = 0; k < s.dq.list[i].n; k++) L.advFind(s, i, k); L.advHandOver(s, i); });
+    assert.ok(typeof L.claimChest(s, 'daily') === 'object', day);
+  };
+  ['2026-11-02', '2026-11-03', '2026-11-05', '2026-11-06'].forEach(goodDay);
+  assert.strictEqual(L.goodDays(s), 4);
+  assert.ok(!L.chestReady(s, 'weekly'));
+  goodDay('2026-11-08');
+  assert.strictEqual(L.goodDays(s), 5);
   const stars = s.stars;
   assert.ok(typeof L.claimChest(s, 'weekly') === 'object');
   assert.strictEqual(s.stars, stars + C.WEEKLY.chest.stars);
-  assert.strictEqual(L.count(s, 'wchest'), 1);
-  const w = s.wq.w;
-  L.refreshQuests(s, '2026-11-08'); // Sunday: the same week
-  assert.strictEqual(s.wq.w, w);
+  assert.strictEqual(L.count(s, 'wchest'), 1, 'for the month\'s "Open 3 weekly chests"');
+  const back = roundTrip(s);
+  assert.deepStrictEqual([back.wq.v, back.wq.good, back.wq.chest], [2, s.wq.good, 1], 'kept in the save');
   L.refreshQuests(s, '2026-11-09'); // Monday: a new week
-  assert.notStrictEqual(s.wq.w, w);
-  assert.strictEqual(s.wq.chest, 0);
+  assert.deepStrictEqual([s.wq.good, s.wq.chest], [0, 0]);
 });
 
 test('the monthly quest (owner, 30 Oct): 20 daily quests, 600 plants, 3 weekly chests, 300 hunts, 100 dishes; 10,000G, 5 Sunbeams and 50 Pet Meals', () => {

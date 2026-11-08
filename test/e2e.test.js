@@ -2209,8 +2209,8 @@ test('phase 3: the daily gift, claiming a quest, a request on the board, the tra
   assert.strictEqual(s.lg.streak, 1);
   await page.evaluate(() => { window.gameHost.quiet = true; });
 
-  // 10 daily quests; finish one and claim it from the Quests button
-  assert.strictEqual(s.dq.list.length, 10);
+  // 6 daily quests (owner, 8 Nov 2026: 3 normal, 3 adventures); finish one and claim it from the Quests button
+  assert.strictEqual(s.dq.list.length, 6);
   await page.evaluate(() => { const q = Farm.session.state.dq.list[0]; q.b -= q.n; });
   await page.touchscreen.tap(330, 134); // Quests
   await page.waitForFunction(() => Farm.ui.modals.length === 1, null, SLOW);
@@ -2842,7 +2842,12 @@ test('slim lists (Quests): every row in one list that scrolls; a row out of view
   const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
   const { page, problems, context } = await open(save);
   await closeAll(page);
-  await page.evaluate(() => { const s = Farm.session.state, q = s.dq.list[9]; q.b = Farm.Logic.count(s, q.c) - q.n; Farm.ui.openQuests('daily', 0); });
+  // (a day begun before the 6-a-day update keeps its 10: a list long enough to scroll)
+  await page.evaluate(() => {
+    const s = Farm.session.state, Q = Farm.Config.QUESTS;
+    s.dq = { d: s.dq.d, all: 0, list: Q.easy.slice(0, 10).map((x) => ({ c: x.c, n: x.n, text: x.text.replace('{n}', x.n), reward: x.reward, b: Farm.Logic.count(s, x.c), done: 0, tier: 'easy' })) };
+    const q = s.dq.list[9]; q.b = Farm.Logic.count(s, q.c) - q.n; Farm.ui.openQuests('daily', 0);
+  });
   await frames(page, 3);
   // all 11 rows (the chest and 10 quests) are there; the last one's Claim is out of view and takes no taps yet
   const before = await page.evaluate(() => {

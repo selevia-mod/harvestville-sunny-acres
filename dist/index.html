@@ -5369,6 +5369,65 @@ C.ACTION_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_OR
 C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
 })(window.Farm = window.Farm || {});
 
+// ---- src/00-zzzzzzzzzzzzzz-adventures.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+
+
+
+C.ADVENTURES = [
+{ key: 'hammer', who: 'bram', item: 'Lucky Hammer', map: 'mine', how: 'find', n: 1, tier: 'easy',
+say: 'I dropped my lucky hammer down the mine!', thanks: 'My lucky hammer! The forge sings again. Thank you!' },
+{ key: 'moonflower', who: 'ivy', item: 'Moon Flower', map: 'farm', how: 'find', n: 1, tier: 'easy',
+say: 'A moon flower opened on your farm. I need it for medicine.', thanks: 'Still glowing! This will help so many people.' },
+{ key: 'letters', who: 'finn', item: 'Lost Letter', items: 'Lost Letters', map: 'town', how: 'find', n: 3, tier: 'medium',
+say: 'The wind took three letters out of my bag!', thanks: 'All three! Nobody misses their mail today. Thanks, friend!' },
+{ key: 'bell', who: 'owen', item: 'Little Lamb Bell', map: 'pulag', how: 'find', n: 1, tier: 'easy',
+say: 'A lamb came home without its bell. It\'s somewhere in Pulag.', thanks: 'Ding-ding! The little lamb will be so happy.' },
+{ key: 'orchid', who: 'poppy', item: 'Wild Waling-waling', items: 'Wild Waling-waling', map: 'makiling', how: 'find', n: 3, tier: 'medium',
+say: 'Three wild orchids for the fiesta altar, please.', thanks: 'The queen of orchids! The altar will be beautiful.' },
+{ key: 'ember', who: 'sora', item: 'Ember Stone', map: 'magayon', how: 'hunt', n: 1, tier: 'hard', kind: 'bear',
+say: 'A bear sits on a glowing ember stone in Magayon. I want its colour!', thanks: 'Warm as fire! My next painting will glow.' },
+{ key: 'shawl', who: 'pearl', item: 'Old Woven Shawl', map: 'banaue', how: 'find', n: 1, tier: 'easy',
+say: 'My old shawl blew away at the terraces. My mother wove it.', thanks: 'Oh, my mother\'s shawl... Salamat, anak.' },
+{ key: 'bulul', who: 'elliot', item: 'Little Bulul', map: 'banaue', how: 'hunt', n: 1, tier: 'hard', kind: 'bayawak',
+say: 'A Bayawak ran off with the library\'s little bulul carving!', thanks: 'Back on its shelf, safe and sound. Thank you!' },
+{ key: 'kite', who: 'pip', item: 'Runaway Kite', map: 'bohol', how: 'find', n: 1, tier: 'easy',
+say: 'My kite flew all the way to the Chocolate Hills!', thanks: 'My kite! Wanna fly it with me after school?' },
+{ key: 'cacao', who: 'hana', item: 'Golden Cacao Pod', items: 'Golden Cacao Pods', map: 'bohol', how: 'find', n: 3, tier: 'medium',
+say: 'Golden cacao makes the best chocolate bread.', thanks: 'Golden cacao! Chocolate bread for the whole town tomorrow.' },
+{ key: 'tooth', who: 'kanor', item: 'Old Buwaya Tooth', map: 'taal', how: 'hunt', n: 1, tier: 'hard', kind: 'buwaya',
+say: 'The old Buwaya of Taal: one tooth for my trophy wall.', thanks: 'Hah! That old Buwaya finally met its match. Good hunting!' },
+{ key: 'lure', who: 'ewan', item: 'Lucky Lure', map: 'taal', how: 'find', n: 1, tier: 'easy',
+say: 'My lucky lure washed up somewhere on the shore of Taal.', thanks: 'Sixty years with this lure! The fish had better watch out.' },
+{ key: 'silk', who: 'luz', item: 'Golden Silk Thread', items: 'Golden Silk Threads', map: 'sierra', how: 'find', n: 3, tier: 'medium',
+say: 'Golden silk from the Sierra, for a fiesta gown!', thanks: 'Ay, ang ganda! The fiesta gown will shine like the sun.' },
+{ key: 'flute', who: 'jules', item: 'Bamboo Flute', map: 'sierra', how: 'hunt', n: 1, tier: 'hard', kind: 'unggoy',
+say: 'A monkey ran off with the Kapre\'s bamboo flute!', thanks: 'Listen to that sound! A new song, just for you.' },
+{ key: 'map', who: 'marco', item: 'Treasure Map Piece', items: 'Treasure Map Pieces', map: 'palawan', how: 'find', n: 3, tier: 'medium',
+say: 'An old map, torn in three. Find the pieces and we split the treasure!', thanks: 'X marks the spot! Partners, you and me.' },
+{ key: 'lily', who: 'hale', item: 'Glowing Cave Lily', map: 'palawan', how: 'find', n: 1, tier: 'easy',
+say: 'A lily that glows in the dark. It helps sleepy patients.', thanks: 'Beautiful. My patients will sleep well tonight.' },
+];
+C.ADVENTURE_ICONS = C.ADVENTURES.map(function (a) { return 'qi_' + a.key; });
+C.ADVENTURE_ICONS.forEach(function (n) { if (C.ICON_ORDER.indexOf(n) < 0) C.ICON_ORDER.push(n); });
+C.ICON_ORDER.forEach(function (name, i) { C.ICON[name] = i; });
+C.ADVENTURE_ICONS_IN = false;
+
+C.DAILY2 = { normal: 3, need: 5, six: { stars: 1 }, goodDays: 5 };
+
+C.ADVENTURE_PRIZES = { easy: { gold: 500 }, medium: [{ item: 'power_up', n: 1 }, { item: 'pet_meal', n: 1 }], hard: { stars: 1 } };
+
+C.ADVENTURE_FEEL = { hidden: 4, apart: 15, away: 10, help: 120000, back: 60000, hpX: 2, hpXBig: 1.5, runX: 1.15 };
+
+C.ADVENTURE_PEOPLE = { luz: { name: 'Tita Luz', map: 'park' }, kanor: { name: 'Mang Kanor', map: 'pulag' } };
+})(window.Farm = window.Farm || {});
+
 // ---- src/01-logic.js
 
 
@@ -15938,6 +15997,232 @@ return s;
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZZZZZZZ-adventures.js
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var Q = C.QUESTS, D = C.DAILY2;
+
+C.TIPS.push({ key: 'adv_tour', text: 'DAILY ADVENTURES' });
+if (C.COUNTERS.indexOf('adv') < 0) C.COUNTERS.push('adv');
+C.QUEST_PLACES.adv = { map: 'town', to: 'adv', say: '' };
+
+var BY = {};
+C.ADVENTURES.forEach(function (a, i) { a.i = i; BY[a.key] = a; });
+L.advDef = function (key) { return BY[key] || null; };
+L.advOf = function (q) { return q && q.c === 'adv' ? BY[q.a] || null : null; };
+L.advWho = function (a) { return C.ADVENTURE_PEOPLE[a.who] ? C.ADVENTURE_PEOPLE[a.who].name : C.VILLAGERS[a.who] ? C.VILLAGERS[a.who].name : a.who; };
+L.advIcon = function (a) { return C.ADVENTURE_ICONS_IN ? C.ICON['qi_' + a.key] : C.ICON.sparkle; };
+L.advItemName = function (a, n) { return n > 1 ? (a.items || a.item + 's') : a.item; };
+L.advText = function (a) { return L.advWho(a) + ': ' + (a.n > 1 ? a.n + ' ' : '') + L.advItemName(a, a.n); };
+
+L.advWhere = function (a) {
+if (a.map === 'farm') return 'your farm';
+if (a.map === 'town') return 'town';
+if (a.map === 'mine') return 'the mine';
+var w = C.WILD.areas[a.map];
+return w ? w.name : a.map;
+};
+
+L.advOpen = function (s, a) {
+if (a.map === 'farm' || a.map === 'town' || a.map === 'mine') return true;
+return L.isWildMap(a.map) && L.wildOpen(s, a.map);
+};
+
+L.advFloor = function (s, d) { var most = Math.max(1, Math.min(10, (s.stats && s.stats.deepest) || 1)); return 1 + Math.floor(L.rand(s.seed || 1, d * 13 + 5, 3) * most) % most; };
+
+
+var pickFrom = function (s, list, n, seed, avoid) {
+var out = [];
+for (var k = 0; out.length < n && k < 80; k++) {
+var q = list[Math.floor(L.rand(s.seed || 1, seed, k) * list.length)];
+if (q && out.indexOf(q) < 0 && !out.some(function (o) { return o.c === q.c; }) && !(avoid && avoid(q, out))) out.push(q);
+}
+return out;
+};
+
+L.advPick = function (s, dn) {
+var open = C.ADVENTURES.filter(function (a) { return L.advOpen(s, a); }), out = [];
+var take = function (pool, seed) {
+pool = pool.filter(function (a) { return out.indexOf(a) < 0 && !out.some(function (o) { return o.who === a.who; }); });
+if (pool.length) out.push(pool[Math.floor(L.rand(s.seed || 1, seed, 11) * pool.length) % pool.length]);
+};
+['easy', 'medium', 'hard'].forEach(function (t, k) { take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
+for (var k = 0; out.length < 3 && k < 3; k++) take(open, dn * 7 + 50 + k);
+return out;
+};
+var prizeOf = function (a, dn) {
+var p = C.ADVENTURE_PRIZES[a.tier];
+return Array.isArray(p) ? p[dn % p.length] : p;
+};
+L.advStart = function (s, a, dn) {
+return { c: 'adv', n: a.n, b: 0, done: 0, reward: prizeOf(a, dn), text: L.advText(a), tier: 'adventure', a: a.key, got: 0, gb: 0, gv: 0 };
+};
+var refresh = L.refreshQuests;
+L.refreshQuests = function (s, today) {
+var news = refresh(s, today);
+var dn = L.dayNum(today);
+if (news.daily && s.dq && s.dq.d === dn) {
+var normal = pickFrom(s, Q.easy, D.normal, dn * 7 + 1).map(function (q) {
+return { c: q.c, n: q.n, text: q.text.replace('{n}', q.n), reward: q.reward, b: L.count(s, q.c), done: 0, tier: 'easy' };
+});
+s.dq = { d: dn, all: 0, v: 2, six: 0, list: normal.concat(L.advPick(s, dn).map(function (a) { return L.advStart(s, a, dn); })) };
+delete s.qp;
+}
+if (news.weekly && s.wq) { s.wq.v = 2; s.wq.good = 0; s.wq.list = []; }
+return news;
+};
+L.daily2 = function (s) { return !!(s.dq && s.dq.v === 2); };
+L.weekly2 = function (s) { return !!(s.wq && s.wq.v === 2); };
+
+
+var progress = L.questProgress;
+L.questProgress = function (s, q) { return q.c === 'adv' ? (q.gv ? q.n : Math.min(q.n, q.got || 0)) : progress(s, q); };
+var ready = L.questReady;
+L.questReady = function (s, q) { return q.c === 'adv' ? !!q.gv && !q.done : ready(s, q); };
+
+L.advActive = function (s, map, floor) {
+if (!s.dq || !s.dq.list) return [];
+var out = [];
+s.dq.list.forEach(function (q, i) {
+var a = L.advOf(q);
+if (!a || q.done || q.gv || (q.got || 0) >= q.n || a.map !== map) return;
+if (map === 'mine' && floor != null && floor !== L.advFloor(s, s.dq.d)) return;
+out.push({ i: i, q: q, a: a });
+});
+return out;
+};
+
+L.advFind = function (s, i, k) {
+var q = s.dq && s.dq.list[i];
+if (!L.advOf(q) || q.done || q.gv || (q.got || 0) >= q.n || (q.gb & (1 << k))) return 'no';
+q.gb = (q.gb || 0) | (1 << k);
+q.got = (q.got || 0) + 1;
+return q.got >= q.n ? 'all' : 'found';
+};
+L.advHunted = function (s, i) {
+var q = s.dq && s.dq.list[i];
+if (!L.advOf(q) || q.done || q.gv) return 'no';
+q.got = q.n;
+return 'all';
+};
+
+L.advFor = function (s, who) {
+if (!s.dq) return -1;
+for (var i = 0; i < s.dq.list.length; i++) {
+var q = s.dq.list[i], a = L.advOf(q);
+if (a && a.who === who && !q.done && !q.gv && (q.got || 0) >= q.n) return i;
+}
+return -1;
+};
+
+L.advHandOver = function (s, i) {
+var q = s.dq && s.dq.list[i], a = L.advOf(q);
+if (!a || q.done || (q.got || 0) < q.n) return 'notyet';
+if (!q.gv) {
+q.gv = 1;
+if (C.VILLAGERS[a.who]) L.addFriend(s, a.who, 10);
+}
+return L.claimQuest(s, 'daily', i);
+};
+var claimQuest = L.claimQuest;
+L.claimQuest = function (s, kind, i) {
+var set = L.questOf(s, kind), q = set && set.list[i];
+if (q && q.c === 'adv' && !q.gv && !q.done) return 'notyet';
+var r = claimQuest(s, kind, i);
+if (kind === 'daily' && typeof r === 'object' && L.daily2(s)) {
+if (q.c === 'adv') L.bump(s, 'adv');
+var six = sixBonus(s);
+if (six) r = merge(r, six);
+}
+return r;
+};
+var merge = function (a, b) { var o = {}; Object.keys(a).forEach(function (k) { o[k] = a[k]; }); Object.keys(b).forEach(function (k) { o[k] = (o[k] || 0) + b[k]; }); return o; };
+
+var sixBonus = function (s) {
+var set = s.dq;
+if (!set.all || set.six || !set.list.every(function (q) { return q.done; })) return null;
+set.six = 1;
+L.giveReward(s, D.six);
+return D.six;
+};
+
+
+L.dailyDone = function (s) { return s.dq ? s.dq.list.filter(function (q) { return q.done; }).length : 0; };
+var chestReady = L.chestReady;
+L.chestReady = function (s, kind) {
+if (kind === 'daily' && L.daily2(s)) return !s.dq.all && L.dailyDone(s) >= D.need;
+if (kind === 'weekly' && L.weekly2(s)) return !s.wq.chest && L.goodDays(s) >= D.goodDays;
+return chestReady(s, kind);
+};
+L.goodDays = function (s) { var b = (s.wq && s.wq.good) || 0, n = 0; while (b) { n += b & 1; b >>= 1; } return n; };
+var claimChest = L.claimChest;
+L.claimChest = function (s, kind) {
+var r = claimChest(s, kind);
+if (kind === 'daily' && typeof r === 'object' && L.daily2(s)) {
+
+if (L.weekly2(s) && s.wq.w === L.weekOf(s.dq.d)) s.wq.good = (s.wq.good || 0) | (1 << (s.dq.d - s.wq.w));
+var six = sixBonus(s);
+if (six) r = merge(r, six);
+}
+return r;
+};
+
+
+var reason = L.questReason;
+L.questReason = function (s, i) {
+var q = s.dq && s.dq.list[i], a = L.advOf(q);
+if (!a) return reason(s, i);
+return { who: a.who, text: a.say };
+};
+
+
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s);
+var av = {};
+if (L.daily2(s)) {
+av.d = [s.dq.d, s.dq.six ? 1 : 0];
+av.q = [];
+s.dq.list.forEach(function (q, i) { if (q.c === 'adv') av.q.push([i, q.a, q.got || 0, q.gb || 0, q.gv ? 1 : 0]); });
+}
+if (L.weekly2(s)) av.w = [s.wq.w, s.wq.good || 0];
+if (av.d || av.w) o.av = av;
+return o;
+};
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (!s) return s;
+var av = o.av && typeof o.av === 'object' ? o.av : {};
+if (s.dq && Array.isArray(av.d) && Number(av.d[0]) === s.dq.d) {
+s.dq.v = 2;
+s.dq.six = av.d[1] ? 1 : 0;
+(Array.isArray(av.q) ? av.q : []).forEach(function (e) {
+var q = Array.isArray(e) && s.dq.list[Number(e[0])], a = Array.isArray(e) && BY[e[1]];
+if (!q || q.c !== 'adv' || !a) return;
+q.a = a.key;
+q.n = a.n;
+q.got = Math.max(0, Math.min(a.n, Number(e[2]) || 0));
+q.gb = (Number(e[3]) || 0) & 7;
+q.gv = e[4] ? 1 : 0;
+});
+}
+if (s.dq && s.dq.list) s.dq.list = s.dq.list.filter(function (q) { return q.c !== 'adv' || BY[q.a]; });
+if (s.wq && Array.isArray(av.w) && Number(av.w[0]) === s.wq.w) { s.wq.v = 2; s.wq.good = (Number(av.w[1]) || 0) & 127; }
+return s;
+};
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 
 (function (F) {
@@ -24247,9 +24532,21 @@ buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimAch(s,
 } else {
 var set = L.questOf(s, tab), chest = L.chestOf(tab);
 var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all ' + set.list.length }[tab];
-var chestDone = tab === 'daily' ? set.all : set.chest;
+var chestDone = tab === 'daily' ? set.all : set.chest, chestDesc, chestBar = null;
+
+if (tab === 'daily' && L.daily2 && L.daily2(s)) {
+chestName = 'Finish any 5 of today\'s 6';
+chestDesc = 'All 6: +1 Sunbeam more.';
+chestBar = [Math.min(C.DAILY2.need, L.dailyDone(s)), C.DAILY2.need];
+}
+if (tab === 'weekly' && L.weekly2 && L.weekly2(s)) {
+var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].filter(function (d, k) { return set.good & (1 << k); });
+chestName = 'Weekly chest: 5 good days';
+chestDesc = 'A good day: open the daily chest. ' + (days.length ? 'So far: ' + days.join(', ') + '.' : 'None yet this week.');
+chestBar = [Math.min(C.DAILY2.goodDays, L.goodDays(s)), C.DAILY2.goodDays];
+}
 rows.push({
-icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,
+icon: C.ICON.chest, name: chestName, desc: chestDesc, progress: chestDone ? null : chestBar, reward: chest, done: !!chestDone,
 buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
 });
 set.list.forEach(function (q, i) {
@@ -24258,8 +24555,10 @@ var p = L.questProgress(s, q), ready = L.questReady(s, q);
 
 var daily = tab === 'daily' && L.questReason, why = daily ? L.questReason(s, i) : null;
 var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
+var adv = L.advOf && L.advOf(q), advDesc = adv && (q.done ? adv.thanks : (q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) + '.'
+: (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + ' in ') + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
 rows.push({
-icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null, desc: why ? why.text : undefined,
+icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? 'ADVENTURE' : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
 progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
 buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
 : go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],
@@ -45586,7 +45885,7 @@ var show = !!card && !!w && !F.session.visit && !this.decorating && !(this.photo
 box.setVisible(show);
 if (!show) { this.qcTip.setVisible(false); return; }
 var q = card.q, p = L.questProgress(s, q), go = !card.ready && !!L.questPlace(q.c), guiding = !!(w && w.guide), now = Date.now();
-var what = [card.i, q.text, p, card.ready, guiding].join('|');
+var what = [card.i, q.text, p, card.ready, guiding, q.got || 0].join('|');
 if (what !== this.qcWhat) { this.qcWhat = what; this.qcOpenUntil = now + G.open; }
 var open = guiding || now < (this.qcOpenUntil || 0);
 var key = what + '|' + open + '|' + go;
@@ -45596,14 +45895,16 @@ var H = 32, R = 16, ring = 11;
 var room = 130, text = this.qcText, sub = this.qcSub;
 text.setText(q.text).setColor(card.ready ? '#4a2a08' : '#fff6d8').setScale(1).setPosition(36, 4).setFontSize(10);
 if (text.width > room) text.setScale(room / text.width);
-sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : p + '/' + q.n + (go ? '' : '  \u00b7  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
+var adv = L.advOf && L.advOf(q);
+var advSub = adv && ((q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) : (q.n > 1 ? p + '/' + q.n + '  \u00b7  ' : '') + L.advWhere(adv));
+sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : advSub || p + '/' + q.n + (go ? '' : '  \u00b7  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
 var Wd = open ? Math.max(text.displayWidth, sub.width) + 36 + (go && !guiding ? 30 : 10) : H;
 this.qcBg.clear().fillStyle(card.ready ? 0xe9a91c : 0x24160b, card.ready ? 0.88 : 0.5).fillRoundedRect(0, 0, Wd, H, R);
 this.qcBg.lineStyle(1, 0xffffff, card.ready ? 0.6 : 0.22).strokeRoundedRect(0.5, 0.5, Wd - 1, H - 1, R - 0.5);
 this.qcRing.clear().lineStyle(3, card.ready ? 0x7a4d12 : 0x000000, card.ready ? 0.9 : 0.3).strokeCircle(R, H / 2, ring);
 var frac = Math.min(1, p / Math.max(1, q.n));
 if (frac > 0) this.qcRing.lineStyle(3, card.ready ? 0xfff3c8 : 0x7fd05a, 0.95).beginPath().arc(R, H / 2, ring, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).strokePath();
-this.qcIcon.setFrame(iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
+this.qcIcon.setFrame(adv ? L.advIcon(adv) : iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
 text.setVisible(open);
 sub.setVisible(open);
 this.qcGo.setVisible(open && go && !guiding).setPosition(Wd - 17, H / 2);
@@ -45703,6 +46004,380 @@ if (this.actionRing.texture.key !== 'props/action_ring') this.actionRing.setText
 this.actionRing.setDisplaySize(r * 2 + 8, r * 2 + 8);
 if (on) this.actionRing.clearTint(); else this.actionRing.setTint(0xb8b0a4);
 }
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzz-adventures.js
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var T = C.TILE;
+var P = F.WorldScene.prototype;
+var DEPTH = F.WorldScene.DEPTH;
+var FEEL = C.ADVENTURE_FEEL;
+var sfx = function (name, soft) { if (F.Audio) { if (soft && F.Audio.sfxSoft) F.Audio.sfxSoft(name, 0.5); else F.Audio.sfx(name); } };
+var mine = function () { return F.session.state; };
+var floorHere = function (w) { return w.mapKey === 'mine' ? F.session.mineFloor : null; };
+
+
+L.advPersonMap = function (who) { return C.ADVENTURE_PEOPLE[who] ? C.ADVENTURE_PEOPLE[who].map : 'town'; };
+L.advPlace = function (s, i) {
+var q = s.dq && s.dq.list[i], a = L.advOf(q);
+if (!a || q.done) return null;
+if (q.gv || (q.got || 0) >= q.n) return { map: L.advPersonMap(a.who), to: 'who:' + a.who, say: 'Let\'s bring it to ' + L.advWho(a) + '!' };
+return { map: a.map, to: 'adv:' + i, say: a.how === 'hunt' ? 'Look for the one with the mark!' : 'Sniff, sniff... it\'s around here!' };
+};
+var guideTo = P.guideTo;
+P.guideTo = function (i) {
+var s = this.state, q = s.dq && s.dq.list[i];
+if (!L.advOf(q)) return guideTo.call(this, i);
+var place = L.advPlace(s, i);
+if (!place || F.session.visit) return false;
+F.session.guide = { i: i, c: 'adv', place: place };
+sfx('woof', true);
+return this.guideRun();
+};
+var here = function (w) { var f = w.feet(), fx = Math.floor(f.x / T), fy = Math.floor(f.y / T); return function (x, y) { return x === fx && y === fy; }; };
+var guideGoal = P.guideGoal;
+P.guideGoal = function (place) {
+var to = place && place.to;
+if (!to || this.mapKey !== place.map || (to.indexOf('adv:') && to.indexOf('who:'))) return guideGoal.call(this, place);
+var s = this.state;
+if (to.indexOf('adv:') === 0) return { goal: here(this), advAt: Number(to.slice(4)) };
+var who = to.slice(4), near = function (px, py) { var tx = Math.floor(px / T), ty = Math.floor(py / T); return function (x, y) { return Math.abs(x - tx) + Math.abs(y - ty) === 1; }; };
+if (who === 'luz' && this.tailor && this.tailor.img.visible) return { goal: near(this.tailor.x, this.tailor.y - 0.2 * T), advWho: who };
+if (who === 'kanor' && this.kanor && this.kanor.img.visible) return { goal: near(this.kanor.x, this.kanor.y), advWho: who };
+var v = (this.villagers && this.villagers.list || []).filter(function (x) { return x.key === who && x.visible && x.sprite && x.sprite.visible; })[0];
+if (v) return { who: v, advWho: who, goal: near(v.sprite.x, v.sprite.y) };
+void s;
+return { goal: here(this), advMail: who };
+};
+var guideArrive = P.guideArrive;
+
+L.jeepTo = function (map) {
+var ids = Object.keys(C.PLACES);
+for (var k = 0; k < ids.length; k++) { var p = C.PLACES[ids[k]]; if (p.map === map && p.jeep) return p; }
+return null;
+};
+P.guideArrive = function () {
+var g = this.guide, spot = g && g.spot;
+if (spot && spot.exit && spot.exit.type === 'jeep' && F.session.guide) {
+var to = L.jeepTo(F.session.guide.place.map) || L.jeepTo('pulag');
+this.guide = null;
+if (to && to.map !== this.mapKey) { sfx('door'); this.travel(to.map, to.jeep); }
+return;
+}
+if (!spot || (spot.advAt == null && !spot.advMail)) return guideArrive.call(this);
+var s = this.state, name = L.dogName(s);
+if (spot.advMail) {
+var i = L.advFor(s, spot.advMail), a = i >= 0 && L.advOf(s.dq.list[i]), self = this;
+this.guideStop('arrived');
+if (!a) return;
+return F.ui.dialog(L.advWho(a).toUpperCase() + '\n' + L.advWho(a) + ' is not out right now. Finn the mail carrier can take it to them!', [
+{ label: 'Not now', color: 0xa08a68 }, { label: 'Send it', cb: function () { self.advGive(i, null, true); } }]);
+}
+var q = s.dq.list[spot.advAt], ad = L.advOf(q);
+this.guideStop('arrived');
+if (!ad) return;
+if (ad.map === 'mine' && F.session.mineFloor !== L.advFloor(s, s.dq.d)) return F.ui.toast(name + ': the ' + ad.item + ' is on floor ' + L.advFloor(s, s.dq.d) + '! Down we go.', 3000);
+if (ad.how === 'hunt') { F.ui.toast(name + ': look for the ' + C.WILD.animals[ad.kind].name + ' with the gold mark!', 3000, 0x2f5a22); return; }
+F.session.sniff = { i: spot.advAt, map: this.mapKey, at: Date.now() };
+this.guideDogShow();
+F.ui.toast(name + ': sniff, sniff... the ' + L.advItemName(ad, q.n).toLowerCase() + ' must be close. Walk around, I\'ll tell you when it\'s warm!', 3400, 0x2f5a22);
+};
+
+var guideDogHide = P.guideDogHide;
+P.guideDogHide = function (force) {
+if (!force && F.session.sniff && F.session.sniff.map === this.mapKey && this.advSpots && this.advSpots.length) return;
+return guideDogHide.call(this);
+};
+
+
+var create = P.create;
+P.create = function () {
+create.call(this);
+this.advSpots = [];
+this.advMark = null;
+this.advBackAt = 0;
+if (F.session.sniff && F.session.sniff.map !== this.mapKey) F.session.sniff = null;
+if (F.session.visit || !this.map) return;
+this.advSetup();
+};
+
+var free = function (w, x, y) { return w.inMap(x, y) && w.walkable(x, y) && !w.blocked[w.idx(x, y)]; };
+P.advSetup = function () {
+var self = this, s = mine();
+(this.advSpots || []).forEach(function (p) { if (p.img) { p.img.destroy(); p.glow.destroy(); } });
+this.advSpots = [];
+var W = this.map.width, H = this.map.height, f = this.feet(), fx = Math.floor(f.x / T), fy = Math.floor(f.y / T);
+L.advActive(s, this.mapKey, floorHere(this)).forEach(function (e) {
+if (e.a.how !== 'find') return;
+var chosen = [], seed = s.dq.d * 100 + e.a.i;
+for (var k = 0; k < e.q.n; k++) {
+var apart = FEEL.apart, away = FEEL.away, spot = null;
+for (var t = 0; t < 400 && !spot; t++) {
+if (t === 150) { apart = 10; away = 6; } else if (t === 300) { apart = 5; away = 0; }
+var x = 1 + Math.floor(L.rand(s.seed || 1, seed + k * 7, t) * (W - 2)), y = 1 + Math.floor(L.rand(s.seed || 1, seed + k * 7 + 3, t) * (H - 2));
+if (!free(self, x, y) || Math.abs(x - fx) + Math.abs(y - fy) < away) continue;
+if (chosen.some(function (c) { return Math.abs(c.x - x) + Math.abs(c.y - y) < apart; })) continue;
+spot = { x: x, y: y };
+}
+if (!spot) continue;
+chosen.push(spot);
+if (e.q.gb & (1 << k)) continue;
+self.advSpots.push(self.advSpotShow(e, k, spot.x, spot.y));
+}
+});
+this.advHunt();
+};
+var glowTex = function (scene) {
+var key = 'fx-advglow';
+if (scene.textures.exists(key)) return key;
+var t = scene.textures.createCanvas(key, 128, 128), g = t.getContext(), r = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+r.addColorStop(0, 'rgba(255,240,160,0.95)');
+r.addColorStop(0.35, 'rgba(255,214,90,0.5)');
+r.addColorStop(1, 'rgba(255,214,90,0)');
+g.fillStyle = r;
+g.fillRect(0, 0, 128, 128);
+t.refresh();
+return key;
+};
+P.advSpotShow = function (e, k, tx, ty) {
+var x = (tx + 0.5) * T, y = (ty + 0.6) * T, hidden = e.q.n === 1;
+var glow = this.add.image(x, y - 0.2 * T, glowTex(this)).setDisplaySize(1.3 * T, 1.3 * T).setDepth(DEPTH.flat + 0.2).setBlendMode(Phaser.BlendModes.ADD);
+var img = this.add.image(x, y - 0.35 * T, 'items', L.advIcon(e.a)).setScale(0.75 * T / 128).setDepth(DEPTH.actor + y / 1e5);
+this.tweens.add({ targets: img, y: y - 0.5 * T, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+this.tweens.add({ targets: glow, scale: glow.scale * 1.18, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+var p = { i: e.i, k: k, x: x, y: y, img: img, glow: glow, hidden: hidden };
+if (hidden) { img.setAlpha(0); glow.setAlpha(0); }
+return p;
+};
+P.advNearest = function () {
+var f = this.feet(), best = null;
+(this.advSpots || []).forEach(function (p) { var d = Math.hypot(p.x - f.x, p.y - f.y); if (!best || d < best.d) best = { p: p, d: d }; });
+return best;
+};
+P.advPick = function (p) {
+var s = mine(), q = s.dq.list[p.i], a = L.advOf(q), r = L.advFind(s, p.i, p.k), self = this;
+this.advSpots.splice(this.advSpots.indexOf(p), 1);
+this.tweens.killTweensOf([p.img, p.glow]);
+this.tweens.add({ targets: [p.img, p.glow], alpha: 0, y: p.y - 1.2 * T, duration: 500, onComplete: function () { p.img.destroy(); p.glow.destroy(); } });
+if (r === 'no' || !a) return;
+sfx('found');
+this.iconPop(p.x, p.y - 0.6 * T, L.advIcon(a));
+if (F.session.sniff) F.session.sniff.at = Date.now();
+if (r === 'all') {
+F.session.sniff = null;
+F.ui.toast((q.n > 1 ? 'All ' + q.n + ' ' + L.advItemName(a, q.n) + '!' : 'You found the ' + a.item + '!') + ' Bring ' + (q.n > 1 ? 'them' : 'it') + ' to ' + L.advWho(a) + '.', 3200, 0x7a4d12);
+if (this.guideDog && !this.guide) this.time.delayedCall(2200, function () { if (!self.guide && !F.session.sniff) guideDogHide.call(self); });
+} else F.ui.toast('Found ' + (q.got || 0) + ' of ' + q.n + ' ' + L.advItemName(a, q.n) + '!', 2200, 0x2f5a22);
+this.changed();
+this.save();
+if (F.ui.refreshQuestCard) { F.ui.qcKey = null; F.ui.refreshQuestCard(); }
+};
+
+
+P.advHunt = function () {
+var s = mine();
+if (!this.wild || !this.wild.zone || this.lair) return;
+var e = L.advActive(s, this.mapKey).filter(function (x) { return x.a.how === 'hunt'; })[0];
+if (!e || this.wild.animals.some(function (a) { return a.quest != null; })) return;
+if (this.wildFollowing() && this.wildFollowing() !== 'gs') return;
+var def = C.WILD.animals[e.a.kind];
+if (!def) return;
+var p = this.wildSpot(this.wild.zone, this.feet(), 8) || this.wildSpot(this.wild.zone, null, 0);
+if (!p) return;
+var a = this.addWildAnimal(e.a.kind, 'q', p.x, p.y, 1.15);
+var d2 = Object.create(def);
+d2.run = def.run * FEEL.runX;
+a.def = d2;
+a.hp = a.max = Math.round(def.hp * (def.hp >= 4 ? FEEL.hpXBig : FEEL.hpX));
+a.quest = e.i;
+a.gsLocal = true;
+
+this.advMark = this.add.container(a.x, a.y).setDepth(DEPTH.fx);
+this.advMark.add([this.add.image(0, 0, glowTex(this)).setDisplaySize(1.4 * T, 1.4 * T).setBlendMode(Phaser.BlendModes.ADD), this.add.image(0, 0, 'items', L.advIcon(e.a)).setScale(0.8 * T / 128)]);
+this.tweens.add({ targets: this.advMark.list[0], scale: this.advMark.list[0].scale * 1.2, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+};
+var wildStruck = P.wildStruck;
+P.wildStruck = function (a, friend) {
+if (a.quest == null || friend) return wildStruck.call(this, a, friend);
+var lead = this.wild.lead;
+this.wild.lead = null;
+try { return wildStruck.call(this, a, friend); } finally { if (this.wild) this.wild.lead = lead; }
+};
+var wildDown = P.wildDown;
+P.wildDown = function (a) {
+var quest = a.quest, s = mine(), map = this.mapKey;
+wildDown.call(this, a);
+if (quest == null) return;
+delete s.wild.gone[map + ':q'];
+var q = s.dq && s.dq.list[quest], ad = L.advOf(q);
+if (!ad || !a.mine) return;
+if (L.advHunted(s, quest) !== 'all') return;
+this.iconPop(a.x, a.y - 1.2 * T, L.advIcon(ad));
+var self = this;
+this.time.delayedCall(1200, function () { if (F.ui) F.ui.toast('You got the ' + ad.item + '! Bring it to ' + L.advWho(ad) + '.', 3200, 0x7a4d12); });
+this.changed();
+this.save();
+if (F.ui.refreshQuestCard) { F.ui.qcKey = null; F.ui.refreshQuestCard(); }
+void self;
+};
+var wildGone = P.wildGone;
+P.wildGone = function (a) {
+wildGone.call(this, a);
+if (a.quest == null) return;
+if (this.advMark) { this.advMark.destroy(); this.advMark = null; }
+this.advBackAt = Date.now() + FEEL.back;
+};
+
+
+var update = P.update;
+P.update = function (time, delta) {
+update.call(this, time, delta);
+if (!this.player || !this.sys || !this.sys.isActive() || F.session.visit) return;
+var self = this, f = this.feet(), now = Date.now(), s = mine();
+(this.advSpots || []).slice().forEach(function (p) {
+var d = Math.hypot(p.x - f.x, p.y - f.y);
+if (p.hidden) { var show = d < FEEL.hidden * T ? 1 : 0; if (p.img.alpha !== show && !p.fading) { p.fading = true; self.tweens.add({ targets: [p.img, p.glow], alpha: show, duration: 400, onComplete: function () { p.fading = false; } }); } }
+if (d < 0.7 * T) self.advPick(p);
+});
+if (this.wild && this.advMark) {
+var qa = this.wild.animals.filter(function (a) { return a.quest != null; })[0];
+if (qa) this.advMark.setPosition(qa.x, qa.y - (qa.def.w * T * qa.size + 0.5 * T) + Math.sin(time / 220) * 12);
+}
+if (this.wild && this.advBackAt && now > this.advBackAt) { this.advBackAt = 0; this.advHunt(); }
+var sn = F.session.sniff;
+if (!sn || sn.map !== this.mapKey) return;
+var q = s.dq && s.dq.list[sn.i];
+if (!q || q.gv || (q.got || 0) >= q.n || !this.advSpots.length) { F.session.sniff = null; return; }
+if (!this.guideDog) this.guideDogShow();
+var near = this.advNearest(), tiles = near ? near.d / T : 99;
+
+var every = tiles < 4 ? 900 : tiles < 8 ? 1600 : tiles < 15 ? 2800 : 4500;
+if (!this.guide && now - (this.advBarkAt || 0) > every) {
+this.advBarkAt = now;
+var d = this.guideDog;
+if (d) {
+sfx('woof', tiles >= 8);
+this.floatTextAt(d.x, d.y - 0.9 * T, tiles < 4 ? 'Hot!' : tiles < 8 ? 'Warmer!' : tiles < 15 ? 'Warm' : 'Sniff...');
+if (d.sprite) this.tweens.add({ targets: d.sprite, angle: { from: -6, to: 6 }, duration: 90, yoyo: true, repeat: 3, onComplete: function () { if (d.sprite.active) d.sprite.setAngle(0); } });
+}
+}
+
+if (!this.guide && near && now - sn.at > FEEL.help) {
+sn.at = now;
+var px = Math.floor(near.p.x / T), py = Math.floor(near.p.y / T), path = this.guidePath(function (x, y) { return x === px && y === py; });
+if (path && path.length) {
+F.session.guide = { i: sn.i, c: 'adv', place: { map: this.mapKey, to: 'piece', say: '' } };
+this.guide = { path: path, k: 0, spot: { goal: function () { return false; }, advPiece: true }, last: f, at: now, tries: 0 };
+F.ui.toast(L.dogName(s) + ': follow me, I smell it!', 2200, 0x2f5a22);
+}
+}
+};
+
+var arrive = P.guideArrive;
+P.guideArrive = function () {
+var g = this.guide;
+if (g && g.spot && g.spot.advPiece) { this.guide = null; F.session.guide = null; F.bus.emit('guide', 'arrived'); return; }
+return arrive.call(this);
+};
+
+
+P.advGive = function (i, v, mail) {
+var s = mine(), q = s.dq.list[i], a = L.advOf(q), r = L.advHandOver(s, i);
+if (!a) return;
+if (r === 'full') { sfx('nope'); return F.ui.toast(L.advWho(a) + ' says thank you! Your bag is full: claim the prize in Quests.', 3000); }
+if (typeof r !== 'object') return;
+sfx('coin');
+if (v && this.villagers) { this.villagers.greet(v, this.dir); this.emote(v, C.ICON.heart); }
+var done = function () { F.ui.toast('Adventure prize: ' + L.rewardLabel(r) + (C.VILLAGERS[a.who] ? ' and a heart with ' + L.advWho(a) : '') + '!', 2800, 0x7a4d12); };
+if (mail) F.ui.dialog('FINN\nI\'ll take it to ' + L.advWho(a) + ' right away! ' + L.advWho(a) + ' says: "' + a.thanks + '"', [{ label: 'OK', cb: done }]);
+else if (C.VILLAGERS[a.who] && F.ui.say) { F.ui.say(a.who, L.advWho(a), a.thanks); done(); }
+else F.ui.dialog(L.advWho(a).toUpperCase() + '\n' + a.thanks, [{ label: 'OK', cb: done }]);
+this.changed();
+this.save();
+if (F.ui.refreshQuestCard) { F.ui.qcKey = null; F.ui.refreshQuestCard(); }
+};
+var villagerAction = P.villagerAction;
+P.villagerAction = function (v) {
+var self = this, s = this.state, i = v.shopper || F.session.visit ? -1 : L.advFor(s, v.key);
+if (i >= 0) return { label: 'Give', icon: L.advIcon(L.advOf(s.dq.list[i])), run: function () { self.advGive(i, v); } };
+return villagerAction.call(this, v);
+};
+var resolve = P.resolve;
+P.resolve = function () {
+var self = this, s = this.state, pt = this.front(0.7);
+if (!F.session.visit) {
+var who = this.tailor && this.tailor.img.visible && Math.hypot(pt.x - this.tailor.x, pt.y - this.tailor.y) < 0.9 * T ? 'luz'
+: this.kanor && this.kanor.img.visible && Math.hypot(pt.x - this.kanor.x, pt.y - this.kanor.y) < 0.9 * T ? 'kanor' : null;
+var i = who ? L.advFor(s, who) : -1;
+if (i >= 0) return { label: 'Give', icon: L.advIcon(L.advOf(s.dq.list[i])), run: function () { self.advGive(i, null); } };
+}
+return resolve.call(this);
+};
+
+
+var U = F.UIScene.prototype, INK = F.UI_CONST.INK;
+var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+var words = function (ui, sc, x, y, str, size) { var w = ui.txt(x, y, str, size || 12, INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(w); return w; };
+var three = function () { return ['silk', 'tooth', 'kite'].map(function (k) { return L.advIcon(L.advDef(k)); }); };
+F.TOURS.adventure = {
+title: 'DAILY ADVENTURES',
+steps: [
+{
+text: 'Each day: 3 everyday quests and 3 adventures. Finish any 5 to open the day\'s chest.',
+draw: function (ui, sc, move) {
+three().forEach(function (f, n) {
+var im = icon(ui, sc, 60 + n * 56, 66, f, 0.34);
+if (move) ui.tweens.add({ targets: im, y: 56, duration: 420, delay: n * 150, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+});
+icon(ui, sc, 236, 66, C.ICON.chest, 0.34);
+},
+},
+{
+text: 'A villager asks for something that only shows while the quest is on. Tap Go: your dog takes you there.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 90, 76, C.ICON.dog, 0.36);
+var s = icon(ui, sc, 190, 66, three()[0], 0.36);
+if (move) ui.tweens.add({ targets: s, alpha: { from: 1, to: 0.3 }, duration: 500, yoyo: true, repeat: -1 });
+},
+},
+{
+text: 'Walk around: your dog barks quicker the closer you are. Warm, warmer, hot!',
+draw: function (ui, sc, move) {
+var a = words(ui, sc, 70, 50, 'Warm', 13), b = words(ui, sc, 140, 70, 'Warmer!', 14), c = words(ui, sc, 220, 92, 'Hot!', 16);
+if (move) [a, b, c].forEach(function (w, n) { ui.tweens.add({ targets: w, scale: 1.2, duration: 300, delay: n * 300, yoyo: true, repeat: -1, repeatDelay: 600 }); });
+},
+},
+{
+text: 'Some are hunted: look for the creature carrying it. Bring it back for a prize. 5 good days open the weekly chest.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 100, 80, C.ICON.bow, 0.36);
+var t = icon(ui, sc, 190, 60, three()[1], 0.34);
+if (move) ui.tweens.add({ targets: t, y: 50, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+},
+},
+],
+};
+var openQuests = U.openQuests;
+U.openQuests = function (tab, page) {
+var self = this, s = F.session.state;
+L.refreshQuests(s, F.today());
+if ((tab || 'daily') === 'daily' && L.daily2(s) && !(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'adv_tour')) {
+if (F.world) F.world.save();
+return this.tour('adventure', function () { openQuests.call(self, tab, page); });
+}
+return openQuests.call(this, tab, page);
 };
 })(window.Farm = window.Farm || {});
 

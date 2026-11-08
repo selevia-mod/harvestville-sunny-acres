@@ -269,9 +269,21 @@
     } else {
       var set = L.questOf(s, tab), chest = L.chestOf(tab);
       var chestName = { daily: 'Finish all 10 quests today', weekly: 'Weekly chest: finish all 5', monthly: 'Monthly chest: finish all ' + set.list.length }[tab];
-      var chestDone = tab === 'daily' ? set.all : set.chest;
+      var chestDone = tab === 'daily' ? set.all : set.chest, chestDesc, chestBar = null;
+      // (owner, 8 Nov 2026: 6 a day, any 5 open the chest; the week's chest: 5 good days. 01-logicZZZZZZZZZ-adventures.js)
+      if (tab === 'daily' && L.daily2 && L.daily2(s)) {
+        chestName = 'Finish any 5 of today\'s 6';
+        chestDesc = 'All 6: +1 Sunbeam more.';
+        chestBar = [Math.min(C.DAILY2.need, L.dailyDone(s)), C.DAILY2.need];
+      }
+      if (tab === 'weekly' && L.weekly2 && L.weekly2(s)) {
+        var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].filter(function (d, k) { return set.good & (1 << k); });
+        chestName = 'Weekly chest: 5 good days';
+        chestDesc = 'A good day: open the daily chest. ' + (days.length ? 'So far: ' + days.join(', ') + '.' : 'None yet this week.');
+        chestBar = [Math.min(C.DAILY2.goodDays, L.goodDays(s)), C.DAILY2.goodDays];
+      }
       rows.push({
-        icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,
+        icon: C.ICON.chest, name: chestName, desc: chestDesc, progress: chestDone ? null : chestBar, reward: chest, done: !!chestDone,
         buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
       });
       set.list.forEach(function (q, i) {
@@ -280,8 +292,10 @@
         // list kept: "quest list is still better" than the trail; 19zzzzzzzzzzzz-guide.js)
         var daily = tab === 'daily' && L.questReason, why = daily ? L.questReason(s, i) : null;
         var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
+        var adv = L.advOf && L.advOf(q), advDesc = adv && (q.done ? adv.thanks : (q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) + '.'
+          : (adv.how === 'hunt' ? 'Hunt the marked ' + C.WILD.animals[adv.kind].name + ' in ' : 'Find ' + (q.n > 1 ? 'them' : 'it') + ' in ') + L.advWhere(adv) + (adv.map === 'mine' ? ', floor ' + L.advFloor(s, set.d) : '') + '. "' + adv.say + '"');
         rows.push({
-          icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null, desc: why ? why.text : undefined,
+          icon: adv ? L.advIcon(adv) : iconOf(q.reward), name: q.text, tag: adv ? 'ADVENTURE' : q.tier === 'hard' ? 'HARD' : null, desc: adv ? advDesc : why ? why.text : undefined,
           progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
           buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
             : go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],

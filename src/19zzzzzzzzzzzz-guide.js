@@ -371,7 +371,7 @@
     box.setVisible(show);
     if (!show) { this.qcTip.setVisible(false); return; }
     var q = card.q, p = L.questProgress(s, q), go = !card.ready && !!L.questPlace(q.c), guiding = !!(w && w.guide), now = Date.now();
-    var what = [card.i, q.text, p, card.ready, guiding].join('|');
+    var what = [card.i, q.text, p, card.ready, guiding, q.got || 0].join('|');
     if (what !== this.qcWhat) { this.qcWhat = what; this.qcOpenUntil = now + G.open; }
     var open = guiding || now < (this.qcOpenUntil || 0);
     var key = what + '|' + open + '|' + go;
@@ -381,14 +381,16 @@
     var room = 130, text = this.qcText, sub = this.qcSub;
     text.setText(q.text).setColor(card.ready ? '#4a2a08' : '#fff6d8').setScale(1).setPosition(36, 4).setFontSize(10);
     if (text.width > room) text.setScale(room / text.width);
-    sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : p + '/' + q.n + (go ? '' : '  ·  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
+    var adv = L.advOf && L.advOf(q); // (a daily adventure: where, or who to bring it to: 19zzzzzzzzzzzzzz-adventures.js)
+    var advSub = adv && ((q.got || 0) >= q.n ? 'Bring it to ' + L.advWho(adv) : (q.n > 1 ? p + '/' + q.n + '  ·  ' : '') + L.advWhere(adv));
+    sub.setText(card.ready ? 'Tap to claim!' : guiding ? L.dogName(s) + ' is leading you...' : advSub || p + '/' + q.n + (go ? '' : '  ·  anywhere')).setColor(card.ready ? '#4a2a08' : '#e8dcc0').setPosition(36, 17).setFontSize(9);
     var Wd = open ? Math.max(text.displayWidth, sub.width) + 36 + (go && !guiding ? 30 : 10) : H;
     this.qcBg.clear().fillStyle(card.ready ? 0xe9a91c : 0x24160b, card.ready ? 0.88 : 0.5).fillRoundedRect(0, 0, Wd, H, R);
     this.qcBg.lineStyle(1, 0xffffff, card.ready ? 0.6 : 0.22).strokeRoundedRect(0.5, 0.5, Wd - 1, H - 1, R - 0.5);
     this.qcRing.clear().lineStyle(3, card.ready ? 0x7a4d12 : 0x000000, card.ready ? 0.9 : 0.3).strokeCircle(R, H / 2, ring);
     var frac = Math.min(1, p / Math.max(1, q.n));
     if (frac > 0) this.qcRing.lineStyle(3, card.ready ? 0xfff3c8 : 0x7fd05a, 0.95).beginPath().arc(R, H / 2, ring, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2).strokePath();
-    this.qcIcon.setFrame(iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
+    this.qcIcon.setFrame(adv ? L.advIcon(adv) : iconOf(q.c)).setPosition(R, H / 2).setScale(0.12);
     text.setVisible(open);
     sub.setVisible(open);
     this.qcGo.setVisible(open && go && !guiding).setPosition(Wd - 17, H / 2);
