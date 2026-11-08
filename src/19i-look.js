@@ -967,7 +967,12 @@
     this.ribbon(c, W / 2, top + 2, title.width + 54);
     c.add(title);
     var tiers = C.HOME.tiers, b = L.homeBeauty(s), tier = L.homeTier(s), cur = tiers[tier], next = tiers[tier + 1];
-    c.add(this.txt(26, top + 30, 'Home Beauty ' + b + '  ·  ' + cur[1] + (cur[2] ? '  (+' + cur[2] + ' max energy)' : ''), 12, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5));
+    // (owner, 8 Nov 2026: the line ran into "Top level!": the right words first, the left fits what is left)
+    var right = this.txt(W - 26, top + 30, next ? next[1] + ' at ' + next[0] : 'Top level!', 11, '#8a4f1c', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    var left = this.txt(26, top + 30, 'Beauty ' + b + '  ·  ' + cur[1] + (cur[2] ? ' (+' + cur[2] + ' energy)' : ''), 12, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    var room = W - 52 - right.width - 12;
+    if (left.width > room) left.setScale(room / left.width);
+    c.add(left);
     var bw = W - 52, pct = next ? Math.max(0, Math.min(1, (b - cur[0]) / (next[0] - cur[0]))) : 1;
     this.canvasImg(c, 26, top + 40, 'ui-beautybar', bw, 12, function (g) {
       rrect(g, 0, 0, bw, 12, 6);
@@ -980,7 +985,7 @@
       g.fillStyle = vgrad(g, 0, 8, '#ffb3d1', '#d0587a');
       g.fill();
     });
-    c.add(this.txt(W - 26, top + 30, next ? next[1] + ' at ' + next[0] : 'Top level!', 11, '#8a4f1c', { fontStyle: 'bold' }).setOrigin(1, 0.5));
+    c.add(right);
   };
 })(window.Farm = window.Farm || {});
 
