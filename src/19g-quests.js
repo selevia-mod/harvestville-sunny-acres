@@ -275,11 +275,16 @@
         buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
       });
       set.list.forEach(function (q, i) {
-        var p = L.questProgress(s, q);
+        var p = L.questProgress(s, q), ready = L.questReady(s, q);
+        // a daily quest: its villager's reason, and Go: your dog leads you there (owner, 8 Nov 2026: quests v2, the
+        // list kept: "quest list is still better" than the trail; 19zzzzzzzzzzzz-guide.js)
+        var daily = tab === 'daily' && L.questReason, why = daily ? L.questReason(s, i) : null;
+        var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
         rows.push({
-          icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null,
+          icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null, desc: why ? why.text : undefined,
           progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
-          buttons: L.questReady(s, q) ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }] : [],
+          buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
+            : go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],
         });
       });
     }

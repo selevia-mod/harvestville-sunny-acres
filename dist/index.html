@@ -15734,23 +15734,23 @@ L.questPlace = function (c) { return C.QUEST_PLACES[c] || null; };
 
 
 C.QUEST_REASONS = {
-water: [['ivy', 'Ivy says thirsty crops grow slowly.'], ['poppy', 'Poppy wants your field green for her flower walk.']],
-till: [['mira', 'Mira says good soil starts with a hoe.']],
-harvest: [['hana', 'Hana needs fresh crops for tomorrow\'s bread.'], ['marco', 'Marco is buying crops for his wagon.']],
-plant: [['ivy', 'Ivy wants to see her new seeds grow.'], ['daisy', 'Daisy\'s class is learning how seeds grow.']],
-care: [['owen', 'Owen the vet wants your animals happy and calm.'], ['pearl', 'Grandma Pearl says loved animals give more.']],
-collect: [['hana', 'Hana\'s ovens need eggs and milk.'], ['rosa', 'Rosa wants fresh milk for the inn\'s breakfast.']],
-forage: [['ivy', 'Ivy needs wild herbs for her teas.'], ['sora', 'Sora wants to paint the wild flowers.']],
-clear: [['mira', 'Mira says a clear field is a happy field.'], ['pip', 'Pip tripped over a stone on your path!']],
-fish: [['leo', 'Leo bets the fish are biting today.'], ['finn', 'Finn\'s cat is hungry, and it loves fish.']],
-gift: [['pearl', 'Grandma Pearl says a small gift makes a friend.'], ['jules', 'Jules says gifts make the best songs.']],
-talk: [['hollis', 'Mayor Hollis wants the town to know you.'], ['rosa', 'Rosa says the inn is full of news today.']],
-earned: [['marco', 'Marco says the market is busy today.'], ['hollis', 'The Mayor wants the market stalls full.']],
-pet: [['pip', 'Pip says {dog} looks lonely.'], ['owen', 'Owen says {dog} needs a little love today.']],
-cooked: [['hana', 'Hana wants to taste your cooking.'], ['rosa', 'Rosa\'s guests at the inn are hungry.']],
-floor: [['bram', 'Bram needs ore for the forge.'], ['ewan', 'Grandpa Ewan wants to hear what is down there.']],
-order: [['finn', 'Finn says an order is waiting on the board.'], ['hollis', 'The town needs your goods.']],
-request: [['hollis', 'The villagers are asking for help today.'], ['clara', 'Clara\'s class wants to help the town too.']],
+water: [['ivy', 'Ivy: dry crops grow slowly.'], ['poppy', 'Poppy wants a green field.']],
+till: [['mira', 'Mira: good soil, good crops.']],
+harvest: [['hana', 'Hana needs crops for bread.'], ['marco', 'Marco buys crops today.']],
+plant: [['ivy', 'Ivy wants her seeds to grow.'], ['daisy', 'Daisy\'s class studies seeds.']],
+care: [['owen', 'Owen wants happy animals.'], ['pearl', 'Pearl says love them well.']],
+collect: [['hana', 'Hana\'s ovens need eggs.'], ['rosa', 'Rosa needs milk for the inn.']],
+forage: [['ivy', 'Ivy needs herbs for tea.'], ['sora', 'Sora paints wild flowers.']],
+clear: [['mira', 'Mira wants a clear field.'], ['pip', 'Pip tripped on a stone!']],
+fish: [['leo', 'Leo: the fish are biting!'], ['finn', 'Finn\'s cat loves fish.']],
+gift: [['pearl', 'Pearl: gifts make friends.'], ['jules', 'Jules: gifts make songs.']],
+talk: [['hollis', 'The Mayor: meet the town!'], ['rosa', 'Rosa: the inn has news.']],
+earned: [['marco', 'Marco: the market is busy.'], ['hollis', 'The Mayor wants full stalls.']],
+pet: [['pip', 'Pip: {dog} looks lonely.'], ['owen', 'Owen: {dog} needs love.']],
+cooked: [['hana', 'Hana wants a taste.'], ['rosa', 'Rosa\'s guests are hungry.']],
+floor: [['bram', 'Bram needs ore to forge.'], ['ewan', 'Ewan: what\'s down there?']],
+order: [['finn', 'Finn: an order is waiting.'], ['hollis', 'The town needs your goods.']],
+request: [['hollis', 'Villagers need help today.'], ['clara', 'Clara\'s class wants to help.']],
 };
 
 L.questReason = function (s, i) {
@@ -24161,11 +24161,16 @@ icon: C.ICON.chest, name: chestName, reward: chest, done: !!chestDone,
 buttons: L.chestReady(s, tab) ? [{ label: 'Open', color: GOLD, cb: claim(function () { return L.claimChest(s, tab); }, function (r) { return 'Chest: ' + L.rewardLabel(r) + '!'; }) }] : [],
 });
 set.list.forEach(function (q, i) {
-var p = L.questProgress(s, q);
+var p = L.questProgress(s, q), ready = L.questReady(s, q);
+
+
+var daily = tab === 'daily' && L.questReason, why = daily ? L.questReason(s, i) : null;
+var go = daily && !q.done && !ready && L.questPlace(q.c) && self.questCardTap;
 rows.push({
-icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null,
+icon: iconOf(q.reward), name: q.text, tag: q.tier === 'hard' ? 'HARD' : null, desc: why ? why.text : undefined,
 progress: q.done ? null : [p, q.n], reward: q.reward, done: !!q.done,
-buttons: L.questReady(s, q) ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }] : [],
+buttons: ready ? [{ label: 'Claim', cb: claim(function () { return L.claimQuest(s, tab, i); }, function (r) { return 'Quest prize: ' + L.rewardLabel(r) + '!'; }) }]
+: go ? [{ label: 'Go', color: BLUE, cb: function () { L.pinQuest(s, i); F.session.dirty = true; self.closeAll(); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); } }] : [],
 });
 });
 }
@@ -45058,102 +45063,6 @@ m.c.add(link);
 if (bday && bday.x + bday.width * bday.scaleX > face.x - 14) bday.setScale(Math.max(0.6, (face.x - 14 - bday.x) / bday.width));
 };
 
-
-
-
-
-var TRAIL = { top: 190, bottom: 512, amp: 92 };
-var stoneAt = function (k, n) {
-var y = TRAIL.bottom - (TRAIL.bottom - TRAIL.top) * k / n;
-return { x: W / 2 + TRAIL.amp * Math.sin(k * 1.05 + 0.4), y: y };
-};
-var openQuests = U.openQuests;
-U.openQuests = function (tab, page) {
-openQuests.apply(this, arguments);
-if ((tab || 'daily') !== 'daily') return;
-var m = this.modals[this.modals.length - 1], s = F.session.state, set = s.dq;
-if (!m || !set) return;
-var c = m.c, self = this, panelBottom = 0;
-
-c.list.slice().forEach(function (o) {
-var b = o.getBounds && o.getBounds();
-if (!b) return;
-if (b.height >= 300) { panelBottom = Math.max(panelBottom, b.bottom); return; }
-if (b.top >= TRAIL.top - 14) o.destroy();
-});
-TRAIL.bottom = 512;
-var n = set.list.length, card = L.questCard(s), pts = [];
-for (var k = 0; k <= n; k++) pts.push(stoneAt(k, n));
-var path = this.add.graphics();
-path.lineStyle(16, 0xc9a46a, 0.9).beginPath().moveTo(pts[0].x, pts[0].y);
-for (k = 1; k < pts.length; k++) {
-var a = pts[k - 1], b = pts[k];
-path.lineTo((a.x + b.x) / 2, (a.y + b.y) / 2 + 6).lineTo(b.x, b.y);
-}
-path.strokePath();
-path.lineStyle(2, 0x8a6a3a, 0.35).beginPath().moveTo(pts[0].x, pts[0].y);
-for (k = 1; k < pts.length; k++) path.lineTo(pts[k].x, pts[k].y);
-c.add(path);
-set.list.forEach(function (q, i) {
-var pt = pts[i], ready = L.questReady(s, q), done = !!q.done, mine = card && card.i === i;
-var g = self.add.graphics(), fill = done ? 0x7fd05a : ready ? 0xe9b62a : 0xfff6dc;
-g.fillStyle(0x3d2614, 0.25).fillCircle(pt.x, pt.y + 3, 17);
-g.fillStyle(fill, 1).fillCircle(pt.x, pt.y, 16).lineStyle(2, 0x7a4d26, 0.8).strokeCircle(pt.x, pt.y, 16);
-if (mine && !done) g.lineStyle(3, 0x4a90c9, 1).strokeCircle(pt.x, pt.y, 20);
-c.add(g);
-c.add(self.add.image(pt.x, pt.y, 'items', iconOf(q.c)).setScale(0.12).setAlpha(done ? 0.55 : 1));
-if (done) c.add(self.txt(pt.x + 11, pt.y + 9, '\u2713', 12, '#2f6a1a', { fontStyle: 'bold' }).setOrigin(0.5));
-var left = pt.x > W / 2, words = self.txt(pt.x + (left ? -24 : 24), pt.y, q.text, 10, done ? '#8a7a5a' : INK, { fontStyle: done ? 'normal' : 'bold' }).setOrigin(left ? 1 : 0, 0.5);
-var room = left ? pt.x - 24 - 26 : W - 26 - (pt.x + 24);
-if (words.width > room) words.setScale(room / words.width);
-c.add(words);
-var z = self.add.zone(pt.x, pt.y, 44, 40).setInteractive({ useHandCursor: true });
-F.tapOn(z, function () { self.questStone(i); });
-c.add(z);
-});
-
-var top = pts[n], open = !!set.all, chest = this.add.image(top.x, top.y - 4, 'items', C.ICON.chest).setScale(0.26).setAlpha(open ? 0.5 : 1);
-c.add(chest);
-c.add(this.txt(top.x + (top.x > W / 2 ? -26 : 26), top.y - 4, open ? 'Opened today' : 'Finish all ' + n, 10, INK, { fontStyle: 'bold' }).setOrigin(top.x > W / 2 ? 1 : 0, 0.5));
-if (L.chestReady(s, 'daily')) {
-this.tweens.add({ targets: chest, scale: 0.3, duration: 500, yoyo: true, repeat: -1 });
-var zc = this.add.zone(top.x, top.y, 50, 46).setInteractive({ useHandCursor: true });
-F.tapOn(zc, function () {
-var r = L.claimChest(s, 'daily');
-if (r === 'full') { sfx('nope'); return self.toast('Your bag is full! Make room first.'); }
-if (typeof r !== 'object') return;
-sfx('coin'); world().changed(); world().save();
-self.closeModal(); self.openQuests('daily', 0);
-self.toast('Chest: ' + L.rewardLabel(r) + '!', 2400, 0x7a4d12);
-});
-c.add(zc);
-}
-c.trail = true;
-};
-
-U.questStone = function (i) {
-var self = this, s = F.session.state, q = s.dq && s.dq.list[i];
-if (!q) return;
-this.closeModal();
-var c = this.openModal(function () { self.closeModal(); self.openQuests('daily', 0); });
-var y0 = 190, h = 250;
-this.panelImg(c, 24, y0, W - 48, h);
-var r = L.questReason(s, i), p = L.questProgress(s, q), ready = L.questReady(s, q), place = L.questPlace(q.c), pinned = s.qp && s.qp.d === s.dq.d && s.qp.i === i;
-c.add(this.add.image(W / 2, y0 + 34, 'items', iconOf(q.c)).setScale(0.22));
-c.add(this.txt(W / 2, y0 + 64, q.text, 16, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
-if (r) c.add(this.txt(W / 2, y0 + 90, r.text, 12, '#7a5a3a', { align: 'center', wordWrap: { width: W - 90 } }).setOrigin(0.5, 0));
-c.add(this.txt(W / 2, y0 + 130, q.done ? 'Done today!' : p + ' of ' + q.n + '   \u00b7   Prize: ' + (L.rewardLabel(q.reward) || ''), 12, INK).setOrigin(0.5, 0));
-this.closeButton(c, W - 38, y0 + 12, function () { self.closeModal(); self.openQuests('daily', 0); });
-var by = y0 + h - 40, buttons = [];
-if (ready) buttons.push(['Claim', 0xe9a91c, function () { self.closeModal(); s.qp = { d: s.dq.d, i: i }; self.questCardTap(); self.openQuests('daily', 0); }]);
-if (!q.done && !ready && place) buttons.push(['Go', BLUE, function () { self.closeAll(); L.pinQuest(s, i); self.qcKey = null; self.refreshQuestCard(); self.questCardTap(); }]);
-if (!q.done) buttons.push([pinned ? 'Pinned' : 'Pin to screen', 0x5fa84a, function () { L.pinQuest(s, pinned ? -1 : i); F.session.dirty = true; self.qcKey = null; self.refreshQuestCard(); self.closeModal(); self.openQuests('daily', 0); }]);
-var bw = Math.min(130, (W - 80 - (buttons.length - 1) * 10) / Math.max(1, buttons.length));
-buttons.forEach(function (b, k) {
-var x = W / 2 + (k - (buttons.length - 1) / 2) * (bw + 10);
-self.button(c, x, by, bw, 40, b[0], b[2], b[1]);
-});
-};
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js

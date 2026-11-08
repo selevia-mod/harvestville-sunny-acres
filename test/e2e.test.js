@@ -2714,29 +2714,21 @@ test('quests v2: a done quest turns the card gold and claims from it; an unnamed
   await context.close();
 });
 
-test('quests v2: the Daily tab is today\'s trail: a stone opens its quest with a villager\'s reason; Pin puts it on the card; Go leads', async () => {
+test('quests v2: the Daily list: each quest says its villager\'s reason; Go puts it on the card and your dog leads', async () => {
   const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
   const { page, problems, context } = await open(save);
   await closeAll(page);
   await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
   await page.evaluate(() => Farm.ui.openQuests('daily', 0));
   await frames(page, 3);
-  assert.strictEqual(await page.evaluate(() => !!Farm.ui.modals[0].c.trail), true);
-  const texts = await modalText(page);
-  const s0 = await state(page);
-  s0.dq.list.forEach((q) => assert.ok(texts.includes(q.text), q.text));
-  assert.match(texts, /Finish all 10/);
-  await shot(page, 'qv2-trail');
-  const i = await page.evaluate(() => Farm.session.state.dq.list.findIndex((q) => Farm.Logic.questPlace(q.c)));
-  await page.evaluate((i) => Farm.ui.questStone(i), i);
+  const text = await modalText(page);
+  await shot(page, 'qv2-list');
+  await tapButton(page, 'Go', 0);
+  await page.waitForFunction(() => !!Farm.world.guide, null, SLOW);
+  const i = await page.evaluate(() => Farm.Logic.questCard(Farm.session.state).i);
   const reason = await page.evaluate((i) => Farm.Logic.questReason(Farm.session.state, i).text, i);
-  assert.ok((await modalText(page)).includes(reason), 'the reason');
-  await shot(page, 'qv2-stone');
-  await tapButton(page, 'Pin to screen');
-  assert.strictEqual(await page.evaluate(() => Farm.Logic.questCard(Farm.session.state).i), i, 'on the card');
-  await page.evaluate((i) => Farm.ui.questStone(i), i);
-  await tapButton(page, 'Go');
-  await page.waitForFunction(() => !!Farm.world.guide || !Farm.session.guide, null, SLOW);
+  assert.ok(text.includes(reason.slice(0, 18)), 'its reason was on the list: ' + reason);
+  assert.ok(await page.evaluate((i) => !!Farm.Logic.questPlace(Farm.session.state.dq.list[i].c), i));
   assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'the panel closed: the dog leads');
   assert.deepStrictEqual(problems, []);
   await context.close();

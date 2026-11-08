@@ -27,8 +27,8 @@ tap"; quests get meaning: (1) a story each week, (2) a reason from a villager on
    trade, chests) have no place: no Go.
 4. **The quest's reason (owner's idea 2).** Each daily quest says who wants it and why, under its words: "Finn's cat
    is hungry: he asks for fish." The villagers stay the same day long (seeded by the day).
-5. **The Daily tab as a trail.** The day's quests as stepping stones on a winding path, done ones green, the next gold,
-   the chest at the top (Finish all 10). A tap on a stone: the quest, its reason, Go and Pin.
+5. **The Daily tab stays a list** (owner, 8 Nov 2026: the trail was tried, "quest list is still better"): each daily
+   quest shows its villager's reason under the bar and a Go (it goes on the card and the dog leads). No separate Pin.
 
 ## Phase 2 (owner approves the first story's villager and lines first)
 

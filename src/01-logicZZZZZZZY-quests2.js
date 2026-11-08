@@ -47,24 +47,24 @@
   L.questPlace = function (c) { return C.QUEST_PLACES[c] || null; };
 
   // ---------- a villager's reason on each daily quest (two to pick from, the same all day) ----------
-  C.QUEST_REASONS = {
-    water: [['ivy', 'Ivy says thirsty crops grow slowly.'], ['poppy', 'Poppy wants your field green for her flower walk.']],
-    till: [['mira', 'Mira says good soil starts with a hoe.']],
-    harvest: [['hana', 'Hana needs fresh crops for tomorrow\'s bread.'], ['marco', 'Marco is buying crops for his wagon.']],
-    plant: [['ivy', 'Ivy wants to see her new seeds grow.'], ['daisy', 'Daisy\'s class is learning how seeds grow.']],
-    care: [['owen', 'Owen the vet wants your animals happy and calm.'], ['pearl', 'Grandma Pearl says loved animals give more.']],
-    collect: [['hana', 'Hana\'s ovens need eggs and milk.'], ['rosa', 'Rosa wants fresh milk for the inn\'s breakfast.']],
-    forage: [['ivy', 'Ivy needs wild herbs for her teas.'], ['sora', 'Sora wants to paint the wild flowers.']],
-    clear: [['mira', 'Mira says a clear field is a happy field.'], ['pip', 'Pip tripped over a stone on your path!']],
-    fish: [['leo', 'Leo bets the fish are biting today.'], ['finn', 'Finn\'s cat is hungry, and it loves fish.']],
-    gift: [['pearl', 'Grandma Pearl says a small gift makes a friend.'], ['jules', 'Jules says gifts make the best songs.']],
-    talk: [['hollis', 'Mayor Hollis wants the town to know you.'], ['rosa', 'Rosa says the inn is full of news today.']],
-    earned: [['marco', 'Marco says the market is busy today.'], ['hollis', 'The Mayor wants the market stalls full.']],
-    pet: [['pip', 'Pip says {dog} looks lonely.'], ['owen', 'Owen says {dog} needs a little love today.']],
-    cooked: [['hana', 'Hana wants to taste your cooking.'], ['rosa', 'Rosa\'s guests at the inn are hungry.']],
-    floor: [['bram', 'Bram needs ore for the forge.'], ['ewan', 'Grandpa Ewan wants to hear what is down there.']],
-    order: [['finn', 'Finn says an order is waiting on the board.'], ['hollis', 'The town needs your goods.']],
-    request: [['hollis', 'The villagers are asking for help today.'], ['clara', 'Clara\'s class wants to help the town too.']],
+  C.QUEST_REASONS = { // (short: they fit on the Quests list's row, owner's screenshot 8 Nov 2026)
+    water: [['ivy', 'Ivy: dry crops grow slowly.'], ['poppy', 'Poppy wants a green field.']],
+    till: [['mira', 'Mira: good soil, good crops.']],
+    harvest: [['hana', 'Hana needs crops for bread.'], ['marco', 'Marco buys crops today.']],
+    plant: [['ivy', 'Ivy wants her seeds to grow.'], ['daisy', 'Daisy\'s class studies seeds.']],
+    care: [['owen', 'Owen wants happy animals.'], ['pearl', 'Pearl says love them well.']],
+    collect: [['hana', 'Hana\'s ovens need eggs.'], ['rosa', 'Rosa needs milk for the inn.']],
+    forage: [['ivy', 'Ivy needs herbs for tea.'], ['sora', 'Sora paints wild flowers.']],
+    clear: [['mira', 'Mira wants a clear field.'], ['pip', 'Pip tripped on a stone!']],
+    fish: [['leo', 'Leo: the fish are biting!'], ['finn', 'Finn\'s cat loves fish.']],
+    gift: [['pearl', 'Pearl: gifts make friends.'], ['jules', 'Jules: gifts make songs.']],
+    talk: [['hollis', 'The Mayor: meet the town!'], ['rosa', 'Rosa: the inn has news.']],
+    earned: [['marco', 'Marco: the market is busy.'], ['hollis', 'The Mayor wants full stalls.']],
+    pet: [['pip', 'Pip: {dog} looks lonely.'], ['owen', 'Owen: {dog} needs love.']],
+    cooked: [['hana', 'Hana wants a taste.'], ['rosa', 'Rosa\'s guests are hungry.']],
+    floor: [['bram', 'Bram needs ore to forge.'], ['ewan', 'Ewan: what\'s down there?']],
+    order: [['finn', 'Finn: an order is waiting.'], ['hollis', 'The town needs your goods.']],
+    request: [['hollis', 'Villagers need help today.'], ['clara', 'Clara\'s class wants to help.']],
   };
   // { who (a villager's key), text } for daily quest i, or null
   L.questReason = function (s, i) {
