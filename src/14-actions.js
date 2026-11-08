@@ -76,6 +76,7 @@
   };
 
   // ---------- the action button ----------
+  var MARK_OFF = { lift: 1, lairlift: 1, door: 1, warp: 1, dungeon_gate: 1, jeep: 1, station: 1 }; // (the tile marker stays off these)
   M.updateAction = function (time) {
     var t = this.facing();
     var action = this.resolve();
@@ -103,7 +104,9 @@
       return;
     }
 
-    this.cursor.setPosition(t.x * T, t.y * T).setVisible(this.inMap(t.x, t.y));
+    // (not on something big with its own button: the lift, a door, a gate, the way out, the jeep, the station)
+    var big = this.objectAt && this.objectAt(t.x, t.y);
+    this.cursor.setPosition(t.x * T, t.y * T).setVisible(this.inMap(t.x, t.y) && !(big && MARK_OFF[big.type]));
     this.showArea(action && action.preview ? action.preview : null);
     if (F.input.action) {
       F.input.action = false;

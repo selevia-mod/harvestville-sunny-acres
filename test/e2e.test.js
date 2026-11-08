@@ -879,6 +879,7 @@ test('the deeper Mine: the lift stops at a band you reached, its cave has its ow
   assert.strictEqual(await sheet(), 'indoor', 'the first 200 floors look as they did');
   await teleport(page, 4, 3, 'left');
   assert.strictEqual(await page.evaluate((() => Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/mine_lift'))), true, 'the lift is its picture (8 Nov 2026), not the drawing');
+  assert.strictEqual(await page.evaluate(() => Farm.world.cursor.visible), false, 'no tile marker on the lift: its button says Lift');
   assert.strictEqual(await actionLabel(page), 'Lift');
   await tapAction(page);
   assert.match(await modalText(page), /Mine Lift/);
@@ -2588,6 +2589,36 @@ test('a list row with a bar: a long count (214/1500, 99999/100000) stays clear o
     return out;
   });
   gaps.forEach((g) => assert.ok(g.right <= g.btnLeft - 4, g.count + ' ends at ' + g.right + ', the Give button starts at ' + g.btnLeft));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the tile marker: soft fading corners that breathe, not a white square; none on the lift (owner, 8 Nov: "A but make it more softer and also looks like fading")', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await teleport(page, 30, 20, 'down');
+  const m = await page.evaluate(() => { const c = Farm.world.cursor; return { type: c.type, key: c.texture && c.texture.key, visible: c.visible, scale: c.scale }; });
+  assert.deepStrictEqual(m, { type: 'Image', key: 'fx-tilemark', visible: true, scale: 1 });
+  // it breathes, softly: never brighter than 0.75, down to about a third
+  const alphas = [];
+  for (let i = 0; i < 14; i++) { alphas.push(await page.evaluate(() => Farm.world.cursor.alpha)); await page.waitForTimeout(110); }
+  assert.ok(Math.max(...alphas) <= 0.76 && Math.min(...alphas) < 0.5 && Math.max(...alphas) - Math.min(...alphas) > 0.15, 'breathes: ' + alphas.map((a) => a.toFixed(2)).join(' '));
+  // the corners fade along their arms: bright at the corner, nearly gone at the arm's end
+  const fade = await page.evaluate(() => {
+    const src = Farm.world.textures.get('fx-tilemark').getSourceImage(), c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d');
+    g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data, at = (x, y) => d[(Math.round(y) * c.width + Math.round(x)) * 4 + 3];
+    let corner = 0, end = 0, mid = 0;
+    const W = c.width;
+    for (let y = 0; y < W * 0.16; y++) for (let x = 0; x < W * 0.16; x++) corner = Math.max(corner, at(x, y));
+    for (let y = 0; y < W * 0.16; y++) for (let x = W * 0.36; x < W * 0.44; x++) end = Math.max(end, at(x, y)); // (the arm's last bit)
+    for (let y = W * 0.3; y < W * 0.7; y++) for (let x = W * 0.3; x < W * 0.7; x++) mid = Math.max(mid, at(x, y));
+    return { corner, end, mid };
+  });
+  assert.ok(fade.corner > 150 && fade.end < fade.corner / 3 && fade.mid === 0, 'fades along the arm, open middle: ' + JSON.stringify(fade));
+  await shot(page, 'tilemark-farm');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

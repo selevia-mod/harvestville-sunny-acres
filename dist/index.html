@@ -16356,6 +16356,46 @@ var FEET_OFFSET = 128;
 var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance', pulag: 'from_town', makiling: 'from_pulag', magayon: 'from_makiling', park: 'from_town', hall: 'entrance' };
 
 F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
+
+
+F.tileMarkTex = function (scene) {
+var key = 'fx-tilemark';
+if (scene.textures.exists(key)) return key;
+var S = C.TILE, tex = scene.textures.createCanvas(key, S, S), g = tex.getContext();
+var inset = S * 0.09, arm = S * 0.3, r = S * 0.08, lw = S * 0.05;
+var one = document.createElement('canvas');
+one.width = one.height = S;
+var o = one.getContext('2d');
+[[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(function (d) {
+var x = d[0] > 0 ? inset : S - inset, y = d[1] > 0 ? inset : S - inset;
+o.clearRect(0, 0, S, S);
+o.globalCompositeOperation = 'source-over';
+o.lineCap = 'round';
+o.lineJoin = 'round';
+o.strokeStyle = 'rgb(255,246,214)';
+o.shadowColor = 'rgba(255,232,170,0.8)';
+o.shadowBlur = S * 0.04;
+o.lineWidth = lw;
+o.beginPath();
+o.moveTo(x + d[0] * arm, y);
+o.lineTo(x + d[0] * r, y);
+o.quadraticCurveTo(x, y, x, y + d[1] * r);
+o.lineTo(x, y + d[1] * arm);
+o.stroke();
+
+o.shadowBlur = 0;
+o.globalCompositeOperation = 'destination-in';
+var fade = o.createRadialGradient(x, y, 0, x, y, arm * 1.05);
+fade.addColorStop(0, 'rgba(0,0,0,1)');
+fade.addColorStop(0.45, 'rgba(0,0,0,0.75)');
+fade.addColorStop(1, 'rgba(0,0,0,0)');
+o.fillStyle = fade;
+o.fillRect(0, 0, S, S);
+g.drawImage(one, 0, 0);
+});
+tex.refresh();
+return key;
+};
 var OUTDOORS = { farm: true, town: true, pulag: true, makiling: true, magayon: true, park: true };
 var PREWARM_WAIT = 1500;
 
@@ -16426,8 +16466,11 @@ this.setFeet(spawn.x, spawn.y);
 this.idle();
 this.unstick();
 
-this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
-this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+
+
+
+this.cursor = this.add.image(0, 0, F.tileMarkTex(this)).setOrigin(0).setDepth(DEPTH.cursor).setAlpha(0.75);
+this.tweens.add({ targets: this.cursor, alpha: 0.32, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 this.areaCells = [];
 for (var i = 0; i < 15; i++) this.areaCells.push(this.add.rectangle(0, 0, T - 24, T - 24, 0xffffff, 0.28).setOrigin(0).setDepth(DEPTH.cursor).setVisible(false));
 
@@ -18394,6 +18437,7 @@ self.forage[idx] = img;
 };
 
 
+var MARK_OFF = { lift: 1, lairlift: 1, door: 1, warp: 1, dungeon_gate: 1, jeep: 1, station: 1 };
 M.updateAction = function (time) {
 var t = this.facing();
 var action = this.resolve();
@@ -18421,7 +18465,9 @@ F.input.action = false;
 return;
 }
 
-this.cursor.setPosition(t.x * T, t.y * T).setVisible(this.inMap(t.x, t.y));
+
+var big = this.objectAt && this.objectAt(t.x, t.y);
+this.cursor.setPosition(t.x * T, t.y * T).setVisible(this.inMap(t.x, t.y) && !(big && MARK_OFF[big.type]));
 this.showArea(action && action.preview ? action.preview : null);
 if (F.input.action) {
 F.input.action = false;

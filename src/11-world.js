@@ -12,6 +12,46 @@
   var DEFAULT_SPAWN = { farm: 'spawn', house: 'bed', town: 'from_farm', mine: 'entrance', pulag: 'from_town', makiling: 'from_pulag', magayon: 'from_makiling', park: 'from_town', hall: 'entrance' }; // (hall: the Hall of Fame, owner 6 Nov 2026)
   // Sets a depth only when it changes: Phaser re-sorts the whole map on every depth set, even to the same value.
   F.depthTo = function (o, d) { if (o.depth !== d) o.setDepth(d); return o; };
+  // The tile marker's picture (once): four soft rounded corners, each fading out along both its arms (a rounded L,
+  // then a round fade centred on its corner), with a faint warm glow.
+  F.tileMarkTex = function (scene) {
+    var key = 'fx-tilemark';
+    if (scene.textures.exists(key)) return key;
+    var S = C.TILE, tex = scene.textures.createCanvas(key, S, S), g = tex.getContext();
+    var inset = S * 0.09, arm = S * 0.3, r = S * 0.08, lw = S * 0.05;
+    var one = document.createElement('canvas');
+    one.width = one.height = S;
+    var o = one.getContext('2d');
+    [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(function (d) {
+      var x = d[0] > 0 ? inset : S - inset, y = d[1] > 0 ? inset : S - inset;
+      o.clearRect(0, 0, S, S);
+      o.globalCompositeOperation = 'source-over';
+      o.lineCap = 'round';
+      o.lineJoin = 'round';
+      o.strokeStyle = 'rgb(255,246,214)';
+      o.shadowColor = 'rgba(255,232,170,0.8)';
+      o.shadowBlur = S * 0.04;
+      o.lineWidth = lw;
+      o.beginPath();
+      o.moveTo(x + d[0] * arm, y);
+      o.lineTo(x + d[0] * r, y);
+      o.quadraticCurveTo(x, y, x, y + d[1] * r);
+      o.lineTo(x, y + d[1] * arm);
+      o.stroke();
+      // the fade: whole at the corner, gone at the arm's end
+      o.shadowBlur = 0;
+      o.globalCompositeOperation = 'destination-in';
+      var fade = o.createRadialGradient(x, y, 0, x, y, arm * 1.05);
+      fade.addColorStop(0, 'rgba(0,0,0,1)');
+      fade.addColorStop(0.45, 'rgba(0,0,0,0.75)');
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      o.fillStyle = fade;
+      o.fillRect(0, 0, S, S);
+      g.drawImage(one, 0, 0);
+    });
+    tex.refresh();
+    return key;
+  };
   var OUTDOORS = { farm: true, town: true, pulag: true, makiling: true, magayon: true, park: true }; // (park: Central Park, owner 6 Nov 2026)
   var PREWARM_WAIT = 1500; // ms a travel waits, after its fade, for the next map's pictures to be decoded
 
@@ -82,8 +122,11 @@
       this.idle();
       this.unstick();
 
-      this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(14, 0xffffff, 0.9).setDepth(DEPTH.cursor);
-      this.tweens.add({ targets: this.cursor, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+      // The tile you act on: four soft cream corners that fade along their arms and breathe (owner, 8 Nov 2026: "A but
+      // make it more softer and also looks like fading"; it was a thick white square). The picture is T across, so a
+      // scale of 1 is its size (19zs-photo.js hides it with a scale of 0).
+      this.cursor = this.add.image(0, 0, F.tileMarkTex(this)).setOrigin(0).setDepth(DEPTH.cursor).setAlpha(0.75);
+      this.tweens.add({ targets: this.cursor, alpha: 0.32, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.areaCells = [];
       for (var i = 0; i < 15; i++) this.areaCells.push(this.add.rectangle(0, 0, T - 24, T - 24, 0xffffff, 0.28).setOrigin(0).setDepth(DEPTH.cursor).setVisible(false));
 
