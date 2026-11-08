@@ -59,6 +59,19 @@
   // painted (owner, 2 Nov 2026; assets/sidebtn, tools/art/sidebuttons-import.js).
   var PAINTED = { quests: 0, online: 1, decorate: 2, chat: 3 };
   var GLYPH = {
+    // a minus and a plus (the stall's how-many, 8 Nov 2026)
+    minus: function (g, cx, cy, r) {
+      var a = r * 0.4;
+      line(g, [[cx - a, cy], [cx + a, cy]], 5.5, EDGE);
+      line(g, [[cx - a, cy], [cx + a, cy]], 3, '#ffffff');
+    },
+    plus: function (g, cx, cy, r) {
+      var a = r * 0.4;
+      line(g, [[cx - a, cy], [cx + a, cy]], 5.5, EDGE);
+      line(g, [[cx, cy - a], [cx, cy + a]], 5.5, EDGE);
+      line(g, [[cx - a, cy], [cx + a, cy]], 3, '#ffffff');
+      line(g, [[cx, cy - a], [cx, cy + a]], 3, '#ffffff');
+    },
     // an ×
     close: function (g, cx, cy, r) {
       var a = r * 0.36;
@@ -281,7 +294,7 @@
     if (o.slim != null || o.tiles != null || o.paged) return;
     var t = String(o.title || '');
     if (/^What's new/.test(t)) return; // (its long notes keep their tall cards and pages)
-    if (TILE_PANELS.indexOf(t) >= 0 || / Furniture$/.test(t) || (t === "Mira's Woodshop" && (o.tab === 'furniture' || o.tab === 'outdoor'))) o.tiles = true;
+    if (TILE_PANELS.indexOf(t) >= 0 || / Furniture$/.test(t) || o.tab === 'outdoor' || (t === "Mira's Woodshop" && o.tab === 'furniture')) o.tiles = true; // (Mira's outdoor catalog and its sections)
     else o.slim = true;
   };
   U.lookListPanel = function (o) {
@@ -539,7 +552,7 @@
     var z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
     z.on('pointerdown', function () { r.setScale(0.97); });
     z.on('pointerout', function () { r.setScale(1); });
-    F.tapOn(z, function () { r.setScale(1); sfx('pick'); self.tileOpen(row, state, o); });
+    F.tapOn(z, function () { r.setScale(1); sfx('pick'); if (row.onPick) return row.onPick(); self.tileOpen(row, state, o); }); // (onPick: the tile does it at once)
     r.add(z);
     parent.add(r);
     return r;

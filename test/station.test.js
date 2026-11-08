@@ -258,17 +258,17 @@ test('while a train is in, stall sales count for the town (4 a train); a visitor
   assert.ok(C.VILLAGERS[s.shelves[0].buyer], 'the coins still name a villager (the save keeps villagers only)');
 });
 
-test('Town Level 2: a bigger stall, 30 on a shelf, and a save keeps them', () => {
+test('Town Level 2: a bigger stall, 150 on a shelf (100 before it), and a save keeps them', () => {
   const s = at(fresh(), 10, 0);
-  give(s, 'turnip', 60);
+  give(s, 'turnip', 300);
   const slot = () => s.inv.findIndex((x) => x && x.id === 'turnip');
-  assert.strictEqual(L.listItem(s, 0, slot(), 60, 0), 'ok');
-  assert.strictEqual(s.shelves[0].n, 20);
+  assert.strictEqual(L.listItem(s, 0, slot(), 300, 0), 'ok');
+  assert.strictEqual(s.shelves[0].n, 100);
   levelTo(s, 2);
-  assert.strictEqual(L.listItem(s, 1, slot(), 60, 0), 'ok');
-  assert.strictEqual(s.shelves[1].n, 30);
-  assert.strictEqual(C.STAND.perShelf, 20, 'the stall\'s own number is back');
-  assert.strictEqual(roundTrip(s).shelves[1].n, 30);
+  assert.strictEqual(L.listItem(s, 1, slot(), 300, 0), 'ok');
+  assert.strictEqual(s.shelves[1].n, 150);
+  assert.strictEqual(C.STAND.perShelf, 100, 'the stall\'s own number is back');
+  assert.strictEqual(roundTrip(s).shelves[1].n, 150);
 });
 
 test('the kiosk (Town Level 4): a Power-Up and Pet Meals for gold, a few a day', () => {

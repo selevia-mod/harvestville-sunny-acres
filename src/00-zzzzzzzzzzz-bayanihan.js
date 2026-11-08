@@ -52,7 +52,7 @@
     cap: 800, // the most points one farmer can give to one project (so nobody can flood it)
     top: 10, // the top givers the board shows
     pickMost: 50, // the most the Give box offers in one go
-    hallShelf: 10, // the Market Hall: each stall shelf holds this many more
+    hallShelf: 50, // (was 10 when a shelf held 20) // the Market Hall: each stall shelf holds this many more
     hallPay: 1.1, // the Market Hall: stall sales pay this much more
     wish: [['gold', 120], ['gold', 200], ['fert', 3], ['treat', 1], ['seed', 5], ['gold', 300]], // the fountain's daily wishing coin, one at random
     bellGold: 500, // the Chapel Bell: the festival gift for ringing it on a festival day

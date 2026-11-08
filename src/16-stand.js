@@ -120,60 +120,91 @@
     world().save();
   };
 
-  // Pick something from the bag to sell (shelf = which shelf it goes on, or null to sell only).
+  // Pick something from the bag to sell (shelf = which shelf it goes on, or null to sell only). Tiles with filters, like
+  // every shop (owner, 8 Nov 2026: "improve the Market Stall and selling design"): the item, how many you have, its
+  // price each; a tap opens how many and for how much.
+  var KIND_GROUP = { crop: 'crops', fruit: 'crops', forage: 'crops', produce: 'animal', fish: 'fish', meat: 'hunt', hunt: 'hunt', ore: 'other', dish: 'other', goods: 'other' };
   M.openSellPicker = function (shelf) {
-    var self = this, s = state();
-    var c = this.openModal();
-    this.panelImg(c, 14, 140, W - 28, 380);
-    this.ribbon(c, W / 2, 144, 200);
-    c.add(this.txt(W / 2, 144, 'What to sell?', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
-    this.button(c, W - 46, 176, 40, 32, 'X', function () { self.closeModal(); }, RED);
-    var items = [];
-    s.inv.forEach(function (slot, i) { if (slot && L.basePrice(slot.id)) items.push(i); });
-    if (!items.length) {
-      c.add(this.txt(W / 2, 290, 'Nothing in your bag sells.\nHarvest crops, collect eggs and milk,\ncatch fish or mine ore first.', 14, INK, { align: 'center', lineSpacing: 4 }).setOrigin(0.5));
-      return c;
-    }
-    var cols = 6, gap = 6, x0 = (W - (cols * SLOT + (cols - 1) * gap)) / 2, y0 = 206;
-    items.slice(0, 30).forEach(function (inv, k) {
-      var x = x0 + (k % cols) * (SLOT + gap), y = y0 + Math.floor(k / cols) * (SLOT + gap);
-      var w = self.slotWidget(c, x, y, function () {});
-      self.drawSlot(w, s.inv[inv], false);
-      // act when the finger lifts (like the shelves underneath), or the lift would land on a shelf
-      var z = self.add.zone(x + SLOT / 2, y + SLOT / 2, SLOT, SLOT).setInteractive({ useHandCursor: true });
-      F.tapOn(z, function () { self.closeModal(); self.openSellOptions(shelf, inv); });
-      c.add(z);
+    var self = this, s = state(), rows = [], seen = {};
+    s.inv.forEach(function (slot, i) {
+      if (!slot || !L.basePrice(slot.id) || seen[slot.id]) return;
+      seen[slot.id] = 1;
+      var item = C.ITEMS[slot.id], have = L.countItem(s, slot.id);
+      rows.push({ icon: item.icon, name: item.name + ' x' + have, kind: KIND_GROUP[item.kind] || 'other',
+        buttons: [{ label: L.basePrice(slot.id) + 'G each', color: GREEN, cb: function () {} }],
+        onPick: function () { self.openSellOptions(shelf, i); } });
     });
-    c.add(this.txt(W / 2, 478, 'Tap an item to pick a price.', 12, '#7a5a3a').setOrigin(0.5));
-    return c;
+    this.listPanel({
+      title: 'What to sell?', rows: rows, page: 0, tiles: true,
+      filters: [['all', 'All'], ['crops', 'Crops'], ['animal', 'Animal'], ['fish', 'Fish'], ['hunt', 'Hunt'], ['other', 'Other']],
+      groupOf: function (r) { return r.kind; },
+      sub: function () { return 'Tap something to pick how many and the price.'; },
+      empty: 'Nothing in your bag sells.\nHarvest crops, collect eggs and milk,\ncatch fish or hunt first.',
+      reopen: function () { self.closeModal(); self.openSellPicker(shelf); },
+    });
   };
 
-  // How many, and for how much: three shelf prices, or sell right now.
+  // How many, and for how much: three shelf prices side by side, or sell right now.
   M.openSellOptions = function (shelf, inv, n) {
     var self = this, s = state(), slot = s.inv[inv];
     if (!slot) return;
-    var id = slot.id, item = C.ITEMS[id], max = slot.n;
+    var id = slot.id, item = C.ITEMS[id], max = slot.n, base = L.basePrice(id);
     var shelfMax = Math.min(max, C.STAND.perShelf);
     n = Math.max(1, Math.min(n || Math.min(max, shelfMax), max));
-    var c = this.openModal();
-    this.panelImg(c, 14, 108, W - 28, 450);
-    this.ribbon(c, W / 2, 112, 210);
-    c.add(this.txt(W / 2, 112, item.name, 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
-    this.button(c, W - 46, 144, 40, 32, 'X', function () { self.closeModal(); }, RED);
-    c.add(this.add.image(W / 2, 176, 'items', item.icon).setScale(0.5));
-    // quantity stepper
+    var c = this.openModal(), top = 112, h = 432;
+    this.panelImg(c, 14, top, W - 28, h);
+    this.ribbon(c, W / 2, top + 4, 210);
+    c.add(this.txt(W / 2, top + 4, item.name, 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
+    this.closeButton(c, W - 32, top + 18, function () { self.closeModal(); });
     var again = function (k) { self.closeModal(); self.openSellOptions(shelf, inv, k); };
-    this.button(c, W / 2 - 86, 230, 44, 36, '-', function () { if (n > 1) again(n - 1); }, n > 1 ? BLUE : GREY);
-    this.button(c, W / 2 + 86, 230, 44, 36, '+', function () { if (n < max) again(n + 1); }, n < max ? BLUE : GREY);
-    c.add(this.txt(W / 2, 230, n + ' of ' + max, 17, INK, { fontStyle: 'bold' }).setOrigin(0.5));
-    if (max > 1) this.button(c, W / 2, 266, 80, 26, n === max ? 'One' : 'All', function () { again(n === max ? 1 : max); }, GREY);
-    var y = 300;
-    var shelfFree = shelf != null ? shelf : s.shelves.indexOf(null);
+    // the item: its picture, how many you have, its price each
+    var hy = top + 62;
+    c.add(this.add.circle(64, hy, 30, 0xf2d79a).setStrokeStyle(2, 0xd9b77f));
+    c.add(this.add.image(64, hy, 'items', item.icon).setScale(0.36));
+    c.add(this.txt(106, hy - 14, 'You have ' + max, 14, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5));
+    c.add(this.txt(106, hy + 10, base + 'G each  ·  up to ' + C.STAND.perShelf + ' a shelf', 11, '#7a5a3a').setOrigin(0, 0.5));
+    // how many: - n +, and quick picks
+    var qy = top + 128;
+    var card = this.add.graphics();
+    card.fillStyle(0xfff6dc, 1).fillRoundedRect(26, qy - 26, W - 52, 84, 12).lineStyle(1.5, 0xd9b77f, 1).strokeRoundedRect(26, qy - 26, W - 52, 84, 12);
+    c.add(card);
+    this.roundButton(c, 58, qy, 17, n > 1 ? BLUE : GREY, 'minus', null, function () { if (n > 1) again(n - 1); });
+    this.roundButton(c, W - 58, qy, 17, n < max ? BLUE : GREY, 'plus', null, function () { if (n < max) again(n + 1); });
+    c.add(this.txt(W / 2, qy - 2, String(n), 24, INK, { fontStyle: 'bold' }).setOrigin(0.5));
+    c.add(this.txt(W / 2, qy + 17, n + ' of ' + max, 10, '#9a7a5a').setOrigin(0.5));
+    var picks = [1, 10, 50, C.STAND.perShelf, max].filter(function (k, i, all) { return k <= max && all.indexOf(k) === i; }); // (a full shelf too)
+    var pw = 56, px = W / 2 - (picks.length * pw + (picks.length - 1) * 8) / 2 + pw / 2;
+    picks.forEach(function (k, i) {
+      var on = k === n, chip = self.add.container(px + i * (pw + 8), qy + 42), g = self.add.graphics();
+      g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(-pw / 2, -11, pw, 22, 11);
+      chip.add([g, self.txt(0, 0, k === max && max > 1 ? 'All' : String(k), 11, on ? '#ffffff' : '#5a3a1e', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      var z = self.add.zone(0, 0, pw, 26).setInteractive({ useHandCursor: true });
+      F.tapOn(z, function () { if (!on) again(k); });
+      chip.add(z);
+      c.add(chip);
+    });
+    // on a shelf: Low, Fair, High as three cards; or sell now
+    var sy = top + 232, shelfFree = shelf != null ? shelf : s.shelves.indexOf(null), count = Math.min(n, shelfMax);
     if (shelfFree >= 0) {
-      c.add(this.txt(W / 2, y, 'Put on a shelf' + (n > shelfMax ? ' (' + shelfMax + ' fit on one)' : ''), 12, '#7a5a3a', { fontStyle: 'bold' }).setOrigin(0.5));
+      c.add(this.txt(W / 2, sy - 30, 'Put on a shelf' + (n > shelfMax ? '  (' + shelfMax + ' fit on one)' : '') + ': a buyer comes later', 11, '#7a5a3a', { fontStyle: 'bold' }).setOrigin(0.5));
+      var cw = (W - 52 - 16) / 3;
       C.STAND.prices.forEach(function (p, k) {
-        var by = y + 30 + k * 46, count = Math.min(n, shelfMax);
-        self.button(c, W / 2, by, 280, 40, p.name + ': ' + L.shelfPrice(id, count, k) + 'G  (about ' + soon((p.minutes[0] + p.minutes[1]) / 2) + ')', function () {
+        var x = 26 + k * (cw + 8), col = [0x5fa84a, 0x4a90c9, 0x8a5ac9][k], g = self.add.graphics(), box = self.add.container(x, sy - 14);
+        g.fillStyle(0x7a4d26, 0.15).fillRoundedRect(0, 3, cw, 86, 12);
+        g.fillStyle(0xfffbf0, 1).fillRoundedRect(0, 0, cw, 86, 12);
+        g.fillStyle(col, 1).fillRoundedRect(0, 0, cw, 24, { tl: 12, tr: 12, bl: 0, br: 0 });
+        g.lineStyle(1.5, col, 1).strokeRoundedRect(0.75, 0.75, cw - 1.5, 84.5, 12);
+        box.add(g);
+        box.add(self.txt(cw / 2, 12, p.name, 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5));
+        var total = L.shelfPrice(id, count, k), tt = self.txt(cw / 2, 44, total + 'G', 15, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+        if (tt.width > cw - 8) tt.setScale((cw - 8) / tt.width);
+        box.add(tt);
+        box.add(self.txt(cw / 2, 66, 'about ' + soon((p.minutes[0] + p.minutes[1]) / 2), 10, '#7a5a3a').setOrigin(0.5));
+        var z = self.add.zone(cw / 2, 43, cw, 86).setInteractive({ useHandCursor: true });
+        z.on('pointerdown', function () { box.setScale(0.97); });
+        z.on('pointerout', function () { box.setScale(1); });
+        F.tapOn(z, function () {
+          box.setScale(1);
           if (L.listItem(s, shelfFree, inv, count, k) !== 'ok') return;
           sfx('pick');
           world().progress('ship');
@@ -182,14 +213,16 @@
           self.closeAll();
           self.openStand('shelves');
           self.toast(count + ' ' + item.name + ' on the shelf. A buyer comes in about ' + soon(s.shelves[shelfFree].left) + '.');
-        }, [GREEN, BLUE, 0x8a5ac9][k]);
+        });
+        box.add(z);
+        box.priceKey = p.name; // (the tests: a card by its price's name)
+        c.add(box);
       });
-      y += 30 + 3 * 46 + 6;
     } else {
-      c.add(this.txt(W / 2, y + 20, 'All 6 shelves are busy. You can still sell right now.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5));
-      y += 60;
+      c.add(this.txt(W / 2, sy + 20, 'All 6 shelves are busy. You can still sell right now.', 12, '#7a5a3a', { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5));
     }
-    this.button(c, W / 2, y + 14, 280, 40, 'Sell now: ' + L.instantPrice(id, n) + 'G', function () {
+    var by = top + h - 40;
+    this.pillButton(c, W / 2, by, W - 70, 40, 'Sell now: ' + L.instantPrice(id, n) + 'G', function () {
       var gold = L.sellNow(s, inv, n);
       if (!gold) return;
       sfx('coin');
@@ -200,6 +233,7 @@
       self.openStand('shelves');
       self.toast('Sold ' + n + ' ' + item.name + ' for ' + gold + 'G.', 1800, 0x7a4d12);
     }, GOLD);
+    c.add(this.txt(W / 2, by - 30, L.weekendMarket() ? 'Weekend market: sell now pays the full price!' : 'Sell now: no wait, ' + Math.round(C.STAND.instant * 100) + '% of the price', 10, '#9a7a5a').setOrigin(0.5));
     return c;
   };
 

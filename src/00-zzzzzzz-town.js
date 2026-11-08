@@ -18,7 +18,7 @@
     saleMax: 4, // stall sales a train's visitors count for, per train
     levels: [
       { at: 0, text: 'The station opens: cargo orders of 4 crates, and 2 visitors on every train.' },
-      { at: 12, text: 'A bigger market stall: each shelf holds 30, not 20.' },
+      { at: 12, text: 'A bigger market stall: each shelf holds 150, not 100.' },
       { at: 30, text: 'Flags over the plaza. Cargo orders grow to 5 crates, and 3 visitors come on every train.' },
       { at: 55, text: 'The station kiosk opens: Pet Meals and a Power-Up, fresh off the train.' },
       { at: 90, text: 'A new visitor: the Collector, who pays Sunbeams for rare things.' },
@@ -57,7 +57,7 @@
     kioskAt: 4,
     collectorAt: 5,
     shelfAt: 2,
-    shelfMore: 30,
+    shelfMore: 150, // (Town Level 2: was 30 when a shelf held 20; 8 Nov 2026 a shelf holds 100)
     flagsAt: 3,
     lanternsAt: 7,
     payMoreAt: 8,

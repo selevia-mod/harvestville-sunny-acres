@@ -8,7 +8,7 @@
 
   C.STAND = {
     shelves: 6,
-    perShelf: 20, // most of one item on a shelf
+    perShelf: 100, // most of one item on a shelf (owner, 8 Nov 2026: "Make the maximum selling here is 100, not 20")
     instant: 0.75, // selling right away pays this share of the base price
     // price levels for a shelf: share of the base price, and how long (game minutes) until a buyer comes
     prices: [

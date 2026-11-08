@@ -209,16 +209,16 @@ test('the reward: Gold as the server says (never more than the top), the title a
 
 test('the benefits: the Market Hall\'s stall, the fountain\'s wish, the Chapel Bell, the boatman, the bridge\'s fish', () => {
   const s = fresh();
-  // the Market Hall: a sale pays 10% more; shelves hold 10 more, and keep them through the save
+  // the Market Hall: a sale pays 10% more; shelves hold C.BH.hallShelf more (50), and keep them through the save
   const cap = L.twShelfCap(s);
   s.shelves[0] = { id: 'turnip', n: 10, price: 1, left: 0, coins: 0 };
   const plainSale = L.sellLot(s, 0, 'lily').coins;
   s.bh.built = 0b10;
-  assert.strictEqual(L.twShelfCap(s), cap + 10);
+  assert.strictEqual(L.twShelfCap(s), cap + 50);
   s.shelves[0] = { id: 'turnip', n: 10, price: 1, left: 0, coins: 0 };
   assert.strictEqual(L.sellLot(s, 0, 'lily').coins, Math.round(plainSale * 1.1));
-  s.shelves[1] = { id: 'turnip', n: cap + 10, price: 1, left: 60, coins: 0 };
-  assert.strictEqual(roundTrip(s).shelves[1].n, cap + 10, 'a bigger lot loads whole');
+  s.shelves[1] = { id: 'turnip', n: cap + 50, price: 1, left: 60, coins: 0 };
+  assert.strictEqual(roundTrip(s).shelves[1].n, cap + 50, 'a bigger lot loads whole');
   // the fountain: once a day
   assert.strictEqual(L.bhWish(s), 'built');
   s.bh.built |= 0b100;

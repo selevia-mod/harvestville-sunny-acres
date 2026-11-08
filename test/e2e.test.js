@@ -136,6 +136,28 @@ async function tapButton(page, label, nth = 0) {
   // a tile (a shop's picture: 19i-look.js) opens its own panel first: its button of the same name is the one meant
   if (await page.evaluate((n0) => Farm.ui.modals.length === n0 + 1 && !!Farm.ui.modals[n0].c.tileDetail, n0)) await tapButton(page, label);
 }
+// A tile, by its name: tapped (scrolled into view first).
+async function tapTile(page, name) {
+  const pos = await page.evaluate((name) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    let hit = null; const walk = (l) => l.forEach((o) => { if (!hit && o.type === 'Text' && o.text === name && o.parentContainer && o.parentContainer.rowH) hit = o; if (o.list) walk(o.list); });
+    walk(m.c.list);
+    if (!hit) return null;
+    if (m.c.slimInto) m.c.slimInto(hit);
+    const b = hit.parentContainer.getBounds();
+    return { x: b.centerX, y: b.centerY };
+  }, name);
+  assert.ok(pos, `tile "${name}" is on screen`);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page, 2);
+}
+// The stall's price card (Low, Fair, High), tapped.
+async function tapPrice(page, name) {
+  const pos = await page.evaluate((name) => { const m = Farm.ui.modals[Farm.ui.modals.length - 1], b = m.c.list.find((o) => o.priceKey === name); const r = b && b.getBounds(); return r && { x: r.centerX, y: r.centerY }; }, name);
+  assert.ok(pos, `the ${name} price card is on screen`);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page, 2);
+}
 // A tile's own panel (its words), by its name: opened, read, closed.
 async function tileText(page, name, keep) {
   const pos = await page.evaluate((name) => {
@@ -391,11 +413,13 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   await shot(page, '07-stand');
   await tapButton(page, 'Sell from bag');
   await page.waitForTimeout(300);
-  await page.touchscreen.tap(33 + 22, 206 + 22); // the turnips, the only thing in the bag that sells
+  await tapTile(page, 'Turnip x3'); // the turnips, the only thing in the bag that sells (a tile: 8 Nov 2026)
   await page.waitForTimeout(300);
   const P = await page.evaluate(() => ({ now: 3 * Math.floor(Farm.Config.ITEMS.turnip.sell * Farm.Config.STAND.instant), fair: 3 * Math.round(Farm.Config.ITEMS.turnip.sell * 1.2) }));
   assert.match(await modalText(page), new RegExp('Sell now: ' + P.now + 'G'));
-  await tapButton(page, 'Fair: ' + P.fair + 'G  (about 2.5h)');
+  assert.match(await modalText(page), new RegExp('Fair \\| ' + P.fair + 'G \\| about 2.5h'));
+  await shot(page, '07b-sell-options');
+  await tapPrice(page, 'Fair');
   s = await state(page);
   assert.deepStrictEqual(s.shelves[0] && [s.shelves[0].id, s.shelves[0].n, s.shelves[0].price], ['turnip', 3, 1]);
   assert.strictEqual(count(s, 'turnip'), 0);
@@ -2362,7 +2386,9 @@ test('the growing farm: the Bakery bakes, a mango tree fruits, a field plot is t
   assert.match(await modalText(page), /Workshops[\s\S]*Fruit trees[\s\S]*More land/);
   await closeAll(page);
   await page.evaluate(() => Farm.ui.openOutdoor('workshops', 0));
-  assert.match(await modalText(page), /Bakery[\s\S]*You have one\.[\s\S]*Dairy[\s\S]*Buy 4000G/);
+  assert.match(await modalText(page), /Dairy[\s\S]*Buy 4000G/);
+  assert.match(await modalText(page), /Bakery/);
+  assert.match(await tileText(page, 'Bakery'), /You have one\./); // (Mira's catalog is tiles: the words in the tile's own panel)
   await shot(page, 'farm2-6-workshops');
   await closeAll(page);
   await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
@@ -2854,6 +2880,36 @@ test('slim rows show their pictures: the Post Office\'s villagers have their fac
   const faces = await page.evaluate(() => { const m = Farm.ui.modals[0], list = m.c.list.find((o) => o.type === 'Container' && o.mask); return list.list.map((r) => r.list.some((o) => o.type === 'Image' && o.texture && o.texture.key === 'people')); });
   assert.ok(faces.length >= 4 && faces.every(Boolean), 'a face on every row: ' + faces);
   await shot(page, 'slim-post-office');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the market stall: 100 of one thing on a shelf (owner, 8 Nov 2026: "maximum selling here is 100, not 20"); quick picks; Sell now', async () => {
+  const save = await makeSave("s.goal = 99; s.time = 600; L.addItem(s, 'turnip', 150); L.addItem(s, 'egg', 4);");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => { Farm.ui.openStand('shelves'); Farm.ui.openSellPicker(0); });
+  await frames(page, 3);
+  assert.match(await modalText(page), /What to sell\?[\s\S]*Turnip x150[\s\S]*Egg x4/);
+  await shot(page, 'stall-picker');
+  await tapTile(page, 'Turnip x150');
+  assert.match(await modalText(page), /You have 150[\s\S]*up to 100 a shelf[\s\S]*100 \| 100 of 150/);
+  await shot(page, 'stall-sell-options');
+  await tapPrice(page, 'Low');
+  const s = await state(page);
+  assert.deepStrictEqual([s.shelves[0].id, s.shelves[0].n], ['turnip', 100]);
+  assert.strictEqual(count(s, 'turnip'), 50);
+  // Sell now from the eggs, the quick pick "All"
+  await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openSellPicker(null); });
+  await frames(page, 2);
+  await tapTile(page, 'Egg x4');
+  await tapButton(page, '1');
+  assert.match(await modalText(page), /1 of 4/);
+  await tapButton(page, 'All');
+  const g0 = (await state(page)).gold;
+  await tapButton(page, 'Sell now: ' + await page.evaluate(() => Farm.Logic.instantPrice('egg', 4)) + 'G');
+  assert.ok((await state(page)).gold > g0);
+  assert.strictEqual(count(await state(page), 'egg'), 0);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -4638,13 +4694,14 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   await shot(page, 'greenhouse-v2-outside');
   // Mira's catalog: the Greenhouse under More land, one only
   await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
-  assert.match(await modalText(page), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);
+  assert.match(await tileText(page, 'Greenhouse'), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);
   assert.strictEqual(await page.evaluate((gh) => Farm.yardImg(Farm.ui, gh).key, GH), 'props/ws_greenhouse', 'the whole greenhouse in the list');
   await shot(page, 'farmtech-6-mira');
   await closeAll(page);
   // with a greenhouse, Lily sells every seed: out of season ones after the rest
-  await page.evaluate(() => Farm.ui.openShop('seeds', 3));
-  assert.match(await modalText(page), /Out of season: for your greenhouse/);
+  await page.evaluate(() => Farm.ui.openShop('seeds', 0));
+  const outName = await page.evaluate(() => { const C = Farm.Config, s = Farm.session.state; const id = Object.keys(C.ITEMS).find((k) => C.ITEMS[k].kind === 'seed' && C.ITEMS[k].price && !Farm.Logic.cropInSeason(C.ITEMS[k].crop, s.day)); return C.ITEMS[id].name; });
+  assert.match(await tileText(page, outName), /Out of season: for your greenhouse/); // (Lily's seeds are tiles: in the tile's own panel)
   await shot(page, 'farmtech-8-lily-seeds');
   await closeAll(page);
   // till a tile inside: wet at once

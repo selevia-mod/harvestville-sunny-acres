@@ -33,10 +33,11 @@ test('selling now pays less than the base price, right away', () => {
 
 test('a shelf sells after a while at its price, and the coins wait to be collected', () => {
   const s = fresh();
-  L.addItem(s, 'turnip', 30);
-  assert.strictEqual(L.listItem(s, 0, slotOf(s, 'turnip'), 30, 2), 'ok');
+  L.addItem(s, 'turnip', 130);
+  assert.strictEqual(C.STAND.perShelf, 100, 'owner, 8 Nov 2026: up to 100 on a shelf');
+  assert.strictEqual(L.listItem(s, 0, slotOf(s, 'turnip'), 130, 2), 'ok');
   assert.strictEqual(s.shelves[0].n, C.STAND.perShelf, 'at most perShelf on one shelf');
-  assert.strictEqual(L.countItem(s, 'turnip'), 30 - C.STAND.perShelf);
+  assert.strictEqual(L.countItem(s, 'turnip'), 130 - C.STAND.perShelf);
   assert.strictEqual(L.listItem(s, 0, slotOf(s, 'turnip'), 1, 0), 'busy');
   const wait = s.shelves[0].left;
   const [lo, hi] = C.STAND.prices[2].minutes;
@@ -44,13 +45,13 @@ test('a shelf sells after a while at its price, and the coins wait to be collect
   assert.deepStrictEqual(plain(L.standTick(s, wait - 1).sold), []);
   const sold = L.standTick(s, 1).sold;
   assert.strictEqual(sold.length, 1);
-  assert.strictEqual(sold[0].coins, Math.round(TP * 1.4) * 20);
+  assert.strictEqual(sold[0].coins, Math.round(TP * 1.4) * C.STAND.perShelf);
   assert.ok(C.VILLAGER_ORDER.includes(sold[0].buyer));
   assert.strictEqual(L.unlist(s, 0), 'sold', 'a sold lot cannot be taken back');
   const gold0 = s.gold, earned0 = s.stats.earned;
-  assert.strictEqual(L.collectStand(s), Math.round(TP * 1.4) * 20);
-  assert.strictEqual(s.gold - gold0, Math.round(TP * 1.4) * 20);
-  assert.strictEqual(s.stats.earned - earned0, Math.round(TP * 1.4) * 20);
+  assert.strictEqual(L.collectStand(s), Math.round(TP * 1.4) * C.STAND.perShelf);
+  assert.strictEqual(s.gold - gold0, Math.round(TP * 1.4) * C.STAND.perShelf);
+  assert.strictEqual(s.stats.earned - earned0, Math.round(TP * 1.4) * C.STAND.perShelf);
   assert.strictEqual(s.shelves[0], null);
 });
 
