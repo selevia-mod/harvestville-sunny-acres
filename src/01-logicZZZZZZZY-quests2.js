@@ -31,11 +31,11 @@
     plant: { map: 'farm', to: 'field', say: 'To the field!' },
     harvest: { map: 'farm', to: 'field', say: 'To the field!' },
     clear: { map: 'farm', to: 'debris', say: 'I found a weed!' },
-    fish: { map: 'farm', to: 'water', say: 'To the water!' },
+    fish: { map: 'farm', to: 'water', here: true, say: 'To the water!' }, // (here: the nearest on the map you are on first)
     care: { map: 'farm', to: 'zone:pen', say: 'To the animals!' },
     collect: { map: 'farm', to: 'zone:pen', say: 'To the animals!' },
     pet: { map: 'farm', to: 'zone:dogarea', say: 'Pet me, pet me!' },
-    forage: { map: 'farm', to: 'zone:forage', say: 'I smell something!' },
+    forage: { map: 'farm', to: 'zone:forage', here: true, say: 'I smell something!' },
     talk: { map: 'town', to: 'fountain', say: 'To the town!' },
     gift: { map: 'town', to: 'fountain', say: 'To the town!' },
     earned: { map: 'town', to: 'farm_stand', say: 'To the market!' },

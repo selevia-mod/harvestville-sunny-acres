@@ -2691,6 +2691,23 @@ test('quests v2: the card shows one quest; Go and your dog leads the farmer to t
   await context.close();
 });
 
+test('quests v2: a fish quest in town: the dog leads to the town\'s river, not the farm pond (owner, 8 Nov 2026)', async () => {
+  const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  await page.evaluate(() => Farm.world.travel('town', 'from_farm'));
+  await page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  await page.waitForFunction(() => Farm.ui.questCardBox && Farm.ui.questCardBox.visible, null, SLOW);
+  await pinTo(page, 'fish');
+  await tapCard(page);
+  await page.waitForFunction(() => !Farm.world.guide && !Farm.session.guide, null, { timeout: 120000 });
+  const at = await page.evaluate(() => { const w = Farm.world, f = w.feet(), T = Farm.Config.TILE, x = Math.floor(f.x / T), y = Math.floor(f.y / T); return [w.mapKey, w.isWater(x + 1, y) || w.isWater(x - 1, y) || w.isWater(x, y + 1) || w.isWater(x, y - 1)]; });
+  assert.deepStrictEqual(at, ['town', true], 'by the water in town');
+  await shot(page, 'qv2-town-river');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('quests v2: a town quest: the dog leads down the road into town and on to the order board', async () => {
   const save = await makeSave(QV2 + " L.setDogName(s, 'Choco');");
   const { page, problems, context } = await open(save);

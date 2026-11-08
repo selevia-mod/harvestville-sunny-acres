@@ -125,7 +125,16 @@
   P.guideRun = function () {
     var g = F.session.guide;
     if (!g || !this.player || this.busy) return false;
-    var spot = this.guideGoal(g.place), path = spot && this.guidePath(spot.goal);
+    // a quest you can do anywhere (fish, forage): the nearest on this map first (owner, 8 Nov 2026: by the town's river,
+    // "it drags me to the pond in the farm"); the place's own map only when there is none here
+    var spot = null, path = null;
+    if (g.place.here && this.mapKey !== g.place.map) {
+      spot = this.guideGoal({ map: this.mapKey, to: g.place.to });
+      path = spot && this.guidePath(spot.goal);
+      if (path) g.local = this.mapKey;
+    }
+    if (!path && g.local === this.mapKey) path = null;
+    if (!path) { spot = this.guideGoal(g.local && g.local === this.mapKey ? { map: this.mapKey, to: g.place.to } : g.place); path = spot && this.guidePath(spot.goal); }
     if (!path) { this.guideStop(this.mapKey === g.place.map ? 'here' : 'lost'); return false; }
     this.guide = { path: path, k: 0, spot: spot, last: this.feet(), at: Date.now(), tries: (this.guide && this.guide.tries) || 0 };
     if (!path.length) this.guideArrive();

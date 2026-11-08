@@ -273,7 +273,19 @@
   // Reached from the base listPanel (16-panels.js), so the wrappers added by later files (the Woodshop's house row and
   // Outdoor tab) still run first.
   // o.rowH: taller cards for a panel whose rows say more (What's new); fewer of them on a page.
+  // Which style a panel gets (owner, 8 Nov 2026: tiles and filters "the default style" for what you browse by picture,
+  // slim rows that scroll "for quest and similar"): set here by its title (and tab), unless the panel says itself.
+  var TILE_PANELS = ["Lily's Seed Stand", "Marco's Wagon", "Owen's Animal Clinic", "Poppy's Flowers", 'Tailor Shop', 'Sell at your stall', 'Storage',
+    'Yard Storage', 'Kitchen', 'Craft it yourself', 'Gear', 'Breeds book', 'Wallpaper', 'Floor'];
+  U.panelStyle = function (o) {
+    if (o.slim != null || o.tiles != null || o.paged) return;
+    var t = String(o.title || '');
+    if (/^What's new/.test(t)) return; // (its long notes keep their tall cards and pages)
+    if (TILE_PANELS.indexOf(t) >= 0 || / Furniture$/.test(t) || (t === "Mira's Woodshop" && (o.tab === 'furniture' || o.tab === 'outdoor'))) o.tiles = true;
+    else o.slim = true;
+  };
   U.lookListPanel = function (o) {
+    this.panelStyle(o);
     var h0 = ROW_H, s0 = ROW_STEP;
     if (o.rowH) { ROW_H = o.rowH; ROW_STEP = o.rowH + 6; }
     try { return listPanel.call(this, o); } finally { ROW_H = h0; ROW_STEP = s0; }
@@ -594,6 +606,10 @@
     }
     if (name.width > textW - tagW) name.setScale((textW - tagW) / name.width);
     r.add(name);
+    if (row.online) { // (a friend online: a green dot after the name)
+      var ox = x + name.displayWidth + 8;
+      r.add(this.add.circle(ox, 13, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
+    }
     var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
     var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
     if (m && Number(m[2]) > 0) { progress = [Number(m[1]), Number(m[2])]; desc = desc.slice(m[0].length); }
