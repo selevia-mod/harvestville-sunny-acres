@@ -52,3 +52,7 @@ $P -d t -f "$ROOT/test/sql/rank-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  /
 $P -d t -f "$ROOT/test/sql/bayanihan-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/raid-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 $P -d t -f "$ROOT/test/sql/places-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+# part 24 (refills in bulk) after the old checks, which test part 4's 20 a day (live: 1,000)
+$P -d t -1 -f "$ROOT/supabase/farm_online_24.sql"
+$P -d t -1 -f "$ROOT/supabase/farm_online_24.sql"
+$P -d t -f "$ROOT/test/sql/bulk-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'

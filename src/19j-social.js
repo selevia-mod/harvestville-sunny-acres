@@ -168,7 +168,11 @@
         var have = Number(wallet[o.currency]) || 0, price = Number(o.price) || 0, short = have < price;
         var buttons = short
           ? (typeof host().store === 'function' && o.currency === 'coins' ? [{ label: 'Get Coins', color: BLUE, cb: function () { self.closeAll(); host().store(); } }] : [])
-          : [{ label: 'Buy', color: GREEN, cb: function () { self.buyRefill(o); } }];
+          : [{ label: 'Buy', color: GREEN, cb: function () {
+            // (part 24, farm_online_24.sql: many refills in one payment; owner, 8 Nov 2026: "x10, or x100")
+            var most = shop.bulk ? L.refillMost(s, o, have, left) : 0;
+            if (most > 1) self.openRefillQty(o, have, left, Math.min(10, most)); else self.buyRefill(o, 1);
+          } }];
         return {
           icon: C.ICON.bolt, name: '+' + o.amount + ' energy for ' + curName(o.currency, price),
           desc: 'You have ' + curName(o.currency, have) + (short ? ': not enough yet.' : '.'), buttons: buttons,
@@ -226,15 +230,79 @@
     }, Promise.resolve()).then(function () { return given ? 'given' : s.net.pb.length ? 'waiting' : 'clear'; });
   };
 
-  U.buyRefill = function (o) {
+  // How many refills of offer o can go in one payment: at most 100 (the server's), the day's refills left, what the
+  // wallet pays for, and what fits under the energy's top (9,999 with Coins, 1,000 with Stars: 01-logicZZ-players.js).
+  L.refillMost = function (s, o, have, left) {
+    var price = Number(o.price) || 0, amount = Number(o.amount) || 0;
+    if (price <= 0 || amount <= 0) return 0;
+    var room = L.energyMost(o.currency) - Math.floor(s.energy);
+    return Math.max(0, Math.min(100, Number(left) || 0, Math.floor((Number(have) || 0) / price), Math.floor(room / amount)));
+  };
+
+  // How many refills: - n +, quick picks (1, 10, 50, 100, Max), then one payment for all of them.
+  U.openRefillQty = function (o, have, left, n) {
+    var self = this, s = F.session.state, most = L.refillMost(s, o, have, left);
+    if (most < 1) return this.buyRefill(o, 1); // (says why: full of energy, or not enough)
+    n = Math.max(1, Math.min(n || 1, most));
+    var price = Number(o.price) || 0, amount = Number(o.amount) || 0, e = Math.floor(s.energy);
+    var INK = F.UI_CONST.INK, GOLD = 0xe9a91c;
+    var c = this.openModal(), top = 136, h = 384;
+    this.panelImg(c, 14, top, W - 28, h);
+    this.ribbon(c, W / 2, top + 4, 210);
+    c.add(this.txt(W / 2, top + 4, 'Refill energy', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5));
+    this.closeButton(c, W - 32, top + 18, function () { self.closeModal(); });
+    var again = function (k) { self.closeModal(); self.openRefillQty(o, have, left, k); };
+    // the offer: one refill's energy and price, and what you have
+    var hy = top + 62;
+    c.add(this.add.circle(64, hy, 30, 0xf2d79a).setStrokeStyle(2, 0xd9b77f));
+    c.add(this.add.image(64, hy, 'items', C.ICON.bolt).setScale(0.36));
+    var head = this.txt(106, hy - 14, '+' + amount + ' energy each', 14, INK, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    c.add(head);
+    var sub = this.txt(106, hy + 10, curName(o.currency, price) + ' each  ·  you have ' + have.toLocaleString('en-US'), 11, '#7a5a3a').setOrigin(0, 0.5);
+    if (sub.width > W - 140) sub.setScale((W - 140) / sub.width);
+    c.add(sub);
+    // how many
+    var qy = top + 128, card = this.add.graphics();
+    card.fillStyle(0xfff6dc, 1).fillRoundedRect(26, qy - 26, W - 52, 84, 12).lineStyle(1.5, 0xd9b77f, 1).strokeRoundedRect(26, qy - 26, W - 52, 84, 12);
+    c.add(card);
+    this.roundButton(c, 58, qy, 17, n > 1 ? BLUE : GREY, 'minus', null, function () { if (n > 1) again(n - 1); });
+    this.roundButton(c, W - 58, qy, 17, n < most ? BLUE : GREY, 'plus', null, function () { if (n < most) again(n + 1); });
+    c.add(this.txt(W / 2, qy - 2, 'x' + n, 24, INK, { fontStyle: 'bold' }).setOrigin(0.5));
+    c.add(this.txt(W / 2, qy + 17, 'up to ' + most + ' now', 10, '#9a7a5a').setOrigin(0.5));
+    var picks = [1, 10, 50, 100, most].filter(function (k, i, all) { return k <= most && all.indexOf(k) === i; });
+    var pw = 52, px = W / 2 - (picks.length * pw + (picks.length - 1) * 8) / 2 + pw / 2;
+    picks.forEach(function (k, i) {
+      var on = k === n, chip = self.add.container(px + i * (pw + 8), qy + 42), g = self.add.graphics();
+      g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(-pw / 2, -11, pw, 22, 11);
+      chip.add([g, self.txt(0, 0, k === most && most > 1 && k !== 1 && [10, 50, 100].indexOf(k) < 0 ? 'Max' : 'x' + k, 11, on ? '#ffffff' : '#5a3a1e', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      var z = self.add.zone(0, 0, pw, 26).setInteractive({ useHandCursor: true });
+      F.tapOn(z, function () { if (!on) again(k); });
+      chip.add(z);
+      chip.qty = k; // (the tests: a pick by its number)
+      c.add(chip);
+    });
+    // what you get
+    var gy = top + 236, gain = amount * n;
+    c.add(this.txt(W / 2, gy, '+' + gain.toLocaleString('en-US') + ' energy', 20, '#2f5a22', { fontStyle: 'bold' }).setOrigin(0.5));
+    c.add(this.txt(W / 2, gy + 24, 'Energy ' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US'), 12, '#7a5a3a').setOrigin(0.5));
+    var why = most < 100 ? (most === Math.floor((L.energyMost(o.currency) - e) / amount) ? 'Max: what fits (energy goes up to ' + L.energyMost(o.currency).toLocaleString('en-US') + ')'
+      : most === Math.floor(have / price) ? 'Max: what your ' + CUR[o.currency] + ' pay for' : 'Max: the refills left today') : '';
+    if (why) c.add(this.txt(W / 2, gy + 44, why, 10, '#9a7a5a').setOrigin(0.5));
+    var by = top + h - 40;
+    this.pillButton(c, W / 2, by, W - 70, 40, 'Buy x' + n + ': ' + curName(o.currency, price * n), function () { self.buyRefill(o, n); }, GOLD);
+    return c;
+  };
+
+  U.buyRefill = function (o, qty) {
     var self = this, s = F.session.state, e = Math.floor(s.energy);
+    qty = Math.max(1, Math.min(100, Math.floor(Number(qty) || 1)));
+    var gain = (Number(o.amount) || 0) * qty, total = (Number(o.price) || 0) * qty;
     // (5 Nov 2026: always the whole amount, on top of what you have, even past the max: 01-logicZZ-players.js)
-    if (L.refillFits && !L.refillFits(s, o.amount, o.currency)) {
+    if (L.refillFits && !L.refillFits(s, gain, o.currency)) {
       return this.toast(o.currency === 'coins' ? 'You have lots of energy already. Use some first!' : 'With Stars, energy goes up to ' + C.ENERGY_MOST.toLocaleString('en-US') + '. Use some first, or refill with Coins.', 3000);
     }
     if (this.buying) return;
-    var gain = Number(o.amount) || 0;
-    this.confirm('REFILL ENERGY?\n+' + gain + ' energy (' + e + ' to ' + (e + gain) + ') for ' + curName(o.currency, o.price) + '.', function () {
+    this.confirm('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
       self.buying = true;
       L.settleRefills().then(function (state) {
         if (state !== 'clear') {
@@ -245,7 +313,10 @@
         var b = [requestId(), o.currency, o.price, o.version, Date.now()];
         s.net.pb = (s.net.pb || []).concat([b]);
         save(s); // before sending: an answer lost from here on is settled later
-        return F.Net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: b[1], p_price: b[2], p_version: b[3], p_request_id: b[0] }).then(function (r) {
+        // (one refill: v1, as before; many: farm_buy_many_v1 (the app passes only farm_*_v1 names), one payment for all; a lost answer is settled by v1 by its request id)
+        var args = { p_item: 'energy', p_currency: b[1], p_price: b[2], p_version: b[3], p_request_id: b[0] };
+        if (qty > 1) args.p_qty = qty;
+        return F.Net.rpc(qty > 1 ? 'farm_buy_many_v1' : 'farm_buy_v1', args).then(function (r) {
           self.buying = false;
           s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; }); // answered: nothing left to settle
           if (!r || !r.ok) {
@@ -258,7 +329,7 @@
           spent();
           self.closeAll();
           self.refresh();
-          self.toast('+' + got + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
+          self.toast('+' + got.toLocaleString('en-US') + ' energy! Paid ' + curName(r.currency, Number(r.price) || 0) + '.', 2600, 0x2f5a22);
           sfx('coin');
         }, function () {
           self.buying = false; // kept in s.net.pb: settled on the next tap or the next start, never paid twice

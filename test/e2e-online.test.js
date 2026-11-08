@@ -1695,6 +1695,7 @@ test('online: Selebox follows count as friends; staff review a report; share my 
 test('online: energy refills for Selebox Coins or Stars, never paid twice', async () => {
   const server = createServer();
   const me = await open(server);
+  server.db.noPart24 = true; // (one refill at a time: before part 24; many at once: the next test)
   server.db.wallets.set(me.uid, { coins: 12, stars: 5 });
   await me.page.evaluate(() => {
     window.__spent = 0;
@@ -1748,9 +1749,65 @@ test('online: energy refills for Selebox Coins or Stars, never paid twice', asyn
   // not enough Coins: Get Coins opens the Selebox store
   server.db.wallets.set(me.uid, { coins: 2, stars: 0 });
   await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.session.state.energy = 10; Farm.ui.openRefill(); });
-  await waitModal(me.page, /You have 2 Selebox Coins: not enough yet\./);
+  await waitModal(me.page, /You have 2 Selebox Coins: not enough/); // (the row's words end in … beside Get Coins)
   await tapButton(me.page, 'Get Coins');
   assert.strictEqual(await me.page.evaluate(() => window.__store), 1);
+  assert.deepStrictEqual(me.problems, []);
+  await me.context.close();
+});
+
+test('online: many refills in one payment: x10, x50, Max (owner, 8 Nov 2026: "refill it x10, or x100")', async () => {
+  const server = createServer();
+  const me = await open(server);
+  server.db.wallets.set(me.uid, { coins: 600, stars: 100 });
+  server.db.refillsLeft = 1000;
+  await me.page.evaluate(() => {
+    window.__spent = 0;
+    window.gameHost.shop = true;
+    window.gameHost.spent = () => { window.__spent++; };
+    Farm.session.state.energy = 40;
+    Farm.ui.closeAll();
+    Farm.ui.openRefill();
+  });
+  await waitModal(me.page, /Refill energy.*You have 600 Selebox Coins\./);
+  // Buy (Coins): how many, starting at 10
+  await tapButton(me.page, 'Buy');
+  await waitModal(me.page, /Refill energy.*\+100 energy each.*5 Selebox Coins each  ·  you have 600.*x10.*up to 99 now.*\+1,000 energy.*Energy 40 to 1,040.*Buy x10: 50 Selebox Coins/);
+  const picks = await me.page.evaluate(() => Farm.ui.modals[Farm.ui.modals.length - 1].c.list.filter((o) => o.qty).map((o) => o.qty));
+  assert.deepStrictEqual(picks, [1, 10, 50, 99], 'x100 does not fit under 9,999 energy: Max (99) instead');
+  await shot(me.page, 'online-15b-refill-qty');
+  // Max: 99 refills (what fits under 9,999)
+  await tapButton(me.page, 'Max');
+  await waitModal(me.page, /x99.*\+9,900 energy.*Energy 40 to 9,940.*Max: what fits \(energy goes up to 9,999\).*Buy x99: 495 Selebox Coins/);
+  // back to 50
+  await tapButton(me.page, 'x50');
+  await waitModal(me.page, /x50.*\+5,000 energy.*Buy x50: 250 Selebox Coins/);
+  await tapButton(me.page, 'Buy x50: 250 Selebox Coins');
+  await waitModal(me.page, /REFILL ENERGY\?.*50 refills: \+5,000 energy \(40 to 5,040\) for 250 Selebox Coins\./);
+  await tapButton(me.page, 'Yes');
+  await me.page.waitForFunction(() => Farm.session.state.energy === 5040 && Farm.ui.modals.length === 0, null, SLOW);
+  assert.match(await me.page.evaluate(() => Farm.ui.toastText.text), /\+5,000 energy! Paid 250 Selebox Coins\./);
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 350, stars: 100 }, 'one payment of 250');
+  assert.strictEqual(server.db.purchases.size, 1, 'one receipt');
+  assert.strictEqual(server.db.refillsLeft, 950, 'the day counts 50 refills');
+  // a lost answer for many: settled once, by its request id, the whole 5,000
+  server.db.loseNextBuyAnswer = true;
+  await me.page.evaluate(() => { Farm.session.state.energy = 40; Farm.ui.openRefill(); });
+  await tapButton(me.page, 'Buy');
+  await waitModal(me.page, /Buy x10: 50 Selebox Coins/);
+  await tapButton(me.page, 'Buy x10: 50 Selebox Coins');
+  await tapButton(me.page, 'Yes');
+  await me.page.waitForFunction(() => /If it was paid, the energy comes/.test(Farm.ui.toastText ? Farm.ui.toastText.text : ''), null, SLOW);
+  assert.strictEqual(await me.page.evaluate(() => Farm.session.state.energy), 40);
+  await me.page.evaluate(() => { Farm.session.state.net.pb[0][4] -= 60000; return Farm.Logic.settleRefills(); });
+  await me.page.waitForFunction(() => Farm.session.state.energy === 1040, null, SLOW);
+  assert.match(await me.page.evaluate(() => Farm.ui.toastText.text), /Your last refill arrived: \+1000 energy\./);
+  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 300, stars: 100 }, 'charged once: 50');
+  // Stars: energy goes up to 1,000 with Stars, so at 40 energy at most 9 refills
+  await me.page.evaluate(() => { Farm.ui.closeAll(); Farm.session.state.energy = 40; Farm.ui.openRefill(); });
+  await waitModal(me.page, /You have 100 Selebox Stars\./);
+  await tapButton(me.page, 'Buy', 1);
+  await waitModal(me.page, /x9.*up to 9 now.*Max: what fits \(energy goes up to 1,000\).*Buy x9: 90 Selebox Stars/);
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
 });

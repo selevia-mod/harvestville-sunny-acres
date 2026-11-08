@@ -326,7 +326,7 @@ function createServer() {
     farm_shop_v1(uid) {
       if (!uid) throw new Error('not signed in');
       const w = db.wallets.get(uid);
-      return { wallet: w ? { coins: w.coins, stars: w.stars } : null, offers: [{ item: 'energy', currency: 'coins', price: 5, amount: 100, version: 1 }, { item: 'energy', currency: 'stars', price: 10, amount: 100, version: 1 }], left: 20 };
+      return { wallet: w ? { coins: w.coins, stars: w.stars } : null, offers: [{ item: 'energy', currency: 'coins', price: 5, amount: 100, version: 1 }, { item: 'energy', currency: 'stars', price: 10, amount: 100, version: 1 }], left: db.refillsLeft == null ? 20 : db.refillsLeft, bulk: !db.noPart24 };
     },
     // the Tailor Shop's Coins and Stars looks, like supabase/farm_online_13.sql
     farm_looks_v1(uid) {
@@ -365,6 +365,27 @@ function createServer() {
       db.purchases.set(key, { item: 'energy', amount: 100, currency: a.p_currency, price });
       if (db.loseNextBuyAnswer) { db.loseNextBuyAnswer = false; throw new Error('network timeout'); }
       return { ok: true, item: 'energy', amount: 100, currency: a.p_currency, price, balance: w[a.p_currency] };
+    },
+    // part 24 (supabase/farm_online_24.sql): qty refills in one payment
+    farm_buy_many_v1(uid, a) {
+      if (!uid) throw new Error('not signed in');
+      if (db.noPart24) throw new Error('function public.farm_buy_many_v1 does not exist');
+      const key = uid + ':' + a.p_request_id, done = db.purchases.get(key);
+      if (done) return Object.assign({ ok: true, duplicate: true }, done);
+      const qty = a.p_qty, price = { coins: 5, stars: 10 }[a.p_currency];
+      if (!Number.isInteger(qty) || qty < 1 || qty > 100) return { ok: false, code: 'qty' };
+      if (a.p_item !== 'energy' || !price) return { ok: false, code: 'offer-unavailable' };
+      if (a.p_price !== price || a.p_version !== 1) return { ok: false, code: 'offer-changed' };
+      const left = db.refillsLeft == null ? 20 : db.refillsLeft;
+      if (qty > left) return { ok: false, code: 'limit' };
+      const w = db.wallets.get(uid);
+      if (!w) return { ok: false, code: 'wallet-unavailable' };
+      if (w[a.p_currency] < price * qty) return { ok: false, code: 'insufficient-' + a.p_currency };
+      w[a.p_currency] -= price * qty;
+      if (db.refillsLeft != null) db.refillsLeft -= qty;
+      db.purchases.set(key, { item: 'energy', amount: 100 * qty, currency: a.p_currency, price: price * qty, qty });
+      if (db.loseNextBuyAnswer) { db.loseNextBuyAnswer = false; throw new Error('network timeout'); }
+      return { ok: true, item: 'energy', amount: 100 * qty, currency: a.p_currency, price: price * qty, qty, balance: w[a.p_currency] };
     },
     farm_prizes_v1(uid) { need(uid); const p = db.prizes && db.prizes[uid]; if (db.prizes) delete db.prizes[uid]; return p || []; },
     farm_leave_v1(uid) { need(uid); hoodGone(uid); db.parkSeats.delete(uid); db.cupPicks.delete(uid); db.players.delete(uid); db.snaps.delete(uid); db.scores.delete(uid); return null; },
