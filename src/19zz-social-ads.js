@@ -54,8 +54,9 @@
     if (!m.on && !m.used) b.push({ label: 'Advertise', color: GREEN, cb: function () { self.advertise(); } });
     return {
       icon: C.ICON.crate, name: 'Market board',
-      desc: m.on ? 'Your stall is on it: ' + L.formatLeft(m.leftMin) + ' left.' : (n ? n + (n > 1 ? ' farms' : ' farm') + ' on it now.' : 'See who is selling today.') +
-        (m.used ? ' Yours again in ' + L.formatLeft(m.nextMin) + '.' : ' Show your stall: free once a day.'),
+      // (what you can do first: a slim row cuts the end of long words, 8 Nov 2026)
+      desc: m.on ? 'Your stall is on it: ' + L.formatLeft(m.leftMin) + ' left.' : (n ? n + (n > 1 ? ' farms' : ' farm') + ' on it. ' : '') +
+        (m.used ? 'Yours again in ' + L.formatLeft(m.nextMin) + '.' : 'Advertise free once a day.') + (n ? '' : ' See who is selling today.'),
       buttons: b,
     };
   };

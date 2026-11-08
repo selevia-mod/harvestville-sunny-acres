@@ -236,7 +236,7 @@
     if (h.leader && h.code) {
       rows.push({
         icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Code: ' + h.code,
-        desc: h.open ? 'Anyone can join. Or give friends the code ' + h.code + '.' : 'Closed: only farms with the code can join.',
+        desc: h.open ? 'Code ' + h.code + ' for friends. Anyone can join.' : 'Closed: only farms with the code can join.', // (the code first: a slim row cuts long words)
         buttons: [{ label: 'New code', color: GREY, cb: function () { self.newHoodCode(); } }, { label: h.open ? 'Close' : 'Open', color: GREY, cb: function () { self.setHoodOpen(!h.open); } }],
       });
     } else {

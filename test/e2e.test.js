@@ -127,6 +127,9 @@ async function tapButton(page, label, nth = 0) {
       if (o.list) walk(o.list);
     });
     walk(m.c.list);
+    // a row named like its button (News: "Write"): the button, not the row's name
+    const btns = found.filter((o) => o.parentContainer.list.some((x) => x.type === 'Zone'));
+    if (btns.length && btns.length < found.length) found.splice(0, found.length, ...btns);
     // not on screen: a tile that offers it in its own panel (Buy 5, a second button)
     if (!found[nth]) { const tiles = []; const walk2 = (l) => l.forEach((o) => { if (o.row && (o.row.buttons || []).some((x) => x.label === label)) tiles.push(o); if (o.list) walk2(o.list); }); walk2(m.c.list); if (tiles[nth]) { if (m.c.slimInto) m.c.slimInto(tiles[nth].list[0]); const tb = tiles[nth].getBounds(); return { x: tb.centerX, y: tb.centerY, tile: true }; } }
     if (found[nth] && m.c.slimInto) m.c.slimInto(found[nth]); // (a slim list scrolls it into view: 19i-look.js)

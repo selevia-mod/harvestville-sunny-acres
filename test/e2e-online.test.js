@@ -80,18 +80,61 @@ async function tapButton(page, label, nth = 0) {
   const pos = await page.evaluate(([label, nth]) => {
     const m = Farm.ui.modals[Farm.ui.modals.length - 1];
     const found = [];
+    // (a slim list's rows out of view are hidden: still found, then scrolled into view: 19i-look.js)
+    const shown = (o) => { for (let p = o.parentContainer; p && p !== m.c; p = p.parentContainer) if (!p.visible && !(m.c.slimInto && p.rowH)) return false; return true; };
     const walk = (list) => list.forEach((o) => {
-      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && o.parentContainer.visible) found.push(o);
+      if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c && shown(o)) found.push(o);
       if (o.list) walk(o.list);
     });
     walk(m.c.list);
+    // a row named like its button (News: "Write"): the button, not the row's name
+    const btns = found.filter((o) => o.parentContainer.list.some((x) => x.type === 'Zone'));
+    if (btns.length && btns.length < found.length) found.splice(0, found.length, ...btns);
+    // not on screen: a tile that offers it in its own panel (Buy 5, a second button)
+    if (!found[nth]) { const tiles = []; const walk2 = (l) => l.forEach((o) => { if (o.row && (o.row.buttons || []).some((x) => x.label === label)) tiles.push(o); if (o.list) walk2(o.list); }); walk2(m.c.list); if (tiles[nth]) { if (m.c.slimInto) m.c.slimInto(tiles[nth].list[0]); const tb = tiles[nth].getBounds(); return { x: tb.centerX, y: tb.centerY, tile: true }; } }
     if (found[nth] && m.c.slimInto) m.c.slimInto(found[nth]); // (a slim list scrolls it into view: 19i-look.js)
     const b = found[nth] && found[nth].getBounds();
     return b && { x: b.centerX, y: b.centerY };
   }, [label, nth]);
   assert.ok(pos, `button "${label}" is on screen`);
+  const n0 = await page.evaluate(() => Farm.ui.modals.length);
   await page.touchscreen.tap(pos.x, pos.y);
   await frames(page);
+  // a tile (a shop's picture: 19i-look.js) opens its own panel first: its button of the same name is the one meant
+  if (await page.evaluate((n0) => Farm.ui.modals.length === n0 + 1 && !!Farm.ui.modals[n0].c.tileDetail, n0)) await tapButton(page, label);
+}
+// A tile, by its name: tapped (scrolled into view first).
+async function tapTile(page, name) {
+  const pos = await page.evaluate((name) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    let hit = null; const walk = (l) => l.forEach((o) => { if (!hit && o.type === 'Text' && o.text === name && o.parentContainer && o.parentContainer.rowH) hit = o; if (o.list) walk(o.list); });
+    walk(m.c.list);
+    if (!hit) return null;
+    if (m.c.slimInto) m.c.slimInto(hit);
+    const b = hit.parentContainer.getBounds();
+    return { x: b.centerX, y: b.centerY };
+  }, name);
+  assert.ok(pos, `tile "${name}" is on screen`);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page, 2);
+}
+// A tile's own panel (its words), by its name: opened, read, closed.
+async function tileText(page, name, keep) {
+  const pos = await page.evaluate((name) => {
+    const m = Farm.ui.modals[Farm.ui.modals.length - 1];
+    let hit = null; const walk = (l) => l.forEach((o) => { if (!hit && o.type === 'Text' && o.text === name && o.parentContainer && o.parentContainer.rowH) hit = o; if (o.list) walk(o.list); });
+    walk(m.c.list);
+    if (!hit) return null;
+    if (m.c.slimInto) m.c.slimInto(hit);
+    const b = hit.getBounds();
+    return { x: b.centerX, y: b.centerY };
+  }, name);
+  assert.ok(pos, `tile "${name}" is on screen`);
+  await page.touchscreen.tap(pos.x, pos.y);
+  await frames(page, 2);
+  const text = await modalText(page);
+  if (!keep) await page.evaluate(() => { if (Farm.ui.modals[Farm.ui.modals.length - 1].c.tileDetail) Farm.ui.closeModal(); });
+  return text;
 }
 
 const modalText = (page) => page.evaluate(() => {
@@ -117,7 +160,9 @@ const waitModal = (page, re) => page.waitForFunction((src) => {
   const walk = (list) => list.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); });
   walk(m.c.list);
   return new RegExp(src).test(out.join(' | '));
-}, re.source, SLOW);
+}, re.source, SLOW).catch(async (e) => { // (says what was there instead)
+  throw new Error(e.message.split('\n')[0] + '\n  wanted: ' + re + '\n  shown: ' + await modalText(page).catch(() => '?'));
+});
 const toast = (page) => page.evaluate(() => (Farm.ui.toastText.visible ? Farm.ui.toastText.text : ''));
 const waitToast = (page, re) => page.waitForFunction((src) => Farm.ui.toastText.visible && new RegExp(src).test(Farm.ui.toastText.text), re.source, SLOW);
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, name + '.png') }); };
@@ -2338,10 +2383,10 @@ test('online: barangays: make one, a friend finds and joins it, a Cup task done 
   await b.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
   await waitModal(b.page, /Open to all[\s\S]*Ana Acres \(you\)[\s\S]*1 task, \d+ points this week[\s\S]*Moon Meadow \(leader\)/);
   await shot(b.page, 'nb-8-members');
-  assert.ok(!/Code:|New code|give friends the code/.test(await modalText(b.page)), 'only the leader is shown the code');
+  assert.ok(!/Code:|New code|Code [A-Z0-9]{6} for friends/.test(await modalText(b.page)), 'only the leader is shown the code');
   // the leader makes a new code (a kicked member's old code stops working)
   await a.page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openHood('members', 0); });
-  await waitModal(a.page, /Open to all[\s\S]*Or give friends the code [A-Z0-9]{6}/);
+  await waitModal(a.page, /Open to all \| Code [A-Z0-9]{6} for friends/);
   const oldCode = [...server.db.hoods.values()][0].code;
   await tapButton(a.page, 'New code');
   await waitModal(a.page, /MAKE A NEW CODE\?/);
@@ -2390,7 +2435,7 @@ test('online: the Market board: Advertise puts your stall on it for 4 hours, onc
   await nameFarm(b.page, 'Ana Acres');
   // nothing for sale yet: Advertise says so
   await a.page.evaluate(() => Farm.ui.openOnline('market', 0));
-  await waitModal(a.page, /Market board[\s\S]*Show your stall: free once a day/);
+  await waitModal(a.page, /Market board[\s\S]*Advertise free once a day/);
   await tapButton(a.page, 'Advertise');
   await waitToast(a.page, /Put something up for sale first/);
   // a lot at the stall, then Advertise
@@ -2407,7 +2452,7 @@ test('online: the Market board: Advertise puts your stall on it for 4 hours, onc
   // the friend: the board, the stall, Buy
   const turnips = await b.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip'));
   await b.page.evaluate(() => { Farm.session.state.gold = 1000; Farm.ui.openOnline('market', 0); });
-  await waitModal(b.page, /Market board[\s\S]*1 farm on it now/);
+  await waitModal(b.page, /Market board[\s\S]*1 farm on it\. Advertise free/);
   await shot(b.page, 'ads-2-market-tab');
   await tapButton(b.page, 'Look');
   await waitModal(b.page, /Market board[\s\S]*Moon Meadow[\s\S]*10 Turnip for 300G\./);

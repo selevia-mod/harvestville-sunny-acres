@@ -32018,11 +32018,8 @@ self.toast('Could not reach the town. Check your connection.', 2400);
 };
 
 
-var lookListRow = U.lookListRow;
-U.lookListRow = function (c, y, row) {
-var out = lookListRow.call(this, c, y, row);
-if (row.id && O.best && O.best.last && O.best.last.id === row.id) {
-this.canvasImg(c, 58, y + 2, 'ui-crown', 28, 24, function (g) {
+
+var crownDraw = function (g) {
 var pts = [[3, 20], [1, 7], [8, 13], [14, 3], [20, 13], [27, 7], [25, 20]];
 g.beginPath();
 pts.forEach(function (p, i) { g[i ? 'lineTo' : 'moveTo'](p[0], p[1]); });
@@ -32040,9 +32037,19 @@ g.fillStyle = '#c0503a';
 g.beginPath();
 g.arc(14, 15, 2.2, 0, Math.PI * 2);
 g.fill();
-});
-}
+};
+var winner = function (row) { return row && row.id && O.best && O.best.last && O.best.last.id === row.id; };
+var lookListRow = U.lookListRow;
+U.lookListRow = function (c, y, row) {
+var out = lookListRow.call(this, c, y, row);
+if (winner(row)) this.canvasImg(c, 58, y + 2, 'ui-crown', 28, 24, crownDraw);
 return out;
+};
+var slimRow = U.slimRow;
+U.slimRow = function (parent, y, row) {
+var r = slimRow.apply(this, arguments);
+if (r && winner(row)) this.canvasImg(r, 49, -6, 'ui-crown', 28, 24, crownDraw).setRotation(0.3);
+return r;
 };
 })(window.Farm = window.Farm || {});
 
@@ -38110,8 +38117,9 @@ var n = O.ads.ads.length, b = [{ label: 'Look', color: BLUE, cb: function () { s
 if (!m.on && !m.used) b.push({ label: 'Advertise', color: GREEN, cb: function () { self.advertise(); } });
 return {
 icon: C.ICON.crate, name: 'Market board',
-desc: m.on ? 'Your stall is on it: ' + L.formatLeft(m.leftMin) + ' left.' : (n ? n + (n > 1 ? ' farms' : ' farm') + ' on it now.' : 'See who is selling today.') +
-(m.used ? ' Yours again in ' + L.formatLeft(m.nextMin) + '.' : ' Show your stall: free once a day.'),
+
+desc: m.on ? 'Your stall is on it: ' + L.formatLeft(m.leftMin) + ' left.' : (n ? n + (n > 1 ? ' farms' : ' farm') + ' on it. ' : '') +
+(m.used ? 'Yours again in ' + L.formatLeft(m.nextMin) + '.' : 'Advertise free once a day.') + (n ? '' : ' See who is selling today.'),
 buttons: b,
 };
 };
@@ -38538,7 +38546,7 @@ var self = this, h = nb.hood, rows = [];
 if (h.leader && h.code) {
 rows.push({
 icon: C.ICON.tag, name: h.open ? 'Open to all' : 'Code: ' + h.code,
-desc: h.open ? 'Anyone can join. Or give friends the code ' + h.code + '.' : 'Closed: only farms with the code can join.',
+desc: h.open ? 'Code ' + h.code + ' for friends. Anyone can join.' : 'Closed: only farms with the code can join.',
 buttons: [{ label: 'New code', color: GREY, cb: function () { self.newHoodCode(); } }, { label: h.open ? 'Close' : 'Open', color: GREY, cb: function () { self.setHoodOpen(!h.open); } }],
 });
 } else {

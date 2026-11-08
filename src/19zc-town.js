@@ -145,30 +145,37 @@
   };
 
   // ---------- the crown ----------
+  // last week's Best Farm: a gold crown by its picture, in the old rows and the slim ones (the lists since 8 Nov 2026)
+  var crownDraw = function (g) {
+    var pts = [[3, 20], [1, 7], [8, 13], [14, 3], [20, 13], [27, 7], [25, 20]];
+    g.beginPath();
+    pts.forEach(function (p, i) { g[i ? 'lineTo' : 'moveTo'](p[0], p[1]); });
+    g.closePath();
+    g.lineJoin = 'round';
+    g.lineWidth = 3;
+    g.strokeStyle = '#5a3a1e';
+    g.stroke();
+    var gr = g.createLinearGradient(0, 3, 0, 20);
+    gr.addColorStop(0, '#ffe680');
+    gr.addColorStop(1, '#e9a91c');
+    g.fillStyle = gr;
+    g.fill();
+    g.fillStyle = '#c0503a';
+    g.beginPath();
+    g.arc(14, 15, 2.2, 0, Math.PI * 2);
+    g.fill();
+  };
+  var winner = function (row) { return row && row.id && O.best && O.best.last && O.best.last.id === row.id; };
   var lookListRow = U.lookListRow;
   U.lookListRow = function (c, y, row) {
     var out = lookListRow.call(this, c, y, row);
-    if (row.id && O.best && O.best.last && O.best.last.id === row.id) {
-      this.canvasImg(c, 58, y + 2, 'ui-crown', 28, 24, function (g) {
-        var pts = [[3, 20], [1, 7], [8, 13], [14, 3], [20, 13], [27, 7], [25, 20]];
-        g.beginPath();
-        pts.forEach(function (p, i) { g[i ? 'lineTo' : 'moveTo'](p[0], p[1]); });
-        g.closePath();
-        g.lineJoin = 'round';
-        g.lineWidth = 3;
-        g.strokeStyle = '#5a3a1e';
-        g.stroke();
-        var gr = g.createLinearGradient(0, 3, 0, 20);
-        gr.addColorStop(0, '#ffe680');
-        gr.addColorStop(1, '#e9a91c');
-        g.fillStyle = gr;
-        g.fill();
-        g.fillStyle = '#c0503a';
-        g.beginPath();
-        g.arc(14, 15, 2.2, 0, Math.PI * 2);
-        g.fill();
-      });
-    }
+    if (winner(row)) this.canvasImg(c, 58, y + 2, 'ui-crown', 28, 24, crownDraw);
     return out;
+  };
+  var slimRow = U.slimRow;
+  U.slimRow = function (parent, y, row) {
+    var r = slimRow.apply(this, arguments);
+    if (r && winner(row)) this.canvasImg(r, 49, -6, 'ui-crown', 28, 24, crownDraw).setRotation(0.3); // (on its picture's shoulder)
+    return r;
   };
 })(window.Farm = window.Farm || {});
