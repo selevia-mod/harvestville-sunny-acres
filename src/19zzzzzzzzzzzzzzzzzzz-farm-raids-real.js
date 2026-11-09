@@ -110,6 +110,7 @@
     if (opts.kind === 'replay') return replay(opts.raid);
     if (opts.kind !== 'real') return start(opts);
     var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
+    if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast(opts.revenge ? 'Buy a Raid Camp at Mira\'s (Workshops) to raid them back. Your Revenge waits 7 days.' : 'Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
     if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
     if (!opts.revenge && mine.energy < cost && !(L.powered && L.powered(mine))) { sfx('nope'); return F.ui.toast('A raid takes ' + cost + ' energy.', 2400); } // (Revenge is free)
     if (FR.starting) return null;

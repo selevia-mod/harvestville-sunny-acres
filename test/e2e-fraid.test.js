@@ -218,6 +218,10 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
     Farm.FR.sendCopy(w, true);
   });
   for (let i = 0; i < 30 && !((server.db.fraid.copies.get(A.uid) || {}).loot > 0); i++) await new Promise((r) => setTimeout(r, 100));
+  // (no Raid Camp yet: the Revenge waits, and says how)
+  await B.page.evaluate((id) => Farm.raidFarmStart({ kind: 'real', revenge: id }), raid.id);
+  await B.page.waitForFunction(() => Farm.ui.toastText.visible && /Buy a Raid Camp at Mira's \(Workshops\) to raid them back/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.ok(!raid.revenged, 'the Revenge is still there');
   await B.page.evaluate(() => { const r = Farm.Logic.frState(Farm.session.state); r.camp = 3; r.army.goat = 6; Farm.session.state.energy = 0; Farm.world.save(); });
   await B.page.evaluate((id) => Farm.raidFarmStart({ kind: 'real', revenge: id }), raid.id);
   await B.page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.session.raid && Farm.session.raid.revenge, null, SLOW);

@@ -73,7 +73,7 @@ function createServer() {
       const why = frWhyNot(target, uid);
       if (why && !(rv && (why === 'shield' || why === 'new'))) return { ok: false, code: why };
       const f = db.fraid.copies.get(target), me = db.fraid.copies.get(uid);
-      const r = { id: crypto.randomUUID(), attacker: uid, defender: target, copy: f.copy, army: a.p_army, seed: 1 + crypto.randomInt(2147483646), cap: frCap(me ? me.power : f.power, f.power), revengeOf: rv ? rv.id : null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
+      const r = { id: crypto.randomUUID(), attacker: uid, defender: target, copy: f.copy, army: a.p_army, seed: 1000 + db.fraid.raids.length * 7919, cap: frCap(me ? me.power : f.power, f.power), revengeOf: rv ? rv.id : null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
       db.fraid.raids.push(r);
       if (rv) rv.revenged = true;
       if (me) { me.shield = 0; me.raided = 0; }
