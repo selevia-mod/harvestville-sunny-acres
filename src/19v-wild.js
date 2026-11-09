@@ -1047,7 +1047,7 @@
         });
       };
       var amount = function (id, unit, word) {
-        return { start: 10, max: 999, price: function (n) { return I[id].price * n; }, word: unit > 1 ? function (n) { return (unit * n).toLocaleString('en-US') + ' ' + word; } : null,
+        return { start: 1, max: 999, price: function (n) { return I[id].price * n; }, word: unit > 1 ? function (n) { return (unit * n).toLocaleString('en-US') + ' ' + word; } : null,
           buy: function (n) { done(L.buyWild(s, id, n), (unit * n).toLocaleString('en-US') + ' ' + word + '.'); } };
       };
       rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows'), amount: amount('arrows', WI.arrowPack, 'arrows') });

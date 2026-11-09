@@ -679,7 +679,7 @@
       sub.setText(a.word ? a.word(n) : '');
       var price = a.price(n), can = F.session.state.gold >= price;
       if (buy) buy.destroy();
-      buy = self.pillButton(c, W / 2, yBuy, 200, 38, 'Buy ' + n + '  ' + price.toLocaleString('en-US') + 'G', function () {
+      buy = self.pillButton(c, W / 2, yBuy, 200, 38, (n > 1 ? 'Buy ' + n + '  ' : 'Buy ') + (n > 1 ? price.toLocaleString('en-US') : price) + 'G', function () { // (one: 'Buy 60G', as before)
         if (!can) { if (F.Audio) F.Audio.sfx('nope'); return self.toast('Not enough gold.'); }
         self.closeModal(); a.buy(n);
       }, can ? GREEN : 0xa08a68);

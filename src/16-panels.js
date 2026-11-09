@@ -442,7 +442,7 @@
   // any amount, with - and + in its opened tile (owner, 10 Nov 2026: "i want x100? Make it allowed to + -")
   M.buyAmount = function (id, after) {
     var self = this, s = F.session.state;
-    return { start: 10, max: 999, price: function (n) { return L.priceOf(id, s.day) * n; }, buy: function (n) { self.buyQty(id, n, after); } };
+    return { start: 1, max: 999, price: function (n) { return L.priceOf(id, s.day) * n; }, buy: function (n) { self.buyQty(id, n, after); } };
   };
 
   var BULK = [1, 10]; // (the row: Buy and x10; open it for any amount, - and +)
