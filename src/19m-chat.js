@@ -85,7 +85,11 @@
     // and on a cave floor on our game server while someone else is on it (owner, 8 Nov 2026: "Missing chat on dungeon")
     var GSV = F.GameServer;
     var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom()) || (GSV && GSV.pubLive && GSV.pubLive()) ||
-      (GSV && GSV.floorOthers && GSV.floorOthers() > 0)) && !w.busy);
+      (GSV && GSV.pubHere && GSV.pubHere()) || (GSV && GSV.floorOthers && GSV.floorOthers() > 0)) && !w.busy);
+    // (owner, 9 Nov 2026: the button flickered: a line that drops for a moment and comes back, or a channel that rejoins,
+    // hid it each time; it now goes only after 3 s with nobody to hear you)
+    if (some) w.chatSeen = now;
+    else if (w.chatable && !w.busy && now - (w.chatSeen || 0) < 3000) some = true;
     if (some !== w.chatable) {
       w.chatable = some;
       F.bus.emit('chatable', some);

@@ -29281,7 +29281,11 @@ w.placeBubble(id);
 
 var GSV = F.GameServer;
 var some = !!(O.chan && (Object.keys(O.others || {}).length || (O.parkRoom && O.parkRoom()) || (GSV && GSV.pubLive && GSV.pubLive()) ||
-(GSV && GSV.floorOthers && GSV.floorOthers() > 0)) && !w.busy);
+(GSV && GSV.pubHere && GSV.pubHere()) || (GSV && GSV.floorOthers && GSV.floorOthers() > 0)) && !w.busy);
+
+
+if (some) w.chatSeen = now;
+else if (w.chatable && !w.busy && now - (w.chatSeen || 0) < 3000) some = true;
 if (some !== w.chatable) {
 w.chatable = some;
 F.bus.emit('chatable', some);
@@ -46515,6 +46519,8 @@ if (g.dbg.text !== line) g.dbg.setText(line);
 F.GameServer = {
 config: GS,
 pubLive: function () { return !!pubLive(); },
+
+pubHere: function () { var w = F.world; return !!(w && pubHolding(w)); },
 
 
 floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
