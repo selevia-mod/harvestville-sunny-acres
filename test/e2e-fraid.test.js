@@ -198,6 +198,12 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   await B.page.waitForFunction(() => Farm.world && !Farm.session.raid && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
   assert.ok(!/Welcome to/.test(await B.page.evaluate(() => (Farm.ui.toastText.visible ? Farm.ui.toastText.text : ''))), 'no visitor welcome after a replay');
 
+  // ---- the card is closed: the Raid Camp still lists the raid, with Revenge
+  await B.page.evaluate(() => Farm.ui.raidLog());
+  await waitModal(B.page, /Raids on your farm/);
+  assert.match(await modalText(B.page), /Raids on your farm[\s\S]*Revenge is free\. Took [\s\S]*Replay \| Revenge/);
+  await B.page.evaluate(() => Farm.ui.closeAll());
+
   // ---- Revenge: free, once, against the raider (whose own raid broke their shields)
   await A.page.evaluate(() => Farm.raidFarmLeave());
   await A.page.waitForFunction(() => Farm.world && !Farm.session.raid && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
