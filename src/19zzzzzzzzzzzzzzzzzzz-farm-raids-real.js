@@ -8,7 +8,7 @@
 //   - At the end the drops go to our game server ('fr'), which replays them and records its own result ('frr'); the
 //     prize (Gold, Raid Points) is taken once (farm_fraid_claim_v1). No answer: it comes next time (the inbox).
 //   - Raided: the next time you open your farm, a card says who, the stars and what was taken (it is gone from your
-//     farm), with Replay (the same battle, drawn) and Revenge (free, once); your farm is safe for 8 hours.
+//     farm), with Replay (the same battle, drawn) and Revenge (free, once); your farm is safe 8 / 12 / 16 hours by the stars (part 27), and holding earns Raid Points.
 //   - Raid Points this week: the board.
 (function (F) {
   'use strict';
@@ -52,7 +52,7 @@
         },
       },
       {
-        text: 'Raided? You see who and what they took, watch a Replay, and get a free Revenge. Your farm is then safe for 8 hours.',
+        text: 'Raided? See who and what they took, watch a Replay, get a free Revenge. Held them off? Raid Points for you. A raid with stars gives your farm a shield: 8, 12 or 16 hours.',
         draw: function (ui, sc, move) {
           var d = icon(ui, sc, 90, 70, C.ICON.dog, 0.34);
           icon(ui, sc, 180, 70, ri('shield'), 0.36);
@@ -184,7 +184,7 @@
         F.Host.save(s);
         F.Net.rpc('farm_fraid_claim_v1', { p_raid: rd.raid }).catch(noop);
         sfx(r.stars ? 'fanfare' : 'nope');
-        return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0 });
+        return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0, bonus: r.bonus || 0 });
       }
       sfx('nope');
       ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'Raid over', line: r && r.code === 'slow' || r && r.code === 'closed' ? 'Checking it: the prize comes next time' : 'This raid could not be counted' });

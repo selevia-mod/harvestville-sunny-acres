@@ -5505,22 +5505,23 @@ camp: { price: 3000, levels: [
 ] },
 
 
+
 raiders: {
-goat: { name: 'Goat', sheet: 'wild_kambing', kind: 'kambing', space: 1, gold: 40, secs: 20, hp: 39, dmg: 4, speed: 1.6, carry: 3, likes: 'crops', weak: 'all',
+goat: { name: 'Goat', sheet: 'wild_kambing', kind: 'kambing', space: 1, gold: 20, secs: 20, hp: 39, dmg: 4, speed: 1.6, carry: 3, likes: 'crops', weak: 'all',
 say: 'Cheap and hungry: eats crops fast, but weak.' },
-crow: { name: 'Crows', sheet: 'raid_crow', space: 1, gold: 50, secs: 25, hp: 23, dmg: 2, speed: 2.4, carry: 2, likes: 'crops', flies: true, weak: 'scarecrow',
+crow: { name: 'Crows', sheet: 'raid_crow', space: 1, gold: 25, secs: 25, hp: 23, dmg: 2, speed: 2.4, carry: 2, likes: 'crops', flies: true, weak: 'scarecrow',
 say: 'Fly over fences and grab crops. Scarecrows scare them away.' },
-cat: { name: 'Cat', sheet: 'cat', space: 2, gold: 90, secs: 40, hp: 52, dmg: 6, speed: 2.6, carry: 3, likes: 'produce', weak: 'dog',
+cat: { name: 'Cat', sheet: 'cat', space: 2, gold: 45, secs: 40, hp: 52, dmg: 6, speed: 2.6, carry: 3, likes: 'produce', weak: 'dog',
 say: 'Fast and sneaky: steals eggs and milk. The guard dog can catch it.' },
-carabao: { name: 'Carabao', sheet: 'wild_carabaoligaw', kind: 'carabaoligaw', space: 5, gold: 300, secs: 120, hp: 338, dmg: 18, speed: 0.9, carry: 2, likes: 'fences', weak: 'beebox',
+carabao: { name: 'Carabao', sheet: 'wild_carabaoligaw', kind: 'carabaoligaw', space: 5, gold: 150, secs: 120, hp: 338, dmg: 18, speed: 0.9, carry: 2, likes: 'fences', weak: 'beebox',
 say: 'Very tough: breaks fences. Slow, and bees sting it.' },
-monkey: { name: 'Monkey', sheet: 'wild_unggoy', kind: 'unggoy', space: 2, gold: 140, secs: 50, hp: 65, dmg: 6, speed: 2.2, carry: 4, likes: 'stall', weak: 'goose',
+monkey: { name: 'Monkey', sheet: 'wild_unggoy', kind: 'unggoy', space: 2, gold: 70, secs: 50, hp: 65, dmg: 6, speed: 2.2, carry: 4, likes: 'stall', weak: 'goose',
 say: 'Climbs into the market stall and takes what is on it. Geese chase it off.' },
-boar: { name: 'Wild Boar', sheet: 'wild', kind: 'boar', space: 4, gold: 220, secs: 90, hp: 208, dmg: 22, speed: 1.4, carry: 2, likes: 'defenses', weak: 'mudpit',
+boar: { name: 'Wild Boar', sheet: 'wild', kind: 'boar', space: 4, gold: 110, secs: 90, hp: 208, dmg: 22, speed: 1.4, carry: 2, likes: 'defenses', weak: 'mudpit',
 say: 'Charges and knocks down scarecrows and traps. Mud pits stop it.' },
-rooster: { name: 'Rooster', sheet: 'wild', kind: 'labuyo', space: 2, gold: 120, secs: 45, hp: 91, dmg: 10, speed: 1.9, carry: 1, likes: 'guards', weak: 'tower',
+rooster: { name: 'Rooster', sheet: 'wild', kind: 'labuyo', space: 2, gold: 60, secs: 45, hp: 91, dmg: 10, speed: 1.9, carry: 1, likes: 'guards', weak: 'tower',
 say: 'A fighter: keeps the dog and the goose busy. The watchtower hits it.' },
-bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', kind: 'bayawak', space: 3, gold: 260, secs: 80, hp: 117, dmg: 8, speed: 1.6, carry: 6, likes: 'gold', weak: 'kampana', through: true,
+bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', kind: 'bayawak', space: 3, gold: 130, secs: 80, hp: 117, dmg: 8, speed: 1.6, carry: 6, likes: 'gold', weak: 'kampana', through: true,
 say: 'Slips through hedges to the Gold pot. The Kampana gives it away.' },
 },
 raiderOrder: ['goat', 'crow', 'cat', 'carabao', 'monkey', 'boar', 'rooster', 'bayawak'],
@@ -48806,6 +48807,8 @@ line(y0 + 28, prize.title || (prize.test ? 'Your farm\'s test' : prize.stars ? '
 if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '\u2605\u2605\u2605'.slice(0, prize.stars) + '\u2606\u2606\u2606'.slice(prize.stars), 30, '#e9a91c');
 line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
 line(y0 + 136, prize.line || (prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   \u00b7   +' + prize.pts + ' Raid Points'), 14, '#2f5a22');
+
+if (prize.bonus > 0 && !prize.line) line(y0 + 154, 'incl. a ' + prize.bonus.toLocaleString('en-US') + ' Gold star bonus', 11, '#6a4a2a');
 var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
 bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
 btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);
@@ -49292,7 +49295,7 @@ if (move) ui.tweens.add({ targets: s, alpha: 0.3, duration: 500, yoyo: true, rep
 },
 },
 {
-text: 'Raided? You see who and what they took, watch a Replay, and get a free Revenge. Your farm is then safe for 8 hours.',
+text: 'Raided? See who and what they took, watch a Replay, get a free Revenge. Held them off? Raid Points for you. A raid with stars gives your farm a shield: 8, 12 or 16 hours.',
 draw: function (ui, sc, move) {
 var d = icon(ui, sc, 90, 70, C.ICON.dog, 0.34);
 icon(ui, sc, 180, 70, ri('shield'), 0.36);
@@ -49424,7 +49427,7 @@ L.frWin(s, r.prize, r.points);
 F.Host.save(s);
 F.Net.rpc('farm_fraid_claim_v1', { p_raid: rd.raid }).catch(noop);
 sfx(r.stars ? 'fanfare' : 'nope');
-return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0 });
+return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0, bonus: r.bonus || 0 });
 }
 sfx('nope');
 ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'Raid over', line: r && r.code === 'slow' || r && r.code === 'closed' ? 'Checking it: the prize comes next time' : 'This raid could not be counted' });

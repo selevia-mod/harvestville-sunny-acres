@@ -606,6 +606,8 @@
     if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
     line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
     line(y0 + 136, prize.line || (prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points'), 14, '#2f5a22');
+    // (10 Nov 2026: the star bonus the game pays, part of the Gold; server part 27)
+    if (prize.bonus > 0 && !prize.line) line(y0 + 154, 'incl. a ' + prize.bonus.toLocaleString('en-US') + ' Gold star bonus', 11, '#6a4a2a');
     var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
     bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
     btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);
