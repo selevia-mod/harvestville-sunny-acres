@@ -61,6 +61,23 @@ const MW = 220, MH = 176; // keep in step with C.RAID_MOVES (00-zzzzzzzzzzzzzzzz
     save(path.join(ART, 'horse_ride_3x4.png'), url);
     done.push('horse 3x4');
   }
+  // The farmer sitting on the horse (owner, 10 Nov 2026; art-src/RIDING-SEATED-PROMPTS.md): art-src/riding/<outfit>.png
+  // (3 x 2: the boy then the girl; sideways facing left, from behind, facing you) -> assets/ride_<outfit>.* : 6 frames of
+  // RW x RH in a row, all at one scale, standing on the frame's bottom (C.RIDE_SEAT, 19-extras.js: where the seat is)
+  const RW = 320, RH = 400;
+  const RIDING = path.join(ROOT, 'art-src', 'riding');
+  for (const f of fs.existsSync(RIDING) ? fs.readdirSync(RIDING).filter((x) => /^[a-z]+\.png$/.test(x)) : []) {
+    const r = await p.evaluate(async ([s, RW, RH]) => {
+      const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 3, 2, 0.02);
+      if (cl.some((x) => !x) || cl.length < 6) throw new Error('a pose is missing');
+      const k = Math.min(...cl.map((x) => Math.min(RW * 0.96 / x.w, RH * 0.97 / x.h))), o = W.canvas(RW * 6, RH), g = o.getContext('2d');
+      cl.slice(0, 6).forEach((x, i) => W.draw(g, x.c, x, k, i * RW + RW / 2, RH - 4));
+      return Object.assign(W.out(o, 0.85), { k });
+    }, [data(path.join(RIDING, f)), RW, RH]);
+    const name = 'ride_' + f.slice(0, -4);
+    done.push(name + ' ' + save(path.join(OUT, name + '.webp'), r.webp) + ' (x' + r.k.toFixed(3) + ')');
+    save(path.join(OUT, name + '.png'), r.png);
+  }
   await b.close();
   console.log('battle2 art:', done.join('; '));
 })().catch((e) => { console.error(e); process.exit(1); });
