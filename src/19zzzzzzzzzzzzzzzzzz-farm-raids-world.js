@@ -140,31 +140,30 @@
       if (dd.t === 'dog') { img = F.Anim.image(self, dd.x * T, dd.y * T, C.DOG); }
       self.raidDefs[i] = img;
     });
-    // taps: drag to look around, a tap on the light ground sends the picked raider in
+    // taps: drag to look around, a tap on the green ground sends the picked raider in
     if (this.raidInputs) this.raidInputs.forEach(function (e) { self.input.off(e[0], e[1]); });
     this.raidInputs = [];
     var on = function (ev, fn) { self.input.on(ev, fn); self.raidInputs.push([ev, fn]); };
-    // like Clash of Clans: press on the light ground and drag: raiders come down along your finger (hold still: they
-    // keep coming); press anywhere else and drag: look around
+    // like the raid games (owner, 10 Nov 2026: "why I cant move the screen, I cant see the other side of the farm": the
+    // green ground covers most of a farm, and a press there sent raiders in): drag anywhere looks around; a tap on the
+    // green ground sends one raider; press and HOLD there, and they keep coming, along your finger if you slide it
     var tileOf = function (p) { var wp = cam.getWorldPoint(p.x, p.y); return { x: Math.floor(wp.x / T), y: Math.floor(wp.y / T) }; };
+    var HOLD = 260, SLOP = 12; // (ms still before the stream starts; px a finger may wobble and still be a tap)
     on('pointerdown', function (p) {
       if (!self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) { self.raidDown = null; return; }
       var tl = tileOf(p);
-      if (L.frEdge(self.raidB, tl.x, tl.y)) {
-        self.raidDown = { deploy: true, last: tl, at: Date.now() };
-        self.raidDropAt(tl.x, tl.y);
-      } else self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
+      self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false, edge: L.frEdge(self.raidB, tl.x, tl.y), last: tl, at: Date.now(), t0: Date.now() };
     });
     on('pointermove', function (p) {
       var d = self.raidDown;
       if (!self.raidB || !p.isDown || !d) return;
-      if (d.deploy) {
+      if (d.deploy) { // (holding: raiders come where the finger goes)
         var tl = tileOf(p);
         if ((tl.x !== d.last.x || tl.y !== d.last.y) && L.frEdge(self.raidB, tl.x, tl.y)) { d.last = tl; d.at = Date.now(); self.raidDropAt(tl.x, tl.y, true); }
         return;
       }
       var dx = (p.x - d.x) / cam.zoom, dy = (p.y - d.y) / cam.zoom;
-      if (Math.abs(dx) + Math.abs(dy) > 8) d.moved = true;
+      if (!d.moved && Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > SLOP) d.moved = true;
       if (d.moved) cam.setScroll(d.sx - dx, d.sy - dy);
     });
     on('pointerup', function (p) {
@@ -172,8 +171,15 @@
       self.raidDown = null;
       if (!d || d.deploy || d.moved || !self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) return;
       var tl = tileOf(p);
-      self.raidDropAt(tl.x, tl.y); // (a tap where they cannot come down: it says where they can)
+      self.raidDropAt(tl.x, tl.y); // a tap: one raider (where they cannot come down: it says where they can)
     });
+    // (each frame: a press held still on the green ground turns into the stream; P.update keeps it coming)
+    this.raidHoldCheck = function () {
+      var d = self.raidDown;
+      if (!d || d.deploy || d.moved || !d.edge || Date.now() - d.t0 < HOLD) return;
+      d.deploy = true; d.at = Date.now();
+      self.raidDropAt(d.last.x, d.last.y);
+    };
     if (F.ui && F.ui.raidHudOn) F.ui.raidHudOn(this.raidB, F.session.visit.name);
   };
   P.raidDropAt = function (x, y, quiet) {
@@ -208,6 +214,7 @@
     update.call(this, time, delta);
     if (!this.raidB || !raiding(this)) return;
     var b = this.raidB, hold = this.raidDown;
+    if (this.raidHoldCheck) this.raidHoldCheck();
     if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
     if (this.raidStarted && !b.end) {
       this.raidAcc += Math.min(delta, 250);

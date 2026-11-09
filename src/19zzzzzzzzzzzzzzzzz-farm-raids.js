@@ -129,7 +129,7 @@
   };
 
   // ---------- the panel ----------
-  var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
+  var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Raid']]; // (owner, 10 Nov 2026: "why its called practice?": real raids are there too)
   var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
   U.openRaidCamp = function (tab, page) {
     var self = this, s = F.session.state, r = L.frState(s), now = Date.now();

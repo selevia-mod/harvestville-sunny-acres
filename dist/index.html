@@ -48286,7 +48286,7 @@ if (move) ui.tweens.add({ targets: p, scale: p.scale * 1.15, duration: 420, yoyo
 };
 
 
-var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
+var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Raid']];
 var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
 U.openRaidCamp = function (tab, page) {
 var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
@@ -48914,14 +48914,13 @@ this.raidInputs = [];
 var on = function (ev, fn) { self.input.on(ev, fn); self.raidInputs.push([ev, fn]); };
 
 
+
 var tileOf = function (p) { var wp = cam.getWorldPoint(p.x, p.y); return { x: Math.floor(wp.x / T), y: Math.floor(wp.y / T) }; };
+var HOLD = 260, SLOP = 12;
 on('pointerdown', function (p) {
 if (!self.raidB || self.raidB.end || (F.ui && F.ui.raidOnHud && F.ui.raidOnHud(p))) { self.raidDown = null; return; }
 var tl = tileOf(p);
-if (L.frEdge(self.raidB, tl.x, tl.y)) {
-self.raidDown = { deploy: true, last: tl, at: Date.now() };
-self.raidDropAt(tl.x, tl.y);
-} else self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false };
+self.raidDown = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY, moved: false, edge: L.frEdge(self.raidB, tl.x, tl.y), last: tl, at: Date.now(), t0: Date.now() };
 });
 on('pointermove', function (p) {
 var d = self.raidDown;
@@ -48932,7 +48931,7 @@ if ((tl.x !== d.last.x || tl.y !== d.last.y) && L.frEdge(self.raidB, tl.x, tl.y)
 return;
 }
 var dx = (p.x - d.x) / cam.zoom, dy = (p.y - d.y) / cam.zoom;
-if (Math.abs(dx) + Math.abs(dy) > 8) d.moved = true;
+if (!d.moved && Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > SLOP) d.moved = true;
 if (d.moved) cam.setScroll(d.sx - dx, d.sy - dy);
 });
 on('pointerup', function (p) {
@@ -48942,6 +48941,13 @@ if (!d || d.deploy || d.moved || !self.raidB || self.raidB.end || (F.ui && F.ui.
 var tl = tileOf(p);
 self.raidDropAt(tl.x, tl.y);
 });
+
+this.raidHoldCheck = function () {
+var d = self.raidDown;
+if (!d || d.deploy || d.moved || !d.edge || Date.now() - d.t0 < HOLD) return;
+d.deploy = true; d.at = Date.now();
+self.raidDropAt(d.last.x, d.last.y);
+};
 if (F.ui && F.ui.raidHudOn) F.ui.raidHudOn(this.raidB, F.session.visit.name);
 };
 P.raidDropAt = function (x, y, quiet) {
@@ -48976,6 +48982,7 @@ P.update = function (time, delta) {
 update.call(this, time, delta);
 if (!this.raidB || !raiding(this)) return;
 var b = this.raidB, hold = this.raidDown;
+if (this.raidHoldCheck) this.raidHoldCheck();
 if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
 if (this.raidStarted && !b.end) {
 this.raidAcc += Math.min(delta, 250);

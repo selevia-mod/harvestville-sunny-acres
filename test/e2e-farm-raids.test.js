@@ -223,14 +223,14 @@ test('farm raids: the battle\'s effects (owner\'s raid_fx, 9 Nov 2026): the Spri
   await context.close();
 });
 
-test('farm raids: like Clash of Clans, press on the light ground and drag: raiders come down along the finger; hold still: they keep coming', async () => {
+test('farm raids (owner, 10 Nov 2026): drag looks around (even on the green ground), a tap sends one, press and hold sends more, along the finger', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
   await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 3; s.fr.army = { goat: 10, crow: 10 }; Farm.ui.startRaid('b1'); });
   await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
   await page.waitForTimeout(600);
   // a run of open ground on screen, in a row
-  const line = await page.evaluate(() => {
+  const findLine = () => page.evaluate(() => {
     const w = Farm.world, f = w.raidB.farm, cam = w.cameras.main, R = 2;
     for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w - 4; x++) {
       let ok = true;
@@ -243,12 +243,33 @@ test('farm raids: like Clash of Clans, press on the light ground and drag: raide
     }
     return null;
   });
+  let line = await findLine();
   assert.ok(line, 'open ground on screen');
+  // a drag on the green ground: the view moves, nobody comes down
+  const scroll0 = await page.evaluate(() => [Farm.world.cameras.main.scrollX, Farm.world.cameras.main.scrollY]);
+  const moved = [];
+  for (const dir of [1, -1]) { // (one way may be at the farm's edge already)
+    await page.mouse.move(line.x1, line.y);
+    await page.mouse.down();
+    for (let k = 1; k <= 8; k++) await page.mouse.move(line.x1 + dir * 15 * k, line.y - dir * 10 * k);
+    await page.mouse.up();
+    moved.push(await page.evaluate((s0) => Math.abs(Farm.world.cameras.main.scrollX - s0[0]) + Math.abs(Farm.world.cameras.main.scrollY - s0[1]), scroll0));
+    await page.evaluate((s0) => Farm.world.cameras.main.setScroll(s0[0], s0[1]), scroll0);
+  }
+  assert.strictEqual(await page.evaluate(() => Farm.world.raidB.raiders.length), 0, 'a drag sends nobody');
+  assert.ok(Math.max(...moved) > 20, 'a drag moves the view: ' + moved);
+  await page.waitForTimeout(300);
+  line = await findLine(); // (where it is now)
+  // a tap: one
+  await page.mouse.click(line.x1, line.y);
+  assert.strictEqual(await page.evaluate(() => Farm.world.raidB.raiders.length), 1, 'a tap sends one');
+  // press and hold, then slide: they come along the finger
   await page.mouse.move(line.x1, line.y);
   await page.mouse.down();
+  await page.waitForTimeout(700);
   for (let k = 1; k <= 12; k++) await page.mouse.move(line.x1 + (line.x2 - line.x1) * k / 12, line.y);
   const dragged = await page.evaluate(() => Farm.world.raidB.raiders.length);
-  assert.ok(dragged >= 3, 'along the finger: ' + dragged);
+  assert.ok(dragged >= 4, 'held, then along the finger: ' + dragged);
   await page.waitForTimeout(1500); // hold still
   await page.mouse.up();
   const held = await page.evaluate(() => Farm.world.raidB.raiders.length);
