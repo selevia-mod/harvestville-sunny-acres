@@ -736,7 +736,7 @@
     // visible ang characters. like bow and arrows lang nakikita": a friend there all along was not drawn, so their shots
     // came as a bow and an arrow with nobody behind them (19v-wild.js 'ar', bowFlash).
     this.events.once('create', function () { O.syncSprites(); });
-    if (v && F.ui) F.ui.toast(L.isWildMap(this.mapKey) ? 'Hunting with ' + v.name + '. Tap Home to go back to your farm.' : this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
+    if (v && !v.raid && F.ui) F.ui.toast(L.isWildMap(this.mapKey) ? 'Hunting with ' + v.name + '. Tap Home to go back to your farm.' : this.mapKey === 'mine' ? 'In the mine with ' + v.name + ', floor ' + F.session.mineFloor + '. Tap Home to go back to your farm.' : this.mapKey === 'town' ? 'In town with ' + v.name + '. Tap Home to go back to your farm.' : 'Welcome to ' + v.name + '! Look around, wave, leave a like or a gift.', 3200, 0x2f5a22);
   };
 
   var update = P.update;

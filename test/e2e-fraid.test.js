@@ -196,6 +196,7 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   await B.page.waitForFunction(() => { const out = [], h = Farm.ui.frBox; if (!h) return false; const w = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) w(o.list); }); w(h.list); return /The raid on your farm/.test(out.join(' | ')); }, null, SLOW);
   await B.page.evaluate(() => Farm.raidFarmLeave());
   await B.page.waitForFunction(() => Farm.world && !Farm.session.raid && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
+  assert.ok(!/Welcome to/.test(await B.page.evaluate(() => (Farm.ui.toastText.visible ? Farm.ui.toastText.text : ''))), 'no visitor welcome after a replay');
 
   // ---- Revenge: free, once, against the raider (whose own raid broke their shields)
   await A.page.evaluate(() => Farm.raidFarmLeave());
