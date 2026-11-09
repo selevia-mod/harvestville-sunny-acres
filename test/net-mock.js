@@ -43,6 +43,10 @@ function createServer() {
   const rpcFraid = {};
   // Farm Raids step 2 (supabase/farm_online_25.sql, the same rules in short; the game server's part is server/lib/fraid.js)
   db.fraid = { copies: new Map(), raids: [], points: new Map(), key: 'fraid-test-key', cfg: { daily: 5, lock: 180000, shieldMs: 8 * 3600000, nextGold: 50, energy: 10 } };
+  // part 28's farm.fraid_ghost_spec, as SQL: the same numbers from the same seed and power
+  const GHOST_NAMES = ['jhayvee', 'Kuya Ron', 'mikaela_07', 'AngelBee', 'rosalyn22'];
+  const frGhost = (seed, mine) => { const s = Math.abs(seed | 0) || 1, pw = Math.max(10, (mine | 0) + (s % 21) - 10), tier = Math.min(3, [0, 60, 120, 200].filter((t) => t <= pw).length - 1);
+    return { seed: s, name: GHOST_NAMES[s % GHOST_NAMES.length], look: Math.floor(s / 7) % 2 ? 'girl' : 'boy', power: pw, tier, lv: Math.min(5, 1 + Math.floor(pw / 60)), value: Math.min(5000, Math.max(400, pw * 15)), home: Math.min(10, 2 + tier * 2 + (s % 2)) }; };
   const frCap = (mine, theirs) => { const r = Math.max(theirs, 1) / Math.max(mine, 1); if (r >= 1.5) return 0.3; if (r <= 0.6667) return 0.1; if (r >= 1) return 0.2 + 0.1 * (r - 1) / 0.5; return 0.1 + 0.1 * (r - 0.6667) / (1 - 0.6667); };
   const frWhyNot = (t, by) => {
     const f = db.fraid.copies.get(t), now = Date.now();
@@ -62,7 +66,21 @@ function createServer() {
       if (!me) return { ok: false, code: 'no-copy' };
       const farms = [...db.fraid.copies.keys()].filter((id) => !(a.p_skip || []).includes(id) && !frWhyNot(id, uid))
         .map((id) => { const f = db.fraid.copies.get(id); return { id, name: db.players.get(id).farm_name, power: f.power, loot: f.loot, cap: frCap(me.power, f.power) }; });
+      // none near: a made-up farm (part 28), its numbers from farm.fraid_ghost_spec (here: frGhost)
+      if (!farms.length && db.fraid.cfg.ghost !== false) { const gs = 4242 + db.fraid.raids.length, g = frGhost(gs, me.power); farms.push({ id: null, ghost: gs, name: g.name, power: g.power, loot: g.value, cap: frCap(me.power, g.power) }); }
       return { ok: true, farms: a.p_mode === 'random' ? farms.slice(0, 1) : farms, next_gold: db.fraid.cfg.nextGold, energy: db.fraid.cfg.energy };
+    },
+    farm_fraid_ghost_start_v1(uid, a) {
+      need(uid);
+      if (db.fraid.raids.some((r) => r.attacker === uid && r.state === 'open' && r.expires > Date.now())) return { ok: false, code: 'in-raid' };
+      if (db.fraid.raids.filter((r) => r.attacker === uid && !r.revengeOf).length >= db.fraid.cfg.daily) return { ok: false, code: 'daily' };
+      const me = db.fraid.copies.get(uid);
+      if (!me) return { ok: false, code: 'no-copy' };
+      const g = frGhost(a.p_ghost, me.power);
+      const r = { id: crypto.randomUUID(), attacker: uid, defender: null, copy: { ghost: g, value: g.value }, army: a.p_army, seed: 1000 + db.fraid.raids.length * 7919, cap: frCap(me.power, g.power), revengeOf: null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
+      db.fraid.raids.push(r);
+      me.shield = 0; me.raided = 0;
+      return { ok: true, raid: r.id, name: g.name, copy: r.copy, seed: r.seed, cap: r.cap, expires_at: new Date(r.expires).toISOString(), shield_broken: true, ghost: g };
     },
     farm_fraid_start_v1(uid, a) {
       need(uid);
@@ -88,7 +106,7 @@ function createServer() {
       const value = Math.max(0, Math.min(a.p_taken.value | 0, Math.ceil((r.copy.value || 0) * r.cap)));
       Object.assign(r, { state: 'done', stars: a.p_stars, taken: Object.assign({}, a.p_taken, { value }), moves: a.p_moves, prize: value, points: [2, 10, 25, 50][a.p_stars], settled: Date.now() });
       db.fraid.points.set(uid, (db.fraid.points.get(uid) || 0) + r.points);
-      const d = db.fraid.copies.get(r.defender); if (d) d.raided = Date.now() + db.fraid.cfg.shieldMs;
+      const d = r.defender && db.fraid.copies.get(r.defender); if (d) d.raided = Date.now() + db.fraid.cfg.shieldMs;
       return { ok: true, stars: r.stars, prize: r.prize, points: r.points };
     },
     farm_fraid_inbox_v1(uid) {

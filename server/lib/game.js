@@ -26,7 +26,7 @@ class Game {
     this.maps = makeMaps(this.R);
     this.wild = makeWild(this.R);
     this.auth = o.auth; // { check(token, topic) -> Promise<{ uid } | { why }> }
-    this.fraid = o.fraid || null; // Farm Raids: { settle(token, raid, moves) } (lib/fraid.js), or none
+    this.fraid = o.fraid || null; // Farm Raids: { settle(token, raid, moves, played) } (lib/fraid.js), or none
     this.now = o.now || Date.now;
     this.rand = o.rand || Math.random;
     this.cap = o.cap || 8;
@@ -110,7 +110,7 @@ class Game {
     if (!this.fraid || msg.v !== 1) return this.send(c, { t: 'frr', raid: msg.raid, ok: false, code: 'off' });
     c.frBusy = true;
     let r;
-    try { r = await this.fraid.settle(msg.token, msg.raid, msg.moves); } catch (e) { r = { ok: false, code: 'error' }; }
+    try { r = await this.fraid.settle(msg.token, msg.raid, msg.moves, msg.copy); } catch (e) { r = { ok: false, code: 'error' }; }
     c.frBusy = false;
     this.stats.raids = (this.stats.raids || 0) + 1;
     if (r && r.ok) this.log('[game] farm raid checked: ' + r.stars + ' stars, ' + r.prize + ' Gold');

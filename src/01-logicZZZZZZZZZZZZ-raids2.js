@@ -102,6 +102,35 @@
     return lost;
   };
 
+  // ---------- a made-up farm (owner, 10 Nov 2026: no player near your power: "make it look like a random player"; SQL
+  // part 28, farm.fraid_ghost_spec gives { name, look, power, tier, lv, value, home, seed }) ----------
+  // its defenses: the full set its tier allows (R.caps), at its level; a few scarecrows; fences round the field; a dog
+  L.frGhostDefs = function (g) {
+    var c = R.caps, t = Math.max(0, Math.min(3, g.tier | 0)), d = { dog: 1, fence: 8 + 4 * t, scarecrow: Math.min(3, c.scarecrow[t]) };
+    ['tower', 'goose', 'beebox', 'sprinkler', 'kampana', 'mudpit', 'sili'].forEach(function (k) { if (c[k][t]) d[k] = c[k][t]; });
+    return d;
+  };
+  // its loot, about its value: crops, eggs and milk, stall goods and the Gold pot
+  L.frGhostLoot = function (g) {
+    var v = Math.max(0, g.value | 0), w = R.lootValue;
+    return { crops: Math.max(4, Math.round(v * 0.45 / w.crops)), produce: Math.round(v * 0.2 / w.produce), stall: Math.round(v * 0.15 / w.stall), gold: Math.round(v * 0.2) };
+  };
+  // the game server's check of the farm a phone played: its defenses as the spec says (all at its level, at least 4 in 5
+  // of each kind there: the farm's room may leave out one), nothing stronger; the map's size. '' when good, else why.
+  L.frGhostOk = function (copy, g) {
+    if (!copy || !g || !Array.isArray(copy.defs) || !Array.isArray(copy.loot) || !(copy.w > 0) || !(copy.h > 0)) return 'shape';
+    if (typeof copy.solid !== 'string' || copy.solid.length !== copy.w * copy.h || typeof copy.drop !== 'string' || copy.drop.length !== copy.w * copy.h) return 'shape';
+    var want = L.frGhostDefs(g), have = {}, bad = '';
+    copy.defs.forEach(function (d) {
+      if (!d || !R.defenses[d.t]) { bad = 'kind'; return; }
+      if (d.t !== 'fence' && (d.lv | 0) !== (g.lv | 0)) bad = 'level';
+      have[d.t] = (have[d.t] || 0) + 1;
+    });
+    if (bad) return bad;
+    var miss = Object.keys(want).filter(function (k) { return k !== 'fence' && (have[k] || 0) < Math.ceil(want[k] * 0.8); });
+    return miss.length ? 'missing ' + miss.join(',') : '';
+  };
+
   // ---------- the attacker's prize ----------
   L.frWin = function (s, prize, points) {
     var r = L.frState(s);

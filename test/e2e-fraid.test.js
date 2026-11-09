@@ -54,7 +54,7 @@ async function open(server, fraid) {
   await context.exposeBinding('__rnPost', (source, data) => { bridge.onMessage({ nativeEvent: { data } }); });
   await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
   // the game server's line: what the phone sends goes to the real check; its answer comes back
-  await context.exposeBinding('__frSend', async (src, raw) => { const m = JSON.parse(raw); return JSON.stringify(Object.assign({ t: 'frr', raid: m.raid }, await fraid.settle(m.token, m.raid, m.moves))); });
+  await context.exposeBinding('__frSend', async (src, raw) => { const m = JSON.parse(raw); return JSON.stringify(Object.assign({ t: 'frr', raid: m.raid }, await fraid.settle(m.token, m.raid, m.moves, m.copy))); }); // (copy: a made-up farm's, part 28)
   await page.addInitScript((here) => {
     window.ReactNativeWebView = { postMessage: (data) => window.__rnPost(data) };
     window.__here = here;
@@ -248,4 +248,35 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   assert.deepStrictEqual(A.problems.concat(B.problems), []);
   await A.context.close();
   await B.context.close();
+});
+
+test('no farm near your power: a made-up farm that looks like a player (owner, 10 Nov 2026), raided like a real one, checked by the game server, full points', async () => {
+  const server = createServer(), fraid = gameServer(server);
+  const A = await open(server, fraid);
+  await A.page.evaluate(() => { const s = Farm.session.state, r = Farm.Logic.frState(s); r.camp = 3; r.army.goat = 10; s.energy = 100; Farm.world.save(); });
+  await A.page.evaluate(() => Farm.FR.sendCopy(Farm.world, true));
+  for (let i = 0; i < 50 && !server.db.fraid.copies.has(A.uid); i++) await new Promise((r) => setTimeout(r, 100));
+  await A.page.evaluate(() => Farm.ui.raidFind([]));
+  await waitModal(A.page, /RAID [A-Z0-9 _.-]+\?/);
+  assert.doesNotMatch(await modalText(A.page), /BANDIT/i, 'it looks like a player');
+  await tapDialog(A.page, 'Raid');
+  await A.page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.session.raid && Farm.session.raid.kind === 'ghost', null, SLOW);
+  const raid = server.db.fraid.raids[0];
+  assert.strictEqual(raid.defender, null, 'no player behind it');
+  const g = raid.copy.ghost, want = await A.page.evaluate((g) => Farm.Logic.frGhostDefs(g), g);
+  const defs = await A.page.evaluate(() => { const o = {}; Farm.world.raidB.defs.forEach((d) => { o[d.t] = (o[d.t] || 0) + 1; }); return o; });
+  for (const k of Object.keys(want)) if (k !== 'fence') assert.ok((defs[k] || 0) >= Math.ceil(want[k] * 0.8), k + ': ' + defs[k] + ' of ' + want[k]);
+  assert.ok(await A.page.evaluate((lv) => Farm.world.raidB.defs.every((d) => d.t === 'fence' || d.lv === lv), g.lv), 'all at its level');
+  await shot(A.page, 'fraid-ghost-battle');
+  const got = await fight(A.page);
+  await A.page.waitForFunction(() => /Raid (won|over)/.test((() => { const out = [], h = Farm.ui.frBox; if (!h) return ''; const w = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) w(o.list); }); w(h.list); return out.join(' | '); })()), null, SLOW);
+  assert.strictEqual(raid.state, 'done', 'the game server counted it');
+  assert.strictEqual(raid.stars, got.stars, "the server's stars are the battle's");
+  assert.strictEqual(raid.points, [2, 10, 25, 50][got.stars], 'full points');
+  await shot(A.page, 'fraid-ghost-result');
+  // a farm missing its defenses is not counted
+  const L = load().L;
+  const thin = { w: 4, h: 4, solid: '0'.repeat(16), drop: '1'.repeat(16), defs: [{ t: 'dog', lv: g.lv, x: 1, y: 1 }], loot: [] };
+  assert.notStrictEqual(L.frGhostOk(thin, g), '', 'a stripped farm fails the check');
+  await A.context.close();
 });

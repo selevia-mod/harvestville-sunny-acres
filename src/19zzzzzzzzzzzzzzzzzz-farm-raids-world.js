@@ -126,6 +126,12 @@
   P.raidSetup = function () {
     this.scene.bringToTop('UI'); // (a restart from inside a restart can leave the farm over the buttons)
     var self = this, rd = F.session.raid, cam = this.cameras.main;
+    // a made-up farm (SQL part 28): its copy is the farm laid out here, as a player's own phone makes theirs; the battle then
+    // runs on it exactly as on a real one (the game server checks it against the server's numbers)
+    if (rd.kind === 'ghost' && !rd.copy) {
+      rd.copy = this.raidFarm({ gold: rd.gold, stall: rd.stall, produce: rd.produce, levels: rd.levels, name: F.session.visit.name });
+      rd.copy.value = L.frCopyValue(rd.copy);
+    }
     // (a real raid or its replay: the defender's frozen copy, only its share of the loot: 01-logicZZZZZZZZZZZZ-raids2.js)
     this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed, rd.cut) : this.raidFarm(), rd.army, rd.seed);
     this.raidAcc = 0;

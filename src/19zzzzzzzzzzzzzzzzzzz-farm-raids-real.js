@@ -87,7 +87,7 @@
 
   // ---------- the game server's check ----------
   // Promise<{ ok, stars, prize, points } | { ok: false, code }>
-  FR.check = function (raid, moves) {
+  FR.check = function (raid, moves, copy) { // (copy: a made-up farm's, as played: the server checks it against its numbers)
     var url = window.gameHost && window.gameHost.gs;
     if (!url || typeof WebSocket === 'undefined') return Promise.resolve({ ok: false, code: 'off' });
     return F.Net.token().then(function (token) {
@@ -96,7 +96,7 @@
         var ws, done = false, finish = function (r) { if (done) return; done = true; clearTimeout(t); try { ws.close(); } catch (e) { /* closed */ } resolve(r); };
         var t = setTimeout(function () { finish({ ok: false, code: 'slow' }); }, FR.serverWait);
         try { ws = new WebSocket(url); } catch (e) { return finish({ ok: false, code: 'socket' }); }
-        ws.onopen = function () { ws.send(JSON.stringify({ t: 'fr', v: 1, token: token, raid: raid, moves: moves })); };
+        ws.onopen = function () { var m = { t: 'fr', v: 1, token: token, raid: raid, moves: moves }; if (copy) m.copy = copy; ws.send(JSON.stringify(m)); };
         ws.onmessage = function (e) { var m = null; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.t === 'frr' && m.raid === raid) finish(m); };
         ws.onerror = ws.onclose = function () { finish({ ok: false, code: 'closed' }); };
       });
@@ -108,6 +108,7 @@
   var start = F.raidFarmStart;
   F.raidFarmStart = function (opts) {
     if (opts.kind === 'replay') return replay(opts.raid);
+    if (opts.kind === 'ghost') return ghostStart(opts);
     if (opts.kind !== 'real') return start(opts);
     var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
     if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast(opts.revenge ? 'Buy a Raid Camp at Mira\'s (Workshops) to raid them back. Your Revenge waits 7 days.' : 'Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
@@ -127,6 +128,37 @@
       st.isVisit = true;
       F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge, cut: Date.parse(r.expires_at) || L.clock() };
       F.session.visit = { host: 'raid', name: L.cleanText(r.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
+      F.session.riding = false;
+      F.ui.closeAll();
+      O.restartWorld();
+      return true;
+    }, function () { FR.starting = false; sfx('nope'); F.ui.toast('No connection. Try again in a moment.', 2400); });
+  };
+  // a made-up farm (SQL part 28): the server gives its numbers; this phone lays it out on the farm map like a bandit farm
+  // (19zz...-farm-raids-world.js), from its seed, dressed as a player's: their look, house level and name
+  var ghostStart = function (opts) {
+    var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
+    if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast('Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
+    if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
+    if (mine.energy < cost && !(L.powered && L.powered(mine))) { sfx('nope'); return F.ui.toast('A raid takes ' + cost + ' energy.', 2400); }
+    if (FR.starting) return null;
+    FR.starting = true;
+    F.ui.toast('Marching out...', 1500);
+    return F.Net.rpc('farm_fraid_ghost_start_v1', { p_ghost: opts.ghost, p_army: army, p_request_id: requestId() }).then(function (r) {
+      FR.starting = false;
+      if (!r || !r.ok || !r.ghost) { sfx('nope'); return F.ui.toast(startWhy(r && r.code), 2600); }
+      var g = r.ghost, loot = L.frGhostLoot(g), b = { key: 'ghost', defs: L.frGhostDefs(g), lv: g.lv, loot: loot };
+      L.spendEnergy(mine, cost);
+      L.shieldBreak(mine);
+      F.Host.save(mine);
+      var st = L.banditLayout(b, mine, (g.seed | 0) || 1);
+      st.look = g.look === 'girl' ? 'girl' : 'boy';
+      if (st.home) st.home.level = Math.max(1, Math.min(10, g.home | 0 || 3));
+      var lv = {};
+      R.defenseOrder.forEach(function (k) { lv[k] = g.lv; });
+      F.session.raid = { kind: 'ghost', raid: r.raid, ghost: g, cap: Number(r.cap) || 0, seed: r.seed, army: army, cut: Date.parse(r.expires_at) || L.clock(),
+        gold: loot.gold, stall: loot.stall, produce: loot.produce, levels: lv };
+      F.session.visit = { host: 'raid', name: L.cleanText(g.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
       F.session.riding = false;
       F.ui.closeAll();
       O.restartWorld();
@@ -164,7 +196,7 @@
   var finish = P.raidFinish;
   P.raidFinish = function () {
     var rd = F.session.raid;
-    if (!rd || (rd.kind !== 'real' && rd.kind !== 'replay')) return finish.call(this);
+    if (!rd || (rd.kind !== 'real' && rd.kind !== 'replay' && rd.kind !== 'ghost')) return finish.call(this);
     if (this.raidDone) return;
     this.raidDone = true;
     var s = F.session.state, b = this.raidB, ui = F.ui, stars = L.frStars(b);
@@ -177,7 +209,7 @@
     L.frUse(s, used);
     F.Host.save(s);
     if (ui.raidSay) ui.raidSay('Checking your raid...');
-    FR.check(rd.raid, b.moves).then(function (r) {
+    FR.check(rd.raid, b.moves, rd.kind === 'ghost' ? rd.copy : null).then(function (r) {
       if (!ui.frBox) return;
       if (r && r.ok) {
         L.frWin(s, r.prize, r.points);
@@ -291,9 +323,9 @@
           s.gold -= next;
           F.Host.save(s);
           F.bus.emit('hud');
-          self.raidFind((skip || []).concat([f.id]));
+          self.raidFind((skip || []).concat(f.id ? [f.id] : []));
         } },
-        { label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', target: f.id }); } },
+        { label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart(f.ghost ? { kind: 'ghost', ghost: f.ghost } : { kind: 'real', target: f.id }); } },
       ]);
     }, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
   };

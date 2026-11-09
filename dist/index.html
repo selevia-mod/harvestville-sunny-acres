@@ -17071,6 +17071,35 @@ return lost;
 };
 
 
+
+
+L.frGhostDefs = function (g) {
+var c = R.caps, t = Math.max(0, Math.min(3, g.tier | 0)), d = { dog: 1, fence: 8 + 4 * t, scarecrow: Math.min(3, c.scarecrow[t]) };
+['tower', 'goose', 'beebox', 'sprinkler', 'kampana', 'mudpit', 'sili'].forEach(function (k) { if (c[k][t]) d[k] = c[k][t]; });
+return d;
+};
+
+L.frGhostLoot = function (g) {
+var v = Math.max(0, g.value | 0), w = R.lootValue;
+return { crops: Math.max(4, Math.round(v * 0.45 / w.crops)), produce: Math.round(v * 0.2 / w.produce), stall: Math.round(v * 0.15 / w.stall), gold: Math.round(v * 0.2) };
+};
+
+
+L.frGhostOk = function (copy, g) {
+if (!copy || !g || !Array.isArray(copy.defs) || !Array.isArray(copy.loot) || !(copy.w > 0) || !(copy.h > 0)) return 'shape';
+if (typeof copy.solid !== 'string' || copy.solid.length !== copy.w * copy.h || typeof copy.drop !== 'string' || copy.drop.length !== copy.w * copy.h) return 'shape';
+var want = L.frGhostDefs(g), have = {}, bad = '';
+copy.defs.forEach(function (d) {
+if (!d || !R.defenses[d.t]) { bad = 'kind'; return; }
+if (d.t !== 'fence' && (d.lv | 0) !== (g.lv | 0)) bad = 'level';
+have[d.t] = (have[d.t] || 0) + 1;
+});
+if (bad) return bad;
+var miss = Object.keys(want).filter(function (k) { return k !== 'fence' && (have[k] || 0) < Math.ceil(want[k] * 0.8); });
+return miss.length ? 'missing ' + miss.join(',') : '';
+};
+
+
 L.frWin = function (s, prize, points) {
 var r = L.frState(s);
 s.gold += Math.max(0, Math.floor(prize) || 0);
@@ -48970,6 +48999,12 @@ P.raidSetup = function () {
 this.scene.bringToTop('UI');
 var self = this, rd = F.session.raid, cam = this.cameras.main;
 
+
+if (rd.kind === 'ghost' && !rd.copy) {
+rd.copy = this.raidFarm({ gold: rd.gold, stall: rd.stall, produce: rd.produce, levels: rd.levels, name: F.session.visit.name });
+rd.copy.value = L.frCopyValue(rd.copy);
+}
+
 this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed, rd.cut) : this.raidFarm(), rd.army, rd.seed);
 this.raidAcc = 0;
 this.raidStarted = false;
@@ -49332,7 +49367,7 @@ FR.sendCopy(this, false);
 
 
 
-FR.check = function (raid, moves) {
+FR.check = function (raid, moves, copy) {
 var url = window.gameHost && window.gameHost.gs;
 if (!url || typeof WebSocket === 'undefined') return Promise.resolve({ ok: false, code: 'off' });
 return F.Net.token().then(function (token) {
@@ -49341,7 +49376,7 @@ return new Promise(function (resolve) {
 var ws, done = false, finish = function (r) { if (done) return; done = true; clearTimeout(t); try { ws.close(); } catch (e) {   } resolve(r); };
 var t = setTimeout(function () { finish({ ok: false, code: 'slow' }); }, FR.serverWait);
 try { ws = new WebSocket(url); } catch (e) { return finish({ ok: false, code: 'socket' }); }
-ws.onopen = function () { ws.send(JSON.stringify({ t: 'fr', v: 1, token: token, raid: raid, moves: moves })); };
+ws.onopen = function () { var m = { t: 'fr', v: 1, token: token, raid: raid, moves: moves }; if (copy) m.copy = copy; ws.send(JSON.stringify(m)); };
 ws.onmessage = function (e) { var m = null; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.t === 'frr' && m.raid === raid) finish(m); };
 ws.onerror = ws.onclose = function () { finish({ ok: false, code: 'closed' }); };
 });
@@ -49353,6 +49388,7 @@ ws.onerror = ws.onclose = function () { finish({ ok: false, code: 'closed' }); }
 var start = F.raidFarmStart;
 F.raidFarmStart = function (opts) {
 if (opts.kind === 'replay') return replay(opts.raid);
+if (opts.kind === 'ghost') return ghostStart(opts);
 if (opts.kind !== 'real') return start(opts);
 var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
 if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast(opts.revenge ? 'Buy a Raid Camp at Mira\'s (Workshops) to raid them back. Your Revenge waits 7 days.' : 'Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
@@ -49372,6 +49408,37 @@ var st = L.visitState(r.look, mine);
 st.isVisit = true;
 F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge, cut: Date.parse(r.expires_at) || L.clock() };
 F.session.visit = { host: 'raid', name: L.cleanText(r.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
+F.session.riding = false;
+F.ui.closeAll();
+O.restartWorld();
+return true;
+}, function () { FR.starting = false; sfx('nope'); F.ui.toast('No connection. Try again in a moment.', 2400); });
+};
+
+
+var ghostStart = function (opts) {
+var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
+if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast('Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
+if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
+if (mine.energy < cost && !(L.powered && L.powered(mine))) { sfx('nope'); return F.ui.toast('A raid takes ' + cost + ' energy.', 2400); }
+if (FR.starting) return null;
+FR.starting = true;
+F.ui.toast('Marching out...', 1500);
+return F.Net.rpc('farm_fraid_ghost_start_v1', { p_ghost: opts.ghost, p_army: army, p_request_id: requestId() }).then(function (r) {
+FR.starting = false;
+if (!r || !r.ok || !r.ghost) { sfx('nope'); return F.ui.toast(startWhy(r && r.code), 2600); }
+var g = r.ghost, loot = L.frGhostLoot(g), b = { key: 'ghost', defs: L.frGhostDefs(g), lv: g.lv, loot: loot };
+L.spendEnergy(mine, cost);
+L.shieldBreak(mine);
+F.Host.save(mine);
+var st = L.banditLayout(b, mine, (g.seed | 0) || 1);
+st.look = g.look === 'girl' ? 'girl' : 'boy';
+if (st.home) st.home.level = Math.max(1, Math.min(10, g.home | 0 || 3));
+var lv = {};
+R.defenseOrder.forEach(function (k) { lv[k] = g.lv; });
+F.session.raid = { kind: 'ghost', raid: r.raid, ghost: g, cap: Number(r.cap) || 0, seed: r.seed, army: army, cut: Date.parse(r.expires_at) || L.clock(),
+gold: loot.gold, stall: loot.stall, produce: loot.produce, levels: lv };
+F.session.visit = { host: 'raid', name: L.cleanText(g.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
 F.session.riding = false;
 F.ui.closeAll();
 O.restartWorld();
@@ -49409,7 +49476,7 @@ if (rd && rd.kind === 'replay') { this.raidStarted = true; if (F.ui.raidSay) F.u
 var finish = P.raidFinish;
 P.raidFinish = function () {
 var rd = F.session.raid;
-if (!rd || (rd.kind !== 'real' && rd.kind !== 'replay')) return finish.call(this);
+if (!rd || (rd.kind !== 'real' && rd.kind !== 'replay' && rd.kind !== 'ghost')) return finish.call(this);
 if (this.raidDone) return;
 this.raidDone = true;
 var s = F.session.state, b = this.raidB, ui = F.ui, stars = L.frStars(b);
@@ -49422,7 +49489,7 @@ b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
 L.frUse(s, used);
 F.Host.save(s);
 if (ui.raidSay) ui.raidSay('Checking your raid...');
-FR.check(rd.raid, b.moves).then(function (r) {
+FR.check(rd.raid, b.moves, rd.kind === 'ghost' ? rd.copy : null).then(function (r) {
 if (!ui.frBox) return;
 if (r && r.ok) {
 L.frWin(s, r.prize, r.points);
@@ -49536,9 +49603,9 @@ if (s.gold < next) { sfx('nope'); return self.toast('Not enough Gold.', 2000); }
 s.gold -= next;
 F.Host.save(s);
 F.bus.emit('hud');
-self.raidFind((skip || []).concat([f.id]));
+self.raidFind((skip || []).concat(f.id ? [f.id] : []));
 } },
-{ label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', target: f.id }); } },
+{ label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart(f.ghost ? { kind: 'ghost', ghost: f.ghost } : { kind: 'real', target: f.id }); } },
 ]);
 }, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
 };

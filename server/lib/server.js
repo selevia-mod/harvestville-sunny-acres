@@ -15,7 +15,7 @@ function startServer(opts) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('not here');
   });
-  const wss = new WebSocketServer({ server, maxPayload: 16384, perMessageDeflate: false });
+  const wss = new WebSocketServer({ server, maxPayload: 65536, perMessageDeflate: false }); // (64 KB, 10 Nov 2026: a made-up farm's raid check carries its farm, 12-22 KB)
   wss.on('connection', (ws) => {
     ws.on('error', () => {});
     const c = game.connect({

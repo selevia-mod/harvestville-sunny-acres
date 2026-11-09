@@ -5,7 +5,8 @@
 //      stars and what was taken are the server's, never the phone's;
 //   3. records it with its own key (farm_fraid_settle_v1, the attacker's token AND FRAID_KEY), and answers
 //      { t: 'frr', raid, ok, stars, prize, points } (or { ok: false, code }).
-// The game takes any { settle(token, raid, moves) -> Promise<answer> }, so tests use a fake fetch.
+// The game takes any { settle(token, raid, moves, played) -> Promise<answer> }, so tests use a fake fetch. (played: a
+// made-up farm's copy, SQL part 28: the phone lays it out, the server checks it has the defenses its numbers say)
 'use strict';
 
 const CALL_WAIT = 5000, MOVES_MOST = 300;
@@ -33,19 +34,26 @@ function makeFraid(opts) {
 
   return {
     // the check, without the network (the tests, and settle below): { stars, taken } from a raid row and the drops
-    judge(row, moves) {
+    // (played: a made-up farm's copy as the phone laid it out, SQL part 28; checked against the server's own numbers)
+    judge(row, moves, played) {
       const { L } = R;
       if (!row || !row.copy || !L.frArmyOk(row.army)) return { code: 'army' };
+      let copy = row.copy;
+      if (copy.ghost) {
+        const why = L.frGhostOk(played, copy.ghost);
+        if (why) return { code: 'ghost' };
+        copy = Object.assign({}, played, { value: copy.value });
+      }
       // the crops ripe by the end of the raid's lock (the phone uses the same: farm_fraid_start_v1's expires_at)
       const cut = Date.parse(row.expires_at) || null;
-      const farm = L.frRealFarm(row.copy, row.cap, row.seed, cut);
+      const farm = L.frRealFarm(copy, row.cap, row.seed, cut);
       const b = L.frReplay(farm, row.army, row.seed, moves);
       if (b.moves.length !== moves.length) return { code: 'moves' }; // (a drop the rules refused: not the phone's battle)
       const taken = L.frTaken(b);
       taken.cut = cut; // (a Replay builds the same farm)
       return { stars: L.frStars(b), taken };
     },
-    async settle(token, raid, moves) {
+    async settle(token, raid, moves, played) {
       if (!url || !anonKey || !key) return { ok: false, code: 'off' };
       if (typeof token !== 'string' || !token || token.length > 4096) return { ok: false, code: 'auth' };
       if (typeof raid !== 'string' || !/^[0-9a-f-]{36}$/i.test(raid)) return { ok: false, code: 'raid' };
@@ -54,7 +62,8 @@ function makeFraid(opts) {
       try { row = await rpc(token, 'farm_fraid_raid_v1', { p_raid: raid }); } catch (e) { return { ok: false, code: 'read' }; }
       if (!row) return { ok: false, code: 'none' };
       if (row.state !== 'open') return { ok: false, code: 'done' };
-      const j = this.judge(row, moves);
+      if (played != null && (typeof played !== 'object' || JSON.stringify(played).length > 48000)) return { ok: false, code: 'copy' };
+      const j = this.judge(row, moves, played);
       if (j.code) return { ok: false, code: j.code };
       let res;
       try {
