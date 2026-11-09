@@ -87,10 +87,12 @@
     // ---------- rewards ----------
     // A chest by how many hits you landed (tiers: at least 10, 80, 200). Gold and farm things, never Coins or Stars.
     // The town won: the chest's gold x1.5, and the bonus day for everyone who helped.
+    // (owner, 9 Nov 2026, with raids every night: Gold that a day can use up, and a Power-Up for the hardest work;
+    // lumber goes to your lumber, not the bag)
     chests: [
-      { min: 10, name: 'Helper\'s Chest', gold: 300, items: [['fert', 2]] },
-      { min: 80, name: 'Defender\'s Chest', gold: 800, items: [['fert', 4], ['arrows', 10]] },
-      { min: 200, name: 'Hero\'s Chest', gold: 1500, items: [['fert_rich', 3], ['arrows', 20], ['sprinkler_copper', 1]] },
+      { min: 10, name: 'Helper\'s Chest', gold: 1000, items: [['fert', 2]] },
+      { min: 80, name: 'Defender\'s Chest', gold: 2000, items: [['fert', 4], ['arrows', 100]] },
+      { min: 200, name: 'Hero\'s Chest', gold: 3000, items: [['fert_rich', 3], ['power_up', 1]], lumber: 20 },
     ],
     wonGold: 1.5,
     // The bonus day (owner: "crops grow faster or Double Drops for the rest of the day, you choose"): Double Drops from

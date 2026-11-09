@@ -147,6 +147,7 @@
   var chestRows = function (chest) {
     if (!chest) return [];
     var things = chest.items.map(function (it) { return it[1] + ' ' + C.ITEMS[it[0]].name; });
+    if (chest.lumber) things.push(chest.lumber + ' Lumber');
     return [[C.ICON.chest, chest.name + ': +' + fmt(chest.gold) + 'G, ' + things.join(', ') + '.']];
   };
   var lostRow = function (rec) {

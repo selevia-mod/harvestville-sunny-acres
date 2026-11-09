@@ -5177,10 +5177,12 @@ perDefender: 80,
 
 
 
+
+
 chests: [
-{ min: 10, name: 'Helper\'s Chest', gold: 300, items: [['fert', 2]] },
-{ min: 80, name: 'Defender\'s Chest', gold: 800, items: [['fert', 4], ['arrows', 10]] },
-{ min: 200, name: 'Hero\'s Chest', gold: 1500, items: [['fert_rich', 3], ['arrows', 20], ['sprinkler_copper', 1]] },
+{ min: 10, name: 'Helper\'s Chest', gold: 1000, items: [['fert', 2]] },
+{ min: 80, name: 'Defender\'s Chest', gold: 2000, items: [['fert', 4], ['arrows', 100]] },
+{ min: 200, name: 'Hero\'s Chest', gold: 3000, items: [['fert_rich', 3], ['power_up', 1]], lumber: 20 },
 ],
 wonGold: 1.5,
 
@@ -15263,12 +15265,13 @@ var list = alone ? R.alone.chests : R.chests, tier = 0;
 list.forEach(function (c, i) { if (hits >= c.min) tier = i + 1; });
 if (!tier) return null;
 var c = list[tier - 1];
-return { tier: tier, name: c.name, gold: Math.round(c.gold * (won && !alone ? R.wonGold : 1)), items: c.items.map(function (it) { return [it[0], it[1]]; }) };
+return { tier: tier, name: c.name, gold: Math.round(c.gold * (won && !alone ? R.wonGold : 1)), items: c.items.map(function (it) { return [it[0], it[1]]; }), lumber: c.lumber || 0 };
 };
 
 L.raidGive = function (s, chest) {
 if (!chest) return null;
 s.gold += chest.gold;
+if (chest.lumber) s.lumber = (s.lumber || 0) + chest.lumber;
 chest.items.forEach(function (it) {
 if (!C.ITEMS[it[0]]) return;
 var left = L.addItem(s, it[0], it[1]);
@@ -42538,6 +42541,7 @@ return 1;
 var chestRows = function (chest) {
 if (!chest) return [];
 var things = chest.items.map(function (it) { return it[1] + ' ' + C.ITEMS[it[0]].name; });
+if (chest.lumber) things.push(chest.lumber + ' Lumber');
 return [[C.ICON.chest, chest.name + ': +' + fmt(chest.gold) + 'G, ' + things.join(', ') + '.']];
 };
 var lostRow = function (rec) {
@@ -42634,7 +42638,9 @@ RS.settle({ id: rec.id, h: rec.h, sv: rec.sv, l: rec.l, c: 0, b: rec.b });
 if (ph.phase === 'soon' && RS.warned !== r.id && !F.session.visit && !ui.modals.length) {
 RS.warned = r.id;
 if (online() && RS.server !== false && Date.now() >= RS.pollAt) RS.poll();
-ui.toast('Town Raid in ' + Math.ceil(ph.left / 60000) + ' minutes: ' + L.raidKind(r).many + ' are coming for the fields! Get your tools ready.', 4200, RED);
+
+if (ui.raidSoonNote) ui.raidSoonNote(L.raidKind(r).many + ' in ' + Math.ceil(ph.left / 60000) + ' min!');
+else ui.toast('Town Raid in ' + Math.ceil(ph.left / 60000) + ' minutes: ' + L.raidKind(r).many + ' are coming for the fields! Get your tools ready.', 4200, RED);
 }
 if (ph.phase === 'on') {
 if (rec && rec.id && rec.id !== r.id && !rec.c) RS.settle({ id: rec.id, h: rec.h, sv: rec.sv, l: rec.l, c: 0, b: rec.b });
@@ -43718,6 +43724,268 @@ tw(ui, move, { targets: y, scale: 1.18, duration: 420, yoyo: true, repeat: -1 })
 },
 },
 ],
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzb-raid-badge.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var U = F.UIScene.prototype;
+
+
+var CHIP = { x: 8, y: 228, h: 24 }, DOWN = 34;
+
+U.raidBadgeMake = function () {
+var self = this, d = CHIP.h + 4, r = d / 2;
+var c = this.raidBadge = this.add.container(CHIP.x, CHIP.y).setDepth(45).setVisible(false);
+var badge = this.add.image(r, r, this.bake('ui-raid-badge', d + 2, d + 3, function (g) {
+g.fillStyle(0x000000, 0.25).fillCircle(r + 1, r + 2, r);
+g.fillStyle(0x3a140a, 0.95).fillCircle(r + 1, r + 1, r);
+g.lineStyle(1.5, 0xff7a4a, 1).strokeCircle(r + 1, r + 1, r - 0.75);
+})).setScale(1 / F.R);
+this.raidBadgeIcon = this.add.image(r, r, 'items', C.ICON.storm).setScale(0.18);
+
+this.raidBadgeTime = this.txt(d + 8, r, '', 12, '#ffd2a8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+this.raidBadgeBack = this.add.graphics();
+var zone = this.add.zone(r + 18, r, d + 40, d + 2).setInteractive({ useHandCursor: true });
+F.tapOn(zone, function () { if (!self.modals.length && self.raidInfo) self.raidInfo(); });
+c.add([this.raidBadgeBack, this.raidBadgeTime, badge, this.raidBadgeIcon, zone]);
+this.raidBadgeD = d;
+};
+U.raidBadgeTag = function () {
+if (this.raidBadgeMinW == null) { var m = this.txt(0, 0, '00:00', 12, '#ffd2a8', { fontStyle: 'bold' }); this.raidBadgeMinW = m.width; m.destroy(); }
+var d = this.raidBadgeD, w = Math.max(this.raidBadgeTime.width, this.raidBadgeMinW) + 16;
+this.raidBadgeBack.clear().fillStyle(0x3a140a, 0.8).fillRoundedRect(d, 3, w, d - 6, (d - 6) / 2);
+return d + w;
+};
+
+
+U.raidSoonNote = function (text) {
+var self = this;
+if (!this.raidBadge) this.raidBadgeMake();
+if (this.raidNote) { this.raidNote.destroy(); this.raidNote = null; }
+var x0 = this.raidBadgeTag() + 6, t = this.txt(x0 + 9, this.raidBadgeD / 2, text, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+var back = this.add.graphics(), d = this.raidBadgeD;
+back.fillStyle(0x3a140a, 0.8).fillRoundedRect(x0, 3, t.width + 18, d - 6, (d - 6) / 2);
+var c = this.raidNote = this.add.container(0, 0, [back, t]);
+this.raidBadge.addAt(c, 0);
+this.tweens.add({ targets: this.raidBadgeIcon, scale: 0.22, duration: 160, yoyo: true, repeat: 2 });
+this.tweens.add({ targets: c, alpha: 0, x: -12, delay: 4000, duration: 350, ease: 'Quad.in', onComplete: function () { c.destroy(); if (self.raidNote === c) self.raidNote = null; } });
+};
+
+U.raidChipsMove = function (on) {
+var y = on ? 238 + DOWN : 238;
+if (this.dishChip && this.dishChip.y !== y) this.dishChip.setY(y);
+if (this.powerChipBox && this.powerChipBox.y !== y) this.powerChipBox.setY(y);
+};
+
+var raidBar = U.raidBar;
+U.raidBar = function (ph) {
+raidBar.call(this, ph);
+if (!this.raidBox) return;
+if (!this.raidBadge) this.raidBadgeMake();
+var soon = ph.phase === 'soon' && !this.decorating, on = ph.phase === 'on' && !this.decorating;
+
+if (soon) {
+this.raidBox.setVisible(false);
+var ic = this.raidIcon.frame.name;
+if (this.raidBadgeIcon.frame.name !== ic) this.raidBadgeIcon.setFrame(ic);
+if (this.raidBadgeTime.text !== this.raidTime.text) { this.raidBadgeTime.setText(this.raidTime.text); this.raidBadgeTag(); }
+}
+var showChip = soon && !F.session.visit;
+this.raidBadge.setVisible(showChip);
+this.raidChipsMove(showChip);
+
+var visitBar = this.visitBar && this.visitBar.visible !== false && F.session.visit;
+if (on && !visitBar) {
+this.raidBox.setY(68);
+if (this.goalBar && this.goalBar.visible) { this.goalBar.setVisible(false); this.goalHidByRaid = true; }
+} else if (this.goalHidByRaid) {
+this.goalHidByRaid = false;
+if (this.refreshGoal) this.refreshGoal();
+}
+};
+
+var refreshGoal = U.refreshGoal;
+if (refreshGoal) U.refreshGoal = function () {
+refreshGoal.apply(this, arguments);
+if (this.goalHidByRaid && this.goalBar) this.goalBar.setVisible(false);
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzc-goal-pill.js
+
+
+
+
+(function (F) {
+'use strict';
+var U = F.UIScene.prototype;
+var L = F.Logic;
+var SHOW = 6000;
+var PILL = { x: 8, y: 68, h: 30 };
+
+var refreshGoal = U.refreshGoal;
+U.refreshGoal = function () {
+var before = this.goalText ? this.goalText.text : null;
+refreshGoal.apply(this, arguments);
+if (!this.goalBar) return;
+var self = this, s = F.session.state, g = L.goal(s);
+if (!this.goalPill) {
+var bg = this.goalBar.list[0], z = this.goalBar.list[3];
+this.goalFull = [bg, this.goalText];
+this.goalPillBg = this.add.graphics();
+this.goalPillText = this.txt(42, 75, '', 12, '#fff6d8', { fontStyle: 'bold' });
+this.goalBar.addAt(this.goalPillBg, 0);
+this.goalBar.add(this.goalPillText);
+this.goalPill = true;
+
+var tap = this.add.zone(PILL.x, PILL.y, 120, PILL.h + 4).setOrigin(0).setInteractive({ useHandCursor: true });
+tap.on('pointerdown', function () { if (self.goalSmall && !self.modals.length) self.goalOpen(); });
+this.goalBar.add(tap);
+this.goalTap = tap;
+this.goalZone = z;
+}
+if (!g) return;
+var count = g.need > 1 ? s.gp + '/' + g.need : '';
+if (this.goalPillText.text !== count) this.goalPillText.setText(count);
+if (before !== this.goalText.text && (before == null || this.goalText.text.split('  ')[0] !== String(before).split('  ')[0])) this.goalOpen();
+else this.goalShape();
+};
+U.goalOpen = function () {
+var self = this;
+this.goalSmallAt = Date.now() + SHOW;
+this.goalShape();
+if (this.goalTimer) this.goalTimer.remove();
+this.goalTimer = this.time.delayedCall(SHOW + 50, function () { self.goalShape(); });
+};
+U.goalShape = function () {
+if (!this.goalPill) return;
+var small = Date.now() >= (this.goalSmallAt || 0);
+this.goalSmall = small;
+this.goalFull.forEach(function (o) { o.setVisible(!small); });
+this.goalZone.setVisible(!small).input.enabled = !small;
+this.goalTap.input.enabled = small;
+this.goalPillText.setVisible(small);
+var w = 34 + (this.goalPillText.text ? this.goalPillText.width + 10 : 0);
+this.goalPillBg.clear().setVisible(small);
+if (small) {
+this.goalPillBg.fillStyle(0x24160b, 0.78).fillRoundedRect(PILL.x, PILL.y, w, PILL.h, 10);
+this.goalPillBg.lineStyle(2, 0xffd23f, 0.9).strokeRoundedRect(PILL.x + 1, PILL.y + 1, w - 2, PILL.h - 2, 9);
+this.goalTap.setSize(w, PILL.h + 4);
+}
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzd-raid-walk.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var P = F.WorldScene.prototype;
+var T = C.TILE;
+
+var free = function (w, x, y) { return w.inMap(x, y) && w.walkable(x, y) && !w.blocked[w.idx(x, y)]; };
+var tileOf = function (v) { return Math.floor(v / T); };
+var walks = function (a) { return a && a.def && !a.def.flies; };
+
+
+P.raidFreeNear = function (px, py, most) {
+var x0 = tileOf(px), y0 = tileOf(py);
+for (var r = 0; r <= (most || 4); r++) for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) {
+if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+if (free(this, x0 + dx, y0 + dy)) return { x: x0 + dx, y: y0 + dy };
+}
+return null;
+};
+
+P.raidRoute = function (sx, sy, gx, gy) {
+var self = this, w = this.map.width, h = this.map.height, start = sy * w + sx, goal = gy * w + gx;
+if (start === goal) return [];
+var prev = new Int32Array(w * h).fill(-1), q = [start], seen = 0, okGoal = function (i) { return i === goal; };
+prev[start] = start;
+while (seen < q.length && q.length < 4000) {
+var i = q[seen++], x = i % w, y = (i - x) / w;
+if (okGoal(i)) break;
+for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+if (!dx && !dy) continue;
+var nx = x + dx, ny = y + dy, n = ny * w + nx;
+if (nx < 0 || ny < 0 || nx >= w || ny >= h || prev[n] >= 0) continue;
+if (n !== goal && !free(self, nx, ny)) continue;
+if (dx && dy && (!free(self, x + dx, y) || !free(self, x, y + dy))) continue;
+prev[n] = i;
+q.push(n);
+}
+}
+if (prev[goal] < 0) return null;
+var path = [];
+for (var k = goal; k !== start; k = prev[k]) path.push([(k % w + 0.5) * T, (Math.floor(k / w) + 0.6) * T]);
+return path.reverse();
+};
+
+
+var addRaider = P.addRaider;
+P.addRaider = function (r) {
+var a = addRaider.call(this, r);
+if (!walks(a)) return a;
+var t = this.raidFreeNear(a.x, a.y, 6);
+if (t) {
+a.x = (t.x + 0.5) * T; a.y = (t.y + 0.6) * T;
+a.img.setPosition(a.x, a.y); a.sh.setPosition(a.x, a.y);
+}
+return a;
+};
+
+
+var update = P.updateRaider;
+P.updateRaider = function (a, dt, time, r) {
+if (!walks(a) || (a.mode !== 'come' && a.mode !== 'flee')) return update.call(this, a, dt, time, r);
+var key = a.mode + ':' + Math.round(a.tx) + ',' + Math.round(a.ty);
+if (a.routeFor !== key) {
+a.routeFor = key;
+var gt = { x: tileOf(a.tx), y: tileOf(a.ty) };
+if (a.mode === 'flee' && !free(this, gt.x, gt.y)) gt = this.raidFreeNear(a.tx, a.ty, 4) || gt;
+a.route = this.raidRoute(tileOf(a.x), tileOf(a.y), gt.x, gt.y);
+a.goal = { x: a.tx, y: a.ty };
+if (!a.route && a.mode === 'come') {
+var aim = this.raidAim();
+if (aim.idx !== a.idx) { a.tx = aim.x; a.ty = aim.y; a.idx = aim.idx; a.routeFor = null; }
+}
+}
+if (a.route && a.route.length) {
+var wp = a.route[0];
+if (Math.hypot(wp[0] - a.x, wp[1] - a.y) < 0.15 * T && a.route.length > 1) { a.route.shift(); wp = a.route[0]; }
+
+var last = a.route.length === 1, gx = a.tx, gy = a.ty;
+if (!last) { a.tx = wp[0]; a.ty = wp[1]; }
+var mode = a.mode;
+update.call(this, a, dt, time, r);
+if (!last && a.mode === 'eat' && mode === 'come') { a.mode = 'come'; }
+if (!last) { a.tx = gx; a.ty = gy; }
+return;
+}
+return update.call(this, a, dt, time, r);
+};
+
+
+
+var raidBar = F.UIScene.prototype.raidBar;
+F.UIScene.prototype.raidBar = function (ph) {
+raidBar.call(this, ph);
+var look = ph && ph.r && L.raidKind(ph.r).look;
+if ((ph.phase === 'soon' || ph.phase === 'on') && look && look.wild && F.needImage && !(F.images && F.images.wild) && !this.raidWildAsked) {
+this.raidWildAsked = true;
+F.needImage('wild');
+}
 };
 })(window.Farm = window.Farm || {});
 

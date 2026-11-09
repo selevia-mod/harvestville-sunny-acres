@@ -127,12 +127,13 @@
     list.forEach(function (c, i) { if (hits >= c.min) tier = i + 1; });
     if (!tier) return null;
     var c = list[tier - 1];
-    return { tier: tier, name: c.name, gold: Math.round(c.gold * (won && !alone ? R.wonGold : 1)), items: c.items.map(function (it) { return [it[0], it[1]]; }) };
+    return { tier: tier, name: c.name, gold: Math.round(c.gold * (won && !alone ? R.wonGold : 1)), items: c.items.map(function (it) { return [it[0], it[1]]; }), lumber: c.lumber || 0 };
   };
   // Into the bag (what does not fit goes in the basket). The gold and the items given.
   L.raidGive = function (s, chest) {
     if (!chest) return null;
     s.gold += chest.gold;
+    if (chest.lumber) s.lumber = (s.lumber || 0) + chest.lumber;
     chest.items.forEach(function (it) {
       if (!C.ITEMS[it[0]]) return;
       var left = L.addItem(s, it[0], it[1]);

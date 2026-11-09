@@ -112,12 +112,15 @@ test('raids: chests by hits (the town won: more gold), alone a smaller one; the 
   assert.deepStrictEqual(plain(L.raidAloneResult({ h: 12 })).won, false);
   // into the bag, the rest in the basket; never Coins or Stars
   const s = L.newState();
-  const gold = s.gold, stars = s.stars;
+  const gold = s.gold, stars = s.stars, lumber = s.lumber || 0;
   L.raidGive(s, L.raidChest(250, false, true));
-  assert.strictEqual(s.gold, gold + Math.round(1500 * 1.5));
-  assert.strictEqual(s.stars, stars, 'no Stars from a raid');
+  // (owner, 9 Nov 2026: the Hero's Chest is 3,000 Gold, 3 Rich Fertilizer, a Power-Up and 20 lumber)
+  assert.strictEqual(s.gold, gold + Math.round(3000 * 1.5));
+  assert.strictEqual(s.stars, stars, 'no Sunbeams from a raid');
   assert.strictEqual(L.countItem(s, 'fert_rich') + (s.basket.fert_rich || 0), 3);
-  assert.strictEqual(L.countItem(s, 'sprinkler_copper') + (s.basket.sprinkler_copper || 0), 1);
+  assert.strictEqual(L.countItem(s, 'power_up') + (s.basket.power_up || 0), 1);
+  assert.strictEqual(s.lumber, lumber + 20, 'lumber to your lumber');
+  assert.deepStrictEqual(plain(C.RAID.chests.map((c) => [c.gold, c.items, c.lumber || 0])), [[1000, [['fert', 2]], 0], [2000, [['fert', 4], ['arrows', 100]], 0], [3000, [['fert_rich', 3], ['power_up', 1]], 20]]);
   C.RAID.chests.concat(C.RAID.alone.chests).forEach((ch) => ch.items.forEach((it) => assert.ok(C.ITEMS[it[0]], it[0] + ' is an item')));
   // the bonus day: a won raid on Monday 9 Nov: Double Drops until Tuesday midnight (Manila)
   const r = L.raidById('20261109');
