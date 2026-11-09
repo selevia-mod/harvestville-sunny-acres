@@ -167,9 +167,11 @@
       // (owner, 9 Nov 2026: an upgrade needs lumber, stone, things from hunting and building time)
       var needs = next ? [next.lumber ? next.lumber + ' lumber' : '', next.stone ? next.stone + ' stone' : '', next.need ? next.need[1] + ' ' + C.ITEMS[next.need[0]].name : '', next.mins ? (next.mins >= 60 ? next.mins / 60 + 'h' : next.mins + ' min') + ' to build' : ''].filter(Boolean).join(', ') : '';
       var hm = function (ms) { var m = Math.ceil(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
-      rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: building ? 'Raid Camp: building level ' + (r.camp + 1) : 'Raid Camp, level ' + r.camp, tag: null,
+      // the party's room in the name, always in sight (owner, 10 Nov 2026: "while building, I cannot see how many raiders")
+      var room = ' · Party ' + L.armySpace(s) + '/' + L.campSpace(s);
+      rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: (building ? 'Camp building Lv ' + (r.camp + 1) : 'Raid Camp, level ' + r.camp) + room, tag: null,
         desc: building ? hm(building) + ' left. It still raids and trains while it builds.'
-          : (next ? 'Needs ' + needs + '. Room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + ', next ' + next.space + '.' : 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '. Top level!'), // (a slim row cuts the end: the needs first)
+          : (next ? 'Needs ' + needs + '. Next level\'s room: ' + next.space + '.' : 'Top level!'), // (a slim row cuts the end: the needs first)
         buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {
         var d = R.raiders[k], open = L.raiderOpen(s, k), have = r.army[k] || 0, wait = r.train.filter(function (t) { return t.k === k; }).length;
