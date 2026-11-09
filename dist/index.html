@@ -44109,9 +44109,19 @@ return 'fx-jeep';
 P.setupJeep = function () {
 var o = this.objects.filter(function (x) { return x.type === 'jeep'; })[0];
 if (!o || this.jeep) return;
-var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T;
+var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T, me = this;
+
+var clear = function (cx) {
+for (var ty = o.y1; ty >= o.y1 - 1; ty--) for (var tx = Math.floor(cx / T - 1.7); tx <= Math.floor(cx / T + 1.7); tx++) {
+if (!me.inMap(tx, ty) || me.tileAt('Walls', tx, ty)) return false;
+}
+return true;
+};
+x = [x, x + 0.4 * T, x - 0.4 * T, x + 0.8 * T, x - 0.8 * T].filter(clear)[0] || x;
 var key = jeepTexture(this), img = this.add.image(x, foot + 0.15 * T, key).setOrigin(0.5, 1);
-img.setDisplaySize(2.4 * T, key === 'fx-jeep' ? 1.47 * T : 2.4 * T * img.height / img.width);
+
+var JW = 3.6;
+img.setDisplaySize(JW * T, key === 'fx-jeep' ? 1.47 * JW / 2.4 * T : JW * T * img.height / img.width);
 
 if (F.images && F.images['props/jeep_stop'] && L.isNewPlaceMap && L.isNewPlaceMap(this.mapKey)) {
 

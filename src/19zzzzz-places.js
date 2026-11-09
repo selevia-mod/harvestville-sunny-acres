@@ -116,9 +116,19 @@
   P.setupJeep = function () {
     var o = this.objects.filter(function (x) { return x.type === 'jeep'; })[0];
     if (!o || this.jeep) return;
-    var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T;
+    var x = (o.x0 + o.x1 + 1) / 2 * T, foot = (o.y1 + 1) * T, me = this;
+    // (bigger now: nudged sideways, at most 0.8 tile, if its ends would sit over a wall or a tree at the map's edge)
+    var clear = function (cx) {
+      for (var ty = o.y1; ty >= o.y1 - 1; ty--) for (var tx = Math.floor(cx / T - 1.7); tx <= Math.floor(cx / T + 1.7); tx++) {
+        if (!me.inMap(tx, ty) || me.tileAt('Walls', tx, ty)) return false;
+      }
+      return true;
+    };
+    x = [x, x + 0.4 * T, x - 0.4 * T, x + 0.8 * T, x - 0.8 * T].filter(clear)[0] || x;
     var key = jeepTexture(this), img = this.add.image(x, foot + 0.15 * T, key).setOrigin(0.5, 1);
-    img.setDisplaySize(2.4 * T, key === 'fx-jeep' ? 1.47 * T : 2.4 * T * img.height / img.width); // (the owner's picture keeps its own shape)
+    // (owner, 9 Nov 2026: bigger, the size of a real jeepney next to the farmers: about 3.6 tiles long, taller than a person)
+    var JW = 3.6;
+    img.setDisplaySize(JW * T, key === 'fx-jeep' ? 1.47 * JW / 2.4 * T : JW * T * img.height / img.width); // (the owner's picture keeps its own shape)
     // the jeep stop beside it (owner's picture, 7 Nov 2026): to its left, standing on the same line; only to look at
     if (F.images && F.images['props/jeep_stop'] && L.isNewPlaceMap && L.isNewPlaceMap(this.mapKey)) { // (Pulag's jeep stands at Kanor's Lodge)
       // a free spot: left of the jeep, else right, else above it (no wall, prop or map edge in its 2 x 2 tiles)
