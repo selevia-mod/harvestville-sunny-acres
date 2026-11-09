@@ -24,7 +24,12 @@
   };
   // tile centres from (sx, sy) to (gx, gy) round what you can't walk on (8 ways, no cutting corners); null: no way
   P.raidRoute = function (sx, sy, gx, gy) {
-    var self = this, w = this.map.width, h = this.map.height, start = sy * w + sx, goal = gy * w + gx;
+    var self = this, w = this.map.width, h = this.map.height;
+    // (10 Nov 2026: a fleeing boar's goal can be off the farm: an index outside the map read as reachable, and the way back
+    // was built for ever, until the page ran out of memory. Both ends kept on the map.)
+    sx = Math.max(0, Math.min(w - 1, sx | 0)); sy = Math.max(0, Math.min(h - 1, sy | 0));
+    gx = Math.max(0, Math.min(w - 1, gx | 0)); gy = Math.max(0, Math.min(h - 1, gy | 0));
+    var start = sy * w + sx, goal = gy * w + gx;
     if (start === goal) return [];
     var prev = new Int32Array(w * h).fill(-1), q = [start], seen = 0, okGoal = function (i) { return i === goal; };
     prev[start] = start;
@@ -41,9 +46,10 @@
         q.push(n);
       }
     }
-    if (prev[goal] < 0) return null;
+    if (!(prev[goal] >= 0)) return null;
     var path = [];
-    for (var k = goal; k !== start; k = prev[k]) path.push([(k % w + 0.5) * T, (Math.floor(k / w) + 0.6) * T]);
+    for (var k = goal, n = 0; k !== start && k >= 0 && n < w * h; k = prev[k], n++) path.push([(k % w + 0.5) * T, (Math.floor(k / w) + 0.6) * T]);
+    if (k !== start) return null;
     return path.reverse();
   };
 

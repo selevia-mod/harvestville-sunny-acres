@@ -265,3 +265,11 @@ test('Town Raid tools: the Bow shoots crows from 4 tiles, empty hands shoo them;
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('a boar running off the farm finds no way out of the map and gives up at once (10 Nov 2026: its way off the map was built for ever until the page ran out of memory)', async () => {
+  const { page, context } = await open(null);
+  const r = await page.evaluate(() => { const w = Farm.world, t0 = Date.now(); const out = [w.raidRoute(20, 20, -6, 20), w.raidRoute(20, 20, 300, -8), w.raidRoute(30, 25, 30, 999)]; return { ok: out.every((x) => x === null || Array.isArray(x)), ms: Date.now() - t0 }; });
+  assert.ok(r.ok, 'a way, or none');
+  assert.ok(r.ms < 500, 'at once: ' + r.ms + ' ms');
+  await context.close();
+});
