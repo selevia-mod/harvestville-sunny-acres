@@ -43,6 +43,35 @@ test('the Raid Camp: bought, then levelled; it opens raiders and makes room; tra
   assert.ok(L.farmPower(back) > 0);
 });
 
+// owner, 9 Nov 2026: "Upgrading camp is too easy, i was camp 7 instant"
+test('a camp level needs Gold, lumber, stone, things from hunting and building time; one at a time; no training while it builds; kept in the save', () => {
+  const s = rich(), t0 = 5e9;
+  s.lumber = 0; s.stone = 0;
+  assert.strictEqual(L.campUpgrade(s, t0), 'ok', 'level 1: bought at once');
+  assert.strictEqual(s.fr.camp, 1);
+  assert.strictEqual(L.campUpgrade(s, t0), 'lumber', 'level 2 needs lumber');
+  s.lumber = 1000;
+  assert.strictEqual(L.campUpgrade(s, t0), 'stone', 'and stone');
+  s.stone = 1000;
+  const g = s.gold;
+  assert.strictEqual(L.campUpgrade(s, t0), 'ok');
+  assert.strictEqual(s.fr.camp, 1, 'not yet: it builds');
+  assert.deepStrictEqual([g - s.gold, 1000 - s.lumber, 1000 - s.stone], [4000, 40, 20]);
+  assert.strictEqual(L.campUpgrade(s, t0 + 1000), 'busy', 'one upgrade at a time');
+  assert.strictEqual(L.trainRaider(s, 'goat', t0 + 1000), 'building', 'no training while it builds');
+  const back = roundTrip(s);
+  assert.strictEqual(back.fr.up, t0 + 30 * 60000, 'the build time is saved');
+  assert.strictEqual(L.campDone(back, t0 + 29 * 60000) > 0, true, 'still building at 29 minutes');
+  assert.strictEqual(L.campDone(back, t0 + 30 * 60000), 0);
+  assert.strictEqual(back.fr.camp, 2, 'level 2 after 30 minutes');
+  assert.strictEqual(L.trainRaider(back, 'cat', t0 + 31 * 60000), 'ok', 'the cat opens at level 2');
+  // level 4 needs rabbit fur; level 7 a mammoth tusk and a whole day
+  back.fr.camp = 3;
+  assert.strictEqual(L.campUpgrade(back, t0 + 40 * 60000), 'need');
+  assert.deepStrictEqual(plain(R.camp.levels.map((l) => l.mins || 0)), [0, 30, 120, 240, 480, 720, 1440]);
+  assert.deepStrictEqual(plain(R.camp.levels[6].need), ['tusk_mammoth', 1]);
+});
+
 test('the loot cap by power (owner): 10% to 30%, 20% for the same', () => {
   assert.strictEqual(L.frLootCap(100, 100), 0.2);
   assert.strictEqual(L.frLootCap(100, 150), 0.3);
