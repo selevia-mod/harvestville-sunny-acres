@@ -9,6 +9,12 @@
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var RIDE_MAPS = { farm: true, town: true, park: true }; // (park: Central Park rides like town, owner 6 Nov 2026)
   var CHEST_TILE = [9, 3];
+  // The horse in its riding saddle (owner's art, 10 Nov 2026: the rider stood on the horse; art-src/battle2/horse_ride.png,
+  // tools/art/animals3q-import.js battle2): frames as an animal's (0-2 toward you, 3-5 away, 6-8 sideways, 9 standing, 10
+  // standing sideways, 11 a step). The farmer sits in it: cut at the waist, the waist on the saddle's seat, and the saddle
+  // drawn again over the cut. SEAT: where the seat is in a frame (x, y; the frame is 224 x 252, the feet at 233).
+  if (F.SHEETS) { F.SHEETS.horse_ride = F.SHEETS.animals; F.SHEETS.horse_rideshade = F.SHEETS.animalshade; }
+  var RIDE = { px: 174, seat: { side: [133, 114], up: [112, 97], down: [112, 92] }, over: { side: 100, up: 92 }, waist: 292 };
 
   var M = {};
 
@@ -34,6 +40,13 @@
       if (at) {
         this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE) };
         this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
+        if (F.images.horse_ride && F.images.horse_rideshade) {
+          var hs = C.HORSE.w * T / RIDE.px;
+          this.horse.ride = true;
+          this.horse.sprite.setTexture(F.ensureTexture(this, 'horse_ride'), 10).setScale(hs);
+          this.horse.sh.setTexture(F.ensureTexture(this, 'horse_rideshade'), 10).setScale(hs);
+          this.riderFront = this.add.image(0, 0, 'horse_ride', 6).setOrigin(0.5, 233 / 252).setScale(hs).setVisible(false);
+        }
       }
     }
     // the cat lives in the farmhouse
@@ -76,6 +89,7 @@
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
+      if (h.ride) { this.rideSeat(h, d, side, flip, time); this.shadow.setVisible(false); h.sh.setPosition(h.x, h.y); F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5); return; }
       this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip).setPosition(f.x + (side ? (flip ? -30 : 30) : 0), f.y - (side ? 350 : d === 'up' ? 330 : 370));
       F.depthTo(this.rider, DEPTH.actor + f.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005)); // (the horse stands 20 units, 0.0002, lower)
       A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
@@ -83,10 +97,29 @@
     } else {
       this.player.setVisible(true);
       this.rider.setVisible(false);
-      F.Anim.show(h, C.HORSE.frame0 + (Math.floor(time / 2600) % 3 === 0 ? 10 : 9), false);
+      if (this.riderFront) this.riderFront.setVisible(false);
+      F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (Math.floor(time / 2600) % 3 === 0 ? 10 : 9), false);
     }
     h.sh.setPosition(h.x, h.y);
     F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
+  };
+
+  // Riding in the saddle: the horse's frame, the farmer from the waist up on its seat, the saddle again over the waist
+  // (toward you: the farmer behind the horse's head, no cover needed)
+  M.rideSeat = function (h, d, side, flip, time) {
+    var A = F.Anim, k = A.FACING[d] + (this.moving ? A.STEPS[Math.floor(time / 120) % 4] : 0), mirror = side && flip;
+    var hs = h.sprite.scaleX, seat = RIDE.seat[d], sx = (seat[0] - 112) * hs * (mirror ? -1 : 1), sy = (seat[1] - 233) * hs;
+    var bob = this.moving ? Math.abs(Math.sin(time / 120)) * 10 : 0;
+    A.show(h, k, mirror);
+    var r = this.rider, fh = r.frame.height;
+    r.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(mirror).setOrigin(0.5, RIDE.waist / fh).setCrop(0, 0, r.frame.width, RIDE.waist + 6)
+      .setPosition(h.x + sx, h.y + sy - bob);
+    F.depthTo(r, DEPTH.actor + h.y / 1e5 + (d === 'down' ? -0.0002 : 0.0002));
+    var fr = this.riderFront;
+    if (d === 'down') return fr.setVisible(false);
+    var top = RIDE.over[d];
+    fr.setVisible(true).setFrame(k).setFlipX(mirror).setCrop(0, top, 224, 252 - top).setPosition(h.x, h.y);
+    F.depthTo(fr, DEPTH.actor + h.y / 1e5 + 0.0004);
   };
 
   // Indoors and down the mine, the horse waits outside.
@@ -103,7 +136,8 @@
       this.horse.y = f.y + 20;
     }
     this.player.setVisible(true);
-    if (this.rider) this.rider.setVisible(false);
+    if (this.rider) this.rider.setVisible(false).setCrop().setOrigin(0.5, 0.5);
+    if (this.riderFront) this.riderFront.setVisible(false);
     this.shadow.setVisible(true);
     this.idle();
   };

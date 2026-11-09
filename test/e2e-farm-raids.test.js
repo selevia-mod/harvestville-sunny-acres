@@ -159,7 +159,8 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await shot(page, 'raid-farm-start');
   assert.strictEqual(await sendIn({ goat: 10, crow: 6, cat: 4 }), 20, 'all 20 went in');
   await page.waitForTimeout(4000);
-  assert.ok(await page.evaluate(() => Object.values(Farm.world.raidUnits).some((u) => u.img.texture.key === 'raid_cat')), 'the cats in their own picture');
+  // (10 Nov 2026: every raider in the owner's battle moves picture: running, hitting, with loot, knocked out; the cats' row)
+  assert.ok(await page.evaluate(() => { const row = Farm.Config.FRAID.raiderOrder.indexOf('cat'); return Object.values(Farm.world.bv.units).some((u) => u.img.texture.key === 'raid_moves' && Math.floor(u.img.frame.name / 4) === row); }), 'the cats in the battle picture');
   assert.ok(await page.evaluate(() => { const sc = Farm.game.scene.getScenes(true).map((x) => x.sys.settings.key); return sc.indexOf('UI') > sc.indexOf('World'); }), 'the raid\'s buttons over the farm');
   await shot(page, 'raid-farm-mid');
   assert.ok(await page.evaluate(() => Farm.world.raidB.t > 10), 'the clock runs');
@@ -270,6 +271,35 @@ test('the Farm Shield (owner, 9 Nov 2026): used from the bag, 24 hours; the Raid
   await page.waitForTimeout(300);
   assert.match(await modalText(page), /Shielded: 2[34]h \d+m left/);
   await shot(page, 'raid-shield');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('farm raids v2 (owner, 10 Nov 2026: "make it more ... intense"): a green drop zone with Tap here, a red flash off it, raiders drop in with dust, hit sparks and numbers, rubble, crops pulled up, the loot bar', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 7; s.fr.army = { goat: 12, carabao: 4, monkey: 4, boar: 4, crow: 6 }; Farm.ui.startRaid('b4'); });
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox && Farm.world.bv, null, SLOW);
+  await page.waitForTimeout(600);
+  assert.ok(await page.evaluate(() => Farm.world.bv.hint && Farm.world.bv.hint.some((o) => o.text === 'Tap here!')), 'Tap here! before the first raider');
+  await page.evaluate(() => { const w = Farm.world, f = w.bv && w.raidB.farm, P = Farm.WorldScene.prototype, fx = w.bfx; window.__fx = {}; w.bfx = function (k) { window.__fx[k] = (window.__fx[k] || 0) + 1; return fx.apply(this, arguments); }; window.__red = 0; const nd = w.raidNoDrop; w.raidNoDrop = function () { window.__red++; return nd.apply(this, arguments); }; const i = f.drop.indexOf('0'); w.raidDropAt(i % f.w, Math.floor(i / f.w)); });
+  assert.strictEqual(await page.evaluate(() => window.__red), 1, 'off the green: the red flash');
+  await page.evaluate(() => {
+    const w = Farm.world, b = w.raidB, f = b.farm, cells = [];
+    for (let i = 0; i < f.drop.length; i++) if (f.drop[i] === '1') cells.push([i % f.w, Math.floor(i / f.w)]);
+    const d = b.defs.filter((q) => q.t === 'fence')[0] || b.defs[0];
+    cells.sort((p, q) => Math.hypot(p[0] - d.x, p[1] - d.y) - Math.hypot(q[0] - d.x, q[1] - d.y));
+    ['carabao', 'carabao', 'boar', 'boar', 'goat', 'goat', 'goat', 'goat', 'monkey', 'crow', 'crow'].forEach((k, i) => { Farm.ui.raidSel = k; w.raidDropAt(cells[i][0], cells[i][1]); });
+  });
+  assert.ok(await page.evaluate(() => !Farm.world.bv.hint), 'the hint goes with the first raider');
+  await page.waitForFunction(() => { const x = window.__fx; return x.ring && x.dust && x.hit && x.rubble && (x.crop || x.coins || x.sack); }, null, SLOW).catch(() => {});
+  const fx = await page.evaluate(() => window.__fx);
+  for (const k of ['ring', 'dust', 'hit', 'rubble']) assert.ok(fx[k] > 0, k + ': ' + JSON.stringify(fx));
+  assert.ok(fx.crop || fx.coins || fx.sack, 'loot pops out: ' + JSON.stringify(fx));
+  // (the attack pose shows a part of each swing: watched for, not looked at once)
+  await page.evaluate(() => { window.__hitPose = false; const w = Farm.world, d = w.raidDraw; w.raidDraw = function (t) { d.call(this, t); if (Object.values(this.bv.units).some((u) => !u.out && u.img.frame.name % 4 === 1)) window.__hitPose = true; }; });
+  assert.ok(await page.waitForFunction(() => window.__hitPose, null, SLOW).then(() => true, () => false), 'someone hitting (the attack pose)');
+  await shot(page, 'raid-v2-battle');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

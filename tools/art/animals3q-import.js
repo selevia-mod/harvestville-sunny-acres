@@ -79,7 +79,10 @@ const placeSheets = {};
 ['raid_crow', 'guard_goose', 'raid_cat'].forEach((k) => {
   if (fs.existsSync(path.join(ROOT, 'art-src', 'raids', k + '.png'))) SETS.push({ name: k, shade: k + 'shade', dir: 'raids', ground: 358, store: 0.75, raid: true, rows: [[k, { front: 9, ground: k === 'guard_goose', fit: true, clean: true }]] });
 });
-const RUN = process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
+// The horse with its riding saddle (owner, 10 Nov 2026; art-src/RAID-BATTLE-V2-PROMPTS.md #1): 3 x 3 drawn, made 3 x 4 by
+// tools/art/battle2-import.js (row 4: standing, standing side, a step). node tools/art/animals3q-import.js battle2
+if (fs.existsSync(path.join(ROOT, 'art-src', 'battle2', 'horse_ride_3x4.png'))) SETS.push({ name: 'horse_ride', shade: 'horse_rideshade', dir: 'battle2', ground: 352, store: 0.75, battle2: true, rows: [['horse_ride_3x4', { front: 9, ground: true, fit: true, clean: true, k: 0.5 }]] });
+const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {
@@ -211,7 +214,7 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
         const sx = (i % 3) * cw, sy = Math.floor(i / 3) * ch, x = M + i * (FW + G), y = M + row * (FH + G);
         g.save();
         g.beginPath(); g.rect(x, y, FW, FH); g.clip();
-        if (cl) g.drawImage(cl[i].c, x + FW / 2 - cl[i].w * K / 2, y + FEET - (base[i] - cl[i].top) * K, cl[i].w * K, cl[i].h * K);
+        if (cl) { const k = opt.k || K; g.drawImage(cl[i].c, x + FW / 2 - cl[i].w * k / 2, y + FEET - (base[i] - cl[i].top) * k, cl[i].w * k, cl[i].h * k); } // (opt.k: a big picture drawn smaller)
         else g.drawImage(im, sx, sy, cw, ch, x + FW / 2 - cw * K / 2, y + FEET - line * K, cw * K, ch * K);
         g.restore();
         if (opt.clean) { // the faint glow: what is all but clear, and soft specks with nothing solid within 3 px

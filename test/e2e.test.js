@@ -1868,6 +1868,9 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.evaluate(() => { Farm.input.jx = 1; });
   await page.waitForTimeout(300);
   await shot(page, '30-riding');
+  // (owner, 10 Nov 2026: she stood on the horse) she sits in the saddle: the saddled horse, the farmer cut at the waist,
+  // the saddle drawn again over the cut
+  assert.ok(await page.evaluate(() => { const w = Farm.world; return w.horse.sprite.texture.key === 'horse_ride' && w.rider.isCropped && w.riderFront.visible; }), 'seated in the saddle');
   await page.evaluate(() => { Farm.input.jx = 0; });
   await hold(page, 'turnip');
   assert.strictEqual(await actionLabel(page), 'Sell');

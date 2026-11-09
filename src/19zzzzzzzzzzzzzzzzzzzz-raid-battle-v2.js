@@ -1,0 +1,333 @@
+// Farm Raids, the battle you can see (owner, 10 Nov 2026: "the attacking animal looks like just a steady animals, cant
+// even see the battle, everything looks static. Cant even know how to drop ... make it more like ... an intense game").
+// Only the pictures: the battle's rules (01-logicZZZZZZZZZZZ-raids.js) are the same, so the game server's replay of a raid
+// gives the same result. The owner's art (art-src/RAID-BATTLE-V2-PROMPTS.md; tools/art/battle2-import.js):
+//   raid_moves: each raider running, attacking, running off with loot, knocked out
+//   battle_fx: a hit, landing dust, coins, a crop pulled up, broken planks, rubble, smoke, dizzy stars, a loot sack, the
+//     green drop ring, a swing, a heal
+// What it does: a clear green drop zone with a "tap here" ring before the first raider; raiders drop in with dust; they
+// hop as they run, lunge when they hit, carry what they took; hit sparks, damage numbers and health bars on both sides;
+// a defense that falls flashes, shakes the screen and leaves rubble; crops come out of the ground; a loot bar with the
+// three star marks, and a big star when one is won.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var R = C.FRAID;
+  var T = C.TILE;
+  var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var K = F.UI_CONST, W = K.W;
+  var D = F.WorldScene.DEPTH;
+  var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
+  var raiding = function (w) { return !!(w && F.session.raid && F.session.visit && F.session.visit.raid && w.mapKey === 'farm'); };
+
+  // the pictures' frames (tools/art/battle2-import.js)
+  C.RAID_MOVES = { w: 220, h: 176, run: [196, 174, 188, 204, 168, 200, 172, 207] }; // a row a raider (R.raiderOrder): run, attack, loot, out
+  C.BATTLE_FX = ['hit', 'dust', 'coins', 'crop', 'planks', 'rubble', 'smoke', 'dizzy', 'sack', 'ring', 'swoosh', 'heal'];
+  if (F.SHEETS) {
+    F.SHEETS.raid_moves = { frameWidth: C.RAID_MOVES.w, frameHeight: C.RAID_MOVES.h };
+    F.SHEETS.battle_fx = { frameWidth: 160, frameHeight: 160 };
+  }
+  var on = function () { return !!(F.images.raid_moves && F.images.battle_fx); };
+  var MOVE = { run: 0, hit: 1, loot: 2, out: 3 };
+  var moveFrame = function (k, pose) { return R.raiderOrder.indexOf(k) * 4 + MOVE[pose]; };
+
+  // ---------- effects ----------
+  // one effect: grows in, then fades (opts: { scale, life, dy (rise, tiles), rot, depth, keep })
+  P.bfx = function (k, x, y, o) {
+    if (!F.images.battle_fx) return null;
+    o = o || {};
+    F.ensureTexture(this, 'battle_fx');
+    var s0 = (o.scale || 0.8) * T / 160, im = this.add.image(x, y, 'battle_fx', C.BATTLE_FX.indexOf(k)).setDepth(o.depth || D.fx).setScale(s0 * 0.4);
+    if (o.rot) im.setRotation(o.rot);
+    if (o.flip) im.setFlipX(true);
+    this.tweens.add({ targets: im, scale: s0, duration: 140, ease: 'Back.out' });
+    if (o.keep) return im;
+    this.tweens.add({ targets: im, alpha: 0, y: y - (o.dy || 0) * T, delay: o.life || 260, duration: 320, onComplete: function () { im.destroy(); } });
+    return im;
+  };
+  // a number that jumps up and fades (damage: red; on a defense: white)
+  P.bnum = function (x, y, txt, color) {
+    var t = this.add.text(x, y, txt, { fontFamily: F.UI_FONT || 'sans-serif', fontSize: Math.round(0.52 * T) + 'px', color: color, fontStyle: 'bold', stroke: '#2a1408', strokeThickness: Math.round(0.07 * T) })
+      .setOrigin(0.5).setDepth(D.fx + 1).setResolution(F.R || 1);
+    this.tweens.add({ targets: t, y: y - 0.7 * T, duration: 260, ease: 'Quad.out' });
+    this.tweens.add({ targets: t, alpha: 0, delay: 380, duration: 260, onComplete: function () { t.destroy(); } });
+  };
+  // a health bar over something: a dark back, its colour by how much is left
+  var bar = function (scene, u, x, y, wide, frac) {
+    if (!u.hb) { u.hb = scene.add.graphics().setDepth(D.fx + 0.5); }
+    var g = u.hb, w = wide * T, h = 0.16 * T;
+    g.clear();
+    if (frac >= 1 || frac <= 0) return g.setVisible(false);
+    g.setVisible(true).fillStyle(0x1c0f06, 0.8).fillRoundedRect(x - w / 2 - 2, y - 2, w + 4, h + 4, 3)
+      .fillStyle(frac > 0.5 ? 0x6fd24a : frac > 0.25 ? 0xf2c23a : 0xe0503a, 1).fillRoundedRect(x - w / 2, y, Math.max(2, w * frac), h, 2);
+  };
+
+  // ---------- the drop zone: green, outlined, breathing; a ring and "tap here" before the first raider ----------
+  var setup = P.raidSetup;
+  P.raidSetup = function () {
+    setup.call(this);
+    if (!on() || !this.raidB) return;
+    var self = this, f = this.raidB.farm, cam = this.cameras.main;
+    cam.setZoom(cam.zoom / 0.62 * 0.8); // (closer than before: the raiders big enough to see what they do)
+    this.bv = { units: {}, defs: {}, loot: {}, stars: 0, sprites: null };
+    if (this.raidDropShade) this.raidDropShade.destroy();
+    var dropAt = function (x, y) { return x >= 0 && y >= 0 && x < f.w && y < f.h && f.drop.charCodeAt(y * f.w + x) === 49; };
+    var g = this.add.graphics().setDepth(D.flat + 0.05);
+    g.fillStyle(0x7dff6a, 0.2);
+    for (var y = 0; y < f.h; y++) for (var x = 0; x < f.w; x++) if (dropAt(x, y)) g.fillRect(x * T, y * T, T, T);
+    g.lineStyle(Math.max(2, 0.08 * T), 0xc8ff9e, 0.95);
+    for (var y2 = 0; y2 < f.h; y2++) for (var x2 = 0; x2 < f.w; x2++) {
+      if (!dropAt(x2, y2)) continue;
+      if (!dropAt(x2, y2 - 1)) g.lineBetween(x2 * T, y2 * T, (x2 + 1) * T, y2 * T);
+      if (!dropAt(x2, y2 + 1)) g.lineBetween(x2 * T, (y2 + 1) * T, (x2 + 1) * T, (y2 + 1) * T);
+      if (!dropAt(x2 - 1, y2)) g.lineBetween(x2 * T, y2 * T, x2 * T, (y2 + 1) * T);
+      if (!dropAt(x2 + 1, y2)) g.lineBetween((x2 + 1) * T, y2 * T, (x2 + 1) * T, (y2 + 1) * T);
+    }
+    this.raidDropShade = g;
+    this.bv.zoneTw = this.tweens.add({ targets: g, alpha: 0.45, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+    // the nearest open ground to the middle of the screen: a green ring, the raider above it, "Tap here!"
+    // (the view as it is now: worldView is only worked out at the next frame, after the zoom above)
+    var vw = cam.width / cam.zoom, vh = cam.height / cam.zoom, wv = { x: cam.scrollX + cam.width / 2 - vw / 2, y: cam.scrollY + cam.height / 2 - vh / 2, width: vw, height: vh };
+    var mid = { x: wv.x + wv.width / 2, y: wv.y + wv.height * 0.42 }, best = null, bd = 1e9; // (above the raiders' bar)
+    for (var y3 = 0; y3 < f.h; y3++) for (var x3 = 0; x3 < f.w; x3++) {
+      var open = true;
+      for (var oy = -1; oy <= 1 && open; oy++) for (var ox = -1; ox <= 1; ox++) if (!dropAt(x3 + ox, y3 + oy)) { open = false; break; }
+      if (!open) continue;
+      var dd = Math.hypot((x3 + 0.5) * T - mid.x, (y3 + 0.5) * T - mid.y);
+      if (dd < bd) { bd = dd; best = [x3, y3]; }
+    }
+    if (best) {
+      var hx = (best[0] + 0.5) * T, hy = (best[1] + 0.6) * T;
+      if (hy > wv.y + wv.height * 0.68 || hy < wv.y + wv.height * 0.2) cam.centerOn(hx, hy + 0.5 * T); // (off the open part of the screen: there)
+      F.ensureTexture(this, 'raid_moves');
+      var ring = this.bfx('ring', hx, hy, { scale: 3.2, keep: true, depth: D.flat + 0.1 });
+      var k = F.ui && F.ui.raidSel, pic = k ? this.add.image(hx, hy - 0.9 * T, 'raid_moves', moveFrame(k, 'run')).setScale(1.6 * T / C.RAID_MOVES.run[R.raiderOrder.indexOf(k)]).setDepth(D.fx).setAlpha(0.85) : null;
+      var word = this.add.text(hx, hy + 0.55 * T, 'Tap here!', { fontFamily: F.UI_FONT || 'sans-serif', fontSize: Math.round(0.6 * T) + 'px', color: '#ffffff', fontStyle: 'bold', stroke: '#1f5a12', strokeThickness: Math.round(0.12 * T) })
+        .setOrigin(0.5, 0).setDepth(D.fx).setResolution(F.R || 1);
+      this.tweens.add({ targets: ring, scale: ring.scale * 1.18, yoyo: true, repeat: -1, duration: 520, ease: 'Sine.inOut' });
+      if (pic) this.tweens.add({ targets: pic, y: hy - 1.25 * T, yoyo: true, repeat: -1, duration: 420, ease: 'Sine.inOut' });
+      this.tweens.add({ targets: word, scale: 1.1, yoyo: true, repeat: -1, duration: 520 });
+      this.bv.hint = [ring, pic, word].filter(Boolean);
+    }
+  };
+  // a drop: a ring and dust where they land; off the green ground: the forbidden part flashes red for a moment
+  var dropAt = P.raidDropAt;
+  P.raidDropAt = function (x, y, quiet) {
+    var b = this.raidB, was = b ? b.raiders.length : 0;
+    var r = dropAt.call(this, x, y, quiet);
+    if (!on() || !b || !this.bv) return r;
+    if (b.raiders.length > was) {
+      if (this.bv.hint) { this.bv.hint.forEach(function (o) { o.destroy(); }); this.bv.hint = null; }
+      if (this.bv.zoneTw && !this.bv.zoneSoft) { this.bv.zoneSoft = true; this.bv.zoneTw.stop(); this.tweens.add({ targets: this.raidDropShade, alpha: 0.5, duration: 400 }); }
+      this.bfx('ring', (x + 0.5) * T, (y + 0.6) * T, { scale: 1.1, life: 120, depth: D.flat + 0.1 });
+    } else if (!quiet && !L.frEdge(b, x, y)) this.raidNoDrop(x, y);
+    return r;
+  };
+  P.raidNoDrop = function (x, y) {
+    var f = this.raidB.farm, g = this.add.graphics().setDepth(D.flat + 0.06), R0 = 6;
+    g.fillStyle(0xff3a2a, 0.32);
+    for (var yy = y - R0; yy <= y + R0; yy++) for (var xx = x - R0; xx <= x + R0; xx++) {
+      if (xx < 0 || yy < 0 || xx >= f.w || yy >= f.h || f.drop.charCodeAt(yy * f.w + xx) === 49) continue;
+      if (Math.hypot(xx - x, yy - y) <= R0) g.fillRect(xx * T, yy * T, T, T);
+    }
+    this.tweens.add({ targets: g, alpha: 0, delay: 350, duration: 350, onComplete: function () { g.destroy(); } });
+    if (this.raidDropShade) { this.tweens.add({ targets: this.raidDropShade, alpha: 1, yoyo: true, duration: 180 }); }
+    sfx('nope');
+  };
+
+  // ---------- each frame ----------
+  var draw = P.raidDraw;
+  P.raidDraw = function (time) {
+    if (!on() || !this.bv) return draw.call(this, time);
+    F.ensureTexture(this, 'raid_moves');
+    var self = this, b = this.raidB, bv = this.bv;
+    // the yard pictures of the defenses (fences, scarecrows, the new pieces): matched by their tile
+    if (!bv.sprites) {
+      bv.sprites = {};
+      var items = (this.state.yard && this.state.yard.items) || [], O = C.OUTDOOR;
+      items.forEach(function (it, i) {
+        var type = O.types[it.t];
+        if (!type || !self.yardSprites || !self.yardSprites[i]) return;
+        var fy = it.y + Math.max(0, type.h - Math.max(1, type.foot || 1));
+        bv.sprites[it.x + ',' + fy] = self.yardSprites[i];
+      });
+    }
+    b.raiders.forEach(function (r) { self.bvRaider(r, time); });
+    b.defs.forEach(function (d, i) { self.bvDefense(d, i, time); });
+    b.loot.forEach(function (p) { self.bvLoot(p, time); });
+    // the dog (a defense that moves): its own picture, as before
+    b.defs.forEach(function (dd, i) {
+      var img = self.raidDefs[i];
+      if (!img) return;
+      var mv = Math.abs(dd.x * T - img.x) > 1;
+      if (dd.hp > 0) img.setFrame(C.DOG.frame0 + (mv ? 6 + [1, 0, 2, 0][Math.floor(time / 120) % 4] : 9)).setFlipX(mv ? dd.x * T > img.x : img.flipX);
+      img.setPosition(dd.x * T, dd.y * T).setDepth(D.actor + dd.y * T / 1e5).setAlpha(dd.hp > 0 ? 1 : 0.3);
+    });
+    this.raidShots(time);
+  };
+
+  P.bvRaider = function (r, time) {
+    var self = this, bv = this.bv, u = bv.units[r.id], d = R.raiders[r.k], row = R.raiderOrder.indexOf(r.k);
+    if (!u) {
+      // as big as it was (the hunting animal's picture), a little longer for the running pose
+      var base = { goat: 1.0, crow: 0.8, cat: 0.85, carabao: 1.7, monkey: 0.95, boar: 1.25, rooster: 0.8, bayawak: 1.15 }[r.k] || 1;
+      u = bv.units[r.id] = { base: base, lx: r.x, ly: r.y, hp: r.hp, face: 1, born: time, ph: (row * 37 + r.id.length * 13) % 100 / 15, dustAt: 0, lunge: 0, k: base * 1.45 * T / C.RAID_MOVES.run[row] };
+      u.sh = this.add.ellipse(r.x * T, r.y * T, 0.8 * base * T, 0.26 * base * T, 0x000000, 0.28).setDepth(D.flat + 0.2);
+      u.img = this.add.image(r.x * T, r.y * T, 'raid_moves', moveFrame(r.k, 'run')).setOrigin(0.5, 0.9).setScale(u.k);
+      // it comes down from above with a bump and dust
+      u.fall = 1;
+      this.tweens.add({ targets: u, fall: 0, duration: 300, ease: 'Quad.in', onComplete: function () {
+        if (!d.flies) self.bfx('dust', r.x * T, r.y * T, { scale: 1.0 * base, life: 160, depth: D.flat + 0.3 });
+        sfx('plant');
+      } });
+    }
+    var x = r.x * T, y = r.y * T;
+    if (r.hp <= 0) { // knocked out: lies dizzy, then goes in a puff
+      if (!u.out) {
+        u.out = time;
+        u.img.setFrame(moveFrame(r.k, 'out')).setAngle(0).setPosition(x, y).clearTint();
+        if (u.hb) u.hb.setVisible(false);
+        this.tweens.add({ targets: u.img, y: y - 0.3 * T, yoyo: true, duration: 140 });
+        this.time.delayedCall(1100, function () {
+          self.bfx('smoke', x, y - 0.3 * T, { scale: 1.0, life: 120 });
+          self.tweens.add({ targets: [u.img, u.sh], alpha: 0, duration: 250 });
+        });
+      }
+      return;
+    }
+    var dx = r.x - u.lx, dy = r.y - u.ly, moving = Math.abs(dx) + Math.abs(dy) > 0.0008, tg = r.target;
+    var near = tg && Math.hypot(tg.x - r.x, tg.y - r.y) <= (tg.left != null ? 0.65 : 1.05);
+    var hitting = !moving && near && tg.left == null && r.stuck <= 0, grabbing = !moving && near && tg.left != null;
+    if (moving && Math.abs(dx) > 0.0004) u.face = dx > 0 ? -1 : 1; // (the pictures face left)
+    if (hitting || grabbing) u.face = tg.x > r.x ? -1 : 1;
+    var pose = hitting ? (((time + u.ph * 100) % 700) < 260 ? 'hit' : 'run') : (r.got > 0.5 || grabbing) ? 'loot' : 'run';
+    var hop = 0, tilt = 0, lx = 0, fly = d.flies ? 0.7 * T + Math.sin(time / 160 + u.ph) * 0.12 * T : 0;
+    if (moving) { hop = Math.abs(Math.sin(time / (r.flee > 0 ? 70 : 95) + u.ph)) * 0.16 * T; tilt = Math.sin(time / 95 + u.ph) * 5; }
+    if (grabbing) hop = Math.abs(Math.sin(time / 120 + u.ph)) * 0.08 * T;
+    if (pose === 'hit') lx = -u.face * 0.22 * T; // (the lunge, toward its target)
+    if (r.stuck > 0) lx = Math.sin(time / 30) * 0.06 * T;
+    u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle(tilt * u.face)
+      .setPosition(x + lx, y - hop - fly - u.fall * 3 * T).setDepth(D.actor + y / 1e5 + (d.flies ? 0.001 : 0));
+    u.sh.setPosition(x, y + 0.05 * T).setScale(d.flies ? 0.6 : 1 - hop / T);
+    if (r.stuck > 0) u.img.setTint(0xb08860); else if (r.slow > 0) u.img.setTint(0x9fd4ff); else if (!u.flash) u.img.clearTint();
+    // running: dust behind it
+    if (moving && !d.flies && time - u.dustAt > 240) { u.dustAt = time; this.bfx('dust', x + u.face * 0.35 * T, y, { scale: 0.45, life: 60, depth: D.flat + 0.3 }); }
+    // hit: a flash, a spark, the number; what hit it: the dog and the goose swing at it
+    if (r.hp < u.hp - 0.01) {
+      var lost = u.hp - r.hp;
+      u.hp = r.hp;
+      u.sum = (u.sum || 0) + lost;
+      if (time - (u.hitAt || 0) > 220) {
+        u.hitAt = time;
+        u.flash = true;
+        u.img.setTintFill(0xffffff);
+        this.time.delayedCall(70, function () { u.flash = false; if (u.img.active) u.img.clearTint(); });
+        this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.8, life: 60 });
+        this.bnum(x, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a');
+        u.sum = 0;
+        var by = this.raidB.defs.filter(function (q) { return q.aim === r.id && R.defenses[q.t].chases; })[0];
+        if (by) this.bfx('swoosh', x, y - 0.4 * T, { scale: 0.8, life: 60, flip: by.x > r.x });
+      }
+    }
+    bar(this, u, x, y - 1.55 * T * u.base - fly, 0.9, r.hp / r.max);
+    u.lx = r.x; u.ly = r.y;
+  };
+
+  P.bvDefense = function (d, i, time) {
+    if (!d.max) return; // (the mud pit: a trap, nothing to hit)
+    var bv = this.bv, u = bv.defs[d.id], dx0 = Math.floor(d.hx - 0.5), dy0 = Math.floor(d.hy - 0.5);
+    if (!u) {
+      var sp = bv.sprites[dx0 + ',' + dy0] || this.raidDefs[i] || null;
+      u = bv.defs[d.id] = { hp: d.hp, sp: sp, sx: sp ? sp.x : 0 };
+    }
+    var x = d.x * T, y = d.y * T;
+    if (d.hp < u.hp - 0.01) {
+      var lost = u.hp - d.hp;
+      u.hp = d.hp;
+      u.sum = (u.sum || 0) + lost;
+      if (time - (u.hitAt || 0) > 200) {
+        u.hitAt = time;
+        this.bfx('hit', x + (Math.random() - 0.5) * 0.4 * T, y - 0.5 * T, { scale: 1.0, life: 70 });
+        this.bnum(x, y - 1.3 * T, '-' + Math.max(1, Math.round(u.sum)), '#ffffff');
+        u.sum = 0;
+        if (u.sp && u.sp.active && d.t !== 'dog') {
+          var sp = u.sp;
+          sp.setTintFill(0xffffff);
+          this.time.delayedCall(60, function () { if (sp.active) sp.clearTint(); });
+          this.tweens.add({ targets: sp, x: u.sx + 0.08 * T, yoyo: true, repeat: 1, duration: 40, onComplete: function () { if (sp.active) sp.x = u.sx; } });
+        }
+        sfx(d.t === 'fence' ? 'chop' : 'hammer');
+      }
+    }
+    if (d.hp <= 0 && !u.down) { // down: a burst, the screen shakes, rubble where it stood
+      u.down = true;
+      if (u.hb) u.hb.setVisible(false);
+      if (u.sp && u.sp.active && d.t !== 'dog') this.tweens.add({ targets: u.sp, alpha: 0, scaleY: u.sp.scaleY * 0.3, duration: 220 });
+      this.bfx(d.t === 'fence' ? 'planks' : 'smoke', x, y - 0.5 * T, { scale: 1.2, life: 200 });
+      if (d.t !== 'dog') this.bfx('rubble', x, y - 0.1 * T, { scale: d.t === 'fence' ? 0.8 : 1.1, keep: true, depth: D.flat + 0.4 });
+      this.cameras.main.shake(180, 0.006);
+      sfx('anvil');
+      return;
+    }
+    if (d.hp > 0) bar(this, u, x, y - 1.15 * T, d.t === 'fence' ? 0.6 : 0.9, d.hp / d.max);
+  };
+
+  // loot taken: what is taken pops out (a crop pulled up, coins, a sack) and jumps toward the raider; a field tile empty:
+  // its crop goes
+  P.bvLoot = function (p, time) {
+    var bv = this.bv, u = bv.loot[p.id] || (bv.loot[p.id] = { left: p.left, at: 0 });
+    if (p.left < u.left - 0.01) {
+      u.left = p.left;
+      if (time - u.at > 420) {
+        u.at = time;
+        var x = p.x * T, y = p.y * T, k = p.kind === 'crops' ? 'crop' : p.kind === 'gold' ? 'coins' : 'sack';
+        var im = this.bfx(k, x, y - 0.3 * T, { scale: k === 'coins' ? 0.7 : 0.6, keep: true });
+        if (im) this.tweens.add({ targets: im, y: y - 1.4 * T, x: x + (Math.random() - 0.5) * 0.8 * T, alpha: 0, duration: 650, ease: 'Quad.out', onComplete: function () { im.destroy(); } });
+        sfx(k === 'coins' ? 'coin' : 'harvest');
+      }
+    }
+    if (p.kind === 'crops' && p.left <= 0 && !u.gone) {
+      u.gone = true;
+      var idx = Math.floor(p.y - 0.5) * this.map.width + Math.floor(p.x - 0.5), spr = this.crops && this.crops[idx];
+      if (spr) { this.tweens.killTweensOf(spr); this.tweens.add({ targets: spr, alpha: 0, scale: spr.scale * 0.4, duration: 220 }); }
+    }
+  };
+
+  // ---------- the HUD: the loot bar with its three star marks, and a big star when one is won ----------
+  var hudOn = U.raidHudOn;
+  U.raidHudOn = function (b, name) {
+    hudOn.call(this, b, name);
+    if (!on() || !this.frBox) return;
+    var g = this.raidBarG = this.add.graphics();
+    this.frBox.add(g);
+    this.raidStarsWon = 0;
+    this.raidHudRefresh();
+  };
+  var hudRefresh = U.raidHudRefresh;
+  U.raidHudRefresh = function () {
+    hudRefresh.call(this);
+    var b = this.raidB, g = this.raidBarG;
+    if (!b || !g || !g.active) return;
+    var x0 = 16, w = W - 120, y = 62, share = Math.max(0, Math.min(1, L.frShare(b)));
+    g.clear().fillStyle(0x24160b, 0.78).fillRoundedRect(x0 - 4, y - 4, w + 8, 16, 8).fillStyle(0x4a3220, 1).fillRoundedRect(x0, y, w, 8, 4);
+    if (share > 0) g.fillStyle(share >= 0.9 ? 0xffd23f : 0x8be05a, 1).fillRoundedRect(x0, y, Math.max(8, w * share), 8, 4);
+    [0.3, 0.6, 0.9].forEach(function (m) { g.fillStyle(share >= m ? 0xffd23f : 0xfff6d8, 1).fillCircle(x0 + w * m, y + 4, 5); });
+    var st = L.frStars(b);
+    if (st > (this.raidStarsWon || 0)) { this.raidStarsWon = st; this.raidBigStar(st); }
+  };
+  U.raidBigStar = function (n) {
+    var self = this, cx = W / 2, cy = C.VIEW_H * 0.36;
+    var c = this.add.container(cx, cy);
+    if (this.frBox) this.frBox.add(c); // (in the raid's HUD: the UI hides anything else while a raid is on)
+    if (F.images.raid_fx) { F.ensureTexture(this, 'raid_fx'); c.add(this.add.image(0, 0, 'raid_fx', C.FRAID_FX.indexOf('star')).setScale(1.1)); }
+    else c.add(this.add.text(0, 0, '★', { fontSize: '96px', color: '#ffd23f' }).setOrigin(0.5));
+    c.add(this.add.text(0, 70, n === 1 ? '1 star!' : n + ' stars!', { fontFamily: F.UI_FONT || 'sans-serif', fontSize: '24px', color: '#ffffff', fontStyle: 'bold', stroke: '#6a4300', strokeThickness: 5 }).setOrigin(0.5).setResolution(F.R || 1));
+    c.setScale(0.2);
+    sfx('found');
+    this.tweens.add({ targets: c, scale: 1, duration: 260, ease: 'Back.out' });
+    this.tweens.add({ targets: c, x: W - 40, y: 40, scale: 0.15, alpha: 0.2, delay: 900, duration: 420, ease: 'Quad.in', onComplete: function () { c.destroy(); } });
+    void self;
+  };
+})(window.Farm = window.Farm || {});

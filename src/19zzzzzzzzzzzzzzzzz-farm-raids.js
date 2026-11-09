@@ -102,7 +102,7 @@
         },
       },
       {
-        text: 'Raid a farm: press and drag on the light ground to send them in. Two minutes to grab what you can.',
+        text: 'Raid a farm: press and drag on the green ground to send them in. Two minutes to grab what you can.',
         draw: function (ui, sc, move) {
           var f = icon(ui, sc, 80, 70, ri('flag'), 0.38), g = icon(ui, sc, 180, 70, ri('goat'), 0.3);
           if (move) ui.tweens.add({ targets: g, x: 220, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -501,7 +501,7 @@
       h.add(c);
       self.raidCards[k] = { c: c, bg: bg, n: n, w: bw };
     });
-    this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then press and drag on the light ground.', 11, '#fff6d8', 0.5);
+    this.raidHint = tx(W / 2, y - 47, 'Pick a raider, then press and drag on the green ground.', 11, '#fff6d8', 0.5);
     this.raidHint.setFontStyle('normal');
     var end = this.add.container(W - 44, 82), eb = this.add.graphics();
     eb.fillStyle(RED, 1).fillRoundedRect(-34, -14, 68, 28, 12);
@@ -534,7 +534,7 @@
     if (!this.raidHint) return;
     this.raidHint.setText(msg).setColor('#ffd23f');
     if (this.raidSayT) this.raidSayT.remove();
-    this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then press and drag on the light ground.').setColor('#fff6d8'); });
+    this.raidSayT = this.time.delayedCall(1800, function () { if (self.raidHint && self.raidHint.active) self.raidHint.setText('Pick a raider, then press and drag on the green ground.').setColor('#fff6d8'); });
   };
   U.raidHudRefresh = function () {
     var self = this, b = this.raidB;

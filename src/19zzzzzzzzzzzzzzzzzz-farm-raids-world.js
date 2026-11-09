@@ -184,7 +184,7 @@
       if (!k) return quiet ? null : F.ui.raidSay('Everyone is in!');
       F.ui.raidSel = k;
     }
-    if (!L.frEdge(b, x, y)) return quiet ? null : F.ui.raidSay('Send raiders in on the light ground.');
+    if (!L.frEdge(b, x, y)) return quiet ? null : F.ui.raidSay('Send raiders in on the green ground.');
     if (!L.frDrop(b, k, x, y)) return;
     this.raidStarted = true;
     sfx('pick');
