@@ -91,15 +91,7 @@
     return update.call(this, a, dt, time, r);
   };
 
-  // The real wild boar (the hunting places' picture), not a farm pig: fetched in the countdown, so the boars look like
-  // boars when they come (owner, 9 Nov 2026: "those are not boars, those are Pigs"). Without it (offline), the pig stays.
-  var raidBar = F.UIScene.prototype.raidBar;
-  F.UIScene.prototype.raidBar = function (ph) {
-    raidBar.call(this, ph);
-    var look = ph && ph.r && L.raidKind(ph.r).look;
-    if ((ph.phase === 'soon' || ph.phase === 'on') && look && look.wild && F.needImage && !(F.images && F.images.wild) && !this.raidWildAsked) {
-      this.raidWildAsked = true;
-      F.needImage('wild');
-    }
-  };
+  // The real wild boar, not a farm pig (owner, 9 Nov 2026: "those are not boars, those are Pigs"): its own small sheet,
+  // assets/raid_wild (19zzzz-raid.js), always in the page (until 10 Nov 2026 the whole Wild Lands picture was fetched)
+  if (F.SHEETS) F.SHEETS.raid_wild = F.SHEETS.wild;
 })(window.Farm = window.Farm || {});

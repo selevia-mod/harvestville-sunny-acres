@@ -365,6 +365,10 @@
   // ---------- the raiders on the farm ----------
   var sheetOf = function (look) { // which picture: the wild sheet when it is on the phone, else a farm animal
     if (look.icons) return null;
+    // (10 Nov 2026: the boar and the labuyo from their own small sheet, assets/raid_wild, tools/art/raid-wild-cut.js: in the
+    // page, no download, and not the whole Wild Lands picture on a low-end phone's GPU)
+    var rw = ['boar', 'labuyo'].indexOf(look.wild);
+    if (rw >= 0 && F.images && F.images.raid_wild) return { key: 'raid_wild', base: rw * 12, tint: look.tint, px: WI.animals[look.wild].px };
     if (look.wild && F.images && F.images.wild && WI && WI.order.indexOf(look.wild) >= 0) return { key: 'wild', base: WI.order.indexOf(look.wild) * 12, tint: look.tint, px: WI.animals[look.wild].px };
     if (look.farm != null) return { key: 'animals', base: look.farm, tint: look.farmTint, px: look.px };
     return { key: 'fx-raidspark', base: -1, tint: 0xffffff, px: 64 };
