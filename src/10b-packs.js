@@ -23,6 +23,8 @@
     styles: { name: 'Furniture styles', icon: 'lumber', desc: "Mira's furniture styles past Classic, and their beds, for your house and friends' houses." },
     // (owner, 6 Nov 2026: the five new hunting places' own pictures; tools/places/places-art.js)
     places: { name: 'Hunting places', icon: 'bow', desc: "Banaue, the Chocolate Hills, Taal, the Sierra Madre and Palawan: their people, animals and dungeons.", need: true },
+    // (owner, 10 Nov 2026: a costume's farmer on the horse; 19-extras.js fetches one when it is first ridden in)
+    riding: { name: 'Riding costumes', icon: 'ribbon', desc: 'Your farmer riding the horse in each Tailor Shop look.' },
   };
   F.packFiles = function (pack) {
     if (pack === 'looks') return LOOK_FILES().map(function (n) { return { file: 'looks/v1/' + n, bytes: F.ASSETS.lookBytes[n], look: n }; });

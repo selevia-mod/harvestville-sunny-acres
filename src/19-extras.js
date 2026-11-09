@@ -107,7 +107,9 @@
   // Riding: the horse with its farmer, one picture (see RIDE above)
   M.rideKey = function () {
     var s = this.state, who = s.look === 'girl' ? 'girl' : 'boy', cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default') + '_' + who;
-    if (!F.images[key]) key = 'ride_default_' + who;
+    // a costume's riding picture comes from its pack the first time (tools/packs.js 'riding'): the farm clothes till then
+    if (cos && (!F.images[key] || !F.images[key + 'shade']) && F.needImage) { F.needImage(key); F.needImage(key + 'shade'); }
+    if (!F.images[key] || !F.images[key + 'shade']) key = 'ride_default_' + who;
     if (!F.images[key] || !F.images[key + 'shade']) return null;
     if (F.SHEETS) { F.SHEETS[key] = F.SHEETS.animals; F.SHEETS[key + 'shade'] = F.SHEETS.animalshade; }
     return key;

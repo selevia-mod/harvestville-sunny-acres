@@ -27,4 +27,7 @@ module.exports = {
   // the new hunting places (Banaue Terraces to Palawan): their people, creatures, dungeons and props, each once its
   // picture is in (owner, 6 Nov 2026: tools/places/places-art.js)
   places: require('./places/places-art').packed(),
+  // a costume's farmer riding the horse (owner's art, 10 Nov 2026; art-src/riding): fetched when they first ride in it
+  // (the farm clothes' riding, ride_default_*, stays in the page: what anyone rides in until theirs is in)
+  riding: fs.readdirSync(ASSETS).filter((f) => /^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

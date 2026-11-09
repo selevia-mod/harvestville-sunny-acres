@@ -1871,6 +1871,11 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   // (owner, 10 Nov 2026: she stood on the horse) the horse and its farmer are one picture, drawn together; off it, the
   // saddled horse alone
   assert.ok(await page.evaluate(() => { const w = Farm.world; return /^ride_default_(boy|girl)$/.test(w.horse.sprite.texture.key) && !w.rider.visible && !w.player.visible; }), 'riding: the horse with its farmer');
+  // in a costume: its own riding picture, fetched from the 'riding' pack the first time (owner's art, 10 Nov 2026)
+  await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.santa; s.lk = (s.lk || 0) | (1 << i); s.cw = 'santa'; });
+  await page.waitForFunction(() => /^ride_santa_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
+  await shot(page, '30b-riding-santa');
+  await page.evaluate(() => { Farm.session.state.cw = ''; });
   await page.evaluate(() => { Farm.input.jx = 0; });
   await hold(page, 'turnip');
   assert.strictEqual(await actionLabel(page), 'Sell');
