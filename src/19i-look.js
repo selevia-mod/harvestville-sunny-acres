@@ -438,6 +438,7 @@
     }
     var place = function (y) {
       at = Math.max(-span, Math.min(0, y));
+      c.slimAt = at; // (where it is scrolled to: a panel drawn again can go back there)
       list.y = at;
       if (bar) bar.y = top + (view - bar.height) * (span ? -at / span : 0);
       list.list.forEach(function (r) {

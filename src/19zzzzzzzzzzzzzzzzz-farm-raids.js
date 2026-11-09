@@ -139,8 +139,24 @@
     }
     if (!r.camp && L.hasRaidCamp(s)) r.camp = 1; // (the camp you placed is level 1)
     L.trainDone(s, now);
-    var redo = function (t, p) { self.closeModal(); self.openRaidCamp(t || tab, p == null ? page : p); };
+    // (9 Nov 2026, owner's video: each Train tap drew the panel again at the top: the same tab keeps its place now)
+    var redo = function (t, p) {
+      var m = self.modals[self.modals.length - 1], at = m && m.c && m.c.slimAt, same = !t || t === tab;
+      self.closeModal();
+      self.openRaidCamp(t || tab, p == null ? page : p);
+      var n = self.modals[self.modals.length - 1];
+      if (same && at && n && n.c && n.c.slimScroll) n.c.slimScroll(at);
+    };
+    // the next raider to finish: the panel shows it joining (it counted them only when it opened, so "9 training" sat still)
+    var soon = r.train.length ? r.train[0].until - Date.now() : 0;
+    if (soon > 0 && soon < 10 * 60000) this.time.delayedCall(soon + 150, function () {
+      var m = self.modals[self.modals.length - 1];
+      if (m && m.c && m.c.raidCampTab === tab && !self.raidCampBusy) redo(tab);
+    });
     var act = function (res, ok) { if (res !== 'ok') { sfx('nope'); return self.toast(why[res] || 'Not now.', 2200); } sfx('coin'); if (world()) { world().changed(); world().save(); } redo(); if (ok) self.toast(ok, 2000, 0x2f5a22); };
+    // (a raider's queue: when the next one is ready, as m:ss)
+    var clockOf = function (ms) { var sec = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };
+    var nextOf = function (k) { var t = r.train.filter(function (x) { return x.k === k; })[0]; return t ? clockOf(t.until - Date.now()) : ''; };
     var rows = [];
     if (tab === 'party') {
       // the Farm Shield (owner, 9 Nov 2026): how long, or how to get one
@@ -157,7 +173,7 @@
         buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {
         var d = R.raiders[k], open = L.raiderOpen(s, k), have = r.army[k] || 0, wait = r.train.filter(function (t) { return t.k === k; }).length;
-        rows.push({ icon: L.raiderIcon(k), name: d.name + (have ? '  x' + have : ''), desc: open ? (wait ? wait + ' training. ' : '') + d.say : 'Opens with a bigger Raid Camp.',
+        rows.push({ icon: L.raiderIcon(k), name: d.name + (have ? '  x' + have : ''), desc: open ? (wait ? wait + ' training, next in ' + nextOf(k) + '. ' : '') + d.say : 'Opens with a bigger Raid Camp.',
           buttons: open ? [{ label: 'Train ' + d.gold + 'G', color: GREEN, cb: function () { act(L.trainRaider(s, k, Date.now())); } }] : [] });
       });
     } else if (tab === 'raiders') {
@@ -196,6 +212,8 @@
       reopen: function (t, p) { self.openRaidCamp(t, p); },
       sub: function () { return 'Power ' + L.farmPower(s) + '   ·   Raid Points ' + r.pts + '   ·   ' + s.gold.toLocaleString('en-US') + 'G'; },
     });
+    var top = this.modals[this.modals.length - 1];
+    if (top && top.c) top.c.raidCampTab = tab;
   };
   // the party you have, as the battle wants it: { k: { n, lv } }
   L.frArmy = function (s) {
