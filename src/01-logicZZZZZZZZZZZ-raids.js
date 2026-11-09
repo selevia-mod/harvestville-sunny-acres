@@ -74,7 +74,7 @@
   // train one raider: 'ok' | 'locked' | 'space' | 'gold'
   L.trainRaider = function (s, k, now) {
     var r = L.frState(s), d = R.raiders[k];
-    if (r.up && now < r.up) return 'building'; // (the camp is being upgraded: it trains no raiders)
+    // (it trains while it is being upgraded too: owner, 10 Nov 2026, "that will hold the players which is bad")
     if (!d || !L.raiderOpen(s, k)) return 'locked';
     if (L.armySpace(s) + d.space > L.campSpace(s)) return 'space';
     if (s.gold < d.gold) return 'gold';

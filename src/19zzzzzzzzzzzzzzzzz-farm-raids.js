@@ -130,7 +130,7 @@
 
   // ---------- the panel ----------
   var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
-  var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', building: 'The camp is being upgraded: no training until it is done.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
+  var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
   U.openRaidCamp = function (tab, page) {
     var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'farmraid_tour')) { // (the first time: the tour first)
@@ -168,7 +168,7 @@
       var needs = next ? [next.lumber ? next.lumber + ' lumber' : '', next.stone ? next.stone + ' stone' : '', next.need ? next.need[1] + ' ' + C.ITEMS[next.need[0]].name : '', next.mins ? (next.mins >= 60 ? next.mins / 60 + 'h' : next.mins + ' min') + ' to build' : ''].filter(Boolean).join(', ') : '';
       var hm = function (ms) { var m = Math.ceil(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
       rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: building ? 'Raid Camp: building level ' + (r.camp + 1) : 'Raid Camp, level ' + r.camp, tag: null,
-        desc: building ? hm(building) + ' left. It still raids, but trains no raiders until it is done.'
+        desc: building ? hm(building) + ' left. It still raids and trains while it builds.'
           : (next ? 'Needs ' + needs + '. Room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + ', next ' + next.space + '.' : 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '. Top level!'), // (a slim row cuts the end: the needs first)
         buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {

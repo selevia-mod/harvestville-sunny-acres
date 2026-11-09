@@ -8,7 +8,7 @@
     battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 }, // (keep: on a real farm, raiders come down this many tiles from anything: nearly anywhere in the field) // a battle: 2 minutes, 10 steps a second, a 16 x 22 farm (a phone held upright)
     // the Raid Camp: its level opens raiders and makes the raid party bigger (housing space)
     // (owner, 9 Nov 2026: "Upgrading camp is too easy, i was camp 7 instant": each level now needs lumber, stone, things
-    // from hunting and building time (mins); the camp still raids while it builds, but trains no raiders)
+    // from hunting and building time (mins); the camp still raids and trains while it builds)
     camp: { price: 3000, levels: [
       { space: 10, gold: 0, open: ['goat', 'crow'] },
       { space: 15, gold: 4000, lumber: 40, stone: 20, need: null, mins: 30, open: ['cat'] },

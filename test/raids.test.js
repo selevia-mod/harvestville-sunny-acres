@@ -44,7 +44,7 @@ test('the Raid Camp: bought, then levelled; it opens raiders and makes room; tra
 });
 
 // owner, 9 Nov 2026: "Upgrading camp is too easy, i was camp 7 instant"
-test('a camp level needs Gold, lumber, stone, things from hunting and building time; one at a time; no training while it builds; kept in the save', () => {
+test('a camp level needs Gold, lumber, stone, things from hunting and building time; one at a time; it trains while it builds; kept in the save', () => {
   const s = rich(), t0 = 5e9;
   s.lumber = 0; s.stone = 0;
   assert.strictEqual(L.campUpgrade(s, t0), 'ok', 'level 1: bought at once');
@@ -58,7 +58,7 @@ test('a camp level needs Gold, lumber, stone, things from hunting and building t
   assert.strictEqual(s.fr.camp, 1, 'not yet: it builds');
   assert.deepStrictEqual([g - s.gold, 1000 - s.lumber, 1000 - s.stone], [4000, 40, 20]);
   assert.strictEqual(L.campUpgrade(s, t0 + 1000), 'busy', 'one upgrade at a time');
-  assert.strictEqual(L.trainRaider(s, 'goat', t0 + 1000), 'building', 'no training while it builds');
+  assert.strictEqual(L.trainRaider(s, 'goat', t0 + 1000), 'ok', 'it trains while it builds (owner, 10 Nov 2026)');
   const back = roundTrip(s);
   assert.strictEqual(back.fr.up, t0 + 30 * 60000, 'the build time is saved');
   assert.strictEqual(L.campDone(back, t0 + 29 * 60000) > 0, true, 'still building at 29 minutes');
