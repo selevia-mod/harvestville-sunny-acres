@@ -5582,6 +5582,8 @@ C.FRAID_PIECES = [
 ];
 C.FRAID_PIECES.forEach(function (p) { if (O.index[p.key] == null) { O.index[p.key] = O.types.length; O.types.push(p); } });
 
+O.cats.filter(function (c) { return c[0] === 'workshops'; })[0][2] = 'A Bakery, a Dairy, a Jam Maker and a Tannery make goods while you play (or sleep). The Raid Camp trains raiders.';
+
 C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
 
 C.FRAID_FX = ['bees', 'pebble', 'water', 'mud', 'honk', 'star', 'puff'];
@@ -47630,6 +47632,14 @@ var K = F.UI_CONST, W = K.W, INK = K.INK;
 var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68, GOLD = 0xe9a91c, RED = 0xc0503a;
 var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
 var world = function () { return F.world; };
+
+var yardInfo = F.yardInfo;
+F.yardInfo = function (s, i) {
+var type = O.types[i];
+if (type && type.key === 'raid_camp') return 'Train raiders here and raid bandit farms. One per farm.' + (L.yardCantBuy && L.yardCantBuy(s, i) ? ' You have one.' : '');
+if (type && type.defense && R.defenses[type.defense]) return R.defenses[type.defense].say + ' Guards your farm in a raid.';
+return yardInfo ? yardInfo(s, i) : null;
+};
 
 
 

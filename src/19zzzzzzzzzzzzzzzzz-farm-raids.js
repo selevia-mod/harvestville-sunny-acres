@@ -16,6 +16,14 @@
   var GREEN = 0x5fa84a, BLUE = 0x4a90c9, GREY = 0xa08a68, GOLD = 0xe9a91c, RED = 0xc0503a;
   var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
   var world = function () { return F.world; };
+  // Mira's cards say what the Raid Camp and each defense do (not just the beauty)
+  var yardInfo = F.yardInfo;
+  F.yardInfo = function (s, i) {
+    var type = O.types[i];
+    if (type && type.key === 'raid_camp') return 'Train raiders here and raid bandit farms. One per farm.' + (L.yardCantBuy && L.yardCantBuy(s, i) ? ' You have one.' : '');
+    if (type && type.defense && R.defenses[type.defense]) return R.defenses[type.defense].say + ' Guards your farm in a raid.';
+    return yardInfo ? yardInfo(s, i) : null;
+  };
 
   // ---------- the Raid Camp on the farm (a workshop-like piece: one per farm) ----------
   // (the Raid Camp and the defenses you place: 00-zzzzzzzzzzzzzzzzz-raids.js)

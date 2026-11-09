@@ -99,6 +99,8 @@
     { key: 'def_sprinkler', name: 'Sprinkler Blaster', kind: 'prop', cat: 'defenses', w: 1, h: 1, foot: 1, price: 2200, beauty: 2, hd: 'def_sprinkler', defense: 'sprinkler', what: 'a brass sprinkler with a water tank' },
   ];
   C.FRAID_PIECES.forEach(function (p) { if (O.index[p.key] == null) { O.index[p.key] = O.types.length; O.types.push(p); } });
+  // (the Workshops page says the Raid Camp is there too)
+  O.cats.filter(function (c) { return c[0] === 'workshops'; })[0][2] = 'A Bakery, a Dairy, a Jam Maker and a Tannery make goods while you play (or sleep). The Raid Camp trains raiders.';
   // the yard pieces that defend in a raid (beside the new ones): which defense each one is
   C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
   // the battle's effects: frames of assets/raid_fx (tools/art/raids-import.js, prompt #7), in this order
