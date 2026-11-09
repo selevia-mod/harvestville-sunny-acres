@@ -186,7 +186,8 @@ test('Town Raid online: two phones on their own farms add to one town bar, a fri
   const gold = {};
   for (const [k, p] of Object.entries({ ana, ben, cara })) gold[k] = await p.page.evaluate(() => Farm.session.state.gold);
   await setNow(server, [ana, ben, cara], manila(2026, 11, 9, 20, 31));
-  const want = { ana: ['Hero\'s Chest: \\+2,250G', 300, 2250], ben: ['Defender\'s Chest: \\+1,200G', 143, 1200], cara: ['Helper\'s Chest: \\+450G', 63, 450] };
+  // (owner, 9 Nov 2026: chests 500 / 1,000 / 1,500 Gold, and no extra Gold for a town win)
+  const want = { ana: ['Hero\'s Chest: \\+1,500G', 300, 1500], ben: ['Defender\'s Chest: \\+1,000G', 143, 1000], cara: ['Helper\'s Chest: \\+500G', 63, 500] };
   for (const [k, p] of Object.entries({ ana, ben, cara })) {
     await waitModal(p.page, /RAID RESULTS/);
     const t = await modalText(p.page);
