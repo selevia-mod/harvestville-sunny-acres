@@ -176,6 +176,8 @@
           buttons: [{ label: 'Find', color: RED, cb: function () { self.raidFind([]); } }] });
         rows.push({ icon: C.ICON.ri_points != null ? C.ICON.ri_points : C.ICON.star, name: 'Raid Points this week', desc: 'The top raiders win Gold every week.',
           buttons: [{ label: 'Board', color: BLUE, cb: function () { self.raidBoard(); } }] });
+        if (self.raidLog) rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: 'Raids on your farm', desc: 'Who raided you this week: Replay, and a free Revenge.',
+          buttons: [{ label: 'See', color: BLUE, cb: function () { self.raidLog(); } }] });
       }
       R.bandits.forEach(function (b, i) {
         var stars = r.won[b.key] || 0, open = L.banditOpen(s, i);

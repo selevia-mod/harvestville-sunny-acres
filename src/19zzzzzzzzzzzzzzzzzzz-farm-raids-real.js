@@ -110,6 +110,7 @@
     if (opts.kind === 'replay') return replay(opts.raid);
     if (opts.kind !== 'real') return start(opts);
     var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
+    if (!L.frState(mine).camp && !L.hasRaidCamp(mine)) { sfx('nope'); return F.ui.toast(opts.revenge ? 'Buy a Raid Camp at Mira\'s (Workshops) to raid them back. Your Revenge waits 7 days.' : 'Buy a Raid Camp at Mira\'s (Workshops) first.', 3200); }
     if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
     if (!opts.revenge && mine.energy < cost && !(L.powered && L.powered(mine))) { sfx('nope'); return F.ui.toast('A raid takes ' + cost + ' energy.', 2400); } // (Revenge is free)
     if (FR.starting) return null;
@@ -294,6 +295,29 @@
         } },
         { label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', target: f.id }); } },
       ]);
+    }, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
+  };
+  // Raids on your farm (part 26, farm_fraid_recent_v1): the last 7 days, with Replay and a free Revenge still there after
+  // the raided card is closed (9 Nov 2026: tapping OK or Replay on the card lost the Revenge for good)
+  U.raidLog = function () {
+    var self = this;
+    if (!online()) { sfx('nope'); return this.toast('Needs online play.', 2400); }
+    F.Net.rpc('farm_fraid_recent_v1', {}).then(function (list) {
+      list = Array.isArray(list) ? list : [];
+      var rows = list.map(function (x) {
+        var stars = Math.max(0, Math.min(3, x.stars || 0)), t = x.taken || {}, bits = [];
+        if (t.crops) bits.push(plural(t.crops, 'crop'));
+        if (t.produce) bits.push(t.produce + ' eggs/milk');
+        if (t.stall) bits.push(plural(t.stall, 'stall good'));
+        if (t.gold) bits.push(t.gold + 'G');
+        var btns = [{ label: 'Replay', color: 0x4a90c9, cb: function () { F.raidFarmStart({ kind: 'replay', raid: x }); } }];
+        if (x.revenge) btns.push({ label: 'Revenge', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', revenge: x.raid }); } });
+        return { icon: C.ICON.ri_bandit != null ? C.ICON.ri_bandit : C.ICON.star, name: (L.cleanText(x.name, 18) || 'A farm') + '  ' + '★★★'.slice(0, stars) + '☆☆☆'.slice(stars),
+          desc: (x.revenge ? 'Revenge is free. ' : 'Revenge used. ') + (bits.length ? 'Took ' + bits.join(', ') + '.' : 'Took nothing.'), buttons: btns }; // (a slim row cuts the end: the important words first)
+      });
+      if (!rows.length) rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: 'No raids on your farm', desc: 'Nobody has raided your farm in the last 7 days.' });
+      self.closeAll();
+      self.listPanel({ title: 'Raids on your farm', rows: rows, slim: true, sub: function () { return 'The last 7 days'; } });
     }, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
   };
   U.raidBoard = function () {

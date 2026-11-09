@@ -198,6 +198,12 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   await B.page.waitForFunction(() => Farm.world && !Farm.session.raid && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
   assert.ok(!/Welcome to/.test(await B.page.evaluate(() => (Farm.ui.toastText.visible ? Farm.ui.toastText.text : ''))), 'no visitor welcome after a replay');
 
+  // ---- the card is closed: the Raid Camp still lists the raid, with Revenge
+  await B.page.evaluate(() => Farm.ui.raidLog());
+  await waitModal(B.page, /Raids on your farm/);
+  assert.match(await modalText(B.page), /Raids on your farm[\s\S]*Revenge is free\. Took [\s\S]*Replay \| Revenge/);
+  await B.page.evaluate(() => Farm.ui.closeAll());
+
   // ---- Revenge: free, once, against the raider (whose own raid broke their shields)
   await A.page.evaluate(() => Farm.raidFarmLeave());
   await A.page.waitForFunction(() => Farm.world && !Farm.session.raid && Farm.world.mapKey === 'farm' && !Farm.world.busy, null, SLOW);
@@ -212,6 +218,10 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
     Farm.FR.sendCopy(w, true);
   });
   for (let i = 0; i < 30 && !((server.db.fraid.copies.get(A.uid) || {}).loot > 0); i++) await new Promise((r) => setTimeout(r, 100));
+  // (no Raid Camp yet: the Revenge waits, and says how)
+  await B.page.evaluate((id) => Farm.raidFarmStart({ kind: 'real', revenge: id }), raid.id);
+  await B.page.waitForFunction(() => Farm.ui.toastText.visible && /Buy a Raid Camp at Mira's \(Workshops\) to raid them back/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.ok(!raid.revenged, 'the Revenge is still there');
   await B.page.evaluate(() => { const r = Farm.Logic.frState(Farm.session.state); r.camp = 3; r.army.goat = 6; Farm.session.state.energy = 0; Farm.world.save(); });
   await B.page.evaluate((id) => Farm.raidFarmStart({ kind: 'real', revenge: id }), raid.id);
   await B.page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.session.raid && Farm.session.raid.revenge, null, SLOW);

@@ -73,7 +73,7 @@ function createServer() {
       const why = frWhyNot(target, uid);
       if (why && !(rv && (why === 'shield' || why === 'new'))) return { ok: false, code: why };
       const f = db.fraid.copies.get(target), me = db.fraid.copies.get(uid);
-      const r = { id: crypto.randomUUID(), attacker: uid, defender: target, copy: f.copy, army: a.p_army, seed: 1 + crypto.randomInt(2147483646), cap: frCap(me ? me.power : f.power, f.power), revengeOf: rv ? rv.id : null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
+      const r = { id: crypto.randomUUID(), attacker: uid, defender: target, copy: f.copy, army: a.p_army, seed: 1000 + db.fraid.raids.length * 7919, cap: frCap(me ? me.power : f.power, f.power), revengeOf: rv ? rv.id : null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
       db.fraid.raids.push(r);
       if (rv) rv.revenged = true;
       if (me) { me.shield = 0; me.raided = 0; }
@@ -102,6 +102,7 @@ function createServer() {
     farm_fraid_claim_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid && x.state === 'done'); if (!r) return 'none'; if (r.claimed) return 'already'; r.claimed = true; return 'ok'; },
     farm_fraid_seen_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.defender === uid && x.state === 'done'); if (!r) return 'none'; if (r.seen) return 'already'; r.seen = true; return 'ok'; },
     farm_fraid_week_prize_v1(uid) { need(uid); const w = db.fraid.weekPrize; if (!w || w.uid !== uid || w.taken) return { ok: false }; w.taken = true; return { ok: true, gold: w.gold, rank: w.rank, week: 'last' }; },
+    farm_fraid_recent_v1(uid) { need(uid); const name = (id) => (db.players.get(id) || {}).farm_name; return db.fraid.raids.filter((r) => r.defender === uid && r.state === 'done').reverse().slice(0, 10).map((r) => ({ raid: r.id, by: r.attacker, name: name(r.attacker), stars: r.stars, taken: r.taken, revenge: !r.revenged, copy: r.copy, army: r.army, seed: r.seed, cap: r.cap, moves: r.moves })); },
     farm_fraid_board_v1(uid) { need(uid); return { week: 'this', top: [...db.fraid.points].sort((a, b) => b[1] - a[1]).map(([id, p]) => ({ id, name: db.players.get(id).farm_name, points: p })), me: db.fraid.points.get(uid) || 0, prizes: [20000, 10000, 5000] }; },
   });
   const rpc = {
