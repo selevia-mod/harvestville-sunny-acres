@@ -5520,7 +5520,8 @@ say: 'Slips through hedges to the Gold pot. The Kampana gives it away.' },
 },
 raiderOrder: ['goat', 'crow', 'cat', 'carabao', 'monkey', 'boar', 'rooster', 'bayawak'],
 
-level: { mult: [1, 1.25, 1.55, 1.9, 2.3], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
+
+level: { mult: [1, 1.2, 1.4, 1.65, 1.9], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
 
 defenses: {
 dog: { name: 'Guard Dog', hp: 140, dps: 10, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
@@ -5535,7 +5536,9 @@ sili: { name: 'Sili Patch', hp: 60, dps: 0, range: 1, scares: ['goat', 'boar', '
 kampana: { name: 'Kampana', hp: 100, dps: 0, range: 6, alarm: 1.3, beats: 'bayawak', say: 'Rings when raiders come: every defense hits harder for a while.' },
 },
 defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
-defLevel: { gold: [0, 2000, 5000, 11000, 22000] },
+
+defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.4, 1.9, 2.5, 3.2] },
+counter: 3,
 
 loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
 
@@ -16643,7 +16646,7 @@ farm.loot.forEach(function (p) { total[p.kind] = (total[p.kind] || 0) + p.n; });
 var b = {
 farm: farm, t: 0, ticks: Math.round(R.battle.secs / DT), rnd: L.frRand(seed), seed: seed, next: 1,
 raiders: [], defs: farm.defs.map(function (d, i) {
-var def = R.defenses[d.t], m = R.level.mult[(d.lv || 1) - 1];
+var def = R.defenses[d.t], m = L.frDefMult(d.lv);
 return { id: 'd' + i, t: d.t, x: d.x + 0.5, y: d.y + 0.5, hx: d.x + 0.5, hy: d.y + 0.5, lv: d.lv || 1, hp: def.hp * m, max: def.hp * m, dps: def.dps * m, cool: 0, used: false };
 }),
 loot: farm.loot.map(function (p, i) { return { id: 'l' + i, kind: p.kind, x: p.x + 0.5, y: p.y + 0.5, n: p.n, left: p.n }; }),
@@ -16720,6 +16723,8 @@ if (!list.length) list = defsOf(function () { return true; });
 list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
 return best;
 };
+
+L.frDefMult = function (lv) { var m = R.defLevel.mult || R.level.mult; return m[Math.max(1, Math.min(m.length, lv || 1)) - 1]; };
 L.frStep = function (b) {
 if (b.end) return;
 b.t++;
@@ -16739,7 +16744,7 @@ if (r.stuck > 0) { r.stuck--; return; }
 if (r.flee <= 0) {
 b.defs.forEach(function (x) {
 var dx = R.defenses[x.t];
-if (x.hp > 0 && dx.scares && dx.scares.indexOf(r.k) >= 0 && dist(r.x, r.y, x.x, x.y) <= dx.range * R.level.mult[x.lv - 1] * 0.7 + 0.6) {
+if (x.hp > 0 && dx.scares && dx.scares.indexOf(r.k) >= 0 && dist(r.x, r.y, x.x, x.y) <= dx.range * Math.min(1.6, L.frDefMult(x.lv)) * 0.7 + 0.6) {
 var len = dist(r.x, r.y, x.x, x.y) || 1;
 r.flee = Math.round((dx.hot ? 3 : 2) / DT); r.fx = (r.x - x.x) / len; r.fy = (r.y - x.y) / len; r.target = null;
 b.events.push([b.t, 'scared', r.id, x.id]);
@@ -16751,7 +16756,7 @@ if (r.slow > 0) r.slow--;
 if (r.flee > 0) { r.flee--; r.x = Math.max(0.5, Math.min(b.farm.w - 0.5, r.x + r.fx * sp)); r.y = Math.max(0.5, Math.min(b.farm.h - 0.5, r.y + r.fy * sp)); return; }
 
 b.defs.forEach(function (x) {
-if (x.t === 'mudpit' && !x.used && !d.flies && dist(r.x, r.y, x.x, x.y) <= R.defenses.mudpit.range) { x.used = true; r.stuck = Math.round(R.defenses.mudpit.stuck * R.level.mult[x.lv - 1] / DT); b.events.push([b.t, 'stuck', r.id, x.id]); }
+if (x.t === 'mudpit' && !x.used && !d.flies && dist(r.x, r.y, x.x, x.y) <= R.defenses.mudpit.range) { x.used = true; r.stuck = Math.round(R.defenses.mudpit.stuck * L.frDefMult(x.lv) / DT); b.events.push([b.t, 'stuck', r.id, x.id]); }
 });
 if (!r.target || (r.target.left != null ? r.target.left <= 0 : r.target.hp <= 0)) r.target = pick(b, r);
 var tg = r.target;
@@ -16792,7 +16797,8 @@ foes.sort(function (p, q) { return (q.k === dx.beats) - (p.k === dx.beats) || di
 var f = foes[0], fd = dist(f.x, f.y, x.x, x.y);
 if (dx.chases && fd > 0.9) { x.x += (f.x - x.x) / fd * 2.2 * DT; x.y += (f.y - x.y) / fd * 2.2 * DT; return; }
 if (!dx.chases && fd > reach) return;
-var hit = dx.dps * boost * DT * (f.k === dx.beats ? 2 : 1);
+
+var hit = x.dps * boost * DT * (f.k === dx.beats ? R.counter : 1);
 x.aim = f.id;
 (dx.area ? foes.filter(function (r) { return dist(r.x, r.y, x.x, x.y) <= reach; }) : [f]).forEach(function (r) {
 r.hp -= hit;

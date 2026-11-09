@@ -37,8 +37,9 @@
         say: 'Slips through hedges to the Gold pot. The Kampana gives it away.' },
     },
     raiderOrder: ['goat', 'crow', 'cat', 'carabao', 'monkey', 'boar', 'rooster', 'bayawak'],
-    // a raider's level: hp and damage x this; the upgrade's Gold, and one thing from hunting
-    level: { mult: [1, 1.25, 1.55, 1.9, 2.3], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
+    // a raider's level: hp, damage and carry x this (9 Nov 2026: softer at the top, so a max camp can lose to a well-defended farm);
+    // the upgrade's Gold, and one thing from hunting
+    level: { mult: [1, 1.2, 1.4, 1.65, 1.9], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
     // 10 defenses: hp, damage a second, range (tiles), what it does; per level x the same mult. place: how it is set.
     defenses: {
       dog: { name: 'Guard Dog', hp: 140, dps: 10, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
@@ -53,7 +54,9 @@
       kampana: { name: 'Kampana', hp: 100, dps: 0, range: 6, alarm: 1.3, beats: 'bayawak', say: 'Rings when raiders come: every defense hits harder for a while.' },
     },
     defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
-    defLevel: { gold: [0, 2000, 5000, 11000, 22000] },
+    // a defense's level (9 Nov 2026, owner: "a strategic game": a max camp must not always win): its own, steeper curve
+    defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.4, 1.9, 2.5, 3.2] },
+    counter: 3, // a defense hits the raider it beats (its 'beats') this many times harder
     // loot: the cap by power (owner: 10% .. 30%), stars at 50% / 100% of the cap and the main building
     loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
     // Farm Power: these weights (adjustable)

@@ -165,7 +165,7 @@
     var b = {
       farm: farm, t: 0, ticks: Math.round(R.battle.secs / DT), rnd: L.frRand(seed), seed: seed, next: 1,
       raiders: [], defs: farm.defs.map(function (d, i) {
-        var def = R.defenses[d.t], m = R.level.mult[(d.lv || 1) - 1];
+        var def = R.defenses[d.t], m = L.frDefMult(d.lv);
         return { id: 'd' + i, t: d.t, x: d.x + 0.5, y: d.y + 0.5, hx: d.x + 0.5, hy: d.y + 0.5, lv: d.lv || 1, hp: def.hp * m, max: def.hp * m, dps: def.dps * m, cool: 0, used: false };
       }),
       loot: farm.loot.map(function (p, i) { return { id: 'l' + i, kind: p.kind, x: p.x + 0.5, y: p.y + 0.5, n: p.n, left: p.n }; }),
@@ -242,6 +242,8 @@
     list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
     return best;
   };
+  // a defense's level: hp, damage, a mud pit's hold and a scare's reach x this (R.defLevel.mult; raiders: R.level.mult)
+  L.frDefMult = function (lv) { var m = R.defLevel.mult || R.level.mult; return m[Math.max(1, Math.min(m.length, lv || 1)) - 1]; };
   L.frStep = function (b) {
     if (b.end) return;
     b.t++;
@@ -261,7 +263,7 @@
       if (r.flee <= 0) {
         b.defs.forEach(function (x) {
           var dx = R.defenses[x.t];
-          if (x.hp > 0 && dx.scares && dx.scares.indexOf(r.k) >= 0 && dist(r.x, r.y, x.x, x.y) <= dx.range * R.level.mult[x.lv - 1] * 0.7 + 0.6) {
+          if (x.hp > 0 && dx.scares && dx.scares.indexOf(r.k) >= 0 && dist(r.x, r.y, x.x, x.y) <= dx.range * Math.min(1.6, L.frDefMult(x.lv)) * 0.7 + 0.6) {
             var len = dist(r.x, r.y, x.x, x.y) || 1;
             r.flee = Math.round((dx.hot ? 3 : 2) / DT); r.fx = (r.x - x.x) / len; r.fy = (r.y - x.y) / len; r.target = null;
             b.events.push([b.t, 'scared', r.id, x.id]);
@@ -273,7 +275,7 @@
       if (r.flee > 0) { r.flee--; r.x = Math.max(0.5, Math.min(b.farm.w - 0.5, r.x + r.fx * sp)); r.y = Math.max(0.5, Math.min(b.farm.h - 0.5, r.y + r.fy * sp)); return; }
       // a mud pit underfoot
       b.defs.forEach(function (x) {
-        if (x.t === 'mudpit' && !x.used && !d.flies && dist(r.x, r.y, x.x, x.y) <= R.defenses.mudpit.range) { x.used = true; r.stuck = Math.round(R.defenses.mudpit.stuck * R.level.mult[x.lv - 1] / DT); b.events.push([b.t, 'stuck', r.id, x.id]); }
+        if (x.t === 'mudpit' && !x.used && !d.flies && dist(r.x, r.y, x.x, x.y) <= R.defenses.mudpit.range) { x.used = true; r.stuck = Math.round(R.defenses.mudpit.stuck * L.frDefMult(x.lv) / DT); b.events.push([b.t, 'stuck', r.id, x.id]); }
       });
       if (!r.target || (r.target.left != null ? r.target.left <= 0 : r.target.hp <= 0)) r.target = pick(b, r);
       var tg = r.target;
@@ -314,7 +316,8 @@
       var f = foes[0], fd = dist(f.x, f.y, x.x, x.y);
       if (dx.chases && fd > 0.9) { x.x += (f.x - x.x) / fd * 2.2 * DT; x.y += (f.y - x.y) / fd * 2.2 * DT; return; }
       if (!dx.chases && fd > reach) return;
-      var hit = dx.dps * boost * DT * (f.k === dx.beats ? 2 : 1);
+      // (its own level's damage: x.dps, frStart; until 9 Nov 2026 the base dps, so a level never hit harder) and its counter
+      var hit = x.dps * boost * DT * (f.k === dx.beats ? R.counter : 1);
       x.aim = f.id;
       (dx.area ? foes.filter(function (r) { return dist(r.x, r.y, x.x, x.y) <= reach; }) : [f]).forEach(function (r) {
         r.hp -= hit;
