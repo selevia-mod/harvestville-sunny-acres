@@ -243,7 +243,9 @@
     if (ph.phase === 'soon' && RS.warned !== r.id && !F.session.visit && !ui.modals.length) { // (said once, when nothing covers it)
       RS.warned = r.id;
       if (online() && RS.server !== false && Date.now() >= RS.pollAt) RS.poll();
-      ui.toast('Town Raid in ' + Math.ceil(ph.left / 60000) + ' minutes: ' + L.raidKind(r).many + ' are coming for the fields! Get your tools ready.', 4200, RED);
+      // (a short bubble by the countdown badge when it is there: 19zzzzb-raid-badge.js; else the old notice)
+      if (ui.raidSoonNote) ui.raidSoonNote(L.raidKind(r).many + ' in ' + Math.ceil(ph.left / 60000) + ' min!');
+      else ui.toast('Town Raid in ' + Math.ceil(ph.left / 60000) + ' minutes: ' + L.raidKind(r).many + ' are coming for the fields! Get your tools ready.', 4200, RED);
     }
     if (ph.phase === 'on') {
       if (rec && rec.id && rec.id !== r.id && !rec.c) RS.settle({ id: rec.id, h: rec.h, sv: rec.sv, l: rec.l, c: 0, b: rec.b }); // (the last raid's results, one more try: this one starts now)

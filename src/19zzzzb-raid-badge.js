@@ -30,6 +30,30 @@
     this.tweens.add({ targets: this.raidBadgeIcon, scale: 0.29, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
   };
 
+  // The "raid soon" word: one short line in a bubble to the left of the badge, pointing at it; it fades after 4 s (owner,
+  // 9 Nov 2026: the old two-line notice covered the task card and Quests). Tap: the Town Raid card.
+  U.raidSoonNote = function (text) {
+    var self = this;
+    if (!this.raidBadge) this.raidBadgeMake();
+    if (this.raidNote) { this.raidNote.destroy(); this.raidNote = null; }
+    var t = this.txt(0, 0, text, 11, '#fff6d8', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    var w = Math.ceil(t.width) + 22, h = 24, x = this.raidBadge.x - BADGE.r - 10, y = this.raidBadge.y;
+    var bg = this.add.graphics();
+    bg.fillStyle(0x3a140a, 0.92).fillRoundedRect(-w, -h / 2, w, h, 12);
+    bg.lineStyle(1.5, 0xff7a4a, 1).strokeRoundedRect(-w, -h / 2, w, h, 12);
+    bg.fillStyle(0x3a140a, 0.92).fillTriangle(-1, -5, -1, 5, 7, 0); // (the point, at the badge)
+    t.setPosition(-11, 0);
+    var z = this.add.zone(-w / 2, 0, w, h).setInteractive({ useHandCursor: true });
+    F.tapOn(z, function () { if (!self.modals.length && self.raidInfo) self.raidInfo(); });
+    var c = this.raidNote = this.add.container(x, y, [bg, t, z]).setDepth(50).setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, x: x - 4, duration: 220, ease: 'Sine.out' });
+    this.tweens.add({ targets: this.raidBadge, scale: 1.15, duration: 160, yoyo: true, repeat: 2 });
+    this.time.delayedCall(4000, function () {
+      if (self.raidNote !== c) return;
+      self.tweens.add({ targets: c, alpha: 0, duration: 400, onComplete: function () { c.destroy(); if (self.raidNote === c) self.raidNote = null; } });
+    });
+  };
+
   var raidBar = U.raidBar;
   U.raidBar = function (ph) {
     raidBar.call(this, ph);
