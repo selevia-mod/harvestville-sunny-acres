@@ -20,6 +20,8 @@ and for 2 minutes they grab what is out in the open while that farm's defenses f
 - **Farm Shield** (owner, 9 Nov 2026): each day's story chapter gives one. Used from the bag: nobody can raid your farm
   for 24 hours; it breaks when you raid another player's farm (practice does not). A player who never wants to be
   raided can finish the story chapter and use a shield every day.
+- **Empty farms are skipped** (owner, 9 Nov 2026): a farm with nothing out in the open to take (no ripe crops, eggs,
+  milk, stall goods, workshop goods or Gold pot) never shows in the list or in Random, so nobody pays energy for it.
 - **Fair play:** the server picks the farm and sends a frozen copy + a seed; the phone plays it and sends its moves;
   the game server replays them and only then gives the loot and records the defender's loss (applied when they next
   open the game, with a report, Replay and Revenge). A farm is locked while it is raided.
