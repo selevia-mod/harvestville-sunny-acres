@@ -76,10 +76,7 @@
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
-      // (owner, 9 Nov 2026: she stood on the saddle: seated now, the picture cut at the hips and lowered into the saddle)
-      this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip);
-      var fh = this.rider.frame.height, fw = this.rider.frame.width, SEAT = 0.7, drop = fh * (1 - SEAT) * (d === 'down' ? 0 : 0.8); // (facing you: the horse's head is in front of her)
-      this.rider.setCrop(0, 0, fw, fh * SEAT).setPosition(f.x + (side ? (flip ? -30 : 30) : 0), f.y - (side ? 350 : d === 'up' ? 330 : 370) + drop);
+      this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip).setPosition(f.x + (side ? (flip ? -30 : 30) : 0), f.y - (side ? 350 : d === 'up' ? 330 : 370));
       F.depthTo(this.rider, DEPTH.actor + f.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005)); // (the horse stands 20 units, 0.0002, lower)
       A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
       this.shadow.setVisible(false);
@@ -106,7 +103,7 @@
       this.horse.y = f.y + 20;
     }
     this.player.setVisible(true);
-    if (this.rider) this.rider.setVisible(false).setCrop();
+    if (this.rider) this.rider.setVisible(false);
     this.shadow.setVisible(true);
     this.idle();
   };
