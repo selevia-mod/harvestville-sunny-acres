@@ -49110,6 +49110,10 @@ sfx(prize.stars ? 'fanfare' : 'nope');
 F.ui.raidResult(b, prize);
 };
 
+
+var updateCamera = P.updateCamera;
+P.updateCamera = function (lerp) { if (this.raidB && raiding(this)) return; return updateCamera.call(this, lerp); };
+
 var resolve = P.resolve;
 P.resolve = function () { if (raiding(this)) return null; return resolve.call(this); };
 

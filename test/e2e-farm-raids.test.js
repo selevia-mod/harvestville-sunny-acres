@@ -253,6 +253,7 @@ test('farm raids (owner, 10 Nov 2026): drag looks around (even on the green grou
     await page.mouse.down();
     for (let k = 1; k <= 8; k++) await page.mouse.move(line.x1 + dir * 15 * k, line.y - dir * 10 * k);
     await page.mouse.up();
+    await page.waitForTimeout(1200); // (the view stays where it was dragged: nothing pulls it back)
     moved.push(await page.evaluate((s0) => Math.abs(Farm.world.cameras.main.scrollX - s0[0]) + Math.abs(Farm.world.cameras.main.scrollY - s0[1]), scroll0));
     await page.evaluate((s0) => Farm.world.cameras.main.setScroll(s0[0], s0[1]), scroll0);
   }

@@ -313,6 +313,10 @@
     sfx(prize.stars ? 'fanfare' : 'nope');
     F.ui.raidResult(b, prize);
   };
+  // in a raid the camera is yours (owner, 10 Nov 2026: "why I cannot control the screen when I attacking?"): it no longer
+  // follows the (hidden) farmer, which pulled every drag back
+  var updateCamera = P.updateCamera;
+  P.updateCamera = function (lerp) { if (this.raidB && raiding(this)) return; return updateCamera.call(this, lerp); };
   // in a raid nothing on the farm is yours to use
   var resolve = P.resolve;
   P.resolve = function () { if (raiding(this)) return null; return resolve.call(this); };
