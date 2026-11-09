@@ -324,3 +324,25 @@ test('farm raids v2 (owner, 10 Nov 2026: "make it more ... intense"): a green dr
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('the Raid Camp sells and places defenses (owner, 10 Nov 2026: "i bought all the defenses but how can I put it in the farm?")', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => { const s = Farm.session.state; s.gold = 20000; Farm.Logic.frState(s).camp = 3; Farm.ui.openRaidCamp('defenses', 0); });
+  await page.waitForTimeout(400);
+  const txt = await modalText(page);
+  assert.match(txt, /Guard Goose.*0 on your farm/, txt.slice(0, 300));
+  assert.match(txt, /Buy 1,500G/);
+  assert.match(txt, /Lv 2 2,000G/);
+  const t = await page.evaluate(() => Farm.Config.OUTDOOR.index.def_goose);
+  const before = await page.evaluate(() => Farm.session.state.yard.items.length);
+  await page.evaluate((t) => Farm.ui.raidDefensePlace(t), t);
+  await page.waitForTimeout(500);
+  const st = await page.evaluate((t) => ({ gold: Farm.session.state.gold, items: Farm.session.state.yard.items.length, decor: !!Farm.world.yd, placed: Farm.session.state.yard.items.some((it) => it.t === t) }), t);
+  assert.strictEqual(st.gold, 20000 - 1500, 'paid');
+  assert.ok(st.decor, 'into Decorate');
+  assert.ok(st.placed && st.items === before + 1, 'the goose is on the farm, ready to drag');
+  await shot(page, 'raid-defense-place');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

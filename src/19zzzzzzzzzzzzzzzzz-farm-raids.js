@@ -83,6 +83,21 @@
   if (F.SHEETS) { ['raid_crow', 'guard_goose', 'raid_cat'].forEach(function (k) { F.SHEETS[k] = F.SHEETS.wild; F.SHEETS[k + 'shade'] = F.SHEETS.wildshade; }); }
   if (F.SHEETS) F.SHEETS.raid_fx = { frameWidth: 128, frameHeight: 128 }; // the battle's effects (C.FRAID_FX)
   F.raidFx = function (k) { return C.FRAID_FX.indexOf(k); };
+  // a defense from the Raid Camp: one from storage, or bought now, and straight into Decorate to put it down
+  U.raidDefensePlace = function (t) {
+    var s = F.session.state, w = F.world;
+    if (!s.yard.bag[t]) {
+      var r = L.buyYard(s, t, 1);
+      if (r === 'gold') { sfx('nope'); return this.toast('Not enough Gold.'); }
+      if (r !== 'ok') { sfx('nope'); return this.toast("Mira can't sell that right now."); }
+      sfx('coin');
+      if (w) { w.changed(); w.save(); }
+    }
+    this.closeAll();
+    if (!w || w.mapKey !== 'farm' || F.session.visit) return this.toast('In your yard storage. Place it with Decorate on your farm.', 3500);
+    this.openDecor();
+    if (w.yd) { w.yardPlace(t); this.toast('Drag it where it should guard, then OK.', 3500, 0x2f5a22); }
+  };
 
   // ---------- the first-time tour (owner, 4 Oct 2026: every new feature gets one) ----------
   // (its tip goes last of all, after the dog's name: a tip's place is its bit in the save; 'raid_tour' is the Town Raid's)
@@ -185,11 +200,20 @@
           buttons: open && lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.raiderUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
       });
     } else if (tab === 'defenses') {
+      // (owner, 10 Nov 2026: "i bought all the defenses but how can I put it in the farm?": the Gold button here only
+      // levelled them; the pieces were sold at Mira's) each row: how many are on the farm, Buy (and place it now), Lv up
+      var OD = C.OUTDOOR, onFarm = function (t) { return s.yard.items.filter(function (it) { return it.t === t; }).length; };
       R.defenseOrder.forEach(function (k) {
         var d = R.defenses[k], lv = L.defenseLv(s, k), gold = R.defLevel.gold[lv];
         var pic = F.defensePic(self, k), sz = pic.key === 'items' ? null : { key: pic.key, frame: pic.frame, w: 128, h: 128 };
-        rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: d.say,
-          buttons: lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
+        var t = OD.index['def_' + k] != null ? OD.index['def_' + k] : k === 'scarecrow' ? OD.index.scarecrow : null, type = t != null ? OD.types[t] : null;
+        var placed = t != null ? onFarm(t) : 0, stored = t != null ? s.yard.bag[t] || 0 : 0;
+        var where = k === 'dog' ? (s.dog ? 'Your dog guards the farm. ' : 'Adopt a dog to guard the farm. ')
+          : type ? placed + ' on your farm' + (stored ? ', ' + stored + ' in storage' : '') + '. ' : '';
+        var btns = [];
+        if (type) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
+        if (lv < 5) btns.push({ label: 'Lv ' + (lv + 1) + ' ' + gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), 'Every ' + d.name + ' is level ' + (lv + 1) + '!'); } });
+        rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: where + d.say, buttons: btns });
       });
     } else {
       // step 2 (19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js): real farms first, then the board
