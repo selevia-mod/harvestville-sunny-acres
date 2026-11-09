@@ -129,7 +129,7 @@ test('farm raids: the bandit farms get harder one by one (each played with the p
   const out = [];
   for (const key of ['b1', 'b2', 'b3', 'b4', 'b5']) {
     await page.evaluate((key) => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 7; s.fr.army = { goat: 1 }; Farm.raidFarmStart({ kind: 'bandit', key }); }, key);
-    await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+    await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
     const res = await page.evaluate((PARTIES) => {
       const w = Farm.world, L = Farm.Logic, farm = w.raidFarm(), rows = {};
       const cells = []; for (let i = 0; i < farm.drop.length; i++) if (farm.drop[i] === '1') cells.push([i % farm.w, Math.floor(i / farm.w)]);

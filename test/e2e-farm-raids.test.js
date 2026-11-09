@@ -148,7 +148,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
     return w.raidB.raiders.length;
   }, counts);
   await page.evaluate(() => { const r = Farm.session.state.fr; r.army = { goat: 10, crow: 6, cat: 4 }; Farm.ui.startRaid('b1'); });
-  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
   await page.waitForTimeout(800);
   const setup = await page.evaluate(() => { const b = Farm.world.raidB; return { map: Farm.world.mapKey, crops: b.loot.filter((p) => p.kind === 'crops').length, defs: b.defs.map((d) => d.t), drop: b.farm.drop.split('').filter((c) => c === '1').length, visit: !!Farm.session.visit }; });
   await shot(page, 'raid-farm-start');
@@ -167,7 +167,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await page.waitForTimeout(1400);
   await shot(page, 'raid-farm-end');
   // the owner's gold stars (raid_fx), popped in
-  const stars = await page.evaluate(() => { const h = Farm.ui.raidBox, all = []; const walk = (c) => (c.list || []).forEach((o) => { if (o.texture && o.texture.key === 'raid_fx') all.push(o); walk(o); }); walk(h); return { n: all.length, won: all.filter((o) => o.alpha === 1).length }; });
+  const stars = await page.evaluate(() => { const h = Farm.ui.frBox, all = []; const walk = (c) => (c.list || []).forEach((o) => { if (o.texture && o.texture.key === 'raid_fx') all.push(o); walk(o); }); walk(h); return { n: all.length, won: all.filter((o) => o.alpha === 1).length }; });
   assert.strictEqual(stars.n, 3, JSON.stringify(stars));
   const res = await page.evaluate(() => Farm.ui.raidPrize);
   assert.strictEqual(stars.won, res.stars, 'the stars won bright, the rest faint');
@@ -187,7 +187,7 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await page.waitForTimeout(300);
   assert.match(await modalText(page), /Test my farm/);
   await page.evaluate(() => Farm.raidFarmStart({ kind: 'test' }));
-  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
   assert.ok(await page.evaluate(() => Farm.world.raidB.defs.some((d) => d.t === 'goose') && Farm.world.raidB.defs.some((d) => d.t === 'scarecrow')), 'your own defenses');
   await shot(page, 'raid-test-farm');
   assert.deepStrictEqual(problems, []);
@@ -198,7 +198,7 @@ test('farm raids: the battle\'s effects (owner\'s raid_fx, 9 Nov 2026): the Spri
   const { page, problems, context } = await open(null);
   await closeAll(page);
   await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 7; s.fr.army = { goat: 12, carabao: 4, monkey: 4, boar: 4 }; Farm.ui.startRaid('b5'); });
-  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
   await page.waitForTimeout(800);
   const pieces = await page.evaluate(() => Farm.world.raidB.defs.map((d) => d.t));
   for (const k of ['sprinkler', 'tower', 'goose', 'beebox']) assert.ok(pieces.includes(k), k + ' on the Hacienda: ' + pieces.join());
@@ -226,7 +226,7 @@ test('farm raids: like Clash of Clans, press on the light ground and drag: raide
   const { page, problems, context } = await open(null);
   await closeAll(page);
   await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 3; s.fr.army = { goat: 10, crow: 10 }; Farm.ui.startRaid('b1'); });
-  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.raidBox, null, SLOW);
+  await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
   await page.waitForTimeout(600);
   // a run of open ground on screen, in a row
   const line = await page.evaluate(() => {

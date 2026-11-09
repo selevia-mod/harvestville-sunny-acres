@@ -437,13 +437,13 @@
     this.raidHudOff();
     this.raidHidden = this.children.list.filter(function (o) { return o.visible; });
     this.raidHidden.forEach(function (o) { o.setVisible(false); });
-    var h = this.raidBox = this.add.container(0, 0).setDepth(95);
+    var h = this.frBox = this.add.container(0, 0).setDepth(95);
     var top = this.add.graphics();
     top.fillStyle(0x24160b, 0.78).fillRoundedRect(8, 8, W - 16, 48, 14);
     h.add(top);
     var tx = function (x, y, str, size, color, ox) { var t = self.add.text(x, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color, fontStyle: 'bold' }).setOrigin(ox || 0, 0).setResolution(F.R); h.add(t); return t; };
     tx(20, 14, name, 13, '#fff6d8');
-    this.raidTime = tx(W - 20, 14, '2:00', 15, '#ffe680', 1);
+    this.frTime = tx(W - 20, 14, '2:00', 15, '#ffe680', 1);
     this.raidLoot = tx(20, 34, '', 11, '#e8dcc0');
     this.raidStars = tx(W - 20, 33, '☆☆☆', 14, '#ffd23f', 1);
     var keys = Object.keys(b.left), bw = Math.min(70, (W - 24 - 8 * (keys.length - 1)) / Math.max(1, keys.length)), y = C.VIEW_H - 62, bar = this.add.graphics();
@@ -475,7 +475,7 @@
     this.raidHudRefresh();
   };
   U.raidHudOff = function () {
-    if (this.raidBox) { this.raidBox.destroy(); this.raidBox = null; }
+    if (this.frBox) { this.frBox.destroy(); this.frBox = null; }
     (this.raidHidden || []).forEach(function (o) { if (o.active) o.setVisible(true); });
     this.raidHidden = null;
     this.raidB = null;
@@ -484,12 +484,12 @@
   var uiUpdate = U.update;
   U.update = function (time, delta) {
     uiUpdate.call(this, time, delta);
-    if (!this.raidBox) return;
-    if (!this.raidBox.visible) this.raidBox.setVisible(true);
-    var box = this.raidBox;
+    if (!this.frBox) return;
+    if (!this.frBox.visible) this.frBox.setVisible(true);
+    var box = this.frBox;
     this.children.list.forEach(function (o) { if (o !== box && o.visible && o.depth < 200 && o.type !== 'Text' || (o !== box && o.visible && o.type === 'Text' && !o.raidKeep && o.depth < 200 && o.depth !== 95)) o.setVisible(false); });
   };
-  U.raidOnHud = function (p) { if (!this.raidBox) return false; var y = p.y / F.R; return y > C.VIEW_H - 115 || y < 100; };
+  U.raidOnHud = function (p) { if (!this.frBox) return false; var y = p.y / F.R; return y > C.VIEW_H - 115 || y < 100; };
   U.raidSay = function (msg) {
     var self = this;
     if (!this.raidHint) return;
@@ -499,7 +499,7 @@
   };
   U.raidHudRefresh = function () {
     var self = this, b = this.raidB;
-    if (!b || !this.raidBox) return;
+    if (!b || !this.frBox) return;
     Object.keys(this.raidCards).forEach(function (k) {
       var cd = self.raidCards[k], left = b.left[k] ? b.left[k].n : 0, on = self.raidSel === k;
       cd.bg.clear().fillStyle(on ? 0xe9a91c : 0x5a3a1e, on ? 0.95 : 0.8).fillRoundedRect(-cd.w / 2, -30, cd.w, 60, 10);
@@ -508,7 +508,7 @@
       cd.c.setAlpha(left ? 1 : 0.45);
     });
     var tk = b.taken, secs = Math.max(0, Math.ceil((b.ticks - b.t) * R.battle.tick / 1000)), st = L.frStars(b);
-    this.raidTime.setText(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'));
+    this.frTime.setText(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'));
     this.raidLoot.setText('Crops ' + Math.floor(tk.crops || 0) + '  ·  Eggs/milk ' + Math.floor(tk.produce || 0) + '  ·  Stall ' + Math.floor(tk.stall || 0) + '  ·  Gold ' + Math.floor(tk.gold || 0));
     if (this.raidLoot.width > W - 120) this.raidLoot.setScale((W - 120) / this.raidLoot.width);
     this.raidStars.setText('★★★'.slice(0, st) + '☆☆☆'.slice(st));
@@ -526,7 +526,7 @@
     return true;
   };
   U.raidResult = function (b, prize) {
-    var self = this, h = this.raidBox;
+    var self = this, h = this.frBox;
     if (!h) return;
     var y0 = C.VIEW_H / 2 - 120, card = this.add.graphics();
     card.fillStyle(0x000000, 0.45).fillRect(0, 0, W, C.VIEW_H);
