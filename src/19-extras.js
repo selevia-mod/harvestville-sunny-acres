@@ -11,10 +11,11 @@
   var CHEST_TILE = [9, 3];
   // The horse in its riding saddle (owner's art, 10 Nov 2026: the rider stood on the horse; art-src/battle2/horse_ride.png,
   // tools/art/animals3q-import.js battle2): frames as an animal's (0-2 toward you, 3-5 away, 6-8 sideways, 9 standing, 10
-  // standing sideways, 11 a step). The farmer sits in it: cut at the waist, the waist on the saddle's seat, and the saddle
-  // drawn again over the cut. SEAT: where the seat is in a frame (x, y; the frame is 224 x 252, the feet at 233).
+  // standing sideways, 11 a step). Ridden, the horse and its farmer are ONE picture drawn together (owner: a farmer cut
+  // or stacked on the horse looked "so ugly"): assets/ride_<outfit>_<boy|girl> (art-src/riding, RIDING-ON-HORSE-PROMPTS.md),
+  // the same frames; an outfit without its own rides in the farm clothes (ride_default_<boy|girl>) until it has one.
   if (F.SHEETS) { F.SHEETS.horse_ride = F.SHEETS.animals; F.SHEETS.horse_rideshade = F.SHEETS.animalshade; }
-  var RIDE = { px: 174, sit: 0.9, seat: { side: [134, 128], up: [112, 114], down: [112, 100] }, over: { side: 100, up: 92 }, waist: 292 };
+  var RIDE = { px: 174, ridden: 177 }; // (the horse's width sideways, in its picture: alone, and with its farmer)
 
   var M = {};
 
@@ -45,7 +46,6 @@
           this.horse.ride = true;
           this.horse.sprite.setTexture(F.ensureTexture(this, 'horse_ride'), 10).setScale(hs);
           this.horse.sh.setTexture(F.ensureTexture(this, 'horse_rideshade'), 10).setScale(hs);
-          this.riderFront = this.add.image(0, 0, 'horse_ride', 6).setOrigin(0.5, 233 / 252).setScale(hs).setVisible(false);
         }
       }
     }
@@ -97,57 +97,42 @@
     } else {
       this.player.setVisible(true);
       this.rider.setVisible(false);
-      if (this.riderFront) this.riderFront.setVisible(false);
-      if (this.sitter) this.sitter.setVisible(false);
+      if (h.ridden) this.rideTexture(h, null);
       F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (Math.floor(time / 2600) % 3 === 0 ? 10 : 9), false);
     }
     h.sh.setPosition(h.x, h.y);
     F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
   };
 
-  // Riding in the saddle: the horse's frame and the farmer SITTING in it (owner's seated pictures, 10 Nov 2026, after the
-  // farmer cut at the waist was "still nope"): assets/ride_<outfit> (tools/art/battle2-import.js), 6 frames of 320 x 400:
-  // the boy sideways (facing left), from behind, facing you, then the girl the same. SITTER: where the seat is in each.
-  // An outfit without its own seated picture sits in the farm clothes (ride_default) until it has one.
-  // Toward you, the farmer is behind the horse's head; sideways and from behind, in front of the saddle.
-  var SITTER = { side: [200, 326], up: [161, 322], down: [160, 314] }, SIT_FRAME = { side: 0, up: 1, down: 2 };
-  var SITTERS = { ride_defaultb: { side: [182, 312], up: [161, 308], down: [160, 306] } }; // (a picture drawn otherwise: its own seat)
-  if (F.SHEETS) Object.keys(F.images || {}).forEach(function (k) { if (/^ride_[a-z]+$/.test(k)) F.SHEETS[k] = { frameWidth: 320, frameHeight: 400 }; });
+  // Riding: the horse with its farmer, one picture (see RIDE above)
   M.rideKey = function () {
-    var s = this.state, cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default');
-    if (!F.images[key]) key = 'ride_default';
-    if (!F.images[key]) return null;
-    if (F.SHEETS && !F.SHEETS[key]) F.SHEETS[key] = { frameWidth: 320, frameHeight: 400 };
-    return F.ensureTexture(this, key);
+    var s = this.state, who = s.look === 'girl' ? 'girl' : 'boy', cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default') + '_' + who;
+    if (!F.images[key]) key = 'ride_default_' + who;
+    if (!F.images[key] || !F.images[key + 'shade']) return null;
+    if (F.SHEETS) { F.SHEETS[key] = F.SHEETS.animals; F.SHEETS[key + 'shade'] = F.SHEETS.animalshade; }
+    return key;
+  };
+  // the horse's picture: the ridden one (key), or back to the saddled horse alone (null)
+  M.rideTexture = function (h, key) {
+    var k = key || 'horse_ride', sc = C.HORSE.w * T / (key ? RIDE.ridden : RIDE.px);
+    if (h.sprite.texture.key === k) return;
+    h.sprite.setTexture(F.ensureTexture(this, k), h.sprite.frame.name).setScale(sc);
+    h.sh.setTexture(F.ensureTexture(this, k + 'shade'), h.sh.frame.name).setScale(sc);
+    h.ridden = !!key;
   };
   M.rideSeat = function (h, d, side, flip, time) {
-    var A = F.Anim, k = A.FACING[d] + (this.moving ? A.STEPS[Math.floor(time / 120) % 4] : 0), mirror = side && flip;
-    var hs = h.sprite.scaleX, seat = RIDE.seat[d], sx = (seat[0] - 112) * hs * (mirror ? -1 : 1), sy = (seat[1] - 233) * hs;
-    var bob = this.moving ? Math.abs(Math.sin(time / 120)) * 12 : 0;
+    var A = F.Anim, k = A.FACING[d] + (this.moving ? A.STEPS[Math.floor(time / 120) % 4] : 0), mirror = side && flip, key = this.rideKey();
+    if (key) {
+      this.rideTexture(h, key);
+      this.rider.setVisible(false);
+      return A.show(h, k, mirror);
+    }
+    // (no ridden picture at all: the farmer stands in the saddle, as before)
     A.show(h, k, mirror);
-    var key = this.rideKey();
-    if (this.riderFront) this.riderFront.setVisible(false);
-    if (!key) return;
-    if (!this.sitter || !this.sitter.active) this.sitter = this.add.image(0, 0, key, 0);
-    var r = this.sitter, at = (SITTERS[key] || SITTER)[d], girl = this.state.look === 'girl';
-    this.rider.setVisible(false);
-    if (r.texture.key !== key) r.setTexture(key, 0);
-    // from the hips up (owner, 10 Nov 2026: sitting on top of the saddle "I dont think that is correct"): the seated
-    // farmer, its legs left out, the hips set into the saddle; the saddle's side drawn again over the hips, and the
-    // horse's own boots in the stirrups below. HIPS: where the legs start in each seated frame; HSEAT: in the horse's.
-    var hip = HIPS[d], hseat = HSEAT[d], hx = (hseat[0] - 112) * hs * (mirror ? -1 : 1), hy = (hseat[1] - 233) * hs;
-    r.setVisible(true).setScale(HIP_SCALE).setFrame(SIT_FRAME[d] + (girl ? 3 : 0)).setFlipX(mirror).setCrop(0, 0, 320, hip[1] + 4)
-      .setOrigin((mirror ? 320 - hip[0] : hip[0]) / 320, hip[1] / 400).setPosition(h.x + hx, h.y + hy - bob);
-    F.depthTo(r, DEPTH.actor + h.y / 1e5 + (d === 'down' ? -0.0002 : 0.0004));
-    var fr = this.riderFront;
-    if (!fr || d === 'down') return;
-    var top = HOVER[d];
-    fr.setVisible(true).setFrame(k).setFlipX(mirror).setCrop(0, top, 224, 252 - top).setPosition(h.x, h.y);
-    F.depthTo(fr, DEPTH.actor + h.y / 1e5 + 0.0006);
-    void sx; void sy; void at;
+    this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(mirror).setPosition(h.x + (side ? (mirror ? -30 : 30) : 0), h.y - 20 - (side ? 350 : d === 'up' ? 330 : 370));
+    F.depthTo(this.rider, DEPTH.actor + h.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005));
+    void time;
   };
-  var HIPS = { side: [188, 298], up: [161, 300], down: [160, 292] }, HSEAT = { side: [136, 122], up: [112, 104], down: [112, 98] };
-  var HOVER = { side: 112, up: 98 }, HIP_SCALE = 0.85;
 
   // Indoors and down the mine, the horse waits outside.
   M.beforeTravel = function (to) {
@@ -163,9 +148,8 @@
       this.horse.y = f.y + 20;
     }
     this.player.setVisible(true);
-    if (this.rider) this.rider.setVisible(false).setCrop().setOrigin(0.5, 0.5);
-    if (this.riderFront) this.riderFront.setVisible(false);
-    if (this.sitter) this.sitter.setVisible(false);
+    if (this.rider) this.rider.setVisible(false);
+    if (this.horse && this.horse.ridden) this.rideTexture(this.horse, null);
     this.shadow.setVisible(true);
     this.idle();
   };

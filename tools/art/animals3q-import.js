@@ -82,6 +82,12 @@ const placeSheets = {};
 // The horse with its riding saddle (owner, 10 Nov 2026; art-src/RAID-BATTLE-V2-PROMPTS.md #1): 3 x 3 drawn, made 3 x 4 by
 // tools/art/battle2-import.js (row 4: standing, standing side, a step). node tools/art/animals3q-import.js battle2
 if (fs.existsSync(path.join(ROOT, 'art-src', 'battle2', 'horse_ride_3x4.png'))) SETS.push({ name: 'horse_ride', shade: 'horse_rideshade', dir: 'battle2', ground: 352, store: 0.75, battle2: true, rows: [['horse_ride_3x4', { front: 9, ground: true, fit: true, clean: true, k: 0.5 }]] });
+// the farmer on the horse, drawn together (owner, 10 Nov 2026): each outfit's boy and girl, made 3 x 4 by battle2-import.js
+const RIDE_PAD = path.join(ROOT, 'art-src', 'riding', '_3x4');
+if (fs.existsSync(RIDE_PAD)) fs.readdirSync(RIDE_PAD).filter((f) => /^[a-z]+-(boy|girl)\.png$/.test(f)).forEach((f) => {
+  const n = 'ride_' + f.slice(0, -4).replace('-', '_');
+  SETS.push({ name: n, shade: n + 'shade', dir: 'riding/_3x4', ground: 352, store: 0.75, battle2: true, rows: [[f.slice(0, -4), { front: 9, ground: true, fit: true, clean: true, k: 0.44 }]] });
+});
 const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 

@@ -770,5 +770,21 @@
  "horse_ride": [
   2880,
   268
+ ],
+ "ride_default_boyshade": [
+  2880,
+  268
+ ],
+ "ride_default_boy": [
+  2880,
+  268
+ ],
+ "ride_default_girlshade": [
+  2880,
+  268
+ ],
+ "ride_default_girl": [
+  2880,
+  268
  ]
 }

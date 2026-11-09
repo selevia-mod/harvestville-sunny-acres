@@ -1868,8 +1868,9 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.evaluate(() => { Farm.input.jx = 1; });
   await page.waitForTimeout(300);
   await shot(page, '30-riding');
-  // (owner, 10 Nov 2026: she stood on the horse) the farmer sits in the saddle: the saddled horse, the owner's seated picture
-  assert.ok(await page.evaluate(() => { const w = Farm.world; return w.horse.sprite.texture.key === 'horse_ride' && w.sitter && w.sitter.visible && w.sitter.texture.key === 'ride_default' && !w.rider.visible; }), 'seated in the saddle');
+  // (owner, 10 Nov 2026: she stood on the horse) the horse and its farmer are one picture, drawn together; off it, the
+  // saddled horse alone
+  assert.ok(await page.evaluate(() => { const w = Farm.world; return /^ride_default_(boy|girl)$/.test(w.horse.sprite.texture.key) && !w.rider.visible && !w.player.visible; }), 'riding: the horse with its farmer');
   await page.evaluate(() => { Farm.input.jx = 0; });
   await hold(page, 'turnip');
   assert.strictEqual(await actionLabel(page), 'Sell');
@@ -1880,6 +1881,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   assert.strictEqual(await actionLabel(page), 'Get off');
   await tapAction(page);
   assert.strictEqual(await page.evaluate(() => Farm.session.riding), false);
+  assert.strictEqual(await page.evaluate(() => Farm.world.horse.sprite.texture.key), 'horse_ride', 'off it: the saddled horse alone');
 
   // a heart event with Leo (2 hearts) when you first talk to him today
   await go(page, 'town', 'from_farm');
