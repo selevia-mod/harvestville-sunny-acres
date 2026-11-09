@@ -5,8 +5,8 @@
 --      phone when it saves. A farm with nothing to take is never listed (owner, 9 Nov: skipped).
 --   3. farm.fraid_raids: each raid (the frozen copy, the army, the seed, the result), farm.fraid_points (weekly points),
 --      farm.fraid_secret (the game server's key: only a result the game server replayed is recorded).
---   4. Functions for the phone (signed in): copy_put, find, start, inbox, claim, seen, board. One for the game server
---      (fraid_settle_v1: called with the attacker's token AND the server's key).
+--   4. Functions for the phone (signed in): copy_put, find, start, inbox, claim, seen, board. Two for the game server
+--      (fraid_raid_v1: the raid it checks; fraid_settle_v1: the result, with the attacker's token AND the server's key).
 -- Additive: new tables and new functions only; nothing that exists changes. Safe to run twice.
 set local lock_timeout = '5s';
 create extension if not exists pgcrypto with schema extensions;
@@ -295,6 +295,17 @@ begin
     'prizes', farm.fraid_cfg()->'week_prizes');
 end $$;
 
+-- The game server reads the raid it checks (as the attacker: their own raid only): the frozen copy, the army, the seed.
+create or replace function public.farm_fraid_raid_v1(p_raid uuid)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare uid uuid := auth.uid(); r farm.fraid_raids;
+begin
+  if uid is null then raise exception 'not signed in' using errcode = '28000'; end if;
+  select * into r from farm.fraid_raids where id = p_raid and attacker = uid;
+  if not found then return null; end if;
+  return jsonb_build_object('raid', r.id, 'copy', r.copy, 'army', r.army, 'seed', r.seed, 'cap', r.cap, 'state', r.state, 'expires_at', r.expires_at);
+end $$;
+
 -- ---------- 5. the game server's function ----------
 -- The game server replayed the attacker's drops on the frozen copy (the game's own L.frReplay) and sends the result.
 -- Called with the attacker's own token (the server has it from the phone's connection) AND the server's key.
@@ -330,11 +341,13 @@ end $$;
 
 revoke all on function public.farm_fraid_copy_put_v1(jsonb, int, int, timestamptz), public.farm_fraid_find_v1(text, uuid[]),
   public.farm_fraid_start_v1(uuid, jsonb, uuid, uuid), public.farm_fraid_inbox_v1(), public.farm_fraid_claim_v1(uuid),
-  public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb)
+  public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb),
+  public.farm_fraid_raid_v1(uuid)
   from public, anon, authenticated;
 grant execute on function public.farm_fraid_copy_put_v1(jsonb, int, int, timestamptz), public.farm_fraid_find_v1(text, uuid[]),
   public.farm_fraid_start_v1(uuid, jsonb, uuid, uuid), public.farm_fraid_inbox_v1(), public.farm_fraid_claim_v1(uuid),
-  public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb)
+  public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb),
+  public.farm_fraid_raid_v1(uuid)
   to authenticated;
 reset lock_timeout;
 notify pgrst, 'reload schema';

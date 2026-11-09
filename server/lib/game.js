@@ -26,6 +26,7 @@ class Game {
     this.maps = makeMaps(this.R);
     this.wild = makeWild(this.R);
     this.auth = o.auth; // { check(token, topic) -> Promise<{ uid } | { why }> }
+    this.fraid = o.fraid || null; // Farm Raids: { settle(token, raid, moves) } (lib/fraid.js), or none
     this.now = o.now || Date.now;
     this.rand = o.rand || Math.random;
     this.cap = o.cap || 8;
@@ -91,6 +92,7 @@ class Game {
     if (!msg || typeof msg !== 'object' || typeof msg.t !== 'string') return;
     if (msg.t === 'hi') return this.hello(c, msg);
     if (msg.t === 'pi') return this.send(c, { t: 'po', c: Number(msg.c) || 0, st: now });
+    if (msg.t === 'fr') return this.raidCheck(c, msg); // (a finished Farm Raid: no room needed)
     const room = c.room, p = c.player;
     if (!room || !p) return;
     if (msg.t === 'mv') room.move(p, msg);
@@ -101,6 +103,19 @@ class Game {
     else if (msg.t === 'say') room.say(p, msg); // (a cave's too: friends meet there from their own farms now)
     else if (msg.t === 'em') room.emote(p, msg);
     else if (msg.t === 'lk') room.look(p, msg);
+  }
+  // Farm Raids (lib/fraid.js): one check at a time on a line; the answer is 'frr'.
+  async raidCheck(c, msg) {
+    if (c.frBusy) return;
+    if (!this.fraid || msg.v !== 1) return this.send(c, { t: 'frr', raid: msg.raid, ok: false, code: 'off' });
+    c.frBusy = true;
+    let r;
+    try { r = await this.fraid.settle(msg.token, msg.raid, msg.moves); } catch (e) { r = { ok: false, code: 'error' }; }
+    c.frBusy = false;
+    this.stats.raids = (this.stats.raids || 0) + 1;
+    if (r && r.ok) this.log('[game] farm raid checked: ' + r.stars + ' stars, ' + r.prize + ' Gold');
+    else this.log('[game] farm raid not recorded: ' + (r && r.code));
+    if (c.open) this.send(c, Object.assign({ t: 'frr', raid: msg.raid }, r));
   }
   // A phone this far behind on what we sent (it misses ticks until it catches up).
   behind(c) { return c.sock.bufferedAmount > BUSY_BYTES; }
