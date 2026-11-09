@@ -11138,11 +11138,15 @@ var GEAR_ALL = (1 << C.GEAR.length) - 1;
 C.TIPS.push({ key: 'hunt_together_tour', text: 'HUNTING TOGETHER' }, { key: 'hunt_dog_tour', text: 'YOUR DOG COMES HUNTING' },
 { key: 'gear_tour', text: "HUNTER'S GEAR" });
 
+
+
+
 var place = function (s, key) {
 var i = C.TIPS.map(function (t) { return t.key; }).indexOf(key);
 if (i < 0) return null;
-return i < FIRST ? { k: 'tips', bit: i } : { k: 'tq', bit: i - FIRST };
+return i < FIRST ? { k: 'tips', bit: i } : i < FIRST + 32 ? { k: 'tq', bit: i - FIRST } : { k: 'tq2', bit: i - FIRST - 32 };
 };
+var int32 = function (v) { return (Math.floor(Number(v)) || 0) | 0; };
 L.takeTip = function (s, key) {
 var p = place(s, key);
 if (!p || ((s[p.k] || 0) >> p.bit) & 1) return null;
@@ -11178,13 +11182,15 @@ var newState = L.newState;
 L.newState = function (info) {
 var s = newState(info);
 s.tq = 0;
+s.tq2 = 0;
 s.hg = 0;
 return s;
 };
 var serialize = L.serialize;
 L.serialize = function (s) {
 var o = serialize(s);
-if (s.tq) o.tq = s.tq;
+if (s.tq) o.tq = s.tq | 0;
+if (s.tq2) o.tz = s.tq2 | 0;
 if (L.gearBits(s)) o.hg = L.gearBits(s);
 return o;
 };
@@ -11192,7 +11198,8 @@ var deserialize = L.deserialize;
 L.deserialize = function (o) {
 var s = deserialize(o);
 if (!s) return s;
-s.tq = Math.max(0, Math.min(2147483647, Math.floor(Number(o.tq)) || 0));
+s.tq = int32(o.tq);
+s.tq2 = int32(o.tz);
 s.hg = (Math.floor(Number(o.hg)) || 0) & GEAR_ALL;
 return s;
 };
