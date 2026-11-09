@@ -5587,6 +5587,10 @@ O.cats.filter(function (c) { return c[0] === 'workshops'; })[0][2] = 'A Bakery, 
 C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
 
 C.FRAID_FX = ['bees', 'pebble', 'water', 'mud', 'honk', 'star', 'puff'];
+
+
+C.FRAID.daily = 5;
+C.FRAID.real = { energy: 10, nextGold: 50, shieldHours: 8 };
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logic.js
@@ -16881,6 +16885,115 @@ pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key
 };
 }
 return s;
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZ-raids2.js
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var R = C.FRAID;
+
+L.frCopyValue = function (farm) {
+var v = R.lootValue;
+return Math.round(((farm && farm.loot) || []).reduce(function (sum, p) { return sum + (p.n || 0) * (v[p.kind] || 1); }, 0));
+};
+
+L.frRealFarm = function (copy, cap, seed) {
+var share = Math.max(0, Math.min(1, Number(cap) || 0)), rnd = L.frRand((seed >>> 0) ^ 0x5bd1e995);
+var crops = [], other = [];
+(copy.loot || []).forEach(function (p) { (p.kind === 'crops' ? crops : other).push(p); });
+
+var order = crops.map(function (p, i) { return { p: p, k: rnd(), i: i }; }).sort(function (a, b) { return a.k - b.k || a.i - b.i; });
+var keep = Math.ceil(crops.length * share);
+var loot = order.slice(0, keep).sort(function (a, b) { return a.i - b.i; }).map(function (o) { return { kind: 'crops', x: o.p.x, y: o.p.y, n: o.p.n || 1 }; });
+other.forEach(function (p) { var n = Math.ceil((p.n || 0) * share); if (n > 0) loot.push({ kind: p.kind, x: p.x, y: p.y, n: n }); });
+var farm = { w: copy.w, h: copy.h, solid: copy.solid, defs: (copy.defs || []).map(function (d) { return { t: d.t, x: d.x, y: d.y, lv: Math.max(1, Math.min(5, d.lv || 1)), strong: !!d.strong }; }),
+loot: loot, name: copy.name || '' };
+farm.drop = copy.drop && copy.drop.length === copy.w * copy.h ? copy.drop : L.frDropCells(farm);
+return farm;
+};
+
+L.frArmyOk = function (army) {
+if (!army || typeof army !== 'object') return false;
+var most = R.camp.levels[R.camp.levels.length - 1].space, used = 0, ok = true;
+Object.keys(army).forEach(function (k) {
+var a = army[k], d = R.raiders[k];
+if (!d || !a || !(a.n >= 0) || a.n !== Math.floor(a.n) || !(a.lv >= 1 && a.lv <= R.level.mult.length)) { ok = false; return; }
+used += a.n * d.space;
+});
+return ok && used <= most;
+};
+
+L.frTaken = function (b) {
+var v = R.lootValue, out = { w: b.farm.w, items: [], crops: 0, produce: 0, stall: 0, gold: 0, value: 0 };
+b.loot.forEach(function (p) {
+var n = Math.round(p.n - Math.max(0, p.left));
+if (n <= 0) return;
+out.items.push([p.kind, Math.floor(p.x), Math.floor(p.y), n]);
+out[p.kind] = (out[p.kind] || 0) + n;
+out.value += n * (v[p.kind] || 1);
+});
+out.value = Math.round(out.value);
+return out;
+};
+
+
+L.frStallLoot = function (s) { return (s.shelves || []).reduce(function (sum, e) { return sum + (e && !e.coins && e.n > 0 ? e.n : 0); }, 0); };
+L.frGoldPot = function (s) { return L.standCoins ? L.standCoins(s) : 0; };
+L.frProduceLoot = function (s) { return (s.animals || []).reduce(function (sum, a) { return sum + (!a.young && a.ready ? a.ready : 0); }, 0); };
+
+
+
+L.frLoss = function (s, taken, w) {
+var lost = { crops: 0, produce: 0, stall: 0, gold: 0 }, width = (taken && taken.w) || w;
+((taken && taken.items) || []).forEach(function (it) {
+var kind = it[0], x = it[1], y = it[2], n = it[3];
+if (kind === 'crops') {
+var t = s.soil && s.soil[y * width + x];
+if (!t || !t.c || !L.isRipe(t)) return;
+var crop = C.CROPS[t.c];
+t.w = 0;
+if (crop && crop.regrow) { t.p = L.nowMin(); t.r = 1; } else { t.c = null; t.p = 0; t.r = 0; delete t.h; }
+lost.crops++;
+} else if (kind === 'produce') {
+(s.animals || []).forEach(function (a) { if (n > 0 && !a.young && a.ready) { var k = Math.min(n, a.ready); a.ready -= k; n -= k; lost.produce += k; } });
+} else if (kind === 'stall') {
+(s.shelves || []).forEach(function (e, i) {
+if (n <= 0 || !e || e.coins || !(e.n > 0)) return;
+var k = Math.min(n, e.n);
+e.n -= k; n -= k; lost.stall += k;
+if (e.n <= 0) s.shelves[i] = null;
+});
+} else if (kind === 'gold') {
+(s.shelves || []).forEach(function (e, i) {
+if (n <= 0 || !e || !e.coins) return;
+var k = Math.min(n, e.coins);
+e.coins -= k; n -= k; lost.gold += k;
+if (e.coins <= 0) s.shelves[i] = null;
+});
+}
+});
+return lost;
+};
+
+
+L.frWin = function (s, prize, points) {
+var r = L.frState(s);
+s.gold += Math.max(0, Math.floor(prize) || 0);
+r.pts += Math.max(0, Math.floor(points) || 0);
 };
 })(window.Farm = window.Farm || {});
 
@@ -47786,6 +47899,13 @@ rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name
 buttons: lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
 });
 } else {
+
+if (self.raidFind) {
+rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid a player', desc: 'A real farm near your power. ' + R.daily + ' raids a day, ' + R.real.energy + ' energy each.',
+buttons: [{ label: 'Find', color: RED, cb: function () { self.raidFind([]); } }] });
+rows.push({ icon: C.ICON.ri_points != null ? C.ICON.ri_points : C.ICON.star, name: 'Raid Points this week', desc: 'The top raiders win Gold every week.',
+buttons: [{ label: 'Board', color: BLUE, cb: function () { self.raidBoard(); } }] });
+}
 R.bandits.forEach(function (b, i) {
 var stars = r.won[b.key] || 0, open = L.banditOpen(s, i);
 rows.push({ icon: C.ICON.ri_bandit != null ? C.ICON.ri_bandit : C.ICON.chest, name: b.name + '  ' + ['\u2606\u2606\u2606', '\u2605\u2606\u2606', '\u2605\u2605\u2606', '\u2605\u2605\u2605'][stars], desc: open ? 'Up to ' + b.loot.gold.toLocaleString('en-US') + ' Gold and its crops, eggs and stall goods.' : 'Win a star on the one before.',
@@ -48158,10 +48278,10 @@ card.fillStyle(0xfff6dc, 1).fillRoundedRect(24, y0, W - 48, 230, 18).lineStyle(3
 card.setInteractive(new Phaser.Geom.Rectangle(0, 0, W, C.VIEW_H), Phaser.Geom.Rectangle.Contains);
 h.add(card);
 var line = function (y, str, size, color) { var t = self.add.text(W / 2, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color || INK, fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setResolution(F.R); h.add(t); return t; };
-line(y0 + 28, prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over', 18);
+line(y0 + 28, prize.title || (prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over'), 18);
 if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '\u2605\u2605\u2605'.slice(0, prize.stars) + '\u2606\u2606\u2606'.slice(prize.stars), 30, '#e9a91c');
 line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
-line(y0 + 136, prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   \u00b7   +' + prize.pts + ' Raid Points', 14, '#2f5a22');
+line(y0 + 136, prize.line || (prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   \u00b7   +' + prize.pts + ' Raid Points'), 14, '#2f5a22');
 var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
 bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
 btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);
@@ -48222,8 +48342,9 @@ return s;
 };
 
 
-P.raidFarm = function () {
-var self = this, s = this.state, w = this.map.width, h = this.map.height, b = F.session.raid, defs = [], loot = [], skip = {};
+
+P.raidFarm = function (opts) {
+var self = this, s = this.state, w = this.map.width, h = this.map.height, b = opts || F.session.raid, defs = [], loot = [], skip = {};
 var lv = function (k) { return b.levels ? b.levels[k] || 1 : 1; };
 
 s.yard.items.forEach(function (it) {
@@ -48246,8 +48367,8 @@ if (!t.c || L.cropStage(t) !== 3) return;
 var i = Number(idx);
 loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
 });
-var grown = s.animals.filter(function (a) { return !a.young; }).length;
-if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown * 2 });
+var grown = opts ? opts.produce || 0 : s.animals.filter(function (a) { return !a.young; }).length * 2;
+if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown });
 if (door) {
 var dx = door.x0, dy = door.y1 + 1;
 loot.push({ kind: 'gold', x: dx, y: dy, n: b.gold || 0 });
@@ -48257,7 +48378,7 @@ loot = loot.filter(function (p) { return p.n > 0; });
 
 var solid = [];
 for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) solid.push(!skip[y * w + x] && (!this.inMap(x, y) || !this.walkable(x, y) || this.blocked[this.idx(x, y)]) ? '1' : '0');
-var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: F.session.visit.name };
+var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '' };
 farm.drop = L.frDropCells(farm);
 void self;
 return farm;
@@ -48290,7 +48411,7 @@ var back = F.session.raid && F.session.raid.kind;
 F.session.raid = null;
 if (F.ui && F.ui.raidHudOff) F.ui.raidHudOff();
 F.Online.leaveVisit(null);
-if (back && F.ui) F.ui.time.delayedCall(900, function () { if (F.ui.openRaidCamp) F.ui.openRaidCamp('practice'); });
+if (back && back !== 'replay' && F.ui) F.ui.time.delayedCall(900, function () { if (F.ui.openRaidCamp) F.ui.openRaidCamp('practice'); });
 };
 
 
@@ -48308,7 +48429,8 @@ this.time.delayedCall(50, function () { self.raidSetup(); });
 P.raidSetup = function () {
 this.scene.bringToTop('UI');
 var self = this, rd = F.session.raid, cam = this.cameras.main;
-this.raidB = L.frStart(this.raidFarm(), rd.army, rd.seed);
+
+this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed) : this.raidFarm(), rd.army, rd.seed);
 this.raidAcc = 0;
 this.raidStarted = false;
 this.raidUnits = {};
@@ -48402,7 +48524,7 @@ var b = this.raidB, hold = this.raidDown;
 if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
 if (this.raidStarted && !b.end) {
 this.raidAcc += Math.min(delta, 250);
-while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; L.frStep(b); this.raidEvents(ev); }
+while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; if (this.raidReplayDrops) this.raidReplayDrops(); L.frStep(b); this.raidEvents(ev); }
 F.ui.raidHudRefresh();
 if (b.end) this.raidFinish();
 }
@@ -48567,6 +48689,310 @@ if (!s.dog && s.banditDefs.dog) s.dog = { name: 'Bantay', love: 0, pet: 0 };
 };
 var b0 = function (v) { return v || 0; };
 void setupYard;
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var R = C.FRAID;
+var U = F.UIScene.prototype;
+var P = F.WorldScene.prototype;
+var O = F.Online;
+var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
+var noop = function () {};
+var FR = F.FR = { copyAt: 0, copyEvery: 60000, inboxAt: 0, inboxEvery: 120000, serverWait: 15000 };
+var online = function () { return !!(F.Net.available() && O.on && O.me); };
+var requestId = function () {
+if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); });
+};
+var own = function (w) { return w && w.mapKey === 'farm' && !F.session.visit && !F.session.raid && w.state === F.session.state; };
+var plural = function (n, one, many) { return n + ' ' + (n === 1 ? one : many || one + 's'); };
+
+
+C.TIPS.push({ key: 'fraid_real_tour', text: 'RAID A PLAYER' });
+var ri = function (k) { return C.ICON['ri_' + k] != null ? C.ICON['ri_' + k] : C.ICON.star; };
+var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+F.TOURS.fraid = {
+title: 'RAID A PLAYER',
+steps: [
+{
+text: 'Raid a real farm near your power. You see its loot first; Next finds another for a little Gold.',
+draw: function (ui, sc, move) {
+var a = icon(ui, sc, 70, 70, ri('flag'), 0.38), b = icon(ui, sc, 190, 70, ri('points'), 0.34);
+if (move) ui.tweens.add({ targets: [a, b], y: 60, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+},
+},
+{
+text: 'You take only part of its loot: more from a stronger farm. ' + R.daily + ' raids a day; raiding breaks your own shield.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 80, 70, ri('goat'), 0.32);
+var s = icon(ui, sc, 180, 70, ri('shield'), 0.36);
+if (move) ui.tweens.add({ targets: s, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+},
+},
+{
+text: 'Raided? You see who and what they took, watch a Replay, and get a free Revenge. Your farm is then safe for 8 hours.',
+draw: function (ui, sc, move) {
+var d = icon(ui, sc, 90, 70, C.ICON.dog, 0.34);
+icon(ui, sc, 180, 70, ri('shield'), 0.36);
+if (move) ui.tweens.add({ targets: d, angle: { from: -8, to: 8 }, duration: 300, yoyo: true, repeat: -1 });
+},
+},
+],
+};
+
+
+P.raidCopy = function () {
+var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, name: O.myName() });
+farm.loot = farm.loot.slice(0, 300);
+farm.value = L.frCopyValue(farm);
+return farm;
+};
+FR.sendCopy = function (w, force) {
+if (!own(w) || !online() || !w.map) return null;
+var now = Date.now();
+if (!force && now - FR.copyAt < FR.copyEvery) return null;
+FR.copyAt = now;
+var s = w.state, copy;
+try { copy = w.raidCopy(); } catch (e) { return null; }
+var left = L.shieldLeft(s, now);
+return F.Net.rpc('farm_fraid_copy_put_v1', { p_copy: copy, p_power: L.farmPower(s), p_loot: copy.value, p_shield_until: left > 0 ? new Date(now + left).toISOString() : null }).catch(noop);
+};
+var save = P.save;
+P.save = function () {
+save.call(this);
+FR.sendCopy(this, false);
+};
+
+
+
+FR.check = function (raid, moves) {
+var url = window.gameHost && window.gameHost.gs;
+if (!url || typeof WebSocket === 'undefined') return Promise.resolve({ ok: false, code: 'off' });
+return F.Net.token().then(function (token) {
+if (!token) return { ok: false, code: 'token' };
+return new Promise(function (resolve) {
+var ws, done = false, finish = function (r) { if (done) return; done = true; clearTimeout(t); try { ws.close(); } catch (e) {   } resolve(r); };
+var t = setTimeout(function () { finish({ ok: false, code: 'slow' }); }, FR.serverWait);
+try { ws = new WebSocket(url); } catch (e) { return finish({ ok: false, code: 'socket' }); }
+ws.onopen = function () { ws.send(JSON.stringify({ t: 'fr', v: 1, token: token, raid: raid, moves: moves })); };
+ws.onmessage = function (e) { var m = null; try { m = JSON.parse(e.data); } catch (x) { return; } if (m && m.t === 'frr' && m.raid === raid) finish(m); };
+ws.onerror = ws.onclose = function () { finish({ ok: false, code: 'closed' }); };
+});
+}, function () { return { ok: false, code: 'token' }; });
+};
+
+
+
+var start = F.raidFarmStart;
+F.raidFarmStart = function (opts) {
+if (opts.kind === 'replay') return replay(opts.raid);
+if (opts.kind !== 'real') return start(opts);
+var mine = F.session.state, army = L.frArmy(mine), cost = R.real.energy;
+if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
+if (!opts.revenge && mine.energy < cost && !(L.powered && L.powered(mine))) { sfx('nope'); return F.ui.toast('A raid takes ' + cost + ' energy.', 2400); }
+if (FR.starting) return null;
+FR.starting = true;
+F.ui.toast('Marching out...', 1500);
+return F.Net.rpc('farm_fraid_start_v1', { p_target: opts.target || null, p_army: army, p_request_id: requestId(), p_revenge: opts.revenge || null }).then(function (r) {
+FR.starting = false;
+if (!r || !r.ok) { sfx('nope'); return F.ui.toast(startWhy(r && r.code), 2600); }
+if (!r.look) { sfx('nope'); return F.ui.toast('That farm can\'t be raided right now.', 2400); }
+if (!opts.revenge) L.spendEnergy(mine, cost);
+L.shieldBreak(mine);
+F.Host.save(mine);
+var st = L.visitState(r.look, mine);
+st.isVisit = true;
+F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge };
+F.session.visit = { host: 'raid', name: L.cleanText(r.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
+F.session.riding = false;
+F.ui.closeAll();
+O.restartWorld();
+return true;
+}, function () { FR.starting = false; sfx('nope'); F.ui.toast('No connection. Try again in a moment.', 2400); });
+};
+var startWhy = function (code) {
+return ({ daily: 'That\'s ' + R.daily + ' raids today. More tomorrow!', 'in-raid': 'Finish your raid first.', shield: 'That farm is shielded now.',
+busy: 'Someone is raiding that farm right now.', 'new': 'That farm is too new to raid.', empty: 'That farm has nothing out to take.',
+'no-revenge': 'That revenge was already used.', off: 'Raids are closed for now.', 'account-unavailable': 'Raids aren\'t open for your account.' })[code] || 'That farm can\'t be raided right now.';
+};
+var replay = function (row) {
+var mine = F.session.state, st = L.visitState(L.snapshot(mine), mine);
+st.isVisit = true;
+F.session.raid = { kind: 'replay', copy: row.copy, cap: Number(row.cap) || 0, seed: row.seed, army: row.army, moves: row.moves || [], mi: 0 };
+F.session.visit = { host: 'raid', name: 'Replay: ' + (L.cleanText(row.name, 20) || 'a raid'), state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
+F.session.riding = false;
+F.ui.closeAll();
+O.restartWorld();
+};
+
+P.raidReplayDrops = function () {
+var rd = F.session.raid, b = this.raidB;
+if (!rd || rd.kind !== 'replay' || !b) return;
+while (rd.mi < rd.moves.length && rd.moves[rd.mi][0] <= b.t) { var m = rd.moves[rd.mi++]; if (m[0] === b.t) L.frDrop(b, m[1], m[2], m[3]); }
+};
+var setup = P.raidSetup;
+P.raidSetup = function () {
+setup.call(this);
+var rd = F.session.raid;
+if (rd && rd.kind === 'replay') { this.raidStarted = true; if (F.ui.raidSay) F.ui.raidSay('A replay of the raid on your farm.'); }
+};
+
+
+var finish = P.raidFinish;
+P.raidFinish = function () {
+var rd = F.session.raid;
+if (!rd || (rd.kind !== 'real' && rd.kind !== 'replay')) return finish.call(this);
+if (this.raidDone) return;
+this.raidDone = true;
+var s = F.session.state, b = this.raidB, ui = F.ui, stars = L.frStars(b);
+if (rd.kind === 'replay') {
+sfx('nope');
+return ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'The raid on your farm', line: 'They took ' + Math.round(L.frShare(b) * 100) + '% of what they could reach' });
+}
+var used = {};
+b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
+L.frUse(s, used);
+F.Host.save(s);
+if (ui.raidSay) ui.raidSay('Checking your raid...');
+FR.check(rd.raid, b.moves).then(function (r) {
+if (!ui.frBox) return;
+if (r && r.ok) {
+L.frWin(s, r.prize, r.points);
+F.Host.save(s);
+F.Net.rpc('farm_fraid_claim_v1', { p_raid: rd.raid }).catch(noop);
+sfx(r.stars ? 'fanfare' : 'nope');
+return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0 });
+}
+sfx('nope');
+ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'Raid over', line: r && r.code === 'slow' || r && r.code === 'closed' ? 'Checking it: the prize comes next time' : 'This raid could not be counted' });
+});
+};
+
+
+FR.inbox = function (w) {
+if (!own(w) || !online()) return null;
+var now = Date.now();
+if (now - FR.inboxAt < FR.inboxEvery) return null;
+FR.inboxAt = now;
+return F.Net.rpc('farm_fraid_inbox_v1', {}).then(function (r) {
+if (!r || !F.world || !own(F.world)) return;
+var s = F.session.state, gold = 0;
+(r.won || []).forEach(function (x) {
+F.Net.rpc('farm_fraid_claim_v1', { p_raid: x.raid }).then(function (ok) {
+if (ok !== 'ok') return;
+L.frWin(s, x.prize, x.points);
+gold += x.prize || 0;
+F.Host.save(s);
+F.ui.toast('Your raid on ' + (L.cleanText(x.name, 20) || 'a farm') + ' counted: +' + (x.prize || 0).toLocaleString('en-US') + ' Gold', 2800, 0x2f5a22);
+}).catch(noop);
+});
+var lost = (r.lost || []).slice(-5);
+lost.forEach(function (x) { lose(x); });
+if (lost.length) F.Host.save(s);
+if (lost.length) showLost(lost, 0);
+void gold;
+}).catch(noop);
+};
+
+var lose = function (x) {
+var s = F.session.state, w = F.world;
+x.lost = L.frLoss(s, x.taken || {}, x.taken && x.taken.w);
+if (w && w.refreshTile && x.taken && x.taken.items) x.taken.items.forEach(function (it) { if (it[0] === 'crops') { try { w.refreshTile(it[2] * x.taken.w + it[1]); } catch (e) {   } } });
+F.bus.emit('hud');
+F.Net.rpc('farm_fraid_seen_v1', { p_raid: x.raid }).catch(noop);
+};
+var lostText = function (x) {
+var l = x.lost || {}, bits = [];
+if (l.crops) bits.push(plural(l.crops, 'crop'));
+if (l.produce) bits.push(l.produce + ' eggs and milk');
+if (l.stall) bits.push(plural(l.stall, 'stall good'));
+if (l.gold) bits.push(l.gold.toLocaleString('en-US') + ' Gold from the stall');
+return bits.length ? 'They took ' + bits.join(', ') + '.' : 'They took nothing that was still there.';
+};
+var showLost = function (list, i) {
+var x = list[i], ui = F.ui;
+if (!x) return;
+sfx('nope');
+var stars = Math.max(0, Math.min(3, x.stars || 0)), next = function () { showLost(list, i + 1); };
+var buttons = [{ label: 'Replay', color: 0x4a90c9, cb: function () { F.raidFarmStart({ kind: 'replay', raid: x }); } }];
+if (x.revenge) buttons.push({ label: 'Revenge', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', revenge: x.raid }); } });
+buttons.push({ label: 'OK', cb: next });
+ui.dialog('YOUR FARM WAS RAIDED!\n' + (L.cleanText(x.name, 20) || 'A farm') + ' raided you: ' + '\u2605\u2605\u2605'.slice(0, stars) + '\u2606\u2606\u2606'.slice(stars) + '\n' + lostText(x) +
+'\nYour farm is safe for ' + R.real.shieldHours + ' hours.', buttons);
+};
+var create = P.create;
+P.create = function () {
+create.call(this);
+var self = this;
+if (own(this)) this.time.delayedCall(2500, function () { if (self.sys && self.sys.isActive()) { FR.inbox(self); FR.sendCopy(self, false); } });
+};
+
+
+U.raidFind = function (skip) {
+var self = this, s = F.session.state;
+if (!online()) { sfx('nope'); return this.toast('Raiding players needs online play.', 2400); }
+if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'fraid_real_tour')) {
+if (F.world) F.world.save();
+return this.tour('fraid', function () { self.raidFind(skip); });
+}
+if (F.world && own(F.world)) FR.sendCopy(F.world, true);
+this.toast('Looking for a farm...', 1200);
+var ask = function (tries) {
+return F.Net.rpc('farm_fraid_find_v1', { p_mode: 'random', p_skip: skip || [] }).then(function (r) {
+if (r && !r.ok && r.code === 'no-copy' && tries < 3) return new Promise(function (ok) { setTimeout(ok, 1500); }).then(function () { return ask(tries + 1); });
+return r;
+});
+};
+ask(0).then(function (r) {
+if (!r || !r.ok) { sfx('nope'); return self.toast(r && r.code === 'off' ? 'Raids are closed for now.' : 'No farm to raid right now. Try again soon.', 2400); }
+var f = (r.farms || [])[0];
+if (!f) { sfx('nope'); return self.toast('No farm near your power to raid right now. Try again later.', 2600); }
+var next = Number(r.next_gold) || R.real.nextGold, take = Math.round(f.loot * f.cap);
+self.closeAll();
+self.dialog('RAID ' + (L.cleanText(f.name, 20) || 'A FARM').toUpperCase() + '?\nPower ' + f.power + ' (yours ' + L.farmPower(s) + ')\nOut in the open: about ' +
+take.toLocaleString('en-US') + ' Gold\'s worth for you to take.\nA raid takes ' + R.real.energy + ' energy.', [
+{ label: 'Next ' + next + 'G', color: 0x4a90c9, cb: function () {
+if (s.gold < next) { sfx('nope'); return self.toast('Not enough Gold.', 2000); }
+s.gold -= next;
+F.Host.save(s);
+F.bus.emit('hud');
+self.raidFind((skip || []).concat([f.id]));
+} },
+{ label: 'Raid', color: 0xc0503a, cb: function () { F.raidFarmStart({ kind: 'real', target: f.id }); } },
+]);
+}, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
+};
+U.raidBoard = function () {
+var self = this;
+if (!online()) { sfx('nope'); return this.toast('The board needs online play.', 2400); }
+F.Net.rpc('farm_fraid_board_v1', {}).then(function (r) {
+if (!r) return;
+var rows = (r.top || []).slice(0, 30).map(function (x, i) {
+var mine = O.me && x.id === O.me.id, prize = (r.prizes || [])[i];
+return { icon: i < 3 ? C.ICON.ri_points != null ? C.ICON.ri_points : C.ICON.star : C.ICON.star, name: (i + 1) + '. ' + (L.cleanText(x.name, 20) || 'A farm') + (mine ? ' (you)' : ''),
+desc: x.points.toLocaleString('en-US') + ' Raid Points' + (prize ? '. Prize: ' + Number(prize).toLocaleString('en-US') + ' Gold' : '') };
+});
+if (!rows.length) rows.push({ icon: C.ICON.star, name: 'No raids yet this week', desc: 'Be the first: raid a player from the Raid Camp.' });
+self.closeAll();
+self.listPanel({ title: 'Raid Points', rows: rows, slim: true, sub: function () { return 'This week: you have ' + (r.me || 0).toLocaleString('en-US') + ' Raid Points'; } });
+}, function () { sfx('nope'); self.toast('No connection. Try again in a moment.', 2400); });
+};
 })(window.Farm = window.Farm || {});
 
 // ---- src/20-main.js

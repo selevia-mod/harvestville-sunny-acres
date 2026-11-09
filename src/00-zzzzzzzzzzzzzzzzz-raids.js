@@ -105,4 +105,8 @@
   C.FRAID_YARD_DEF = { scarecrow: 'scarecrow' };
   // the battle's effects: frames of assets/raid_fx (tools/art/raids-import.js, prompt #7), in this order
   C.FRAID_FX = ['bees', 'pebble', 'water', 'mud', 'honk', 'star', 'puff'];
+  // step 2, real raids between players (the server's own numbers are in farm.fraid_config, part 25; these are what the phone
+  // shows and takes: keep them the same)
+  C.FRAID.daily = 5;
+  C.FRAID.real = { energy: 10, nextGold: 50, shieldHours: 8 };
 })(window.Farm = window.Farm || {});

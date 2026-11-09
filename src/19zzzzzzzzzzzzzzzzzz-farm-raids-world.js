@@ -28,8 +28,9 @@
   };
 
   // ---------- the battle's farm, from the world on screen ----------
-  P.raidFarm = function () {
-    var self = this, s = this.state, w = this.map.width, h = this.map.height, b = F.session.raid, defs = [], loot = [], skip = {};
+  // opts (a farm's own raid copy, 19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js): { gold, stall, produce, levels, name }
+  P.raidFarm = function (opts) {
+    var self = this, s = this.state, w = this.map.width, h = this.map.height, b = opts || F.session.raid, defs = [], loot = [], skip = {};
     var lv = function (k) { return b.levels ? b.levels[k] || 1 : 1; };
     // defenses from the yard: fences (all kinds), the new pieces, scarecrows
     s.yard.items.forEach(function (it) {
@@ -52,8 +53,8 @@
       var i = Number(idx);
       loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
     });
-    var grown = s.animals.filter(function (a) { return !a.young; }).length;
-    if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown * 2 });
+    var grown = opts ? opts.produce || 0 : s.animals.filter(function (a) { return !a.young; }).length * 2; // (a real farm: its eggs and milk waiting)
+    if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown });
     if (door) {
       var dx = door.x0, dy = door.y1 + 1;
       loot.push({ kind: 'gold', x: dx, y: dy, n: b.gold || 0 });
@@ -63,7 +64,7 @@
     // the walls: what you cannot walk on, but the defenses' tiles
     var solid = [];
     for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) solid.push(!skip[y * w + x] && (!this.inMap(x, y) || !this.walkable(x, y) || this.blocked[this.idx(x, y)]) ? '1' : '0');
-    var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: F.session.visit.name };
+    var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '' };
     farm.drop = L.frDropCells(farm);
     void self;
     return farm;
@@ -96,7 +97,7 @@
     F.session.raid = null;
     if (F.ui && F.ui.raidHudOff) F.ui.raidHudOff();
     F.Online.leaveVisit(null);
-    if (back && F.ui) F.ui.time.delayedCall(900, function () { if (F.ui.openRaidCamp) F.ui.openRaidCamp('practice'); });
+    if (back && back !== 'replay' && F.ui) F.ui.time.delayedCall(900, function () { if (F.ui.openRaidCamp) F.ui.openRaidCamp('practice'); });
   };
 
   // ---------- the world in a raid ----------
@@ -114,7 +115,8 @@
   P.raidSetup = function () {
     this.scene.bringToTop('UI'); // (a restart from inside a restart can leave the farm over the buttons)
     var self = this, rd = F.session.raid, cam = this.cameras.main;
-    this.raidB = L.frStart(this.raidFarm(), rd.army, rd.seed);
+    // (a real raid or its replay: the defender's frozen copy, only its share of the loot: 01-logicZZZZZZZZZZZZ-raids2.js)
+    this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed) : this.raidFarm(), rd.army, rd.seed);
     this.raidAcc = 0;
     this.raidStarted = false;
     this.raidUnits = {};
@@ -208,7 +210,7 @@
     if (hold && hold.deploy && !b.end && Date.now() - hold.at > 220) { hold.at = Date.now(); this.raidDropAt(hold.last.x, hold.last.y, true); }
     if (this.raidStarted && !b.end) {
       this.raidAcc += Math.min(delta, 250);
-      while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; L.frStep(b); this.raidEvents(ev); }
+      while (this.raidAcc >= R.battle.tick && !b.end) { this.raidAcc -= R.battle.tick; var ev = b.events.length; if (this.raidReplayDrops) this.raidReplayDrops(); L.frStep(b); this.raidEvents(ev); }
       F.ui.raidHudRefresh();
       if (b.end) this.raidFinish();
     }

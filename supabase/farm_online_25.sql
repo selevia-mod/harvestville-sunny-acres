@@ -137,6 +137,7 @@ begin
   if fc.updated_at < now() - make_interval(days => (c->>'copy_days')::int) then return 'away'; end if;
   select * into pl from farm.players where user_id = p_target;
   if not found or pl.hidden then return 'gone'; end if;
+  if not exists (select 1 from farm.snapshots where user_id = p_target) then return 'gone'; end if; -- (nothing to draw it from)
   if pl.created_at > now() - make_interval(days => (c->>'new_days')::int) then return 'new'; end if;
   if coalesce(fc.shield_until, '-infinity') > now() or coalesce(fc.raided_until, '-infinity') > now() then return 'shield'; end if;
   if exists (select 1 from farm.fraid_raids where defender = p_target and state = 'open' and expires_at > now()) then return 'busy'; end if;
@@ -239,7 +240,8 @@ begin
   -- raiding another player breaks my own shields (owner: "it breaks when you raid another player's farm")
   update farm.fraid_copies set shield_until = null, raided_until = null where user_id = uid;
   return jsonb_build_object('ok', true, 'raid', r.id, 'name', (select farm_name from farm.players where user_id = target),
-    'copy', r.copy, 'seed', r.seed, 'cap', r.cap, 'expires_at', r.expires_at, 'shield_broken', true);
+    'copy', r.copy, 'seed', r.seed, 'cap', r.cap, 'expires_at', r.expires_at, 'shield_broken', true,
+    'look', (select data from farm.snapshots where user_id = target)); -- (the farm as a visit draws it)
 end $$;
 
 -- What waits for me: my raids' prizes not yet taken, and raids on my farm not yet seen.
@@ -253,7 +255,7 @@ begin
       'points', r.points, 'taken', r.taken) order by r.settled_at) from farm.fraid_raids r left join farm.players pl on pl.user_id = r.defender
       where r.attacker = uid and r.state = 'done' and r.claimed_at is null), '[]'),
     'lost', coalesce((select jsonb_agg(jsonb_build_object('raid', r.id, 'by', r.attacker, 'name', pl.farm_name, 'stars', r.stars,
-      'taken', r.taken, 'at', r.settled_at, 'revenge', r.revenged_at is null, 'copy', r.copy, 'army', r.army, 'seed', r.seed,
+      'taken', r.taken, 'at', r.settled_at, 'revenge', r.revenged_at is null, 'copy', r.copy, 'army', r.army, 'seed', r.seed, 'cap', r.cap,
       'moves', r.moves) order by r.settled_at) from farm.fraid_raids r left join farm.players pl on pl.user_id = r.attacker
       where r.defender = uid and r.state = 'done' and r.seen_at is null and r.settled_at > now() - interval '30 days'), '[]'),
     'shield_until', (select raided_until from farm.fraid_copies where user_id = uid));

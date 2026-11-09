@@ -170,6 +170,13 @@
           buttons: lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
       });
     } else {
+      // step 2 (19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js): real farms first, then the board
+      if (self.raidFind) {
+        rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid a player', desc: 'A real farm near your power. ' + R.daily + ' raids a day, ' + R.real.energy + ' energy each.',
+          buttons: [{ label: 'Find', color: RED, cb: function () { self.raidFind([]); } }] });
+        rows.push({ icon: C.ICON.ri_points != null ? C.ICON.ri_points : C.ICON.star, name: 'Raid Points this week', desc: 'The top raiders win Gold every week.',
+          buttons: [{ label: 'Board', color: BLUE, cb: function () { self.raidBoard(); } }] });
+      }
       R.bandits.forEach(function (b, i) {
         var stars = r.won[b.key] || 0, open = L.banditOpen(s, i);
         rows.push({ icon: C.ICON.ri_bandit != null ? C.ICON.ri_bandit : C.ICON.chest, name: b.name + '  ' + ['☆☆☆', '★☆☆', '★★☆', '★★★'][stars], desc: open ? 'Up to ' + b.loot.gold.toLocaleString('en-US') + ' Gold and its crops, eggs and stall goods.' : 'Win a star on the one before.',
@@ -542,10 +549,10 @@
     card.setInteractive(new Phaser.Geom.Rectangle(0, 0, W, C.VIEW_H), Phaser.Geom.Rectangle.Contains); // (keeps taps off the farm)
     h.add(card);
     var line = function (y, str, size, color) { var t = self.add.text(W / 2, y, str, { fontFamily: FONT(), fontSize: size + 'px', color: color || INK, fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setResolution(F.R); h.add(t); return t; };
-    line(y0 + 28, prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over', 18);
+    line(y0 + 28, prize.title || (prize.test ? 'Your farm\'s test' : prize.stars ? 'Raid won!' : 'Raid over'), 18); // (title / line: a real raid's, 19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js)
     if (!F.raidGoldStars(this, h, W / 2, y0 + 70, prize.stars)) line(y0 + 66, '★★★'.slice(0, prize.stars) + '☆☆☆'.slice(prize.stars), 30, '#e9a91c');
     line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
-    line(y0 + 136, prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points', 14, '#2f5a22');
+    line(y0 + 136, prize.line || (prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points'), 14, '#2f5a22');
     var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
     bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
     btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);

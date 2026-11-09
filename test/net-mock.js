@@ -40,6 +40,69 @@ function createServer() {
     return uid;
   };
 
+  const rpcFraid = {};
+  // Farm Raids step 2 (supabase/farm_online_25.sql, the same rules in short; the game server's part is server/lib/fraid.js)
+  db.fraid = { copies: new Map(), raids: [], points: new Map(), key: 'fraid-test-key', cfg: { daily: 5, lock: 180000, shieldMs: 8 * 3600000, nextGold: 50, energy: 10 } };
+  const frCap = (mine, theirs) => { const r = Math.max(theirs, 1) / Math.max(mine, 1); if (r >= 1.5) return 0.3; if (r <= 0.6667) return 0.1; if (r >= 1) return 0.2 + 0.1 * (r - 1) / 0.5; return 0.1 + 0.1 * (r - 0.6667) / (1 - 0.6667); };
+  const frWhyNot = (t, by) => {
+    const f = db.fraid.copies.get(t), now = Date.now();
+    if (t === by) return 'self';
+    if (!f || f.loot <= 0) return 'empty';
+    if (!db.players.has(t) || !db.snaps.has(t)) return 'gone';
+    if ((f.shield || 0) > now || (f.raided || 0) > now) return 'shield';
+    if (db.fraid.raids.some((r) => r.defender === t && r.state === 'open' && r.expires > now)) return 'busy';
+    if (blocked(t, by)) return 'blocked';
+    return null;
+  };
+  Object.assign(rpcFraid, {
+    farm_fraid_copy_put_v1(uid, a) { need(uid); db.fraid.copies.set(uid, { copy: a.p_copy, power: a.p_power | 0, loot: a.p_loot | 0, shield: a.p_shield_until ? Date.parse(a.p_shield_until) : 0, raided: (db.fraid.copies.get(uid) || {}).raided || 0 }); return 'ok'; },
+    farm_fraid_find_v1(uid, a) {
+      need(uid);
+      const me = db.fraid.copies.get(uid);
+      if (!me) return { ok: false, code: 'no-copy' };
+      const farms = [...db.fraid.copies.keys()].filter((id) => !(a.p_skip || []).includes(id) && !frWhyNot(id, uid))
+        .map((id) => { const f = db.fraid.copies.get(id); return { id, name: db.players.get(id).farm_name, power: f.power, loot: f.loot, cap: frCap(me.power, f.power) }; });
+      return { ok: true, farms: a.p_mode === 'random' ? farms.slice(0, 1) : farms, next_gold: db.fraid.cfg.nextGold, energy: db.fraid.cfg.energy };
+    },
+    farm_fraid_start_v1(uid, a) {
+      need(uid);
+      let target = a.p_target, rv = null;
+      if (a.p_revenge) { rv = db.fraid.raids.find((r) => r.id === a.p_revenge && r.defender === uid && r.state === 'done' && !r.revenged); if (!rv) return { ok: false, code: 'no-revenge' }; target = rv.attacker; }
+      if (db.fraid.raids.some((r) => r.attacker === uid && r.state === 'open' && r.expires > Date.now())) return { ok: false, code: 'in-raid' };
+      if (!rv && db.fraid.raids.filter((r) => r.attacker === uid && !r.revengeOf).length >= db.fraid.cfg.daily) return { ok: false, code: 'daily' };
+      const why = frWhyNot(target, uid);
+      if (why && !(rv && (why === 'shield' || why === 'new'))) return { ok: false, code: why };
+      const f = db.fraid.copies.get(target), me = db.fraid.copies.get(uid);
+      const r = { id: crypto.randomUUID(), attacker: uid, defender: target, copy: f.copy, army: a.p_army, seed: 1 + crypto.randomInt(2147483646), cap: frCap(me ? me.power : f.power, f.power), revengeOf: rv ? rv.id : null, state: 'open', expires: Date.now() + db.fraid.cfg.lock };
+      db.fraid.raids.push(r);
+      if (rv) rv.revenged = true;
+      if (me) { me.shield = 0; me.raided = 0; }
+      return { ok: true, raid: r.id, name: db.players.get(target).farm_name, copy: r.copy, seed: r.seed, cap: r.cap, look: db.snaps.get(target).data, shield_broken: true };
+    },
+    farm_fraid_raid_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid); return r ? { raid: r.id, copy: r.copy, army: r.army, seed: r.seed, cap: r.cap, state: r.state } : null; },
+    farm_fraid_settle_v1(uid, a) {
+      if (a.p_key !== db.fraid.key) return { ok: false, code: 'key' };
+      const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid);
+      if (!r) return { ok: false, code: 'none' };
+      if (r.state === 'done') return { ok: true, duplicate: true, stars: r.stars, prize: r.prize, points: r.points };
+      const value = Math.max(0, Math.min(a.p_taken.value | 0, Math.ceil((r.copy.value || 0) * r.cap)));
+      Object.assign(r, { state: 'done', stars: a.p_stars, taken: Object.assign({}, a.p_taken, { value }), moves: a.p_moves, prize: value, points: [2, 10, 25, 50][a.p_stars], settled: Date.now() });
+      db.fraid.points.set(uid, (db.fraid.points.get(uid) || 0) + r.points);
+      const d = db.fraid.copies.get(r.defender); if (d) d.raided = Date.now() + db.fraid.cfg.shieldMs;
+      return { ok: true, stars: r.stars, prize: r.prize, points: r.points };
+    },
+    farm_fraid_inbox_v1(uid) {
+      need(uid);
+      const name = (id) => (db.players.get(id) || {}).farm_name;
+      return {
+        won: db.fraid.raids.filter((r) => r.attacker === uid && r.state === 'done' && !r.claimed).map((r) => ({ raid: r.id, name: name(r.defender), stars: r.stars, prize: r.prize, points: r.points, taken: r.taken })),
+        lost: db.fraid.raids.filter((r) => r.defender === uid && r.state === 'done' && !r.seen).map((r) => ({ raid: r.id, by: r.attacker, name: name(r.attacker), stars: r.stars, taken: r.taken, revenge: !r.revenged, copy: r.copy, army: r.army, seed: r.seed, cap: r.cap, moves: r.moves })),
+      };
+    },
+    farm_fraid_claim_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid && x.state === 'done'); if (!r) return 'none'; if (r.claimed) return 'already'; r.claimed = true; return 'ok'; },
+    farm_fraid_seen_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.defender === uid && x.state === 'done'); if (!r) return 'none'; if (r.seen) return 'already'; r.seen = true; return 'ok'; },
+    farm_fraid_board_v1(uid) { need(uid); return { week: 'this', top: [...db.fraid.points].sort((a, b) => b[1] - a[1]).map(([id, p]) => ({ id, name: db.players.get(id).farm_name, points: p })), me: db.fraid.points.get(uid) || 0, prizes: [20000, 10000, 5000] }; },
+  });
   const rpc = {
     farm_join_v1(uid, a) {
       if (!uid) throw new Error('not signed in');
@@ -856,7 +919,7 @@ function createServer() {
       // (access_token: what the game server checks, test/e2e-gameserver.test.js: 'test-token:<uid>' here)
       auth: { getSession: async () => ({ data: { session: uid ? { user: { id: uid }, access_token: 'test-token:' + uid } : null }, error: null }) },
       async rpc(name, args) {
-        const fn = rpc[name];
+        const fn = rpc[name] || rpcFraid[name];
         if (!fn) return { data: null, error: { message: 'Could not find the function ' + name } };
         try { return { data: JSON.parse(JSON.stringify(fn(uid, args || {}) ?? null)), error: null }; } catch (e) { return { data: null, error: { message: e.message } }; }
       },
