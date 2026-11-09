@@ -206,10 +206,11 @@
     return x < e || y < e || x >= w - e || y >= h - e;
   };
   // where raiders may come down on a real farm: open ground at least R.battle.keep tiles from any loot or defense
+  // (farm.keep: a real farm's red zone, R.battle.keepReal; farm.noDrop: '1' where raiders never come down: the field, the pen)
   L.frDropCells = function (farm) {
-    var w = farm.w, h = farm.h, out = [], keep = R.battle.keep, things = farm.loot.concat(farm.defs);
+    var w = farm.w, h = farm.h, out = [], keep = farm.keep || R.battle.keep, things = farm.loot.concat(farm.defs), nd = farm.noDrop;
     for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-      var ok = !(farm.solid && farm.solid.charCodeAt(y * w + x) === 49) && !things.some(function (o) { return Math.abs(o.x - x) < keep && Math.abs(o.y - y) < keep; });
+      var ok = !(farm.solid && farm.solid.charCodeAt(y * w + x) === 49) && !(nd && nd.charCodeAt(y * w + x) === 49) && !things.some(function (o) { return Math.abs(o.x - x) < keep && Math.abs(o.y - y) < keep; });
       out.push(ok ? '1' : '0');
     }
     return out.join('');
@@ -265,6 +266,36 @@
     if (!list.length) list = defsOf(function () { return true; });
     list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
     return best;
+  };
+  // ---------- how many defenses a farm may have (R.caps) ----------
+  L.defenseCap = function (s, k, camp) {
+    var c = R.caps, row = c && c[k];
+    if (!row) return Infinity;
+    var lv = camp != null ? camp : L.frState(s).camp;
+    return row[c.tier[Math.max(0, Math.min(c.tier.length - 1, lv || 0))]];
+  };
+  // how many of that defense a farm owns (on the farm and in storage); type: its yard piece
+  L.defenseOwned = function (s, t) {
+    return s.yard.items.filter(function (it) { return it.t === t; }).length + (s.yard.bag[t] || 0);
+  };
+  var buyYard = L.buyYard;
+  L.buyYard = function (s, t, n) {
+    var type = C.OUTDOOR.types[t];
+    if (type && type.defense && L.defenseOwned(s, t) + (n || 1) > L.defenseCap(s, type.defense)) return 'cap';
+    return buyYard(s, t, n);
+  };
+  // a farm's defenses as a raid sees them: of each kind only as many as its camp allows (the rest: decoration); a Strong
+  // Fence past its number is a plain fence
+  L.frCapDefs = function (defs, camp) {
+    var seen = {};
+    return defs.filter(function (d) {
+      var k = d.t === 'fence' ? (d.strong ? 'fence' : null) : d.t;
+      if (!k) return true;
+      seen[k] = (seen[k] || 0) + 1;
+      if (seen[k] <= L.defenseCap(null, k, camp)) return true;
+      if (d.t === 'fence') { d.strong = false; return true; }
+      return false;
+    });
   };
   // a defense's level: hp, damage, a mud pit's hold and a scare's reach x this (R.defLevel.mult; raiders: R.level.mult)
   L.frDefMult = function (lv) { var m = R.defLevel.mult || R.level.mult; return m[Math.max(1, Math.min(m.length, lv || 1)) - 1]; };

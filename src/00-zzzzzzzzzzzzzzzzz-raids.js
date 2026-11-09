@@ -5,7 +5,7 @@
   'use strict';
   var C = F.Config;
   C.FRAID = {
-    battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 }, // (keep: on a real farm, raiders come down this many tiles from anything: nearly anywhere in the field) // a battle: 2 minutes, 10 steps a second, a 16 x 22 farm (a phone held upright)
+    battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2, keepReal: 3 }, // (keepReal, owner 10 Nov 2026: a real farm's red zone: 3 tiles round every crop, defense and loot, and never on the field or in the pen) // (keep: on a real farm, raiders come down this many tiles from anything: nearly anywhere in the field) // a battle: 2 minutes, 10 steps a second, a 16 x 22 farm (a phone held upright)
     // the Raid Camp: its level opens raiders and makes the raid party bigger (housing space)
     // (owner, 9 Nov 2026: "Upgrading camp is too easy, i was camp 7 instant": each level now needs lumber, stone, things
     // from hunting and building time (mins); the camp still raids and trains while it builds)
@@ -58,6 +58,11 @@
     defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
     // a defense's level (9 Nov 2026, owner: "a strategic game": a max camp must not always win): its own, steeper curve
     defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.4, 1.9, 2.5, 3.2] },
+    // how many of each a farm may have, by its Raid Camp's level (owner, 10 Nov 2026: "If I can buy 100 tower, looks like
+    // it was imbalance"; like a Town Hall's limits). tier: camp level 0-7 -> a column. More than that: the rest are only
+    // decoration in a raid. fence: Strong Fences (plain fences are walls, as before)
+    caps: { tier: [0, 0, 0, 1, 1, 2, 2, 3], tower: [1, 2, 3, 4], goose: [1, 2, 2, 3], beebox: [1, 2, 3, 3], sprinkler: [0, 1, 2, 3], kampana: [0, 1, 1, 1],
+      mudpit: [2, 3, 4, 5], sili: [2, 3, 4, 5], scarecrow: [4, 4, 5, 6], fence: [20, 40, 60, 80] },
     counter: 3, // a defense hits the raider it beats (its 'beats') this many times harder
     // loot: the cap by power (owner: 10% .. 30%), stars at 50% / 100% of the cap and the main building
     loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },

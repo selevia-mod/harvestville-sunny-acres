@@ -468,6 +468,7 @@
                 var r = L.buyYard(s, i, n);
                 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
                 if (r === 'have' || r === 'max') { sfx('nope'); return self.toast(r === 'have' ? 'You have one already.' : 'You have all of them already.'); }
+                if (r === 'cap') { sfx('nope'); return self.toast('That is all your Raid Camp allows. Upgrade it for more.'); } // (19zzzz...-farm-raids.js)
                 if (r !== 'ok') { sfx('nope'); return self.toast("Mira can't sell that right now."); }
                 sfx('coin');
                 world().changed();

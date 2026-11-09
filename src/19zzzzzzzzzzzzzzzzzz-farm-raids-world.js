@@ -65,8 +65,18 @@
     // the walls: what you cannot walk on, but the defenses' tiles
     var solid = [];
     for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) solid.push(!skip[y * w + x] && (!this.inMap(x, y) || !this.walkable(x, y) || this.blocked[this.idx(x, y)]) ? '1' : '0');
-    var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '' };
+    // only as many of each defense as the farm's Raid Camp allows (a bandit farm: its own list)
+    if (!s.banditDefs) defs = L.frCapDefs(defs, opts && opts.camp != null ? opts.camp : L.frState(F.session.state).camp);
+    // where raiders never come down (owner, 10 Nov 2026: "Attacker can put raider in the middle of the farm, my defense
+    // cant put in the middle"): the field and a tile round it, the pen; and 3 tiles from any crop, defense or loot
+    var nd = new Uint8Array(w * h), fi = F.farm && F.farm();
+    var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
+    ((fi && fi.field) || []).forEach(function (i) { var fx = i % w, fy = (i - fx) / w; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy); });
+    ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
+    var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
+      noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
     farm.drop = L.frDropCells(farm);
+    delete farm.noDrop; // (the drop cells carry it; the copy stays small)
     void self;
     return farm;
   };

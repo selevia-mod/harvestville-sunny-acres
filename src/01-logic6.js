@@ -91,7 +91,7 @@
     for (var x = 0; x < W; x++) { noPlace[x] = noPlace[(H - 1) * W + x] = 1; }
     for (var y = 0; y < H; y++) { noPlace[y * W] = noPlace[y * W + W - 1] = 1; }
     if (field.length) needs.push(field);
-    return { w: W, h: H, noPlace: noPlace, solid: solid, start: start, needs: needs };
+    return { w: W, h: H, noPlace: noPlace, solid: solid, start: start, needs: needs, field: field };
   };
 
   // ---------- pieces ----------

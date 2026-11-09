@@ -89,6 +89,7 @@
     if (!s.yard.bag[t]) {
       var r = L.buyYard(s, t, 1);
       if (r === 'gold') { sfx('nope'); return this.toast('Not enough Gold.'); }
+      if (r === 'cap') { sfx('nope'); return this.toast('That is all your Raid Camp allows. Upgrade it for more.'); }
       if (r !== 'ok') { sfx('nope'); return this.toast("Mira can't sell that right now."); }
       sfx('coin');
       if (w) { w.changed(); w.save(); }
@@ -207,11 +208,13 @@
         var d = R.defenses[k], lv = L.defenseLv(s, k), gold = R.defLevel.gold[lv];
         var pic = F.defensePic(self, k), sz = pic.key === 'items' ? null : { key: pic.key, frame: pic.frame, w: 128, h: 128 };
         var t = OD.index['def_' + k] != null ? OD.index['def_' + k] : k === 'scarecrow' ? OD.index.scarecrow : null, type = t != null ? OD.types[t] : null;
-        var placed = t != null ? onFarm(t) : 0, stored = t != null ? s.yard.bag[t] || 0 : 0;
+        var placed = t != null ? onFarm(t) : 0, stored = t != null ? s.yard.bag[t] || 0 : 0, cap = L.defenseCap(s, k), full = isFinite(cap) && placed + stored >= cap;
+        // (owner, 10 Nov 2026: a limit per camp level, like a Town Hall's)
+        var lim = isFinite(cap) ? (k === 'scarecrow' ? ' (' + cap + ' fight in a raid)' : ' of ' + cap) : '';
         var where = k === 'dog' ? (s.dog ? 'Your dog guards the farm. ' : 'Adopt a dog to guard the farm. ')
-          : type ? placed + ' on your farm' + (stored ? ', ' + stored + ' in storage' : '') + '. ' : '';
+          : type ? placed + lim + ' on your farm' + (stored ? ', ' + stored + ' in storage' : '') + '. ' + (full && type.defense ? (cap ? 'A bigger Raid Camp allows more. ' : 'A bigger Raid Camp opens it. ') : '') : '';
         var btns = [];
-        if (type) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
+        if (type && (stored || !full || !type.defense)) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
         if (lv < 5) btns.push({ label: 'Lv ' + (lv + 1) + ' ' + gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), 'Every ' + d.name + ' is level ' + (lv + 1) + '!'); } });
         rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: where + d.say, buttons: btns });
       });

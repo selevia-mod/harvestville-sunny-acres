@@ -64,7 +64,7 @@
 
   // ---------- your farm's raid copy ----------
   P.raidCopy = function () {
-    var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, name: O.myName() });
+    var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, camp: L.frState(s).camp, name: O.myName() });
     farm.loot = farm.loot.slice(0, 300);
     farm.value = L.frCopyValue(farm);
     return farm;

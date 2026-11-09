@@ -5490,7 +5490,7 @@ C.STORY_RECIPES = { fiesta_pandesal: { dish: 'fiesta_pandesal', needs: ['wheat',
 'use strict';
 var C = F.Config;
 C.FRAID = {
-battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 },
+battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2, keepReal: 3 },
 
 
 
@@ -5543,6 +5543,11 @@ kampana: { name: 'Kampana', hp: 100, dps: 0, range: 6, alarm: 1.3, beats: 'bayaw
 defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
 
 defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.4, 1.9, 2.5, 3.2] },
+
+
+
+caps: { tier: [0, 0, 0, 1, 1, 2, 2, 3], tower: [1, 2, 3, 4], goose: [1, 2, 2, 3], beebox: [1, 2, 3, 3], sprinkler: [0, 1, 2, 3], kampana: [0, 1, 1, 1],
+mudpit: [2, 3, 4, 5], sili: [2, 3, 4, 5], scarecrow: [4, 4, 5, 6], fence: [20, 40, 60, 80] },
 counter: 3,
 
 loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
@@ -8276,7 +8281,7 @@ needs.push(group);
 for (var x = 0; x < W; x++) { noPlace[x] = noPlace[(H - 1) * W + x] = 1; }
 for (var y = 0; y < H; y++) { noPlace[y * W] = noPlace[y * W + W - 1] = 1; }
 if (field.length) needs.push(field);
-return { w: W, h: H, noPlace: noPlace, solid: solid, start: start, needs: needs };
+return { w: W, h: H, noPlace: noPlace, solid: solid, start: start, needs: needs, field: field };
 };
 
 
@@ -16695,10 +16700,11 @@ if (b.farm.drop) return b.farm.drop.charCodeAt(y * w + x) === 49;
 return x < e || y < e || x >= w - e || y >= h - e;
 };
 
+
 L.frDropCells = function (farm) {
-var w = farm.w, h = farm.h, out = [], keep = R.battle.keep, things = farm.loot.concat(farm.defs);
+var w = farm.w, h = farm.h, out = [], keep = farm.keep || R.battle.keep, things = farm.loot.concat(farm.defs), nd = farm.noDrop;
 for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-var ok = !(farm.solid && farm.solid.charCodeAt(y * w + x) === 49) && !things.some(function (o) { return Math.abs(o.x - x) < keep && Math.abs(o.y - y) < keep; });
+var ok = !(farm.solid && farm.solid.charCodeAt(y * w + x) === 49) && !(nd && nd.charCodeAt(y * w + x) === 49) && !things.some(function (o) { return Math.abs(o.x - x) < keep && Math.abs(o.y - y) < keep; });
 out.push(ok ? '1' : '0');
 }
 return out.join('');
@@ -16754,6 +16760,36 @@ if (!list.length) list = lootOf(null);
 if (!list.length) list = defsOf(function () { return true; });
 list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
 return best;
+};
+
+L.defenseCap = function (s, k, camp) {
+var c = R.caps, row = c && c[k];
+if (!row) return Infinity;
+var lv = camp != null ? camp : L.frState(s).camp;
+return row[c.tier[Math.max(0, Math.min(c.tier.length - 1, lv || 0))]];
+};
+
+L.defenseOwned = function (s, t) {
+return s.yard.items.filter(function (it) { return it.t === t; }).length + (s.yard.bag[t] || 0);
+};
+var buyYard = L.buyYard;
+L.buyYard = function (s, t, n) {
+var type = C.OUTDOOR.types[t];
+if (type && type.defense && L.defenseOwned(s, t) + (n || 1) > L.defenseCap(s, type.defense)) return 'cap';
+return buyYard(s, t, n);
+};
+
+
+L.frCapDefs = function (defs, camp) {
+var seen = {};
+return defs.filter(function (d) {
+var k = d.t === 'fence' ? (d.strong ? 'fence' : null) : d.t;
+if (!k) return true;
+seen[k] = (seen[k] || 0) + 1;
+if (seen[k] <= L.defenseCap(null, k, camp)) return true;
+if (d.t === 'fence') { d.strong = false; return true; }
+return false;
+});
 };
 
 L.frDefMult = function (lv) { var m = R.defLevel.mult || R.level.mult; return m[Math.max(1, Math.min(m.length, lv || 1)) - 1]; };
@@ -25124,6 +25160,7 @@ label: 'Buy ' + (n > 1 ? n + ' ' : '') + price * n + 'G', color: k ? BLUE : GREE
 var r = L.buyYard(s, i, n);
 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
 if (r === 'have' || r === 'max') { sfx('nope'); return self.toast(r === 'have' ? 'You have one already.' : 'You have all of them already.'); }
+if (r === 'cap') { sfx('nope'); return self.toast('That is all your Raid Camp allows. Upgrade it for more.'); }
 if (r !== 'ok') { sfx('nope'); return self.toast("Mira can't sell that right now."); }
 sfx('coin');
 world().changed();
@@ -48250,6 +48287,7 @@ var s = F.session.state, w = F.world;
 if (!s.yard.bag[t]) {
 var r = L.buyYard(s, t, 1);
 if (r === 'gold') { sfx('nope'); return this.toast('Not enough Gold.'); }
+if (r === 'cap') { sfx('nope'); return this.toast('That is all your Raid Camp allows. Upgrade it for more.'); }
 if (r !== 'ok') { sfx('nope'); return this.toast("Mira can't sell that right now."); }
 sfx('coin');
 if (w) { w.changed(); w.save(); }
@@ -48368,11 +48406,13 @@ R.defenseOrder.forEach(function (k) {
 var d = R.defenses[k], lv = L.defenseLv(s, k), gold = R.defLevel.gold[lv];
 var pic = F.defensePic(self, k), sz = pic.key === 'items' ? null : { key: pic.key, frame: pic.frame, w: 128, h: 128 };
 var t = OD.index['def_' + k] != null ? OD.index['def_' + k] : k === 'scarecrow' ? OD.index.scarecrow : null, type = t != null ? OD.types[t] : null;
-var placed = t != null ? onFarm(t) : 0, stored = t != null ? s.yard.bag[t] || 0 : 0;
+var placed = t != null ? onFarm(t) : 0, stored = t != null ? s.yard.bag[t] || 0 : 0, cap = L.defenseCap(s, k), full = isFinite(cap) && placed + stored >= cap;
+
+var lim = isFinite(cap) ? (k === 'scarecrow' ? ' (' + cap + ' fight in a raid)' : ' of ' + cap) : '';
 var where = k === 'dog' ? (s.dog ? 'Your dog guards the farm. ' : 'Adopt a dog to guard the farm. ')
-: type ? placed + ' on your farm' + (stored ? ', ' + stored + ' in storage' : '') + '. ' : '';
+: type ? placed + lim + ' on your farm' + (stored ? ', ' + stored + ' in storage' : '') + '. ' + (full && type.defense ? (cap ? 'A bigger Raid Camp allows more. ' : 'A bigger Raid Camp opens it. ') : '') : '';
 var btns = [];
-if (type) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
+if (type && (stored || !full || !type.defense)) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
 if (lv < 5) btns.push({ label: 'Lv ' + (lv + 1) + ' ' + gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), 'Every ' + d.name + ' is level ' + (lv + 1) + '!'); } });
 rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: where + d.say, buttons: btns });
 });
@@ -48861,8 +48901,18 @@ loot = loot.filter(function (p) { return p.n > 0; });
 
 var solid = [];
 for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) solid.push(!skip[y * w + x] && (!this.inMap(x, y) || !this.walkable(x, y) || this.blocked[this.idx(x, y)]) ? '1' : '0');
-var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '' };
+
+if (!s.banditDefs) defs = L.frCapDefs(defs, opts && opts.camp != null ? opts.camp : L.frState(F.session.state).camp);
+
+
+var nd = new Uint8Array(w * h), fi = F.farm && F.farm();
+var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
+((fi && fi.field) || []).forEach(function (i) { var fx = i % w, fy = (i - fx) / w; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy); });
+((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
+var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
+noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
 farm.drop = L.frDropCells(farm);
+delete farm.noDrop;
 void self;
 return farm;
 };
@@ -49252,7 +49302,7 @@ if (move) ui.tweens.add({ targets: d, angle: { from: -8, to: 8 }, duration: 300,
 
 
 P.raidCopy = function () {
-var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, name: O.myName() });
+var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, camp: L.frState(s).camp, name: O.myName() });
 farm.loot = farm.loot.slice(0, 300);
 farm.value = L.frCopyValue(farm);
 return farm;

@@ -332,7 +332,7 @@ test('the Raid Camp sells and places defenses (owner, 10 Nov 2026: "i bought all
   await page.evaluate(() => { const s = Farm.session.state; s.gold = 20000; Farm.Logic.frState(s).camp = 3; Farm.ui.openRaidCamp('defenses', 0); });
   await page.waitForTimeout(400);
   const txt = await modalText(page);
-  assert.match(txt, /Guard Goose.*0 on your farm/, txt.slice(0, 300));
+  assert.match(txt, /Guard Goose.*0 of 2 on your farm/, txt.slice(0, 300)); // (camp 3: two geese)
   assert.match(txt, /Buy 1,500G/);
   assert.match(txt, /Lv 2 2,000G/);
   const t = await page.evaluate(() => Farm.Config.OUTDOOR.index.def_goose);

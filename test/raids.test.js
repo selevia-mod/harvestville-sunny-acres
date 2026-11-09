@@ -159,3 +159,34 @@ test('the Farm Shield (owner): a story chapter gives one; used, 24 hours safe; a
   L.shieldBreak(s);
   assert.strictEqual(L.shieldLeft(s, now), 0);
 });
+
+test('a defense limit per Raid Camp level (owner, 10 Nov 2026: "If I can buy 100 tower, looks like it was imbalance")', () => {
+  const s = L.newState({ fieldTiles: [] }), O = C.OUTDOOR, t = O.index.def_tower;
+  s.gold = 1e6;
+  L.frState(s).camp = 1;
+  assert.strictEqual(L.defenseCap(s, 'tower'), 1);
+  assert.strictEqual(L.buyYard(s, t, 1), 'ok');
+  assert.strictEqual(L.buyYard(s, t, 1), 'cap', 'one tower at camp 1');
+  s.fr.camp = 7;
+  assert.strictEqual(L.defenseCap(s, 'tower'), 4);
+  for (let i = 0; i < 3; i++) assert.strictEqual(L.buyYard(s, t, 1), 'ok');
+  assert.strictEqual(L.buyYard(s, t, 1), 'cap', 'four at camp 7');
+  assert.strictEqual(L.buyYard(s, O.index.wood_fence != null ? O.index.wood_fence : 0, 5), 'ok', 'plain pieces: no limit');
+  // a raid sees only as many as the camp allows; extra Strong Fences are plain fences
+  const defs = [...Array(6)].map(() => ({ t: 'tower' })).concat([...Array(30)].map(() => ({ t: 'fence', strong: true })));
+  const seen = L.frCapDefs(defs, 1);
+  assert.strictEqual(seen.filter((d) => d.t === 'tower').length, 1);
+  assert.strictEqual(seen.filter((d) => d.t === 'fence').length, 30, 'every fence still a wall');
+  assert.strictEqual(seen.filter((d) => d.t === 'fence' && d.strong).length, 20, 'only 20 strong at camp 1');
+});
+
+test('a real farm: raiders never come down on the field, in the pen or within 3 tiles of a crop or defense', () => {
+  const solid = '0'.repeat(20 * 10), nd = [...solid].map((c, i) => (i % 20 < 5 ? '1' : '0')).join('');
+  const farm = { w: 20, h: 10, solid, noDrop: nd, keep: 3, defs: [{ t: 'tower', x: 15, y: 5 }], loot: [{ kind: 'crops', x: 10, y: 2, n: 1 }] };
+  const d = L.frDropCells(farm);
+  const at = (x, y) => d[y * 20 + x] === '1';
+  assert.ok(!at(2, 5), 'the field');
+  assert.ok(!at(17, 5) && !at(13, 5), '3 tiles round a defense');
+  assert.ok(!at(10, 4) && at(10, 6), '3 tiles round a crop');
+  assert.ok(at(8, 8), 'open ground');
+});
