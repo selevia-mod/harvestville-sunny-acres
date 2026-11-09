@@ -90,11 +90,12 @@
     // (owner, 9 Nov 2026, with raids every night: Gold that a day can use up, and a Power-Up for the hardest work;
     // lumber goes to your lumber, not the bag)
     chests: [
-      { min: 10, name: 'Helper\'s Chest', gold: 1000, items: [['fert', 2]] },
-      { min: 80, name: 'Defender\'s Chest', gold: 2000, items: [['fert', 4], ['arrows', 100]] },
-      { min: 200, name: 'Hero\'s Chest', gold: 3000, items: [['fert_rich', 3], ['power_up', 1]], lumber: 20 },
+      { min: 10, name: 'Helper\'s Chest', gold: 500, items: [['fert', 2]] },
+      { min: 80, name: 'Defender\'s Chest', gold: 1000, items: [['fert', 4], ['arrows', 100]] },
+      { min: 200, name: 'Hero\'s Chest', gold: 1500, items: [['fert_rich', 3], ['power_up', 1]], lumber: 20 },
     ],
-    wonGold: 1.5,
+    // (owner, 9 Nov 2026: about 1-2 days of a typical player's farming; a town win gives no extra Gold, it has its banner)
+    wonGold: 1,
     // The bonus day (owner: "crops grow faster or Double Drops for the rest of the day, you choose"): Double Drops from
     // the end of a won raid until midnight (Manila) at the end of the NEXT day, so Tuesday or Friday is a whole bonus day.
     bonus: { kind: 'double', days: 1 },
