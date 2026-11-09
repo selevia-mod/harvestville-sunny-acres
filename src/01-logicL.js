@@ -12,11 +12,15 @@
   C.TIPS.push({ key: 'hunt_together_tour', text: 'HUNTING TOGETHER' }, { key: 'hunt_dog_tour', text: 'YOUR DOG COMES HUNTING' },
     { key: 'gear_tour', text: "HUNTER'S GEAR" });
 
+  // s.tq holds the next 32 (its bit 31 too: tip 62, 'dog_name', is there, so tq is a signed 32-bit number); the ones after
+  // that go in s.tq2 (saved 'tz'), 32 more. (9 Nov 2026: tq was loaded as 0..2^31-1, so a save with bit 31 set came back as 0
+  // and lost every tour in it; and tip 63 shifted by 32, which JS reads as 0, so it took tip 31's place.)
   var place = function (s, key) {
     var i = C.TIPS.map(function (t) { return t.key; }).indexOf(key);
     if (i < 0) return null;
-    return i < FIRST ? { k: 'tips', bit: i } : { k: 'tq', bit: i - FIRST };
+    return i < FIRST ? { k: 'tips', bit: i } : i < FIRST + 32 ? { k: 'tq', bit: i - FIRST } : { k: 'tq2', bit: i - FIRST - 32 };
   };
+  var int32 = function (v) { return (Math.floor(Number(v)) || 0) | 0; };
   L.takeTip = function (s, key) {
     var p = place(s, key);
     if (!p || ((s[p.k] || 0) >> p.bit) & 1) return null;
@@ -52,13 +56,15 @@
   L.newState = function (info) {
     var s = newState(info);
     s.tq = 0;
+    s.tq2 = 0;
     s.hg = 0;
     return s;
   };
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s);
-    if (s.tq) o.tq = s.tq;
+    if (s.tq) o.tq = s.tq | 0;
+    if (s.tq2) o.tz = s.tq2 | 0;
     if (L.gearBits(s)) o.hg = L.gearBits(s);
     return o;
   };
@@ -66,7 +72,8 @@
   L.deserialize = function (o) {
     var s = deserialize(o);
     if (!s) return s;
-    s.tq = Math.max(0, Math.min(2147483647, Math.floor(Number(o.tq)) || 0));
+    s.tq = int32(o.tq);
+    s.tq2 = int32(o.tz);
     s.hg = (Math.floor(Number(o.hg)) || 0) & GEAR_ALL;
     return s;
   };
