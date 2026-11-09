@@ -208,6 +208,18 @@
           F.ui.toast('Your raid on ' + (L.cleanText(x.name, 20) || 'a farm') + ' counted: +' + (x.prize || 0).toLocaleString('en-US') + ' Gold', 2800, 0x2f5a22);
         }).catch(noop);
       });
+      // last week's Raid Points prize (the top 3), once a session
+      if (!FR.weekAsked) {
+        FR.weekAsked = true;
+        F.Net.rpc('farm_fraid_week_prize_v1', {}).then(function (p) {
+          if (!p || !p.ok) return;
+          s.gold += Math.max(0, p.gold | 0);
+          F.Host.save(s);
+          F.bus.emit('hud');
+          sfx('fanfare');
+          F.ui.toast('Raid Points: #' + p.rank + ' last week! +' + (p.gold | 0).toLocaleString('en-US') + ' Gold', 3200, 0x2f5a22);
+        }).catch(noop);
+      }
       var lost = (r.lost || []).slice(-5);
       lost.forEach(function (x) { lose(x); });
       if (lost.length) F.Host.save(s);

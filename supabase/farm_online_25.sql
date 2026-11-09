@@ -308,6 +308,31 @@ begin
   return jsonb_build_object('raid', r.id, 'copy', r.copy, 'army', r.army, 'seed', r.seed, 'cap', r.cap, 'state', r.state, 'expires_at', r.expires_at);
 end $$;
 
+-- Last week's Raid Points prize (the top 3 by cfg.week_prizes), taken once: { ok, gold, rank, week } | { ok: false }
+create table if not exists farm.fraid_week_claims (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  week date not null,
+  gold int not null,
+  claimed_at timestamptz not null default now(),
+  primary key (user_id, week)
+);
+alter table farm.fraid_week_claims enable row level security;
+revoke all on table farm.fraid_week_claims from public, anon, authenticated;
+
+create or replace function public.farm_fraid_week_prize_v1()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare uid uuid := auth.uid(); wk date := farm.fraid_week(now()) - 7; rk int; gold int;
+begin
+  if uid is null then raise exception 'not signed in' using errcode = '28000'; end if;
+  select r into rk from (select p.user_id, row_number() over (order by p.points desc, p.user_id) r from farm.fraid_points p
+    join farm.players pl on pl.user_id = p.user_id where p.week = wk and p.points > 0 and not pl.hidden) t where t.user_id = uid;
+  gold := coalesce((farm.fraid_cfg()->'week_prizes'->>(rk - 1))::int, 0);
+  if rk is null or gold <= 0 then return jsonb_build_object('ok', false); end if;
+  insert into farm.fraid_week_claims (user_id, week, gold) values (uid, wk, gold) on conflict do nothing;
+  if not found then return jsonb_build_object('ok', false, 'code', 'already'); end if;
+  return jsonb_build_object('ok', true, 'gold', gold, 'rank', rk, 'week', wk);
+end $$;
+
 -- ---------- 5. the game server's function ----------
 -- The game server replayed the attacker's drops on the frozen copy (the game's own L.frReplay) and sends the result.
 -- Called with the attacker's own token (the server has it from the phone's connection) AND the server's key.
@@ -344,12 +369,12 @@ end $$;
 revoke all on function public.farm_fraid_copy_put_v1(jsonb, int, int, timestamptz), public.farm_fraid_find_v1(text, uuid[]),
   public.farm_fraid_start_v1(uuid, jsonb, uuid, uuid), public.farm_fraid_inbox_v1(), public.farm_fraid_claim_v1(uuid),
   public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb),
-  public.farm_fraid_raid_v1(uuid)
+  public.farm_fraid_raid_v1(uuid), public.farm_fraid_week_prize_v1()
   from public, anon, authenticated;
 grant execute on function public.farm_fraid_copy_put_v1(jsonb, int, int, timestamptz), public.farm_fraid_find_v1(text, uuid[]),
   public.farm_fraid_start_v1(uuid, jsonb, uuid, uuid), public.farm_fraid_inbox_v1(), public.farm_fraid_claim_v1(uuid),
   public.farm_fraid_seen_v1(uuid), public.farm_fraid_board_v1(), public.farm_fraid_settle_v1(text, uuid, int, jsonb, jsonb),
-  public.farm_fraid_raid_v1(uuid)
+  public.farm_fraid_raid_v1(uuid), public.farm_fraid_week_prize_v1()
   to authenticated;
 reset lock_timeout;
 notify pgrst, 'reload schema';

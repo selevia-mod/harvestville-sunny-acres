@@ -219,6 +219,15 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   assert.strictEqual(await B.page.evaluate(() => Farm.session.state.energy), 0, 'free: no energy needed');
   assert.ok(raid.revenged, 'once only');
 
+  // ---- last week's prize: #1 gets 20,000 Gold, once
+  server.db.fraid.weekPrize = { uid: A.uid, gold: 20000, rank: 1 };
+  const g1 = await A.page.evaluate(() => Farm.session.state.gold);
+  await A.page.evaluate(() => { Farm.FR.weekAsked = false; Farm.FR.inboxAt = 0; Farm.FR.inbox(Farm.world); });
+  await A.page.waitForFunction((g) => Farm.session.state.gold === g + 20000, g1, SLOW);
+  await A.page.evaluate(() => { Farm.FR.weekAsked = false; Farm.FR.inboxAt = 0; Farm.FR.inbox(Farm.world); });
+  await A.page.waitForTimeout(500);
+  assert.strictEqual(await A.page.evaluate(() => Farm.session.state.gold), g1 + 20000, 'once');
+
   // ---- the board
   await A.page.evaluate(() => Farm.ui.raidBoard());
   await A.page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
