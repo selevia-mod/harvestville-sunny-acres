@@ -425,7 +425,7 @@
     var self = this, s = F.session.state, item = C.ITEMS[id];
     return qtys.map(function (qty, k) {
       return {
-        label: (qty > 1 ? 'Buy ' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
+        label: (qty > 1 ? 'x' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
         cb: function () {
           if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
           var r = L.buy(s, id, qty);
@@ -441,6 +441,7 @@
     });
   };
 
+  var BULK = [1, 10, 20, 50];
   M.openShop = function (tab, page) {
     var self = this, s = F.session.state, o;
     tab = tab || 'seeds';
@@ -450,7 +451,7 @@
       return { icon: item.icon, name: item.name, desc: item.shop || item.desc, buttons: self.buyButtons(id, qtys, function () { o.refresh(); }) };
     };
     if (tab === 'seeds') {
-      L.seedsInSeason(s.day).forEach(function (id) { rows.push(itemRow(id, [1, 5])); });
+      L.seedsInSeason(s.day).forEach(function (id) { rows.push(itemRow(id, BULK)); }); // (owner, 9 Nov 2026: buy in bulk)
     } else if (tab === 'animals') {
       C.SHOP_ANIMALS.forEach(function (kind) {
         var def = C.ANIMALS[kind];
@@ -472,7 +473,7 @@
           }],
         });
       });
-      C.SHOP_FEED.forEach(function (id) { rows.push(itemRow(id, [1, 5])); });
+      C.SHOP_FEED.forEach(function (id) { rows.push(itemRow(id, BULK)); });
     } else {
       var bag = L.nextBag(s);
       if (bag) {

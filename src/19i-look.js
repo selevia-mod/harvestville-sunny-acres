@@ -637,7 +637,9 @@
     var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.buttons || [];
     c.tileDetail = row.name || true; // (the tests: a tile's own panel)
     var desc = this.txt(W / 2, 0, row.desc || '', 12, '#6a4a2a', { align: 'center', wordWrap: { width: W - 90 }, lineSpacing: 2 }).setOrigin(0.5, 0);
-    var h = 170 + desc.height + (b.length ? 56 : 10), y0 = Math.round((640 - h) / 2);
+    // (4 or more buttons, e.g. Buy x1 / x10 / x20 / x50: two to a row, owner 9 Nov 2026)
+    var grid = b.length > 3, brows = grid ? Math.ceil(b.length / 2) : 1;
+    var h = 170 + desc.height + (b.length ? 56 + (brows - 1) * 46 : 10), y0 = Math.round((640 - h) / 2);
     this.panelImg(c, 24, y0, W - 48, h);
     c.add(this.add.circle(W / 2, y0 + 48, 34, 0xf2d79a));
     var pic = this.tilePicture(row, W / 2, y0 + 48, 60);
@@ -656,17 +658,18 @@
       c.add(rc);
     }
     this.closeButton(c, W - 38, y0 + 12, function () { self.closeModal(); });
-    var bw = Math.min(150, (W - 90 - (b.length - 1) * 10) / Math.max(1, b.length));
+    var per = grid ? 2 : b.length, bw = Math.min(150, (W - 90 - (per - 1) * 10) / Math.max(1, per));
     b.forEach(function (btn, k) {
-      var x = W / 2 + (k - (b.length - 1) / 2) * (bw + 10);
-      self.pillButton(c, x, y0 + h - 34, bw, 36, btn.label, function () { self.closeModal(); btn.cb(); }, btn.color || GREEN);
+      var col = grid ? k % 2 : k, row = grid ? Math.floor(k / 2) : 0, inRow = grid ? Math.min(2, b.length - row * 2) : b.length;
+      var x = W / 2 + (col - (inRow - 1) / 2) * (bw + 10), y = y0 + h - 34 - (brows - 1 - row) * 46;
+      self.pillButton(c, x, y, bw, 36, btn.label, function () { self.closeModal(); btn.cb(); }, btn.color || GREEN);
     });
   };
 
   // A slim row: a 56 px card; the icon; the name (and a HARD tag); under it a small bar with its count and the prize, then
   // one line of description; the button on the right (two: side by side, smaller), or a Done tick.
   U.slimRow = function (parent, y, row) {
-    var self = this, r = this.add.container(0, y), b = row.buttons || [], H = SLIM.h;
+    var self = this, r = this.add.container(0, y), b = (row.buttons || []).slice(0, 2), H = SLIM.h; // (more buttons: in its opened tile)
     var right = b.length ? (b.length > 1 ? 2 * 62 + 4 : 72) : row.done ? 34 : 0;
     r.add(this.canvasImg(null, 22, 0, 'ui-slimrow', W - 44, H + 3, function (g) {
       rrect(g, 0, 3, W - 44, H, 10);

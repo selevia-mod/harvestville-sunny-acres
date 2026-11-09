@@ -422,7 +422,7 @@
     this.listPanel = function (o) {
       o.rows.forEach(function (row) {
         var id = ['fert', 'fert_rich'].filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
-        if (id && tb === 'supplies') row.buttons = self.buyButtons(id, [1, 5], function () { if (o.refresh) o.refresh(); });
+        if (id && tb === 'supplies') row.buttons = self.buyButtons(id, [1, 10, 20, 50], function () { if (o.refresh) o.refresh(); });
         var seed = gh && C.SHOP_STOCK.filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
         if (seed && !L.cropInSeason(C.ITEMS[seed].crop, s.day)) row.desc = 'Out of season: for your greenhouse. ' + row.desc;
       });

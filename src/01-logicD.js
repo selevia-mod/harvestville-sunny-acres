@@ -275,8 +275,10 @@
   };
 
   // Kanor's shop: arrows by the pack, bait one at a time.
-  L.buyWild = function (s, id) {
-    var n = id === 'arrows' ? WI.arrowPack : 1, price = C.ITEMS[id].price;
+  // packs: how many at once (owner, 9 Nov 2026: buy in bulk; arrows come 10 a pack)
+  L.buyWild = function (s, id, packs) {
+    packs = Math.max(1, Math.min(100, Math.floor(Number(packs) || 1)));
+    var n = (id === 'arrows' ? WI.arrowPack : 1) * packs, price = C.ITEMS[id].price * packs;
     if (s.gold < price) return 'gold';
     if (!L.canAdd(s, id, n)) return 'full';
     s.gold -= price;

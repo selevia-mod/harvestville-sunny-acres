@@ -21,7 +21,7 @@
   var BAR_W = 180, BAR_H = 22, HIT_MS = 180;
   var ARROW_SPEED = 16 * T; // world units a second
   var STREAK = 1.4 * T; // the white line behind a flying arrow, at its longest
-  var GREEN_BTN = 0x5fa84a, GREY_BTN = 0xa08a68;
+  var GREEN_BTN = 0x5fa84a, GREY_BTN = 0xa08a68, BLUE_BTN = 0x4a90c9;
 
   // An animal's 12 frames, drawn from above like the farmer: 0-2 walking toward you, 3-5 away, 6-8 to the left (stand,
   // step, step), 9 facing you (alert; the wolf howls), 10 eating or sniffing, 11 running or flying away. 6-8, 10 and 11
@@ -1038,10 +1038,16 @@
             buttons: [{ label: up.gold + 'G', color: s.gold >= up.gold && L.countItem(s, up.ore) >= up.n ? GREEN_BTN : GREY_BTN, cb: function () { done(L.upgradeBow(s), 'Your Bow is now a ' + C.TOOL_LEVELS[lv + 1] + ' Bow!'); } }] });
         }
       }
-      rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.',
-        buttons: [{ label: 'Buy ' + I.arrows.price + 'G', color: s.gold >= I.arrows.price ? GREEN_BTN : GREY_BTN, cb: function () { done(L.buyWild(s, 'arrows'), WI.arrowPack + ' arrows.'); } }] });
-      rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.',
-        buttons: [{ label: 'Buy ' + I.bait.price + 'G', color: s.gold >= I.bait.price ? GREEN_BTN : GREY_BTN, cb: function () { done(L.buyWild(s, 'bait'), 'Berry Bait.'); } }] });
+      // (owner, 9 Nov 2026: buy in bulk: x1, x10, x20, x50)
+      var bulk = function (id, unit, word) {
+        return [1, 10, 20, 50].map(function (k, i) {
+          var price = I[id].price * k;
+          return { label: (k > 1 ? 'x' + k + ' ' : 'Buy ') + price + 'G', color: s.gold >= price ? (i ? BLUE_BTN : GREEN_BTN) : GREY_BTN,
+            cb: function () { done(L.buyWild(s, id, k), (unit * k).toLocaleString('en-US') + ' ' + word + '.'); } };
+        });
+      };
+      rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows') });
+      rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.', buttons: bulk('bait', 1, 'Berry Bait') });
       if (self.gearRows) self.gearRows(s, done).forEach(function (r) { rows.push(r); }); // Hunter's gear (19zo-gear.js)
     } else if (tab === 'sell') {
       L.wildGoods(s).forEach(function (id) {
