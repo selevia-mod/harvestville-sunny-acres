@@ -5492,14 +5492,16 @@ var C = F.Config;
 C.FRAID = {
 battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 },
 
+
+
 camp: { price: 3000, levels: [
 { space: 10, gold: 0, open: ['goat', 'crow'] },
-{ space: 15, gold: 4000, open: ['cat'] },
-{ space: 20, gold: 9000, open: ['carabao'] },
-{ space: 25, gold: 16000, open: ['monkey'] },
-{ space: 30, gold: 26000, open: ['boar'] },
-{ space: 35, gold: 40000, open: ['rooster'] },
-{ space: 40, gold: 60000, open: ['bayawak'] },
+{ space: 15, gold: 4000, lumber: 40, stone: 20, need: null, mins: 30, open: ['cat'] },
+{ space: 20, gold: 9000, lumber: 80, stone: 40, need: null, mins: 120, open: ['carabao'] },
+{ space: 25, gold: 16000, lumber: 120, stone: 60, need: ['fur_rabbit', 3], mins: 240, open: ['monkey'] },
+{ space: 30, gold: 26000, lumber: 160, stone: 80, need: ['pelt_wolf', 2], mins: 480, open: ['boar'] },
+{ space: 35, gold: 40000, lumber: 220, stone: 120, need: ['hide_rhino', 1], mins: 720, open: ['rooster'] },
+{ space: 40, gold: 60000, lumber: 300, stone: 160, need: ['tusk_mammoth', 1], mins: 1440, open: ['bayawak'] },
 ] },
 
 
@@ -16524,18 +16526,42 @@ return p + (s.home ? s.home.level : 1) * R.power.farm + r.camp * R.power.raider;
 };
 
 
-L.campUpgrade = function (s) {
+
+
+L.campUpgrade = function (s, now) {
 var r = L.frState(s), next = R.camp.levels[r.camp];
+if (now == null) now = L.clock();
+L.campDone(s, now);
 if (!next) return 'top';
-var cost = r.camp ? next.gold : R.camp.price;
-if (s.gold < cost) return 'gold';
-s.gold -= cost;
-r.camp += 1;
+if (r.up) return 'busy';
+if (!r.camp) {
+if (s.gold < R.camp.price) return 'gold';
+s.gold -= R.camp.price;
+r.camp = 1;
 return 'ok';
+}
+if (s.gold < next.gold) return 'gold';
+if ((s.lumber || 0) < (next.lumber || 0)) return 'lumber';
+if ((s.stone || 0) < (next.stone || 0)) return 'stone';
+if (next.need && L.countItem(s, next.need[0]) < next.need[1]) return 'need';
+s.gold -= next.gold;
+s.lumber -= next.lumber || 0;
+s.stone -= next.stone || 0;
+if (next.need) L.removeItem(s, next.need[0], next.need[1]);
+r.up = now + (next.mins || 0) * 60000;
+return 'ok';
+};
+
+L.campDone = function (s, now) {
+var r = L.frState(s);
+if (now == null) now = L.clock();
+if (r.up && now >= r.up) { r.camp = Math.min(R.camp.levels.length, r.camp + 1); r.up = 0; }
+return r.up ? r.up - now : 0;
 };
 
 L.trainRaider = function (s, k, now) {
 var r = L.frState(s), d = R.raiders[k];
+if (r.up && now < r.up) return 'building';
 if (!d || !L.raiderOpen(s, k)) return 'locked';
 if (L.armySpace(s) + d.space > L.campSpace(s)) return 'space';
 if (s.gold < d.gold) return 'gold';
@@ -16877,7 +16903,7 @@ return q;
 var serialize = L.serialize;
 L.serialize = function (s) {
 var o = serialize(s), r = s.fr;
-if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0];
+if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0, r.up || 0];
 return o;
 };
 var num = function (v, lo, hi) { v = Math.floor(Number(v)) || 0; return Math.max(lo, Math.min(hi, v)); };
@@ -16891,7 +16917,7 @@ if (a) {
 s.fr = {
 camp: num(a[0], 0, R.camp.levels.length), army: map(a[1], R.raiderOrder, 0, 999), lv: map(a[2], R.raiderOrder, 1, 5), dlv: map(a[3], R.defenseOrder, 1, 5),
 train: (Array.isArray(a[4]) ? a[4] : []).filter(function (t) { return Array.isArray(t) && R.raiders[t[0]]; }).slice(0, 60).map(function (t) { return { k: t[0], until: Number(t[1]) || 0 }; }),
-pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0),
+pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0), up: Math.max(0, Number(a[8]) || 0),
 };
 }
 return s;
@@ -48148,7 +48174,7 @@ if (move) ui.tweens.add({ targets: p, scale: p.scale * 1.15, duration: 420, yoyo
 
 
 var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Practice']];
-var why = { gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first.', buy: 'Buy a Raid Camp at Mira\'s first.' };
+var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', building: 'The camp is being upgraded: no training until it is done.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
 U.openRaidCamp = function (tab, page) {
 var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
 if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'farmraid_tour')) {
@@ -48165,10 +48191,14 @@ if (tab === 'party') {
 var left = L.shieldLeft(s, now), hh = Math.floor(left / 3600000), mm = Math.floor(left % 3600000 / 60000), have = L.countItem(s, 'farm_shield');
 rows.push({ icon: C.ICON.ri_shield != null ? C.ICON.ri_shield : C.ICON.star, name: left ? 'Shielded: ' + hh + 'h ' + mm + 'm left' : 'No shield',
 desc: left ? 'Nobody can raid your farm. Raiding someone breaks it.' : have ? 'You have ' + have + ' Farm Shield' + (have > 1 ? 's' : '') + ': use one from your bag (24 hours).' : 'Finish a day\'s story chapter for a Farm Shield.' });
-var next = R.camp.levels[r.camp];
-rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: 'Raid Camp, level ' + r.camp, tag: null,
-desc: 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '.' + (next ? ' Next level: room for ' + next.space + (next.open.length ? ', opens the ' + R.raiders[next.open[0]].name : '') + '.' : ' Top level!'),
-buttons: next && r.camp ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s), 'The Raid Camp is bigger!'); } }] : [] });
+var next = R.camp.levels[r.camp], building = L.campDone(s, L.clock());
+
+var needs = next ? [next.lumber ? next.lumber + ' lumber' : '', next.stone ? next.stone + ' stone' : '', next.need ? next.need[1] + ' ' + C.ITEMS[next.need[0]].name : '', next.mins ? (next.mins >= 60 ? next.mins / 60 + 'h' : next.mins + ' min') + ' to build' : ''].filter(Boolean).join(', ') : '';
+var hm = function (ms) { var m = Math.ceil(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
+rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: building ? 'Raid Camp: building level ' + (r.camp + 1) : 'Raid Camp, level ' + r.camp, tag: null,
+desc: building ? hm(building) + ' left. It still raids, but trains no raiders until it is done.'
+: (next ? 'Needs ' + needs + '. Room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + ', next ' + next.space + '.' : 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '. Top level!'),
+buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
 R.raiderOrder.forEach(function (k) {
 var d = R.raiders[k], open = L.raiderOpen(s, k), have = r.army[k] || 0, wait = r.train.filter(function (t) { return t.k === k; }).length;
 rows.push({ icon: L.raiderIcon(k), name: d.name + (have ? '  x' + have : ''), desc: open ? (wait ? wait + ' training. ' : '') + d.say : 'Opens with a bigger Raid Camp.',

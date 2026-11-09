@@ -7,14 +7,16 @@
   C.FRAID = {
     battle: { secs: 120, tick: 100, w: 16, h: 22, edge: 2, keep: 2 }, // (keep: on a real farm, raiders come down this many tiles from anything: nearly anywhere in the field) // a battle: 2 minutes, 10 steps a second, a 16 x 22 farm (a phone held upright)
     // the Raid Camp: its level opens raiders and makes the raid party bigger (housing space)
+    // (owner, 9 Nov 2026: "Upgrading camp is too easy, i was camp 7 instant": each level now needs lumber, stone, things
+    // from hunting and building time (mins); the camp still raids while it builds, but trains no raiders)
     camp: { price: 3000, levels: [
       { space: 10, gold: 0, open: ['goat', 'crow'] },
-      { space: 15, gold: 4000, open: ['cat'] },
-      { space: 20, gold: 9000, open: ['carabao'] },
-      { space: 25, gold: 16000, open: ['monkey'] },
-      { space: 30, gold: 26000, open: ['boar'] },
-      { space: 35, gold: 40000, open: ['rooster'] },
-      { space: 40, gold: 60000, open: ['bayawak'] },
+      { space: 15, gold: 4000, lumber: 40, stone: 20, need: null, mins: 30, open: ['cat'] },
+      { space: 20, gold: 9000, lumber: 80, stone: 40, need: null, mins: 120, open: ['carabao'] },
+      { space: 25, gold: 16000, lumber: 120, stone: 60, need: ['fur_rabbit', 3], mins: 240, open: ['monkey'] },
+      { space: 30, gold: 26000, lumber: 160, stone: 80, need: ['pelt_wolf', 2], mins: 480, open: ['boar'] },
+      { space: 35, gold: 40000, lumber: 220, stone: 120, need: ['hide_rhino', 1], mins: 720, open: ['rooster'] },
+      { space: 40, gold: 60000, lumber: 300, stone: 160, need: ['tusk_mammoth', 1], mins: 1440, open: ['bayawak'] },
     ] },
     // 8 raiders: space (in the party), train cost and time, and per level (1-5): hp, damage, speed (tiles a second),
     // carry (how much loot it grabs a second). likes: what it goes for. weak: the defense that beats it.

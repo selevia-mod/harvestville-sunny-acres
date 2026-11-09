@@ -39,18 +39,42 @@
   };
 
   // the Raid Camp: buy it (level 1), then upgrade. 'ok' | 'gold' | 'top'
-  L.campUpgrade = function (s) {
+  // The camp's next level: 'ok' | 'top' | 'busy' (one is building) | 'gold' | 'lumber' | 'stone' | 'need'. Level 1 (the
+  // camp bought) is at once; the rest build for their minutes (now: the game's clock, ms) and count once done.
+  L.campUpgrade = function (s, now) {
     var r = L.frState(s), next = R.camp.levels[r.camp];
+    if (now == null) now = L.clock();
+    L.campDone(s, now);
     if (!next) return 'top';
-    var cost = r.camp ? next.gold : R.camp.price;
-    if (s.gold < cost) return 'gold';
-    s.gold -= cost;
-    r.camp += 1;
+    if (r.up) return 'busy';
+    if (!r.camp) {
+      if (s.gold < R.camp.price) return 'gold';
+      s.gold -= R.camp.price;
+      r.camp = 1;
+      return 'ok';
+    }
+    if (s.gold < next.gold) return 'gold';
+    if ((s.lumber || 0) < (next.lumber || 0)) return 'lumber';
+    if ((s.stone || 0) < (next.stone || 0)) return 'stone';
+    if (next.need && L.countItem(s, next.need[0]) < next.need[1]) return 'need';
+    s.gold -= next.gold;
+    s.lumber -= next.lumber || 0;
+    s.stone -= next.stone || 0;
+    if (next.need) L.removeItem(s, next.need[0], next.need[1]);
+    r.up = now + (next.mins || 0) * 60000;
     return 'ok';
+  };
+  // a camp level built by now counts; ms left, or 0
+  L.campDone = function (s, now) {
+    var r = L.frState(s);
+    if (now == null) now = L.clock();
+    if (r.up && now >= r.up) { r.camp = Math.min(R.camp.levels.length, r.camp + 1); r.up = 0; }
+    return r.up ? r.up - now : 0;
   };
   // train one raider: 'ok' | 'locked' | 'space' | 'gold'
   L.trainRaider = function (s, k, now) {
     var r = L.frState(s), d = R.raiders[k];
+    if (r.up && now < r.up) return 'building'; // (the camp is being upgraded: it trains no raiders)
     if (!d || !L.raiderOpen(s, k)) return 'locked';
     if (L.armySpace(s) + d.space > L.campSpace(s)) return 'space';
     if (s.gold < d.gold) return 'gold';
@@ -392,7 +416,7 @@
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s), r = s.fr;
-    if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0];
+    if (r && (r.camp || r.pts || r.shield)) o.frd = [r.camp, r.army, r.lv, r.dlv, r.train.map(function (t) { return [t.k, t.until]; }), r.pts, r.won, r.shield || 0, r.up || 0];
     return o;
   };
   var num = function (v, lo, hi) { v = Math.floor(Number(v)) || 0; return Math.max(lo, Math.min(hi, v)); };
@@ -406,7 +430,7 @@
       s.fr = {
         camp: num(a[0], 0, R.camp.levels.length), army: map(a[1], R.raiderOrder, 0, 999), lv: map(a[2], R.raiderOrder, 1, 5), dlv: map(a[3], R.defenseOrder, 1, 5),
         train: (Array.isArray(a[4]) ? a[4] : []).filter(function (t) { return Array.isArray(t) && R.raiders[t[0]]; }).slice(0, 60).map(function (t) { return { k: t[0], until: Number(t[1]) || 0 }; }),
-        pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0),
+        pts: num(a[5], 0, 1e9), won: map(a[6], R.bandits.map(function (b) { return b.key; }), 0, 3), shield: Math.max(0, Number(a[7]) || 0), up: Math.max(0, Number(a[8]) || 0),
       };
     }
     return s;
