@@ -36,10 +36,14 @@ function makeFraid(opts) {
     judge(row, moves) {
       const { L } = R;
       if (!row || !row.copy || !L.frArmyOk(row.army)) return { code: 'army' };
-      const farm = L.frRealFarm(row.copy, row.cap, row.seed);
+      // the crops ripe by the end of the raid's lock (the phone uses the same: farm_fraid_start_v1's expires_at)
+      const cut = Date.parse(row.expires_at) || null;
+      const farm = L.frRealFarm(row.copy, row.cap, row.seed, cut);
       const b = L.frReplay(farm, row.army, row.seed, moves);
       if (b.moves.length !== moves.length) return { code: 'moves' }; // (a drop the rules refused: not the phone's battle)
-      return { stars: L.frStars(b), taken: L.frTaken(b) };
+      const taken = L.frTaken(b);
+      taken.cut = cut; // (a Replay builds the same farm)
+      return { stars: L.frStars(b), taken };
     },
     async settle(token, raid, moves) {
       if (!url || !anonKey || !key) return { ok: false, code: 'off' };

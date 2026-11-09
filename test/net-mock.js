@@ -77,9 +77,9 @@ function createServer() {
       db.fraid.raids.push(r);
       if (rv) rv.revenged = true;
       if (me) { me.shield = 0; me.raided = 0; }
-      return { ok: true, raid: r.id, name: db.players.get(target).farm_name, copy: r.copy, seed: r.seed, cap: r.cap, look: db.snaps.get(target).data, shield_broken: true };
+      return { ok: true, raid: r.id, name: db.players.get(target).farm_name, copy: r.copy, seed: r.seed, cap: r.cap, expires_at: new Date(r.expires).toISOString(), look: db.snaps.get(target).data, shield_broken: true };
     },
-    farm_fraid_raid_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid); return r ? { raid: r.id, copy: r.copy, army: r.army, seed: r.seed, cap: r.cap, state: r.state } : null; },
+    farm_fraid_raid_v1(uid, a) { const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid); return r ? { raid: r.id, copy: r.copy, army: r.army, seed: r.seed, cap: r.cap, state: r.state, expires_at: new Date(r.expires).toISOString() } : null; },
     farm_fraid_settle_v1(uid, a) {
       if (a.p_key !== db.fraid.key) return { ok: false, code: 'key' };
       const r = db.fraid.raids.find((x) => x.id === a.p_raid && x.attacker === uid);

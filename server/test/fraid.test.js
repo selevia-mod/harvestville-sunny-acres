@@ -25,7 +25,7 @@ const army = { goat: { n: 8, lv: 2 }, crow: { n: 2, lv: 1 } };
 
 // the phone's battle: 8 goats wherever they may come down, then it runs out
 const play = (row) => {
-  const b = L.frStart(L.frRealFarm(row.copy, row.cap, row.seed), row.army, row.seed);
+  const b = L.frStart(L.frRealFarm(row.copy, row.cap, row.seed, Date.parse(row.expires_at)), row.army, row.seed);
   let i = 0;
   for (let y = 0; y < b.farm.h && i < 8; y++) for (let x = 0; x < b.farm.w && i < 8; x++) if (L.frDrop(b, 'goat', x, y)) i++;
   while (!b.end) L.frStep(b);
@@ -51,7 +51,7 @@ function fakeSupabase(row) {
   };
   return { fetch, calls };
 }
-const fresh = () => ({ raid: RAID, copy: copy(), army, seed: 99, cap: 0.3, state: 'open' });
+const fresh = () => ({ raid: RAID, copy: copy(), army, seed: 99, cap: 0.3, state: 'open', expires_at: '2026-11-09T09:00:00Z' });
 
 test("the server replays the phone's drops: its stars and loot, not the phone's", async () => {
   const row = fresh(), sb = fakeSupabase(row);
@@ -60,7 +60,7 @@ test("the server replays the phone's drops: its stars and loot, not the phone's"
   const r = await fr.settle('tok:att', RAID, b.moves);
   assert.strictEqual(r.ok, true, JSON.stringify(r));
   assert.strictEqual(r.stars, L.frStars(b));
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.taken)), JSON.parse(JSON.stringify(L.frTaken(b))));
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.taken)), Object.assign(JSON.parse(JSON.stringify(L.frTaken(b))), { cut: Date.parse('2026-11-09T09:00:00Z') }));
   const sent = sb.calls.find((c) => c.name === 'farm_fraid_settle_v1').args;
   assert.strictEqual(sent.p_key, 'server-key');
   assert.strictEqual(sent.p_stars, L.frStars(b));

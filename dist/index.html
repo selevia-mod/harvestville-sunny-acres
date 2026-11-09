@@ -16911,10 +16911,14 @@ var v = R.lootValue;
 return Math.round(((farm && farm.loot) || []).reduce(function (sum, p) { return sum + (p.n || 0) * (v[p.kind] || 1); }, 0));
 };
 
-L.frRealFarm = function (copy, cap, seed) {
+
+L.frRealFarm = function (copy, cap, seed, cut) {
 var share = Math.max(0, Math.min(1, Number(cap) || 0)), rnd = L.frRand((seed >>> 0) ^ 0x5bd1e995);
 var crops = [], other = [];
-(copy.loot || []).forEach(function (p) { (p.kind === 'crops' ? crops : other).push(p); });
+(copy.loot || []).forEach(function (p) {
+if (p.kind !== 'crops') return other.push(p);
+if (p.at == null || (cut != null && p.at <= cut)) crops.push(p);
+});
 
 var order = crops.map(function (p, i) { return { p: p, k: rnd(), i: i }; }).sort(function (a, b) { return a.k - b.k || a.i - b.i; });
 var keep = Math.ceil(crops.length * share);
@@ -48362,10 +48366,11 @@ var hasDog = s.banditDefs ? !!s.banditDefs.dog : !!s.dog;
 if (hasDog && dogYard) defs.push({ t: 'dog', x: Math.floor((dogYard.x0 + dogYard.x1) / 2), y: Math.floor((dogYard.y0 + dogYard.y1) / 2), lv: lv('dog') });
 
 Object.keys(s.soil).forEach(function (idx) {
-var t = s.soil[idx];
-if (!t.c || L.cropStage(t) !== 3) return;
-var i = Number(idx);
-loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
+var t = s.soil[idx], st = t.c ? L.cropStage(t) : -1, i = Number(idx);
+if (st === 3) return loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
+
+
+if (opts && st >= 0 && st < 3 && !L.needsWater(t)) loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1, at: (t.p + L.growMins(t)) * 60000 });
 });
 var grown = opts ? opts.produce || 0 : s.animals.filter(function (a) { return !a.young; }).length * 2;
 if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown });
@@ -48430,7 +48435,7 @@ P.raidSetup = function () {
 this.scene.bringToTop('UI');
 var self = this, rd = F.session.raid, cam = this.cameras.main;
 
-this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed) : this.raidFarm(), rd.army, rd.seed);
+this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed, rd.cut) : this.raidFarm(), rd.army, rd.seed);
 this.raidAcc = 0;
 this.raidStarted = false;
 this.raidUnits = {};
@@ -48818,7 +48823,7 @@ L.shieldBreak(mine);
 F.Host.save(mine);
 var st = L.visitState(r.look, mine);
 st.isVisit = true;
-F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge };
+F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge, cut: Date.parse(r.expires_at) || L.clock() };
 F.session.visit = { host: 'raid', name: L.cleanText(r.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
 F.session.riding = false;
 F.ui.closeAll();
@@ -48834,7 +48839,7 @@ busy: 'Someone is raiding that farm right now.', 'new': 'That farm is too new to
 var replay = function (row) {
 var mine = F.session.state, st = L.visitState(L.snapshot(mine), mine);
 st.isVisit = true;
-F.session.raid = { kind: 'replay', copy: row.copy, cap: Number(row.cap) || 0, seed: row.seed, army: row.army, moves: row.moves || [], mi: 0 };
+F.session.raid = { kind: 'replay', copy: row.copy, cap: Number(row.cap) || 0, seed: row.seed, army: row.army, moves: row.moves || [], mi: 0, cut: row.taken && row.taken.cut };
 F.session.visit = { host: 'raid', name: 'Replay: ' + (L.cleanText(row.name, 20) || 'a raid'), state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
 F.session.riding = false;
 F.ui.closeAll();

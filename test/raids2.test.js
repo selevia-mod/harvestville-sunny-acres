@@ -98,3 +98,14 @@ test('what a farm has out in the open, for its copy', () => {
   assert.strictEqual(L.frGoldPot(s), 200);
   assert.strictEqual(L.frProduceLoot(s), 2 * s.animals.length);
 });
+
+test('a crop still growing in the copy counts only if it is ripe by the raid (its farmer may be away)', () => {
+  const c = copy();
+  c.loot.push({ kind: 'crops', x: 2, y: 2, n: 1, at: 5000 }, { kind: 'crops', x: 3, y: 2, n: 1, at: 9000 });
+  const ripe = (cut) => L.frRealFarm(c, 1, 3, cut).loot.filter((p) => p.kind === 'crops').length;
+  assert.strictEqual(ripe(undefined), 20, 'no time: only the ripe ones');
+  assert.strictEqual(ripe(4000), 20, 'before either ripens');
+  assert.strictEqual(ripe(6000), 21, 'one ripe by then');
+  assert.strictEqual(ripe(9000), 22, 'both');
+  assert.deepStrictEqual(plain(L.frRealFarm(c, 0.5, 7, 9000)), plain(L.frRealFarm(c, 0.5, 7, 9000)), 'the same every time');
+});

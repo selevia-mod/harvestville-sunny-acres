@@ -124,7 +124,7 @@
       F.Host.save(mine);
       var st = L.visitState(r.look, mine);
       st.isVisit = true;
-      F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge };
+      F.session.raid = { kind: 'real', raid: r.raid, copy: r.copy, cap: Number(r.cap) || 0, seed: r.seed, army: army, revenge: !!opts.revenge, cut: Date.parse(r.expires_at) || L.clock() };
       F.session.visit = { host: 'raid', name: L.cleanText(r.name, 24) || 'A farm', state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
       F.session.riding = false;
       F.ui.closeAll();
@@ -140,7 +140,7 @@
   var replay = function (row) {
     var mine = F.session.state, st = L.visitState(L.snapshot(mine), mine);
     st.isVisit = true;
-    F.session.raid = { kind: 'replay', copy: row.copy, cap: Number(row.cap) || 0, seed: row.seed, army: row.army, moves: row.moves || [], mi: 0 };
+    F.session.raid = { kind: 'replay', copy: row.copy, cap: Number(row.cap) || 0, seed: row.seed, army: row.army, moves: row.moves || [], mi: 0, cut: row.taken && row.taken.cut };
     F.session.visit = { host: 'raid', name: 'Replay: ' + (L.cleanText(row.name, 20) || 'a raid'), state: st, raid: true, liked: false, gift: null, friend: false, likes: 0, beauty: 0 };
     F.session.riding = false;
     F.ui.closeAll();

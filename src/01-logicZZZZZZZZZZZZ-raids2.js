@@ -2,7 +2,7 @@
 // The rules both sides use: the phone (the battle, the defender's loss) and our game server (server/lib/fraid.js
 // replays the battle with these and L.frReplay, so a phone can't claim what it did not take).
 //   L.frCopyValue(farm)        what is out in the open on a farm's raid copy, in Gold (R.lootValue)
-//   L.frRealFarm(copy, cap, seed)  the battle's farm: the copy with only its share of the loot (cap, by power): that share
+//   L.frRealFarm(copy, cap, seed, cut)  the battle's farm (crops ripe by cut): the copy with only its share of the loot (cap, by power): that share
 //                              of the ripe crops (picked by the seed) and of the eggs and milk, the stall and the Gold pot
 //   L.frArmyOk(army)           an army a Raid Camp could hold (the biggest camp's room, levels 1-5)
 //   L.frTaken(b)               what a battle took: { w, items: [[kind, x, y, n]], crops, produce, stall, gold, value }
@@ -20,10 +20,14 @@
     return Math.round(((farm && farm.loot) || []).reduce(function (sum, p) { return sum + (p.n || 0) * (v[p.kind] || 1); }, 0));
   };
 
-  L.frRealFarm = function (copy, cap, seed) {
+  // cut (ms, the server's clock): a growing crop counts only if it is ripe by then (its 'at'); no cut: only the ripe ones
+  L.frRealFarm = function (copy, cap, seed, cut) {
     var share = Math.max(0, Math.min(1, Number(cap) || 0)), rnd = L.frRand((seed >>> 0) ^ 0x5bd1e995);
     var crops = [], other = [];
-    (copy.loot || []).forEach(function (p) { (p.kind === 'crops' ? crops : other).push(p); });
+    (copy.loot || []).forEach(function (p) {
+      if (p.kind !== 'crops') return other.push(p);
+      if (p.at == null || (cut != null && p.at <= cut)) crops.push(p);
+    });
     // that share of the crop tiles, picked by the seed (the same on the phone and the server)
     var order = crops.map(function (p, i) { return { p: p, k: rnd(), i: i }; }).sort(function (a, b) { return a.k - b.k || a.i - b.i; });
     var keep = Math.ceil(crops.length * share);

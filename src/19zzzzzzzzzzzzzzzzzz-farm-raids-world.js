@@ -48,10 +48,11 @@
     if (hasDog && dogYard) defs.push({ t: 'dog', x: Math.floor((dogYard.x0 + dogYard.x1) / 2), y: Math.floor((dogYard.y0 + dogYard.y1) / 2), lv: lv('dog') });
     // the loot: each ripe crop where it grows; eggs and milk at the pen; the stall's goods and the Gold pot at the door
     Object.keys(s.soil).forEach(function (idx) {
-      var t = s.soil[idx];
-      if (!t.c || L.cropStage(t) !== 3) return;
-      var i = Number(idx);
-      loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
+      var t = s.soil[idx], st = t.c ? L.cropStage(t) : -1, i = Number(idx);
+      if (st === 3) return loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1 });
+      // a farm's own raid copy (opts): a crop still growing (watered) is there too, with when it ripens (the server's clock,
+      // ms): a farm whose crops ripen while its farmer is away can be raided then (L.frRealFarm takes only the ripe ones)
+      if (opts && st >= 0 && st < 3 && !L.needsWater(t)) loot.push({ kind: 'crops', x: i % w, y: Math.floor(i / w), n: 1, at: (t.p + L.growMins(t)) * 60000 });
     });
     var grown = opts ? opts.produce || 0 : s.animals.filter(function (a) { return !a.young; }).length * 2; // (a real farm: its eggs and milk waiting)
     if (pen && grown) loot.push({ kind: 'produce', x: Math.floor((pen.x0 + pen.x1) / 2), y: Math.floor((pen.y0 + pen.y1) / 2), n: grown });
@@ -116,7 +117,7 @@
     this.scene.bringToTop('UI'); // (a restart from inside a restart can leave the farm over the buttons)
     var self = this, rd = F.session.raid, cam = this.cameras.main;
     // (a real raid or its replay: the defender's frozen copy, only its share of the loot: 01-logicZZZZZZZZZZZZ-raids2.js)
-    this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed) : this.raidFarm(), rd.army, rd.seed);
+    this.raidB = L.frStart(rd.copy ? L.frRealFarm(rd.copy, rd.cap, rd.seed, rd.cut) : this.raidFarm(), rd.army, rd.seed);
     this.raidAcc = 0;
     this.raidStarted = false;
     this.raidUnits = {};
