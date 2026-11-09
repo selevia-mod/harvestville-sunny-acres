@@ -422,33 +422,38 @@
 
   // ---------- Lily's seed stand ----------
   M.buyButtons = function (id, qtys, after) {
-    var self = this, s = F.session.state, item = C.ITEMS[id];
+    var self = this, s = F.session.state;
     return qtys.map(function (qty, k) {
-      return {
-        label: (qty > 1 ? 'x' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
-        cb: function () {
-          if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
-          var r = L.buy(s, id, qty);
-          if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
-          if (r === 'full') return self.toast('Your bag is full.');
-          sfx('coin');
-          self.toast('Bought ' + qty + ' ' + item.name + '.');
-          world().changed();
-          world().save();
-          if (after) after();
-        },
-      };
+      return { label: (qty > 1 ? 'x' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN, cb: function () { self.buyQty(id, qty, after); } };
     });
   };
+  M.buyQty = function (id, qty, after) {
+    var self = this, s = F.session.state, item = C.ITEMS[id];
+    if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
+    var r = L.buy(s, id, qty);
+    if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
+    if (r === 'full') return self.toast('Your bag is full.');
+    sfx('coin');
+    self.toast('Bought ' + qty + ' ' + item.name + '.');
+    world().changed();
+    world().save();
+    if (after) after();
+  };
+  // any amount, with - and + in its opened tile (owner, 10 Nov 2026: "i want x100? Make it allowed to + -")
+  M.buyAmount = function (id, after) {
+    var self = this, s = F.session.state;
+    return { start: 10, max: 999, price: function (n) { return L.priceOf(id, s.day) * n; }, buy: function (n) { self.buyQty(id, n, after); } };
+  };
 
-  var BULK = [1, 10, 20, 50];
+  var BULK = [1, 10]; // (the row: Buy and x10; open it for any amount, - and +)
   M.openShop = function (tab, page) {
     var self = this, s = F.session.state, o;
     tab = tab || 'seeds';
     var rows = [];
     var itemRow = function (id, qtys) {
       var item = C.ITEMS[id];
-      return { icon: item.icon, name: item.name, desc: item.shop || item.desc, buttons: self.buyButtons(id, qtys, function () { o.refresh(); }) };
+      var after = function () { o.refresh(); };
+      return { icon: item.icon, name: item.name, desc: item.shop || item.desc, buttons: self.buyButtons(id, qtys, after), amount: self.buyAmount(id, after) };
     };
     if (tab === 'seeds') {
       L.seedsInSeason(s.day).forEach(function (id) { rows.push(itemRow(id, BULK)); }); // (owner, 9 Nov 2026: buy in bulk)

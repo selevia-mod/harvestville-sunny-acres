@@ -4600,7 +4600,7 @@ test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler wat
   assert.strictEqual(count(s, 'ore_copper'), 0);
   assert.strictEqual(s.gold, 20000 - 800);
   await closeAll(page);
-  // Lily's Supplies: both fertilizers, by 1, 10, 20 or 50 (owner, 9 Nov 2026: buy in bulk)
+  // Lily's Supplies: both fertilizers, Buy or x10 on the row (owner, 9 Nov 2026: buy in bulk)
   await page.evaluate(() => Farm.ui.openShop('supplies', 1));
   assert.match(await modalText(page), /Fertilizer[\s\S]*Rich Fertilizer/);
   await shot(page, 'farmtech-2-lily');

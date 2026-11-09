@@ -1038,16 +1038,20 @@
             buttons: [{ label: up.gold + 'G', color: s.gold >= up.gold && L.countItem(s, up.ore) >= up.n ? GREEN_BTN : GREY_BTN, cb: function () { done(L.upgradeBow(s), 'Your Bow is now a ' + C.TOOL_LEVELS[lv + 1] + ' Bow!'); } }] });
         }
       }
-      // (owner, 9 Nov 2026: buy in bulk: x1, x10, x20, x50)
+      // (owner, 9 Nov 2026: buy in bulk; 10 Nov: any amount, - and + in its opened tile)
       var bulk = function (id, unit, word) {
-        return [1, 10, 20, 50].map(function (k, i) {
+        return [1, 10].map(function (k, i) {
           var price = I[id].price * k;
           return { label: (k > 1 ? 'x' + k + ' ' : 'Buy ') + price + 'G', color: s.gold >= price ? (i ? BLUE_BTN : GREEN_BTN) : GREY_BTN,
             cb: function () { done(L.buyWild(s, id, k), (unit * k).toLocaleString('en-US') + ' ' + word + '.'); } };
         });
       };
-      rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows') });
-      rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.', buttons: bulk('bait', 1, 'Berry Bait') });
+      var amount = function (id, unit, word) {
+        return { start: 10, max: 999, price: function (n) { return I[id].price * n; }, word: unit > 1 ? function (n) { return (unit * n).toLocaleString('en-US') + ' ' + word; } : null,
+          buy: function (n) { done(L.buyWild(s, id, n), (unit * n).toLocaleString('en-US') + ' ' + word + '.'); } };
+      };
+      rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows'), amount: amount('arrows', WI.arrowPack, 'arrows') });
+      rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.', buttons: bulk('bait', 1, 'Berry Bait'), amount: amount('bait', 1, 'Berry Bait') });
       if (self.gearRows) self.gearRows(s, done).forEach(function (r) { rows.push(r); }); // Hunter's gear (19zo-gear.js)
     } else if (tab === 'sell') {
       L.wildGoods(s).forEach(function (id) {

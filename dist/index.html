@@ -10540,7 +10540,7 @@ return 'ok';
 
 
 L.buyWild = function (s, id, packs) {
-packs = Math.max(1, Math.min(100, Math.floor(Number(packs) || 1)));
+packs = Math.max(1, Math.min(999, Math.floor(Number(packs) || 1)));
 var n = (id === 'arrows' ? WI.arrowPack : 1) * packs, price = C.ITEMS[id].price * packs;
 if (s.gold < price) return 'gold';
 if (!L.canAdd(s, id, n)) return 'full';
@@ -21497,11 +21497,13 @@ this.invRefresh();
 
 
 M.buyButtons = function (id, qtys, after) {
-var self = this, s = F.session.state, item = C.ITEMS[id];
+var self = this, s = F.session.state;
 return qtys.map(function (qty, k) {
-return {
-label: (qty > 1 ? 'x' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN,
-cb: function () {
+return { label: (qty > 1 ? 'x' + qty : 'Buy') + ' ' + L.priceOf(id, s.day) * qty + 'G', color: k ? BLUE : GREEN, cb: function () { self.buyQty(id, qty, after); } };
+});
+};
+M.buyQty = function (id, qty, after) {
+var self = this, s = F.session.state, item = C.ITEMS[id];
 if (item.kind === 'tool' && L.hasItem(s, id)) return self.toast('You already have a ' + item.name + '.');
 var r = L.buy(s, id, qty);
 if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold.'); }
@@ -21511,19 +21513,22 @@ self.toast('Bought ' + qty + ' ' + item.name + '.');
 world().changed();
 world().save();
 if (after) after();
-},
-};
-});
 };
 
-var BULK = [1, 10, 20, 50];
+M.buyAmount = function (id, after) {
+var self = this, s = F.session.state;
+return { start: 10, max: 999, price: function (n) { return L.priceOf(id, s.day) * n; }, buy: function (n) { self.buyQty(id, n, after); } };
+};
+
+var BULK = [1, 10];
 M.openShop = function (tab, page) {
 var self = this, s = F.session.state, o;
 tab = tab || 'seeds';
 var rows = [];
 var itemRow = function (id, qtys) {
 var item = C.ITEMS[id];
-return { icon: item.icon, name: item.name, desc: item.shop || item.desc, buttons: self.buyButtons(id, qtys, function () { o.refresh(); }) };
+var after = function () { o.refresh(); };
+return { icon: item.icon, name: item.name, desc: item.shop || item.desc, buttons: self.buyButtons(id, qtys, after), amount: self.buyAmount(id, after) };
 };
 if (tab === 'seeds') {
 L.seedsInSeason(s.day).forEach(function (id) { rows.push(itemRow(id, BULK)); });
@@ -27619,12 +27624,12 @@ return im;
 };
 
 U.tileOpen = function (row, state, o) {
-var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.buttons || [];
+var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.amount ? [] : row.buttons || [];
 c.tileDetail = row.name || true;
 var desc = this.txt(W / 2, 0, row.desc || '', 12, '#6a4a2a', { align: 'center', wordWrap: { width: W - 90 }, lineSpacing: 2 }).setOrigin(0.5, 0);
 
 var grid = b.length > 3, brows = grid ? Math.ceil(b.length / 2) : 1;
-var h = 170 + desc.height + (b.length ? 56 + (brows - 1) * 46 : 10), y0 = Math.round((640 - h) / 2);
+var h = 170 + desc.height + (b.length ? 56 + (brows - 1) * 46 : 10) + (row.amount ? 102 : 0), y0 = Math.round((640 - h) / 2);
 this.panelImg(c, 24, y0, W - 48, h);
 c.add(this.add.circle(W / 2, y0 + 48, 34, 0xf2d79a));
 var pic = this.tilePicture(row, W / 2, y0 + 48, 60);
@@ -27649,6 +27654,45 @@ var col = grid ? k % 2 : k, row = grid ? Math.floor(k / 2) : 0, inRow = grid ? M
 var x = W / 2 + (col - (inRow - 1) / 2) * (bw + 10), y = y0 + h - 34 - (brows - 1 - row) * 46;
 self.pillButton(c, x, y, bw, 36, btn.label, function () { self.closeModal(); btn.cb(); }, btn.color || GREEN);
 });
+if (row.amount) this.amountPicker(c, y0 + h - 34, row.amount);
+};
+
+
+U.amountPicker = function (c, yBuy, a) {
+var self = this, max = a.max || 999, n = Math.max(1, Math.min(max, a.start || 1)), held = null;
+var num = this.txt(W / 2, yBuy - 92, '', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+var sub = this.txt(W / 2, yBuy - 69, '', 11, '#6a4a2a').setOrigin(0.5);
+c.add([num, sub]);
+var buy = null;
+var draw = function () {
+num.setText('x' + n);
+sub.setText(a.word ? a.word(n) : '');
+var price = a.price(n), can = F.session.state.gold >= price;
+if (buy) buy.destroy();
+buy = self.pillButton(c, W / 2, yBuy, 200, 38, 'Buy ' + n + '  ' + price.toLocaleString('en-US') + 'G', function () {
+if (!can) { if (F.Audio) F.Audio.sfx('nope'); return self.toast('Not enough gold.'); }
+self.closeModal(); a.buy(n);
+}, can ? GREEN : 0xa08a68);
+c.amountN = n;
+};
+var step = function (d) { if (!num.scene) return stop(); var m = Math.max(1, Math.min(max, n + d)); if (m !== n) { n = m; draw(); if (F.Audio) F.Audio.sfx('pick'); } };
+var stop = function () { if (held) { held.remove(); held = null; } };
+var side = function (x, glyph, d) {
+var b = self.pillButton(c, x, yBuy - 84, 54, 40, glyph, function () {}, 0x4a90c9), z = b.list[b.list.length - 1], k = 0;
+b.list[1].setFontSize(24);
+z.on('pointerdown', function () {
+stop(); step(d); k = 0;
+held = self.time.addEvent({ delay: 380, callback: function () {
+held = self.time.addEvent({ delay: 90, loop: true, callback: function () { k++; step(k > 10 ? d * 10 : d); } });
+} });
+});
+z.on('pointerup', stop); z.on('pointerout', stop);
+c.amountStep = c.amountStep || {}; c.amountStep[d > 0 ? 'up' : 'down'] = step.bind(null, d);
+};
+side(W / 2 - 92, '\u2212', -1);
+side(W / 2 + 92, '+', 1);
+this.events.once('shutdown', stop);
+draw();
 };
 
 
@@ -31588,14 +31632,18 @@ buttons: [{ label: up.gold + 'G', color: s.gold >= up.gold && L.countItem(s, up.
 }
 
 var bulk = function (id, unit, word) {
-return [1, 10, 20, 50].map(function (k, i) {
+return [1, 10].map(function (k, i) {
 var price = I[id].price * k;
 return { label: (k > 1 ? 'x' + k + ' ' : 'Buy ') + price + 'G', color: s.gold >= price ? (i ? BLUE_BTN : GREEN_BTN) : GREY_BTN,
 cb: function () { done(L.buyWild(s, id, k), (unit * k).toLocaleString('en-US') + ' ' + word + '.'); } };
 });
 };
-rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows') });
-rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.', buttons: bulk('bait', 1, 'Berry Bait') });
+var amount = function (id, unit, word) {
+return { start: 10, max: 999, price: function (n) { return I[id].price * n; }, word: unit > 1 ? function (n) { return (unit * n).toLocaleString('en-US') + ' ' + word; } : null,
+buy: function (n) { done(L.buyWild(s, id, n), (unit * n).toLocaleString('en-US') + ' ' + word + '.'); } };
+};
+rows.push({ icon: I.arrows.icon, name: 'Arrows x' + WI.arrowPack, desc: 'You have ' + L.countItem(s, 'arrows') + '. One a shot.', buttons: bulk('arrows', WI.arrowPack, 'arrows'), amount: amount('arrows', WI.arrowPack, 'arrows') });
+rows.push({ icon: I.bait.icon, name: 'Berry Bait', desc: 'Put it down: a shy animal comes to eat.', buttons: bulk('bait', 1, 'Berry Bait'), amount: amount('bait', 1, 'Berry Bait') });
 if (self.gearRows) self.gearRows(s, done).forEach(function (r) { rows.push(r); });
 } else if (tab === 'sell') {
 L.wildGoods(s).forEach(function (id) {
@@ -38453,7 +38501,7 @@ var lp = this.listPanel, sis = L.seedsInSeason;
 this.listPanel = function (o) {
 o.rows.forEach(function (row) {
 var id = ['fert', 'fert_rich'].filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
-if (id && tb === 'supplies') row.buttons = self.buyButtons(id, [1, 10, 20, 50], function () { if (o.refresh) o.refresh(); });
+if (id && tb === 'supplies') { var aft = function () { if (o.refresh) o.refresh(); }; row.buttons = self.buyButtons(id, [1, 10], aft); row.amount = self.buyAmount(id, aft); }
 var seed = gh && C.SHOP_STOCK.filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
 if (seed && !L.cropInSeason(C.ITEMS[seed].crop, s.day)) row.desc = 'Out of season: for your greenhouse. ' + row.desc;
 });

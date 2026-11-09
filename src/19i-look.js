@@ -634,12 +634,12 @@
   };
   // A tile opened: a small panel over the list with its picture, name, words and buttons.
   U.tileOpen = function (row, state, o) {
-    var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.buttons || [];
+    var self = this, c = this.openModal(function () { self.closeModal(); }), b = row.amount ? [] : row.buttons || [];
     c.tileDetail = row.name || true; // (the tests: a tile's own panel)
     var desc = this.txt(W / 2, 0, row.desc || '', 12, '#6a4a2a', { align: 'center', wordWrap: { width: W - 90 }, lineSpacing: 2 }).setOrigin(0.5, 0);
     // (4 or more buttons, e.g. Buy x1 / x10 / x20 / x50: two to a row, owner 9 Nov 2026)
     var grid = b.length > 3, brows = grid ? Math.ceil(b.length / 2) : 1;
-    var h = 170 + desc.height + (b.length ? 56 + (brows - 1) * 46 : 10), y0 = Math.round((640 - h) / 2);
+    var h = 170 + desc.height + (b.length ? 56 + (brows - 1) * 46 : 10) + (row.amount ? 102 : 0), y0 = Math.round((640 - h) / 2);
     this.panelImg(c, 24, y0, W - 48, h);
     c.add(this.add.circle(W / 2, y0 + 48, 34, 0xf2d79a));
     var pic = this.tilePicture(row, W / 2, y0 + 48, 60);
@@ -664,6 +664,45 @@
       var x = W / 2 + (col - (inRow - 1) / 2) * (bw + 10), y = y0 + h - 34 - (brows - 1 - row) * 46;
       self.pillButton(c, x, y, bw, 36, btn.label, function () { self.closeModal(); btn.cb(); }, btn.color || GREEN);
     });
+    if (row.amount) this.amountPicker(c, y0 + h - 34, row.amount);
+  };
+  // How many to buy: - and + (hold one: it keeps going, then by tens), the amount, and one Buy button with the price
+  // (owner, 10 Nov 2026: "How about i want x100? Make it allowed to + -"). a: { price(n), buy(n), max, start, word(n) }
+  U.amountPicker = function (c, yBuy, a) {
+    var self = this, max = a.max || 999, n = Math.max(1, Math.min(max, a.start || 1)), held = null;
+    var num = this.txt(W / 2, yBuy - 92, '', 22, INK, { fontStyle: 'bold' }).setOrigin(0.5);
+    var sub = this.txt(W / 2, yBuy - 69, '', 11, '#6a4a2a').setOrigin(0.5);
+    c.add([num, sub]);
+    var buy = null;
+    var draw = function () {
+      num.setText('x' + n);
+      sub.setText(a.word ? a.word(n) : '');
+      var price = a.price(n), can = F.session.state.gold >= price;
+      if (buy) buy.destroy();
+      buy = self.pillButton(c, W / 2, yBuy, 200, 38, 'Buy ' + n + '  ' + price.toLocaleString('en-US') + 'G', function () {
+        if (!can) { if (F.Audio) F.Audio.sfx('nope'); return self.toast('Not enough gold.'); }
+        self.closeModal(); a.buy(n);
+      }, can ? GREEN : 0xa08a68);
+      c.amountN = n; // (the tests)
+    };
+    var step = function (d) { if (!num.scene) return stop(); var m = Math.max(1, Math.min(max, n + d)); if (m !== n) { n = m; draw(); if (F.Audio) F.Audio.sfx('pick'); } };
+    var stop = function () { if (held) { held.remove(); held = null; } };
+    var side = function (x, glyph, d) {
+      var b = self.pillButton(c, x, yBuy - 84, 54, 40, glyph, function () {}, 0x4a90c9), z = b.list[b.list.length - 1], k = 0;
+      b.list[1].setFontSize(24);
+      z.on('pointerdown', function () {
+        stop(); step(d); k = 0;
+        held = self.time.addEvent({ delay: 380, callback: function () {
+          held = self.time.addEvent({ delay: 90, loop: true, callback: function () { k++; step(k > 10 ? d * 10 : d); } });
+        } });
+      });
+      z.on('pointerup', stop); z.on('pointerout', stop);
+      c.amountStep = c.amountStep || {}; c.amountStep[d > 0 ? 'up' : 'down'] = step.bind(null, d); // (the tests)
+    };
+    side(W / 2 - 92, '\u2212', -1);
+    side(W / 2 + 92, '+', 1);
+    this.events.once('shutdown', stop);
+    draw();
   };
 
   // A slim row: a 56 px card; the icon; the name (and a HARD tag); under it a small bar with its count and the prize, then
