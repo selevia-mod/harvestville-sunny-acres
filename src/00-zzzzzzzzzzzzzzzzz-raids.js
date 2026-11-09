@@ -21,21 +21,21 @@
     // 8 raiders: space (in the party), train cost and time, and per level (1-5): hp, damage, speed (tiles a second),
     // carry (how much loot it grabs a second). likes: what it goes for. weak: the defense that beats it.
     raiders: {
-      goat: { name: 'Goat', sheet: 'wild_kambing', kind: 'kambing', space: 1, gold: 40, secs: 20, hp: 30, dmg: 4, speed: 1.6, carry: 3, likes: 'crops', weak: 'all',
+      goat: { name: 'Goat', sheet: 'wild_kambing', kind: 'kambing', space: 1, gold: 40, secs: 20, hp: 39, dmg: 4, speed: 1.6, carry: 3, likes: 'crops', weak: 'all',
         say: 'Cheap and hungry: eats crops fast, but weak.' },
-      crow: { name: 'Crows', sheet: 'raid_crow', space: 1, gold: 50, secs: 25, hp: 18, dmg: 2, speed: 2.4, carry: 2, likes: 'crops', flies: true, weak: 'scarecrow',
+      crow: { name: 'Crows', sheet: 'raid_crow', space: 1, gold: 50, secs: 25, hp: 23, dmg: 2, speed: 2.4, carry: 2, likes: 'crops', flies: true, weak: 'scarecrow',
         say: 'Fly over fences and grab crops. Scarecrows scare them away.' },
-      cat: { name: 'Cat', sheet: 'cat', space: 2, gold: 90, secs: 40, hp: 40, dmg: 6, speed: 2.6, carry: 3, likes: 'produce', weak: 'dog',
+      cat: { name: 'Cat', sheet: 'cat', space: 2, gold: 90, secs: 40, hp: 52, dmg: 6, speed: 2.6, carry: 3, likes: 'produce', weak: 'dog',
         say: 'Fast and sneaky: steals eggs and milk. The guard dog can catch it.' },
-      carabao: { name: 'Carabao', sheet: 'wild_carabaoligaw', kind: 'carabaoligaw', space: 5, gold: 300, secs: 120, hp: 260, dmg: 18, speed: 0.9, carry: 2, likes: 'fences', weak: 'beebox',
+      carabao: { name: 'Carabao', sheet: 'wild_carabaoligaw', kind: 'carabaoligaw', space: 5, gold: 300, secs: 120, hp: 338, dmg: 18, speed: 0.9, carry: 2, likes: 'fences', weak: 'beebox',
         say: 'Very tough: breaks fences. Slow, and bees sting it.' },
-      monkey: { name: 'Monkey', sheet: 'wild_unggoy', kind: 'unggoy', space: 2, gold: 140, secs: 50, hp: 50, dmg: 6, speed: 2.2, carry: 4, likes: 'stall', weak: 'goose',
+      monkey: { name: 'Monkey', sheet: 'wild_unggoy', kind: 'unggoy', space: 2, gold: 140, secs: 50, hp: 65, dmg: 6, speed: 2.2, carry: 4, likes: 'stall', weak: 'goose',
         say: 'Climbs into the market stall and takes what is on it. Geese chase it off.' },
-      boar: { name: 'Wild Boar', sheet: 'wild', kind: 'boar', space: 4, gold: 220, secs: 90, hp: 160, dmg: 22, speed: 1.4, carry: 2, likes: 'defenses', weak: 'mudpit',
+      boar: { name: 'Wild Boar', sheet: 'wild', kind: 'boar', space: 4, gold: 220, secs: 90, hp: 208, dmg: 22, speed: 1.4, carry: 2, likes: 'defenses', weak: 'mudpit',
         say: 'Charges and knocks down scarecrows and traps. Mud pits stop it.' },
-      rooster: { name: 'Rooster', sheet: 'wild', kind: 'labuyo', space: 2, gold: 120, secs: 45, hp: 70, dmg: 10, speed: 1.9, carry: 1, likes: 'guards', weak: 'tower',
+      rooster: { name: 'Rooster', sheet: 'wild', kind: 'labuyo', space: 2, gold: 120, secs: 45, hp: 91, dmg: 10, speed: 1.9, carry: 1, likes: 'guards', weak: 'tower',
         say: 'A fighter: keeps the dog and the goose busy. The watchtower hits it.' },
-      bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', kind: 'bayawak', space: 3, gold: 260, secs: 80, hp: 90, dmg: 8, speed: 1.6, carry: 6, likes: 'gold', weak: 'kampana', through: true,
+      bayawak: { name: 'Bayawak', sheet: 'wild_bayawak', kind: 'bayawak', space: 3, gold: 260, secs: 80, hp: 117, dmg: 8, speed: 1.6, carry: 6, likes: 'gold', weak: 'kampana', through: true,
         say: 'Slips through hedges to the Gold pot. The Kampana gives it away.' },
     },
     raiderOrder: ['goat', 'crow', 'cat', 'carabao', 'monkey', 'boar', 'rooster', 'bayawak'],
@@ -44,26 +44,28 @@
     level: { mult: [1, 1.2, 1.4, 1.65, 1.9], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
     // 10 defenses: hp, damage a second, range (tiles), what it does; per level x the same mult. place: how it is set.
     defenses: {
-      dog: { name: 'Guard Dog', hp: 140, dps: 10, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
+      dog: { name: 'Guard Dog', hp: 140, dps: 3, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
       scarecrow: { name: 'Scarecrow', hp: 90, dps: 0, range: 3, scares: ['crow', 'goat'], beats: 'crow', say: 'Scares crows and goats away nearby.' },
       fence: { name: 'Strong Fence', hp: 120, dps: 0, range: 0, blocks: true, beats: 'goat', say: 'Blocks the way. Carabao and boar break it.' },
-      goose: { name: 'Guard Goose', hp: 110, dps: 10, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
-      beebox: { name: 'Bee Box', hp: 70, dps: 9, range: 2.5, area: true, beats: 'carabao', say: 'A swarm stings everything nearby.' },
+      goose: { name: 'Guard Goose', hp: 110, dps: 3, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
+      beebox: { name: 'Bee Box', hp: 70, dps: 2.7, range: 2.5, area: true, beats: 'carabao', say: 'A swarm stings everything nearby.' },
       mudpit: { name: 'Mud Pit', hp: 0, dps: 0, range: 0.8, trap: true, stuck: 6, hidden: true, beats: 'boar', say: 'Hidden: whoever steps in is stuck for a while.' },
-      sprinkler: { name: 'Sprinkler Blaster', hp: 80, dps: 6, range: 3, push: true, say: 'Sprays raiders and pushes them back.' },
-      tower: { name: 'Bamboo Watchtower', hp: 140, dps: 12, range: 5, beats: 'rooster', say: 'A farmhand with a slingshot, far-reaching.' },
+      sprinkler: { name: 'Sprinkler Blaster', hp: 80, dps: 1.8, range: 3, push: true, say: 'Sprays raiders and pushes them back.' },
+      tower: { name: 'Bamboo Watchtower', hp: 140, dps: 3.6, range: 5, beats: 'rooster', say: 'A farmhand with a slingshot, far-reaching.' },
       sili: { name: 'Sili Patch', hp: 60, dps: 0, range: 1, scares: ['goat', 'boar', 'monkey'], hot: true, say: 'Raiders who bite it run off crying.' },
       kampana: { name: 'Kampana', hp: 100, dps: 0, range: 6, alarm: 1.3, beats: 'bayawak', say: 'Rings when raiders come: every defense hits harder for a while.' },
     },
     defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
     // a defense's level (9 Nov 2026, owner: "a strategic game": a max camp must not always win): its own, steeper curve
-    defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.4, 1.9, 2.5, 3.2] },
+    // (10 Nov 2026, with the limits per camp: tuned by simulated battles, like Clash of Clans: an equal camp wins 1-2 stars, two
+    // levels higher about 3, two lower about 1; raiders' hp x1.3 and defenses' damage x0.3 against 9 Nov's, a flatter curve)
+    defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.2, 1.45, 1.7, 2] },
     // how many of each a farm may have, by its Raid Camp's level (owner, 10 Nov 2026: "If I can buy 100 tower, looks like
     // it was imbalance"; like a Town Hall's limits). tier: camp level 0-7 -> a column. More than that: the rest are only
     // decoration in a raid. fence: Strong Fences (plain fences are walls, as before)
     caps: { tier: [0, 0, 0, 1, 1, 2, 2, 3], tower: [1, 2, 3, 4], goose: [1, 2, 2, 3], beebox: [1, 2, 3, 3], sprinkler: [0, 1, 2, 3], kampana: [0, 1, 1, 1],
       mudpit: [2, 3, 4, 5], sili: [2, 3, 4, 5], scarecrow: [4, 4, 5, 6], fence: [20, 40, 60, 80] },
-    counter: 3, // a defense hits the raider it beats (its 'beats') this many times harder
+    counter: 2, // a defense hits the raider it beats (its 'beats') this many times harder (3 until 10 Nov 2026)
     // loot: the cap by power (owner: 10% .. 30%), stars at 50% / 100% of the cap and the main building
     loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
     // Farm Power: these weights (adjustable)
