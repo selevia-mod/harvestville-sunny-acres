@@ -43949,7 +43949,7 @@ return d + w;
 
 U.raidSoonNote = function (text) {
 var self = this;
-if (!this.raidBadge) this.raidBadgeMake();
+if (!this.raidBadge || !this.raidBadge.active) this.raidBadgeMake();
 if (this.raidNote) { this.raidNote.destroy(); this.raidNote = null; }
 var x0 = this.raidBadgeTag() + 6, t = this.txt(x0 + 9, this.raidBadgeD / 2, text, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
 var back = this.add.graphics(), d = this.raidBadgeD;
@@ -43970,7 +43970,7 @@ var raidBar = U.raidBar;
 U.raidBar = function (ph) {
 raidBar.call(this, ph);
 if (!this.raidBox) return;
-if (!this.raidBadge) this.raidBadgeMake();
+if (!this.raidBadge || !this.raidBadge.active) this.raidBadgeMake();
 var soon = ph.phase === 'soon' && !this.decorating, on = ph.phase === 'on' && !this.decorating;
 
 if (soon) {
@@ -44018,14 +44018,16 @@ var before = this.goalText ? this.goalText.text : null;
 refreshGoal.apply(this, arguments);
 if (!this.goalBar) return;
 var self = this, s = F.session.state, g = L.goal(s);
-if (!this.goalPill) {
+
+if (this.goalPill !== this.goalBar) {
 var bg = this.goalBar.list[0], z = this.goalBar.list[3];
 this.goalFull = [bg, this.goalText];
 this.goalPillBg = this.add.graphics();
 this.goalPillText = this.txt(42, 75, '', 12, '#fff6d8', { fontStyle: 'bold' });
 this.goalBar.addAt(this.goalPillBg, 0);
 this.goalBar.add(this.goalPillText);
-this.goalPill = true;
+this.goalPill = this.goalBar;
+this.goalSmallAt = 0;
 
 var tap = this.add.zone(PILL.x, PILL.y, 120, PILL.h + 4).setOrigin(0).setInteractive({ useHandCursor: true });
 tap.on('pointerdown', function () { if (self.goalSmall && !self.modals.length) self.goalOpen(); });

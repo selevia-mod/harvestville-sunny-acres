@@ -37,7 +37,7 @@
   // The "raid soon" word: slides out beside the chip for a few seconds, then tucks away (as Today's Event's name).
   U.raidSoonNote = function (text) {
     var self = this;
-    if (!this.raidBadge) this.raidBadgeMake();
+    if (!this.raidBadge || !this.raidBadge.active) this.raidBadgeMake(); // (a restarted scene: a new one)
     if (this.raidNote) { this.raidNote.destroy(); this.raidNote = null; }
     var x0 = this.raidBadgeTag() + 6, t = this.txt(x0 + 9, this.raidBadgeD / 2, text, 12, '#fff6d8', { fontStyle: 'bold' }).setOrigin(0, 0.5);
     var back = this.add.graphics(), d = this.raidBadgeD;
@@ -58,7 +58,7 @@
   U.raidBar = function (ph) {
     raidBar.call(this, ph);
     if (!this.raidBox) return;
-    if (!this.raidBadge) this.raidBadgeMake();
+    if (!this.raidBadge || !this.raidBadge.active) this.raidBadgeMake(); // (a restarted scene: a new one)
     var soon = ph.phase === 'soon' && !this.decorating, on = ph.phase === 'on' && !this.decorating;
     // before: the badge, not the bar
     if (soon) {

@@ -15,14 +15,16 @@
     refreshGoal.apply(this, arguments);
     if (!this.goalBar) return;
     var self = this, s = F.session.state, g = L.goal(s);
-    if (!this.goalPill) {
+    // (made once per task bar: a restarted scene, a New game, is the same object with a new bar)
+    if (this.goalPill !== this.goalBar) {
       var bg = this.goalBar.list[0], z = this.goalBar.list[3];
       this.goalFull = [bg, this.goalText];
       this.goalPillBg = this.add.graphics();
       this.goalPillText = this.txt(42, 75, '', 12, '#fff6d8', { fontStyle: 'bold' });
       this.goalBar.addAt(this.goalPillBg, 0);
       this.goalBar.add(this.goalPillText);
-      this.goalPill = true;
+      this.goalPill = this.goalBar;
+      this.goalSmallAt = 0;
       // tapping: small -> full for a while; full -> the card (the bar's own tap, below)
       var tap = this.add.zone(PILL.x, PILL.y, 120, PILL.h + 4).setOrigin(0).setInteractive({ useHandCursor: true });
       tap.on('pointerdown', function () { if (self.goalSmall && !self.modals.length) self.goalOpen(); });

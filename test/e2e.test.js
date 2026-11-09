@@ -4609,11 +4609,13 @@ test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler wat
   assert.strictEqual(count(s, 'ore_copper'), 0);
   assert.strictEqual(s.gold, 20000 - 800);
   await closeAll(page);
-  // Lily's Supplies: both fertilizers, Buy or x10 on the row (owner, 9 Nov 2026: buy in bulk)
+  // Lily's Supplies: both fertilizers; open one and buy any amount with + (owner, 9-10 Nov 2026: buy in bulk, - and +)
   await page.evaluate(() => Farm.ui.openShop('supplies', 1));
   assert.match(await modalText(page), /Fertilizer[\s\S]*Rich Fertilizer/);
   await shot(page, 'farmtech-2-lily');
-  await tapButton(page, 'x10 100G');
+  await tapTile(page, 'Fertilizer');
+  await page.evaluate(() => { const c = Farm.ui.modals[Farm.ui.modals.length - 1].c; for (let i = 0; i < 9; i++) c.amountStep.up(); });
+  await tapButton(page, 'Buy 10  100G');
   s = await state(page);
   assert.strictEqual(count(s, 'fert'), 10);
   await closeAll(page);
