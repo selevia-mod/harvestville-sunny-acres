@@ -117,13 +117,15 @@ test('Town Raid alone: the countdown, the boars come at your crops, you drive th
   const { page, problems, context } = await open(null, manila(2026, 11, 9, 19, 35));
   assert.strictEqual(await plant(page, 12), 12);
 
-  // ----- 25 minutes before: a word, and the bar counts down
-  await waitToast(page, /Town Raid in 25 minutes: Giant Boars are coming/);
-  await page.waitForFunction(() => Farm.ui.raidBox && Farm.ui.raidBox.visible && /Town Raid soon: Giant Boar Stampede/.test(Farm.ui.raidText.text), null, SLOW);
-  assert.match(await page.evaluate(() => Farm.ui.raidTime.text), /^2[45]:\d\d$/);
+  // ----- 25 minutes before: a small chip in the left column counts down (no second bar), its word slides out beside it
+  // (owner, 9 Nov 2026: the bar and the two-line notice took space)
+  await page.waitForFunction(() => Farm.ui.raidBadge && Farm.ui.raidBadge.visible && !Farm.ui.raidBox.visible, null, SLOW);
+  await page.waitForFunction(() => Farm.ui.raidNote && /Giant Boars in 2[45] min!/.test(Farm.ui.raidNote.list[1].text), null, SLOW);
+  assert.match(await page.evaluate(() => Farm.ui.raidBadgeTime.text), /^2[45]:\d\d$/);
+  assert.ok(!(await page.evaluate(() => Farm.ui.toastText.visible && /Town Raid in/.test(Farm.ui.toastText.text))), 'no big notice over the farm');
   // (9 Nov 2026, OPPO: Farm Raids once shared this bar's name and hid the whole HUD while it showed)
   await page.waitForTimeout(400);
-  assert.ok(await page.evaluate(() => Farm.ui.goldText.visible && Farm.ui.energyText.visible), 'the HUD stays while the Town Raid bar shows');
+  assert.ok(await page.evaluate(() => Farm.ui.goldText.visible && Farm.ui.energyText.visible), 'the HUD stays while the Town Raid countdown shows');
   assert.strictEqual(await page.evaluate(() => Farm.world.raiders.length), 0, 'nothing comes before it starts');
   await shot(page, 'raid-1-countdown');
 
