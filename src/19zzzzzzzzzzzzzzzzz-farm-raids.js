@@ -153,7 +153,7 @@
       var hm = function (ms) { var m = Math.ceil(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
       rows.push({ icon: C.ICON.ri_flag != null ? C.ICON.ri_flag : C.ICON.star, name: building ? 'Raid Camp: building level ' + (r.camp + 1) : 'Raid Camp, level ' + r.camp, tag: null,
         desc: building ? hm(building) + ' left. It still raids, but trains no raiders until it is done.'
-          : 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '.' + (next ? ' Next: room for ' + next.space + '. Needs ' + needs + '.' : ' Top level!'),
+          : (next ? 'Needs ' + needs + '. Room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + ', next ' + next.space + '.' : 'Party room ' + L.armySpace(s) + ' / ' + L.campSpace(s) + '. Top level!'), // (a slim row cuts the end: the needs first)
         buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {
         var d = R.raiders[k], open = L.raiderOpen(s, k), have = r.army[k] || 0, wait = r.train.filter(function (t) { return t.k === k; }).length;
