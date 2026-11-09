@@ -111,6 +111,7 @@
   // An outfit without its own seated picture sits in the farm clothes (ride_default) until it has one.
   // Toward you, the farmer is behind the horse's head; sideways and from behind, in front of the saddle.
   var SITTER = { side: [200, 326], up: [161, 322], down: [160, 314] }, SIT_FRAME = { side: 0, up: 1, down: 2 };
+  var SITTERS = { ride_defaultb: { side: [182, 312], up: [161, 308], down: [160, 306] } }; // (a picture drawn otherwise: its own seat)
   if (F.SHEETS) Object.keys(F.images || {}).forEach(function (k) { if (/^ride_[a-z]+$/.test(k)) F.SHEETS[k] = { frameWidth: 320, frameHeight: 400 }; });
   M.rideKey = function () {
     var s = this.state, cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default');
@@ -128,13 +129,25 @@
     if (this.riderFront) this.riderFront.setVisible(false);
     if (!key) return;
     if (!this.sitter || !this.sitter.active) this.sitter = this.add.image(0, 0, key, 0);
-    var r = this.sitter, at = SITTER[d], girl = this.state.look === 'girl';
+    var r = this.sitter, at = (SITTERS[key] || SITTER)[d], girl = this.state.look === 'girl';
     this.rider.setVisible(false);
     if (r.texture.key !== key) r.setTexture(key, 0);
-    r.setVisible(true).setScale(RIDE.sit).setFrame(SIT_FRAME[d] + (girl ? 3 : 0)).setFlipX(mirror).setOrigin((mirror ? 320 - at[0] : at[0]) / 320, at[1] / 400)
-      .setPosition(h.x + sx, h.y + sy - bob);
+    // from the hips up (owner, 10 Nov 2026: sitting on top of the saddle "I dont think that is correct"): the seated
+    // farmer, its legs left out, the hips set into the saddle; the saddle's side drawn again over the hips, and the
+    // horse's own boots in the stirrups below. HIPS: where the legs start in each seated frame; HSEAT: in the horse's.
+    var hip = HIPS[d], hseat = HSEAT[d], hx = (hseat[0] - 112) * hs * (mirror ? -1 : 1), hy = (hseat[1] - 233) * hs;
+    r.setVisible(true).setScale(HIP_SCALE).setFrame(SIT_FRAME[d] + (girl ? 3 : 0)).setFlipX(mirror).setCrop(0, 0, 320, hip[1] + 4)
+      .setOrigin((mirror ? 320 - hip[0] : hip[0]) / 320, hip[1] / 400).setPosition(h.x + hx, h.y + hy - bob);
     F.depthTo(r, DEPTH.actor + h.y / 1e5 + (d === 'down' ? -0.0002 : 0.0004));
+    var fr = this.riderFront;
+    if (!fr || d === 'down') return;
+    var top = HOVER[d];
+    fr.setVisible(true).setFrame(k).setFlipX(mirror).setCrop(0, top, 224, 252 - top).setPosition(h.x, h.y);
+    F.depthTo(fr, DEPTH.actor + h.y / 1e5 + 0.0006);
+    void sx; void sy; void at;
   };
+  var HIPS = { side: [188, 298], up: [161, 300], down: [160, 292] }, HSEAT = { side: [136, 122], up: [112, 104], down: [112, 98] };
+  var HOVER = { side: 112, up: 98 }, HIP_SCALE = 0.85;
 
   // Indoors and down the mine, the horse waits outside.
   M.beforeTravel = function (to) {
