@@ -122,6 +122,9 @@
       if (this.bv.hint) { this.bv.hint.forEach(function (o) { o.destroy(); }); this.bv.hint = null; }
       if (this.bv.zoneTw && !this.bv.zoneSoft) { this.bv.zoneSoft = true; this.bv.zoneTw.stop(); this.tweens.add({ targets: this.raidDropShade, alpha: 0.5, duration: 400 }); }
       this.bfx('ring', (x + 0.5) * T, (y + 0.6) * T, { scale: 1.1, life: 120, depth: D.flat + 0.1 });
+      // its card pops (one less in it)
+      var k = b.raiders[b.raiders.length - 1].k, cd = F.ui && F.ui.raidCards && F.ui.raidCards[k];
+      if (cd && cd.c && cd.c.active) { F.ui.tweens.killTweensOf(cd.c); cd.c.setScale(1); F.ui.tweens.add({ targets: cd.c, scale: 1.14, y: cd.c.y, duration: 90, yoyo: true, ease: 'Quad.out' }); }
     } else if (!quiet && !L.frEdge(b, x, y)) this.raidNoDrop(x, y);
     return r;
   };
@@ -176,20 +179,32 @@
       u = bv.units[r.id] = { base: base, lx: r.x, ly: r.y, hp: r.hp, face: 1, born: time, ph: (row * 37 + r.id.length * 13) % 100 / 15, dustAt: 0, lunge: 0, k: base * 1.45 * T / C.RAID_MOVES.run[row] };
       u.sh = this.add.ellipse(r.x * T, r.y * T, 0.8 * base * T, 0.26 * base * T, 0x000000, 0.28).setDepth(D.flat + 0.2);
       u.img = this.add.image(r.x * T, r.y * T, 'raid_moves', moveFrame(r.k, 'run')).setOrigin(0.5, 0.9).setScale(u.k);
-      // it comes down from above with a bump and dust
-      u.fall = 1;
-      this.tweens.add({ targets: u, fall: 0, duration: 300, ease: 'Quad.in', onComplete: function () {
-        if (!d.flies) self.bfx('dust', r.x * T, r.y * T, { scale: 1.0 * base, life: 160, depth: D.flat + 0.3 });
-        sfx('plant');
+      // it comes down from above: its shadow grows under it, it lands squashed with a ring of dust and springs up; the big
+      // ones thump the ground (owner, 10 Nov 2026: "improve the dropping raiders")
+      u.fall = 1; u.sq = 0; u.kb = 0; u.spin = (Math.random() - 0.5) * 30;
+      this.tweens.add({ targets: u, fall: 0, spin: 0, duration: 380, ease: 'Quad.in', onComplete: function () {
+        u.sq = 1;
+        self.tweens.add({ targets: u, sq: 0, duration: 420, ease: 'Elastic.out', easeParams: [1.1, 0.5] });
+        if (!d.flies) {
+          self.bfx('dust', r.x * T, r.y * T + 0.05 * T, { scale: 1.3 * base, life: 160, depth: D.flat + 0.3 });
+          var rg = self.bfx('ring', r.x * T, r.y * T + 0.1 * T, { scale: 0.6 * base, keep: true, depth: D.flat + 0.25 });
+          if (rg) self.tweens.add({ targets: rg, scale: rg.scale * 3.2, alpha: 0, duration: 380, ease: 'Quad.out', onComplete: function () { rg.destroy(); } });
+        }
+        if (base >= 1.2) self.cameras.main.shake(110, 0.0025 * base);
+        sfx(base >= 1.2 ? 'hammer' : 'plant');
       } });
     }
     var x = r.x * T, y = r.y * T;
     if (r.hp <= 0) { // knocked out: lies dizzy, then goes in a puff
       if (!u.out) {
         u.out = time;
-        u.img.setFrame(moveFrame(r.k, 'out')).setAngle(0).setPosition(x, y).clearTint();
+        u.img.setFrame(moveFrame(r.k, 'out')).setAngle(-25 * u.face).setPosition(x, y).setScale(u.k).clearTint();
         if (u.hb) u.hb.setVisible(false);
-        this.tweens.add({ targets: u.img, y: y - 0.3 * T, yoyo: true, duration: 140 });
+        // knocked flying a little, a bounce, and it lies there dizzy
+        this.tweens.add({ targets: u.img, y: y - 0.55 * T, x: x + u.face * 0.35 * T, angle: 0, duration: 180, ease: 'Quad.out', yoyo: false, onComplete: function () {
+          self.tweens.add({ targets: u.img, y: y, duration: 200, ease: 'Bounce.out' });
+        } });
+        this.bfx('hit', x, y - 0.5 * T * u.base, { scale: 1.1, life: 80 });
         this.time.delayedCall(1100, function () {
           self.bfx('smoke', x, y - 0.3 * T, { scale: 1.0, life: 120 });
           self.tweens.add({ targets: [u.img, u.sh], alpha: 0, duration: 250 });
@@ -202,15 +217,26 @@
     var hitting = !moving && near && tg.left == null && r.stuck <= 0, grabbing = !moving && near && tg.left != null;
     if (moving && Math.abs(dx) > 0.0004) u.face = dx > 0 ? -1 : 1; // (the pictures face left)
     if (hitting || grabbing) u.face = tg.x > r.x ? -1 : 1;
-    var pose = hitting ? (((time + u.ph * 100) % 700) < 260 ? 'hit' : 'run') : (r.got > 0.5 || grabbing) ? 'loot' : 'run';
-    var hop = 0, tilt = 0, lx = 0, fly = d.flies ? 0.7 * T + Math.sin(time / 160 + u.ph) * 0.12 * T : 0;
-    if (moving) { hop = Math.abs(Math.sin(time / (r.flee > 0 ? 70 : 95) + u.ph)) * 0.16 * T; tilt = Math.sin(time / 95 + u.ph) * 5; }
-    if (grabbing) hop = Math.abs(Math.sin(time / 120 + u.ph)) * 0.08 * T;
-    if (pose === 'hit') lx = -u.face * 0.22 * T; // (the lunge, toward its target)
+    // a swing: wind up (pulls back, squashes), strike (springs forward, stretches), recover
+    var sw = ((time + u.ph * 100) % 720) / 720, pose = hitting ? (sw > 0.28 && sw < 0.5 ? 'hit' : 'run') : (r.got > 0.5 || grabbing) ? 'loot' : 'run';
+    var hop = 0, tilt = 0, lx = 0, sx = 1, sy = 1, fly = d.flies ? 0.7 * T + Math.sin(time / 160 + u.ph) * 0.12 * T : 0;
+    if (moving) {
+      var ph = time / (r.flee > 0 ? 70 : 95) + u.ph, h = Math.abs(Math.sin(ph));
+      hop = h * 0.2 * T; tilt = -6 + Math.sin(ph) * 5; // (leans into the run)
+      sx = 1.06 - 0.1 * h; sy = 0.92 + 0.14 * h; // (squashed on the ground, stretched in the air)
+    }
+    if (grabbing) { var g2 = Math.abs(Math.sin(time / 110 + u.ph)); hop = g2 * 0.1 * T; tilt = -10 * g2; sy = 0.95 + 0.08 * g2; }
+    if (hitting) {
+      if (sw < 0.28) { lx = u.face * 0.14 * T * (sw / 0.28); sx = 1.08; sy = 0.9; tilt = 6; } // (wind-up: back)
+      else if (sw < 0.5) { lx = -u.face * 0.32 * T; sx = 0.92; sy = 1.1; tilt = -10; } // (strike: forward)
+      else lx = -u.face * 0.32 * T * (1 - (sw - 0.5) / 0.5);
+    }
     if (r.stuck > 0) lx = Math.sin(time / 30) * 0.06 * T;
-    u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle(tilt * u.face)
-      .setPosition(x + lx, y - hop - fly - u.fall * 3 * T).setDepth(D.actor + y / 1e5 + (d.flies ? 0.001 : 0));
-    u.sh.setPosition(x, y + 0.05 * T).setScale(d.flies ? 0.6 : 1 - hop / T);
+    u.kb *= 0.85; // (a knock back when hit, fading)
+    sx *= 1 + 0.3 * u.sq; sy *= 1 - 0.38 * u.sq; // (landing)
+    u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle((tilt + u.spin) * u.face).setScale(u.k * sx, u.k * sy)
+      .setPosition(x + lx + u.kb * u.face, y - hop - fly - u.fall * 2.2 * T).setDepth(D.actor + y / 1e5 + (d.flies ? 0.001 : 0));
+    u.sh.setPosition(x, y + 0.05 * T).setScale(d.flies ? 0.6 : (1 - hop / T) * (1 - 0.7 * u.fall)).setAlpha(1 - 0.5 * u.fall);
     if (r.stuck > 0) u.img.setTint(0xb08860); else if (r.slow > 0) u.img.setTint(0x9fd4ff); else if (!u.flash) u.img.clearTint();
     // running: dust behind it
     if (moving && !d.flies && time - u.dustAt > 240) { u.dustAt = time; this.bfx('dust', x + u.face * 0.35 * T, y, { scale: 0.45, life: 60, depth: D.flat + 0.3 }); }
@@ -219,13 +245,14 @@
       var lost = u.hp - r.hp;
       u.hp = r.hp;
       u.sum = (u.sum || 0) + lost;
-      if (time - (u.hitAt || 0) > 220) {
+      if (time - (u.hitAt || 0) > 340) {
         u.hitAt = time;
         u.flash = true;
         u.img.setTintFill(0xffffff);
+        u.kb = Math.min(0.25, 0.06 + lost / r.max) * T;
         this.time.delayedCall(70, function () { u.flash = false; if (u.img.active) u.img.clearTint(); });
         this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.8, life: 60 });
-        this.bnum(x, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a');
+        this.bnum(x + (Math.random() - 0.5) * 0.5 * T, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a');
         u.sum = 0;
         var by = this.raidB.defs.filter(function (q) { return q.aim === r.id && R.defenses[q.t].chases; })[0];
         if (by) this.bfx('swoosh', x, y - 0.4 * T, { scale: 0.8, life: 60, flip: by.x > r.x });
@@ -240,9 +267,15 @@
     var bv = this.bv, u = bv.defs[d.id], dx0 = Math.floor(d.hx - 0.5), dy0 = Math.floor(d.hy - 0.5);
     if (!u) {
       var sp = bv.sprites[dx0 + ',' + dy0] || this.raidDefs[i] || null;
-      u = bv.defs[d.id] = { hp: d.hp, sp: sp, sx: sp ? sp.x : 0 };
+      u = bv.defs[d.id] = { hp: d.hp, sp: sp, sx: sp ? sp.x : 0, scy: sp ? sp.scaleY : 1, shotAt: 0 };
     }
     var x = d.x * T, y = d.y * T;
+    // at work: it kicks back with each shot (the tower, the sprinkler, the bee box)
+    if (d.aim != null && d.hp > 0 && u.sp && u.sp.active && d.t !== 'dog' && time - u.shotAt > 650) {
+      u.shotAt = time;
+      var spr = u.sp;
+      this.tweens.add({ targets: spr, scaleY: u.scy * 0.86, duration: 70, yoyo: true, ease: 'Quad.out', onComplete: function () { if (spr.active) spr.scaleY = u.scy; } });
+    }
     if (d.hp < u.hp - 0.01) {
       var lost = u.hp - d.hp;
       u.hp = d.hp;
