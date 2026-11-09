@@ -15,7 +15,7 @@ function startServer(opts) {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('not here');
   });
-  const wss = new WebSocketServer({ server, maxPayload: 4096, perMessageDeflate: false });
+  const wss = new WebSocketServer({ server, maxPayload: 16384, perMessageDeflate: false });
   wss.on('connection', (ws) => {
     ws.on('error', () => {});
     const c = game.connect({

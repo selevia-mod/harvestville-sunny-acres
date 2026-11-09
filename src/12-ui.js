@@ -6,6 +6,7 @@
   var W = C.WIDTH;
   var H = C.HEIGHT;
   var FONT = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif';
+  F.UI_FONT = FONT; // (for screens of their own: the raid battle, 19zzzzzzzzzzzzzzzzz-farm-raids.js)
   var INK = '#4a2c14';
   var COL = { panel: 0xf3e2b8, edge: 0x5a3a1e, inner: 0xc9a26b, slot: 0xe8cf98, slotEdge: 0x8a5a32, sel: 0xffd23f };
   var SLOT = 44;
