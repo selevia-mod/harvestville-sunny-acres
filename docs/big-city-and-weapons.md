@@ -7,7 +7,26 @@ town's east edge, where visitors from out of town come in: tools/make-map.js fro
 Size (owner, 11 Nov 2026: "i like your recommendation"): 3 times the AREA. The city about 90 x 90 tiles (the town is
 54 x 52); each hunting ground about 3 times Pulag's area. Its art downloads as a pack (the page is nearly full).
 
-Still to decide: what the city holds, its hunting grounds (how many, what lives there), how you get there.
+For scale: the farm (all 6 lands) 64 x 38 = 2,432 tiles; the town 54 x 52 = 2,808; Pulag 896, Makiling 960, Magayon
+1,020. The city 8,100 (3.3 farms); a hunting ground ~2,700 (about the town).
+
+## What it holds (owner, 11 Nov 2026: "I like that, 90x90 it is")
+Open to everyone (the game server's public rooms, up to 30 a room).
+1. Central Plaza: the big fountain square where everyone meets; the notice board, events, the city's Hall of Fame.
+2. The Grand Market: big crop contracts (e.g. 200 corn for 6,000 Gold) and the Trading Post for Mixer materials.
+3. The Armory: buy and upgrade the Rifle, Javelin and Boomerang; bullets and javelins; boomerang repairs.
+4. The Stables and Race Track: horse gear (Horseshoes, Saddlebags, Lantern Bridle), oats, a weekly horse race.
+5. Three gates, one to each hunting ground.
+
+Three hunting grounds (each ~3x Pulag), each suited to one new weapon, each with a cave dungeon at its far end:
+- The Open Plains: wide, flat, fast animals seen from far off (the Rifle).
+- The Bamboo Jungle: thick and close, animals jumping out near you (the Javelin).
+- The Rocky Gorge: cliffs, flocks of birds in groups (the Boomerang's double hit).
+
+Getting there: the train from Willowbrook Station (a ticket), or the valley road on horseback (6 hearts and Horseshoes),
+stopping at a hunting ground on the way.
+
+Still to decide: the city's name, its people, the animals of each ground, prices, the order of building.
 
 ## The weapons (owner's numbers, 11 Nov 2026)
 
