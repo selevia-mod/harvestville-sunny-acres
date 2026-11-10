@@ -1515,7 +1515,7 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
 // The gid drawn at a map tile, and the seasons tileset's first gid, to check which season's art is showing.
 const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.layers[l].getTileAt(x, y).index, [layer, x, y]);
 
-test('seasons follow the months: summer on June 1st, winter on December 1st; the shop and the farm change', async () => {
+test('seasons follow the months: summer on June 1st, winter on December 1st; the farm changes, every seed all year (economy v2)', async () => {
   const MAY31 = [2026, 5, 31, 22, 0];
   const save = await makeSave(`
     L.till(s, 12 * 64 + 5);
@@ -1528,19 +1528,21 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   const seasonsFirst = await page.evaluate(() => Farm.world.map.getTileset('seasons').firstgid);
   assert.ok(springGrass >= seasonsFirst && springGrass < seasonsFirst + 12, 'spring art from the seasons tileset');
 
-  // summer seeds can't be planted yet
+  // (economy v2, 11 Nov 2026: no more seasons) a summer seed goes in in spring too
   await page.evaluate(() => {
-    Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 1);
+    Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 2);
     Farm.Logic.till(Farm.session.state, 12 * 64 + 6);
+    Farm.Logic.till(Farm.session.state, 12 * 64 + 7);
     Farm.world.refreshAllSoil();
   });
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, null, 'tomato refused in spring');
+  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, 'tomato', 'tomato in spring');
 
   const report = await nextMorning(page);
-  assert.match(report, /Summer has arrived/);
+  assert.match(report, /Summer has arrived! Every crop still grows all year\./);
+  assert.doesNotMatch(report, /new kinds of seeds/);
   let s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
   assert.strictEqual(s.soil[12 * 64 + 5].c, 'onion', 'the spring onion grows on');
@@ -1549,19 +1551,15 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   await teleport(page, 6, 9, 'down');
   await shot(page, '16-summer');
 
-  // now the tomato goes in
-  await hold(page, 'seed_tomato');
-  await teleport(page, 6, 11, 'down');
-  await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, 'tomato');
+  assert.strictEqual(s.soil[12 * 64 + 6].c, 'tomato', 'the tomato grows on');
 
-  // the shop's seeds tab follows the season
+  // the shop's seeds tab: every seed, in summer too (spring's turnips, the new crops)
   await setClock(page, [2026, 6, 1, 10, 0]);
   await teleport(page, 16, 32, 'up');
   await tapAction(page);
   let names = await modalText(page);
-  assert.ok(names.includes('Okra Seeds') && names.includes('Chili Pepper Seeds'), names);
-  assert.ok(!names.includes('Turnip Seeds'));
+  assert.ok(names.includes('Turnip Seeds') && names.includes('Okra Seeds'), names);
+  assert.doesNotMatch(names, /Spring\.|Summer\.|Winter\.|Fall\./, 'no seed says its season');
   await page.evaluate(() => window.__gameBack());
 
   // the last evening of fall, then winter
@@ -4750,14 +4748,13 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   await shot(page, 'greenhouse-v2-outside');
   // Mira's catalog: the Greenhouse under More land, one only
   await page.evaluate(() => Farm.ui.openOutdoor('land', 0));
-  assert.match(await tileText(page, 'Greenhouse'), /Greenhouse[\s\S]*12000G\. Any crop grows inside in any season[\s\S]*You have one/);
+  assert.match(await tileText(page, 'Greenhouse'), /Greenhouse[\s\S]*12000G\. Crops inside grow 25% faster[\s\S]*You have one/);
   assert.strictEqual(await page.evaluate((gh) => Farm.yardImg(Farm.ui, gh).key, GH), 'props/ws_greenhouse', 'the whole greenhouse in the list');
   await shot(page, 'farmtech-6-mira');
   await closeAll(page);
-  // with a greenhouse, Lily sells every seed: out of season ones after the rest
+  // Lily sells every seed, with or without a greenhouse, and none is 'out of season' (economy v2)
   await page.evaluate(() => Farm.ui.openShop('seeds', 0));
-  const outName = await page.evaluate(() => { const C = Farm.Config, s = Farm.session.state; const id = Object.keys(C.ITEMS).find((k) => C.ITEMS[k].kind === 'seed' && C.ITEMS[k].price && !Farm.Logic.cropInSeason(C.ITEMS[k].crop, s.day)); return C.ITEMS[id].name; });
-  assert.match(await tileText(page, outName), /Out of season: for your greenhouse/); // (Lily's seeds are tiles: in the tile's own panel)
+  assert.doesNotMatch(await tileText(page, 'Melon Seeds'), /Out of season/); // (Lily's seeds are tiles: in the tile's own panel)
   await shot(page, 'farmtech-8-lily-seeds');
   await closeAll(page);
   // till a tile inside: wet at once
@@ -4767,7 +4764,7 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   await tapAction(page);
   s = await state(page);
   assert.strictEqual(s.soil[22 * W + 25].w, 1);
-  // melon seeds in spring: only inside
+  // melon seeds in spring, inside: 25% faster
   await hold(page, 'seed_melon');
   assert.strictEqual(await actionLabel(page), 'Plant');
   await tapAction(page);
@@ -4775,11 +4772,12 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   assert.strictEqual(s.soil[22 * W + 25].c, 'melon');
   assert.strictEqual(s.soil[21 * W + 24].c, 'melon');
   assert.ok(!s.soil[23 * W + 25], 'nothing outside');
+  assert.strictEqual(await page.evaluate((i) => Farm.Logic.cropLeft(Farm.session.state.soil[i]), 22 * W + 25), Math.round(24 * 60 * 0.75), 'a melon inside: 18 hours, not 24');
   await teleport(page, 25, 24, 'up');
   await frames(page, 4);
   await shot(page, 'farmtech-7-greenhouse');
   await teleport(page, 10, 18, 'up');
-  assert.strictEqual(await page.evaluate(() => { const a = Farm.world.resolve(); return a.disabled && /grow only in summer|only grow in Summer/i.test(a.why); }), true, 'out in the field: not in spring');
+  assert.strictEqual(await page.evaluate(() => { const a = Farm.world.resolve(); return a.label === 'Plant' && !/summer|season/i.test(a.why || ''); }), true, 'out in the field: no season stops it');
   for (let k = 0; k < 3; k++) {
     if (!k) await page.evaluate(() => Farm.ui.tour('greenhouse'));
     await frames(page, 4);

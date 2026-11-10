@@ -34,6 +34,6 @@ needed", and it wears out ("boomerang can be destroy if they did not use materia
 |---|---|---|
 | Bow | 0.43 s (as now) | arrows, 60G for 10 (6G each) |
 | Javelin | 0.35 s | javelins, 150G for 5 (30G each): the most damage a second, so the dearest to use |
-| Rifle | 1.6 s | bullets, 200G for 10 (20G each) |
+| Rifle | 1.4 s (owner, 11 Nov 2026) | bullets, 200G for 10 (20G each) |
 | Boomerang | 1.0 s | none; durability, repaired with materials |
 (Proposed numbers; the owner set the order: Javelin fastest, Rifle slowest.)
