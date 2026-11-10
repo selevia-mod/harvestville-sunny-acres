@@ -242,3 +242,24 @@ test('the save: levels and the throws left come back; an old save has none; nons
   ['rifle', 'javelin', 'boomerang', 'bullets', 'javelins'].forEach((id) => assert.ok(C.ITEMS[id].icon >= C.WPN_ICON_BASE, id));
   assert.ok(roundTrip(s));
 });
+
+test('the weapon drawn in the hands: sheet names, the directions a sheet has, and how many of the others\' a phone holds', () => {
+  assert.strictEqual(L.holdKey('rifle', 'boy', ''), 'wpn_hold_rifle_boy');
+  assert.strictEqual(L.holdKey('javelin', 'girl', 'fire'), 'wpn_hold_fire_javelin_girl');
+  C.WPN_HOLD_ROWS.wpn_hold_test = ['front', 'left'];
+  try {
+    assert.deepStrictEqual(plain(['down', 'up', 'left', 'right'].map((d) => L.holdHas('wpn_hold_test', d))), [true, false, true, true], 'right is left mirrored');
+    assert.strictEqual(L.holdHas('wpn_hold_none', 'left'), false);
+  } finally { delete C.WPN_HOLD_ROWS.wpn_hold_test; }
+  assert.deepStrictEqual(plain(C.WPN_HOLD), { others: 10, othersCheap: 4, letGo: 30000 });
+  const held = {};
+  assert.strictEqual(L.sheetPick(held, 'mine', ['mine'], 0, 1), 'mine', 'yours is always fine, and not counted');
+  assert.strictEqual(L.sheetPick(held, 'a', ['mine'], 0, 2), 'a');
+  assert.strictEqual(L.sheetPick(held, 'b', ['mine'], 10, 2), 'b');
+  assert.strictEqual(L.sheetPick(held, 'c', ['mine'], 20, 2), null, 'past the cap: the old way');
+  assert.strictEqual(L.sheetPick(held, 'a', ['mine'], 30, 2), 'a', 'one held is seen again');
+  assert.strictEqual(L.sheetPick(held, null, [], 0, 2), null);
+  assert.deepStrictEqual(plain(L.sheetStale(held, 30015, 30000)), ['b'], 'not seen for 30 s: let go');
+  assert.deepStrictEqual(Object.keys(held), ['a']);
+  assert.strictEqual(L.sheetPick(held, 'c', ['mine'], 40, 2), 'c', 'room again');
+});

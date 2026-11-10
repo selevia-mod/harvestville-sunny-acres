@@ -382,6 +382,7 @@ const openSpace = (page) => page.evaluate(() => {
 
 test('the Rifle rig: he aims and shoots built from parts in all four ways, both hands on the rifle, the dog to the side; back to his sheet at the same size and place', async () => {
   const { page, problems, context } = await huntWith(`L.getWeapon(s, 'rifle'); s.wpn.rifle = 3; L.buyAmmo(s, 'bullets', 5);`);
+  await page.evaluate(() => { Farm.rigOn = true; }); // (parked, owner 11 Nov 2026: off unless asked for)
   await page.waitForFunction(() => Farm.images.rig_boy && Farm.Config.RIG_BOY, null, SLOW);
   assert.ok(await openSpace(page), 'an open spot');
   await hold(page, 'rifle');
@@ -419,6 +420,89 @@ test('the Rifle rig: he aims and shoots built from parts in all four ways, both 
   await page.evaluate(() => Farm.world.fireWeapon());
   await page.waitForTimeout(150);
   assert.deepStrictEqual(await page.evaluate(() => { const sh = Farm.world.wpnShot; return [!!sh.rig, !!sh.body]; }), [false, true], 'the girl: her pose sheet');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// ---------- the weapon drawn in the hands (owner, 11 Nov 2026) ----------
+// A hold sheet made in the page for the test (the owner's are not in yet): the old empty-hand pose sheet's frames, each
+// in a frame of 384 (as tools/art/weapons-hold-import.js lays them out), only the directions given.
+const makeHold = (page, key, from, rows) => page.evaluate(([key, from, rows]) => {
+  const im = Farm.images[from], c = document.createElement('canvas'), g = c.getContext('2d');
+  c.width = c.height = 8 * 2 + 384 * 3 + 16 * 2;
+  for (let i = 0; i < 9; i++) g.drawImage(im, 8 + (i % 3) * (288 + 16), 8 + Math.floor(i / 3) * (384 + 16), 288, 384, 8 + (i % 3) * 400 + 48, 8 + Math.floor(i / 3) * 400, 288, 384);
+  Farm.images[key] = c;
+  Farm.holdSheet(key);
+  Farm.Config.WPN_HOLD_ROWS[key] = rows;
+}, [key, from, rows]);
+
+test('the weapon drawn in the hands: his own sheet with no weapon drawn on top, the level\'s glow, the shot from its hand and tip, the motion; a direction or a look without one keeps the old way; the rig is off', async () => {
+  const { page, problems, context } = await huntWith(`L.getWeapon(s, 'rifle'); s.wpn.rifle = 2; L.getWeapon(s, 'javelin'); L.buyAmmo(s, 'bullets', 5); L.buyAmmo(s, 'javelins', 2);`);
+  await page.evaluate(() => Farm.needImage('wpn_pose_rifle_girl')); // (a girl's: only fetched for a girl)
+  await page.waitForFunction(() => Farm.images.wpn_pose_rifle && Farm.images.wpn_pose_javelin && Farm.images.wpn_pose_rifle_girl, null, SLOW);
+  assert.ok(await openSpace(page));
+  await makeHold(page, 'wpn_hold_rifle_boy', 'wpn_pose_rifle', ['front', 'left']);
+  await makeHold(page, 'wpn_hold_javelin_boy', 'wpn_pose_javelin', ['left']);
+  await hold(page, 'rifle');
+  // the Rifle, side on: his drawn-in sheet, nothing drawn over it, the Silver glow; the round from his hand, shown from the tip
+  await faceAnimal(page, 'left', 3, 0);
+  await page.evaluate(() => Farm.world.fireWeapon());
+  await page.waitForFunction(() => Farm.world.wpnShot && Farm.world.wpnShot.stage === 1, null, SLOW);
+  const a = await page.evaluate(() => { const sh = Farm.world.wpnShot; return { key: sh.body.texture.key, held: !!sh.held, fist: !!sh.fist, glow: !!sh.glow, drawn: sh.drawnIn, rig: !!sh.rig, frame: sh.body.frame.name }; });
+  assert.deepStrictEqual(a, { key: 'wpn_hold_rifle_boy', held: false, fist: false, glow: true, drawn: true, rig: false, frame: 7 }, 'aimed (the middle pose)');
+  await page.waitForFunction(() => Farm.world.wpnShots.length > 0, null, SLOW);
+  const g0 = await page.evaluate(() => { const sh = Farm.world.wpnShot; return [sh.grip.x, sh.grip.y]; });
+  await page.waitForTimeout(50); // (the kick, in the next frames)
+  const b = await page.evaluate((g0) => { const w = Farm.world, sh = w.wpnShot, b = w.wpnShots[0] || { x0: NaN, y0: NaN, hide: 0 }; return { from: [b.x0, b.y0], grip: g0, hide: b.hide, frame: sh.body.frame.name, moved: Math.hypot(sh.body.x - w.player.x, sh.body.y - w.player.y) }; }, g0);
+  assert.ok(Math.hypot(b.from[0] - b.grip[0], b.from[1] - b.grip[1]) < 12, 'the round leaves from his hand');
+  assert.ok(b.hide > 40, 'and shows from the rifle\'s tip');
+  assert.strictEqual(b.frame, 8, 'the kick pose');
+  assert.ok(b.moved > 1, 'the kick moves him (' + b.moved.toFixed(1) + ')');
+  await shot(page, 'hold-rifle-left');
+  await page.waitForTimeout(1500);
+  // facing away: this sheet has no picture for it: the old way (the empty-hand pose with the rifle drawn on)
+  await faceAnimal(page, 'up', 3, 0);
+  await page.evaluate(() => Farm.world.fireWeapon());
+  await page.waitForTimeout(120);
+  assert.deepStrictEqual(await page.evaluate(() => { const sh = Farm.world.wpnShot; return [sh.drawnIn, !!sh.held, sh.body.texture.key]; }), [false, true, 'wpn_pose_rifle']);
+  await page.waitForTimeout(1500);
+  // the Javelin, side on: it leaves from the hand of the throw
+  await hold(page, 'javelin');
+  await faceAnimal(page, 'left', 2, 0);
+  await page.evaluate(() => Farm.world.fireWeapon());
+  await page.waitForFunction(() => Farm.world.wpnShots.length > 0, null, SLOW);
+  const j = await page.evaluate(() => {
+    const w = Farm.world, b = w.wpnShots[0], p = w.player, q = Farm.holdPts('wpn_hold_javelin_boy', 'javelin')[7].hand;
+    return { from: [b.x0, b.y0], want: [p.x + q[0] - 192, p.y + q[1] - 192], drawn: w.wpnShot.drawnIn };
+  });
+  assert.ok(j.drawn);
+  assert.ok(Math.hypot(j.from[0] - j.want[0], j.from[1] - j.want[1]) < 14, 'the javelin from the hand of the throw ' + j.from.map(Math.round) + ' ~ ' + j.want.map(Math.round));
+  await page.waitForTimeout(1200);
+  // a look with no sheet of its own (a Tailor Shop look): the old way
+  await page.evaluate(() => { Farm.Logic.__worn = Farm.Logic.wornLook; Farm.Logic.wornLook = () => 'fire'; });
+  await faceAnimal(page, 'left', 2, 0);
+  await page.evaluate(() => Farm.world.fireWeapon());
+  await page.waitForTimeout(100);
+  assert.deepStrictEqual(await page.evaluate(() => { const sh = Farm.world.wpnShot; return [sh.drawnIn, !!sh.held]; }), [false, true]);
+  await page.evaluate(() => { Farm.Logic.wornLook = Farm.Logic.__worn; });
+  await page.waitForTimeout(1200);
+  // a friend's shot: their own sheet when this phone holds it; let go 30 s after it was last seen
+  await makeHold(page, 'wpn_hold_rifle_girl', 'wpn_pose_rifle_girl', ['front', 'back', 'left']);
+  const r = await page.evaluate(() => {
+    const w = Farm.world, f = w.feet(), T = Farm.Config.TILE;
+    const spr = w.add.sprite(f.x + 2 * T, f.y, Farm.playerKey ? Farm.playerKey(w) : 'player', 0);
+    const who = { spr, look: 'girl', cs: '' };
+    w.wpnRemote(spr.x - T, spr.y, Math.PI, Farm.Logic.shotRange(4 * T, 'rifle'), 1, 'rifle', who);
+    const q = w.wpnRemotePoses[0];
+    return { posed: !!q, key: q && q.key, hidden: !spr.visible, held: Object.keys(Farm.holdHeld) };
+  });
+  assert.deepStrictEqual(r, { posed: true, key: 'wpn_hold_rifle_girl', hidden: true, held: ['wpn_hold_rifle_girl'] });
+  await page.waitForTimeout(600);
+  assert.strictEqual(await page.evaluate(() => Farm.world.wpnRemotePoses.length), 0, 'their pose is over');
+  const gone = await page.evaluate(() => { Farm.holdSweep(Date.now() + 31000); return [Object.keys(Farm.holdHeld).length, Farm.world.textures.exists('wpn_hold_rifle_girl')]; });
+  assert.deepStrictEqual(gone, [0, false], 'let go after 30 s unseen');
+  // the rig is parked: the boy with the Rifle and no hold sheet facing away is not rigged
+  assert.strictEqual(await page.evaluate(() => Farm.rigFor(Farm.world, 'rifle')), false);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

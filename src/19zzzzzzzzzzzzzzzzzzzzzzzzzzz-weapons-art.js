@@ -214,6 +214,37 @@
   ['rifle', 'javelin', 'boomerang'].forEach(function (k) {
     F.SHEETS['wpn_pose_' + k] = F.SHEETS['wpn_pose_' + k + '_girl'] = { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 };
   });
+  // ---------- the weapon drawn in the hands (wpn_hold_*: tools/art/weapons-hold-import.js) ----------
+  // 9 poses in frames of 384 (the farmer as tall as in his walking sheet, his boots on its line), from the weapons pack.
+  var HOLD_SHEET = { frameWidth: 384, frameHeight: 384, margin: 8, spacing: 16 };
+  F.holdSheet = function (key) { if (!F.SHEETS[key]) F.SHEETS[key] = HOLD_SHEET; return key; };
+  Object.keys((F.ASSETS && F.ASSETS.packs && F.ASSETS.packs.weapons) || {}).forEach(function (k) { if (/^wpn_hold_/.test(k)) F.holdSheet(k); });
+  F.holdHere = function (key) { return !!(F.images && F.images[key]); };
+  F.holdPacked = function (key) { return F.holdHere(key) || !!(F.packedFile && F.packedFile(key)); };
+  // Your own: the sheet of your look (an outfit's, when it has one; else the farm clothes', only in the farm clothes)
+  F.holdOwn = function (k) {
+    var s = F.session && F.session.state, cos = s && L().wornLook ? L().wornLook(s) : '';
+    if (!s) return null;
+    var key = F.holdSheet(L().holdKey(k, s.look, cos || ''));
+    return F.holdPacked(key) ? key : null;
+  };
+  // Where the hand and the weapon's tip are in each of the 9 poses (frame pixels, facing left for the side row): the
+  // shot leaves from there (a javelin or boomerang from the hand of the throw; the Rifle's round shows from its tip) and
+  // the level's glow sits between them. Defaults for the owner's prompt's poses; F.WPN_HOLD_PTS[key] overrides one sheet.
+  // (Measure them on a new sheet with a grid, as the pose sheets' hands were.)
+  F.WPN_HOLD_PTS = {
+    rifle: [{ hand: [200, 250], tip: [206, 300] }, { hand: [196, 232], tip: [200, 318] }, { hand: [196, 226], tip: [200, 312] },
+      { hand: [214, 206], tip: [222, 120] }, { hand: [214, 200], tip: [222, 112] }, { hand: [214, 196], tip: [222, 108] },
+      { hand: [140, 236], tip: [60, 262] }, { hand: [128, 200], tip: [24, 176] }, { hand: [136, 196], tip: [32, 166] }],
+    javelin: [{ hand: [110, 160], tip: [110, 70] }, { hand: [100, 100], tip: [60, 30] }, { hand: [184, 265], tip: [184, 330] },
+      { hand: [260, 151], tip: [260, 60] }, { hand: [275, 86], tip: [290, 20] }, { hand: [287, 196], tip: [300, 250] },
+      { hand: [263, 152], tip: [140, 140] }, { hand: [100, 102], tip: [30, 96] }, { hand: [82, 222], tip: [40, 240] }],
+    boomerang: [{ hand: [120, 182], tip: [120, 182] }, { hand: [253, 250], tip: [253, 250] }, { hand: [188, 212], tip: [188, 212] },
+      { hand: [126, 182], tip: [126, 182] }, { hand: [283, 162], tip: [283, 162] }, { hand: [198, 178], tip: [198, 178] },
+      { hand: [246, 168], tip: [246, 168] }, { hand: [90, 172], tip: [90, 172] }, { hand: [118, 190], tip: [118, 190] }],
+  };
+  F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };
+
   F.weaponPoseKey = function (k) {
     var s = F.session.state, girl = s.look === 'girl', own = 'wpn_pose_' + k + (girl ? '_girl' : '');
     if (F.images && F.images[own] && !L().wornLook(s)) return own; // (the looks keep the archer's poses until they have their own)
@@ -231,9 +262,16 @@
     if (F.wpnArtAsked || !F.needImage || !F.packedFile) return;
     F.wpnArtAsked = true;
     var girl = F.session && F.session.state && F.session.state.look === 'girl';
-    ART_KEYS.concat(['rifle', 'javelin', 'boomerang'].map(function (k) { return 'wpn_pose_' + k + (girl ? '_girl' : ''); })).forEach(function (k) {
+    // (a hold sheet only for the weapon in your hands: F.askHold, on each change of what you hold)
+    var s = F.session && F.session.state, h = s && L().heldWeapon ? L().heldWeapon(s) : null, mine = h && F.holdOwn(h) ? [F.holdOwn(h)] : [];
+    ART_KEYS.concat(mine, ['rifle', 'javelin', 'boomerang'].map(function (k) { return 'wpn_pose_' + k + (girl ? '_girl' : ''); })).forEach(function (k) {
       if (!(F.images && F.images[k]) && F.packedFile(k)) F.needImage(k);
     });
+  };
+  // the hold sheet of the weapon now in your hands, the moment you take it up (in a hunting place)
+  F.askHold = function () {
+    var s = F.session && F.session.state, h = s && L().heldWeapon ? L().heldWeapon(s) : null, key = h ? F.holdOwn(h) : null;
+    if (key && !F.holdHere(key) && F.needImage) F.needImage(key);
   };
   if (F.bus) F.bus.on('packart', function (key) {
     if (ART_KEYS.indexOf(key) < 0 || !F.game) return;

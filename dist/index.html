@@ -17630,6 +17630,43 @@ return { ang: ahead + dev, dev: dev };
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZZZZZZZZZZZZZZ-hold.js
+
+
+
+
+
+(function (F) {
+'use strict';
+var L = F.Logic;
+F.Config.WPN_HOLD = { others: 10, othersCheap: 4, letGo: 30000 };
+
+F.Config.WPN_HOLD_ROWS = F.Config.WPN_HOLD_ROWS || {};
+
+L.holdHas = function (key, dir) {
+var rows = F.Config.WPN_HOLD_ROWS[key];
+return !!rows && rows.indexOf(dir === 'down' ? 'front' : dir === 'up' ? 'back' : 'left') >= 0;
+};
+
+
+
+L.sheetPick = function (held, want, keep, now, cap) {
+if (!want) return null;
+if (keep.indexOf(want) >= 0) return want;
+if (held[want] == null && Object.keys(held).length >= cap) return null;
+held[want] = now;
+return want;
+};
+
+L.sheetStale = function (held, now, ms) {
+return Object.keys(held).filter(function (k) { if (now - held[k] < ms) return false; delete held[k]; return true; });
+};
+
+L.holdKey = function (weapon, look, outfit) {
+return 'wpn_hold_' + (outfit ? outfit + '_' : '') + weapon + '_' + (look === 'girl' ? 'girl' : 'boy');
+};
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 
 (function (F) {
@@ -51241,6 +51278,37 @@ return key;
 ['rifle', 'javelin', 'boomerang'].forEach(function (k) {
 F.SHEETS['wpn_pose_' + k] = F.SHEETS['wpn_pose_' + k + '_girl'] = { frameWidth: 288, frameHeight: 384, margin: 8, spacing: 16 };
 });
+
+
+var HOLD_SHEET = { frameWidth: 384, frameHeight: 384, margin: 8, spacing: 16 };
+F.holdSheet = function (key) { if (!F.SHEETS[key]) F.SHEETS[key] = HOLD_SHEET; return key; };
+Object.keys((F.ASSETS && F.ASSETS.packs && F.ASSETS.packs.weapons) || {}).forEach(function (k) { if (/^wpn_hold_/.test(k)) F.holdSheet(k); });
+F.holdHere = function (key) { return !!(F.images && F.images[key]); };
+F.holdPacked = function (key) { return F.holdHere(key) || !!(F.packedFile && F.packedFile(key)); };
+
+F.holdOwn = function (k) {
+var s = F.session && F.session.state, cos = s && L().wornLook ? L().wornLook(s) : '';
+if (!s) return null;
+var key = F.holdSheet(L().holdKey(k, s.look, cos || ''));
+return F.holdPacked(key) ? key : null;
+};
+
+
+
+
+F.WPN_HOLD_PTS = {
+rifle: [{ hand: [200, 250], tip: [206, 300] }, { hand: [196, 232], tip: [200, 318] }, { hand: [196, 226], tip: [200, 312] },
+{ hand: [214, 206], tip: [222, 120] }, { hand: [214, 200], tip: [222, 112] }, { hand: [214, 196], tip: [222, 108] },
+{ hand: [140, 236], tip: [60, 262] }, { hand: [128, 200], tip: [24, 176] }, { hand: [136, 196], tip: [32, 166] }],
+javelin: [{ hand: [110, 160], tip: [110, 70] }, { hand: [100, 100], tip: [60, 30] }, { hand: [184, 265], tip: [184, 330] },
+{ hand: [260, 151], tip: [260, 60] }, { hand: [275, 86], tip: [290, 20] }, { hand: [287, 196], tip: [300, 250] },
+{ hand: [263, 152], tip: [140, 140] }, { hand: [100, 102], tip: [30, 96] }, { hand: [82, 222], tip: [40, 240] }],
+boomerang: [{ hand: [120, 182], tip: [120, 182] }, { hand: [253, 250], tip: [253, 250] }, { hand: [188, 212], tip: [188, 212] },
+{ hand: [126, 182], tip: [126, 182] }, { hand: [283, 162], tip: [283, 162] }, { hand: [198, 178], tip: [198, 178] },
+{ hand: [246, 168], tip: [246, 168] }, { hand: [90, 172], tip: [90, 172] }, { hand: [118, 190], tip: [118, 190] }],
+};
+F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };
+
 F.weaponPoseKey = function (k) {
 var s = F.session.state, girl = s.look === 'girl', own = 'wpn_pose_' + k + (girl ? '_girl' : '');
 if (F.images && F.images[own] && !L().wornLook(s)) return own;
@@ -51258,9 +51326,16 @@ F.askWeaponArt = function () {
 if (F.wpnArtAsked || !F.needImage || !F.packedFile) return;
 F.wpnArtAsked = true;
 var girl = F.session && F.session.state && F.session.state.look === 'girl';
-ART_KEYS.concat(['rifle', 'javelin', 'boomerang'].map(function (k) { return 'wpn_pose_' + k + (girl ? '_girl' : ''); })).forEach(function (k) {
+
+var s = F.session && F.session.state, h = s && L().heldWeapon ? L().heldWeapon(s) : null, mine = h && F.holdOwn(h) ? [F.holdOwn(h)] : [];
+ART_KEYS.concat(mine, ['rifle', 'javelin', 'boomerang'].map(function (k) { return 'wpn_pose_' + k + (girl ? '_girl' : ''); })).forEach(function (k) {
 if (!(F.images && F.images[k]) && F.packedFile(k)) F.needImage(k);
 });
+};
+
+F.askHold = function () {
+var s = F.session && F.session.state, h = s && L().heldWeapon ? L().heldWeapon(s) : null, key = h ? F.holdOwn(h) : null;
+if (key && !F.holdHere(key) && F.needImage) F.needImage(key);
 };
 if (F.bus) F.bus.on('packart', function (key) {
 if (ART_KEYS.indexOf(key) < 0 || !F.game) return;
@@ -51391,31 +51466,60 @@ return w.add.circle(x, y, r, F.WPN_GLOW, 0.2).setDepth(depth).setBlendMode(Phase
 };
 
 
-var handOf = function (key, dir, stage) { var at = POSE[dir], own = key && F.WPN_GRIPS[key]; return own ? own[at.row * 3 + stage] : at.grip[stage]; };
-var gripAt = function (p, dir, stage, key) {
-var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage);
-return { x: p.x + (g[0] - 144) * side, y: p.y + g[1] - 192 };
+
+var isHold = function (key) { return !!key && key.indexOf('wpn_hold_') === 0; };
+var handOf = function (key, dir, stage, k, tip) {
+var at = POSE[dir], i = at.row * 3 + stage;
+if (isHold(key)) { var q = F.holdPts(key, k)[i]; return tip ? q.tip : q.hand; }
+var own = key && F.WPN_GRIPS[key];
+return own ? own[i] : at.grip[stage];
+};
+var gripAt = function (p, dir, stage, key, k, tip) {
+var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage, k, tip), half = isHold(key) ? 192 : 144;
+return { x: p.x + (g[0] - half) * side, y: p.y + g[1] - 192 };
+};
+
+
+
+var motion = function (w, sh) {
+var now = w.time.now, t = now - (sh.t0 || now), up = L.rigRaise(t), v = [Math.cos(sh.ang), Math.sin(sh.ang)], o = { x: 0, y: 7 * (1 - up), rot: 0 };
+if (!sh.fired && sh.k === 'rifle') o.y += Math.sin(t / 330) * up;
+if (sh.fired && sh.k === 'rifle') {
+var kk = L.rigKick(now - sh.fired - (sh.stop || 0));
+o.x -= v[0] * 9 * kk; o.y -= v[1] * 9 * kk;
+if (sh.dir === 'left' || sh.dir === 'right') o.rot = (sh.dir === 'left' ? 0.06 : -0.06) * kk;
+sh.kick = 0;
+} else if (sh.fired) {
+var u = Math.min(1, (now - sh.fired) / 220), f = 6 * Math.sin(Math.PI * u);
+o.x += v[0] * f; o.y += v[1] * f;
+}
+return o;
 };
 
 var posePut = function (w, sh) {
 if (sh.rig) return w.rigPose(sh);
-var p = w.player, at = POSE[sh.dir], pt = sh.body ? gripAt(p, sh.dir, sh.stage, sh.key) : { x: p.x + Math.cos(sh.ang) * 0.3 * T, y: p.y - 0.15 * T };
+var p = w.player, at = POSE[sh.dir], mo = motion(w, sh), pt = sh.body ? gripAt(p, sh.dir, sh.stage, sh.key, sh.k) : { x: p.x + Math.cos(sh.ang) * 0.3 * T, y: p.y - 0.15 * T };
 var a = sh.target;
 if (a && a.hp > 0 && a.img.active && sh.stage !== LET_GO) sh.ang = Math.atan2((a.y - 0.3 * a.def.w * T) - pt.y, a.x - pt.x);
 var kick = sh.kick || 0;
-pt = { x: pt.x - Math.cos(sh.ang) * kick, y: pt.y - Math.sin(sh.ang) * kick };
+pt = { x: pt.x - Math.cos(sh.ang) * kick + mo.x, y: pt.y - Math.sin(sh.ang) * kick + mo.y };
 sh.grip = pt;
+if (sh.drawnIn) { var tp = gripAt(p, sh.dir, sh.stage, sh.key, sh.k, true); sh.tipPt = { x: tp.x + mo.x, y: tp.y + mo.y }; }
 if (sh.held) {
 
 var boom = sh.k === 'boomerang', tilt = at.flip || (sh.dir !== 'left' && Math.cos(sh.ang) > 0) ? 0.55 : -0.55;
-sh.held.setPosition(pt.x, pt.y - (boom ? 0.12 * T : 0)).setRotation(boom ? tilt : sh.ang).setFlipY(!boom && Math.cos(sh.ang) < 0);
-sh.held.scaleX = sh.held.scaleY * along(sh.k, sh.ang);
+
+var front = sh.dir === 'down' && !boom, da = front ? sh.ang + (pt.x < p.x ? 0.45 : -0.45) : sh.ang, low = front && sh.k === 'rifle';
+sh.held.setPosition(pt.x, pt.y - (boom ? 0.12 * T : 0) + (low ? 0.12 * T : 0)).setRotation(boom ? tilt : da).setFlipY(!boom && Math.cos(da) < 0);
+sh.held.scaleX = sh.held.scaleY * along(sh.k, da) * (low ? 0.75 : 1);
+if (low) sh.grip = pt = { x: pt.x, y: pt.y + 0.12 * T };
 }
-if (sh.glow) sh.glow.setPosition(pt.x + Math.cos(sh.ang) * 0.15 * T, pt.y + Math.sin(sh.ang) * 0.15 * T);
+if (sh.glow && sh.drawnIn) sh.glow.setPosition((pt.x + sh.tipPt.x) / 2, (pt.y + sh.tipPt.y) / 2);
+else if (sh.glow) sh.glow.setPosition(pt.x + Math.cos(sh.ang) * 0.15 * T, pt.y + Math.sin(sh.ang) * 0.15 * T);
 if (sh.body) {
 var frame = at.row * 3 + sh.stage;
-sh.body.setPosition(p.x, p.y).setFrame(frame).setFlipX(!!at.flip);
-if (sh.fist) { var g = handOf(sh.key, sh.dir, sh.stage); sh.fist.setPosition(p.x, p.y).setFrame(frame).setFlipX(!!at.flip).setCrop(g[0] - 30, g[1] - 30, 60, 60); }
+sh.body.setPosition(p.x + mo.x, p.y + mo.y).setRotation(mo.rot).setFrame(frame).setFlipX(!!at.flip);
+if (sh.fist) { var g = handOf(sh.key, sh.dir, sh.stage, sh.k); sh.fist.setPosition(p.x + mo.x, p.y + mo.y).setRotation(mo.rot).setFrame(frame).setFlipX(!!at.flip).setCrop(g[0] - 30, g[1] - 30, 60, 60); }
 }
 };
 P.wpnPose = function () { if (this.wpnShot) posePut(this, this.wpnShot); };
@@ -51429,6 +51533,7 @@ if (w.player && w.player.active) w.player.setVisible(true);
 
 var tipOf = function (sh) {
 if (sh.rig && sh.rigTip) return sh.rigTip;
+if (sh.drawnIn && sh.tipPt) return sh.tipPt;
 var t = F.weaponTexture(F.world, sh.k, sh.lv), len = HELD_LEN[sh.k] * T, out = (t.tip - t.grip) * len;
 return { x: sh.grip.x + Math.cos(sh.ang) * out, y: sh.grip.y + Math.sin(sh.ang) * out };
 };
@@ -51446,10 +51551,15 @@ if (target) {
 var tx = target.x - f.x, ty = target.y - f.y;
 this.dir = Math.abs(tx) > Math.abs(ty) ? (tx > 0 ? 'right' : 'left') : (ty > 0 ? 'down' : 'up');
 }
-var d = this.dirVec(), at = POSE[this.dir], key = F.weaponPoseKey(k), depth = p.depth + (at.behind ? -0.001 : 0.001), how = SHOT[k];
+
+
+var hold = F.holdOwn(k);
+hold = hold && F.holdHere(hold) && L.holdHas(hold, this.dir) ? F.holdSheet(hold) : null;
+var d = this.dirVec(), at = POSE[this.dir], key = hold || F.weaponPoseKey(k), depth = p.depth + (at.behind ? -0.001 : 0.001), how = SHOT[k];
 p.anims.stop();
-var own = !!(key && F.WPN_GRIPS[key]);
-var sh = this.wpnShot = { k: k, lv: lv, dir: this.dir, target: target, ang: Math.atan2(d[1], d[0]), stage: key && !own ? how.stage : 0, broke: r === 'broke', key: key, own: own };
+var own = !!(key && (hold || F.WPN_GRIPS[key]));
+var sh = this.wpnShot = { k: k, lv: lv, dir: this.dir, target: target, ang: Math.atan2(d[1], d[0]), stage: key && !own ? how.stage : 0, broke: r === 'broke', key: key, own: own,
+drawnIn: !!hold, t0: this.time.now, stop: 0 };
 if (F.rigFor && F.rigFor(this, k)) {
 this.idle();
 this.rigStart(sh);
@@ -51464,11 +51574,14 @@ return null;
 if (key) {
 F.ensureTexture(this, key);
 sh.body = this.add.image(p.x, p.y, key, 0).setDepth(p.depth);
-if (!at.behind && k !== 'boomerang') sh.fist = this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003);
+if (!at.behind && k !== 'boomerang' && !hold) sh.fist = this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003);
 p.setVisible(false);
 }
-sh.held = heldImage(this, k, lv, p.x, p.y, sh.ang).setDepth(depth);
-if (L.weaponMoon(k, lv)) sh.glow = glowAt(this, p.x, p.y, 0.36 * T, depth - 0.0005);
+if (!hold) sh.held = heldImage(this, k, lv, p.x, p.y, sh.ang).setDepth(depth);
+if (hold && lv) {
+var moonLv = L.weaponMoon(k, lv), col = moonLv ? F.WPN_GLOW : parseInt(F.WPN_PAL[lv].shot.slice(1), 16);
+sh.glow = this.add.circle(p.x, p.y, (moonLv ? 0.42 : 0.34) * T, col, moonLv ? 0.3 : 0.2).setDepth(p.depth + 0.0008).setBlendMode(Phaser.BlendModes.ADD);
+} else if (!hold && L.weaponMoon(k, lv)) sh.glow = glowAt(this, p.x, p.y, 0.36 * T, depth - 0.0005);
 posePut(this, sh);
 this.acting = W[k].still;
 this.wpnNext = this.time.now + L.weaponGap(k);
@@ -51486,14 +51599,16 @@ P.weaponLoose = function (sh) {
 var self = this, k = sh.k, range = L.weaponRange(k, sh.lv) * T;
 
 sh.stage = !sh.body ? 0 : sh.own && k !== 'rifle' ? 1 : LET_GO;
+sh.fired = this.time.now;
 posePut(this, sh);
-if (sh.own && k !== 'rifle') this.time.delayedCall(90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
+if (sh.own && k !== 'rifle') this.time.delayedCall(sh.drawnIn ? 60 : 90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
 var tip = tipOf(sh), from = sh.grip;
 if (k === 'rifle' && sh.rig) { sfx('smash'); this.rigFire(sh); this.wpnPuff(sh.rigTip.x, sh.rigTip.y, sh.lv, sh.rig.view === 'back' ? sh.rig.cont.depth - 0.002 : null); }
 else if (k === 'rifle') {
 sfx('smash');
+this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, POSE[sh.dir].behind && sh.body ? sh.body.depth - 0.002 : null);
 this.wpnPuff(tip.x, tip.y, sh.lv);
-this.tweens.addCounter({ from: 1, to: 0, duration: 200, onUpdate: function (tw) { sh.kick = 14 * tw.getValue(); if (self.wpnShot === sh) posePut(self, sh); } });
+this.cameras.main.shake(100, 0.002);
 } else {
 sfx('bowshot');
 if (sh.held) sh.held.setVisible(false);
@@ -51507,6 +51622,13 @@ var rest = Math.max(60, W[k].still - SHOT[k].at);
 this.time.delayedCall(rest, function () { if (self.wpnShot === sh) { poseEnd(self, sh); self.idle(); } });
 };
 
+
+P.wpnFlashAt = function (x, y, ang, lv, depth) {
+var c = L.weaponMoon('rifle', lv) ? F.WPN_GLOW : 0xfff2b0, d = depth != null ? depth : DEPTH.fx + 0.03;
+var bits = [this.add.circle(x, y, 0.13 * T, c, 0.95)].concat([0, 1].map(function (i) { return this.add.rectangle(x, y, 0.5 * T, 0.05 * T, c, 0.9).setRotation(ang + i * Math.PI / 2); }, this));
+bits.forEach(function (b) { b.setDepth(d).setBlendMode(Phaser.BlendModes.ADD); });
+this.tweens.add({ targets: bits, alpha: 0, scale: 1.6, duration: 80, onComplete: function () { bits.forEach(function (b) { b.destroy(); }); } });
+};
 
 P.wpnPuff = function (x, y, lv, depth) {
 var moon = !!L.weaponMoon('rifle', lv), n = cheap() ? 2 : 4;
@@ -51561,6 +51683,7 @@ if (sh.moon && this.moonSpark) this.moonSpark(sh.x, sh.y, true);
 if (sh.shown) { if (this.bits) this.bits.dust.explode(2, sh.x, sh.y); return; }
 var s = this.state;
 if (sh.k === 'rifle' && this.rigHitStop) this.rigHitStop(this.wpnShot);
+if (sh.k === 'rifle' && this.wpnShot && !this.wpnShot.rig) this.wpnShot.stop += 40;
 s.wpnHit = { k: sh.k, lv: sh.lv };
 try { this.wildStruck(a); } finally { s.wpnHit = null; }
 };
@@ -51674,6 +51797,9 @@ var update = P.update;
 P.update = function (time, delta) {
 update.call(this, time, delta);
 if (this.wpnShots && this.wpnShots.length && this.wild && !this.busy) this.updateWeaponShots(Math.min(delta, 100));
+if (this.wpnShot && !this.wpnShot.rig && this.wpnShot.body) posePut(this, this.wpnShot);
+if (this.wpnRemotePoses && this.wpnRemotePoses.length) this.updateRemotePoses();
+if (Math.floor(time / 5000) !== this.holdSweepAt) { this.holdSweepAt = Math.floor(time / 5000); F.holdSweep(); }
 if (Math.floor(time / 250) !== this.wpnChipAt) { this.wpnChipAt = Math.floor(time / 250); this.weaponChip(); }
 };
 
@@ -51683,8 +51809,13 @@ if (Math.floor(time / 250) !== this.wpnChipAt) { this.wpnChipAt = Math.floor(tim
 P.wpnRemote = function (x, y, ang, l, lv, k, who) {
 lv = Math.max(0, Math.min(5, Math.floor(Number(lv)) || 0));
 var range = Math.max(T, Math.min(8 * T, Math.floor(l / 8) * 8));
-var img = heldImage(this, k, lv, x - Math.cos(ang) * 0.4 * T, y - Math.sin(ang) * 0.4 * T, ang).setDepth(DEPTH.fx);
+var c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
+var hold = who && who.spr && who.spr.active && !who.horse ? F.holdForOther(who.look, who.cs, k, dir) : null;
+if (hold) this.wpnRemotePose(who, hold, k, lv, ang);
+else {
+var img = heldImage(this, k, lv, x - c * 0.4 * T, y - sn * 0.4 * T, ang).setDepth(DEPTH.fx);
 this.tweens.add({ targets: img, alpha: 0, delay: k === 'rifle' ? 260 : 80, duration: 200, onComplete: function () { img.destroy(); } });
+}
 if (k === 'rifle') this.wpnPuff(x, y, lv);
 if (who) this.remoteSound(who, k === 'rifle' ? 'smash' : 'bowshot');
 this.wpnFly({ k: k, lv: lv, x: x, y: y, ang: ang, range: range, shown: true, back: who && who.spr ? who.spr : null });
@@ -51733,7 +51864,59 @@ ui.wpnChipBar.setVisible(boom).setSize(Math.max(1, 52 * (most ? n / most : 0)), 
 ui.wpnChipBarBg.setVisible(boom);
 };
 
-F.bus.on('hud', function () { var w = F.world; if (w && w.sys && w.sys.isActive() && w.state) w.weaponChip(); });
+F.bus.on('hud', function () {
+var w = F.world;
+if (!(w && w.sys && w.sys.isActive() && w.state)) return;
+w.weaponChip();
+if (w.wild && F.askHold) F.askHold();
+});
+
+
+
+
+
+var heldOthers = F.holdHeld = {};
+var ownHolds = function () { return ['rifle', 'javelin', 'boomerang'].map(function (w) { return F.holdOwn(w); }).filter(Boolean); };
+F.holdForOther = function (look, cos, k, dir) {
+var want = F.holdSheet(L.holdKey(k, look, cos || ''));
+if (!F.holdPacked(want) || !L.holdHas(want, dir)) return null;
+var cap = F.cheapPhone && F.cheapPhone() ? C.WPN_HOLD.othersCheap : C.WPN_HOLD.others;
+var key = L.sheetPick(heldOthers, want, ownHolds(), Date.now(), cap);
+if (!key) return null;
+if (!F.holdHere(key)) { if (F.needImage) F.needImage(key); return null; }
+return key;
+};
+F.holdSweep = function (now) {
+var tex = F.game && F.game.textures;
+L.sheetStale(heldOthers, now || Date.now(), C.WPN_HOLD.letGo).forEach(function (k) {
+if (tex && tex.exists(k) && F.freeTexture && !F.freeTexture(k)) { heldOthers[k] = Date.now(); return; }
+if (F.images && F.packedFile && F.packedFile(k)) delete F.images[k];
+});
+};
+P.wpnRemotePose = function (who, key, k, lv, ang) {
+var self = this, p = who.spr, c = Math.cos(ang), sn = Math.sin(ang), dir = Math.abs(c) > Math.abs(sn) ? (c > 0 ? 'right' : 'left') : (sn > 0 ? 'down' : 'up');
+var at = POSE[dir], img = this.add.image(p.x, p.y, F.ensureTexture(this, key), at.row * 3 + 1).setDepth(p.depth + 0.0001).setFlipX(!!at.flip);
+var glow = lv ? this.add.circle(p.x, p.y, 0.3 * T, L.weaponMoon(k, lv) ? F.WPN_GLOW : parseInt(F.WPN_PAL[lv].shot.slice(1), 16), 0.2).setDepth(p.depth + 0.0002).setBlendMode(Phaser.BlendModes.ADD) : null;
+var pose = { who: who, img: img, glow: glow, k: k, dir: dir, until: this.time.now + 380, at: this.time.now + 160, key: key };
+who.useUntil = this.time.now + 420;
+who.anim = null;
+p.anims.stop();
+p.setVisible(false);
+(this.wpnRemotePoses = this.wpnRemotePoses || []).push(pose);
+void self;
+};
+P.updateRemotePoses = function () {
+var now = this.time.now;
+this.wpnRemotePoses = (this.wpnRemotePoses || []).filter(function (q) {
+var p = q.who.spr, done = now >= q.until || !p || !p.active;
+if (done) { q.img.destroy(); if (q.glow) q.glow.destroy(); if (p && p.active) p.setVisible(true); return false; }
+var at = POSE[q.dir], hp = F.holdPts(q.key, q.k)[at.row * 3 + 1], side = at.flip ? -1 : 1;
+q.img.setPosition(p.x, p.y).setFrame(at.row * 3 + (now >= q.at ? 2 : 1));
+if (q.glow) q.glow.setPosition(p.x + (hp.hand[0] - 192) * side, p.y + hp.hand[1] - 192);
+heldOthers[q.key] = now;
+return true;
+});
+};
 
 
 var needText = function (s, needs) {
@@ -51875,7 +52058,8 @@ var SUFFIX = { front: 'front', back: 'back', side: 'left' };
 
 F.rigFor = function (w, k) {
 var s = w.state;
-return k === 'rifle' && !F.rigOff && !!C.RIG_BOY && !!(F.images && F.images.rig_boy) && s.look !== 'girl' && !(L.wornLook && L.wornLook(s));
+
+return k === 'rifle' && !!(F.rigOn || (window.gameHost && window.gameHost.rigOn)) && !F.rigOff && !!C.RIG_BOY && !!(F.images && F.images.rig_boy) && s.look !== 'girl' && !(L.wornLook && L.wornLook(s));
 };
 var askArt = function () { if (!(F.images && F.images.rig_boy) && F.packedFile && F.packedFile('rig_boy') && F.needImage) F.needImage('rig_boy'); };
 var create = P.create;

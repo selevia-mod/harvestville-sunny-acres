@@ -25,7 +25,8 @@
   // Can this shot be rigged? (your boy in his own clothes, the Rifle, the parts here)
   F.rigFor = function (w, k) {
     var s = w.state;
-    return k === 'rifle' && !F.rigOff && !!C.RIG_BOY && !!(F.images && F.images.rig_boy) && s.look !== 'girl' && !(L.wornLook && L.wornLook(s));
+    // (owner, 11 Nov 2026: "pose sheet still much better than RIG": parked, off unless F.rigOn or gameHost.rigOn)
+    return k === 'rifle' && !!(F.rigOn || (window.gameHost && window.gameHost.rigOn)) && !F.rigOff && !!C.RIG_BOY && !!(F.images && F.images.rig_boy) && s.look !== 'girl' && !(L.wornLook && L.wornLook(s));
   };
   var askArt = function () { if (!(F.images && F.images.rig_boy) && F.packedFile && F.packedFile('rig_boy') && F.needImage) F.needImage('rig_boy'); };
   var create = P.create;
