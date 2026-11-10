@@ -62,7 +62,7 @@
     if (!k) return r0;
     if (r0 && !r0.disabled) return r0; // (someone or something in front: talking to Kanor, a chest...)
     var icon = L.iconOf(s, k);
-    if (!this.wild) return r0 || { label: W[k].verb, icon: icon, disabled: true, why: whyNot(k) };
+    if (!this.wild) return r0; // (out of the hunting places it does nothing: a raid on the farm keeps its own button)
     if (!works(this)) return { label: W[k].verb, icon: icon, disabled: true, why: whyNot(k) };
     return { label: W[k].verb, icon: icon, run: function () { self.fireWeapon(); } };
   };
