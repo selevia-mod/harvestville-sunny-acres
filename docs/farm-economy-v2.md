@@ -29,16 +29,20 @@ the smart move. Every part below gives crops a use only crops can fill.
 Art: art-src/FARM-ECONOMY-V2-PROMPTS.md (crops, icons, the Mixer and the Silo).
 
 ## 2. Raiders eat crops ("they will now raid more so they have food for their raiders")
-- Training costs crops as well as Gold (from the Silo or the bag):
-  goat 3 cabbage · crow 3 wheat · cat 4 peanut · carabao 8 corn · monkey 4 banana · boar 6 cassava · rooster 4 rice ·
-  bayawak 5 taro. (Numbers in C.FRAID, tuned in play.)
+- Training costs crops as well as Gold (from the Silo or the bag). Owner, 11 Nov 2026: cheaper ("if I train 5 goat so
+  it will be 15 cabbage, if I plant 1 bag x9, it will be only 9"): about one crop a raider, the big ones a little more:
+  goat 1 cabbage · crow 1 wheat · cat 2 peanut · monkey 2 banana · rooster 2 rice · bayawak 2 taro · carabao 3 corn ·
+  boar 3 cassava. A full camp (40 room) eats 3 to 5 seed bags' worth. (Numbers in C.FRAID, tuned in play.)
+- Only planted crops count (owner, 11 Nov 2026: "the hunting drops should be different from farm crops"): the Sierra
+  Unggoy's Wild Bananas (banana_wild), Banaue's Heirloom Rice and other hunt drops are not the farm's Saba Banana or
+  rice; raiders, the Mixer and the Silo take only farm crops.
 - Raids pay in crops: what raiders carry from a farm's field comes home as those crops, into your Silo (today it counts
   as Gold value only). Raiding feeds the army.
 - A raider's level-up asks for a crop bundle (its own food x10, x20, x40, x60) on top of the hunt item.
 
 ## 3. The Mixer: building materials from crops (owner: "corn + wheat + carrots = cement")
 A workshop like the Bakery (3 slots, its own building, one per farm). Its materials are needed to level defenses and the
-Raid Camp, and they sell at the Market (crafters can sell to raiders).
+Raid Camp, and they sell at the Market (owner, 11 Nov 2026: yes; crafters can sell to raiders).
 
 | Material | Made from | Time | Used for |
 |---|---|---|---|
