@@ -4,6 +4,8 @@
 //     drawn props, 19zzzzzz-place-11-banaue.js addPlaceProp, by their object's `foot`);
 //   - the `wild` zone object, in tiles (buildObjects' rect);
 //   - the gate down (lair_gate / dungeon_gate), which is not ground for a monster (19zt-lair.js wildFree).
+// A city (Manila: C.MANILA) has no file in maps/: the game builds its map from its layout at run time (L.manilaMap, from
+// the town's sheets), and so does this.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -23,8 +25,11 @@ const rectOf = (o, T) => ({
   x1: Math.ceil((o.x + o.width) / T) - 1, y1: Math.ceil((o.y + o.height) / T) - 1,
 });
 
+const fileOf = (R, key) => JSON.parse(fs.readFileSync(path.join(R.root, 'maps', key + '.json'), 'utf8'));
+const cityMap = (R, key) => (R.C.MANILA && key === R.C.MANILA.key && R.L.manilaMap ? R.L.manilaMap(fileOf(R, 'town')) : null);
+
 function readMap(R, key) {
-  const T = R.T, raw = JSON.parse(fs.readFileSync(path.join(R.root, 'maps', key + '.json'), 'utf8'));
+  const T = R.T, raw = cityMap(R, key) || fileOf(R, key);
   const W = raw.width, H = raw.height;
   const sets = raw.tilesets.slice().sort((a, b) => a.firstgid - b.firstgid);
   const tileProps = {}; // gid -> its properties

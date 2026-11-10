@@ -1532,3 +1532,36 @@ test('public room: the Great Mammoth is shared with everyone who helped, a stran
   await me.context.close();
   await gsrv.close();
 });
+
+// Manila (owner, 11 Nov 2026: "open to everyone"): the city is a public room of the REAL server like a hunting place, with
+// no animals: two strangers who rode the train there are in Manila 1 together and see each other walk; nothing goes on
+// the old relay there. Before the server has city rooms it says no, and each sees only their own farm's room (as before).
+test('REAL pub: Manila: two strangers off the train are in Manila 1 together, see each other walk, no animals, nothing on the old relay', async (t) => {
+  const real = await realServer(), server = createServer();
+  const probe = await new Promise((resolve) => {
+    const s = new WebSocket(real.direct);
+    const done = (v) => { try { s.close(); } catch (e) { /* gone */ } resolve(v); };
+    s.on('open', () => s.send(JSON.stringify({ t: 'hi', v: 1, token: 'test-token:probe-manila', topic: 'pub', map: 'manila', floor: 0, name: 'Probe', look: 'boy', x: 12000, y: 12000, dir: 'down', hg: 0, sk: 0, b: 0, bk: 0, lk: { cs: '', pt: 0, rd: 0 } })));
+    s.on('message', (raw) => { let m; try { m = JSON.parse(String(raw)); } catch (e) { return; } if (m.t === 'wl') done(true); else if (m.t === 'no') done(false); });
+    s.on('error', () => done(false));
+    setTimeout(() => done(false), 5000);
+  });
+  if (!probe) return t.skip('needs the server\'s city rooms (server/lib/pub.js isCity)');
+  const ana = await open(server, real.url, 'Ana Acres'), ben = await open(server, real.url, 'Ben Barn');
+  for (const who of [ana, ben]) {
+    await who.page.evaluate(() => { Farm.ui.closeAll(); Farm.world.travel('manila', 'from_train'); });
+    await who.page.waitForFunction(() => Farm.world.mapKey === 'manila' && !Farm.world.busy && Farm.world.player.active, null, SLOW);
+  }
+  for (const who of [ana, ben]) await who.page.waitForFunction(() => { const s = Farm.GameServer.state() || {}; return s.mode === 'live' && s.pub && s.map === 'manila'; }, null, SLOW);
+  assert.strictEqual((await gsState(ana.page)).ch, (await gsState(ben.page)).ch, 'one room');
+  await waitRemotes(ana.page, ['Ben Barn']);
+  await waitRemotes(ben.page, ['Ana Acres']);
+  // Ben walks a few tiles: Ana sees him there
+  await ben.page.evaluate(() => { const w = Farm.world; w.setFeet(58.5 * 256, 9.6 * 256); });
+  await ana.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && Math.abs(r.x - 58.5 * 256) < 80; }, ben.uid, SLOW);
+  assert.match((await gsState(ana.page)).chip, /^Manila \d+ · 2 here$/);
+  assert.strictEqual(await ana.page.evaluate(() => Farm.world.wild), null, 'no animals in the city');
+  for (const who of [ana, ben]) assert.deepStrictEqual(who.relay.filter((m) => m.map === 'manila' && (m.ev === 'mv' || HUNT[m.ev])), [], who.name + ': nothing about Manila on the old relay');
+  for (const who of [ana, ben]) assert.deepStrictEqual(who.problems, []);
+  await Promise.all([ana, ben].map((who) => who.context.close()));
+});

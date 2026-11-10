@@ -232,3 +232,50 @@ test('a game closed in Manila opens there again, at the same spot; its save says
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
 });
+
+test('the owner\'s pictures, once the pack brings them, take over the stand-ins: a building, a person, the ground', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'town';");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'town');
+  // as the 'manila' pack would put them in (10b-packs.js F.fetchFile: F.images[key] = the decoded picture)
+  await page.evaluate(async () => {
+    const pic = (w, h, color) => new Promise((ok) => {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      g.fillStyle = color;
+      g.fillRect(0, 0, w, h);
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.src = c.toDataURL();
+    });
+    Farm.images['props/manila_plaza_fountain'] = await pic(640, 640, '#3366ff');
+    Farm.images['props/manila_grand_market'] = await pic(1280, 896, '#ffcc00');
+    Farm.images.npc_aling_rosa = await pic(1296, 208, '#ff3366');
+    Farm.images.manila_tex_cobble = await pic(256, 256, '#00ff00');
+  });
+  await page.evaluate(() => Farm.ui.mnTrain('manila'));
+  await tapButton(page, 'Ride free');
+  await waitMap(page, 'manila');
+  const r = await page.evaluate(() => {
+    const w = Farm.world, keys = w.props.map((p) => p.texture.key);
+    const rosa = w.mn.people.find((p) => p.key === 'rosa');
+    const g = Farm.images.manila_ground.getContext('2d'), px = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
+    return {
+      fountain: keys.includes('props/manila_plaza_fountain'), market: keys.includes('props/manila_grand_market'), standIn: keys.includes('props/fountain'),
+      labels: w.mn.labels.map((t) => t.text), rosa: rosa.sp.texture.key, tint: rosa.sp.isTinted,
+      cobble: px(4 + 64, 4 + 64), plaza: px(4 + 2 * 136 + 64, 4 + 64),
+    };
+  });
+  assert.ok(r.fountain && r.market, 'their own pictures are drawn');
+  assert.ok(!r.standIn, 'and the town\'s fountain stand-in is not');
+  assert.ok(!r.labels.includes('Grand Market'), 'no label over a building with its own picture');
+  assert.ok(r.labels.includes('Trading Post'), 'the others keep theirs');
+  assert.strictEqual(r.rosa, 'npc_aling_rosa');
+  assert.strictEqual(r.tint, false, 'her own sheet is not tinted');
+  assert.deepStrictEqual(r.cobble.slice(0, 3), [0, 255, 0], 'the cobbles are the owner\'s texture');
+  assert.notDeepStrictEqual(r.plaza.slice(0, 3), [0, 255, 0], 'the plaza (no picture yet) stays drawn');
+  await shot(page, 'manila-7-own-art');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

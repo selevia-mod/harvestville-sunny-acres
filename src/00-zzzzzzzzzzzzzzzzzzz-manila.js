@@ -23,9 +23,10 @@
     // The valley road on horseback (owner: 6 hearts and Horseshoes) belongs to farm-economy-v2 part 5, not built yet: for
     // now the road is walked. Turn this on (and fill in L.manilaRoad) when the horse goes out.
     horseRoad: false, horseHearts: 6,
-    // Open to everyone: the game server's public rooms (server/lib/pub.js takes 'manila' as a city room). The phone's
-    // public-room code is the hunting places' (it needs their wild runtime): off until the phone side is done.
-    pub: false,
+    // Open to everyone: the game server's public rooms, 30 a room ("Manila 1", "Manila 2"...), as the hunting places, with
+    // no animals (server/lib/pub.js: a city room). A server from before says no to it: then you see the friends in your
+    // farm's room there, as anywhere else. Off: always that.
+    pub: true,
     soon: 'Coming soon!',
 
     // ---------- the ground (painted in order; later boxes win) ----------
