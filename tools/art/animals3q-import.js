@@ -24,6 +24,7 @@
 // node tools/art/animals3q-import.js            (everything)
 // node tools/art/animals3q-import.js breeds     (only the breeds)
 // node tools/art/animals3q-import.js places     (only the hunting places' creatures)
+// ONLY=winter node tools/art/animals3q-import.js battle2   (only Cozy Winter's riding sheets)
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -86,9 +87,13 @@ if (fs.existsSync(path.join(ROOT, 'art-src', 'battle2', 'horse_ride_3x4.png'))) 
 const RIDE_PAD = path.join(ROOT, 'art-src', 'riding', '_3x4');
 if (fs.existsSync(RIDE_PAD)) fs.readdirSync(RIDE_PAD).filter((f) => /^[a-z]+-(boy|girl)\.png$/.test(f)).forEach((f) => {
   const n = 'ride_' + f.slice(0, -4).replace('-', '_');
-  SETS.push({ name: n, shade: n + 'shade', dir: 'riding/_3x4', ground: 352, store: 0.75, battle2: true, rows: [[f.slice(0, -4), { front: 9, ground: true, fit: true, clean: true, k: 0.44 }]] });
+  // (k 0.44 for the 1536 px pictures; one drawn smaller, as Cozy Winter's 1254 px, is scaled up to the same horse:
+  // the poses take the same share of every picture, so the size and the feet line match; PNG width at byte 16)
+  const k = 0.44 * 1536 / fs.readFileSync(path.join(RIDE_PAD, f)).readUInt32BE(16);
+  SETS.push({ name: n, shade: n + 'shade', dir: 'riding/_3x4', ground: 352, store: 0.75, battle2: true, rows: [[f.slice(0, -4), { front: 9, ground: true, fit: true, clean: true, k }]] });
 });
-const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
+const ONLY = process.env.ONLY ? 'ride_' + process.env.ONLY + '_' : ''; // (ONLY=<outfit> ... battle2: only that outfit's riding sheets)
+const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2 && (!ONLY || s.name.startsWith(ONLY))) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {

@@ -84,3 +84,13 @@ test('the four new tours take the next free tip bits, under 31', () => {
   ['tailor_tour', 'event_tour', 'rare_tour', 'mine_tour'].forEach((k) => assert.ok(keys.indexOf(k) >= 0 && keys.indexOf(k) < 31, k));
   assert.strictEqual(new Set(keys).size, keys.length);
 });
+
+test('every Tailor Shop look rides the horse in its own clothes (owner\'s art; Cozy Winter 11 Nov 2026): its boy and girl riding sheets, with their shadows, the size of the farm clothes\' and in the riding pack', () => {
+  const packs = require('../tools/packs'), sizes = require('../assets/sizes.json'), A = path.join(__dirname, '..', 'assets');
+  C.LOOKS.forEach((l) => ['boy', 'girl'].forEach((who) => ['', 'shade'].forEach((sh) => {
+    const k = 'ride_' + l.key + '_' + who + sh;
+    assert.ok(fs.existsSync(path.join(A, k + '.webp')) && fs.existsSync(path.join(A, k + '.png')), k + ': its picture');
+    assert.ok(packs.riding.indexOf(k) >= 0, k + ': in the riding pack (out of the page)');
+    assert.deepStrictEqual(sizes[k], sizes['ride_default_' + who + sh], k + ': the same sheet as the farm clothes\'');
+  })));
+});

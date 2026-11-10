@@ -1873,6 +1873,10 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.santa; s.lk = (s.lk || 0) | (1 << i); s.cw = 'santa'; });
   await page.waitForFunction(() => /^ride_santa_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
   await shot(page, '30b-riding-santa');
+  // Cozy Winter (owner's art, 11 Nov 2026): its own riding picture too, no longer the farm clothes
+  await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.winter; s.lk = (s.lk || 0) | (1 << i); s.cw = 'winter'; });
+  await page.waitForFunction(() => /^ride_winter_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
+  await shot(page, '30c-riding-winter');
   await page.evaluate(() => { Farm.session.state.cw = ''; });
   await page.evaluate(() => { Farm.input.jx = 0; });
   await hold(page, 'turnip');

@@ -6,6 +6,7 @@
 //   art-src/battle2/horse_ride.png (3 x 3) -> art-src/battle2/horse_ride_3x4.png (row 4 added) for
 //     node tools/art/animals3q-import.js battle2
 // node tools/art/battle2-import.js
+// ONLY=<outfit> node tools/art/battle2-import.js   (only that outfit's riding pictures: nothing else is made again)
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -14,13 +15,14 @@ const ART = path.join(ROOT, 'art-src', 'battle2');
 const OUT = path.join(ROOT, 'assets');
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const save = (f, url) => { const b = Buffer.from(url.split(',')[1], 'base64'); fs.writeFileSync(f, b); return (b.length / 1024).toFixed(0) + ' KB'; };
+const ONLY = process.env.ONLY || '';
 const MW = 220, MH = 176; // keep in step with C.RAID_MOVES (00-zzzzzzzzzzzzzzzzz-raids.js)
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: require('./wild-lib') });
   const done = [];
-  if (fs.existsSync(path.join(ART, 'raid_moves_a.png')) && fs.existsSync(path.join(ART, 'raid_moves_b.png'))) {
+  if (!ONLY && fs.existsSync(path.join(ART, 'raid_moves_a.png')) && fs.existsSync(path.join(ART, 'raid_moves_b.png'))) {
     const r = await p.evaluate(async ([a, bb, MW, MH]) => {
       const rows = [];
       for (const s of [a, bb]) {
@@ -38,7 +40,7 @@ const MW = 220, MH = 176; // keep in step with C.RAID_MOVES (00-zzzzzzzzzzzzzzzz
     done.push('moves ' + save(path.join(OUT, 'raid_moves.webp'), r.webp) + ' (run widths ' + r.runW.join(',') + ')');
     save(path.join(OUT, 'raid_moves.png'), r.png);
   }
-  if (fs.existsSync(path.join(ART, 'battle_fx.png'))) {
+  if (!ONLY && fs.existsSync(path.join(ART, 'battle_fx.png'))) {
     const r = await p.evaluate(async (s) => {
       const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 4, 3, 0.02), S = 160, o = W.canvas(S * 12, S), g = o.getContext('2d');
       for (let i = 0; i < 12; i++) {
@@ -51,7 +53,7 @@ const MW = 220, MH = 176; // keep in step with C.RAID_MOVES (00-zzzzzzzzzzzzzzzz
     done.push('fx ' + save(path.join(OUT, 'battle_fx.webp'), r.webp));
     save(path.join(OUT, 'battle_fx.png'), r.png);
   }
-  if (fs.existsSync(path.join(ART, 'horse_ride.png'))) {
+  if (!ONLY && fs.existsSync(path.join(ART, 'horse_ride.png'))) {
     const url = await p.evaluate(async (s) => {
       const im = await W.load(s), cw = im.width / 3, ch = im.height / 3, o = W.canvas(im.width, ch * 4), g = o.getContext('2d');
       g.drawImage(im, 0, 0);
@@ -65,7 +67,7 @@ const MW = 220, MH = 176; // keep in step with C.RAID_MOVES (00-zzzzzzzzzzzzzzzz
   // art-src/riding/<outfit>-<boy|girl>.png (3 x 3, as the saddled horse) -> art-src/riding/_3x4/<outfit>-<boy|girl>.png
   // (row 4 added, as the horse's) for node tools/art/animals3q-import.js battle2 -> assets/ride_<outfit>_<boy|girl>.*
   const RIDING = path.join(ROOT, 'art-src', 'riding'), PAD = path.join(RIDING, '_3x4');
-  for (const f of fs.existsSync(RIDING) ? fs.readdirSync(RIDING).filter((x) => /^[a-z]+-(boy|girl)\.png$/.test(x)) : []) {
+  for (const f of fs.existsSync(RIDING) ? fs.readdirSync(RIDING).filter((x) => /^[a-z]+-(boy|girl)\.png$/.test(x) && (!ONLY || x.startsWith(ONLY + '-'))) : []) {
     fs.mkdirSync(PAD, { recursive: true });
     const url = await p.evaluate(async (s) => {
       const im = await W.load(s), cw = im.width / 3, ch = im.height / 3, o = W.canvas(im.width, ch * 4), g = o.getContext('2d');
