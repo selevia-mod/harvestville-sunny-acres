@@ -4,8 +4,10 @@ Owner: "another big city with connecting hunting grounds but I want to be big th
 pulag/makiling/magayon and this is open to everyone also. Because we will also add new weapon." The valley road (the
 town's east edge, where visitors from out of town come in: tools/make-map.js from_east) leads there.
 
-Still to decide: the size meaning (3x the area, or 3x each side), the weapons' speeds, ammo, durability for which
-weapons, what the city holds, how you get there.
+Size (owner, 11 Nov 2026: "i like your recommendation"): 3 times the AREA. The city about 90 x 90 tiles (the town is
+54 x 52); each hunting ground about 3 times Pulag's area. Its art downloads as a pack (the page is nearly full).
+
+Still to decide: what the city holds, its hunting grounds (how many, what lives there), how you get there.
 
 ## The weapons (owner's numbers, 11 Nov 2026)
 
