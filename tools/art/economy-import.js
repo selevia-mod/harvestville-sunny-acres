@@ -4,11 +4,10 @@
 // - art-src/crops/<crop>.png (1536x1024, 2 columns: growing, ripe) for each of C.ECON_CROPS, into its two frames of
 //   assets/crops.png (one scale for both, bottom on the soil line at 236, as tools/art/players-import.js does) and
 //   crops.webp (half size). tools/art/crops-fill.js leaves a crop with a picture alone from then on.
-// - art-src/icons/economy-1.png and economy-2.png (1536x1536, 4 x 4, in the prompts' order) cut into
-//   art-src/icons/<name>.png, every cell; the ones the game has an icon slot for (C.ICON_ORDER: the 8 crops and their
-//   8 seed packets, part 1) also into assets/items.png / items.webp (16 columns). The other cells are for later parts
-//   (the Mixer's materials, the crop potions, the horse's gear): their pictures wait in art-src/icons/ under the names
-//   below until those parts give them a slot (then run tools/art/icons-fill.js, or this again).
+// - art-src/icons/economy-1.png and economy-2.png (1536x1536, 4 x 4, in the prompts' order): the cells the game has an
+//   icon slot for (C.ICON_ORDER: the 8 crops and their 8 seed packets, part 1) cut into art-src/icons/<name>.png and
+//   assets/items.png / items.webp (16 columns). The other cells are for later parts (the Mixer's materials, the crop
+//   potions, the horse's gear; names below): once a part gives them a slot, run this again and they go in too.
 // - The Mixer and the Silo (buildings/mixer.png, silo.png) belong to parts 3 and 4, not here.
 // Frames and icons keep their numbers. Afterwards: node build.js (and npm test).
 // node tools/art/economy-import.js
@@ -91,7 +90,8 @@ const save = (f, url) => fs.writeFileSync(f, Buffer.from(url.split(',')[1], 'bas
       });
       return out;
     }, [data(path.join(ART, 'icons', n + '.png')), SHEETS[n]]).catch((e) => { throw new Error('icons/' + n + '.png: ' + e.message); });
-    Object.keys(got).forEach((nm) => { save(path.join(ART, 'icons', nm + '.png'), got[nm]); icons[nm] = got[nm]; });
+    // only the cells the game has a slot for now; the others are cut again when their part comes (the sheets stay)
+    Object.keys(got).forEach((nm) => { if (C.ICON_ORDER.indexOf(nm) >= 0) save(path.join(ART, 'icons', nm + '.png'), got[nm]); icons[nm] = got[nm]; });
   }
   const slotted = Object.keys(icons).filter((nm) => C.ICON_ORDER.indexOf(nm) >= 0);
   if (slotted.length) {
@@ -111,5 +111,5 @@ const save = (f, url) => fs.writeFileSync(f, Buffer.from(url.split(',')[1], 'bas
   }
   await b.close();
   const later = Object.keys(icons).filter((nm) => slotted.indexOf(nm) < 0);
-  console.log('crops:', crops.join(' ') || '(none)', '| icons in the game:', slotted.length, later.length ? '| kept for later parts: ' + later.join(' ') : '');
+  console.log('crops:', crops.join(' ') || '(none)', '| icons in the game:', slotted.length, later.length ? '| left for later parts: ' + later.join(' ') : '');
 })().catch((e) => { console.error(e); process.exit(1); });
