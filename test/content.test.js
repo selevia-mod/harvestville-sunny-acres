@@ -334,6 +334,8 @@ test('every item has a picture in the items sheet (wheat, fruit and workshop goo
   assert.strictEqual(w, 1152);
   Object.keys(C.ITEMS).forEach((id) => {
     const i = C.ITEMS[id].icon;
+    // (the new weapons' icons are painted at load into frames past the sheet, until their pack is in: 19zzz...-weapons-art.js)
+    if (C.ITEMS[id].painted) return assert.ok(i >= C.WPN_ICON_BASE && C.WPN_ICONS[i - C.WPN_ICON_BASE], id + ' has a painted icon');
     assert.ok(Number.isInteger(i) && (Math.floor(i / 8) + 1) * 144 <= h, id + ' is on the sheet');
     assert.ok(fs.existsSync(path.join(__dirname, '..', 'art-src', 'icons', C.ICON_ORDER[i] + '.png')) || i < 200, id + ' has its source picture');
   });
