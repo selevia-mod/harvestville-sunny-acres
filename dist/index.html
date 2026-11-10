@@ -5424,7 +5424,9 @@ C.ADVENTURE_ICONS_IN = true;
 
 C.DAILY2 = { normal: 3, need: 5, six: { stars: 1 }, goodDays: 5 };
 
-C.ADVENTURE_PRIZES = { easy: { gold: 500 }, medium: [{ item: 'power_up', n: 1 }, { item: 'pet_meal', n: 1 }], hard: { stars: 1 } };
+
+
+C.ADVENTURE_PRIZES = { easy: { gold: 500, item: 'pet_meal', n: 1 }, medium: { item: 'power_up', n: 1 }, hard: { stars: 1 } };
 
 C.ADVENTURE_FEEL = { hidden: 4, apart: 15, away: 10, help: 120000, back: 60000, hpX: 2, hpXBig: 1.5, runX: 1.15 };
 
@@ -16276,7 +16278,13 @@ var take = function (pool, seed) {
 pool = pool.filter(function (a) { return out.indexOf(a) < 0 && !out.some(function (o) { return o.who === a.who; }); });
 if (pool.length) out.push(pool[Math.floor(L.rand(s.seed || 1, seed, 11) * pool.length) % pool.length]);
 };
-['easy', 'medium', 'hard'].forEach(function (t, k) { if (!out.some(function (o) { return o.tier === t; })) take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
+
+
+var tierOf = function (t) { return open.filter(function (a) { return a.tier === t; }); };
+take(tierOf('medium'), dn * 7 + 41);
+var rest = ['easy', 'hard'].filter(function (t) { return !(ch && out.indexOf(ch) >= 0 && ch.tier === t); });
+if (ch && out.indexOf(ch) >= 0 && ch.tier === 'medium') rest = [rest[dn % 2]];
+rest.forEach(function (t, k) { take(tierOf(t), dn * 7 + 40 + 2 * k); });
 for (var k = 0; out.length < 3 && k < 3; k++) take(open, dn * 7 + 50 + k);
 return out;
 };

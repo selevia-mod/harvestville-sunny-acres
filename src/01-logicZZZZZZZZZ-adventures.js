@@ -60,7 +60,13 @@
       pool = pool.filter(function (a) { return out.indexOf(a) < 0 && !out.some(function (o) { return o.who === a.who; }); });
       if (pool.length) out.push(pool[Math.floor(L.rand(s.seed || 1, seed, 11) * pool.length) % pool.length]);
     };
-    ['easy', 'medium', 'hard'].forEach(function (t, k) { if (!out.some(function (o) { return o.tier === t; })) take(open.filter(function (a) { return a.tier === t; }), dn * 7 + 40 + k); });
+    // a medium one every day, besides the story (its prize is the day's Power-Up: owner, 10 Nov 2026); then the other
+    // two kinds the story is not, or (a medium story) one of them, turn about
+    var tierOf = function (t) { return open.filter(function (a) { return a.tier === t; }); };
+    take(tierOf('medium'), dn * 7 + 41);
+    var rest = ['easy', 'hard'].filter(function (t) { return !(ch && out.indexOf(ch) >= 0 && ch.tier === t); });
+    if (ch && out.indexOf(ch) >= 0 && ch.tier === 'medium') rest = [rest[dn % 2]];
+    rest.forEach(function (t, k) { take(tierOf(t), dn * 7 + 40 + 2 * k); });
     for (var k = 0; out.length < 3 && k < 3; k++) take(open, dn * 7 + 50 + k);
     return out;
   };

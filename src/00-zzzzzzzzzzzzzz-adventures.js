@@ -49,7 +49,9 @@
   // the day: 3 normal quests and 3 adventures, any 5 open the day's chest; all 6, one Sunbeam more
   C.DAILY2 = { normal: 3, need: 5, six: { stars: 1 }, goodDays: 5 };
   // prizes: one hidden piece, three pieces, a hunt
-  C.ADVENTURE_PRIZES = { easy: { gold: 500 }, medium: [{ item: 'power_up', n: 1 }, { item: 'pet_meal', n: 1 }], hard: { stars: 1 } };
+  // (owner, 10 Nov 2026: "in medium adventure, there should always a power-up prize, then the story is always the farm
+  // shield": the medium one gives a Power-Up every day, the Pet Meal it gave every other day comes with the easy one)
+  C.ADVENTURE_PRIZES = { easy: { gold: 500, item: 'pet_meal', n: 1 }, medium: { item: 'power_up', n: 1 }, hard: { stars: 1 } };
   // how hard (owner, 8 Nov 2026: "a little bit hard but not too hard"): docs/quests-adventures.md
   C.ADVENTURE_FEEL = { hidden: 4, apart: 15, away: 10, help: 120000, back: 60000, hpX: 2, hpXBig: 1.5, runX: 1.15 };
   // where the people stand who are not villagers

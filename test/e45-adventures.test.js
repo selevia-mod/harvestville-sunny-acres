@@ -40,7 +40,14 @@ test('a new farm gets adventures it can reach (farm, town, mine, Pulag); a hunte
     assert.strictEqual(advs(s).length, 3);
     const h = fresh(200);
     L.refreshQuests(h, '2026-11-' + String(d).padStart(2, '0'));
-    assert.deepStrictEqual(plain(advs(h).map((a) => a.tier).sort()), ['easy', 'hard', 'medium'], 'one of each');
+    const story = advs(h).filter((a) => a.story), day = advs(h).filter((a) => !a.story);
+    if (!story.length) assert.deepStrictEqual(plain(day.map((a) => a.tier).sort()), ['easy', 'hard', 'medium'], 'one of each');
+    // (owner, 10 Nov 2026: a medium one every day, a Power-Up; the story's prize is the Farm Shield)
+    const med = h.dq.list.filter((q) => q.c === 'adv' && !L.advOf(q).story && L.advOf(q).tier === 'medium');
+    assert.strictEqual(med.length, 1, 'a medium adventure on ' + d + ' Nov');
+    assert.deepStrictEqual(plain(med[0].reward), { item: 'power_up', n: 1 });
+    h.dq.list.filter((q) => q.c === 'adv' && L.advOf(q).story).forEach((q) => assert.strictEqual(q.reward.item, 'farm_shield', 'the story: a Farm Shield'));
+    assert.strictEqual(advs(h).length, 3);
   }
 });
 
