@@ -32,5 +32,8 @@ module.exports = {
   // the raiders' animations, side / front / back (owner's art, 10 Nov 2026; tools/art/raider-anim-import.js): fetched as a
   // raid starts (raid_moves, in the page, stands in until they are here)
   raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // Manila (owner, 11 Nov 2026): its ground textures, buildings, props and people, each once its picture is in
+  // (tools/manila/manila-import.js; until then the game draws stand-ins)
+  manila: require('./manila/manila-art').packed(),
   riding: fs.readdirSync(ASSETS).filter((f) => /^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

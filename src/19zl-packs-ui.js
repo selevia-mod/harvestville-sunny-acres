@@ -17,7 +17,7 @@
   var BADGE = { x: 22, y: 160, r: 13 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var mb = function (bytes) { var m = bytes / 1048576; return m >= 0.95 ? m.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; };
-  var ORDER = ['wild', 'looks', 'party', 'styles', 'places'];
+  var ORDER = ['wild', 'looks', 'party', 'styles', 'places', 'manila']; // (manila: shown once it has pictures, 19zzzzzzzzzzzzzzzzzzzzzzzzz-manila.js)
 
   // ---------- the Wild Lands (and the new hunting places), before you go ----------
   var wildMap = function (to) { return L.isWildMap && L.isWildMap(to); };
