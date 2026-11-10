@@ -77,8 +77,11 @@
     var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
     // (the field is its plots, where they stand: Edit Farm, 10 Nov 2026; until then the map's field mask, F.farm().field,
     // whose values were read as tile numbers till 10 Nov 2026, so the field was never kept clear)
+    // The ranch too, and a tile round it, wherever it stands (owner, 11 Nov 2026: "Keep raiders off the ranch and one tile
+    // around it"): nothing can stand inside it to guard the pen, and its gate, in the front fence, opens onto the bottom path.
     s.yard.items.forEach(function (it) {
-      if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+      var type = O.types[it.t];
+      if (!type || !(type.fieldPlot || type.building === 'ranch')) return;
       L.yardBox(it.t, it.x, it.y).forEach(function (p) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(p[0] + dx, p[1] + dy); });
     });
     ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });

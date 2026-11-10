@@ -49565,8 +49565,11 @@ var nd = new Uint8Array(w * h);
 var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
 
 
+
+
 s.yard.items.forEach(function (it) {
-if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+var type = O.types[it.t];
+if (!type || !(type.fieldPlot || type.building === 'ranch')) return;
 L.yardBox(it.t, it.x, it.y).forEach(function (p) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(p[0] + dx, p[1] + dy); });
 });
 ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });

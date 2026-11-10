@@ -146,13 +146,17 @@ test('raids and the guide read the pieces: a moved ranch\'s pen is kept clear an
     for (let y = pen.y0; y <= pen.y1; y++) for (let x = pen.x0; x <= pen.x1; x++) if (at(x, y)) penBad++;
     let oldOpen = 0;
     for (let y = 31; y <= 34; y++) for (let x = 3; x <= 9; x++) if (at(x, y)) oldOpen++;
+    let ranchBad = 0; // (owner, 11 Nov 2026: nor on the ranch or a tile round it, wherever it stands)
+    for (let y = ranch.y - 1; y <= ranch.y + 9; y++) for (let x = ranch.x - 1; x <= ranch.x + 9; x++) if (at(x, y)) ranchBad++;
     let fieldBad = 0;
     s.yard.items.filter((it) => O.types[it.t].fieldPlot).forEach((it) => Farm.Logic.yardBox(it.t, it.x, it.y).forEach((p) => { if (at(p[0], p[1])) fieldBad++; }));
-    return { ranch: [ranch.x, ranch.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], penBad, oldOpen, fieldBad, water: [w.isWater(25, 5), w.isWater(35, 21)] };
+    return { ranch: [ranch.x, ranch.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], penBad, ranchBad, open: [at(28, 25), at(34, 18)], oldOpen, fieldBad, water: [w.isWater(25, 5), w.isWater(35, 21)] };
   });
   assert.deepStrictEqual(r.ranch, [24, 14], 'the ranch stays where it was put');
   assert.deepStrictEqual(r.pen, [25, 18, 31, 21], 'the pen moved with it');
   assert.strictEqual(r.penBad, 0, 'no landing in the moved pen');
+  assert.strictEqual(r.ranchBad, 0, 'nor on the moved ranch or a tile round it');
+  assert.deepStrictEqual(r.open, [true, true], 'two tiles out is open grass again');
   assert.ok(r.oldOpen > 20, 'the old pen spot is open grass to land on: ' + r.oldOpen);
   assert.strictEqual(r.fieldBad, 0, 'nor on the field');
   assert.deepStrictEqual(r.water, [true, false], 'the moved pond is water, its old spot is not');
