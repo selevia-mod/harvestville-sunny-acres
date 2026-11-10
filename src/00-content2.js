@@ -70,7 +70,8 @@
   // 14 left, 15 rearing (left). px: a standing-left horse's width in its frame, shown w tiles wide (the new horse is big
   // and its rider small: at 2.7 the rider's head is the walking farmer's, owner 11 Nov 2026); gallop: ms a frame at
   // riding speed (slower with a gentle push of the stick, never under fast).
-  C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.7, gallop: 100, fast: 90, slow: 170, rear: 750 };
+  // w: the horse's width in tiles (owner, 11 Nov 2026: 2.7 "was too big"; the old horse is 1.7)
+  C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.0, gallop: 100, fast: 90, slow: 170, rear: 750 };
   C.CAT = { name: 'Mochi', frame0: 60, px: 174, w: 0.75, speed: 260, reach: 0.6, height: 0.4 };
 
   // ---------- furniture from Mira (bought outright; it appears in the farmhouse) ----------
