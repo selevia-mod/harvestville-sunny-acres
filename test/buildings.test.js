@@ -80,3 +80,79 @@ test('a building\'s mask decides its solid tiles, its water and its open tiles',
   // pieces without a mask keep the foot rule
   assert.strictEqual(L.yardSolid(O.index.bench, 5, 5).length, 2);
 });
+
+const MAP = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8'));
+const BASE = L.farmInfo(MAP);
+const fresh = () => { const s = L.newState(); s.seed = 3; s.gold = 1e6; if (L.takeNotes) L.takeNotes(); return s; };
+const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
+
+test('the farm map keeps only its frame: no house, ranch, ponds, stand, field or their objects', () => {
+  const props = {};
+  MAP.tilesets.forEach((ts) => (ts.tiles || []).forEach((t) => { const o = {}; (t.properties || []).forEach((p) => { o[p.name] = p.value; }); props[ts.firstgid + t.id] = o; }));
+  const ground = MAP.layers.find((l) => l.name === 'Ground').data, walls = MAP.layers.find((l) => l.name === 'Walls').data, W = MAP.width;
+  assert.ok(!ground.some((g) => props[g] && (props[g].tillable || props[g].water)), 'no field and no water on the ground');
+  assert.ok(!walls.some((g) => props[g] && props[g].water), 'no ponds');
+  for (let y = 3; y <= 6; y++) for (let x = 4; x <= 8; x++) assert.strictEqual(walls[y * W + x], 0, 'house tile ' + x + ',' + y);
+  for (let y = 27; y <= 35; y++) for (let x = 2; x <= 10; x++) assert.strictEqual(walls[y * W + x], 0, 'ranch tile ' + x + ',' + y);
+  for (let y = 28; y <= 31; y++) for (let x = 14; x <= 19; x++) assert.strictEqual(walls[y * W + x], 0, 'stand tile ' + x + ',' + y);
+  const names = MAP.layers.find((l) => l.type === 'objectgroup').objects.map((o) => o.name);
+  ['house_door', 'mailbox', 'seed_shop', 'animal_pen', 'dog_yard', 'incubator', 'horse', 'doghouse', 'stable', 'spawn'].forEach((n) => assert.ok(!names.includes(n), n + ' is gone'));
+  ['road_south', 'from_town', 'field_sign', 'yard_sign', 'road_sign', 'land_sign', 'forage_0'].forEach((n) => assert.ok(names.includes(n), n + ' stays'));
+  assert.strictEqual(BASE.start, -1, 'the map itself has no house door now');
+});
+
+test('a new farm has its buildings where the map had them, and its field as 16 plots', () => {
+  const s = fresh(), at = (k) => JSON.parse(JSON.stringify(s.yard.items.filter((it) => it.t === O.index[k]).map((it) => it.x + ',' + it.y)));
+  assert.deepStrictEqual(at('farmhouse'), ['4,3']);
+  assert.deepStrictEqual(at('ranch'), ['2,27']);
+  assert.deepStrictEqual(at('dog_yard'), ['11,5']);
+  assert.deepStrictEqual(at('farm_pond'), ['15,3', '34,10', '34,20']);
+  assert.deepStrictEqual(at('seed_stand'), ['14,28']);
+  assert.strictEqual(at('field_plot4').length, 12);
+  assert.strictEqual(at('field_plot42').length, 4);
+  assert.deepStrictEqual(at('stable_yard'), [], 'no stable until it is built');
+  assert.strictEqual(L.yardRepair(s, BASE), 0, 'all of them fit');
+  const s2 = L.newState({ fieldTiles: [] }); // (the game passes the map's field: empty now)
+  const field = L.fieldPlotTiles(s2);
+  assert.ok(Object.keys(s2.debris).length > 0 && Object.keys(s2.debris).every((i) => field.includes(Number(i))), 'its first debris on the field');
+});
+
+test('the house door and the buildings\' openings come from the pieces', () => {
+  const s = fresh(), W = C.FARM_W;
+  assert.strictEqual(L.farmFor(s, BASE).start, 7 * W + 6, 'below the door at (6,6)');
+  const house = s.yard.items.find((it) => it.t === O.index.farmhouse);
+  house.x = 24; house.y = 4;
+  const f2 = L.farmFor(s, BASE);
+  assert.strictEqual(f2.start, 8 * W + 26, 'the door moved with the house');
+  assert.ok(f2.needs.length >= BASE.needs.length + 4);
+});
+
+test('a fence across the ranch gate is refused: the gate must stay reachable', () => {
+  const s = fresh(), t = O.index.wood_fence;
+  s.yard.bag[t] = 4;
+  assert.strictEqual(typeof L.placeYard(s, BASE, t, 11, 31), 'number', 'one tile beside it is fine');
+  assert.strictEqual(L.yardCantPlace(s, BASE, t, 11, 32, null), 'blocks', 'closing the gate is not');
+});
+
+test('an older save gets them once, its soil and crops stay on the same tiles, and nothing else moves', () => {
+  const s = fresh(), W = C.FARM_W;
+  s.yard.items = s.yard.items.filter((it) => !L.isBuilding(it.t) && !O.types[it.t].fieldPlot); // as a save from before this update
+  s.soil[13 * W + 8] = { w: 1, c: 'turnip', p: L.nowMin(), r: 0 };
+  s.builds.stable = 1;
+  const n0 = s.yard.items.length;
+  const o = JSON.parse(JSON.stringify(L.serialize(s))); delete o.ef;
+  const s2 = L.deserialize(o);
+  assert.strictEqual(s2.yard.items.length - n0, 7 + 16 + 1, '7 buildings, 16 field plots, the stable');
+  assert.strictEqual(s2.soil[13 * W + 8].c, 'turnip');
+  assert.strictEqual(L.yardRepair(s2, BASE), 0, 'nothing goes to storage');
+  assert.strictEqual(s2.soil[13 * W + 8].c, 'turnip', 'and the crop stays');
+  const s3 = roundTrip(s2);
+  assert.strictEqual(s3.yard.items.length, s2.yard.items.length, 'once: not again on the next load');
+});
+
+test('the house and the ranch can\'t be put away, only moved; the others can', () => {
+  const s = fresh(), i = (k) => s.yard.items.findIndex((it) => it.t === O.index[k]);
+  assert.strictEqual(L.storeYard(s, i('farmhouse')), 'keep');
+  assert.strictEqual(L.storeYard(s, i('ranch')), 'keep');
+  assert.strictEqual(L.storeYard(s, i('dog_yard')), 'ok');
+});

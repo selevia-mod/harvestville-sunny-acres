@@ -20,7 +20,8 @@ const ix = C.OUTDOOR.index;
 const W = C.FARM_W;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = () => { clock.set(2026, 4, 1, 10, 0); const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ s.gold = 1e6; L.takeNotes(); return s; };
+// (the field's fence: land.test.js. The buildings and field plots stay: yard pieces since Edit Farm, 10 Nov 2026)
+const fresh = () => { clock.set(2026, 4, 1, 10, 0); const s = L.newState(); s.seed = 11; s.yard.items = s.yard.items.filter((it) => it.t !== C.OUTDOOR.index.field_fence); s.gold = 1e6; L.takeNotes(); return s; };
 const ripe = (s, idx, crop) => { s.soil[idx] = { w: 0, c: crop, p: L.nowMin() - C.CROPS[crop].mins, r: 0 }; };
 
 test('wheat: a 20-minute crop sold by Lily in spring, summer and fall; everything new has a name, an icon and a price', () => {
@@ -138,10 +139,10 @@ test('fruit trees: fruit every few hours in their two seasons; moving keeps the 
   assert.strictEqual(Object.keys(s.fruit).length, 1);
   // an apple tree bought before trees fruited: ready as soon as its season comes
   const old = fresh();
-  old.yard.items.push({ t: ix.apple_tree, x: 30, y: 14 });
+  const ai = old.yard.items.push({ t: ix.apple_tree, x: 30, y: 14 }) - 1;
   clock.set(2026, 10, 5, 10, 0);
   old.day = L.dayOf(clock.ms);
-  assert.strictEqual(L.pickTree(old, 0), 'apple');
+  assert.strictEqual(L.pickTree(old, ai), 'apple');
 });
 
 test('field plots: more land, each dearer, up to 6; till and plant on them; moving takes the crops along', () => {
