@@ -160,7 +160,8 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   assert.strictEqual(await sendIn({ goat: 10, crow: 6, cat: 4 }), 20, 'all 20 went in');
   await page.waitForTimeout(4000);
   // (10 Nov 2026: every raider in the owner's battle moves picture: running, hitting, with loot, knocked out; the cats' row)
-  assert.ok(await page.evaluate(() => { const row = Farm.Config.FRAID.raiderOrder.indexOf('cat'); return Object.values(Farm.world.bv.units).some((u) => u.img.texture.key === 'raid_moves' && Math.floor(u.img.frame.name / 4) === row); }), 'the cats in the battle picture');
+  // (10 Nov 2026: their animation sheet once the 'raiders' pack is here, the battle picture's row until then)
+  assert.ok(await page.evaluate(() => { const row = Farm.Config.FRAID.raiderOrder.indexOf('cat'); return Object.values(Farm.world.bv.units).some((u) => u.img.texture.key === 'ranim_cat' || (u.img.texture.key === 'raid_moves' && Math.floor(u.img.frame.name / 4) === row)); }), 'the cats in their own pictures');
   assert.ok(await page.evaluate(() => { const sc = Farm.game.scene.getScenes(true).map((x) => x.sys.settings.key); return sc.indexOf('UI') > sc.indexOf('World'); }), 'the raid\'s buttons over the farm');
   await shot(page, 'raid-farm-mid');
   assert.ok(await page.evaluate(() => Farm.world.raidB.t > 10), 'the clock runs');
