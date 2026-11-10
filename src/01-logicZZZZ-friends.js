@@ -129,7 +129,7 @@
   };
 
   // ---------- rewards ----------
-  // This season's dearest seeds (the best a friend has to give): not grass.
+  // The dearest seeds Lily sells (the best a friend has to give): not grass. (Every seed, all year: economy v2.)
   L.vsSeasonSeed = function (s) {
     var best = null;
     L.seedsInSeason(s.day).forEach(function (id) {
@@ -145,7 +145,7 @@
   L.vsRewardText = function (key, rw, seed) {
     if (rw.item) return rw.n + ' ' + itemName(rw.item);
     if (rw.gold) return String(rw.gold).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + 'G';
-    if (rw.seeds) return rw.seeds + ' ' + (seed ? itemName(seed) : "packets of the season's best seeds");
+    if (rw.seeds) return rw.seeds + ' ' + (seed ? itemName(seed) : 'packets of the best seeds');
     if (rw.recipe) return 'Recipe: ' + itemName(VS.recipes[rw.recipe].dish) + ' (cook it in your Kitchen)';
     if (rw.photo) return 'A framed photo: "' + rw.photo + '" (it hangs in your house as a Painting)';
     if (rw.furn) { var f = furnOf(rw); return C.HOME.styles[f.v].name + ' ' + C.HOME.types[f.t].name + ', for your house'; }

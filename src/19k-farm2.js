@@ -116,7 +116,7 @@
     }
     var st = L.treeState(s, it), fruit = C.ITEMS[st.tree.fruit];
     if (st.ripe) return { label: 'Pick', icon: fruit.icon, run: function () { self.pickFruit(i); } };
-    var when = st.inSeason ? fruit.plural.charAt(0).toUpperCase() + fruit.plural.slice(1) + ' in ' + L.formatLeft(st.left) + '.' : type.name + 's fruit in ' + st.tree.seasons.map(L.seasonName).join(' and ') + '.';
+    var when = fruit.plural.charAt(0).toUpperCase() + fruit.plural.slice(1) + ' in ' + L.formatLeft(st.left) + '.'; // (trees fruit all year: economy v2)
     return { label: 'Growing', icon: fruit.icon, disabled: true, why: when };
   };
 
@@ -364,7 +364,7 @@
     this.dialog('NEW ON YOUR FARM', [{ label: 'OK', cb: function () { self.toast("Buy workshops, trees and plots at Mira's Woodshop (Outdoor).", 4500, 0x2f5a22); } }], {
       rows: [
         [I.bread.icon, 'Workshops: a Bakery, a Dairy and a Jam Maker make goods while you play, or sleep.'],
-        [I.mango.icon, 'Fruit trees: apples, oranges, mangoes and peaches, each in two seasons.'],
+        [I.mango.icon, 'Fruit trees: apples, oranges, mangoes and peaches, all year.'],
         [I.seed_wheat.icon, 'More land: Field Plots for your yard. Till and plant on them like the field.'],
         [ic.star, 'Crop stars: harvest a crop 50 times for a star and bonus crops. See them in the Collection.'],
         [ic.can, "Help friends: on a friend's farm, water 5 of their crops a day for 20G each."],
@@ -377,7 +377,7 @@
     var type = OD.types[i], why = L.yardCantBuy(s, i);
     if (C.WORKSHOPS[type.key]) return C.WORKSHOPS[type.key].desc + (why ? ' You have one.' : '');
     var tree = L.treeOf(i);
-    if (tree) return tree.n + ' ' + C.ITEMS[tree.fruit].plural + ' every ' + tree.hours + 'h, in ' + tree.seasons.map(L.seasonName).join(' and ') + '.';
+    if (tree) return tree.n + ' ' + C.ITEMS[tree.fruit].plural + ' every ' + tree.hours + 'h, all year.'; // (all year since economy v2, 11 Nov 2026)
     if (L.isPlot(i)) return '3x3 more field. ' + (why ? 'All ' + C.PLOTS.max + ' bought.' : (C.PLOTS.max - L.yardOwned(s, i)) + ' of ' + C.PLOTS.max + ' left.');
     return null;
   };

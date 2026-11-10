@@ -129,10 +129,8 @@
         },
       },
       {
-        text: 'Inside, any crop grows in any season, and Lily sells you every seed. Summer melons in winter? Yes!',
+        text: 'Crops inside grow 25% faster. It waters itself, and no weeds come in.',
         draw: function (ui, sc, move) {
-          var seasons = C.SEASONS.map(function (s, n) { return icon(ui, sc, 46 + n * 36, 40, s.icon, 0.2); });
-          seasons.forEach(function (s, n) { tw(ui, move, { targets: s, alpha: 0.35, duration: 500, delay: n * 250, yoyo: true, repeat: -1 }); });
           var m = icon(ui, sc, 210, 66, C.ITEMS.melon.icon, 0.38);
           icon(ui, sc, 100, 96, C.ITEMS.seed_melon.icon, 0.26);
           tw(ui, move, { targets: m, scale: 0.44, duration: 500, yoyo: true, repeat: -1 });

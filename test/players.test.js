@@ -115,23 +115,27 @@ test('Double Drops gives one more crop, one more forage find, and twice what a h
   } finally { L.weather = weather; }
 });
 
-test('seven new seeds on the crop ladder, at Lily\'s in their seasons, with icons and crop frames after every other', () => {
+test('seven new seeds on the crop ladder, at Lily\'s (every season now: economy v2), with icons and crop frames after the older crops', () => {
   assert.deepStrictEqual(plain(C.NEW_CROPS), ['rose', 'sampaguita', 'gumamela', 'cotton', 'sugarcane', 'cacao', 'oregano']);
   const ladder = {};
   C.CROP_KEYS.filter((k) => !C.NEW_CROPS.includes(k) && C.ITEMS['seed_' + k]).forEach((k) => { ladder[C.CROPS[k].mins] = [C.ITEMS['seed_' + k].price, C.ITEMS[C.CROPS[k].item].sell]; });
   C.NEW_CROPS.forEach((k, i) => {
     const c = C.CROPS[k];
     assert.deepStrictEqual(plain([C.ITEMS['seed_' + k].price, C.ITEMS[k].sell]), plain(ladder[c.mins]), k + ' is priced like the others that take as long');
-    assert.strictEqual(c.art, C.CROP_KEYS.length - C.NEW_CROPS.length + i, k + ' frames after every other crop');
+    assert.strictEqual(c.art, C.CROP_KEYS.indexOf('oregano') - C.NEW_CROPS.length + 1 + i, k + ' frames after every older crop');
+    assert.strictEqual(c.art, C.CROP_KEYS.indexOf(k), k + ': its frames follow its place in the save\'s crop list');
     assert.ok(C.SHOP_STOCK.includes('seed_' + k));
     assert.strictEqual(C.ICON_ORDER[C.ITEMS[k].icon], k);
   });
   assert.strictEqual(C.CROP_WITHERED, 2 + C.CROP_KEYS.length * 2);
-  assert.ok(C.CROP_WITHERED < 105, 'the crops sheet holds 105 frames');
+  // the crops sheet (7 frames a row, 272 px apart) holds every crop's frames and the withered one (it grew past 105 frames
+  // with the 8 crops of economy v2, 11 Nov 2026)
+  const sheetH = require('fs').readFileSync(require('path').join(__dirname, '..', 'assets', 'crops.png')).readUInt32BE(20);
+  assert.ok(C.CROP_WITHERED < 7 * Math.floor((sheetH - 8 + 16) / 272), 'the crops sheet holds the withered frame');
   // (new icons at the very end, then the hunting places' icons after them: owner's art, 6 Nov 2026)
   assert.strictEqual(C.ICON_ORDER[C.ICON.chocolate_cake + 1], 'feather_itik', 'new icons at the end, the places\' after them');
   const spring = L.seedsInSeason(L.dayOf(new Date(2026, 3, 10, 12).getTime()));
-  assert.ok(spring.includes('seed_rose') && spring.includes('seed_oregano') && !spring.includes('seed_cotton'));
+  assert.ok(spring.includes('seed_rose') && spring.includes('seed_oregano') && spring.includes('seed_cotton'), 'cotton (a summer seed) in spring too');
   assert.ok(C.WORKSHOPS.bakery.recipes.some((r) => r.out === 'sikwate') && C.MADE_IN.chocolate_cake === 'bakery');
 });
 

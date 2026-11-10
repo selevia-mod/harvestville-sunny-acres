@@ -105,7 +105,7 @@ test('orders ask for things you can get, pay a bonus and friendship, then a new 
     assert.ok(pool.includes(id), id + ' can be had now');
     assert.ok(n >= 1 && n <= 10);
   }));
-  assert.ok(pool.includes('turnip') && pool.includes('egg') && !pool.includes('tomato'), 'spring crops and Clucky');
+  assert.ok(pool.includes('turnip') && pool.includes('egg') && pool.includes('tomato'), 'every crop, all year (economy v2: no more seasons), and Clucky');
   const o = s.orders[0];
   assert.strictEqual(L.deliverOrder(s, 0), 0, 'nothing in the bag yet');
   o.items.forEach(([id, n]) => L.addItem(s, id, n));

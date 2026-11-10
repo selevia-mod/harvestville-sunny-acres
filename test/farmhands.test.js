@@ -196,7 +196,7 @@ test('the animal hand puts what they made in the basket and feeds them, from you
   assert.match(L.fhReport(L.fhTakeLog(s)), /Berto ran out of animal feed/);
 });
 
-test('the fruit picker picks ripe fruit trees into the basket; a tree out of season waits', () => {
+test('the fruit picker picks ripe fruit trees into the basket (all year: economy v2, no more seasons)', () => {
   const s = fresh();
   const ix = C.OUTDOOR.index;
   s.gold = 1e6;
@@ -207,9 +207,9 @@ test('the fruit picker picks ripe fruit trees into the basket; a tree out of sea
   L.fhHire(s, 'kiko');
   const gold = s.gold;
   tick(s, 20 * 60 + 10); // the mango is ripe at 10 PM, after hours: picked at 6 AM
-  assert.deepStrictEqual(plain(s.basket), { mango: 3 });
+  assert.deepStrictEqual(plain(s.basket), { mango: 3, apple: 6 }, 'the apple tree fruits in spring too: at 4 PM, and again by 6 AM');
   assert.strictEqual(L.treeState(s, s.yard.items[m]).ripe, false);
-  assert.strictEqual(s.gold, gold - 50);
+  assert.strictEqual(s.gold, gold - 100, 'two days with work: today (the apples at 4 PM) and the morning');
 });
 
 test('time away is caught up round by round, each day before its midnight: rain, growing, picking and wages in order', () => {

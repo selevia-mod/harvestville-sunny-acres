@@ -103,10 +103,8 @@
     // each line with an icon (a name from ICON_ORDER, or a frame number)
     var row = function (icon, text) { lines.push([typeof icon === 'number' ? icon : C.ICON_ORDER.indexOf(icon), text]); };
     if (result.wedding) row('ring', 'Today you married ' + C.VILLAGERS[result.wedding].name + '! The whole town came to celebrate. Your spouse now lives with you on the farm.');
-    if (result.newSeason) {
-      var seeds = L.seedsInSeason(s.day).filter(function (id) { return id !== 'seed_grass'; });
-      row(['spring', 'summer', 'fall', 'winter'][L.date(s.day).season], result.newSeason + ' has arrived! Lily now sells ' + seeds.length + ' new kinds of seeds: ' +
-        seeds.map(function (id) { return C.ITEMS[C.ITEMS[id].crop].name.toLowerCase(); }).join(', ') + '.' +
+    if (result.newSeason) { // (every crop grows all year since economy v2, 11 Nov 2026: Lily's seeds stay the same)
+      row(['spring', 'summer', 'fall', 'winter'][L.date(s.day).season], result.newSeason + ' has arrived! Every crop still grows all year.' +
         (result.weeds ? ' Weeds sprouted in your field.' : ''));
     }
     if (result.weekend) row('crate', 'Weekend Market! The stall pays the full price for Sell now, and Lily\'s seeds are ' + Math.round(C.WEEKEND.seedOff * 100) + '% off.');

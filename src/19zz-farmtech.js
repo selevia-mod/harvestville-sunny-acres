@@ -70,7 +70,7 @@
   var yardInfo = F.yardInfo;
   F.yardInfo = function (s, i) {
     if (i !== GH) return yardInfo ? yardInfo(s, i) : null;
-    return 'Any crop grows inside in any season. 4x3 soil that waters itself, and no weeds.' + (L.yardCantBuy(s, i) ? ' You have one.' : '');
+    return 'Crops inside grow ' + Math.round(((C.GREENHOUSE && C.GREENHOUSE.faster) || 0) * 100) + '% faster. 4x3 soil that waters itself, and no weeds.' + (L.yardCantBuy(s, i) ? ' You have one.' : '');
   };
 
   // ---------- the farm: sprinklers, fertilizer, the greenhouse ----------
@@ -274,18 +274,14 @@
     this.floatText(t, def.name + ' x' + n);
     this.changed();
   };
-  // Seeds: in the greenhouse anything can be planted, even out of season; a sprinkler's tile takes no seed.
+  // Seeds: a sprinkler's tile takes no seed. (Every crop grows all year since economy v2, 11 Nov 2026: the greenhouse
+  // is no longer the only place for a crop out of its season; crops in it grow 25% faster.)
   var seedAction = P.seedAction;
   P.seedAction = function (t, def) {
     var self = this, s = this.state;
     if (this.mapKey !== 'farm') return seedAction.call(this, t, def);
     var area = this.seedArea(t), idxs = area.filter(function (p) { return self.inMap(p[0], p[1]); }).map(function (p) { return self.idx(p[0], p[1]); });
     var open = function (k) { return s.soil[k] && !s.soil[k].c && !s.soil[k].sp; };
-    if (!L.cropInSeason(def.crop, s.day) && L.canPlantHere(s, def.crop, idxs)) {
-      var inside = idxs.filter(function (k) { return L.inGreenhouse(s, k) && open(k); }).length;
-      if (!inside) return { label: 'Plant', icon: def.icon, preview: area, disabled: true, why: 'Out of season, ' + def.name + ' grow only in the greenhouse. Till its soil first.' };
-      return { label: 'Plant', icon: def.icon, preview: area, run: function () { self.plantArea(t, area); } };
-    }
     var a = seedAction.call(this, t, def);
     if (a && a.run && !idxs.some(open)) return { label: 'Plant', icon: def.icon, preview: area, disabled: true, why: 'A seed bag plants the 3x3 tilled patch around this tile. Till the soil first.' };
     return a;
@@ -413,25 +409,21 @@
     }, function () { return openForge.call(self, page); });
   };
 
-  // ---------- Lily: fertilizer by 1 or 5 (Supplies); with a greenhouse, every seed (Seeds) ----------
+  // ---------- Lily: fertilizer by 1 or 5 (Supplies) ----------
+  // (with a greenhouse she once also sold the seeds out of their season: every seed is sold all year since economy v2)
   var openShop = U.openShop;
   U.openShop = function (tab, page) {
-    var self = this, s = F.session.state, tb = tab || 'seeds', gh = tb === 'seeds' && L.hasGreenhouse(s);
-    if (tb !== 'supplies' && !gh) return openShop.call(this, tab, page);
-    var lp = this.listPanel, sis = L.seedsInSeason;
+    var self = this, tb = tab || 'seeds';
+    if (tb !== 'supplies') return openShop.call(this, tab, page);
+    var lp = this.listPanel;
     this.listPanel = function (o) {
       o.rows.forEach(function (row) {
         var id = ['fert', 'fert_rich'].filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
-        if (id && tb === 'supplies') { var aft = function () { if (o.refresh) o.refresh(); }; row.buttons = self.buyButtons(id, [1, 10], aft); row.amount = self.buyAmount(id, aft); }
-        var seed = gh && C.SHOP_STOCK.filter(function (k) { return C.ITEMS[k].icon === row.icon; })[0];
-        if (seed && !L.cropInSeason(C.ITEMS[seed].crop, s.day)) row.desc = 'Out of season: for your greenhouse. ' + row.desc;
+        if (id) { var aft = function () { if (o.refresh) o.refresh(); }; row.buttons = self.buyButtons(id, [1, 10], aft); row.amount = self.buyAmount(id, aft); }
       });
       return lp.call(this, o);
     };
-    // (in season first, then the rest for the greenhouse)
-    if (gh) L.seedsInSeason = function (day) { var now = sis(day); return now.concat(C.SHOP_STOCK.filter(function (k) { return now.indexOf(k) < 0; })); };
     try { return openShop.call(this, tab, page); } finally {
-      L.seedsInSeason = sis;
       if (this.hasOwnProperty('listPanel')) delete this.listPanel;
     }
   };

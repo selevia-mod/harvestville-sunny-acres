@@ -29,7 +29,7 @@ test('16 adventures, each its own item and icon slot, people who exist, places t
     assert.ok(C.ICON['qi_' + a.key] >= 0);
     assert.ok(!C.ITEMS[a.key] || true);
   });
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16 - C.STORY_ICONS.length - C.FRAID_ICONS.length, -C.STORY_ICONS.length - C.FRAID_ICONS.length)), plain(C.ADVENTURE_ICONS), 'appended: nothing moves');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16 - C.STORY_ICONS.length - C.FRAID_ICONS.length - C.ECON_ICONS.length, -C.STORY_ICONS.length - C.FRAID_ICONS.length - C.ECON_ICONS.length)), plain(C.ADVENTURE_ICONS), 'appended: nothing moves');
 });
 
 test('a new farm gets adventures it can reach (farm, town, mine, Pulag); a hunter gets one of each kind', () => {

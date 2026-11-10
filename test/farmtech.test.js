@@ -277,7 +277,7 @@ test('the bag and Storage: qualities never stack together when moved; Storage ke
   assert.strictEqual(L.bestQuality(s, 'turnip'), 2);
 });
 
-test('the greenhouse: one, 12,000G; any crop in any season inside, misters water it, no weeds, no sprinkler inside', () => {
+test('the greenhouse: one, 12,000G; crops inside grow 25% faster, misters water it, no weeds, no sprinkler inside', () => {
   const s = fresh();
   assert.strictEqual(L.yardPrice(s, GH), 12000);
   assert.strictEqual(L.buyYard(s, GH, 1), 'ok');
@@ -288,18 +288,18 @@ test('the greenhouse: one, 12,000G; any crop in any season inside, misters water
   assert.ok(L.inGreenhouse(s, inside) && !L.inGreenhouse(s, out) && L.inGreenhouse(s, at(27, 16)) && !L.inGreenhouse(s, at(28, 16)));
   assert.strictEqual(L.till(s, inside), 'ok');
   assert.ok(s.soil[inside].w, 'watered as soon as it is tilled');
-  // spring: summer seeds grow only inside
+  // (economy v2, 11 Nov 2026: no more seasons) a summer seed in spring grows outside too
   tilled(s, out);
   const melon = give(s, 'seed_melon', 2);
-  assert.ok(!L.cropInSeason('melon', s.day));
-  assert.strictEqual(L.plantBag(s, [out], melon), 'season');
-  assert.strictEqual(L.plantBag(s, [out, inside], melon), 1, 'only the greenhouse tile');
+  assert.ok(L.cropInSeason('melon', s.day));
+  assert.strictEqual(L.plantBag(s, [out, inside], melon), 2, 'both tiles');
   assert.strictEqual(s.soil[inside].c, 'melon');
-  assert.ok(!s.soil[out].c);
+  assert.strictEqual(s.soil[out].c, 'melon');
   assert.ok(!L.needsWater(s.soil[inside]), 'growing at once');
-  assert.ok(L.canPlantHere(s, 'melon', [inside]) && !L.canPlantHere(s, 'melon', [out]));
-  assert.ok(!L.cropInSeason('melon', s.day), 'no season leaks out of planting');
-  clock.advance(C.CROPS.melon.mins);
+  assert.ok(L.needsWater(s.soil[out]), 'the field tile waits for water');
+  assert.ok(L.canPlantHere(s, 'melon', [inside]) && L.canPlantHere(s, 'melon', [out]));
+  assert.strictEqual(L.cropLeft(s.soil[inside]), Math.round(C.CROPS.melon.mins * 0.75), 'inside: 25% faster');
+  clock.advance(Math.round(C.CROPS.melon.mins * 0.75));
   assert.ok(L.isRipe(s.soil[inside]));
   assert.strictEqual(L.harvest(s, inside), 'melon');
   assert.ok(s.soil[inside].w, 'watered again');

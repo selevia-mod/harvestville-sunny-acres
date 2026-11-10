@@ -116,7 +116,7 @@ test('workshops: missing ingredients, food groups, and a full bag keeps the good
   assert.strictEqual(L.jobsReady(s, 'dairy'), 1, 'still waiting');
 });
 
-test('fruit trees: fruit every few hours in their two seasons; moving keeps the timer, putting away forgets it', () => {
+test('fruit trees: fruit every few hours, all year (economy v2); moving keeps the timer, putting away forgets it', () => {
   const s = fresh(); // April: spring
   L.buyYard(s, ix.mango_tree, 1);
   L.buyYard(s, ix.apple_tree, 1);
@@ -124,7 +124,7 @@ test('fruit trees: fruit every few hours in their two seasons; moving keeps the 
   const a = L.placeYard(s, FARM, ix.apple_tree, 30, 14);
   assert.strictEqual(L.pickTree(s, m), '!notripe', 'a new tree grows its first fruit');
   assert.strictEqual(L.treeState(s, s.yard.items[m]).left, 12 * 60);
-  assert.strictEqual(L.pickTree(s, a), '!season', 'apples in fall and winter');
+  assert.strictEqual(L.pickTree(s, a), '!notripe', 'apples in spring too (they were fall and winter only): growing its first');
   clock.advance(6 * 60);
   assert.strictEqual(L.moveYard(s, FARM, m, 26, 20), 'ok');
   assert.strictEqual(L.treeState(s, s.yard.items[m]).left, 6 * 60, 'the move kept its timer');

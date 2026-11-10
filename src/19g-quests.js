@@ -371,6 +371,9 @@
     var self = this, s = F.session.state, rows, o;
     if (!L.traderHere(s)) return this.toast('Saffron has packed up for today.');
     var redo = function () { self.closeModal(); self.openTrader(tab, page); };
+    // her Rare tab: crops and seeds out of their season (none since economy v2, 11 Nov 2026: every crop grows all year)
+    var hasRare = L.traderRare(s).length > 0;
+    if (tab === 'rare' && !hasRare) tab = 'sell';
     if (tab === 'sell') {
       var wanted = L.traderWanted(s);
       rows = C.TRADER.buys.filter(function (id) { return C.TRADER.wantedFrom.indexOf(id) >= 0 || L.discovered(s, id); }).sort(function (a, b) { return (wanted.indexOf(b) >= 0) - (wanted.indexOf(a) >= 0); }).map(function (id) {
@@ -440,11 +443,11 @@
       });
     }
     o = this.listPanel({
-      title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap'], ['rare', 'Rare']],
+      title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap']].concat(hasRare ? [['rare', 'Rare']] : []),
       reopen: function (t, p) { self.openTrader(t, p); },
       sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
     });
-    var tip = L.takeTip(s, 'rare');
+    var tip = hasRare && L.takeTip(s, 'rare'); // (its tip is about the Rare tab)
     if (tip) { world().save(); this.toast(tip, 4500, 0x7a4d12); }
     return o;
   };

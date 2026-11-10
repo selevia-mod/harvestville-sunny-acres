@@ -451,9 +451,7 @@
   M.seedAction = function (t, def) {
     var self = this, s = this.state, area = this.seedArea(t);
     if (this.mapKey !== 'farm') return { label: 'Plant', icon: def.icon, disabled: true, why: 'Plant seeds in your field on the farm.' };
-    if (!L.cropInSeason(def.crop, s.day)) {
-      return { label: 'Plant', icon: def.icon, disabled: true, why: def.name + ' only grow in ' + L.seasonsOf(def.crop) + '. Keep them for then!' };
-    }
+    // (no season check: every crop grows all year since economy v2, 11 Nov 2026)
     var free = area.filter(function (p) { var soil = s.soil[self.idx(p[0], p[1])]; return self.inMap(p[0], p[1]) && soil && !soil.c; }).length;
     if (!free) return { label: 'Plant', icon: def.icon, preview: area, disabled: true, why: 'A seed bag plants the 3x3 tilled patch around this tile. Till the soil first.' };
     return { label: 'Plant', icon: def.icon, preview: area, run: function () { self.plantArea(t, area); } };

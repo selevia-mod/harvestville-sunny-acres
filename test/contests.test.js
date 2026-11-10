@@ -93,7 +93,7 @@ test('the crop\'s and the dish\'s scores; a bought dish does not count', () => {
   s.inv = s.inv.map(() => null);
   ['grapes', 'pumpkin', 'turnip', 'coffee', 'hoe'].forEach((id) => L.addItem(s, id, 1));
   const crops = L.ctChoices(s, 'crop');
-  assert.deepStrictEqual(plain(crops).map((o) => [o.id, o.score]), [['grapes', 94], ['coffee', 88], ['pumpkin', 76], ['turnip', 30]], 'grapes and pumpkin are in season in October');
+  assert.deepStrictEqual(plain(crops).map((o) => [o.id, o.score]), [['grapes', 94], ['coffee', 94], ['pumpkin', 76], ['turnip', 36]], 'every crop is in season now (economy v2: no more seasons): each gets the season points');
   ['pumpkin_pie', 'boiled_egg', 'sandwich', 'hot_soup', 'tonic', 'cake', 'bistek'].forEach((id) => L.addItem(s, id, 1));
   const dishes = L.ctChoices(s, 'cook');
   assert.deepStrictEqual(plain(dishes).map((o) => [o.id, o.score]), [['pumpkin_pie', 90], ['bistek', 85], ['boiled_egg', 41]], 'the inn\'s and the bakery\'s food is bought');

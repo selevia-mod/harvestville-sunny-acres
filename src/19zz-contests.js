@@ -169,7 +169,7 @@
         desc = Math.floor(o.love / 20) + ' hearts' + (o.breed && o.breed.name ? ', ' + o.breed.name : '') + '. ' + o.score + ' points.\n' +
           (o.fed ? 'Fed ✓' : 'Not fed') + '  ' + (o.pet ? 'Petted ✓' : 'Not petted') + '  ' + (o.brushed ? 'Brushed ✓' : 'Not brushed');
       } else if (ct.what === 'crop') {
-        desc = o.score + ' points. Sells for ' + o.sell + 'G.' + (o.stars ? ' ' + new Array(o.stars + 1).join('★') : '') + (o.fresh ? '\nIn season!' : '');
+        desc = o.score + ' points. Sells for ' + o.sell + 'G.' + (o.stars ? ' ' + new Array(o.stars + 1).join('★') : ''); // (every crop is in season since economy v2: no "In season!" line)
       } else {
         desc = o.score + ' points. ' + o.parts + (o.parts > 1 ? ' things' : ' thing') + ' in it, ' + o.energy + ' energy.';
       }
