@@ -1036,6 +1036,30 @@ test('online: a friend on a horse: you see it under them, and see it go when the
   await Promise.all([owner.context.close(), guest.context.close()]);
 });
 
+test('online: out hunting, a friend on their horse shows on your screen too (the horse goes out, farm economy v2 part 5)', async () => {
+  const server = createServer();
+  const host = await open(server), guest = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(guest.page, 'Ana Acres');
+  await guest.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(guest.page, true);
+  await waitRemotes(guest.page, ['Moon Meadow (owner)']);
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'town' && !Farm.world.busy, null, SLOW);
+  await waitFollow(guest.page, /Moon Meadow went to town\./);
+  await host.page.evaluate(() => Farm.Online.follow('pulag'));
+  await host.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Farm.world.wild, null, SLOW);
+  await waitFollow(guest.page, /Moon Meadow is hunting in Pulag Grassland\. \| Join them/);
+  await tapFollow(guest.page);
+  await guest.page.waitForFunction(() => Farm.world.mapKey === 'pulag' && !Farm.world.busy && Object.keys(Farm.world.remotes).length === 1, null, SLOW);
+  await host.page.evaluate(() => { Farm.session.riding = true; Farm.Online.chan.track(Farm.Online.myState()); });
+  await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !!(r && r.horse && r.horse.sprite.visible); }, null, SLOW);
+  await host.page.evaluate(() => { Farm.session.riding = false; Farm.Online.chan.track(Farm.Online.myState()); });
+  await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !!r && !r.horse; }, null, SLOW);
+  assert.deepStrictEqual(guest.problems, []);
+  await Promise.all([host.context.close(), guest.context.close()]);
+});
+
 test('online: hunting with friends: asked to join, the same animals on both phones, a hit shared, a charge felt, and the hunt goes on when the first hunter leaves (owner, 30 Oct)', async () => {
   const server = createServer();
   const host = await open(server), guest = await open(server);
