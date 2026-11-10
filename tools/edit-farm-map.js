@@ -28,7 +28,6 @@ clear(4, 3, 9, 6, true); // the farmhouse and its mailbox's column (a tuft of gr
 clear(11, 5, 14, 9, true); // the dog's yard
 clear(18, 32, 20, 35, true); // the stable's spot
 clear(2, 27, 10, 35, true); // the ranch: barn, coop, trough, hay, the pen's fence
-clear(2, 36, 10, 36, true); // (the pen fence's front edge, drawn over the row below)
 clear(14, 28, 19, 31, true); // Lily's stand
 walls.data.forEach((g, i) => { if (P(g).water) { walls.data[i] = 0; cleared++; } }); // the ponds
 ground.data.forEach((g, i) => { if (P(g).tillable || P(g).water) { ground.data[i] = GRASS; cleared++; } }); // the field

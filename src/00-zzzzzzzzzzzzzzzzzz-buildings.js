@@ -10,19 +10,20 @@
   var C = F.Config, O = C.OUTDOOR;
   var NEW = [
     // the house with its mailbox on the right
-    { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true,
+    { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true, prop: 'house_1',
       mask: ['#####.', '#####.', '#####.', '##D##M'] },
-    // the barn (left), the coop and its incubator (right), the pen below with its gate on the right
-    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, hd: 'ranch',
-      mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPPG', '#PPPPPPPG', '#PPPPPPP#', '#PPPPPPP#', '#########'] },
+    // the barn (left), the coop and its incubator (right), the pen below with its gate in the front fence
+    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch',
+      mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '####G####'] }, // (the gate in the front fence, as the owner's picture has it)
     // the doghouse at the back, a low fence on the sides, open at the front
-    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', hd: 'dog_yard',
+    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard',
       mask: ['####', '#YY#', '#YY#', '#YY#', 'YYYY'] },
-    { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', hd: 'farm_pond',
+    { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', prop: 'farm_pond',
       mask: ['WWWWW', 'WWWWW', 'WWWWW', 'WWWWW'] },
-    { key: 'seed_stand', name: "Lily's Seed Stand", w: 6, h: 4, building: 'shop', one: true,
+    { key: 'seed_stand', name: "Lily's Seed Stand", w: 6, h: 4, building: 'shop', one: true, prop: 'farm_stand', // (painted as its tiles on the farm; the market stall's picture in lists)
+     
       mask: ['######', '######', '######', '##SS##'] },
-    { key: 'stable_yard', name: 'Stable', w: 3, h: 4, building: 'stable', one: true, prop: 'stable',
+    { key: 'stable_yard', name: 'Stable', w: 3, h: 4, building: 'stable', one: true, prop: 'stable', picH: 3,
       mask: ['...', '###', '###', '.H.'] },
     { key: 'field_plot4', name: 'Field', kind: 'plot', w: 4, h: 4, foot: 0, fieldPlot: true, hd: 'ws_farm_plot',
       mask: ['....', '....', '....', '....'] },

@@ -96,9 +96,10 @@
         glow(x + w * 0.78, y - h * 0.42, 2.4 * T);
       } else if (name === 'fireplace') glow(x + w / 2, y - h * 0.3, 3 * T);
     });
-    if (this.mapKey === 'farm') { // the farmhouse windows (the house is drawn in the tileset)
-      glow(5.3 * T, 5.1 * T, 2.2 * T);
-      glow(7.7 * T, 5.1 * T, 2.2 * T);
+    var hb = this.mapKey === 'farm' && F.houseBlock && F.houseBlock(this.state);
+    if (hb) { // the farmhouse windows (wherever the house stands: Edit Farm, 10 Nov 2026)
+      glow((hb.x + 1.3) * T, (hb.y + 2.1) * T, 2.2 * T);
+      glow((hb.x + 3.7) * T, (hb.y + 2.1) * T, 2.2 * T);
     }
     // fireflies on summer nights, around the farmer
     this.fireflies = null;

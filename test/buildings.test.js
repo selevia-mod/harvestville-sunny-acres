@@ -37,10 +37,13 @@ test('the masks match the farm map they came from (78b8af5): its walls, the pen,
   const props = {};
   m.tilesets.forEach((ts) => (ts.tiles || []).forEach((t) => { const o = {}; (t.properties || []).forEach((p) => { o[p.name] = p.value; }); props[ts.firstgid + t.id] = o; }));
   const solidAt = (x, y) => !!(walls[y * W + x] && props[walls[y * W + x]].collides);
+  // (the ranch's gate moved from the right side (10,31..32) to the front fence (6,35), as the owner's picture has it)
+  const MOVED = { '10,31': 1, '10,32': 1, '6,35': 1 };
   const check = (key, x0, y0, cols) => {
     const t = O.types[O.index[key]];
     for (let dy = 0; dy < t.h; dy++) for (let dx = 0; dx < t.w; dx++) {
       if (cols && cols.indexOf(dx) < 0) continue;
+      if (key === 'ranch' && MOVED[(x0 + dx) + ',' + (y0 + dy)]) continue;
       const c = t.mask[dy][dx], solid = '#DWSI'.indexOf(c) >= 0;
       assert.strictEqual(solid, solidAt(x0 + dx, y0 + dy), key + ' ' + (x0 + dx) + ',' + (y0 + dy) + ' "' + c + '"');
     }
@@ -76,7 +79,7 @@ test('a building\'s mask decides its solid tiles, its water and its open tiles',
   assert.strictEqual(L.yardSolid(p, 15, 3).length, 20, 'water is solid');
   assert.strictEqual(L.yardWater(p, 15, 3).length, 20);
   assert.strictEqual(L.yardSolid(O.index.field_plot4, 4, 11).length, 0, 'a field plot is walked on');
-  assert.strictEqual(L.maskTiles(O.index.ranch, 2, 27, 'G').length, 2, 'the gate');
+  assert.strictEqual(L.maskTiles(O.index.ranch, 2, 27, 'G').length, 1, 'the gate');
   // pieces without a mask keep the foot rule
   assert.strictEqual(L.yardSolid(O.index.bench, 5, 5).length, 2);
 });
@@ -127,11 +130,14 @@ test('the house door and the buildings\' openings come from the pieces', () => {
   assert.ok(f2.needs.length >= BASE.needs.length + 4);
 });
 
-test('a fence across the ranch gate is refused: the gate must stay reachable', () => {
-  const s = fresh(), t = O.index.wood_fence;
-  s.yard.bag[t] = 4;
-  assert.strictEqual(typeof L.placeYard(s, BASE, t, 11, 31), 'number', 'one tile beside it is fine');
-  assert.strictEqual(L.yardCantPlace(s, BASE, t, 11, 32, null), 'blocks', 'closing the gate is not');
+test('the ranch\'s gate must stay reachable: a hedge shutting it is refused', () => {
+  const s = fresh(), t = O.index.hedge, r = s.yard.items.find((it) => it.t === O.index.ranch);
+  r.x = 24; r.y = 12; // out in the meadow: its gate at (28,20), entered from (28,21)
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(L.maskTiles(r.t, r.x, r.y, 'G').map((p) => p.join(',')))), ['28,20']);
+  s.yard.bag[t] = 3;
+  assert.strictEqual(typeof L.placeYard(s, BASE, t, 27, 21), 'number');
+  assert.strictEqual(typeof L.placeYard(s, BASE, t, 29, 21), 'number');
+  assert.strictEqual(L.yardCantPlace(s, BASE, t, 28, 22, null), 'blocks', 'the last one shutting the gate in');
 });
 
 test('an older save gets them once, its soil and crops stay on the same tiles, and nothing else moves', () => {

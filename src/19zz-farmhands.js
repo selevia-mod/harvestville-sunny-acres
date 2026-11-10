@@ -20,7 +20,18 @@
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var world = function () { return F.world; };
   // where each waits between jobs (tiles), and the road they come up from town
-  var REST = { andoy: [12.6, 8.7], lucing: [11.3, 8.7], berto: [12, 31.7], kiko: [14, 8.7] }; // (near the field's gate, Berto by the pen)
+  // (near the field's gate, Berto by the pen; by the dog's yard and the ranch's gate wherever they stand: Edit Farm)
+  var REST0 = { andoy: [12.6, 8.7], lucing: [11.3, 8.7], berto: [12, 31.7], kiko: [14, 8.7] };
+  var REST = {};
+  var restFor = function (s) {
+    var L2 = F.Logic, d = L2.buildingsOf && L2.buildingsOf(s, 'dog')[0], r = L2.buildingsOf && L2.buildingsOf(s, 'ranch')[0];
+    REST.andoy = d ? [d.x + 1.6, d.y + 3.7] : REST0.andoy;
+    REST.lucing = d ? [d.x + 0.3, d.y + 3.7] : REST0.lucing;
+    REST.kiko = d ? [d.x + 3, d.y + 3.7] : REST0.kiko;
+    REST.berto = r ? [r.x + 10, r.y + 4.7] : REST0.berto;
+    return REST;
+  };
+  restFor(null);
   var ROAD = [11.5, 37.4];
 
   // ---------- their pictures ----------
@@ -74,6 +85,7 @@
     this.fh = null;
     L.fhTakeRecent(); // (done before you came: the field already shows it)
     if (!mine(this)) return;
+    restFor(this.state);
     this.fh = { hands: {}, hold: {}, walker: { scene: this }, syncMs: 0 };
     this.fhSync(true);
   };

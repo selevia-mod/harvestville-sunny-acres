@@ -12,6 +12,7 @@
   var U = 128, CELL = 3 * U, GAP = 16, COLS = 6; // the yard sheet's layout (tools/art/outdoor.js)
   var WHY = {
     outside: "It doesn't fit there.", blocked: "You can't build there.", taken: "Something's already there.",
+    keep: 'Your farmhouse and your ranch stay on your farm: move them, but they can\'t be put away.',
     blocks: 'That would block the way to a door, the field or the pen.', full: 'You have ' + (C.YARD_MAX || 360) + ' decorations out, the most a farm can hold. Put one away first (paths and fences have their own room).',
     fulltiles: 'You have ' + (C.YARD_TILES_MAX || 1500) + ' path and fence tiles out, the most a farm can hold. Put some away first.', player: "You're standing there!", trap: 'That would box you in. Step out of the way first.',
   };
@@ -72,10 +73,21 @@
     this.yardSprites = [];
     this.yardZones = [];
     this.yardBlocked = {};
+    var zoneAt = function (x0, x1, y0, y1) {
+      var zone = self.add.zone((x0 + x1 + 1) / 2 * T, (y0 + y1 + 1) / 2 * T, (x1 - x0 + 1) * T - 16, (y1 - y0 + 1) * T - 16);
+      self.physics.add.existing(zone, true);
+      self.solids.add(zone);
+      self.yardZones.push(zone);
+    };
     s.yard.items.forEach(function (it, i) {
       var type = O.types[it.t], img = F.yardImg(self, it.t, type.kind === 'fence' ? L.fenceShape(s, i) : null);
-      var sp = self.add.image(it.x * T, (it.y + type.h) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, type.h * T);
-      sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot ? DEPTH.flat : DEPTH.actor + (it.y + type.h) * T / 1e5);
+      // (Edit Farm, 10 Nov 2026: a building's picture covers its box; picH, a picture shorter than the box, at its top. The
+      // house is drawn by showHouse at its level; Lily's stand and the field are painted as tiles, 19fa-buildings-yard.js;
+      // while decorating a field plot shows its picture, to be dragged)
+      var ph = type.picH || type.h, hidden = type.building === 'house' || type.building === 'shop' || (type.fieldPlot && !self.yd);
+      var sp = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, ph * T);
+      sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
+      if (hidden) sp.setVisible(false);
       self.yardSprites[i] = sp;
       var solid = L.yardSolid(it.t, it.x, it.y);
       if (!solid.length) return;
@@ -83,6 +95,15 @@
         var k = self.idx(p[0], p[1]);
         if (!self.blocked[k]) { self.blocked[k] = true; self.yardBlocked[k] = 1; }
       });
+      if (type.mask) { // solid where its mask says: one zone for each run of solid tiles in a row
+        var rowsOf = {};
+        solid.forEach(function (p) { (rowsOf[p[1]] = rowsOf[p[1]] || []).push(p[0]); });
+        Object.keys(rowsOf).forEach(function (y) {
+          var xs = rowsOf[y].sort(function (a, b) { return a - b; }), a = xs[0];
+          for (var k2 = 1; k2 <= xs.length; k2++) if (k2 === xs.length || xs[k2] !== xs[k2 - 1] + 1) { zoneAt(a, xs[k2 - 1], Number(y), Number(y)); a = xs[k2]; }
+        });
+        return;
+      }
       var rows = type.foot, fy = it.y + type.h - rows;
       var zone = self.add.zone((it.x + type.w / 2) * T, (fy + rows / 2) * T, type.w * T - 16, rows * T - 16);
       self.physics.add.existing(zone, true);
