@@ -16,6 +16,7 @@
   // the same frames; an outfit without its own rides in the farm clothes (ride_default_<boy|girl>) until it has one.
   if (F.SHEETS) { F.SHEETS.horse_ride = F.SHEETS.animals; F.SHEETS.horse_rideshade = F.SHEETS.animalshade; }
   var RIDE = { px: 174, ridden: 177 }; // (the horse's width sideways, in its picture: alone, and with its farmer)
+  var GALLOP = 105; // ms a stride while riding
 
   var M = {};
 
@@ -93,7 +94,18 @@
       h.x = f.x;
       h.y = f.y + 20;
       this.player.setVisible(false);
-      if (h.ride) { this.rideSeat(h, d, side, flip, time); this.shadow.setVisible(false); h.sh.setPosition(h.x, h.y); F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5); return; }
+      if (h.ride) {
+        this.rideSeat(h, d, side, flip, time);
+        this.shadow.setVisible(false);
+        // (owner, 10 Nov 2026: riding "looks like flying": a gallop's bounce each stride, the shadow staying on the
+        // ground, and a kick of dust from the hooves as they land)
+        var stride = this.moving ? Math.floor(time / GALLOP) : -1, bob = this.moving ? Math.abs(Math.sin(time / GALLOP * Math.PI)) * 0.06 * T : 0;
+        if (stride >= 0 && stride !== h.stride && stride % 2 === 0 && this.bits && this.bits.dust) this.bits.dust.explode(1, h.x + (side ? (flip ? -1 : 1) * 0.45 * T : 0), h.y);
+        h.stride = stride;
+        h.sh.setPosition(h.x, h.y).setScale(h.sprite.scaleX * (1 - bob / (2 * T)), h.sprite.scaleY);
+        F.depthTo(h.sprite.setPosition(h.x, h.y - bob), DEPTH.actor + h.y / 1e5);
+        return;
+      }
       this.rider.setVisible(true).setFrame(side ? 6 : d === 'up' ? 3 : 0).setFlipX(side && flip).setPosition(f.x + (side ? (flip ? -30 : 30) : 0), f.y - (side ? 350 : d === 'up' ? 330 : 370));
       F.depthTo(this.rider, DEPTH.actor + f.y / 1e5 + (d === 'down' ? -0.0002 : 0.0005)); // (the horse stands 20 units, 0.0002, lower)
       A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
@@ -127,7 +139,8 @@
     h.ridden = !!key;
   };
   M.rideSeat = function (h, d, side, flip, time) {
-    var A = F.Anim, k = A.FACING[d] + (this.moving ? A.STEPS[Math.floor(time / 120) % 4] : 0), mirror = side && flip, key = this.rideKey();
+    // moving, the legs never rest: step, other step (the walk's 'stand' between steps made a galloping horse glide)
+    var A = F.Anim, k = A.FACING[d] + (this.moving ? 1 + Math.floor(time / GALLOP) % 2 : 0), mirror = side && flip, key = this.rideKey();
     if (key) {
       this.rideTexture(h, key);
       this.rider.setVisible(false);
