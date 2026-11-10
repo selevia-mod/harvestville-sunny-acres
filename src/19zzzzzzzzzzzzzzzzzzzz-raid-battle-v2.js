@@ -71,6 +71,10 @@
     if (!on() || !this.raidB) return;
     var self = this, f = this.raidB.farm, cam = this.cameras.main;
     cam.setZoom(cam.zoom / 0.62 * 0.8); // (closer than before: the raiders big enough to see what they do)
+    // the view stays on the farm (owner's simulator check, 10 Nov 2026: an empty band above the map): bounds a little past
+    // the map's edges, so its top and bottom rows can come out from under the raid bar and the raiders' cards
+    var mw = this.map.widthInPixels, mh = this.map.heightInPixels, padT = 110 * (F.R || 1) / cam.zoom, padB = 130 * (F.R || 1) / cam.zoom; // (layout px of the bars, in world units)
+    cam.setBounds(0, -padT, mw, mh + padT + padB);
     this.bv = { units: {}, defs: {}, loot: {}, stars: 0, sprites: null };
     if (this.raidDropShade) this.raidDropShade.destroy();
     var dropAt = function (x, y) { return x >= 0 && y >= 0 && x < f.w && y < f.h && f.drop.charCodeAt(y * f.w + x) === 49; };

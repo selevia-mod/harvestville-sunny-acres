@@ -49725,6 +49725,10 @@ setup.call(this);
 if (!on() || !this.raidB) return;
 var self = this, f = this.raidB.farm, cam = this.cameras.main;
 cam.setZoom(cam.zoom / 0.62 * 0.8);
+
+
+var mw = this.map.widthInPixels, mh = this.map.heightInPixels, padT = 110 * (F.R || 1) / cam.zoom, padB = 130 * (F.R || 1) / cam.zoom;
+cam.setBounds(0, -padT, mw, mh + padT + padB);
 this.bv = { units: {}, defs: {}, loot: {}, stars: 0, sprites: null };
 if (this.raidDropShade) this.raidDropShade.destroy();
 var dropAt = function (x, y) { return x >= 0 && y >= 0 && x < f.w && y < f.h && f.drop.charCodeAt(y * f.w + x) === 49; };
