@@ -22,16 +22,20 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
   // (and wheat: its growing frame held the old withered picture, so a growing wheat field looked dead, until 5 Nov 2026)
   // (a crop with its generated picture in art-src/crops/ is tools/art/players-import.js's, and stays as it is)
   // (wheat too, once its picture is in: tools/art/workshop-import.js, 8 Nov 2026)
-  const keys = ['wheat'].concat(C.NEW_CROPS || []).filter((k) => !fs.existsSync(path.join(ROOT, 'art-src', 'crops', k + '.png')));
+  // (and economy v2's 8 crops, 11 Nov 2026: C.ECON_CROPS; their pictures go in with tools/art/economy-import.js)
+  const keys = ['wheat'].concat(C.NEW_CROPS || [], C.ECON_CROPS || []).filter((k) => !fs.existsSync(path.join(ROOT, 'art-src', 'crops', k + '.png')));
+  // the sheet grows by rows at the bottom when the frames (and the withered one after them) no longer fit: 7 a row,
+  // 272 px apart (economy v2 took it past 105 frames); the game is told its full size in assets/sizes.json
+  const rows = Math.ceil((C.CROP_WITHERED + 1) / 7);
   const b = await chromium.launch(), p = await b.newPage();
   await p.setContent('<canvas id="x"></canvas>');
   for (const f of ['draw.js', 'crops2.js']) await p.addScriptTag({ path: path.join(__dirname, f) });
-  const r = await p.evaluate(async ([old, crops, keys, withered]) => {
+  const r = await p.evaluate(async ([old, crops, keys, withered, rows]) => {
     const A = window.ART;
     A.prepareCrops({ CROPS: crops });
     const load = async (src) => { const i = new Image(); i.src = src; await i.decode(); return i; };
     const im = await load(old), sheet = document.createElement('canvas');
-    sheet.width = im.width; sheet.height = im.height;
+    sheet.width = im.width; sheet.height = Math.max(im.height, rows * 272);
     const g = sheet.getContext('2d');
     g.drawImage(im, 0, 0);
     const cell = (f) => ({ x: 8 + (f % 7) * 272, y: 8 + Math.floor(f / 7) * 272 });
@@ -53,8 +57,13 @@ const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base
     const h = half.getContext('2d');
     h.imageSmoothingQuality = 'high';
     h.drawImage(sheet, 0, 0, half.width, half.height);
-    return { png: sheet.toDataURL('image/png'), webp: half.toDataURL('image/webp', 0.72) };
-  }, [data(path.join(OUT, 'crops.png')), JSON.parse(JSON.stringify(C.CROPS)), keys, C.CROP_WITHERED]);
+    return { png: sheet.toDataURL('image/png'), webp: half.toDataURL('image/webp', 0.72), w: sheet.width, h: sheet.height };
+  }, [data(path.join(OUT, 'crops.png')), JSON.parse(JSON.stringify(C.CROPS)), keys, C.CROP_WITHERED, rows]);
+  const sizesFile = path.join(OUT, 'sizes.json'), sizes = JSON.parse(fs.readFileSync(sizesFile, 'utf8'));
+  if (!sizes.crops || sizes.crops[0] !== r.w || sizes.crops[1] !== r.h) {
+    sizes.crops = [r.w, r.h];
+    fs.writeFileSync(sizesFile, JSON.stringify(sizes, null, 1) + '\n');
+  }
   fs.writeFileSync(path.join(OUT, 'crops.png'), Buffer.from(r.png.split(',')[1], 'base64'));
   fs.writeFileSync(path.join(OUT, 'crops.webp'), Buffer.from(r.webp.split(',')[1], 'base64'));
   console.log('crops painted:', keys.join(', '), '; withered at', C.CROP_WITHERED);
