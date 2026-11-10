@@ -65,3 +65,18 @@ test('the masks match the farm map they came from (78b8af5): its walls, the pen,
   assert.deepStrictEqual(at('farmhouse', 4, 3, 'M')[0], [tile(obj('mailbox').x), 6]);
   void d;
 });
+
+test('a building\'s mask decides its solid tiles, its water and its open tiles', () => {
+  const h = O.index.farmhouse, solid = L.yardSolid(h, 4, 3).map((p) => p.join(','));
+  assert.strictEqual(solid.length, 21, 'the house walls, its door and the mailbox: 24 tiles less the 3 open ones');
+  assert.ok(solid.includes('6,6'), 'the door is faced, not walked into');
+  assert.ok(!solid.includes('9,3'), 'beside the mailbox is open');
+  assert.strictEqual(L.maskAt(h, 4, 3, 6, 6), 'D');
+  const p = O.index.farm_pond;
+  assert.strictEqual(L.yardSolid(p, 15, 3).length, 20, 'water is solid');
+  assert.strictEqual(L.yardWater(p, 15, 3).length, 20);
+  assert.strictEqual(L.yardSolid(O.index.field_plot4, 4, 11).length, 0, 'a field plot is walked on');
+  assert.strictEqual(L.maskTiles(O.index.ranch, 2, 27, 'G').length, 2, 'the gate');
+  // pieces without a mask keep the foot rule
+  assert.strictEqual(L.yardSolid(O.index.bench, 5, 5).length, 2);
+});
