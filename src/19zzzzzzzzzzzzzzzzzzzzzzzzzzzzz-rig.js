@@ -2,8 +2,8 @@
 // is built from parts (C.RIG_BOY from tools/art/rig-import.js; the picture assets/rig_boy is a pack) and moved: the body
 // turns a little towards the animal, both hands stay on the rifle (a two-bone reach for each arm, L.rigIK), the cheek
 // comes down to the stock with the aiming face, and the shot kicks the shoulder and head back and the muzzle up before
-// it settles. Walking keeps the walking sheet: the rig fades in over the standing frame at the same size and place and
-// fades back out. Only your own farmer, the boy in his own clothes, with the Rifle (a girl, a look, the other weapons and
+// it settles. Walking keeps the walking sheet: the rig takes the standing frame's place at the same size and back. Only
+// your own farmer, the boy in his own clothes, with the Rifle (a girl, a look, the other weapons and
 // friends' farmers keep the pose sheets: 19zzzzzzzzzzzzzzzzzzzzzzzzzzzz-weapons.js). F.rigOff = true: the old way.
 (function (F) {
   'use strict';
@@ -77,9 +77,10 @@
     if (sh.dir === 'right') rig.cont.scaleX = -1;
     sh.rig = rig;
     this.rigPose(sh);
-    // in over the walking frame, the sheet out (the same size and place: no jump)
-    this.tweens.add({ targets: rig.cont, alpha: 1, duration: R.fadeMs });
-    this.tweens.add({ targets: p, alpha: 0, duration: R.fadeMs });
+    // in over the walking frame (the same size and place: no jump), which stays solid under it until the rig is, so
+    // nothing shows through the two of them halfway
+    if (!R.fadeMs) { rig.cont.setAlpha(1); p.setAlpha(0); }
+    else this.tweens.add({ targets: rig.cont, alpha: 1, duration: R.fadeMs, onComplete: function () { if (sh.rig === rig && p.active) p.setAlpha(0); } });
     return rig;
   };
 
@@ -168,8 +169,9 @@
     var rig = sh.rig, p = this.player;
     if (!rig) return;
     sh.rig = null;
-    if (p && p.active) { p.setVisible(true); this.tweens.add({ targets: p, alpha: 1, duration: R.fadeMs }); }
-    this.tweens.add({ targets: rig.cont, alpha: 0, duration: R.fadeMs, onComplete: function () { rig.cont.destroy(); } });
+    if (p && p.active) p.setVisible(true).setAlpha(1); // (solid under the rig as it fades out)
+    if (!R.fadeMs) rig.cont.destroy();
+    else this.tweens.add({ targets: rig.cont, alpha: 0, duration: R.fadeMs, onComplete: function () { rig.cont.destroy(); } });
   };
   // (a shot cut short, a new map: the farmer as he was)
   var travel = P.travel;

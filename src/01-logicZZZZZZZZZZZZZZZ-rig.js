@@ -6,7 +6,7 @@
   var C = F.Config;
 
   // The rig's timing (ms): the rifle comes up, he holds the aim, the shot, the kick and its settling.
-  C.RIG = { raise: 150, kickIn: 30, hitStop: 45, settle: 250, fadeMs: 80,
+  C.RIG = { raise: 150, kickIn: 30, hitStop: 45, settle: 250, fadeMs: 0, // (fadeMs 0: a clean cut, like a frame of his walk; a fade showed both him and the rig)
     // how far the aim may turn from the way he faces (radians): side on, down (-) and up (+); facing you or away, sideways
     side: [-0.5, 0.6], ahead: 0.5,
     lean: 0.25, // the body turns this share of the aim's turn
