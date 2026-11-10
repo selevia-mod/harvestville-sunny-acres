@@ -126,6 +126,7 @@
   };
   // The farmer in their pose with the weapon (the archer sheets as stand-ins), turned to the animal while it lasts.
   var posePut = function (w, sh) {
+    if (sh.rig) return w.rigPose(sh); // (the Rifle's rig: 19zzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rig.js)
     var p = w.player, at = POSE[sh.dir], pt = sh.body ? gripAt(p, sh.dir, sh.stage, sh.key) : { x: p.x + Math.cos(sh.ang) * 0.3 * T, y: p.y - 0.15 * T };
     var a = sh.target;
     if (a && a.hp > 0 && a.img.active && sh.stage !== LET_GO) sh.ang = Math.atan2((a.y - 0.3 * a.def.w * T) - pt.y, a.x - pt.x);
@@ -147,6 +148,7 @@
   };
   P.wpnPose = function () { if (this.wpnShot) posePut(this, this.wpnShot); }; // (the tests' pose checks)
   var poseEnd = function (w, sh) {
+    if (sh.rig) w.rigEnd(sh);
     [sh.body, sh.fist, sh.held, sh.glow].forEach(function (o) { if (o && o.active) o.destroy(); });
     sh.held = sh.glow = null;
     if (w.wpnShot === sh) w.wpnShot = null;
@@ -154,6 +156,7 @@
   };
   // the tip of the weapon in the hand: where the shot leaves
   var tipOf = function (sh) {
+    if (sh.rig && sh.rigTip) return sh.rigTip;
     var t = F.weaponTexture(F.world, sh.k, sh.lv), len = HELD_LEN[sh.k] * T, out = (t.tip - t.grip) * len;
     return { x: sh.grip.x + Math.cos(sh.ang) * out, y: sh.grip.y + Math.sin(sh.ang) * out };
   };
@@ -175,6 +178,17 @@
     p.anims.stop();
     var own = !!(key && F.WPN_GRIPS[key]); // (the owner's poses: ready, then aim or throw, then after)
     var sh = this.wpnShot = { k: k, lv: lv, dir: this.dir, target: target, ang: Math.atan2(d[1], d[0]), stage: key && !own ? how.stage : 0, broke: r === 'broke', key: key, own: own };
+    if (F.rigFor && F.rigFor(this, k)) { // (the boy with the Rifle: built from parts and moved, not a pose sheet)
+      this.idle(); // (from his standing frame, which the rig matches)
+      this.rigStart(sh);
+      this.acting = W[k].still;
+      this.wpnNext = this.time.now + L.weaponGap(k);
+      sfx('cast');
+      this.time.delayedCall(how.at, function () { if (self.wpnShot === sh) self.weaponLoose(sh); });
+      F.bus.emit('hud');
+      this.changed();
+      return null;
+    }
     if (key) {
       F.ensureTexture(this, key);
       sh.body = this.add.image(p.x, p.y, key, 0).setDepth(p.depth);
@@ -203,7 +217,8 @@
     posePut(this, sh);
     if (sh.own && k !== 'rifle') this.time.delayedCall(90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
     var tip = tipOf(sh), from = sh.grip;
-    if (k === 'rifle') { // a pop, a puff, and the kick
+    if (k === 'rifle' && sh.rig) { sfx('smash'); this.rigFire(sh); this.wpnPuff(sh.rigTip.x, sh.rigTip.y, sh.lv, sh.rig.view === 'back' ? sh.rig.cont.depth - 0.002 : null); } // (facing away: behind his head)
+    else if (k === 'rifle') { // a pop, a puff, and the kick
       sfx('smash');
       this.wpnPuff(tip.x, tip.y, sh.lv);
       this.tweens.addCounter({ from: 1, to: 0, duration: 200, onUpdate: function (tw) { sh.kick = 14 * tw.getValue(); if (self.wpnShot === sh) posePut(self, sh); } });
@@ -213,17 +228,18 @@
       if (sh.glow) sh.glow.setVisible(false);
     }
     posePut(this, sh);
-    this.wpnFly({ k: k, lv: sh.lv, x: from.x, y: from.y, ang: sh.ang, range: range, shown: false, broke: sh.broke, hide: k === 'rifle' ? Math.hypot(tip.x - from.x, tip.y - from.y) : 0 });
-    this.tellArrow({ x: Math.round(from.x), y: Math.round(from.y), a: sh.ang, l: L.shotRange(range, k), b: sh.lv });
+    var fa = sh.rig && sh.rigAng != null ? sh.rigAng : sh.ang; // (the rig's rifle points where it can: the shot goes that way)
+    this.wpnFly({ k: k, lv: sh.lv, x: from.x, y: from.y, ang: fa, range: range, shown: false, broke: sh.broke, hide: k === 'rifle' ? Math.hypot(tip.x - from.x, tip.y - from.y) : 0 });
+    this.tellArrow({ x: Math.round(from.x), y: Math.round(from.y), a: fa, l: L.shotRange(range, k), b: sh.lv });
     var rest = Math.max(60, W[k].still - SHOT[k].at);
     this.time.delayedCall(rest, function () { if (self.wpnShot === sh) { poseEnd(self, sh); self.idle(); } });
   };
 
   // the Rifle's puff at the muzzle (cheap: a few soft circles)
-  P.wpnPuff = function (x, y, lv) {
+  P.wpnPuff = function (x, y, lv, depth) {
     var moon = !!L.weaponMoon('rifle', lv), n = cheap() ? 2 : 4;
     for (var i = 0; i < n; i++) {
-      var c = this.add.circle(x, y, (0.1 + Math.random() * 0.06) * T, moon ? F.WPN_GLOW : 0xfff3d6, 0.85).setDepth(DEPTH.fx + 0.02);
+      var c = this.add.circle(x, y, (0.1 + Math.random() * 0.06) * T, moon ? F.WPN_GLOW : 0xfff3d6, 0.85).setDepth(depth != null ? depth : DEPTH.fx + 0.02);
       this.tweens.add({ targets: c, x: x + (Math.random() - 0.5) * 0.4 * T, y: y - (0.1 + Math.random() * 0.3) * T, alpha: 0, scale: 2.2, duration: 320 + i * 60, onComplete: function (tw, t) { t[0].destroy(); } });
     }
   };
@@ -272,6 +288,7 @@
     if (sh.moon && this.moonSpark) this.moonSpark(sh.x, sh.y, true);
     if (sh.shown) { if (this.bits) this.bits.dust.explode(2, sh.x, sh.y); return; }
     var s = this.state;
+    if (sh.k === 'rifle' && this.rigHitStop) this.rigHitStop(this.wpnShot);
     s.wpnHit = { k: sh.k, lv: sh.lv };
     try { this.wildStruck(a); } finally { s.wpnHit = null; }
   };

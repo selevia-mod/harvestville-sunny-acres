@@ -36,4 +36,6 @@ module.exports = {
   // the Rifle, the Javelin and the Boomerang (owner's batch 6 when it comes: tools/art/weapons-import.js); until then
   // the game draws them, so the pack is empty
   weapons: fs.readdirSync(ASSETS).filter((f) => /^wpn_[a-z_]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // the farmer boy's rig parts for the Rifle (tools/art/rig-import.js; the joints are in the page, src/00-...-rig-boy.js)
+  rig: fs.readdirSync(ASSETS).filter((f) => /^rig_[a-z_]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

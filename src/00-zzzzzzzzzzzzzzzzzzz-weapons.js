@@ -25,7 +25,7 @@
   C.WEAPONS = {
     rifle: {
       name: 'Rifle', verb: 'Shoot', ammo: 'bullets', moon: 'pierce',
-      range: [4, 5, 6, 7, 8, 8], damage: [1, 2, 3, 3, 4, 4], gap: 1400, still: 560,
+      range: [4, 5, 6, 7, 8, 8], damage: [1, 2, 3, 3, 4, 4], gap: 1400, still: 640, // (still: the kick settles before he moves)
       buy: [
         { gold: 2500, needs: [['lumber', 10], ['iron', 5]] },
         { gold: 5000, needs: [['ore_copper', 8], ['farm_cement', 2], ['toro_hide', 4]] },

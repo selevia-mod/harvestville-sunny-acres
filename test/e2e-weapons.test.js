@@ -362,3 +362,63 @@ test('a boomerang breaks on its last throw and is gone; a worn one is fixed at B
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- the Rifle's rig (owner, 11 Nov 2026: the boy built from parts while he shoots) ----------
+// the one animal `dist` tiles away the way he faces (a little off to the side), standing still
+const faceAnimal = (page, dir, dist, off) => page.evaluate(([dir, dist, off]) => {
+  const w = Farm.world, T = Farm.Config.TILE, f = w.feet(), a = w.wild.animals[0], v = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[dir];
+  w.dir = dir; w.idle(); w.wpnNext = 0; w.acting = 0;
+  a.def = Object.assign({}, a.def, { shy: 0, angry: 0, hp: 999 }); a.hp = 999; a.vx = a.vy = 0; a.mode = 'idle'; a.t = 1e9;
+  a.x = f.x + (v[0] * dist + v[1] * off) * T; a.y = f.y - 0.2 * T + (v[1] * dist + v[0] * off) * T; a.pin = [a.x, a.y];
+}, [dir, dist, off]);
+const openSpace = (page) => page.evaluate(() => {
+  const w = Farm.world, T = Farm.Config.TILE;
+  w.wild.next = 1e9;
+  w.wild.animals.filter((a) => a.def.tameOnly || a.def.rare).forEach((a) => w.wildGone(a));
+  w.wild.animals.slice(1).forEach((a) => w.wildGone(a));
+  for (let tx = 8; tx < 24; tx++) for (let ty = 8; ty < 20; ty++) if ([-4, -3, -2, -1, 0, 1, 2, 3, 4].every((d) => w.wildFree(tx + d, ty) && w.wildFree(tx, ty + d))) { w.setFeet(tx * T + T / 2, ty * T + T / 2); return true; }
+  return false;
+});
+
+test('the Rifle rig: he aims and shoots built from parts in all four ways, both hands on the rifle, the dog to the side; back to his sheet at the same size and place', async () => {
+  const { page, problems, context } = await huntWith(`L.getWeapon(s, 'rifle'); s.wpn.rifle = 3; L.buyAmmo(s, 'bullets', 5);`);
+  await page.waitForFunction(() => Farm.images.rig_boy && Farm.Config.RIG_BOY, null, SLOW);
+  assert.ok(await openSpace(page), 'an open spot');
+  await hold(page, 'rifle');
+  for (const dir of ['left', 'right', 'down', 'up']) {
+    await faceAnimal(page, dir, 3, 0.5);
+    await page.waitForTimeout(700); // (the dog trots back behind him)
+    await page.evaluate(() => Farm.world.fireWeapon());
+    await page.waitForTimeout(220);
+    const r = await page.evaluate((dir) => {
+      const w = Farm.world, sh = w.wpnShot, rig = sh && sh.rig, p = w.player, T = Farm.Config.TILE;
+      if (!rig) return { rig: false };
+      const hands = rig.handAt.map((h, i) => Math.hypot(h[0] - rig.gripAt[i][0], h[1] - rig.gripAt[i][1]));
+      const head = rig.head.visible ? rig.head : rig.aimHead, top = head.getBounds().top, bottom = rig.legs.getBounds().bottom;
+      const a = w.wild.animals[0], want = Math.atan2((a.y - 0.3 * a.def.w * T) - sh.rigTip.y, a.x - sh.rigTip.x), d = Math.abs(Math.atan2(Math.sin(want - sh.rigAng), Math.cos(want - sh.rigAng)));
+      return { rig: true, hands, top: top - p.y, bottom: bottom - p.y, aimOff: d, flip: rig.cont.scaleX, aimHead: !!(rig.aimHead && rig.aimHead.visible), dir: sh.dir, view: rig.view };
+    }, dir);
+    assert.ok(r.rig, dir + ': the rig, not a pose sheet');
+    assert.ok(r.hands.every((x) => x < 4), dir + ': both hands on the rifle ' + r.hands.map(Math.round));
+    assert.ok(Math.abs(r.bottom - 178) < 8 && Math.abs(r.top + 170) < 20, dir + ': boots and cap where the sheet has them ' + Math.round(r.top) + '..' + Math.round(r.bottom));
+    assert.ok(r.aimOff < 0.25, dir + ': the rifle points at the animal (' + r.aimOff.toFixed(2) + ' rad off)');
+    assert.strictEqual(r.flip, dir === 'right' ? -1 : 1);
+    if (dir === 'left' || dir === 'right') assert.ok(r.aimHead, dir + ': the aiming face, side on');
+    await shot(page, 'rig-' + dir);
+    await page.waitForTimeout(380);
+    const dog = await page.evaluate(() => { const w = Farm.world, d = w.huntDog, f = w.feet(); return d ? Math.hypot(d.x - f.x, d.y - f.y) / Farm.Config.TILE : 9; });
+    assert.ok(dog > 0.6, dir + ': the dog is not on him (' + dog.toFixed(2) + ' tiles)');
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => { const w = Farm.world; return { rig: !!(w.wpnShot && w.wpnShot.rig), alpha: w.player.alpha, visible: w.player.visible, rigs: w.children.list.filter((o) => o.type === 'Container' && o.list.some((x) => x.frame && /^p:/.test(x.frame.name))).length }; });
+    assert.deepStrictEqual(after, { rig: false, alpha: 1, visible: true, rigs: 0 }, dir + ': back to his sheet');
+  }
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'bullets')), 46, 'four shots');
+  // the girl (and a look, the other weapons) keep the pose sheets for now
+  await page.evaluate(() => { Farm.session.state.look = 'girl'; });
+  await faceAnimal(page, 'left', 3, 0);
+  await page.evaluate(() => Farm.world.fireWeapon());
+  await page.waitForTimeout(150);
+  assert.deepStrictEqual(await page.evaluate(() => { const sh = Farm.world.wpnShot; return [!!sh.rig, !!sh.body]; }), [false, true], 'the girl: her pose sheet');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
