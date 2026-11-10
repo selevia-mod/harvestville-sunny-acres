@@ -37,3 +37,5 @@ needed", and it wears out ("boomerang can be destroy if they did not use materia
 | Rifle | 1.4 s (owner, 11 Nov 2026) | bullets, 200G for 10 (20G each) |
 | Boomerang | 1.0 s | none; durability, repaired with materials |
 (Proposed numbers; the owner set the order: Javelin fastest, Rifle slowest.)
+- Speed stays the same at every level (owner, 11 Nov 2026: "that's okay for now, later on if we add new level, we will
+  improve it more"); only range and damage grow, and the Moon specials.
