@@ -97,11 +97,13 @@
       take(box[0], box[1], box[2], box[3]);
     };
     M.buildings.forEach(function (b) {
-      drawn(b.key, b.stand, b.box, b.foot, { art: b.art || '', label: b.name || '', text: b.text || '', tint: b.tint || 0, who: b.who || '', station: b.station ? 1 : 0 });
+      drawn(b.key, b.stand, b.box, b.foot, { art: b.art || '', label: b.name || '', text: b.text || '', tint: b.tint || 0, who: b.who || '', station: b.station ? 1 : 0, box: 1 });
     });
     M.props.forEach(function (p, i) { drawn('p' + i, p[0], [p[1], p[2], p[3], p[4]], p[5], { art: p[6] || '' }); });
     M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [15, y, 1, 2], 1, { art: 'street_lamp' }); });
     M.baywalk.benches.forEach(function (y, i) { drawn('bb' + i, 'bench', [12, y, 2, 1], 1, { art: 'park_bench' }); });
+    // the owner's decorations (drawn only once their pictures are in: no stand-in)
+    (M.decor || []).forEach(function (d, i) { drawn('d' + i, '', [d[1], d[2], d[3], d[4]], d[5], { art: d[0] }); });
 
     // the station's rails: solid, drawn by the game
     obj('mn_rails', 'mn_rails', 56, 10, W - 56, 2);
@@ -157,6 +159,17 @@
     });
     M.looseTrees.forEach(function (t) { tree(t[0], t[1]); });
     M.bushes.forEach(function (b) { if (grassy(b[0], b[1])) { put(walls, b[0], b[1], tg('bush')); take(b[0], b[1], 1, 1); } });
+    // scattered decorations: on grass with a tile of grass all round (no walk is ever narrowed)
+    (M.scatter || []).forEach(function (sc, k) {
+      var w = sc[6], h = sc[7], placed = 0;
+      for (var tries = 0; placed < sc[5] && tries < 600; tries++) {
+        var x = sc[1] + Math.floor(r() * (sc[3] - sc[1] - w + 2)), y = sc[2] + Math.floor(r() * (sc[4] - sc[2] - h + 2)), ok = true;
+        for (var yy = y - 1; yy <= y + h && ok; yy++) for (var xx = x - 1; xx <= x + w && ok; xx++) ok = grassy(xx, yy);
+        if (!ok) continue;
+        drawn('s' + k + '_' + placed, '', [x, y, w, h], sc[8], { art: sc[0] });
+        placed++;
+      }
+    });
 
     var tl = function (lid, name, data) { return { id: lid, name: name, type: 'tilelayer', width: W, height: Hh, x: 0, y: 0, opacity: 1, visible: true, data: data }; };
     return {
@@ -169,8 +182,8 @@
   };
 
   // What a tile of the built map is: walkable (no solid tile, not under a building's or prop's foot), for the tests and
-  // the people's paths. ({ W, H, ok(x, y) })
-  L.manilaGrid = function (map) {
+  // the people's paths; strict: nor anywhere in a building's box (the people never walk behind a building). ({ W, H, ok(x, y) })
+  L.manilaGrid = function (map, strict) {
     var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
     map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; }); }); });
     map.layers.forEach(function (l) { if (l.type === 'tilelayer') l.data.forEach(function (g, i) { if (solid[g]) block[i] = 1; }); });
@@ -179,6 +192,7 @@
       if (o.type !== 'mn_prop' && o.type !== 'mn_rails') return;
       var x0 = Math.round(o.x / S), y0 = Math.round(o.y / S), w = Math.round(o.width / S), h = Math.round(o.height / S), foot = h;
       if (o.type === 'mn_prop') (o.properties || []).forEach(function (p) { if (p.name === 'foot') foot = p.value; });
+      if (strict && o.type === 'mn_prop' && (o.properties || []).some(function (p) { return p.name === 'box' && p.value; })) foot = h; // (a building's whole box)
       for (var y = y0 + h - foot; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < Hh) block[y * W + x] = 1;
     });
     return { W: W, H: Hh, block: block, ok: function (x, y) { return x >= 0 && y >= 0 && x < W && y < Hh && !block[y * W + x]; } };

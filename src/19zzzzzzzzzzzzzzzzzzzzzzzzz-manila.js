@@ -45,6 +45,7 @@
   }
   // the people's own sheets, when they come (9 frames like a villager's)
   M.people.order.forEach(function (k) { if (F.SHEETS && F.SHEETS.people) F.SHEETS[M.people[k].sheet] = F.SHEETS.people; });
+  M.crowd.looks.forEach(function (l) { if (F.SHEETS && F.SHEETS.people && !F.SHEETS[l[0]]) F.SHEETS[l[0]] = F.SHEETS.people; });
   // the pack: its name for the Downloads page, once it has anything in it (tools/manila/manila-import.js)
   if (F.PACK_INFO && F.packFiles && F.packFiles('manila').length) {
     F.PACK_INFO.manila = { name: 'Manila', icon: 'star', desc: "Manila's own pictures: its buildings, its people and its ground." };
@@ -190,8 +191,9 @@
       if (spot && (spot.props.text || spot.props.station || spot.props.who)) spots.push(spot);
       return false;
     }).concat(spots);
-    this.mn.grid = L.manilaGrid(maps.manila);
+    this.mn.grid = L.manilaGrid(maps.manila, true); // (nobody walks behind a building: its whole box is out of bounds)
     this.mnPeople();
+    this.mnCrowd();
     var s = this.state;
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
       this.save();
@@ -304,6 +306,161 @@
     if (r.first) this.save();
   };
 
+  // ---------- the city folk: the crowd ----------
+  // Owner, 11 Nov 2026: "That was city, make it crowded, we need at least 30 people". Besides the 7 above, C.MANILA.crowd:
+  // folk who go from place to place (the plaza, the market's stalls, the bay walk, the platform, the track, the pier,
+  // Calle Real, the church square, the barrio, the park), along the paths (never behind or through a building: the strict
+  // grid), pause there, turn, sit on a bench, browse a stall; every fourth walks with a friend and they face each other
+  // when they stop. More at the market in the morning and on the plaza in the evening (the zones' weights by the hour);
+  // about a third of the whole at night. On a cheap phone about 15 in all, they stay in their place, and those far off
+  // the screen stand still and are not drawn. Tap one: a line about the city.
+  var CR = M.crowd;
+  var periodOf = function (min) { var h = min / 60; return h >= 6 && h < 11 ? 0 : h >= 11 && h < 16 ? 1 : h >= 16 && h < 21 ? 2 : 3; };
+  var crowdWant = function (min) { var night = periodOf(min) === 3; return CHEAP ? (night ? CR.cheapNight : CR.cheap) : (night ? CR.night : CR.day); };
+  var pickZone = function (p) {
+    var ks = Object.keys(CR.zones), all = ks.reduce(function (a, k) { return a + CR.zones[k].w[p]; }, 0), r = Math.random() * all;
+    for (var i = 0; i < ks.length; i++) { r -= CR.zones[ks[i]].w[p]; if (r < 0) return ks[i]; }
+    return ks[0];
+  };
+  var folkAnims = function (scene, look) {
+    ['down', 'up', 'side'].forEach(function (d, j) {
+      var f = look.row * 9 + j * 3, ak = 'mnf-' + look.key + '-' + look.row + '-' + d;
+      if (!scene.anims.exists(ak)) scene.anims.create({ key: ak, frames: scene.anims.generateFrameNumbers(look.key, { frames: [f + 1, f, f + 2, f] }), frameRate: 6, repeat: -1 });
+    });
+  };
+  P.mnCrowd = function () {
+    var self = this, mn = this.mn, n = crowdWant(this.state.time);
+    mn.folk = [];
+    mn.looks = CR.looks.filter(function (l) { return F.images && F.images[l[0]]; });
+    mn.lookN = 0;
+    mn.crowdMs = 0;
+    for (var i = 0; i < n; i++) this.mnFolkAdd(false);
+    void self;
+  };
+  P.mnFolkAdd = function (offScreen) {
+    var mn = this.mn, g = mn.grid, p = periodOf(this.state.time), k = mn.lookN++;
+    if (!mn.looks.length) return null;
+    var l = mn.looks[k % mn.looks.length], tint = CR.tints[Math.floor(k / mn.looks.length) % CR.tints.length];
+    var look = { key: l[0], row: l[1], tint: tint };
+    F.ensureTexture(this, look.key);
+    folkAnims(this, look);
+    var zone = pickZone(p), at = null, cam = this.cameras.main.worldView;
+    for (var t = 0; t < 8 && !at; t++) {
+      var pts = CR.zones[zone].at, q = pts[Math.floor(Math.random() * pts.length)], x = (q[0] + 0.5) * T, y = (q[1] + 0.6) * T;
+      if (!g.ok(q[0], q[1])) continue;
+      if (offScreen && t < 7 && x > cam.x - 2 * T && x < cam.right + 2 * T && y > cam.y - 2 * T && y < cam.bottom + 3 * T) { zone = pickZone(p); continue; }
+      at = { x: x, y: y, q: q };
+    }
+    if (!at) return null;
+    var sp = this.add.sprite(at.x, at.y, look.key, look.row * 9).setOrigin(0.5, 0.83).setScale(2);
+    if (look.tint) sp.setTint(look.tint);
+    var v = { folk: true, look: look, sp: sp, x: at.x, y: at.y, zone: zone, path: [], hold: 1500 + Math.random() * 6000, dir: 'down', act: at.q[2] || '',
+      speed: (1.35 + Math.random() * 0.55) * T, near: true, pal: null };
+    // every fourth walks with the one before (a friend: they stop side by side and face each other)
+    var last = mn.folk[mn.folk.length - 1];
+    if (k % 4 === 3 && last && !last.pal && !last.leaving) { v.pal = last; last.pal = v; v.zone = last.zone; v.follower = true; }
+    this.mnFolkPlace(v);
+    mn.folk.push(v);
+    return v;
+  };
+  P.mnFolkPlace = function (v) {
+    v.sp.setPosition(v.x, v.y);
+    F.depthTo(v.sp, DEPTH.actor + v.y / 1e5);
+  };
+  P.mnFolkFace = function (v, dir) {
+    v.dir = dir;
+    v.sp.anims.stop();
+    v.sp.setFrame(v.look.row * 9 + IDLE[dir]).setFlipX(dir === 'right');
+  };
+  var ACT_DIR = { browse: 'up', wait: 'down', sit: 'down', left: 'left', right: 'right', up: 'up', down: 'down' };
+  // the next place: in the same zone, or (sometimes; never on a cheap phone) another; a friend goes beside the leader
+  P.mnFolkNext = function (v) {
+    var g = this.mn.grid, p = periodOf(this.state.time);
+    if (v.follower && v.pal && !v.pal.gone) {
+      var L0 = v.pal.goal;
+      if (!L0) return;
+      var side = [[1, 0], [-1, 0], [0, 1]].filter(function (d) { return g.ok(L0[0] + d[0], L0[1] + d[1]); })[0];
+      if (!side) return;
+      return this.mnFolkGo(v, L0[0] + side[0], L0[1] + side[1], 'pal');
+    }
+    if (!CHEAP && Math.random() < 0.3) v.zone = pickZone(p);
+    var pts = CR.zones[v.zone].at;
+    for (var t = 0; t < 6; t++) {
+      var q = pts[Math.floor(Math.random() * pts.length)];
+      if (g.ok(q[0], q[1]) && !(v.goal && v.goal[0] === q[0] && v.goal[1] === q[1])) return this.mnFolkGo(v, q[0], q[1], q[2] || '');
+    }
+  };
+  P.mnFolkGo = function (v, tx, ty, act) {
+    var fx = Math.floor(v.x / T), fy = Math.floor(v.y / T), path = fx === tx && fy === ty ? [] : L.manilaPath(this.mn.grid, fx, fy, tx, ty, CHEAP ? 3000 : 9000);
+    if (!path) return;
+    v.path = path;
+    v.goal = [tx, ty];
+    v.act = act;
+    v.seated = false;
+    if (v.pal && !v.follower && v.pal.path && !v.pal.path.length) v.pal.hold = Math.min(v.pal.hold, 300 + Math.random() * 600); // (the friend comes along)
+  };
+  P.mnUpdateCrowd = function (dt) {
+    var self = this, mn = this.mn, f = this.feet();
+    // how many there should be for the hour: the extra go once out of sight, new ones come in out of sight
+    mn.crowdMs -= dt;
+    if (mn.crowdMs <= 0) {
+      mn.crowdMs = 5000;
+      var want = crowdWant(this.state.time), here = mn.folk.filter(function (v) { return !v.leaving; });
+      for (var i = here.length - 1; i >= want; i--) here[i].leaving = true;
+      for (var j = here.length; j < want; j++) this.mnFolkAdd(true);
+    }
+    for (var k = mn.folk.length - 1; k >= 0; k--) {
+      var v = mn.folk[k];
+      if (v.leaving && !v.near) { v.sp.destroy(); v.gone = true; if (v.pal) v.pal.pal = null; mn.folk.splice(k, 1); continue; }
+      if (CHEAP && !v.near) continue; // (a cheap phone: those out of sight stand still)
+      if (v.hold > 0) { v.hold -= dt; continue; }
+      if (!v.path.length) {
+        if (v.arrived) {
+          v.arrived = false;
+          // there: sit on the bench beside it, face the stall, the train, the track; or look about; a friend faces the other
+          var a = ACT_DIR[v.act];
+          if (v.act === 'sit') { v.y -= 0.85 * T; v.x += 0.45 * T; v.seated = true; this.mnFolkPlace(v); }
+          if (v.pal && v.pal.near !== undefined && !v.pal.path.length && Math.hypot(v.pal.x - v.x, v.pal.y - v.y) < 1.6 * T) {
+            this.mnFolkFace(v, Math.abs(v.pal.x - v.x) > Math.abs(v.pal.y - v.y) ? (v.pal.x > v.x ? 'right' : 'left') : v.pal.y > v.y ? 'down' : 'up');
+            this.mnFolkFace(v.pal, v.dir === 'right' ? 'left' : v.dir === 'left' ? 'right' : v.dir === 'up' ? 'down' : 'up');
+          } else this.mnFolkFace(v, a || ['down', 'left', 'right', 'down'][Math.floor(Math.random() * 4)]);
+          v.hold = (CHEAP ? 8000 : 4000) + Math.random() * (CHEAP ? 8000 : 7000);
+          continue;
+        }
+        if (v.seated) { v.y += 0.85 * T; v.x -= 0.45 * T; v.seated = false; this.mnFolkPlace(v); } // (up off the bench)
+        // now and then, standing about: turn the head (a new way to face) before going on
+        if (!v.act && !v.pal && Math.random() < 0.35) { this.mnFolkFace(v, ['down', 'left', 'right', 'up'][Math.floor(Math.random() * 4)]); v.hold = 1500 + Math.random() * 2500; v.act = 'looked'; continue; }
+        this.mnFolkNext(v);
+        if (!v.path.length) { v.hold = 1500; continue; }
+      }
+      var n = v.path[0], gx = (n[0] + 0.5) * T, gy = (n[1] + 0.6) * T, dx = gx - v.x, dy = gy - v.y, d = Math.hypot(dx, dy), step = v.speed * dt / 1000;
+      if (Math.hypot(f.x - gx, f.y - gy) < 0.5 * T) { v.hold = 500; if (v.sp.anims.isPlaying) this.mnFolkFace(v, v.dir); continue; } // (the farmer in the way)
+      var dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+      if (d <= step) { v.x = gx; v.y = gy; v.path.shift(); if (!v.path.length) v.arrived = true; } else { v.x += dx / d * step; v.y += dy / d * step; }
+      if (v.near) {
+        var ak = 'mnf-' + v.look.key + '-' + v.look.row + '-' + (dir === 'left' || dir === 'right' ? 'side' : dir);
+        if (v.sp.anims.currentAnim == null || v.sp.anims.currentAnim.key !== ak || !v.sp.anims.isPlaying) v.sp.play(ak);
+        v.sp.setFlipX(dir === 'right');
+      }
+      v.dir = dir;
+      this.mnFolkPlace(v);
+      if (!v.path.length && v.near) this.mnFolkFace(v, dir);
+    }
+    void self;
+  };
+  P.mnFolkAt = function (x, y) {
+    var best = null, bd = 0.8 * T;
+    ((this.mn && this.mn.folk) || []).forEach(function (v) { if (v.leaving) return; var d = Math.hypot(v.x - x, v.y - 0.3 * T - y); if (d < bd) { bd = d; best = v; } });
+    return best;
+  };
+  P.mnFolkTalk = function (v) {
+    var f = this.feet();
+    v.hold = 4000;
+    this.mnFolkFace(v, Math.abs(f.x - v.x) > Math.abs(f.y - v.y) ? (f.x > v.x ? 'right' : 'left') : f.y < v.y ? 'up' : 'down');
+    sfx('talk');
+    F.ui.dialog('A PASSER-BY\n' + CR.lines[Math.floor(Math.random() * CR.lines.length)]);
+  };
+
   // ---------- the frame ----------
   var update = P.update;
   P.update = function (time, delta) {
@@ -311,6 +468,7 @@
     if (!this.mn || this.busy) return;
     var dt = Math.min(delta, 100), mn = this.mn;
     this.mnUpdatePeople(dt);
+    this.mnUpdateCrowd(dt);
     mn.cullMs -= dt;
     if (mn.cullMs > 0) return;
     mn.cullMs = 300;
@@ -319,6 +477,15 @@
     var near = function (o) { return Math.abs(o.x - cx) < rx && Math.abs(o.y - cy) < ry; };
     mn.labels.forEach(function (t) { t.setVisible(near(t)); });
     mn.people.forEach(function (v) { v.tag.setVisible(near(v.tag)); });
+    // the crowd: drawn and walking with its legs only near the view (a cheap phone: and moving at all)
+    mn.folk.forEach(function (v) {
+      var was = v.near;
+      v.near = near(v);
+      if (v.near === was) return;
+      v.sp.setVisible(v.near);
+      if (!v.near && v.sp.anims.isPlaying) v.sp.anims.pause();
+      else if (v.near && v.sp.anims.isPaused) v.sp.anims.resume();
+    });
   };
 
   // ---------- the action button ----------
@@ -327,6 +494,8 @@
     if (this.mn) {
       var self = this, pt = this.front(0.7), v = this.mnPersonAt(pt.x, pt.y);
       if (v) return { label: 'Talk', icon: C.ICON.bubble, run: function () { self.mnTalk(v); } };
+      var fk = this.mnFolkAt(pt.x, pt.y);
+      if (fk) return { label: 'Talk', icon: C.ICON.bubble, run: function () { self.mnFolkTalk(fk); } };
     }
     return resolve.apply(this, arguments);
   };

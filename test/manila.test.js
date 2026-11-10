@@ -194,3 +194,32 @@ test('the goal arrow finds its way out of Manila (the Plains Gate) and into it (
   assert.strictEqual(C.ROUTES.town.manila, 'road_east');
   assert.strictEqual(C.ROUTES.farm.manila, C.ROUTES.farm.town);
 });
+
+test('the decorations: none on a building, inside the map; the scattered ones only on grass with grass all round', () => {
+  const boxes = M.buildings.map((b) => b.box);
+  const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+  const decor = objs.filter((o) => o.type === 'mn_prop' && /^(d|s)\d/.test(o.name)).map((o) => [o.name, [o.x / 256, o.y / 256, o.width / 256, o.height / 256]]);
+  assert.ok(decor.length >= M.decor.length + 40, 'the decorations and the scattered ones: ' + decor.length);
+  decor.forEach(([k, d]) => {
+    assert.ok(d[0] >= 0 && d[1] >= 0 && d[0] + d[2] <= 90 && d[1] + d[3] <= 90, k + ' inside');
+    boxes.forEach((b) => assert.ok(!hit(d, b), k + ' is not on a building'));
+  });
+});
+
+test('the crowd: 26 by day, about a third of the whole at night, about 15 in all on a cheap phone; every place they go is free and reachable without going behind a building', () => {
+  const CR = M.crowd;
+  assert.ok(CR.day + M.people.order.length >= 30, 'at least 30 by day');
+  assert.ok((CR.night + 7) <= Math.ceil((CR.day + 7) / 3), 'a third at night');
+  assert.ok(Math.abs(CR.cheap + 7 - 15) <= 1, 'about 15 on a cheap phone');
+  assert.ok(CR.lines.length >= 20 && CR.lines.every((t) => t.length <= 80 && !/[^\x20-\x7e]/.test(t)), 'short plain lines');
+  assert.ok(!CR.looks.some((l) => l[0] === 'people'), 'never Willowbrook\'s villagers');
+  const strict = L.manilaGrid(map, true);
+  const reachS = (a, b) => (a[0] === b[0] && a[1] === b[1]) || !!L.manilaPath(strict, a[0], a[1], b[0], b[1], 9000);
+  Object.keys(CR.zones).forEach((z) => CR.zones[z].at.forEach((q) => {
+    assert.ok(strict.ok(q[0], q[1]), `${z} ${q} is free`);
+    assert.ok(reachS(START, [q[0], q[1]]), `${z} ${q} is reachable`);
+  }));
+  Object.keys(M.spots).forEach((k) => assert.ok(reachS(START, tile(M.spots[k])), 'spot ' + k + ' on the strict grid'));
+  // the strict grid: no tile of any building's box
+  M.buildings.forEach((b) => { for (let y = b.box[1]; y < b.box[1] + b.box[3]; y++) for (let x = b.box[0]; x < b.box[0] + b.box[2]; x++) assert.ok(!strict.ok(x, y), b.key + ' ' + x + ',' + y); });
+});

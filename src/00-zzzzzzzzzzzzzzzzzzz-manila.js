@@ -71,7 +71,7 @@
     buildings: [
       { key: 'church', name: 'Old Stone Church', box: [22, 7, 9, 9], stand: 'chapel', foot: 3, art: 'old_church', text: 'An old stone church with two bell towers. Its bells ring at six, at noon and at six again.' },
       { key: 'armory', name: 'Armory', box: [31, 18, 7, 6], stand: 'forge', foot: 3, art: 'armory', who: 'lando', tint: 0xd8d0c0, text: "Panday Lando's armory in the old fort. The Rifle, the Javelin and the Boomerang: coming soon!" },
-      { key: 'amparo', name: "Lola Amparo's", box: [18, 22, 5, 6], stand: 'cottage', foot: 2, who: 'amparo', text: "Lola Amparo's little house. Her room of old things opens soon." },
+      { key: 'amparo', name: "Lola Amparo's", box: [18, 22, 5, 6], stand: 'cottage', foot: 2, art: 'house_5', who: 'amparo', text: "Lola Amparo's little house. Her room of old things opens soon." },
       { key: 'oldhouse1', name: '', box: [18, 7, 4, 4], stand: 'townhouse_1', foot: 2, art: 'house_1', tint: 0xe8dcc8 },
       { key: 'oldhouse2', name: '', box: [32, 6, 4, 4], stand: 'townhouse_3', foot: 2, art: 'house_1', tint: 0xe8dcc8 },
       { key: 'oldhouse3', name: '', box: [34, 11, 4, 4], stand: 'townhouse_2', foot: 2, art: 'house_2', tint: 0xe8dcc8 },
@@ -151,6 +151,90 @@
       [52, 10, 'MANILA CENTRAL\nTrains to Willowbrook. Mang Tibo sells the tickets.'],
       [37, 69, 'JEEP STOP\nJeeps round the city: coming soon!'],
     ],
+
+    // ---------- decorations: the owner's pieces, drawn only once their picture is in (no stand-in, nothing in the way
+    // until then) ----------
+    // [art, x, y, w, h, foot] (foot 0: drawn over what is already solid, or something you walk under or past)
+    decor: [
+      // the three gates (owner's art): the Gorge and Jungle arches over their shut roads, the Plains gatehouse by the road
+      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 86, 4, 4, 0], ['gate_plains', 84, 46, 4, 4, 1],
+      // the old walls: straight pieces along the north and south walls, bastions at the corners, the Plaza Gate's arch,
+      // towers on the west and east walls (all drawn over the solid stone)
+      ['wall_bastion', 14, 2, 3, 3, 0], ['wall_bastion', 40, 2, 3, 3, 0], ['wall_bastion', 14, 29, 3, 3, 0], ['wall_bastion', 40, 29, 3, 3, 0],
+      ['wall_straight', 18, 4, 3, 2, 0], ['wall_straight', 21, 4, 3, 2, 0], ['wall_straight', 24, 4, 3, 2, 0], ['wall_straight', 27, 4, 3, 2, 0],
+      ['wall_straight', 30, 4, 3, 2, 0], ['wall_straight', 33, 4, 3, 2, 0], ['wall_straight', 36, 4, 3, 2, 0],
+      ['wall_straight', 17, 29, 3, 2, 0], ['wall_straight', 20, 29, 3, 2, 0], ['wall_straight', 23, 29, 3, 2, 0],
+      ['wall_straight', 31, 29, 3, 2, 0], ['wall_straight', 34, 29, 3, 2, 0], ['wall_straight', 37, 29, 3, 2, 0], ['wall_gate', 27, 28, 3, 3, 0],
+      ['wall_tower', 16, 7, 2, 3, 0], ['wall_tower', 16, 19, 2, 3, 0], ['wall_tower', 16, 24, 2, 3, 0],
+      ['wall_tower', 39, 8, 2, 3, 0], ['wall_tower', 39, 15, 2, 3, 0], ['wall_tower', 39, 23, 2, 3, 0], ['wall_stair', 36, 26, 2, 2, 1],
+      // the port: mooring posts in the berths' water, cargo, rope and an anchor, a signpost
+      ['mooring_post', 3, 63, 1, 1, 0], ['mooring_post', 6, 63, 1, 1, 0], ['mooring_post', 9, 63, 1, 1, 0], ['mooring_post', 12, 63, 1, 1, 0],
+      ['cargo', 17, 50, 2, 2, 1], ['rope_anchor', 13, 51, 2, 2, 1], ['signpost', 13, 57, 1, 2, 1], ['cargo', 19, 63, 2, 2, 1],
+      ['palm', 19, 52, 2, 2, 1], ['palm', 13, 65, 2, 2, 1],
+      // the race: the start arch over the track, 6 hurdles on it, flags, the podium, the oats trough by the stables
+      ['race_arch', 75, 60, 3, 3, 0], ['hurdle', 70, 61, 2, 1, 0], ['hurdle', 81, 61, 2, 1, 0], ['hurdle', 70, 85, 2, 1, 0],
+      ['hurdle', 80, 85, 2, 1, 0], ['hurdle', 66, 72, 2, 1, 0], ['hurdle', 85, 74, 2, 1, 0],
+      ['flag_post', 65, 58, 1, 2, 1], ['flag_post', 87, 59, 1, 2, 1], ['flag_post', 76, 73, 1, 2, 1], ['podium', 82, 57, 2, 2, 1],
+      ['trough_oats', 63, 58, 2, 2, 1], ['rail_fence', 54, 71, 2, 1, 0],
+      // the plaza: palms, a kiosk, a food cart
+      ['palm', 56, 50, 2, 2, 1], ['palm', 42, 40, 2, 2, 1], ['kiosk', 52, 51, 3, 3, 1], ['food_cart', 44, 52, 2, 2, 1],
+      // the market and the station
+      ['food_cart', 62, 49, 2, 2, 1], ['palm', 81, 40, 2, 2, 1], ['market_baskets', 72, 49, 2, 2, 1],
+      ['palm', 66, 5, 2, 2, 1], ['palm', 80, 5, 2, 2, 1], ['kiosk', 84, 4, 3, 3, 1],
+      // the streets: lamps on the north road and the avenue's east end
+      ['street_lamp', 48, 11, 1, 2, 1], ['street_lamp', 48, 17, 1, 2, 1], ['street_lamp', 48, 24, 1, 2, 1], ['street_lamp', 48, 31, 1, 2, 1],
+      ['street_lamp', 82, 42, 1, 2, 1], ['street_lamp', 81, 46, 1, 2, 1], ['street_lamp', 60, 42, 1, 2, 1],
+      // the bay walk's palms, the barrio's
+      ['palm', 14, 33, 2, 2, 1], ['palm', 14, 39, 2, 2, 1], ['palm', 14, 67, 2, 2, 1], ['palm', 14, 80, 2, 2, 1],
+      ['palm', 20, 62, 2, 2, 1], ['palm', 38, 73, 2, 2, 1], ['food_cart', 26, 70, 2, 2, 1], ['planter', 21, 81, 2, 1, 1],
+      ['planter', 26, 59, 1, 1, 1], ['planter', 31, 56, 2, 1, 1],
+    ],
+    // and scattered (the same everywhere, a seeded random): [art, x0, y0, x1, y1, how many, w, h, foot]; only on grass, with
+    // a tile of grass all round, so no walk is ever narrowed
+    scatter: [
+      ['palm', 49, 13, 86, 33, 16, 2, 2, 1], ['park_bench', 50, 14, 86, 33, 5, 2, 1, 1], ['planter', 50, 14, 86, 33, 5, 2, 1, 1],
+      ['food_cart', 50, 14, 86, 33, 2, 2, 2, 1], ['palm', 69, 64, 83, 83, 6, 2, 2, 1], ['palm', 42, 56, 52, 86, 7, 2, 2, 1],
+      ['planter', 42, 56, 52, 86, 3, 2, 1, 1], ['palm', 56, 72, 64, 86, 4, 2, 2, 1], ['palm', 16, 42, 38, 54, 4, 2, 2, 1],
+    ],
+
+    // ---------- the city folk: the crowd in the streets (owner, 11 Nov 2026: "make it crowded, we need at least 30") ----------
+    // How many walk about besides the 7 above: by day, at night (about a third of the whole), and on a cheap phone (about
+    // 15 in all). Each has a look (a walking sheet of 9 frames a row like the villagers': [sheet, row]; never Willowbrook's
+    // own villagers) and a tint; a look whose sheet is not on this phone yet is skipped. New city-folk sheets go in this
+    // one list.
+    crowd: {
+      day: 26, night: 4, cheap: 8, cheapNight: 3,
+      looks: [['tw_people', 0], ['tw_people', 1], ['tw_people', 2], ['tw_people', 3], ['tw_people', 4],
+        ['npc_ka_pedring', 0], ['npc_diday', 0], ['npc_tata_ambo', 0],
+        ['npc_mang_celso', 0], ['npc_mang_pido', 0], ['npc_mang_tonyo', 0], ['npc_ka_ramon', 0], ['npc_lola_bugan', 0]],
+      tints: [0, 0xffe2d0, 0xdce8ff, 0xe4ffd4, 0xfff0b0, 0xf0d8ff, 0xd8fff4],
+      // their own sheets, the three ground guides (art-src/manila/), in the 'manila' pack: passers-by until their grounds open
+      sheets: ['npc_ka_pedring', 'npc_diday', 'npc_tata_ambo'],
+      // where they go: [x, y, what they do there] (stand, sit: on the bench beside it, browse: facing up at a stall, wait,
+      // watch: facing the way given); w: how many go there [morning 6-11, midday 11-16, evening 16-21, night 21-6]
+      zones: {
+        plaza: { w: [2, 3, 6, 2], at: [[44, 41], [48, 41], [51, 42], [55, 46], [43, 47], [47, 50], [52, 50], [55, 43], [44, 51], [49, 52], [45, 41, 'sit'], [50, 50, 'sit'], [45, 50, 'sit']] },
+        market: { w: [6, 3, 2, 0], at: [[61, 49, 'browse'], [64, 49, 'browse'], [67, 49, 'browse'], [70, 49, 'browse'], [75, 49, 'browse'], [78, 49, 'browse'], [66, 46], [70, 44], [76, 45], [64, 45], [79, 45, 'browse']] },
+        baywalk: { w: [2, 2, 4, 1], at: [[13, 10, 'left'], [14, 17], [13, 21, 'left'], [14, 28], [13, 37, 'left'], [14, 45], [13, 70, 'left'], [14, 75], [13, 83, 'left'], [12, 12, 'sit'], [12, 24, 'sit'], [12, 74, 'sit']] },
+        platform: { w: [3, 2, 2, 1], at: [[58, 9, 'wait'], [66, 9, 'wait'], [70, 8, 'wait'], [74, 9, 'wait'], [78, 8, 'wait'], [82, 9, 'wait'], [86, 8, 'wait'], [68, 8, 'sit'], [76, 8, 'sit']] },
+        track: { w: [1, 2, 3, 0], at: [[69, 60, 'down'], [72, 60, 'down'], [75, 63, 'down'], [79, 60, 'down'], [65, 70, 'right'], [65, 78, 'right'], [87, 66, 'left'], [87, 80, 'left']] },
+        pier: { w: [1, 1, 2, 1], at: [[3, 61, 'left'], [5, 62, 'down'], [8, 61, 'down'], [11, 62, 'down'], [3, 56], [7, 56, 'down']] },
+        calle: { w: [2, 3, 3, 1], at: [[28, 33], [29, 37], [27, 40], [30, 42], [26, 36, 'left'], [30, 34, 'right']] },
+        church: { w: [2, 1, 1, 0], at: [[25, 18, 'up'], [27, 17, 'up'], [26, 21], [30, 20], [21, 16], [34, 16]] },
+        barrio: { w: [2, 2, 2, 3], at: [[24, 64], [30, 66], [35, 64], [26, 73], [33, 79], [35, 80], [22, 67], [29, 74]] },
+        park: { w: [1, 2, 1, 0], at: [[55, 18], [62, 22], [70, 16], [77, 23], [59, 29], [74, 31], [84, 20], [66, 28]] },
+      },
+      // what a passer-by says (one at random)
+      lines: ['Have you seen the sunset over the bay? Pure gold!', 'The Grand Market opens soon. My basket is ready!',
+        'I came in on the morning train. What a ride!', 'They say boats are coming to the bay soon. I cannot wait!',
+        'Every weekend there will be a race at the track. Bring your horse!', 'The fountain is my favourite place to meet friends.',
+        'Mang Tibo has kept the trains on time for forty years.', 'Calle Real has the best street food. Try the barbecue!',
+        'The old walls are older than my lola\'s lola.', 'Mabuhay! First time in Manila?', 'The church bells woke me up again. I love it.',
+        'I am saving up for a ride on a kalesa.', 'Aling Rosa says the city needs more corn. Plant some!',
+        'The bay breeze is so nice this time of day.', 'My lola sells kakanin by the station.', 'Watch your step on the pier!',
+        'The Armory is making something new. Very secret!', 'A jeep ride round the city? Soon, they say.',
+        'I walk the bay walk every day. Good for the heart!', 'Manila is busy, but everyone has time to say hello.'],
+    },
 
     // ---------- the owner's pictures (art-src/manila/, MANILA-PROMPTS batches 1-2) ----------
     // tools/manila/manila-import.js makes each into the 'manila' pack: a ground texture into manila_tex_<slot> (the game

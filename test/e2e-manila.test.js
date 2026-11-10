@@ -20,7 +20,7 @@ let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
 
-async function open(savedState, when = NOON) {
+async function open(savedState, when = NOON, host = {}) {
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const problems = [];
@@ -32,10 +32,10 @@ async function open(savedState, when = NOON) {
     problems.push('network: ' + url);
     return route.abort();
   });
-  await page.addInitScript(([state, now]) => {
+  await page.addInitScript(([state, now, host]) => {
     window.__now = now;
-    window.gameHost = { state, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
-  }, [savedState || null, at(when)]);
+    window.gameHost = Object.assign({ state, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now }, host);
+  }, [savedState || null, at(when), host]);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
@@ -154,7 +154,8 @@ test('the train to Manila and back: the station\'s Manila tab, the first ride fr
   await page.evaluate(() => Farm.ui.closeAll());
   s = await state(page);
   assert.strictEqual(s.mn.met & 1, 1, 'she remembers you');
-  // a shop: "coming soon"
+  // a shop: "coming soon" (the crowd out of the way of these checks: out in the bay, standing still)
+  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.path = []; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); }));
   await teleport(page, 67, 43, 'up');
   if (await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'rosa'); return Math.abs(v.x - 67.5 * 256) < 300 && Math.abs(v.y - 42.6 * 256) < 400; })) await teleport(page, 66, 43, 'up');
   assert.strictEqual(await actionLabel(page), 'Look');
@@ -278,4 +279,74 @@ test('the owner\'s pictures, once the pack brings them, take over the stand-ins:
   await shot(page, 'manila-7-own-art');
   assert.deepStrictEqual(problems, []);
   await context.close();
+});
+
+// the crowd (owner, 11 Nov 2026: "make it crowded, we need at least 30 people")
+const cityCount = (page) => page.evaluate(() => Farm.world.mn.people.length + Farm.world.mn.folk.filter((v) => !v.leaving).length);
+async function toManila(when, host) {
+  const save = await makeSave("s.gold = 500; s.map = 'town';", when);
+  const o = await open(save, when, host);
+  await waitMap(o.page, 'town');
+  await o.page.evaluate(() => Farm.ui.mnTrain('manila'));
+  await tapButton(o.page, 'Ride free');
+  await waitMap(o.page, 'manila');
+  return o;
+}
+test('a crowded city: 30 or more by day, none ever inside a building\'s box, a passer-by says a line about the city', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  assert.ok(await cityCount(page) >= 30, 'at least 30 in Manila at noon: ' + await cityCount(page));
+  // for 10 s: nobody walks in a building's box (not through it, not behind it)
+  const inside = await page.evaluate(() => new Promise((ok) => {
+    const B = Farm.Config.MANILA.buildings, bad = [], t0 = Date.now();
+    const tick = () => {
+      const w = Farm.world;
+      w.mn.folk.concat(w.mn.people).forEach((v) => {
+        if (v.seated) return; // (on a bench: drawn over the bench's own tile)
+        const x = Math.floor(v.x / 256), y = Math.floor(v.y / 256);
+        B.forEach((b) => { if (x >= b.box[0] && x < b.box[0] + b.box[2] && y >= b.box[1] && y < b.box[1] + b.box[3]) bad.push(b.key + '@' + x + ',' + y); });
+      });
+      if (Date.now() - t0 < 10000) setTimeout(tick, 200); else ok(bad);
+    };
+    tick();
+  }));
+  assert.deepStrictEqual(inside, []);
+  const moved = await page.evaluate(() => Farm.world.mn.folk.filter((v) => v.goal).length);
+  assert.ok(moved > 10, 'they walk about: ' + moved);
+  // a passer-by: stand beside one and Talk
+  const side = await page.evaluate(() => {
+    const w = Farm.world;
+    for (const v of w.mn.folk) {
+      if (v.seated) continue;
+      const x = Math.floor(v.x / 256), y = Math.floor(v.y / 256);
+      if (!w.walkable(x, y + 1)) continue;
+      v.hold = 1e9; v.path = []; v.x = (x + 0.5) * 256; v.y = (y + 0.6) * 256; w.mnFolkPlace(v);
+      w.mn.people.forEach((p) => { p.hold = 1e9; p.path = []; });
+      return [x, y + 1];
+    }
+    return null;
+  });
+  assert.ok(side, 'someone to talk to');
+  await teleport(page, side[0], side[1], 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  const said = await modalText(page);
+  assert.match(said, /A PASSER-BY/);
+  assert.ok(await page.evaluate((t) => Farm.Config.MANILA.crowd.lines.some((l) => t.includes(l)), said), 'one of the city lines');
+  await shot(page, 'manila-8-crowd');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('fewer at night (about a third), and about 15 on a cheap phone', async () => {
+  const night = await toManila([2026, 4, 1, 23, 0]);
+  const n = await cityCount(night.page);
+  assert.ok(n >= 8 && n <= 12, 'at night: ' + n);
+  assert.deepStrictEqual(night.problems, []);
+  await night.context.close();
+  const cheap = await toManila(NOON, { lite: true });
+  assert.strictEqual(await cheap.page.evaluate(() => Farm.cheapPhone()), true);
+  const c = await cityCount(cheap.page);
+  assert.ok(c >= 14 && c <= 16, 'a cheap phone: ' + c);
+  assert.deepStrictEqual(cheap.problems, []);
+  await cheap.context.close();
 });
