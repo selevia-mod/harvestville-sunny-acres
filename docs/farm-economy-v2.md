@@ -81,7 +81,9 @@ Shots in the five new hunting places cost 3-4 energy (2 in the Wild Lands), so p
 - Riding art: art-src/RIDING-V2-PROMPTS.md (a real gallop, the owner is redrawing every riding picture).
 
 ## Build order (each its own update)
-1. No seasons + the 8 new crops (needs the crop art).
+1. No seasons + the 8 new crops (needs the crop art). BUILT 11 Nov 2026 (feat/raid-badge): src/00-zzzzzzzzzzzzzzzzzz-economy.js,
+   src/01-logicZZZZZZZZZZZZZ-economy.js, test/economy.test.js. The crops show drawn stand-ins until the owner's pictures come:
+   then `node tools/art/economy-import.js` and `node build.js`. Saffron's Rare tab is gone (nothing is out of season).
 2. Raiders eat crops + raids pay in crops + the Silo.
 3. The Mixer + materials on defense and camp levels.
 4. Crop potions + hunting energy.
