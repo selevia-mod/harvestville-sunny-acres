@@ -225,15 +225,20 @@
       }
       return;
     }
-    var dx = r.x - u.lx, dy = r.y - u.ly, moving = Math.abs(dx) + Math.abs(dy) > 0.0008, tg = r.target;
+    var dx = r.x - (u.mx != null ? u.mx : u.lx), dy = r.y - (u.my != null ? u.my : u.ly), moving = Math.abs(dx) + Math.abs(dy) > 0.0008, tg = r.target;
+    if (this.raidB.t !== u.mt) { u.mt = this.raidB.t; u.mdx = dx; u.mdy = dy; u.mx = r.x; u.my = r.y; } else { dx = u.mdx || 0; dy = u.mdy || 0; moving = Math.abs(dx) + Math.abs(dy) > 0.0008; }
     var near = tg && Math.hypot(tg.x - r.x, tg.y - r.y) <= (tg.left != null ? 0.65 : 1.05);
     var hitting = !moving && near && tg.left == null && r.stuck <= 0, grabbing = !moving && near && tg.left != null;
     if (moving && Math.abs(dx) > 0.0004) u.face = dx > 0 ? -1 : 1; // (the pictures face left)
     if (hitting || grabbing) u.face = tg.x > r.x ? -1 : 1;
     // (owner, 10 Nov 2026: "Birds flying, cats attacking looks awkward, we need better animation")
     // the picture follows the battle smoothly (a turn or a scare no longer snaps it), a little behind
-    if (u.px == null) { u.px = x; u.py = y; }
-    u.px += (x - u.px) * 0.3; u.py += (y - u.py) * 0.3;
+    // (smooth: the battle moves things 10 times a second; between two steps the picture glides from the last to the new place)
+    var bt = this.raidB.t, al = Math.max(0, Math.min(1, (this.raidAcc || 0) / R.battle.tick));
+    if (u.stepT == null) { u.stepT = bt; u.ax = u.bx = x; u.ay = u.by = y; }
+    if (bt !== u.stepT) { u.ax = u.bx; u.ay = u.by; u.bx = x; u.by = y; u.stepT = bt; }
+    if (!this.raidStarted || this.raidB.end) al = 1;
+    u.px = u.ax + (u.bx - u.ax) * al; u.py = u.ay + (u.by - u.ay) * al;
     var big = r.k === 'carabao' || r.k === 'boar', pose = 'run', hop = 0, tilt = 0, lx = 0, ly = 0, sx = 1, sy = 1, fly = 0;
     var sw = ((time + u.ph * 100) % 800) / 800;
     if (d.flies) {

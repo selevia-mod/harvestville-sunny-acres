@@ -45,21 +45,21 @@
     level: { mult: [1, 1.2, 1.4, 1.65, 1.9], gold: [0, 1500, 4000, 9000, 18000], need: [null, ['fur_rabbit', 3], ['feather_labuyo', 5], ['pelt_wolf', 2], ['hide_rhino', 1]] },
     // 10 defenses: hp, damage a second, range (tiles), what it does; per level x the same mult. place: how it is set.
     defenses: {
-      dog: { name: 'Guard Dog', hp: 140, dps: 3, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
+      dog: { name: 'Guard Dog', hp: 140, dps: 3.75, range: 2.5, chases: true, beats: 'cat', say: 'Your dog: chases and bites raiders.' },
       scarecrow: { name: 'Scarecrow', hp: 90, dps: 0, range: 3, scares: ['crow', 'goat'], beats: 'crow', say: 'Scares crows and goats away nearby.' },
       fence: { name: 'Strong Fence', hp: 120, dps: 0, range: 0, blocks: true, beats: 'goat', say: 'Blocks the way. Carabao and boar break it.' },
-      goose: { name: 'Guard Goose', hp: 110, dps: 3, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
-      beebox: { name: 'Bee Box', hp: 70, dps: 2.7, range: 2.5, area: true, beats: 'carabao', say: 'A swarm stings everything nearby.' },
+      goose: { name: 'Guard Goose', hp: 110, dps: 3.75, range: 2.5, chases: true, slows: 0.5, beats: 'monkey', say: 'Honks and bites, slows raiders.' },
+      beebox: { name: 'Bee Box', hp: 70, dps: 3.38, range: 2.5, area: true, beats: 'carabao', say: 'A swarm stings everything nearby.' },
       mudpit: { name: 'Mud Pit', hp: 0, dps: 0, range: 0.8, trap: true, stuck: 6, hidden: true, beats: 'boar', say: 'Hidden: whoever steps in is stuck for a while.' },
-      sprinkler: { name: 'Sprinkler Blaster', hp: 80, dps: 1.8, range: 3, push: true, say: 'Sprays raiders and pushes them back.' },
-      tower: { name: 'Bamboo Watchtower', hp: 140, dps: 3.6, range: 5, beats: 'rooster', say: 'A farmhand with a slingshot, far-reaching.' },
+      sprinkler: { name: 'Sprinkler Blaster', hp: 80, dps: 2.25, range: 3, push: true, say: 'Sprays raiders and pushes them back.' },
+      tower: { name: 'Bamboo Watchtower', hp: 140, dps: 4.5, range: 5, beats: 'rooster', say: 'A farmhand with a slingshot, far-reaching.' },
       sili: { name: 'Sili Patch', hp: 60, dps: 0, range: 1, scares: ['goat', 'boar', 'monkey'], hot: true, say: 'Raiders who bite it run off crying.' },
       kampana: { name: 'Kampana', hp: 100, dps: 0, range: 6, alarm: 1.3, beats: 'bayawak', say: 'Rings when raiders come: every defense hits harder for a while.' },
     },
     defenseOrder: ['dog', 'scarecrow', 'fence', 'goose', 'beebox', 'mudpit', 'sprinkler', 'tower', 'sili', 'kampana'],
     // a defense's level (9 Nov 2026, owner: "a strategic game": a max camp must not always win): its own, steeper curve
     // (10 Nov 2026, with the limits per camp: tuned by simulated battles, like Clash of Clans: an equal camp wins 1-2 stars, two
-    // levels higher about 3, two lower about 1; raiders' hp x1.3 and defenses' damage x0.3 against 9 Nov's, a flatter curve)
+    // levels higher about 3, two lower about 1; raiders' hp x1.3 and defenses' damage x0.375 against 9 Nov's, a flatter curve; x0.3 until raiders scared off began looking elsewhere)
     defLevel: { gold: [0, 2000, 5000, 11000, 22000], mult: [1, 1.2, 1.45, 1.7, 2] },
     // how many of each a farm may have, by its Raid Camp's level (owner, 10 Nov 2026: "If I can buy 100 tower, looks like
     // it was imbalance"; like a Town Hall's limits). tier: camp level 0-7 -> a column. More than that: the rest are only

@@ -264,7 +264,10 @@
     else if (d.likes === 'guards') list = defsOf(function (x) { return x.t === 'dog' || x.t === 'goose'; });
     if (!list.length) list = lootOf(null);
     if (!list.length) list = defsOf(function () { return true; });
-    list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
+    // (owner, 10 Nov 2026: crows "flying in one area": scared off, they came straight back to the same crop) what scared it
+    // last makes the ground near it cost more: it goes for one further away if there is one
+    var fr = r.fear;
+    list.forEach(function (o) { var dd = dist(r.x, r.y, o.x, o.y) + (fr && dist(o.x, o.y, fr.x, fr.y) < fr.r ? 12 : 0); if (dd < bd) { bd = dd; best = o; } });
     return best;
   };
   // ---------- how many defenses a farm may have (R.caps) ----------
@@ -321,6 +324,7 @@
           if (x.hp > 0 && dx.scares && dx.scares.indexOf(r.k) >= 0 && dist(r.x, r.y, x.x, x.y) <= dx.range * Math.min(1.6, L.frDefMult(x.lv)) * 0.7 + 0.6) {
             var len = dist(r.x, r.y, x.x, x.y) || 1;
             r.flee = Math.round((dx.hot ? 3 : 2) / DT); r.fx = (r.x - x.x) / len; r.fy = (r.y - x.y) / len; r.target = null;
+            r.fear = { x: x.x, y: x.y, r: dx.range * Math.min(1.6, L.frDefMult(x.lv)) * 0.7 + 1.6 }; // (10 Nov 2026: it then looks elsewhere, not back at the same crop)
             b.events.push([b.t, 'scared', r.id, x.id]);
           }
         });
