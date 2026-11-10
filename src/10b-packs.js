@@ -24,6 +24,7 @@
     // (owner, 6 Nov 2026: the five new hunting places' own pictures; tools/places/places-art.js)
     places: { name: 'Hunting places', icon: 'bow', desc: "Banaue, the Chocolate Hills, Taal, the Sierra Madre and Palawan: their people, animals and dungeons.", need: true },
     // (owner, 10 Nov 2026: a costume's farmer on the horse; 19-extras.js fetches one when it is first ridden in)
+    raiders: { name: 'Raiders', icon: 'ribbon', desc: 'The raiders running, attacking and carrying loot in every direction.' },
     riding: { name: 'Riding costumes', icon: 'ribbon', desc: 'Your farmer riding the horse in each Tailor Shop look.' },
   };
   F.packFiles = function (pack) {

@@ -29,5 +29,8 @@ module.exports = {
   places: require('./places/places-art').packed(),
   // a costume's farmer riding the horse (owner's art, 10 Nov 2026; art-src/riding): fetched when they first ride in it
   // (the farm clothes' riding, ride_default_*, stays in the page: what anyone rides in until theirs is in)
+  // the raiders' animations, side / front / back (owner's art, 10 Nov 2026; tools/art/raider-anim-import.js): fetched as a
+  // raid starts (raid_moves, in the page, stands in until they are here)
+  raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
   riding: fs.readdirSync(ASSETS).filter((f) => /^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

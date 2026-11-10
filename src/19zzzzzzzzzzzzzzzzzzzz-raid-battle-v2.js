@@ -31,6 +31,13 @@
   }
   var on = function () { return !!(F.images.raid_moves && F.images.battle_fx); };
   var MOVE = { run: 0, hit: 1, loot: 2, out: 3 };
+  // the owner's animation sheets (10 Nov 2026: "there should also front and back"; tools/art/raider-anim-import.js, the
+  // 'raiders' pack): ranim_<k>, 4 frames a row; rows 0-3 sideways (facing left), 4-7 toward you, 8-11 away; in each: run,
+  // attack, run with loot, then hurt / tumbling / knocked out / idle. runW: the sideways run frame's width (its size)
+  C.RAID_ANIM = { fr: 200, runW: { goat: 167, crow: 139, cat: 121, carabao: 130, monkey: 153, boar: 126, rooster: 126, bayawak: 134 } };
+  if (F.SHEETS) R.raiderOrder.forEach(function (k) { F.SHEETS['ranim_' + k] = { frameWidth: 200, frameHeight: 200 }; });
+  var animOf = function (scene, k) { var key = 'ranim_' + k; return F.images && F.images[key] ? F.ensureTexture(scene, key) : null; };
+  var DIRROW = { side: 0, front: 4, back: 8 };
   var moveFrame = function (k, pose) { return R.raiderOrder.indexOf(k) * 4 + MOVE[pose]; };
 
   // ---------- effects ----------
@@ -84,6 +91,7 @@
     var mw = this.map.widthInPixels, mh = this.map.heightInPixels, padT = 110 * (F.R || 1) / cam.zoom, padB = 130 * (F.R || 1) / cam.zoom; // (layout px of the bars, in world units)
     cam.setBounds(0, -padT, mw, mh + padT + padB);
     this.bv = { units: {}, defs: {}, loot: {}, stars: 0, sprites: null };
+    if (F.needImage) Object.keys(this.raidB.left || {}).forEach(function (k) { F.needImage('ranim_' + k); }); // (the raiders' animations)
     if (this.raidDropShade) this.raidDropShade.destroy();
     var dropAt = function (x, y) { return x >= 0 && y >= 0 && x < f.w && y < f.h && f.drop.charCodeAt(y * f.w + x) === 49; };
     var g = this.add.graphics().setDepth(D.flat + 0.05);
@@ -211,7 +219,12 @@
     if (r.hp <= 0) { // knocked out: lies dizzy, then goes in a puff
       if (!u.out) {
         u.out = time;
-        u.img.setFrame(moveFrame(r.k, 'out')).setAngle(-25 * u.face).setPosition(x, y).setScale(u.k).clearTint();
+        var ak = animOf(this, r.k);
+        if (ak) { u.img.setTexture(ak, DIRROW[u.dir || 'side'] + 13).setFlipX(u.dir === 'side' || !u.dir ? u.face < 0 : false).setScale(u.ka || u.k); u.dazed = true; } // (tumbling, then lying dizzy)
+        else u.img.setFrame(moveFrame(r.k, 'out'));
+        u.img.setAngle(ak ? 0 : -25 * u.face).setPosition(x, y).clearTint();
+        if (!ak) u.img.setScale(u.k);
+        if (ak) this.time.delayedCall(260, function () { if (u.img.active) u.img.setFrame(DIRROW[u.dir || 'side'] + 14); });
         if (u.hb) u.hb.setVisible(false);
         // knocked flying a little, a bounce, and it lies there dizzy
         this.tweens.add({ targets: u.img, y: y - 0.55 * T, x: x + u.face * 0.35 * T, angle: 0, duration: 180, ease: 'Quad.out', yoyo: false, onComplete: function () {
@@ -285,7 +298,27 @@
     if (r.stuck > 0) lx = Math.sin(time / 30) * 0.06 * T;
     u.kb *= 0.85; // (a knock back when hit, fading)
     sx *= 1 + 0.3 * u.sq; sy *= 1 - 0.38 * u.sq; // (landing)
-    u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle((tilt + u.spin) * u.face).setScale(u.k * sx, u.k * sy)
+    // the animation sheets, when here: which way it goes (toward you, away, sideways) and the frame of its move; the
+    // frames move the body, so the pushes and stretches above are dropped (only the landing squash and the drop stay)
+    var ak = animOf(this, r.k);
+    if (ak) {
+      if (u.ka == null) u.ka = u.base * 1.45 * T / C.RAID_ANIM.runW[r.k];
+      var vx = (u.bx - u.ax) || 0, vy = (u.by - u.ay) || 0;
+      if ((hitting || grabbing) && tg) { vx = (tg.x - r.x) * T; vy = (tg.y - r.y) * T; }
+      if (Math.abs(vx) + Math.abs(vy) > 0.5) u.dir = Math.abs(vy) > Math.abs(vx) * 1.15 ? (vy > 0 ? 'front' : 'back') : 'side';
+      var dir = u.dir || 'side', row = DIRROW[dir], col;
+      if (hitting) { col = sw < 0.3 ? 0 : sw < 0.45 ? 1 : sw < 0.62 ? 2 : 3; row += 1; }
+      else if (time - (u.hitAt || -1e9) < 180) { row += 3; col = 0; } // (hurt)
+      else if (pose === 'loot' || grabbing) { row += 2; col = Math.floor(time / (grabbing ? 160 : 85) + u.ph) % 4; }
+      else if (moving || d.flies) { col = Math.floor(time / (r.flee > 0 ? 60 : d.flies ? 75 : 85) + u.ph) % 4; }
+      else { row += 3; col = 3; } // (idle)
+      if (u.img.texture.key !== ak) u.img.setTexture(ak);
+      var keepHop = d.flies ? 0 : 0; // (the run frames rise and fall by themselves)
+      u.img.setFrame(row + col).setFlipX(dir === 'side' && u.face < 0).setAngle(d.flies && dir === 'side' ? tilt * 0.5 * u.face : 0)
+        .setScale(u.ka * (1 + 0.3 * u.sq), u.ka * (1 - 0.38 * u.sq))
+        .setPosition(u.px + (hitting ? lx * 0.5 : 0) + u.kb * u.face, u.py - keepHop - fly + (d.flies ? 0 : 0) - u.fall * 2.2 * T).setDepth(D.actor + u.py / 1e5 + (d.flies ? 0.001 : 0));
+      hop = 0; lx = hitting ? lx * 0.5 : 0;
+    } else u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle((tilt + u.spin) * u.face).setScale(u.k * sx, u.k * sy)
       .setPosition(u.px + lx + u.kb * u.face, u.py - hop - fly + ly - u.fall * 2.2 * T).setDepth(D.actor + u.py / 1e5 + (d.flies ? 0.001 : 0));
     var shAlt = d.flies ? Math.max(0, Math.min(1, (u.alt || 0) / (1.4 * T))) : 0;
     u.sh.setPosition(u.px + lx * 0.5, u.py + 0.05 * T).setScale(d.flies ? 0.75 - 0.35 * shAlt : (1 - hop / T) * (1 - 0.7 * u.fall)).setAlpha(d.flies ? 0.75 - 0.35 * shAlt : 1 - 0.5 * u.fall);
