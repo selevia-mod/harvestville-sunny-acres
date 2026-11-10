@@ -24,6 +24,10 @@
     var s = L.visitState({ v: 1, day: mine.day, look: 'boy', home: { level: 3 }, soil: [], yard: [], animals: [], pets: { dog: b.defs.dog ? 'Bantay' : '' } }, mine);
     s.isVisit = true;
     s.banditKey = b.key;
+    // (a bandit's own fences only: the new-farm template's 60-piece field fence walled every bandit farm alike, so its own
+    // fences hardly fitted; once raiders could no longer land in the field, 10 Nov 2026, that wall decided every battle)
+    var ff = O.index.field_fence;
+    s.yard.items = s.yard.items.filter(function (it) { return it.t !== ff; });
     return s;
   };
 
@@ -91,7 +95,7 @@
   // ---------- into a raid ----------
   // opts: { kind: 'bandit', key } | { kind: 'test' }
   F.raidFarmStart = function (opts) {
-    var mine = F.session.state, army = L.frArmy(mine), seed = (Date.now() & 0x7fffffff) || 1, st, name, extra = {};
+    var mine = F.session.state, army = L.frArmy(mine), seed = (opts && opts.seed | 0) || (Date.now() & 0x7fffffff) || 1, st, name, extra = {};
     if (!Object.keys(army).length) { sfx('nope'); return F.ui.toast('Train some raiders first (Party).', 2400); }
     if (opts.kind === 'test') {
       st = L.visitState(L.snapshot(mine), mine);

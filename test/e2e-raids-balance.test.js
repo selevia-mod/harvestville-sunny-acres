@@ -116,6 +116,8 @@ async function go(page, map, spawn) {
 }
 
 
+// (10 Nov 2026: a bandit farm's layout is seeded; these are judged over several layouts, not one random one)
+const LAYOUTS = (process.env.BAL_LAYOUTS || '101,202,303,404,505').split(',').map(Number);
 const PARTIES = {
   P1: { goat: 6, crow: 4 },
   P2: { goat: 5, crow: 4, cat: 3 },
@@ -127,8 +129,8 @@ test('farm raids: the bandit farms get harder one by one (each played with the p
   const { page, context } = await open(null);
   await closeAll(page);
   const out = [];
-  for (const key of ['b1', 'b2', 'b3', 'b4', 'b5']) {
-    await page.evaluate((key) => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 7; s.fr.army = { goat: 1 }; Farm.raidFarmStart({ kind: 'bandit', key }); }, key);
+  for (const key of (process.env.BAL_KEYS || 'b1,b2,b3,b4,b5').split(',')) for (const layout of LAYOUTS) {
+    await page.evaluate(([key, layout]) => { const s = Farm.session.state; Farm.Logic.frState(s).camp = 7; s.fr.army = { goat: 1 }; Farm.raidFarmStart({ kind: 'bandit', key, seed: layout }); }, [key, layout]);
     await page.waitForFunction(() => Farm.world && Farm.world.raidB && Farm.ui.frBox, null, SLOW);
     const res = await page.evaluate((PARTIES) => {
       const w = Farm.world, L = Farm.Logic, farm = w.raidFarm(), rows = {};
@@ -148,13 +150,17 @@ test('farm raids: the bandit farms get harder one by one (each played with the p
       }));
       return { defs: farm.defs.filter((d) => d.t !== 'fence').map((d) => d.t).join(','), fences: farm.defs.filter((d) => d.t === 'fence').length, loot: loot.length, rows };
     }, PARTIES);
-    out.push(key + ' ' + JSON.stringify(res));
+    out.push(key + ' ' + layout + ' ' + JSON.stringify(res));
     await page.evaluate(() => Farm.raidFarmLeave());
     await page.waitForFunction(() => !Farm.session.visit && Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.player.visible, null, SLOW);
     await page.evaluate(() => Farm.ui.closeAll());
   }
   // (the best of the 4 battles: one battle's luck no longer decides it)
-  const star = (b, p) => Math.max(...JSON.parse(out.find((l) => l.startsWith(b + ' ')).slice(3)).rows[p].split(' ')[0].split('').map(Number));
+  // (the best of the 4 battles on each layout, then the middle layout: one layout's luck no longer decides it)
+  const star = (b, p) => {
+    const each = out.filter((l) => l.startsWith(b + ' ')).map((l) => Math.max(...JSON.parse(l.slice(l.indexOf('{'))).rows[p].split(' ')[0].split('').map(Number))).sort((x, y) => x - y);
+    return each[Math.floor(each.length / 2)];
+  };
   assert.strictEqual(star('b1', 'P1 lv1'), 3, 'the first one: a new camp wins it');
   assert.strictEqual(star('b2', 'P1 lv1'), 0, 'the second: its scarecrow stops goats and crows');
   assert.ok(star('b2', 'P2 lv1') >= 2, 'cats win it');

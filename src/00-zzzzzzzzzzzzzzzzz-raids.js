@@ -75,7 +75,7 @@
     bandits: [ // (9 Nov 2026: tuned by playing each with the party a camp of its level holds: docs/raids.md)
       { key: 'b1', name: 'Bandit Shack', defs: { fence: 4 }, lv: 1, loot: { gold: 400, crops: 12, produce: 6, stall: 4 } },
       { key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 1, fence: 6 }, lv: 1, loot: { gold: 600, crops: 20, produce: 10, stall: 8 } },
-      { key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
+      { key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1, goose: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
       { key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1 }, lv: 2, loot: { gold: 1300, crops: 36, produce: 18, stall: 16 } },
       { key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 2, fence: 10, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1, sili: 1, sprinkler: 1, kampana: 1 }, lv: 2, loot: { gold: 2000, crops: 48, produce: 24, stall: 24 } },
     ],
