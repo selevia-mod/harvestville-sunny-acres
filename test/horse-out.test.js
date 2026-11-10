@@ -210,12 +210,11 @@ test('the save keeps gear, stamina and the fed day; an old save keeps riding in 
   const bad = JSON.parse(JSON.stringify(L.serialize(fresh())));
   bad.hs = [50, 0, 'x', 'y', -4];
   const b = L.deserialize(bad);
-  assert.strictEqual(b.horse.g, 0);
-  assert.strictEqual(b.horse.st, H.stamina);
-  assert.strictEqual(b.horse.fd, 0);
+  assert.ok(!b.horse.g && !b.horse.fd && L.horseStamina(b) === H.stamina);
+  assert.deepStrictEqual(Object.keys(b.horse).sort(), ['love', 'name', 'pet'], 'a plain horse stays plain');
   bad.hs = [50, 0, 99, 1e9, 3];
   assert.strictEqual(L.deserialize(bad).horse.g, 7);
-  assert.strictEqual(L.deserialize(bad).horse.st, H.stamina);
+  assert.strictEqual(L.horseStamina(L.deserialize(bad)), H.stamina);
 });
 
 test('the numbers are in one block (C.HORSE_OUT)', () => {

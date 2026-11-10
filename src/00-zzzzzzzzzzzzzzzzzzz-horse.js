@@ -27,18 +27,17 @@
     // lantern's cost is in the Gold (decided by me, owner can change). Saddlebags wait for the Mixer's Rope (part 3).
     gear: {
       horseshoes: { name: 'Horseshoes', needs: [['ore_copper', 5], ['leather_soft', 1]], gold: 800,
-        desc: 'For the roads past town. Needed outside the farm and town.' },
+        desc: 'Needed past the farm and town.' },
       lantern_bridle: { name: 'Lantern Bridle', needs: [['crystal', 1], ['ore_copper', 2]], gold: 1500,
-        desc: 'A little lantern, lit by a crystal. Needed in caves.' },
+        desc: 'A crystal lantern, needed in caves.' },
       // PART 3 (the Mixer): Rope comes from it. To turn Saddlebags on: delete `soon` here, and give the bag its 12 more
       // slots where the bag is sized (L.bagLevel / L.resizeBag in 01-logic.js use s.inv.length, and L.deserialize sizes
       // the bag before it puts the items back): L.horseBagExtra(s) says how many.
       saddlebags: { name: 'Saddlebags', needs: [['leather_soft', 2], ['rope', 3]], gold: 1200, bag: 12, soon: 'Needs Rope from the Mixer, coming soon.',
-        desc: 'Carry more: your bag +12.' },
+        desc: 'Carry more: bag +12.' },
     },
     gearOrder: ['horseshoes', 'lantern_bridle', 'saddlebags'], // the save keeps them as bits in this order (append only)
   };
-  C.TIPS.push({ key: 'horse_out', text: 'OUT ON YOUR HORSE' });
 
   // the gear's icons: appended to the sheet (icon numbers are saved); pictures from art-src/icons/economy-2.png cells
   // 1-3 (tools/art/economy-import.js)
@@ -47,4 +46,5 @@
     C.ICON[id] = C.ICON_ORDER.indexOf(id);
     C.HORSE_OUT.gear[id].icon = C.ICON[id];
   });
+  C.HORSE_ICONS = C.HORSE_OUT.gearOrder.slice(); // (the tests: what comes after part 1's icons)
 })(window.Farm = window.Farm || {});

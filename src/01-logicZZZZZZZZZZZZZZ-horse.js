@@ -115,7 +115,7 @@
   var endDay = L.endDay;
   L.endDay = function (s, passedOut, info) {
     var r = endDay(s, passedOut, info);
-    if (s.horse) s.horse.st = H.stamina; // rested in its stable overnight (decided by me, owner can change)
+    if (s.horse) delete s.horse.st; // rested in its stable overnight: full (decided by me, owner can change)
     return r;
   };
   var serialize = L.serialize;
@@ -132,10 +132,11 @@
       s.horse.love = Math.max(s.horse.love, H.oldHearts * H.loveHeart);
       return s;
     }
-    s.horse.g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0);
-    var st = Number(o.hs[3]);
-    s.horse.st = isFinite(st) ? Math.max(0, Math.min(H.stamina, st)) : H.stamina;
-    s.horse.fd = int(o.hs[4], 0, 1e7, 0);
+    // (only what differs from a new horse is kept on it: full stamina, no gear, never fed are left out)
+    var g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0), st = Number(o.hs[3]), fd = int(o.hs[4], 0, 1e7, 0);
+    if (g) s.horse.g = g;
+    if (isFinite(st) && st < H.stamina) s.horse.st = Math.max(0, st);
+    if (fd) s.horse.fd = fd;
     return s;
   };
 })(window.Farm = window.Farm || {});

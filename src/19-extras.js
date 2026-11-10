@@ -38,11 +38,10 @@
     this.cat = null;
     this.mailFlag = null;
     this.chest = null;
-    if (!RIDE_MAPS[this.mapKey]) F.session.riding = false;
+    if (!this.horseMapOk(this.mapKey)) F.session.riding = false;
     // the horse: at the stable, where you left it today, or under you
-    if (s.horse && RIDE_MAPS[this.mapKey]) {
-      var at = F.session.riding ? this.feet() : F.session.horseAt && F.session.horseAt.map === this.mapKey ? F.session.horseAt
-        : this.mapKey === 'farm' ? this.points.horse : null;
+    if (s.horse) {
+      var at = this.horseSpot();
       if (at) {
         this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE) };
         this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
@@ -153,9 +152,18 @@
     void time;
   };
 
+  // Where it may be ridden, and where it stands as a map starts (19zzzzzzzzzzzzzzzzzzzzzzzzz-horse-out.js widens both:
+  // the horse goes out, farm economy v2 part 5).
+  M.horseMapOk = function (map) { return !!RIDE_MAPS[map]; };
+  M.horseSpot = function () {
+    if (!RIDE_MAPS[this.mapKey]) return null;
+    return F.session.riding ? this.feet() : F.session.horseAt && F.session.horseAt.map === this.mapKey ? F.session.horseAt
+      : this.mapKey === 'farm' ? this.points.horse : null;
+  };
+
   // Indoors and down the mine, the horse waits outside.
   M.beforeTravel = function (to) {
-    if (F.session.riding && !RIDE_MAPS[to]) this.dismount();
+    if (F.session.riding && !this.horseMapOk(to)) this.dismount();
   };
 
   M.dismount = function () {

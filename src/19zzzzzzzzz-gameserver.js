@@ -404,7 +404,7 @@
     var p = g.ppl[id] = {
       id: id, name: (L.cleanName ? L.cleanName(row[1]) : L.cleanText(row[1], 24)) || 'Farmer', look: row[2] === 'girl' ? 'girl' : 'boy', map: g.map, fl: 0,
       x: x, y: y, dir: DIRS[row[5]] ? row[5] : 'down', m: row[6] ? 1 : 0, host: id === O.hostId(), at: 0, pt: lk.pt ? 1 : 0,
-      cs: C.LOOK_INDEX && cs && C.LOOK_INDEX[cs] != null ? cs : '', rd: 0, sk: 0, hg: 0, // (no horses on a hunting place)
+      cs: C.LOOK_INDEX && cs && C.LOOK_INDEX[cs] != null ? cs : '', rd: lk.rd ? 1 : 0, sk: 0, hg: 0, // (on their horse: the horse goes out, farm economy v2 part 5)
       bw: Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0)), // the bow in their hands (19zzzzzzzzzzz-slung-bow.js)
       tr: O.others[id] ? O.others[id].tr || 0 : 0, pub: 1,
     };
@@ -642,7 +642,7 @@
     if (t === 'say') { if (g.pub || g.pp) pubSay(g, m); return; }
     if (t === 'lk') { // how someone here looks now (their bow taken up or put away): kept for drawing them
       var q = g.ppl && typeof m.id === 'string' ? g.ppl[m.id] : null, lk = m.lk && typeof m.lk === 'object' ? m.lk : {};
-      if (q) q.bw = Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0));
+      if (q) { q.bw = Math.max(0, Math.min(9, Math.floor(Number(lk.bw)) || 0)); q.rd = lk.rd ? 1 : 0; }
       return;
     }
     if (t === 'em') {
