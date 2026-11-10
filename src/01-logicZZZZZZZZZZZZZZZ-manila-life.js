@@ -12,12 +12,13 @@
 
   // ---------- the loop road ----------
   // A segment's centre line runs on tile edges; its 2 lanes are the tiles either side (a corner is covered by both).
+  // [x, y, lane]: 'n'/'s' (the north and south lanes of a road running east-west), 'w'/'e', or '' where roads cross.
   L.manilaRoadTiles = function () {
-    var out = [], seen = {}, add = function (x, y) { var k = y * 1000 + x; if (!seen[k]) { seen[k] = 1; out.push([x, y]); } };
+    var out = [], at = {}, add = function (x, y, lane) { var k = y * 1000 + x; if (at[k]) { if (at[k][2] !== lane) at[k][2] = ''; return; } at[k] = [x, y, lane]; out.push(at[k]); };
     J.path.forEach(function (a, i) {
       var b = J.path[(i + 1) % J.path.length];
-      if (a[1] === b[1]) for (var x = Math.min(a[0], b[0]) - 1; x <= Math.max(a[0], b[0]); x++) { add(x, a[1] - 1); add(x, a[1]); }
-      else for (var y = Math.min(a[1], b[1]) - 1; y <= Math.max(a[1], b[1]); y++) { add(a[0] - 1, y); add(a[0], y); }
+      if (a[1] === b[1]) for (var x = Math.min(a[0], b[0]) - 1; x <= Math.max(a[0], b[0]); x++) { add(x, a[1] - 1, 'n'); add(x, a[1], 's'); }
+      else for (var y = Math.min(a[1], b[1]) - 1; y <= Math.max(a[1], b[1]); y++) { add(a[0] - 1, y, 'w'); add(a[0], y, 'e'); }
     });
     return out;
   };
@@ -88,24 +89,35 @@
 
   // ---------- the Mall inside ----------
   // From the house's indoor sheet (its floor, walls and void), with the Mall's shops and props as Manila's own drawn props.
-  L.mallMap = function (house) {
-    var A = M.mall, W = A.W, Hh = A.H, S = 256;
-    var ts = house.tilesets.filter(function (t) { return t.name === 'indoor'; })[0];
-    if (!ts) throw new Error('L.mallMap: the house map has no indoor sheet');
-    ts = JSON.parse(JSON.stringify(ts));
-    var I = { floor: 0, floor2: 1, wall: 2, wall_low: 3, wall_side: 4, void: 5 }, g = function (k) { return ts.firstgid + I[k]; };
+  // The Mall's own sheet: 9 floors and 9 walls (the owner's mall_floors and mall_walls swatches), and the dark beyond.
+  M.MALLG = { NAME: 'manila_mall', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 4,
+    FLOORS: ['main', 'walk', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'entrance'], WALLS: ['main', 'bay', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'plain'] };
+  var MG = M.MALLG;
+  MG.IMAGE_W = 2 * MG.MARGIN + MG.COLS * MG.SIZE + (MG.COLS - 1) * MG.SPACING;
+  MG.IMAGE_H = 2 * MG.MARGIN + MG.ROWS * MG.SIZE + (MG.ROWS - 1) * MG.SPACING;
+  MG.floorId = function (k) { return MG.FLOORS.indexOf(k); };
+  MG.wallId = function (k) { return 10 + MG.WALLS.indexOf(k); };
+  MG.VOID = 19;
+  L.mallMap = function () {
+    var A = M.mall, W = A.W, Hh = A.H, S = 256, P = function (n, t, v) { return { name: n, type: t, value: v }; };
+    var ts = { firstgid: 1, name: MG.NAME, image: '../assets/' + MG.NAME + '.png', imagewidth: MG.IMAGE_W, imageheight: MG.IMAGE_H, tilewidth: S, tileheight: S,
+      columns: MG.COLS, tilecount: MG.COLS * MG.ROWS, margin: MG.MARGIN, spacing: MG.SPACING, tiles: [] };
+    for (var t = 10; t <= MG.VOID; t++) ts.tiles.push({ id: t, properties: [P('collides', 'bool', true)] });
+    var g = function (id) { return ts.firstgid + id; };
     var lay = function () { var a = new Array(W * Hh); for (var i = 0; i < a.length; i++) a[i] = 0; return a; };
     var ground = lay(), walls = lay(), objects = [], id = 1;
+    var wallAt = function (x) { var k = 'plain'; A.walls.forEach(function (w) { if (x >= w[1] && x < w[1] + w[2]) k = w[0]; }); return k; };
     for (var y = 0; y < Hh; y++) for (var x = 0; x < W; x++) {
       var edge = x === 0 || x === W - 1 || y === Hh - 1;
-      ground[y * W + x] = edge ? g('void') : y === 0 ? g('wall') : y === 1 ? g('wall_low') : g((x + y) % 2 ? 'floor2' : 'floor');
+      ground[y * W + x] = g(edge ? MG.VOID : y <= 1 ? MG.wallId(wallAt(x)) : MG.floorId('main'));
     }
+    A.floors.forEach(function (f) { for (var yy = f[2]; yy < f[2] + f[4]; yy++) for (var xx = f[1]; xx < f[1] + f[3]; xx++) if (xx > 0 && xx < W - 1 && yy > 1 && yy < Hh - 1) ground[yy * W + xx] = g(MG.floorId(f[0])); });
     var d = A.door;
-    for (var dx = 0; dx < d[2]; dx++) ground[d[1] * W + d[0] + dx] = g('floor'); // (the way out)
+    for (var dx = 0; dx < d[2]; dx++) ground[d[1] * W + d[0] + dx] = g(MG.floorId('entrance')); // (the way out)
     var prop = function (n, t, v) { return { name: n, type: t, value: v }; };
     var obj = function (name, type, b, props) { objects.push({ id: id++, name: name, type: type, x: b[0] * S, y: b[1] * S, width: b[2] * S, height: b[3] * S, rotation: 0, visible: true, properties: props }); };
     A.shops.forEach(function (sh) {
-      obj(sh.key, 'mn_prop', sh.box, [prop('stand', 'string', '@mall_' + sh.key), prop('foot', 'int', sh.box[3] - 1), prop('art', 'string', sh.art), prop('label', 'string', sh.name),
+      obj(sh.key, 'mn_prop', sh.box, [prop('stand', 'string', '@mall_' + sh.key.replace(/\d$/, '')), prop('v', 'int', +(sh.key.match(/\d$/) || [0])[0]), prop('foot', 'int', sh.box[3] - 1), prop('art', 'string', sh.art), prop('label', 'string', sh.name),
         prop('text', 'string', sh.text || ''), prop('food', 'int', sh.food ? 1 : 0), prop('box', 'int', 1)]);
     });
     A.props.forEach(function (p, i) { obj('mp' + i, 'mn_prop', [p[1], p[2], p[3], p[4]], [prop('stand', 'string', '@mall_' + p[0]), prop('foot', 'int', p[5]), prop('art', 'string', 'mall_' + p[0])]); });

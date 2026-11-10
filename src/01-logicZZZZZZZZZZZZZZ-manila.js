@@ -19,10 +19,11 @@
   // Manila's own ground sheet: 5 x 2 tiles of 256 (stored at half size), margin 8, spacing 16, like the town's sheets.
   // (city life, 11 Nov 2026: 5 x 5 now, with the city's ground: asphalt, sidewalk, concrete, the crosswalks; and the plaza's
   // floor drawn over 3 x 3 tiles, so the owner's plaza picture is 3 times bigger: plaza0..plaza8, by x % 3 and y % 3)
-  M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 5,
+  M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 6,
     T: { cobble: 0, cobble2: 1, baywalk: 2, bay: 3, bay2: 4, wall: 5, track: 6, rails: 7, asphalt: 8, sidewalk: 9, concrete: 10, cross_h: 11, cross_v: 12,
-      plaza0: 14, plaza1: 15, plaza2: 16, plaza3: 17, plaza4: 18, plaza5: 19, plaza6: 20, plaza7: 21, plaza8: 22 },
-    SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 }, ROAD: { asphalt: 1 } };
+      plaza0: 14, plaza1: 15, plaza2: 16, plaza3: 17, plaza4: 18, plaza5: 19, plaza6: 20, plaza7: 21, plaza8: 22,
+      lane_n: 23, lane_s: 24, lane_w: 25, lane_e: 26 }, // (a road's two lanes: its centre line along their shared edge)
+    SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 }, ROAD: { asphalt: 1, lane_n: 1, lane_s: 1, lane_w: 1, lane_e: 1 } };
   var G = M.GROUND;
   G.IMAGE_W = 2 * G.MARGIN + G.COLS * G.SIZE + (G.COLS - 1) * G.SPACING;
   G.IMAGE_H = 2 * G.MARGIN + G.ROWS * G.SIZE + (G.ROWS - 1) * G.SPACING;
@@ -86,7 +87,7 @@
     if (M.jeep) {
       var plainG = function (g) { return g === mg('concrete') || g === tg('grass') || g === tg('grass2') || g === tg('grass3') || g === tg('path') || g === tg('sand') || g === tg('flowers'); };
       var road = {};
-      L.manilaRoadTiles().forEach(function (t) { road[t[1] * W + t[0]] = 1; put(ground, t[0], t[1], mg('asphalt')); });
+      L.manilaRoadTiles().forEach(function (t) { road[t[1] * W + t[0]] = 1; put(ground, t[0], t[1], mg(t[2] ? 'lane_' + t[2] : 'asphalt')); });
       Object.keys(road).forEach(function (k) {
         var x = k % W, y = Math.floor(k / W);
         [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].forEach(function (d) {
@@ -206,7 +207,7 @@
   // the people's paths; strict: nor anywhere in a building's box (the people never walk behind a building). ({ W, H, ok(x, y) })
   L.manilaGrid = function (map, strict) {
     var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
-    map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && p.value === 'mn_asphalt') solid[ts.firstgid + t.id] = 1; }); }); }); // (strict: people keep off the road but at the crosswalks)
+    map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && /^mn_(asphalt|lane_)/.test(p.value)) solid[ts.firstgid + t.id] = 1; }); }); }); // (strict: people keep off the road but at the crosswalks)
     map.layers.forEach(function (l) { if (l.type === 'tilelayer') l.data.forEach(function (g, i) { if (solid[g]) block[i] = 1; }); });
     var S = map.tilewidth;
     map.layers.filter(function (l) { return l.type === 'objectgroup'; })[0].objects.forEach(function (o) {

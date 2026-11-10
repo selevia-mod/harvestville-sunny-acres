@@ -6081,22 +6081,22 @@ M.buildings.push(
 { key: 'tower1', name: 'Business Tower', box: [50, 17, 5, 11], stand: '@tower', v: 0, foot: 3, art: 'office_tower_1', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
 { key: 'tower2', name: 'Business Tower', box: [57, 17, 5, 11], stand: '@tower', v: 1, foot: 3, art: 'office_tower_2', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
 { key: 'mall', name: 'The Mall', box: [23, 73, 12, 8], stand: '@mall', foot: 3, art: 'mall', mall: 1, text: 'The Mall by the bay.' },
-{ key: 'ferris', name: 'Ferris Wheel', box: [4, 70, 7, 10], stand: '@ferris_base', foot: 2, art: 'ferris_base', ferris: 1, text: 'The Ferris wheel by the bay. Rides: coming soon!' },
-{ key: 'college', name: 'College', box: [44, 72, 14, 9], stand: '@college', foot: 3, art: 'college', text: 'The College. Its students and its gate: coming soon!' },
-{ key: 'chinatown', name: 'Chinatown', box: [70, 21, 8, 3], stand: '@sign_board', v: 0, foot: 1, art: 'chinatown_soon', text: 'CHINATOWN\nThe red arch, the hopia bakery and the dimsum stall are coming here soon!' },
-{ key: 'talipapa', name: 'Talipapa', box: [81, 33, 4, 3], stand: '@sign_board', v: 1, foot: 1, art: 'talipapa_soon', text: 'TALIPAPA\nThe wet market: meat, fish and vegetables. Coming soon!' },
+{ key: 'ferris', name: 'Ferris Wheel', box: [4, 70, 7, 10], stand: '@ferris_base', foot: 2, art: 'ferris_stand', ferris: 1, text: 'The Ferris wheel by the bay. Rides: coming soon!' },
+{ key: 'college', name: 'College', box: [44, 72, 14, 9], stand: '@college', foot: 3, art: 'college_building', text: 'The College. Its students and its gate: coming soon!' },
+{ key: 'chinatown', name: 'Chinatown', box: [70, 20, 8, 4], stand: '@sign_board', v: 0, foot: 1, art: 'chinatown_arch', text: 'CHINATOWN\nThe red arch, the hopia bakery and the dimsum stall are coming here soon!' },
+{ key: 'talipapa', name: 'Talipapa', box: [81, 33, 4, 3], stand: '@sign_board', v: 1, foot: 1, art: '', text: 'TALIPAPA\nThe wet market: meat, fish and vegetables. Coming soon!' },
 
 { key: 'dimsum_cart', name: '', box: [71, 24, 2, 2], stand: '@cart', v: 0, foot: 1, art: 'dimsum_stall', text: 'A dimsum stall: siomai and siopao, steaming hot. Coming soon!' },
-{ key: 'castanas_cart', name: '', box: [77, 24, 2, 2], stand: '@cart', v: 1, foot: 1, art: 'castanas_cart', text: 'A castanas cart: roasted chestnuts in a little paper bag. Coming soon!' },
+{ key: 'castanas_cart', name: '', box: [77, 24, 2, 2], stand: '@cart', v: 1, foot: 1, art: 'chestnut_cart', text: 'A castanas cart: roasted chestnuts in a little paper bag. Coming soon!' },
 { key: 'pickleball', name: 'Pickleball Court', box: [45, 59, 8, 5], stand: '@pickleball_court', foot: 0, flat: 1, art: 'pickleball_court' }
 );
 M.jeep.stops.forEach(function (st, i) {
-M.buildings.push({ key: 'shed_' + st.key, name: '', box: st.shed, stand: '@shed', foot: 1, art: 'waiting_shed', shed: i, text: 'A waiting shed. The jeepney stops here.' });
+M.buildings.push({ key: 'shed_' + st.key, name: '', box: st.shed, stand: '@shed', foot: 1, art: 'shed_' + st.key, shed: i, text: 'A waiting shed. The jeepney stops here.' });
 });
 
 [[48, 3], [52, 3], [26, 49], [30, 49], [43, 64], [47, 65], [16, 68], [16, 73], [16, 78], [69, 16], [75, 16]]
 .forEach(function (p, i) {
-M.buildings.push({ key: 'shop_' + i, name: '', box: [p[0], p[1], 4, 4], stand: '@shophouse', v: i % 4, foot: 2, art: 'shophouse_' + (i % 4 + 1) });
+M.buildings.push({ key: 'shop_' + i, name: '', box: [p[0], p[1], 4, 4], stand: '@shophouse', v: i % 4, foot: 2, art: 'shophouse_' + (i % 6 + 1) });
 });
 
 
@@ -6123,12 +6123,12 @@ towers: { w: [2, 2, 1, 0], at: [[52, 29], [56, 30], [60, 29], [50, 30], [62, 30]
 
 var GUARD = [['tw_people', 1, 0x7a8cc8], ['tw_people', 3, 0x7a8cc8]];
 M.roles = {
-office: { n: 3, sheets: ['npc_office_1', 'npc_office_2', 'npc_office_3'], looks: [['tw_people', 3, 0xd0d4dc], ['tw_people', 2, 0xd0d4dc], ['tw_people', 0, 0xd0d4dc]],
+office: { n: 3, sheets: ['npc_office_worker_1', 'npc_office_worker_2', 'npc_office_worker_3'], looks: [['tw_people', 3, 0xd0d4dc], ['tw_people', 2, 0xd0d4dc], ['tw_people', 0, 0xd0d4dc]],
 
 schedule: [[0, 'in:home'], [7 * H + 20, 'station_shed'], [8 * H, 'in:tower'], [12 * H, 'plaza'], [13 * H, 'in:tower'], [18 * H, 'station_shed'], [18 * H + 40, 'in:home']],
 lines: ['Lunch break at last! Time for the plaza.', 'Reports, reports, reports. And then the jeep home.', 'The view from the 30th floor is amazing.'] },
-tower_guard: { n: 1, sheets: ['npc_guard'], looks: GUARD, post: [55.5, 29.6, 'down'], lines: ['Good day! Only people with an office ID inside, sorry.', 'Stay safe out there.'] },
-mall_guard: { n: 1, sheets: ['npc_guard'], looks: GUARD, post: [26.5, 81.6, 'down'], lines: ['Welcome to the Mall! Bags open, please. Thank you!', 'The Mall opens at ten. Enjoy!'] },
+tower_guard: { n: 1, sheets: ['npc_street_guard'], looks: GUARD, post: [55.5, 29.6, 'down'], lines: ['Good day! Only people with an office ID inside, sorry.', 'Stay safe out there.'] },
+mall_guard: { n: 1, sheets: ['npc_mall_guard'], looks: GUARD, post: [26.5, 81.6, 'down'], lines: ['Welcome to the Mall! Bags open, please. Thank you!', 'The Mall opens at ten. Enjoy!'] },
 
 priest: { n: 1, sheets: ['npc_priest'], looks: [['tw_people', 4, 0x9a9aa8]], post: [27.5, 17.6, 'down'], hours: [[6 * H, 11 * H], [16 * H, 20 * H]],
 lines: ['Good morning, my child. God bless your day.', 'The bells ring at six. Come and listen.', 'Be kind to one another. That is the whole of it.'] },
@@ -6139,55 +6139,89 @@ lines: ['Castanas! Warm roasted chestnuts!', 'Careful, they are hot. Peel and en
 pickleball: { n: 4, sheets: ['npc_pickleball_1', 'npc_pickleball_2'], looks: [['tw_people', 0, 0xd8f0ff], ['tw_people', 2, 0xffe0c8], ['tw_people', 0, 0xffd8e0], ['tw_people', 2, 0xd8ffd8]],
 hours: [[7 * H, 19 * H]], court: [45, 59, 8, 5],
 lines: ['Nice shot! Want to play next round?', 'Pickleball is the city\'s new favourite game!', 'Watch the kitchen line!'] },
-shopper: { n: 6, cheap: 3, sheets: ['npc_shopper_1', 'npc_shopper_2', 'npc_shopper_3'], looks: [['tw_people', 0], ['tw_people', 2], ['tw_people', 4], ['npc_diday', 0], ['tw_people', 1, 0xffe0f0], ['tw_people', 3, 0xe8f0ff]],
+shopper: { n: 6, cheap: 3, sheets: ['npc_shopper_1', 'npc_shopper_2'], looks: [['tw_people', 0], ['tw_people', 2], ['tw_people', 4], ['npc_diday', 0], ['tw_people', 1, 0xffe0f0], ['tw_people', 3, 0xe8f0ff]],
 open: [10 * H, 21 * H],
 lines: ['So many sales today! My bags are full.', 'I came for one shirt. I have four now!', 'The food court has the best halo-halo.'] },
 };
 
 
+
+
 M.mall = {
 W: 28, H: 18,
+floors: [['entrance', 12, 15, 4, 2], ['food', 1, 6, 12, 7], ['walk', 1, 11, 26, 2], ['boutique', 1, 2, 4, 3], ['toys', 5, 2, 4, 3], ['arcade', 17, 2, 4, 3], ['cinema', 21, 2, 4, 3], ['garden', 19, 7, 6, 4]],
+walls: [['boutique', 1, 4], ['toys', 5, 4], ['main', 9, 4], ['bay', 13, 4], ['arcade', 17, 4], ['cinema', 21, 4], ['garden', 25, 2]],
 
 shops: [
-{ key: 'boutique', name: 'Boutique', box: [2, 2, 5, 3], art: 'mall_boutique', text: 'BOUTIQUE\nCity outfits for your farmer. Coming soon!' },
-{ key: 'toys', name: 'Toys & Pets', box: [8, 2, 5, 3], art: 'mall_toy_pet', text: 'TOYS AND PETS\nToys, and friends for your pets. Coming soon!' },
-{ key: 'arcade', name: 'Arcade', box: [15, 2, 5, 3], art: 'mall_arcade', text: 'ARCADE\nMini-games are coming soon!' },
-{ key: 'cinema', name: 'Cinema', box: [21, 2, 5, 3], art: 'mall_cinema', text: 'CINEMA\nFilms for the festivals: coming soon!' },
-{ key: 'food', name: 'Food Court', box: [2, 8, 6, 4], art: 'mall_food_court', food: 1 },
+{ key: 'boutique', name: 'Boutique', box: [1, 2, 4, 3], art: 'mall_boutique', text: 'BOUTIQUE\nCity outfits for your farmer. Coming soon!' },
+{ key: 'toys', name: 'Toys & Pets', box: [5, 2, 4, 3], art: 'mall_toy_pet_shop', text: 'TOYS AND PETS\nToys, and friends for your pets. Coming soon!' },
+{ key: 'shut', name: 'Coming Soon', box: [9, 2, 4, 3], art: 'mall_shop_shuttered', text: 'A NEW SHOP\nOpening here soon!' },
+{ key: 'doors', name: '', box: [13, 2, 4, 3], art: 'mall_main_doors', text: 'THE BAY DOORS\nThe terrace by the bay opens soon.' },
+{ key: 'arcade', name: 'Arcade', box: [17, 2, 4, 3], art: 'mall_arcade', text: 'ARCADE\nMini-games are coming soon!' },
+{ key: 'cinema', name: 'Cinema', box: [21, 2, 4, 3], art: 'mall_cinema', text: 'CINEMA\nFilms for the festivals: coming soon!' },
+{ key: 'food1', name: 'Rice & Noodles', box: [1, 6, 4, 3], art: 'mall_food_rice', food: 1 },
+{ key: 'food2', name: 'Barbecue', box: [5, 6, 4, 3], art: 'mall_food_bbq', food: 1 },
+{ key: 'food3', name: 'Halo-halo', box: [9, 6, 4, 3], art: 'mall_food_halo', food: 1 },
 ],
 
 food: [['bread', 60], ['cookie', 40], ['hot_soup', 250]],
-props: [['escalator', 12, 7, 4, 4, 2], ['bench', 9, 13, 2, 1, 1], ['bench', 17, 13, 2, 1, 1], ['plant', 1, 14, 1, 2, 1], ['plant', 26, 14, 1, 2, 1],
-['plant', 11, 12, 1, 2, 1], ['plant', 16, 12, 1, 2, 1], ['bench', 21, 9, 2, 1, 1], ['plant', 24, 8, 1, 2, 1]],
+
+props: [['escalator', 15, 7, 3, 3, 2], ['fountain', 21, 7, 3, 3, 2], ['table', 2, 10, 2, 1, 1], ['table', 6, 10, 2, 1, 1], ['table', 10, 10, 2, 1, 1],
+['bench', 8, 14, 2, 1, 1], ['bench', 18, 14, 2, 1, 1], ['palm', 1, 13, 1, 2, 1], ['palm', 26, 13, 1, 2, 1], ['planter', 19, 12, 3, 1, 1],
+['map_kiosk', 17, 15, 1, 2, 1], ['claw', 18, 5, 1, 2, 1], ['cabinet', 20, 5, 1, 2, 1], ['counter', 3, 5, 2, 1, 1], ['palm', 26, 7, 1, 2, 1]],
 door: [13, 17, 2, 1], entrance: [14, 16.6], out: [29, 81.6],
 zones: {
-walk: { w: [3, 3, 3, 0], at: [[4, 14], [8, 15], [14, 14], [20, 15], [24, 12], [19, 7], [8, 7], [22, 6], [5, 6], [26, 11]] },
-shops: { w: [3, 3, 3, 0], at: [[4, 5, 'up'], [10, 5, 'up'], [17, 5, 'up'], [23, 5, 'up'], [8, 10, 'left'], [9, 11, 'left']] },
-sit: { w: [1, 1, 1, 0], at: [[9, 14, 'sit'], [17, 14, 'sit'], [21, 10, 'sit']] },
+walk: { w: [3, 3, 3, 0], at: [[4, 14], [8, 15], [14, 13], [20, 15], [24, 12], [14, 10], [24, 6], [19, 11], [12, 14], [26, 11]] },
+shops: { w: [3, 3, 3, 0], at: [[6, 5, 'up'], [7, 5, 'up'], [11, 5, 'up'], [19, 7, 'up'], [23, 5, 'up'], [3, 9, 'up'], [7, 9, 'up'], [11, 9, 'up']] },
+sit: { w: [1, 1, 1, 0], at: [[8, 15, 'sit'], [18, 15, 'sit']] },
 },
 crowd: { day: 12, night: 0, cheap: 6, cheapNight: 0 },
 roles: {
-guard: { n: 1, sheets: ['npc_guard'], looks: GUARD, post: [11.5, 15.6, 'down'], lines: ['Welcome! The exit is behind me.', 'No running on the escalator, please.'] },
-sales: { n: 1, sheets: ['npc_sales_lady'], looks: [['tw_people', 2, 0xffd8e8]], post: [4.5, 5.6, 'down'], lines: ['Hello! New city outfits are coming soon. You will look great!', 'May I help you? Our boutique opens very soon.', 'Try the food court: the soup is warm and good.'] },
+guard: { n: 1, sheets: ['npc_mall_guard'], looks: GUARD, post: [11.5, 15.6, 'down'], lines: ['Welcome! The exit is behind me.', 'No running on the escalator, please.'] },
+sales: { n: 1, sheets: ['npc_sales_lady'], looks: [['tw_people', 2, 0xffd8e8]], post: [2.5, 5.6, 'down'], lines: ['Hello! New city outfits are coming soon. You will look great!', 'May I help you? Our boutique opens very soon.', 'Try the food court: the soup is warm and good.'] },
 },
 lines: ['This Mall is so cool. The aircon!', 'Shall we watch a film later?', 'I love the food court.', 'Window shopping is free, ha!', 'The arcade opens soon, they say.'],
 };
 
 
 
-M.life = {
-art: {
-office_tower_1: [5, 11], office_tower_2: [5, 11], mall: [12, 8], ferris_base: [7, 10], ferris_wheel: [7, 7], college: [14, 9],
-waiting_shed: [3, 2], pickleball_court: [8, 5], dimsum_stall: [2, 2], castanas_cart: [2, 2], shophouse_1: [4, 4], shophouse_2: [4, 4], shophouse_3: [4, 4], shophouse_4: [4, 4], jeepney: [4, 3],
-chinatown_soon: [8, 3], talipapa_soon: [4, 3],
-mall_boutique: [5, 3], mall_toy_pet: [5, 3], mall_arcade: [5, 3], mall_cinema: [5, 3], mall_food_court: [6, 4], mall_escalator: [4, 4],
-mall_bench: [2, 1], mall_plant: [1, 2],
-},
-people: ['npc_office_1', 'npc_office_2', 'npc_office_3', 'npc_guard', 'npc_sales_lady', 'npc_shopper_1', 'npc_shopper_2', 'npc_shopper_3',
-'npc_priest', 'npc_dimsum_vendor', 'npc_castanas_vendor', 'npc_pickleball_1', 'npc_pickleball_2'],
 
+
+
+
+
+M.life = {
 folder: 'city',
+files: {
+ground_asphalt: { tex: 'asphalt' }, ground_asphalt_line: { tex: 'asphalt_line' }, ground_sidewalk: { tex: 'sidewalk' },
+ground_crosswalk: { tex: 'crosswalk' }, ground_concrete: { tex: 'concrete' },
+jeepney: { vehicle: 'jeepney', size: [4, 3] },
+waiting_sheds: { sheet: [3, 2, ['shed_station', 'shed_plaza', 'shed_talipapa', 'shed_college', 'shed_mall', 'shed_baywalk']], w: 3 },
+shophouses: { sheet: [3, 2, ['shophouse_1', 'shophouse_2', 'shophouse_3', 'shophouse_4', 'shophouse_5', 'shophouse_6']], w: 4 },
+college_building: { single: 'college_building', size: [10, 7] },
+office_tower_1: { single: 'office_tower_1', size: [6, 11] }, office_tower_2: { single: 'office_tower_2', size: [6, 10] },
+mall: { single: 'mall', size: [16, 9] },
+ferris_whole: { single: 'ferris_whole', size: [7, 10] }, ferris_stand: { single: 'ferris_stand', size: [7, 10] },
+ferris_wheel: { single: 'ferris_wheel', size: [7, 7], square: true },
+ferris_cars: { sheet: [4, 2, ['ferris_car_1', 'ferris_car_2', 'ferris_car_3', 'ferris_car_4', 'ferris_car_5', 'ferris_car_6', 'ferris_car_7', 'ferris_car_8']], w: 1 },
+mall_floors: { swatch: [5, 2, ['main', 'walk', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'entrance']], prefix: 'mallfloor_' },
+mall_walls: { swatch: [5, 2, ['main', 'bay', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'plain']], prefix: 'mallwall_' },
+mall_shopfronts: { sheet: [3, 3, ['mall_food_rice', 'mall_food_bbq', 'mall_food_halo', 'mall_boutique', 'mall_toy_pet_shop', 'mall_arcade', 'mall_cinema', 'mall_main_doors', 'mall_shop_shuttered']], w: 4 },
+mall_furniture: { sheet: [5, 2, ['mall_escalator', 'mall_fountain', 'mall_table', 'mall_bench', 'mall_palm', 'mall_planter', 'mall_map_kiosk', 'mall_claw', 'mall_cabinet', 'mall_counter']], w: 2 },
+chinatown_arch: { single: 'chinatown_arch', size: [8, 5] },
+chinatown_props: { sheet: [3, 2, ['dimsum_stall', '', '', '', 'chestnut_cart', '']], w: 2 },
+pickleball_court: { single: 'pickleball_court', size: [8, 5] },
+npc_office_worker_1: { person: 1 }, npc_office_worker_2: { person: 1 }, npc_office_worker_3: { person: 1 },
+npc_shopper_1: { person: 1 }, npc_shopper_2: { person: 1 }, npc_mall_guard: { person: 1 }, npc_sales_lady: { person: 1 }, npc_street_guard: { person: 1 },
+npc_priest: { person: 1 }, npc_dimsum_vendor: { person: 1 }, npc_castanas_vendor: { person: 1 }, npc_pickleball_1: { person: 1 }, npc_pickleball_2: { person: 1 },
+},
+later: ['talipapa_stalls', 'street_food_carts', 'college_gate', 'basketball_court', 'sari_sari', 'carinderia', 'barangay_hall', 'tricycle', 'calesa',
+'hopia_bakery', 'rail_deck', 'rail_pieces', 'city_train_head', 'city_train_car',
+'npc_student_1', 'npc_student_2', 'npc_student_3', 'npc_fishball_vendor', 'npc_taho_vendor', 'npc_jeepney_driver', 'npc_meat_vendor', 'npc_fish_vendor',
+'npc_vegetable_vendor', 'npc_sorbetero', 'npc_sampaguita_seller', 'npc_calesa_driver', 'npc_tricycle_driver', 'npc_tanod', 'npc_baller_1', 'npc_baller_2',
+'npc_jogger', 'npc_fisherman', 'npc_balut_vendor', 'npc_traffic_enforcer', 'npc_hopia_baker', 'npc_carinderia_cook', 'npc_couple_her', 'npc_couple_him'],
 };
+M.life.people = Object.keys(M.life.files).filter(function (k) { return M.life.files[k].person; });
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logic.js
@@ -17799,10 +17833,11 @@ var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite
 
 
 
-M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 5,
+M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 6,
 T: { cobble: 0, cobble2: 1, baywalk: 2, bay: 3, bay2: 4, wall: 5, track: 6, rails: 7, asphalt: 8, sidewalk: 9, concrete: 10, cross_h: 11, cross_v: 12,
-plaza0: 14, plaza1: 15, plaza2: 16, plaza3: 17, plaza4: 18, plaza5: 19, plaza6: 20, plaza7: 21, plaza8: 22 },
-SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 }, ROAD: { asphalt: 1 } };
+plaza0: 14, plaza1: 15, plaza2: 16, plaza3: 17, plaza4: 18, plaza5: 19, plaza6: 20, plaza7: 21, plaza8: 22,
+lane_n: 23, lane_s: 24, lane_w: 25, lane_e: 26 },
+SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 }, ROAD: { asphalt: 1, lane_n: 1, lane_s: 1, lane_w: 1, lane_e: 1 } };
 var G = M.GROUND;
 G.IMAGE_W = 2 * G.MARGIN + G.COLS * G.SIZE + (G.COLS - 1) * G.SPACING;
 G.IMAGE_H = 2 * G.MARGIN + G.ROWS * G.SIZE + (G.ROWS - 1) * G.SPACING;
@@ -17866,7 +17901,7 @@ M.trackCorners.forEach(function (c) { put(ground, c[0], c[1], KIND.grass()); });
 if (M.jeep) {
 var plainG = function (g) { return g === mg('concrete') || g === tg('grass') || g === tg('grass2') || g === tg('grass3') || g === tg('path') || g === tg('sand') || g === tg('flowers'); };
 var road = {};
-L.manilaRoadTiles().forEach(function (t) { road[t[1] * W + t[0]] = 1; put(ground, t[0], t[1], mg('asphalt')); });
+L.manilaRoadTiles().forEach(function (t) { road[t[1] * W + t[0]] = 1; put(ground, t[0], t[1], mg(t[2] ? 'lane_' + t[2] : 'asphalt')); });
 Object.keys(road).forEach(function (k) {
 var x = k % W, y = Math.floor(k / W);
 [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].forEach(function (d) {
@@ -17986,7 +18021,7 @@ tilesets: sets,
 
 L.manilaGrid = function (map, strict) {
 var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
-map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && p.value === 'mn_asphalt') solid[ts.firstgid + t.id] = 1; }); }); });
+map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && /^mn_(asphalt|lane_)/.test(p.value)) solid[ts.firstgid + t.id] = 1; }); }); });
 map.layers.forEach(function (l) { if (l.type === 'tilelayer') l.data.forEach(function (g, i) { if (solid[g]) block[i] = 1; }); });
 var S = map.tilewidth;
 map.layers.filter(function (l) { return l.type === 'objectgroup'; })[0].objects.forEach(function (o) {
@@ -18129,12 +18164,13 @@ var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite
 
 
 
+
 L.manilaRoadTiles = function () {
-var out = [], seen = {}, add = function (x, y) { var k = y * 1000 + x; if (!seen[k]) { seen[k] = 1; out.push([x, y]); } };
+var out = [], at = {}, add = function (x, y, lane) { var k = y * 1000 + x; if (at[k]) { if (at[k][2] !== lane) at[k][2] = ''; return; } at[k] = [x, y, lane]; out.push(at[k]); };
 J.path.forEach(function (a, i) {
 var b = J.path[(i + 1) % J.path.length];
-if (a[1] === b[1]) for (var x = Math.min(a[0], b[0]) - 1; x <= Math.max(a[0], b[0]); x++) { add(x, a[1] - 1); add(x, a[1]); }
-else for (var y = Math.min(a[1], b[1]) - 1; y <= Math.max(a[1], b[1]); y++) { add(a[0] - 1, y); add(a[0], y); }
+if (a[1] === b[1]) for (var x = Math.min(a[0], b[0]) - 1; x <= Math.max(a[0], b[0]); x++) { add(x, a[1] - 1, 'n'); add(x, a[1], 's'); }
+else for (var y = Math.min(a[1], b[1]) - 1; y <= Math.max(a[1], b[1]); y++) { add(a[0] - 1, y, 'w'); add(a[0], y, 'e'); }
 });
 return out;
 };
@@ -18205,24 +18241,35 @@ return -1;
 
 
 
-L.mallMap = function (house) {
-var A = M.mall, W = A.W, Hh = A.H, S = 256;
-var ts = house.tilesets.filter(function (t) { return t.name === 'indoor'; })[0];
-if (!ts) throw new Error('L.mallMap: the house map has no indoor sheet');
-ts = JSON.parse(JSON.stringify(ts));
-var I = { floor: 0, floor2: 1, wall: 2, wall_low: 3, wall_side: 4, void: 5 }, g = function (k) { return ts.firstgid + I[k]; };
+
+M.MALLG = { NAME: 'manila_mall', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 4,
+FLOORS: ['main', 'walk', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'entrance'], WALLS: ['main', 'bay', 'food', 'boutique', 'toys', 'arcade', 'cinema', 'garden', 'plain'] };
+var MG = M.MALLG;
+MG.IMAGE_W = 2 * MG.MARGIN + MG.COLS * MG.SIZE + (MG.COLS - 1) * MG.SPACING;
+MG.IMAGE_H = 2 * MG.MARGIN + MG.ROWS * MG.SIZE + (MG.ROWS - 1) * MG.SPACING;
+MG.floorId = function (k) { return MG.FLOORS.indexOf(k); };
+MG.wallId = function (k) { return 10 + MG.WALLS.indexOf(k); };
+MG.VOID = 19;
+L.mallMap = function () {
+var A = M.mall, W = A.W, Hh = A.H, S = 256, P = function (n, t, v) { return { name: n, type: t, value: v }; };
+var ts = { firstgid: 1, name: MG.NAME, image: '../assets/' + MG.NAME + '.png', imagewidth: MG.IMAGE_W, imageheight: MG.IMAGE_H, tilewidth: S, tileheight: S,
+columns: MG.COLS, tilecount: MG.COLS * MG.ROWS, margin: MG.MARGIN, spacing: MG.SPACING, tiles: [] };
+for (var t = 10; t <= MG.VOID; t++) ts.tiles.push({ id: t, properties: [P('collides', 'bool', true)] });
+var g = function (id) { return ts.firstgid + id; };
 var lay = function () { var a = new Array(W * Hh); for (var i = 0; i < a.length; i++) a[i] = 0; return a; };
 var ground = lay(), walls = lay(), objects = [], id = 1;
+var wallAt = function (x) { var k = 'plain'; A.walls.forEach(function (w) { if (x >= w[1] && x < w[1] + w[2]) k = w[0]; }); return k; };
 for (var y = 0; y < Hh; y++) for (var x = 0; x < W; x++) {
 var edge = x === 0 || x === W - 1 || y === Hh - 1;
-ground[y * W + x] = edge ? g('void') : y === 0 ? g('wall') : y === 1 ? g('wall_low') : g((x + y) % 2 ? 'floor2' : 'floor');
+ground[y * W + x] = g(edge ? MG.VOID : y <= 1 ? MG.wallId(wallAt(x)) : MG.floorId('main'));
 }
+A.floors.forEach(function (f) { for (var yy = f[2]; yy < f[2] + f[4]; yy++) for (var xx = f[1]; xx < f[1] + f[3]; xx++) if (xx > 0 && xx < W - 1 && yy > 1 && yy < Hh - 1) ground[yy * W + xx] = g(MG.floorId(f[0])); });
 var d = A.door;
-for (var dx = 0; dx < d[2]; dx++) ground[d[1] * W + d[0] + dx] = g('floor');
+for (var dx = 0; dx < d[2]; dx++) ground[d[1] * W + d[0] + dx] = g(MG.floorId('entrance'));
 var prop = function (n, t, v) { return { name: n, type: t, value: v }; };
 var obj = function (name, type, b, props) { objects.push({ id: id++, name: name, type: type, x: b[0] * S, y: b[1] * S, width: b[2] * S, height: b[3] * S, rotation: 0, visible: true, properties: props }); };
 A.shops.forEach(function (sh) {
-obj(sh.key, 'mn_prop', sh.box, [prop('stand', 'string', '@mall_' + sh.key), prop('foot', 'int', sh.box[3] - 1), prop('art', 'string', sh.art), prop('label', 'string', sh.name),
+obj(sh.key, 'mn_prop', sh.box, [prop('stand', 'string', '@mall_' + sh.key.replace(/\d$/, '')), prop('v', 'int', +(sh.key.match(/\d$/) || [0])[0]), prop('foot', 'int', sh.box[3] - 1), prop('art', 'string', sh.art), prop('label', 'string', sh.name),
 prop('text', 'string', sh.text || ''), prop('food', 'int', sh.food ? 1 : 0), prop('box', 'int', 1)]);
 });
 A.props.forEach(function (p, i) { obj('mp' + i, 'mn_prop', [p[1], p[2], p[3], p[4]], [prop('stand', 'string', '@mall_' + p[0]), prop('foot', 'int', p[5]), prop('art', 'string', 'mall_' + p[0])]); });
@@ -51748,8 +51795,12 @@ plaza: function (j) { o.fillStyle = (j % 3 + Math.floor(j / 3)) % 2 ? '#d99a6a' 
 asphalt: function () { speck('#5d6168', 'rgba(255,255,255,0.12)', 60); },
 sidewalk: function () { o.fillStyle = '#c9c5bb'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(90,85,75,0.35)'; o.lineWidth = 2; o.strokeRect(1, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(1, S / 2, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, S / 2, S / 2 - 1, S / 2 - 1); },
 concrete: function () { speck('#d8d4ca', 'rgba(80,75,65,0.12)', 30); o.strokeStyle = 'rgba(90,85,75,0.18)'; o.lineWidth = 2; o.strokeRect(1, 1, S - 2, S - 2); },
-cross_h: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var x = 6; x < S; x += S / 5) o.fillRect(x, 6, S / 10, S - 12); },
-cross_v: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var y = 6; y < S; y += S / 5) o.fillRect(6, y, S - 12, S / 10); },
+cross_h: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var y = 6; y < S; y += S / 5) o.fillRect(6, y, S - 12, S / 10); },
+cross_v: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var x = 6; x < S; x += S / 5) o.fillRect(x, 6, S / 10, S - 12); },
+lane_n: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var x = 4; x < S; x += S / 2) o.fillRect(x, S - 3, S / 4, 3); },
+lane_s: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var x = 4; x < S; x += S / 2) o.fillRect(x, 0, S / 4, 3); },
+lane_w: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var y = 4; y < S; y += S / 2) o.fillRect(S - 3, y, 3, S / 4); },
+lane_e: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var y = 4; y < S; y += S / 2) o.fillRect(0, y, 3, S / 4); },
 baywalk: function () {
 o.fillStyle = '#e6d8b8'; o.fillRect(0, 0, S, S);
 o.fillStyle = 'rgba(150,120,80,0.35)';
@@ -51791,6 +51842,24 @@ o.drawImage(img, -(j % 3) * S, -Math.floor(j / 3) * S, 3 * S, 3 * S);
 return true;
 };
 var OWN = { 0: ['cobble'], 1: ['cobble', 1], 2: ['baywalk'], 3: ['bay'], 4: ['bay', 1] };
+
+var part = function (slot, sx, rot) {
+var img = F.images && F.images[TEX(slot)];
+if (!img) return false;
+o.save();
+o.translate(S / 2, S / 2);
+if (rot) o.rotate(rot);
+o.drawImage(img, sx * img.width / 2, 0, img.width / 2, img.height, -S / 2, -S / 2, S, S);
+o.restore();
+return true;
+};
+var turned = function (slot) { var img = F.images && F.images[TEX(slot)]; if (!img) return false; o.save(); o.translate(S / 2, S / 2); o.rotate(Math.PI / 2); o.drawImage(img, -S / 2, -S / 2, S, S); o.restore(); return true; };
+var CITY = {
+asphalt: function () { return tex('asphalt'); }, sidewalk: function () { return tex('sidewalk'); }, concrete: function () { return tex('concrete'); },
+cross_v: function () { return tex('crosswalk'); }, cross_h: function () { return turned('crosswalk'); },
+lane_w: function () { return part('asphalt_line', 0, 0); }, lane_e: function () { return part('asphalt_line', 1, 0); },
+lane_n: function () { return part('asphalt_line', 0, Math.PI / 2); }, lane_s: function () { return part('asphalt_line', 1, Math.PI / 2); },
+};
 var slot = {};
 Object.keys(G.T).forEach(function (k) { slot[G.T[k]] = k; });
 for (var i = 0; i < G.COLS * G.ROWS; i++) {
@@ -51799,6 +51868,7 @@ if (!name) continue;
 o.clearRect(0, 0, S, S);
 var pj = /^plaza(\d)$/.exec(name);
 if (pj) { if (!plazaPart(+pj[1])) DRAW.plaza(+pj[1]); }
+else if (CITY[name]) { if (!CITY[name]()) DRAW[name](); }
 else if (!(OWN[i] && tex(OWN[i][0], OWN[i][1]))) DRAW[name]();
 var x = MG + (i % G.COLS) * (S + SP), y = MG + Math.floor(i / G.COLS) * (S + SP);
 g.drawImage(one, x - MG, y - MG, S + 2 * MG, S + 2 * MG);
@@ -51809,7 +51879,7 @@ return cv;
 
 var groundSig = null;
 var groundReady = function (scene) {
-var sig = Object.keys(M.art.ground).filter(function (k) { return F.images && F.images[TEX(k)]; }).join(',');
+var sig = Object.keys(M.art.ground).concat(['asphalt', 'asphalt_line', 'sidewalk', 'crosswalk', 'concrete']).filter(function (k) { return F.images && F.images[TEX(k)]; }).join(',');
 if (F.images[G.NAME] && sig === groundSig) return;
 groundSig = sig;
 if (scene.textures.exists(G.NAME)) scene.textures.remove(G.NAME);
@@ -51821,7 +51891,7 @@ F.sizes[G.NAME] = [G.IMAGE_W, G.IMAGE_H];
 var buildMap = P.buildMap;
 P.buildMap = function () {
 if (this.mapKey === 'manila') { this.outdoors = true; groundReady(this); }
-if (this.mapKey === 'mall') this.outdoors = false;
+if (this.mapKey === 'mall') { this.outdoors = false; if (F.mnMallGround) F.mnMallGround(this); }
 return buildMap.apply(this, arguments);
 };
 var musicMood = P.musicMood;
@@ -51834,6 +51904,10 @@ return this.mapKey === 'manila' && m !== 'night' && m !== 'festival' ? 'town' : 
 var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
 P.mnDrawProp = function (o) {
 var p = o.props, own = p.art && F.images && F.images['props/manila_' + p.art] ? 'props/manila_' + p.art : null;
+if (p.ferris) {
+var im = function (k) { return F.images && F.images['props/manila_' + k]; };
+own = im('ferris_stand') && im('ferris_wheel') ? 'props/manila_ferris_stand' : im('ferris_whole') ? 'props/manila_ferris_whole' : null;
+}
 var drawnKey = !own && /^@/.test(p.stand || '') && F.mnStandIn ? F.mnStandIn(this, p.stand.slice(1), p.v || 0) : null;
 var key = own || drawnKey || (/^tw_/.test(p.stand) ? p.stand : 'props/' + p.stand);
 if (!drawnKey && !F.images[key]) return null;
@@ -52382,11 +52456,22 @@ mall_boutique: function (g, w, h) { mallShop(g, w, h, '#e88ab0', ['#f5c0d0', '#a
 mall_toys: function (g, w, h) { mallShop(g, w, h, '#5ab0e8', ['#ffd34a', '#7fd06a', '#e85a5a']); },
 mall_arcade: function (g, w, h) { mallShop(g, w, h, '#7a5ac8', ['#5aff9a', '#ff5ad0', '#5ad0ff']); },
 mall_cinema: function (g, w, h) { mallShop(g, w, h, '#2a2a3a', ['#ffd34a', '#ffd34a', '#ffd34a']); },
-mall_food: function (g, w, h) {
-g.fillStyle = '#f0d8a8'; g.fillRect(0, h * 0.1, w, h * 0.35); g.fillStyle = '#e8743a'; g.fillRect(0, h * 0.05, w, h * 0.1);
-g.fillStyle = '#ffffff'; for (var k = 0; k < 3; k++) { g.beginPath(); g.arc(w * (0.18 + k * 0.32), h * 0.72, h * 0.1, 0, 7); g.fill(); }
-g.fillStyle = '#c8302a'; for (var j = 0; j < 4; j++) g.fillRect(w * (0.08 + j * 0.24), h * 0.2, w * 0.14, h * 0.12);
+mall_food: function (g, w, h, v) {
+var c = ['#e8743a', '#c8302a', '#c86ad0'][(v || 1) - 1];
+g.fillStyle = c; g.fillRect(0, 0, w, h * 0.28); g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(w * 0.5, h * 0.14, h * 0.09, 0, 7); g.fill();
+g.fillStyle = '#f0d8a8'; g.fillRect(w * 0.04, h * 0.3, w * 0.92, h * 0.4); g.fillStyle = '#8a5a34'; g.fillRect(0, h * 0.7, w, h * 0.3);
+g.fillStyle = '#ffffff'; for (var k = 0; k < 3; k++) { g.beginPath(); g.arc(w * (0.22 + k * 0.28), h * 0.62, h * 0.07, 0, 7); g.fill(); }
 },
+mall_shut: function (g, w, h) { g.fillStyle = '#c8c8c0'; g.fillRect(0, 0, w, h * 0.25); g.fillStyle = '#9aa0a6'; g.fillRect(w * 0.04, h * 0.28, w * 0.92, h * 0.72); g.strokeStyle = '#7a8086'; g.lineWidth = 2; for (var k = 1; k < 10; k++) { g.beginPath(); g.moveTo(w * 0.04, h * (0.28 + k * 0.072)); g.lineTo(w * 0.96, h * (0.28 + k * 0.072)); g.stroke(); } g.fillStyle = '#4f9a3a'; g.beginPath(); g.arc(w * 0.08, h * 0.85, w * 0.07, 0, 7); g.arc(w * 0.92, h * 0.85, w * 0.07, 0, 7); g.fill(); },
+mall_doors: function (g, w, h) { g.fillStyle = '#e8e2d4'; g.fillRect(0, 0, w, h); g.fillStyle = '#8fd0f0'; g.fillRect(w * 0.12, h * 0.15, w * 0.76, h * 0.85); g.fillStyle = '#5aa0e0'; g.fillRect(w * 0.12, h * 0.6, w * 0.76, h * 0.4); g.fillStyle = '#ffffff'; g.fillRect(w * 0.49, h * 0.15, w * 0.02, h * 0.85); },
+mall_fountain: function (g, w, h) { g.fillStyle = '#e8e2d4'; g.beginPath(); g.ellipse(w * 0.5, h * 0.75, w * 0.46, h * 0.2, 0, 0, 7); g.fill(); g.fillStyle = '#5ab0e8'; g.beginPath(); g.ellipse(w * 0.5, h * 0.72, w * 0.38, h * 0.14, 0, 0, 7); g.fill(); g.fillStyle = '#e8e2d4'; g.fillRect(w * 0.44, h * 0.3, w * 0.12, h * 0.42); g.fillStyle = '#9fd8f8'; g.beginPath(); g.arc(w * 0.5, h * 0.28, w * 0.14, 0, 7); g.fill(); },
+mall_table: function (g, w, h) { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(w * 0.5, h * 0.45, w * 0.3, h * 0.25, 0, 0, 7); g.fill(); g.fillStyle = '#e8743a'; g.fillRect(w * 0.04, h * 0.4, w * 0.12, h * 0.5); g.fillRect(w * 0.84, h * 0.4, w * 0.12, h * 0.5); },
+mall_palm: function (g, w, h) { g.fillStyle = '#ffffff'; g.fillRect(w * 0.2, h * 0.72, w * 0.6, h * 0.28); g.fillStyle = '#4f9a3a'; for (var k = 0; k < 5; k++) { g.beginPath(); g.ellipse(w * 0.5 + Math.cos(k * 1.3) * w * 0.25, h * 0.35 + Math.sin(k * 1.3) * h * 0.1, w * 0.3, h * 0.06, k * 1.3, 0, 7); g.fill(); } },
+mall_planter: function (g, w, h) { g.fillStyle = '#c8a070'; g.fillRect(0, h * 0.5, w, h * 0.5); g.fillStyle = '#e88ab0'; for (var k = 0; k < 8; k++) { g.beginPath(); g.arc(w * (0.08 + k * 0.12), h * 0.4, h * 0.14, 0, 7); g.fill(); } },
+mall_map_kiosk: function (g, w, h) { g.fillStyle = '#4a5a6a'; g.fillRect(w * 0.35, h * 0.5, w * 0.3, h * 0.5); g.fillStyle = '#f0f0e8'; g.fillRect(w * 0.08, h * 0.05, w * 0.84, h * 0.5); g.fillStyle = '#5ab0e8'; g.fillRect(w * 0.2, h * 0.15, w * 0.25, h * 0.15); g.fillStyle = '#7fd06a'; g.fillRect(w * 0.5, h * 0.3, w * 0.3, h * 0.15); },
+mall_claw: function (g, w, h) { g.fillStyle = '#e85a5a'; g.fillRect(w * 0.1, h * 0.6, w * 0.8, h * 0.4); g.fillStyle = '#cfeaf8'; g.fillRect(w * 0.1, h * 0.05, w * 0.8, h * 0.55); g.fillStyle = '#ffd34a'; g.beginPath(); g.arc(w * 0.4, h * 0.5, w * 0.12, 0, 7); g.arc(w * 0.62, h * 0.48, w * 0.1, 0, 7); g.fill(); },
+mall_cabinet: function (g, w, h) { g.fillStyle = '#3a2a6a'; g.fillRect(w * 0.1, 0, w * 0.8, h); g.fillStyle = '#5affc8'; g.fillRect(w * 0.18, h * 0.1, w * 0.64, h * 0.3); g.fillStyle = '#ff5ad0'; g.beginPath(); g.arc(w * 0.35, h * 0.55, w * 0.07, 0, 7); g.arc(w * 0.65, h * 0.55, w * 0.07, 0, 7); g.fill(); },
+mall_counter: function (g, w, h) { g.fillStyle = '#8a5a34'; g.fillRect(0, h * 0.25, w, h * 0.75); g.fillStyle = '#f0d8a8'; g.fillRect(0, h * 0.15, w, h * 0.15); g.fillStyle = '#4a5a6a'; g.fillRect(w * 0.6, 0, w * 0.25, h * 0.2); },
 mall_escalator: function (g, w, h) {
 g.fillStyle = '#b8c2cc'; g.beginPath(); g.moveTo(w * 0.1, h); g.lineTo(w * 0.35, 0); g.lineTo(w * 0.65, 0); g.lineTo(w * 0.9, h); g.fill();
 g.strokeStyle = '#6a7680'; g.lineWidth = 2; for (var k = 1; k < 10; k++) { g.beginPath(); g.moveTo(w * (0.1 + k * 0.025), h * (1 - k * 0.1)); g.lineTo(w * (0.9 - k * 0.025), h * (1 - k * 0.1)); g.stroke(); }
@@ -52403,7 +52488,39 @@ goods.forEach(function (c, k) { g.fillStyle = c; g.fillRect(w * (0.08 + k * 0.19
 g.fillStyle = '#5a3a24'; g.fillRect(w * 0.72, h * 0.35, w * 0.22, h * 0.65);
 };
 var DRAWN_SIZE = { cart: [2, 2], pickleball_court: [8, 5], tower: [5, 11], mall: [12, 8], college: [14, 9], shophouse: [4, 4], shed: [3, 2], sign_board: [8, 3], ferris_base: [7, 7], ferris_wheel: [7, 7],
-jeepney: [4, 3], mall_boutique: [5, 3], mall_toys: [5, 3], mall_arcade: [5, 3], mall_cinema: [5, 3], mall_food: [6, 4], mall_escalator: [4, 4], mall_bench: [2, 1], mall_plant: [1, 2] };
+jeepney: [4, 3], mall_boutique: [4, 3], mall_toys: [4, 3], mall_arcade: [4, 3], mall_cinema: [4, 3], mall_food: [4, 3], mall_shut: [4, 3], mall_doors: [4, 3],
+mall_escalator: [3, 3], mall_fountain: [3, 3], mall_table: [2, 1], mall_bench: [2, 1], mall_palm: [1, 2], mall_planter: [3, 1], mall_map_kiosk: [1, 2], mall_claw: [1, 2],
+mall_cabinet: [1, 2], mall_counter: [2, 1] };
+
+
+var MALLC = { floor: { main: '#efe6d2', walk: '#e4e4e8', food: '#e0b080', boutique: '#d8b480', toys: '#f0d0e0', arcade: '#2a3a6a', cinema: '#8a2a2a', garden: '#c0c4b8', entrance: '#d8c090' },
+wall: { main: '#f0e6cc', bay: '#9fd0f0', food: '#f2d88a', boutique: '#f5c8d0', toys: '#b8dcf5', arcade: '#5a3a8a', cinema: '#6a1a1a', garden: '#b8e0c0', plain: '#f8f8f4' } };
+var mallSig = null;
+F.mnMallGround = function (scene) {
+var MG = M.MALLG, have = function (k) { return F.images && F.images['manila_tex_' + k]; };
+var sig = MG.FLOORS.map(function (k) { return have('mallfloor_' + k) ? 1 : 0; }).concat(MG.WALLS.map(function (k) { return have('mallwall_' + k) ? 1 : 0; })).join('');
+if (F.images[MG.NAME] && sig === mallSig) return;
+mallSig = sig;
+if (scene.textures.exists(MG.NAME)) scene.textures.remove(MG.NAME);
+var half = 2, S = MG.SIZE / half, MA = MG.MARGIN / half, SP = MG.SPACING / half, cv = document.createElement('canvas');
+cv.width = MG.IMAGE_W / half;
+cv.height = MG.IMAGE_H / half;
+var g = cv.getContext('2d');
+var cell = function (i, img, col, wall) {
+var x = MA + (i % MG.COLS) * (S + SP), y = MA + Math.floor(i / MG.COLS) * (S + SP);
+if (img) { g.drawImage(img, x - MA, y - MA, S + 2 * MA, S + 2 * MA); g.drawImage(img, x, y, S, S); return; }
+g.fillStyle = col; g.fillRect(x - MA, y - MA, S + 2 * MA, S + 2 * MA);
+g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2;
+if (wall) { for (var k = 1; k < 4; k++) g.strokeRect(x + k * S / 4 - 1, y, 2, S); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x, y + S - 6, S, 6); }
+else g.strokeRect(x + 1, y + 1, S - 2, S - 2);
+};
+MG.FLOORS.forEach(function (k, i) { cell(i, have('mallfloor_' + k), MALLC.floor[k], false); });
+MG.WALLS.forEach(function (k, i) { cell(10 + i, have('mallwall_' + k), MALLC.wall[k], true); });
+cell(MG.VOID, null, '#2a1a10', false);
+F.images[MG.NAME] = cv;
+F.sizes = F.sizes || {};
+F.sizes[MG.NAME] = [MG.IMAGE_W, MG.IMAGE_H];
+};
 
 F.mnStandIn = function (scene, name, v) {
 var key = 'mnd-' + name + '-' + (v || 0);
@@ -52563,23 +52680,45 @@ if (show) { v.bag.setPosition(v.x + (v.dir === 'left' ? -0.3 : 0.3) * T, v.y - 0
 };
 
 
+
+
+var has = function (k) { return !!(F.images && F.images['props/manila_' + k]); };
 P.mnFerrisSetup = function () {
 var b = M.buildings.filter(function (x) { return x.ferris; })[0];
 if (!b) return;
-var key = artKey(this, 'ferris_wheel', 'ferris_wheel', 0), size = b.box[2] * 0.95 * T;
-var cx = (b.box[0] + b.box[2] / 2) * T, cy = (b.box[1] + b.box[3] * 0.38) * T;
-this.mn.wheel = this.add.image(cx, cy, key).setDisplaySize(size, size);
-F.depthTo(this.mn.wheel, DEPTH.actor + (b.box[1] + b.box[3]) * T / 1e5 - 1e-5);
+var own = has('ferris_stand') && has('ferris_wheel');
+if (!own && has('ferris_whole')) return;
+var key = own ? F.ensureTexture(this, 'props/manila_ferris_wheel') : F.mnStandIn(this, 'ferris_wheel', 0), size = b.box[2] * 0.95 * T;
+var cx = (b.box[0] + b.box[2] / 2) * T, cy = (b.box[1] + b.box[3] * 0.38) * T, base = DEPTH.actor + (b.box[1] + b.box[3]) * T / 1e5;
+var w = this.mn.wheel = this.add.image(cx, cy, key).setDisplaySize(size, size);
+F.depthTo(w, base - 1e-5);
+this.mn.cars = [];
+if (own) for (var i = 0; i < 8; i++) {
+var ck = has('ferris_car_' + (i + 1)) ? F.ensureTexture(this, 'props/manila_ferris_car_' + (i + 1)) : null;
+var car = ck ? this.add.image(cx, cy, ck).setOrigin(0.5, 0.1) : this.add.circle(cx, cy, 0.3 * T, [0xe85a5a, 0xffd34a, 0x5ab0e8, 0x7fd06a, 0xe88ad0, 0xff9a3a, 0x9a6ad0, 0x4f9a3a][i]);
+if (ck) { var fr = this.textures.getFrame(ck), kk = 0.95 * T / fr.realWidth; car.setDisplaySize(fr.realWidth * kk, fr.realHeight * kk); }
+F.depthTo(car, base - 5e-6);
+this.mn.cars.push(car);
+}
+this.mn.wheelR = size * 0.44;
+};
+P.mnFerrisTurn = function (dt) {
+var mn = this.mn, w = mn.wheel;
+if (!w) return;
+w.rotation += dt * 0.00012;
+(mn.cars || []).forEach(function (c, i) { var a = w.rotation + i * Math.PI / 4; c.setPosition(w.x + Math.cos(a) * mn.wheelR, w.y + Math.sin(a) * mn.wheelR); });
 };
 
 
+
+if (F.SHEETS) F.SHEETS.manila_jeepney = { frameWidth: 512, frameHeight: 384, margin: 0, spacing: 0 };
 P.mnJeepSetup = function () {
-var key = F.images && F.images['props/manila_jeepney'] ? F.ensureTexture(this, 'props/manila_jeepney')
-: F.images && F.images['props/manila_jeep'] ? F.ensureTexture(this, 'props/manila_jeep') : F.mnStandIn(this, 'jeepney', 0);
-var fr = this.textures.getFrame(key), k = Math.min(3.6 * T / fr.realWidth, 2.7 * T / fr.realHeight);
-var img = this.add.image(0, 0, key).setOrigin(0.5, 0.78).setDisplaySize(fr.realWidth * k, fr.realHeight * k);
+var sheet = !!(F.images && F.images.manila_jeepney);
+var key = sheet ? F.ensureTexture(this, 'manila_jeepney') : F.images && F.images['props/manila_jeep'] ? F.ensureTexture(this, 'props/manila_jeep') : F.mnStandIn(this, 'jeepney', 0);
+var fr = this.textures.getFrame(key, 0), k = Math.min(3.6 * T / fr.realWidth, 2.7 * T / fr.realHeight);
+var img = (sheet ? this.add.sprite(0, 0, key, 0) : this.add.image(0, 0, key)).setOrigin(0.5, 0.78).setDisplaySize(fr.realWidth * k, fr.realHeight * k);
 var glow = this.add.ellipse(0, 0, 1.6 * T, 0.9 * T, 0xfff3a0, 0.35).setVisible(false);
-this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null };
+this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null, sheet: sheet, ms: 0 };
 this.mnJeepUpdate(0);
 };
 
@@ -52599,7 +52738,9 @@ var now = jeepNow(), st = L.jeepAt(now - J0.lag);
 if (st.on && st.stop < 0) {
 var ahead = L.jeepAt(now - J0.lag + 700);
 if (ahead.stop < 0 || ahead.d !== st.d) {
+J0.held = false;
 if (this.mnJeepBlocked(st, ahead)) {
+J0.held = true;
 J0.lag += dt;
 st = L.jeepAt(now - J0.lag);
 J0.honkMs -= dt;
@@ -52610,6 +52751,11 @@ if (J0.honkMs <= 0) { J0.honkMs = 2500; sfx('nope'); if (this.floatTextAt) this.
 J0.at = st;
 var x = st.x * T, y = st.y * T;
 J0.img.setVisible(st.on).setPosition(x, y).setFlipX(st.dir === 'right');
+if (J0.sheet) {
+J0.ms += dt;
+var row = st.dir === 'down' ? 0 : st.dir === 'up' ? 1 : 2, moving = st.stop < 0 && !J0.held;
+J0.img.setFrame(row * 3 + (moving ? 1 + Math.floor(J0.ms / 160) % 2 : 0));
+}
 F.depthTo(J0.img, DEPTH.actor + y / 1e5);
 J0.glow.setVisible(st.on && st.lights).setPosition(x + (st.dir === 'right' ? 1.9 : st.dir === 'left' ? -1.9 : 0) * T, y + (st.dir === 'down' ? 1 : st.dir === 'up' ? -1.4 : -0.2) * T);
 F.depthTo(J0.glow, DEPTH.actor + y / 1e5 - 1e-6);
@@ -52678,7 +52824,7 @@ if (!this.mn || this.busy) return;
 var dt = Math.min(delta, 100);
 this.mnJeepUpdate(dt);
 this.mnUpdateRoles(dt);
-if (this.mn.wheel) this.mn.wheel.rotation += dt * 0.00012;
+this.mnFerrisTurn(dt);
 if (riding && this.player.anims.isPlaying) this.idle();
 };
 U.mnJeepStops = function (from) {

@@ -16,6 +16,16 @@ const config = () => {
   fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx));
   return ctx.window.Farm.Config;
 };
+// what a city-life file (C.MANILA.life.files) becomes in the pack
+const lifeKeys = (file, d) => {
+  if (d.tex) return ['manila_tex_' + d.tex];
+  if (d.swatch) return d.swatch[2].map((n) => 'manila_tex_' + d.prefix + n);
+  if (d.single) return ['props/manila_' + d.single];
+  if (d.sheet) return d.sheet[2].filter(Boolean).map((n) => 'props/manila_' + n);
+  if (d.vehicle) return ['manila_' + d.vehicle];
+  if (d.person) return [file];
+  return [];
+};
 // every key the pack can hold: the ground textures, the single pictures, the sheets' pieces, the people's sheets
 const keys = () => {
   const M = config().MANILA, A = M.art, out = [];
@@ -25,12 +35,13 @@ const keys = () => {
   M.people.order.forEach((k) => out.push(M.people[k].sheet));
   (M.crowd.sheets || []).forEach((k) => out.push(k)); // (the three ground guides, passers-by for now)
   // city life (docs/manila-city-life.md): its buildings, props and the jeepney; its people
-  if (M.life) { Object.keys(M.life.art).forEach((n) => out.push('props/manila_' + n)); M.life.people.forEach((k) => out.push(k)); }
+  if (M.life) Object.keys(M.life.files).forEach((file) => lifeKeys(file, M.life.files[file]).forEach((k) => out.push(k)));
   return [...new Set(out)];
 };
 
 module.exports = {
   config,
+  lifeKeys,
   all: keys,
   packed: () => keys().filter((k) => fs.existsSync(path.join(ASSETS, k + '.webp'))),
 };

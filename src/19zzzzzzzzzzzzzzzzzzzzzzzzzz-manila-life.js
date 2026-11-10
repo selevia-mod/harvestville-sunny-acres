@@ -123,11 +123,22 @@
     mall_toys: function (g, w, h) { mallShop(g, w, h, '#5ab0e8', ['#ffd34a', '#7fd06a', '#e85a5a']); },
     mall_arcade: function (g, w, h) { mallShop(g, w, h, '#7a5ac8', ['#5aff9a', '#ff5ad0', '#5ad0ff']); },
     mall_cinema: function (g, w, h) { mallShop(g, w, h, '#2a2a3a', ['#ffd34a', '#ffd34a', '#ffd34a']); },
-    mall_food: function (g, w, h) { // the food court: counters and little tables
-      g.fillStyle = '#f0d8a8'; g.fillRect(0, h * 0.1, w, h * 0.35); g.fillStyle = '#e8743a'; g.fillRect(0, h * 0.05, w, h * 0.1);
-      g.fillStyle = '#ffffff'; for (var k = 0; k < 3; k++) { g.beginPath(); g.arc(w * (0.18 + k * 0.32), h * 0.72, h * 0.1, 0, 7); g.fill(); }
-      g.fillStyle = '#c8302a'; for (var j = 0; j < 4; j++) g.fillRect(w * (0.08 + j * 0.24), h * 0.2, w * 0.14, h * 0.12);
+    mall_food: function (g, w, h, v) { // a food court stall: its board and its counter (1 rice and noodles, 2 barbecue, 3 halo-halo)
+      var c = ['#e8743a', '#c8302a', '#c86ad0'][(v || 1) - 1];
+      g.fillStyle = c; g.fillRect(0, 0, w, h * 0.28); g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(w * 0.5, h * 0.14, h * 0.09, 0, 7); g.fill();
+      g.fillStyle = '#f0d8a8'; g.fillRect(w * 0.04, h * 0.3, w * 0.92, h * 0.4); g.fillStyle = '#8a5a34'; g.fillRect(0, h * 0.7, w, h * 0.3);
+      g.fillStyle = '#ffffff'; for (var k = 0; k < 3; k++) { g.beginPath(); g.arc(w * (0.22 + k * 0.28), h * 0.62, h * 0.07, 0, 7); g.fill(); }
     },
+    mall_shut: function (g, w, h) { g.fillStyle = '#c8c8c0'; g.fillRect(0, 0, w, h * 0.25); g.fillStyle = '#9aa0a6'; g.fillRect(w * 0.04, h * 0.28, w * 0.92, h * 0.72); g.strokeStyle = '#7a8086'; g.lineWidth = 2; for (var k = 1; k < 10; k++) { g.beginPath(); g.moveTo(w * 0.04, h * (0.28 + k * 0.072)); g.lineTo(w * 0.96, h * (0.28 + k * 0.072)); g.stroke(); } g.fillStyle = '#4f9a3a'; g.beginPath(); g.arc(w * 0.08, h * 0.85, w * 0.07, 0, 7); g.arc(w * 0.92, h * 0.85, w * 0.07, 0, 7); g.fill(); },
+    mall_doors: function (g, w, h) { g.fillStyle = '#e8e2d4'; g.fillRect(0, 0, w, h); g.fillStyle = '#8fd0f0'; g.fillRect(w * 0.12, h * 0.15, w * 0.76, h * 0.85); g.fillStyle = '#5aa0e0'; g.fillRect(w * 0.12, h * 0.6, w * 0.76, h * 0.4); g.fillStyle = '#ffffff'; g.fillRect(w * 0.49, h * 0.15, w * 0.02, h * 0.85); },
+    mall_fountain: function (g, w, h) { g.fillStyle = '#e8e2d4'; g.beginPath(); g.ellipse(w * 0.5, h * 0.75, w * 0.46, h * 0.2, 0, 0, 7); g.fill(); g.fillStyle = '#5ab0e8'; g.beginPath(); g.ellipse(w * 0.5, h * 0.72, w * 0.38, h * 0.14, 0, 0, 7); g.fill(); g.fillStyle = '#e8e2d4'; g.fillRect(w * 0.44, h * 0.3, w * 0.12, h * 0.42); g.fillStyle = '#9fd8f8'; g.beginPath(); g.arc(w * 0.5, h * 0.28, w * 0.14, 0, 7); g.fill(); },
+    mall_table: function (g, w, h) { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(w * 0.5, h * 0.45, w * 0.3, h * 0.25, 0, 0, 7); g.fill(); g.fillStyle = '#e8743a'; g.fillRect(w * 0.04, h * 0.4, w * 0.12, h * 0.5); g.fillRect(w * 0.84, h * 0.4, w * 0.12, h * 0.5); },
+    mall_palm: function (g, w, h) { g.fillStyle = '#ffffff'; g.fillRect(w * 0.2, h * 0.72, w * 0.6, h * 0.28); g.fillStyle = '#4f9a3a'; for (var k = 0; k < 5; k++) { g.beginPath(); g.ellipse(w * 0.5 + Math.cos(k * 1.3) * w * 0.25, h * 0.35 + Math.sin(k * 1.3) * h * 0.1, w * 0.3, h * 0.06, k * 1.3, 0, 7); g.fill(); } },
+    mall_planter: function (g, w, h) { g.fillStyle = '#c8a070'; g.fillRect(0, h * 0.5, w, h * 0.5); g.fillStyle = '#e88ab0'; for (var k = 0; k < 8; k++) { g.beginPath(); g.arc(w * (0.08 + k * 0.12), h * 0.4, h * 0.14, 0, 7); g.fill(); } },
+    mall_map_kiosk: function (g, w, h) { g.fillStyle = '#4a5a6a'; g.fillRect(w * 0.35, h * 0.5, w * 0.3, h * 0.5); g.fillStyle = '#f0f0e8'; g.fillRect(w * 0.08, h * 0.05, w * 0.84, h * 0.5); g.fillStyle = '#5ab0e8'; g.fillRect(w * 0.2, h * 0.15, w * 0.25, h * 0.15); g.fillStyle = '#7fd06a'; g.fillRect(w * 0.5, h * 0.3, w * 0.3, h * 0.15); },
+    mall_claw: function (g, w, h) { g.fillStyle = '#e85a5a'; g.fillRect(w * 0.1, h * 0.6, w * 0.8, h * 0.4); g.fillStyle = '#cfeaf8'; g.fillRect(w * 0.1, h * 0.05, w * 0.8, h * 0.55); g.fillStyle = '#ffd34a'; g.beginPath(); g.arc(w * 0.4, h * 0.5, w * 0.12, 0, 7); g.arc(w * 0.62, h * 0.48, w * 0.1, 0, 7); g.fill(); },
+    mall_cabinet: function (g, w, h) { g.fillStyle = '#3a2a6a'; g.fillRect(w * 0.1, 0, w * 0.8, h); g.fillStyle = '#5affc8'; g.fillRect(w * 0.18, h * 0.1, w * 0.64, h * 0.3); g.fillStyle = '#ff5ad0'; g.beginPath(); g.arc(w * 0.35, h * 0.55, w * 0.07, 0, 7); g.arc(w * 0.65, h * 0.55, w * 0.07, 0, 7); g.fill(); },
+    mall_counter: function (g, w, h) { g.fillStyle = '#8a5a34'; g.fillRect(0, h * 0.25, w, h * 0.75); g.fillStyle = '#f0d8a8'; g.fillRect(0, h * 0.15, w, h * 0.15); g.fillStyle = '#4a5a6a'; g.fillRect(w * 0.6, 0, w * 0.25, h * 0.2); },
     mall_escalator: function (g, w, h) {
       g.fillStyle = '#b8c2cc'; g.beginPath(); g.moveTo(w * 0.1, h); g.lineTo(w * 0.35, 0); g.lineTo(w * 0.65, 0); g.lineTo(w * 0.9, h); g.fill();
       g.strokeStyle = '#6a7680'; g.lineWidth = 2; for (var k = 1; k < 10; k++) { g.beginPath(); g.moveTo(w * (0.1 + k * 0.025), h * (1 - k * 0.1)); g.lineTo(w * (0.9 - k * 0.025), h * (1 - k * 0.1)); g.stroke(); }
@@ -144,7 +155,39 @@
     g.fillStyle = '#5a3a24'; g.fillRect(w * 0.72, h * 0.35, w * 0.22, h * 0.65);
   };
   var DRAWN_SIZE = { cart: [2, 2], pickleball_court: [8, 5], tower: [5, 11], mall: [12, 8], college: [14, 9], shophouse: [4, 4], shed: [3, 2], sign_board: [8, 3], ferris_base: [7, 7], ferris_wheel: [7, 7],
-    jeepney: [4, 3], mall_boutique: [5, 3], mall_toys: [5, 3], mall_arcade: [5, 3], mall_cinema: [5, 3], mall_food: [6, 4], mall_escalator: [4, 4], mall_bench: [2, 1], mall_plant: [1, 2] };
+    jeepney: [4, 3], mall_boutique: [4, 3], mall_toys: [4, 3], mall_arcade: [4, 3], mall_cinema: [4, 3], mall_food: [4, 3], mall_shut: [4, 3], mall_doors: [4, 3],
+    mall_escalator: [3, 3], mall_fountain: [3, 3], mall_table: [2, 1], mall_bench: [2, 1], mall_palm: [1, 2], mall_planter: [3, 1], mall_map_kiosk: [1, 2], mall_claw: [1, 2],
+    mall_cabinet: [1, 2], mall_counter: [2, 1] };
+  // the Mall's own floor and wall sheet (M.MALLG): the owner's swatches (manila_tex_mallfloor_<k>, manila_tex_mallwall_<k>) once
+  // they are in, else plain colours
+  var MALLC = { floor: { main: '#efe6d2', walk: '#e4e4e8', food: '#e0b080', boutique: '#d8b480', toys: '#f0d0e0', arcade: '#2a3a6a', cinema: '#8a2a2a', garden: '#c0c4b8', entrance: '#d8c090' },
+    wall: { main: '#f0e6cc', bay: '#9fd0f0', food: '#f2d88a', boutique: '#f5c8d0', toys: '#b8dcf5', arcade: '#5a3a8a', cinema: '#6a1a1a', garden: '#b8e0c0', plain: '#f8f8f4' } };
+  var mallSig = null;
+  F.mnMallGround = function (scene) {
+    var MG = M.MALLG, have = function (k) { return F.images && F.images['manila_tex_' + k]; };
+    var sig = MG.FLOORS.map(function (k) { return have('mallfloor_' + k) ? 1 : 0; }).concat(MG.WALLS.map(function (k) { return have('mallwall_' + k) ? 1 : 0; })).join('');
+    if (F.images[MG.NAME] && sig === mallSig) return;
+    mallSig = sig;
+    if (scene.textures.exists(MG.NAME)) scene.textures.remove(MG.NAME);
+    var half = 2, S = MG.SIZE / half, MA = MG.MARGIN / half, SP = MG.SPACING / half, cv = document.createElement('canvas');
+    cv.width = MG.IMAGE_W / half;
+    cv.height = MG.IMAGE_H / half;
+    var g = cv.getContext('2d');
+    var cell = function (i, img, col, wall) {
+      var x = MA + (i % MG.COLS) * (S + SP), y = MA + Math.floor(i / MG.COLS) * (S + SP);
+      if (img) { g.drawImage(img, x - MA, y - MA, S + 2 * MA, S + 2 * MA); g.drawImage(img, x, y, S, S); return; }
+      g.fillStyle = col; g.fillRect(x - MA, y - MA, S + 2 * MA, S + 2 * MA);
+      g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2;
+      if (wall) { for (var k = 1; k < 4; k++) g.strokeRect(x + k * S / 4 - 1, y, 2, S); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x, y + S - 6, S, 6); }
+      else g.strokeRect(x + 1, y + 1, S - 2, S - 2);
+    };
+    MG.FLOORS.forEach(function (k, i) { cell(i, have('mallfloor_' + k), MALLC.floor[k], false); });
+    MG.WALLS.forEach(function (k, i) { cell(10 + i, have('mallwall_' + k), MALLC.wall[k], true); });
+    cell(MG.VOID, null, '#2a1a10', false);
+    F.images[MG.NAME] = cv;
+    F.sizes = F.sizes || {};
+    F.sizes[MG.NAME] = [MG.IMAGE_W, MG.IMAGE_H];
+  };
   // a stand-in's texture key (made once; the same for every map: let go with the scene's textures like any other)
   F.mnStandIn = function (scene, name, v) {
     var key = 'mnd-' + name + '-' + (v || 0);
@@ -304,23 +347,45 @@
   };
 
   // ---------- the Ferris wheel ----------
+  // The owner's pictures: the stand (ferris_stand, drawn as the building) + the wheel (ferris_wheel, turning) + 8 gondolas
+  // (ferris_cars) hanging from it and staying upright; or, with only ferris_whole, that one picture, still. Else drawn.
+  var has = function (k) { return !!(F.images && F.images['props/manila_' + k]); };
   P.mnFerrisSetup = function () {
     var b = M.buildings.filter(function (x) { return x.ferris; })[0];
     if (!b) return;
-    var key = artKey(this, 'ferris_wheel', 'ferris_wheel', 0), size = b.box[2] * 0.95 * T;
-    var cx = (b.box[0] + b.box[2] / 2) * T, cy = (b.box[1] + b.box[3] * 0.38) * T;
-    this.mn.wheel = this.add.image(cx, cy, key).setDisplaySize(size, size);
-    F.depthTo(this.mn.wheel, DEPTH.actor + (b.box[1] + b.box[3]) * T / 1e5 - 1e-5); // (behind its legs)
+    var own = has('ferris_stand') && has('ferris_wheel');
+    if (!own && has('ferris_whole')) return; // (the whole picture is the building: mnDrawProp uses it, see below)
+    var key = own ? F.ensureTexture(this, 'props/manila_ferris_wheel') : F.mnStandIn(this, 'ferris_wheel', 0), size = b.box[2] * 0.95 * T;
+    var cx = (b.box[0] + b.box[2] / 2) * T, cy = (b.box[1] + b.box[3] * 0.38) * T, base = DEPTH.actor + (b.box[1] + b.box[3]) * T / 1e5;
+    var w = this.mn.wheel = this.add.image(cx, cy, key).setDisplaySize(size, size);
+    F.depthTo(w, base - 1e-5); // (behind its legs)
+    this.mn.cars = [];
+    if (own) for (var i = 0; i < 8; i++) {
+      var ck = has('ferris_car_' + (i + 1)) ? F.ensureTexture(this, 'props/manila_ferris_car_' + (i + 1)) : null;
+      var car = ck ? this.add.image(cx, cy, ck).setOrigin(0.5, 0.1) : this.add.circle(cx, cy, 0.3 * T, [0xe85a5a, 0xffd34a, 0x5ab0e8, 0x7fd06a, 0xe88ad0, 0xff9a3a, 0x9a6ad0, 0x4f9a3a][i]);
+      if (ck) { var fr = this.textures.getFrame(ck), kk = 0.95 * T / fr.realWidth; car.setDisplaySize(fr.realWidth * kk, fr.realHeight * kk); }
+      F.depthTo(car, base - 5e-6);
+      this.mn.cars.push(car);
+    }
+    this.mn.wheelR = size * 0.44;
+  };
+  P.mnFerrisTurn = function (dt) {
+    var mn = this.mn, w = mn.wheel;
+    if (!w) return;
+    w.rotation += dt * 0.00012; // (slowly: a turn in under a minute)
+    (mn.cars || []).forEach(function (c, i) { var a = w.rotation + i * Math.PI / 4; c.setPosition(w.x + Math.cos(a) * mn.wheelR, w.y + Math.sin(a) * mn.wheelR); }); // (upright)
   };
 
   // ---------- the jeepney ----------
+  // the owner's jeepney (jeepney.png: a 3 x 3 driving sheet, manila_jeepney), else the city prop jeep, else drawn
+  if (F.SHEETS) F.SHEETS.manila_jeepney = { frameWidth: 512, frameHeight: 384, margin: 0, spacing: 0 };
   P.mnJeepSetup = function () {
-    var key = F.images && F.images['props/manila_jeepney'] ? F.ensureTexture(this, 'props/manila_jeepney')
-      : F.images && F.images['props/manila_jeep'] ? F.ensureTexture(this, 'props/manila_jeep') : F.mnStandIn(this, 'jeepney', 0);
-    var fr = this.textures.getFrame(key), k = Math.min(3.6 * T / fr.realWidth, 2.7 * T / fr.realHeight);
-    var img = this.add.image(0, 0, key).setOrigin(0.5, 0.78).setDisplaySize(fr.realWidth * k, fr.realHeight * k);
+    var sheet = !!(F.images && F.images.manila_jeepney);
+    var key = sheet ? F.ensureTexture(this, 'manila_jeepney') : F.images && F.images['props/manila_jeep'] ? F.ensureTexture(this, 'props/manila_jeep') : F.mnStandIn(this, 'jeepney', 0);
+    var fr = this.textures.getFrame(key, 0), k = Math.min(3.6 * T / fr.realWidth, 2.7 * T / fr.realHeight);
+    var img = (sheet ? this.add.sprite(0, 0, key, 0) : this.add.image(0, 0, key)).setOrigin(0.5, 0.78).setDisplaySize(fr.realWidth * k, fr.realHeight * k);
     var glow = this.add.ellipse(0, 0, 1.6 * T, 0.9 * T, 0xfff3a0, 0.35).setVisible(false);
-    this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null };
+    this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null, sheet: sheet, ms: 0 };
     this.mnJeepUpdate(0);
   };
   // someone the jeep must not run over: in front of it on its way (you, friends online, a city folk on a crosswalk)
@@ -340,7 +405,9 @@
     if (st.on && st.stop < 0) {
       var ahead = L.jeepAt(now - J0.lag + 700);
       if (ahead.stop < 0 || ahead.d !== st.d) {
+        J0.held = false;
         if (this.mnJeepBlocked(st, ahead)) {
+          J0.held = true;
           J0.lag += dt;
           st = L.jeepAt(now - J0.lag);
           J0.honkMs -= dt;
@@ -351,6 +418,11 @@
     J0.at = st;
     var x = st.x * T, y = st.y * T;
     J0.img.setVisible(st.on).setPosition(x, y).setFlipX(st.dir === 'right');
+    if (J0.sheet) { // its rows: down, up, left (right: left, turned); its columns: stopped, driving 1, driving 2
+      J0.ms += dt;
+      var row = st.dir === 'down' ? 0 : st.dir === 'up' ? 1 : 2, moving = st.stop < 0 && !J0.held;
+      J0.img.setFrame(row * 3 + (moving ? 1 + Math.floor(J0.ms / 160) % 2 : 0));
+    }
     F.depthTo(J0.img, DEPTH.actor + y / 1e5);
     J0.glow.setVisible(st.on && st.lights).setPosition(x + (st.dir === 'right' ? 1.9 : st.dir === 'left' ? -1.9 : 0) * T, y + (st.dir === 'down' ? 1 : st.dir === 'up' ? -1.4 : -0.2) * T);
     F.depthTo(J0.glow, DEPTH.actor + y / 1e5 - 1e-6);
@@ -419,7 +491,7 @@
     var dt = Math.min(delta, 100);
     this.mnJeepUpdate(dt);
     this.mnUpdateRoles(dt);
-    if (this.mn.wheel) this.mn.wheel.rotation += dt * 0.00012; // (slowly: a turn in under a minute)
+    this.mnFerrisTurn(dt);
     if (riding && this.player.anims.isPlaying) this.idle();
   };
   U.mnJeepStops = function (from) {

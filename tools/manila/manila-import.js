@@ -73,7 +73,7 @@ const save = (name, r) => {
     W.draw(o.getContext('2d'), x.c, x, k, ow / 2, oh);
     return Object.assign(W.out(o, 0.85), { w: ow, h: oh });
   }, [src, wTiles, hTiles, TILE]);
-  const singles = Object.assign({}, A.singles, (M.life && M.life.art) || {}); // (city life's too)
+  const singles = Object.assign({}, A.singles);
   for (const name of Object.keys(singles)) {
     const src = pic(name);
     if (!src) continue;
@@ -104,6 +104,7 @@ const save = (name, r) => {
 
   // ---------- the people: a 3 x 3 sheet as one row of 9 (a villager's) ----------
   for (const sheet of M.people.order.map((k) => M.people[k].sheet).concat(M.crowd.sheets || [], (M.life && M.life.people) || [])) {
+    if (M.life && M.life.files[sheet] && !fs.existsSync(path.join(SRC, sheet + '.png')) && !fs.existsSync(path.join(SRC, M.life.folder, sheet + '.png'))) continue;
     const src = pic(sheet);
     if (!src) continue;
     const r = await p.evaluate(async (s) => {
@@ -115,6 +116,68 @@ const save = (name, r) => {
     }, src);
     save(sheet, r);
     done.push(sheet);
+  }
+
+  // ---------- city life (docs/manila-city-life.md): EXACTLY MANILA-CITY-LIFE-PROMPTS.md's files, by C.MANILA.life.files ----------
+  const LF = (M.life && M.life.files) || {}, cityPic = (n) => { const f = path.join(SRC, M.life.folder, n + '.png'); return fs.existsSync(f) ? data(f) : null; };
+  const seamless = (s, S) => p.evaluate(async ([s, S]) => {
+    const img = await W.load(s), c = W.canvas(S, S), g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, S, S);
+    return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.85), w: S, h: S };
+  }, [s, S]);
+  for (const file of Object.keys(LF)) {
+    const d = LF[file], src = cityPic(file);
+    if (!src) continue;
+    if (d.tex) save('manila_tex_' + d.tex, await seamless(src, 256));
+    else if (d.swatch) { // squares on a plain white page: each cell's square, trimmed of the white round it
+      const [cols, rows, names] = d.swatch;
+      const out = await p.evaluate(async ([s, cols, rows, n]) => {
+        const img = await W.load(s), cw = img.width / cols, ch = img.height / rows, res = [];
+        const c0 = W.canvas(img.width, img.height), g0 = c0.getContext('2d');
+        g0.drawImage(img, 0, 0);
+        for (let i = 0; i < n; i++) {
+          const x0 = (i % cols) * cw, y0 = Math.floor(i / cols) * ch, px = g0.getImageData(x0, y0, cw, ch).data;
+          let a = cw, b = ch, e = 0, f = 0;
+          for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+            const k = (y * cw + x) * 4, white = px[k] > 235 && px[k + 1] > 235 && px[k + 2] > 235;
+            if (px[k + 3] > 40 && !white) { if (x < a) a = x; if (x > e) e = x; if (y < b) b = y; if (y > f) f = y; }
+          }
+          if (e <= a || f <= b) throw new Error('swatch ' + (i + 1) + ' is empty');
+          const m = Math.round(Math.min(e - a, f - b) * 0.04), o = W.canvas(256, 256), g = o.getContext('2d');
+          g.imageSmoothingQuality = 'high';
+          g.drawImage(c0, x0 + a + m, y0 + b + m, e - a - 2 * m, f - b - 2 * m, 0, 0, 256, 256);
+          res.push({ png: o.toDataURL('image/png'), webp: o.toDataURL('image/webp', 0.85), w: 256, h: 256 });
+        }
+        return res;
+      }, [src, cols, rows, names.length]);
+      names.forEach((n, i) => save('manila_tex_' + d.prefix + n, out[i]));
+    } else if (d.single) save('props/manila_' + d.single, await one(src, d.size[0], d.size[1]));
+    else if (d.sheet) {
+      const [cols, rows, names] = d.sheet;
+      const cut = await p.evaluate(async ([s, cols, rows, n, w, TL]) => {
+        const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), cols, rows, 0.02), out = [];
+        for (let i = 0; i < n; i++) {
+          const x = cl[i];
+          if (!x) { out.push(null); continue; }
+          const k = w * TL / Math.max(x.w, x.h * 0.9), ow = Math.round(x.w * k), oh = Math.round(x.h * k), o = W.canvas(ow, oh);
+          W.draw(o.getContext('2d'), x.c, x, k, ow / 2, oh);
+          out.push(Object.assign(W.out(o, 0.85), { w: ow, h: oh }));
+        }
+        return out;
+      }, [src, cols, rows, names.length, d.w || 2, TILE]);
+      names.forEach((n, i) => { if (!n) return; if (!cut[i]) throw new Error(file + ': piece ' + (i + 1) + ' is missing'); save('props/manila_' + n, cut[i]); });
+    } else if (d.vehicle) { // a 3 x 3 driving sheet: every frame the same scale, standing on the same line, in a 3 x 3 grid of 512 x 384
+      const r = await p.evaluate(async (s) => {
+        const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 3, 3, 0.02);
+        if (cl.some((x) => !x)) throw new Error('a frame is missing');
+        const FW = 512, FH = 384, k = Math.min(...cl.map((x) => Math.min((FW - 16) / x.w, (FH - 12) / x.h))), o = W.canvas(FW * 3, FH * 3), g = o.getContext('2d');
+        cl.forEach((x, i) => W.draw(g, x.c, x, k, (i % 3) * FW + FW / 2, Math.floor(i / 3) * FH + FH - 6));
+        return Object.assign(W.out(o, 0.85), { w: o.width, h: o.height });
+      }, src);
+      save('manila_' + d.vehicle, r);
+    } else continue; // (person: with the other people, above)
+    done.push('city/' + file);
   }
 
   await b.close();

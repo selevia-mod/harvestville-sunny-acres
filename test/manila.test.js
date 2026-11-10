@@ -35,7 +35,7 @@ test('the map: 90 x 90, the town\'s own tile and season sheets (same numbers) an
   assert.deepStrictEqual(names, ['tiles', 'seasons', 'manila_ground']);
   ['tiles', 'seasons'].forEach((n) => assert.strictEqual(map.tilesets.find((t) => t.name === n).firstgid, TOWN.tilesets.find((t) => t.name === n).firstgid, n));
   const own = map.tilesets.find((t) => t.name === 'manila_ground');
-  assert.strictEqual(own.tilecount, 25); // (5 x 5: the city's ground and the plaza drawn over 3 x 3 tiles)
+  assert.strictEqual(own.tilecount, 30); // (5 x 6: the city's ground, the road's lanes and the plaza drawn over 3 x 3 tiles)
   assert.ok(own.imagewidth <= 4096 && own.imageheight <= 4096, 'no sheet over 4096 px');
   assert.strictEqual((own.imagewidth - 2 * own.margin + own.spacing) % (own.tilewidth + own.spacing), 0, 'a whole number of tiles across');
   assert.ok(!map.tilesets.some((t) => t.name === 'props'), 'its buildings are drawn by the game, not Tiled props');
@@ -231,8 +231,8 @@ test('the jeep\'s loop: on its own road all the way, its 6 stops in order, a loo
   assert.strictEqual(r.len, 276);
   assert.deepStrictEqual(plain(r.stops.map((s) => J.stops[s.i].key)), ['station', 'talipapa', 'college', 'mall', 'baywalk', 'plaza']);
   assert.strictEqual(r.loopMs, r.len * 1000 / J.speed + 6 * J.stopMs);
-  const own = map.tilesets.find((t) => t.name === 'manila_ground'), asphalt = own.firstgid + M.GROUND.T.asphalt, cross = [own.firstgid + M.GROUND.T.cross_h, own.firstgid + M.GROUND.T.cross_v];
-  const g = map.layers[0].data, road = (x, y) => [asphalt].concat(cross).includes(g[y * 90 + x]);
+  const own = map.tilesets.find((t) => t.name === 'manila_ground'), roadIds = Object.keys(M.GROUND.ROAD).concat(['cross_h', 'cross_v']).map((k) => own.firstgid + M.GROUND.T[k]);
+  const g = map.layers[0].data, road = (x, y) => roadIds.includes(g[y * 90 + x]);
   const DAY = Date.UTC(2026, 3, 1, 4, 0); // (noon in Manila)
   let last = L.jeepAt(DAY);
   for (let t = 0; t < r.loopMs; t += 250) {
@@ -291,4 +291,23 @@ test('the Mall inside: its own small map (the house\'s sheet), shops and a food 
   const b = L.deserialize(o);
   assert.strictEqual(b.map, 'manila');
   assert.deepStrictEqual([Math.round(b.player.x / 256 * 10) / 10, Math.round(b.player.y / 256 * 10) / 10], plain(M.mall.out));
+});
+
+test('city life\'s pictures: every file MANILA-CITY-LIFE-PROMPTS.md asks for is known to the importer (used now, or kept for a later step)', (t) => {
+  const file = path.join(__dirname, '..', 'art-src', 'MANILA-CITY-LIFE-PROMPTS.md');
+  if (!fs.existsSync(file)) return t.skip('no art-src/MANILA-CITY-LIFE-PROMPTS.md here');
+  const names = [...new Set([...fs.readFileSync(file, 'utf8').matchAll(/manila\/city\/([a-z0-9_]+)\.png/g)].map((m) => m[1]))];
+  assert.ok(names.length >= 74, 'the prompts\' files: ' + names.length);
+  const known = new Set(Object.keys(M.life.files).concat(M.life.later));
+  assert.deepStrictEqual(names.filter((n) => !known.has(n)), [], 'files the importer does not know');
+  assert.deepStrictEqual([...known].filter((n) => !names.includes(n)), [], 'names the importer expects that the prompts do not make');
+  assert.ok(!Object.keys(M.life.files).some((n) => M.life.later.includes(n)), 'none both used and later');
+  // what the game uses them as: each piece of a sheet once, and the buildings', roles' and sheds' art all come from these files
+  const { lifeKeys } = require('../tools/manila/manila-art');
+  const made = new Set(Object.keys(M.life.files).flatMap((n) => lifeKeys(n, M.life.files[n])));
+  const want = M.buildings.filter((b) => b.art && /^(office_tower|mall|ferris|college|chinatown|pickleball|shed_|shophouse_|dimsum|chestnut)/.test(b.art)).map((b) => 'props/manila_' + b.art);
+  want.forEach((k) => assert.ok(made.has(k), k + ' comes from a city-life file'));
+  Object.keys(M.roles).concat(Object.keys(M.mall.roles)).forEach((r) => ((M.roles[r] || M.mall.roles[r]).sheets || []).forEach((sh) => assert.ok(made.has(sh), r + ': ' + sh)));
+  M.mall.shops.forEach((sh) => assert.ok(made.has('props/manila_' + sh.art), sh.key + ': ' + sh.art));
+  M.mall.props.forEach((p) => assert.ok(made.has('props/manila_mall_' + p[0]), 'mall ' + p[0]));
 });

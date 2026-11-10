@@ -91,8 +91,12 @@
       asphalt: function () { speck('#5d6168', 'rgba(255,255,255,0.12)', 60); },
       sidewalk: function () { o.fillStyle = '#c9c5bb'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(90,85,75,0.35)'; o.lineWidth = 2; o.strokeRect(1, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(1, S / 2, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, S / 2, S / 2 - 1, S / 2 - 1); },
       concrete: function () { speck('#d8d4ca', 'rgba(80,75,65,0.12)', 30); o.strokeStyle = 'rgba(90,85,75,0.18)'; o.lineWidth = 2; o.strokeRect(1, 1, S - 2, S - 2); },
-      cross_h: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var x = 6; x < S; x += S / 5) o.fillRect(x, 6, S / 10, S - 12); },
-      cross_v: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var y = 6; y < S; y += S / 5) o.fillRect(6, y, S - 12, S / 10); },
+      cross_h: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var y = 6; y < S; y += S / 5) o.fillRect(6, y, S - 12, S / 10); },
+      cross_v: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var x = 6; x < S; x += S / 5) o.fillRect(x, 6, S / 10, S - 12); },
+      lane_n: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var x = 4; x < S; x += S / 2) o.fillRect(x, S - 3, S / 4, 3); },
+      lane_s: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var x = 4; x < S; x += S / 2) o.fillRect(x, 0, S / 4, 3); },
+      lane_w: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var y = 4; y < S; y += S / 2) o.fillRect(S - 3, y, 3, S / 4); },
+      lane_e: function () { DRAW.asphalt(); o.fillStyle = '#f2c94a'; for (var y = 4; y < S; y += S / 2) o.fillRect(0, y, 3, S / 4); },
       baywalk: function () { // the bay walk: long pale slabs, a little round tile
         o.fillStyle = '#e6d8b8'; o.fillRect(0, 0, S, S);
         o.fillStyle = 'rgba(150,120,80,0.35)';
@@ -134,6 +138,24 @@
       return true;
     };
     var OWN = { 0: ['cobble'], 1: ['cobble', 1], 2: ['baywalk'], 3: ['bay'], 4: ['bay', 1] };
+    // city life's ground (the owner's ground_asphalt, ground_asphalt_line, ground_sidewalk, ground_crosswalk, ground_concrete)
+    var part = function (slot, sx, rot) { // half of a texture (sx: 0 the left half, 1 the right), stretched over the tile, turned
+      var img = F.images && F.images[TEX(slot)];
+      if (!img) return false;
+      o.save();
+      o.translate(S / 2, S / 2);
+      if (rot) o.rotate(rot);
+      o.drawImage(img, sx * img.width / 2, 0, img.width / 2, img.height, -S / 2, -S / 2, S, S);
+      o.restore();
+      return true;
+    };
+    var turned = function (slot) { var img = F.images && F.images[TEX(slot)]; if (!img) return false; o.save(); o.translate(S / 2, S / 2); o.rotate(Math.PI / 2); o.drawImage(img, -S / 2, -S / 2, S, S); o.restore(); return true; };
+    var CITY = {
+      asphalt: function () { return tex('asphalt'); }, sidewalk: function () { return tex('sidewalk'); }, concrete: function () { return tex('concrete'); },
+      cross_v: function () { return tex('crosswalk'); }, cross_h: function () { return turned('crosswalk'); }, // (its stripes run top to bottom)
+      lane_w: function () { return part('asphalt_line', 0, 0); }, lane_e: function () { return part('asphalt_line', 1, 0); }, // (its line runs down the middle)
+      lane_n: function () { return part('asphalt_line', 0, Math.PI / 2); }, lane_s: function () { return part('asphalt_line', 1, Math.PI / 2); },
+    };
     var slot = {};
     Object.keys(G.T).forEach(function (k) { slot[G.T[k]] = k; });
     for (var i = 0; i < G.COLS * G.ROWS; i++) {
@@ -142,6 +164,7 @@
       o.clearRect(0, 0, S, S);
       var pj = /^plaza(\d)$/.exec(name);
       if (pj) { if (!plazaPart(+pj[1])) DRAW.plaza(+pj[1]); }
+      else if (CITY[name]) { if (!CITY[name]()) DRAW[name](); }
       else if (!(OWN[i] && tex(OWN[i][0], OWN[i][1]))) DRAW[name]();
       var x = MG + (i % G.COLS) * (S + SP), y = MG + Math.floor(i / G.COLS) * (S + SP);
       g.drawImage(one, x - MG, y - MG, S + 2 * MG, S + 2 * MG); // (into the margin too: no seams between tiles)
@@ -152,7 +175,7 @@
   // The ground sheet for this visit: drawn again (and the old one let go) when more of the owner's textures came in.
   var groundSig = null;
   var groundReady = function (scene) {
-    var sig = Object.keys(M.art.ground).filter(function (k) { return F.images && F.images[TEX(k)]; }).join(',');
+    var sig = Object.keys(M.art.ground).concat(['asphalt', 'asphalt_line', 'sidewalk', 'crosswalk', 'concrete']).filter(function (k) { return F.images && F.images[TEX(k)]; }).join(',');
     if (F.images[G.NAME] && sig === groundSig) return;
     groundSig = sig;
     if (scene.textures.exists(G.NAME)) scene.textures.remove(G.NAME);
@@ -164,7 +187,7 @@
   var buildMap = P.buildMap;
   P.buildMap = function () {
     if (this.mapKey === 'manila') { this.outdoors = true; groundReady(this); }
-    if (this.mapKey === 'mall') this.outdoors = false;
+    if (this.mapKey === 'mall') { this.outdoors = false; if (F.mnMallGround) F.mnMallGround(this); }
     return buildMap.apply(this, arguments);
   };
   var musicMood = P.musicMood;
@@ -177,6 +200,10 @@
   var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
   P.mnDrawProp = function (o) {
     var p = o.props, own = p.art && F.images && F.images['props/manila_' + p.art] ? 'props/manila_' + p.art : null;
+    if (p.ferris) { // the Ferris wheel: its stand when the turning wheel is in too, else the whole picture (still), else drawn
+      var im = function (k) { return F.images && F.images['props/manila_' + k]; };
+      own = im('ferris_stand') && im('ferris_wheel') ? 'props/manila_ferris_stand' : im('ferris_whole') ? 'props/manila_ferris_whole' : null;
+    }
     var drawnKey = !own && /^@/.test(p.stand || '') && F.mnStandIn ? F.mnStandIn(this, p.stand.slice(1), p.v || 0) : null; // (city life: drawn by the game)
     var key = own || drawnKey || (/^tw_/.test(p.stand) ? p.stand : 'props/' + p.stand);
     if (!drawnKey && !F.images[key]) return null;

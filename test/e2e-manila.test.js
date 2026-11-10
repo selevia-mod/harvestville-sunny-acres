@@ -254,6 +254,13 @@ test('the owner\'s pictures, once the pack brings them, take over the stand-ins:
     Farm.images['props/manila_grand_market'] = await pic(1280, 896, '#ffcc00');
     Farm.images.npc_aling_rosa = await pic(1296, 208, '#ff3366');
     Farm.images.manila_tex_cobble = await pic(256, 256, '#00ff00');
+    // city life's: the jeepney's driving sheet, the Ferris wheel in parts, the asphalt, a Mall floor
+    Farm.images.manila_jeepney = await pic(1536, 1152, '#ff8800');
+    Farm.images['props/manila_ferris_stand'] = await pic(896, 1280, '#888888');
+    Farm.images['props/manila_ferris_wheel'] = await pic(896, 896, '#eeeeee');
+    Farm.images['props/manila_ferris_car_1'] = await pic(128, 128, '#ff0000');
+    Farm.images.manila_tex_asphalt = await pic(256, 256, '#0000ff');
+    Farm.images.manila_tex_mallfloor_main = await pic(256, 256, '#ff00ff');
   });
   await page.evaluate(() => Farm.ui.mnTrain('manila'));
   await tapButton(page, 'Ride free');
@@ -276,6 +283,17 @@ test('the owner\'s pictures, once the pack brings them, take over the stand-ins:
   assert.strictEqual(r.tint, false, 'her own sheet is not tinted');
   assert.deepStrictEqual(r.cobble.slice(0, 3), [0, 255, 0], 'the cobbles are the owner\'s texture');
   assert.notDeepStrictEqual(r.plaza.slice(0, 3), [0, 255, 0], 'the plaza (no picture yet) stays drawn');
+  const life = await page.evaluate(() => { const w = Farm.world, g = Farm.images.manila_ground.getContext('2d'), G = Farm.Config.MANILA.GROUND, S = 128, i = G.T.asphalt, x = 4 + (i % G.COLS) * (S + 8) + 64, y = 4 + Math.floor(i / G.COLS) * (S + 8) + 64;
+    return { jeep: w.mn.jeep.img.texture.key, jeepType: w.mn.jeep.img.type, cars: (w.mn.cars || []).length, stand: w.props.some((p) => p.texture.key === 'props/manila_ferris_stand'), asphalt: Array.from(g.getImageData(x, y, 1, 1).data).slice(0, 3) }; });
+  assert.strictEqual(life.jeep, 'manila_jeepney');
+  assert.strictEqual(life.jeepType, 'Sprite', 'the driving sheet: a sprite with frames');
+  assert.strictEqual(life.cars, 8, 'the 8 gondolas hang from the wheel');
+  assert.ok(life.stand, 'the stand is the building');
+  assert.deepStrictEqual(life.asphalt, [0, 0, 255], 'the owner\'s asphalt');
+  await page.evaluate(() => Farm.world.travel('mall', 'entrance'));
+  await waitMap(page, 'mall');
+  const floor = await page.evaluate(() => { const M = Farm.Config.MALLG || Farm.Config.MANILA.MALLG, g = Farm.images[M.NAME].getContext('2d'); return Array.from(g.getImageData(4 + 64, 4 + 64, 1, 1).data).slice(0, 3); });
+  assert.deepStrictEqual(floor, [255, 0, 255], 'the Mall\'s main floor is the owner\'s');
   await shot(page, 'manila-7-own-art');
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -425,7 +443,7 @@ test('the Mall: in by its door, a guard and a sales lady and people inside, the 
   await page.evaluate(() => Farm.ui.closeAll());
   // the food court: eat for energy
   await page.evaluate(() => { Farm.session.state.energy = 10; Farm.session.state.gold = 500; Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.x = 20 * 256; v.y = 15 * 256; Farm.world.mnFolkPlace(v); }); });
-  await teleport(page, 4, 12, 'up');
+  await teleport(page, 3, 9, 'up');
   assert.strictEqual(await actionLabel(page), 'Eat');
   await tapAction(page);
   assert.match(await modalText(page), /Food Court/);
