@@ -203,6 +203,7 @@
 
   // ---------- the city people ----------
   var WALK = 1.7 * T; // world units a second
+  var CHEAP = !!(F.cheapPhone && F.cheapPhone()); // (an OPPO A5-class phone: the people wander half as often)
   var IDLE = { down: 0, up: 3, left: 6, right: 6 };
   var spotXY = function (name) { var p = M.spots[name]; return p ? { x: p[0] * T, y: p[1] * T } : null; };
   var lookOf = function (def) {
@@ -263,7 +264,7 @@
       if (!v.path.length) {
         v.wander -= dt;
         if (v.wander > 0) return;
-        v.wander = 5000 + Math.random() * 7000;
+        v.wander = (5000 + Math.random() * 7000) * (CHEAP ? 2 : 1);
         var home = M.spots[v.spot];
         if (!home) return;
         var hx = Math.floor(home[0]), hy = Math.floor(home[1]), tries = 6;

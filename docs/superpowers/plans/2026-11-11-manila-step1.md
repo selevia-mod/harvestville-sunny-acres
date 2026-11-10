@@ -13,9 +13,10 @@ docs/manila-proposals.md (proposals; owner decisions win). Branch feat/manila (w
    rule (6 hearts + Horseshoes, economy part 5) is one hook, L.manilaRoad, open for now.
 3. The 7 city people (Rosa, Danny, Lando, Kardo, Marisol, Tibo, Amparo) at their places by the hour, wandering a little,
    with short talk lines. Stand-in looks: the train visitors' sheet (tw_people), tinted; their own sheets later.
-4. Open to everyone: the game server's public rooms. The client's public-room code is tied to the hunting places' wild
-   runtime (`this.wild`), so it is NOT a config change: step 1 makes the server ready (a city room: players, chat, no
-   animals; tests in server/) and writes down the deploy; the phone side is a small follow-up.
+4. Open to everyone: the game server's public rooms. The phone's public-room code was tied to the hunting places' wild
+   runtime (`this.wild`), so it was not a pure config change: a few guards now also take the city (C.MANILA.pub), and
+   the server gets a city room (players, chat, no animals; tests in server/). Not deployed: a server from before says
+   no, and the phone plays Manila with the friends of its farm's room, as before. Deploy steps: docs/game-server.md.
 5. Art: none yet. The page gets almost nothing: the map is BUILT AT RUN TIME from the layout in code (no maps/manila.json
    in the page), the ground tiles are drawn on a canvas (stand-ins), buildings and props borrow the town's pictures,
    scaled into the proposals' boxes with a small name label. The owner's batch 1-2 pictures go through
