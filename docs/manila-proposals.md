@@ -40,6 +40,16 @@ sells the ticket home (Mang Tibo points to it); the plaza lamps moved one tile s
 platform is in front of the station building and the rails behind it (south); the 6 hurdles and the race come with
 the race (M5); no water animation or sunset glow yet (cheap phones).
 
+**Then (11 Nov 2026, the owner's art in):** batches 1-2 imported (`node tools/manila/manila-import.js`) into the 'manila'
+pack (64 files, 3.5 MB, for the CDN's app-assets/packs): the 4 ground textures, the 11 buildings, the 7 sheets cut into 42
+pieces, the 10 people. The city is dressed with them (gate arches, wall pieces and towers, palms, lamps, carts, kiosks,
+pier posts, the race arch and hurdles: drawn only once their pictures are in). **The crowd** (owner: "make it crowded, we
+need at least 30 people"): 26 city folk besides the 7 (33 by day, 11 at night, 15 on a cheap phone), going between the
+plaza, the market, the bay walk, the platform, the track, the pier, Calle Real, the church, the barrio and the park by the
+hour; never behind or through a building; a passer-by says a line about the city. Their looks: the train visitors, the 3
+ground guides and the places' guides, tinted (one list, C.MANILA.crowd.looks, for new city-folk sheets). Batches 3-7
+(the grounds, weapons, icons) are in art-src/ for later steps.
+
 **Not built yet:** the contracts, the Trading Post, the Armory and the weapons, the grounds and their caves, the race,
 Lola Amparo's story chapters, hearts and gifts for the city people, boats.
 
