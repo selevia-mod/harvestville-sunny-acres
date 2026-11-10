@@ -101,8 +101,8 @@ const save = (name, r) => {
   }
 
   // ---------- the people: a 3 x 3 sheet as one row of 9 (a villager's) ----------
-  for (const k of M.people.order) {
-    const sheet = M.people[k].sheet, src = pic(sheet);
+  for (const sheet of M.people.order.map((k) => M.people[k].sheet).concat(M.crowd.sheets || [])) {
+    const src = pic(sheet);
     if (!src) continue;
     const r = await p.evaluate(async (s) => {
       const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 3, 3, 0.02);
@@ -112,7 +112,7 @@ const save = (name, r) => {
       return Object.assign(W.out(o, 0.85), { w: o.width, h: o.height });
     }, src);
     save(sheet, r);
-    done.push(M.people[k].name);
+    done.push(sheet);
   }
 
   await b.close();

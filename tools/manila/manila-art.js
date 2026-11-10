@@ -23,6 +23,7 @@ const keys = () => {
   Object.keys(A.singles).forEach((n) => out.push('props/manila_' + n));
   Object.keys(A.sheets).forEach((sh) => A.sheets[sh][2].forEach((n) => out.push('props/manila_' + n)));
   M.people.order.forEach((k) => out.push(M.people[k].sheet));
+  (M.crowd.sheets || []).forEach((k) => out.push(k)); // (the three ground guides, passers-by for now)
   return [...new Set(out)];
 };
 
