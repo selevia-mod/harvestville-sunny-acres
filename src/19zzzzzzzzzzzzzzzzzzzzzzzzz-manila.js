@@ -1,8 +1,10 @@
 // Manila in the world (owner, 11 Nov 2026; content 00-zzzzzzzzzzzzzzzzzzz-manila.js, rules 01-logicZZZZZZZZZZZZZZ-manila.js).
 // - The map is built here at load from the layout (L.manilaMap), so the page carries no Manila map. The town gets the
-//   valley road east (a walk-through warp at its east end, x 53) and a spot to come back to (from_manila).
-// - The ground's own sheet, 'manila_ground': the owner's pictures from the 'manila' pack when they are on the phone, else
-//   drawn here on a canvas (cobbles, plaza tiles, the bay walk, the bay, old stone, the track, the rails).
+//   valley road east (a walk-through warp over its last 2 tiles, x 52-53: a visitor waiting at the very end cannot block
+//   it) and a spot to come back to (from_manila).
+// - The ground's own sheet, 'manila_ground': drawn here on a canvas (cobbles, plaza tiles, the bay walk, the bay, old
+//   stone, the track, the rails), with the owner's ground textures painted in once they are on the phone (the pack's
+//   manila_tex_<slot>).
 // - Buildings and props: their own pictures from the pack (props/manila_<art>), else a town picture scaled into the box
 //   with a small name label. Their foot is solid; looking at one says what it is ("Coming soon" for the shops).
 // - The 7 city people walk between their spots by the hour and wander a little; Talk to them. Their own sheets come in the
@@ -35,9 +37,9 @@
     maps.manila = L.manilaMap(maps.town);
     var og = maps.town.layers.filter(function (l) { return l.type === 'objectgroup'; })[0];
     if (og && !og.objects.some(function (o) { return o.name === 'road_east'; })) {
-      og.objects.push({ id: 90001, name: 'road_east', type: 'warp', x: 53 * T, y: 11 * T, width: T, height: 2 * T, rotation: 0, visible: true,
+      og.objects.push({ id: 90001, name: 'road_east', type: 'warp', x: 52 * T, y: 11 * T, width: 2 * T, height: 2 * T, rotation: 0, visible: true,
         properties: [{ name: 'to', type: 'string', value: 'manila' }, { name: 'spawn', type: 'string', value: 'from_valley' }, { name: 'walk', type: 'bool', value: true }] });
-      og.objects.push({ id: 90002, name: 'from_manila', type: 'place', point: true, x: Math.round(52.4 * T), y: Math.round(11.6 * T), width: 0, height: 0, rotation: 0, visible: true,
+      og.objects.push({ id: 90002, name: 'from_manila', type: 'place', point: true, x: Math.round(51.3 * T), y: Math.round(11.6 * T), width: 0, height: 0, rotation: 0, visible: true,
         properties: [{ name: 'dir', type: 'string', value: 'left' }] });
     }
   }

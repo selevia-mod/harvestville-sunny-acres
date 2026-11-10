@@ -94,10 +94,10 @@ test('the gates: the Plains Gate walks home to the town (from_manila); the Gorge
     const x = o.x / 256, y = g === 'gorge' ? 1 : 88;
     for (let k = 0; k < 4; k++) assert.ok(!grid.ok(x + k, y), g + ': shut at ' + (x + k) + ',' + y);
   });
-  // the town's east end: tile 53 on the main street is walkable, so the valley road can start there (the world adds it)
+  // the town's east end: tiles 52-53 on the main street are walkable, so the valley road can start there (the world adds it)
   const tl = TOWN.tilesets.find((t) => t.name === 'tiles'), solid = new Set();
   tl.tiles.forEach((t) => (t.properties || []).forEach((p) => { if (p.name === 'collides' && p.value) solid.add(tl.firstgid + t.id); }));
-  [11, 12].forEach((y) => TOWN.layers.filter((l) => l.type === 'tilelayer').forEach((l) => assert.ok(!solid.has(l.data[y * TOWN.width + 53]), 'town 53,' + y)));
+  [11, 12].forEach((y) => [52, 53].forEach((x) => TOWN.layers.filter((l) => l.type === 'tilelayer').forEach((l) => assert.ok(!solid.has(l.data[y * TOWN.width + x]), 'town ' + x + ',' + y))));
   assert.ok(!TOWN.layers.find((l) => l.type === 'objectgroup').objects.some((o) => o.name === 'road_east'), 'not in the town file: the game adds it');
 });
 
