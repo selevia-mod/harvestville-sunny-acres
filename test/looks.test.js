@@ -97,19 +97,23 @@ test('every Tailor Shop look rides the horse in its own clothes (owner\'s art; C
 
 test('riding v2 (owner\'s art, approved 11 Nov 2026): the outfits in C.RIDE2 are the pictures in art-src/riding/v2, each with its 4 x 4 sheet and shadow in the riding pack; the others keep their old sheet', () => {
   const packs = require('../tools/packs'), A = path.join(__dirname, '..', 'assets'), SRC = path.join(__dirname, '..', 'art-src', 'riding', 'v2');
-  const art = fs.readdirSync(SRC).filter((f) => /^[a-z]+-(boy|girl)\.png$/.test(f)).map((f) => f.split('-')[0]);
-  const R2 = C.RIDE2, outfits = JSON.parse(JSON.stringify(R2.outfits));
-  assert.deepStrictEqual(outfits.slice().sort(), [...new Set(art)].sort(), 'C.RIDE2.outfits: the outfits with v2 pictures');
-  assert.ok(outfits.indexOf('default') >= 0, 'the farm clothes gallop');
+  const art = fs.readdirSync(SRC).filter((f) => /^[a-z]+-(boy|girl)\.png$/.test(f)).map((f) => f.slice(0, -4).split('-'));
+  const has = (o, w) => art.some(([a, b]) => a === o && b === w), all = [...new Set(art.map((x) => x[0]))];
+  const R2 = C.RIDE2, list = (k) => JSON.parse(JSON.stringify(R2[k])).sort();
+  assert.deepStrictEqual(list('outfits'), all.filter((o) => has(o, 'boy') && has(o, 'girl')).sort(), 'C.RIDE2.outfits: both the boy and the girl in v2');
+  assert.deepStrictEqual(list('boyOnly'), all.filter((o) => has(o, 'boy') && !has(o, 'girl')).sort(), 'C.RIDE2.boyOnly: only the boy so far');
+  assert.deepStrictEqual(list('girlOnly'), all.filter((o) => !has(o, 'boy') && has(o, 'girl')).sort(), 'C.RIDE2.girlOnly');
+  assert.ok(R2.outfits.indexOf('default') >= 0, 'the farm clothes gallop');
+  art.forEach(([o, w]) => assert.ok(L.ride2Has(o, w), o + ' ' + w + ': v2'));
+  C.LOOKS.forEach((l) => ['boy', 'girl'].forEach((w) => { if (!has(l.key, w)) assert.ok(!L.ride2Has(l.key, w) && fs.existsSync(path.join(A, 'ride_' + l.key + '_' + w + '.webp')), l.key + ' ' + w + ': still its old sheet'); }));
   const webpSize = (f) => { const d = fs.readFileSync(f); return d.toString('latin1', 12, 16) === 'VP8X' ? [1 + d.readUIntLE(24, 3), 1 + d.readUIntLE(27, 3)] : null; };
-  ['ride2_horse'].concat(...outfits.map((o) => ['boy', 'girl'].map((w) => 'ride2_' + o + '_' + w))).forEach((k) => ['', 'shade'].forEach((sh) => {
+  ['ride2_horse'].concat(art.map(([o, w]) => 'ride2_' + o + '_' + w)).forEach((k) => ['', 'shade'].forEach((sh) => {
     assert.ok(packs.riding.indexOf(k + sh) >= 0, k + sh + ': in the riding pack');
     const sz = webpSize(path.join(A, k + sh + '.webp'));
     // (the shadow stored at half the size, a quarter of the memory, drawn at the sheet's: assets/sizes.json, 11 Nov 2026)
     if (sz) assert.deepStrictEqual(sz, sh ? [R2.fw * 2, R2.fh * 2] : [R2.fw * 4, R2.fh * 4], k + sh + ': 4 x 4 frames of ' + R2.fw + ' x ' + R2.fh + (sh ? ', stored at half' : ''));
     if (sh) assert.deepStrictEqual(require('../assets/sizes.json')[k + sh], [R2.fw * 4, R2.fh * 4], k + sh + ': drawn at full size');
   }));
-  C.LOOKS.filter((l) => outfits.indexOf(l.key) < 0).forEach((l) => assert.ok(fs.existsSync(path.join(A, 'ride_' + l.key + '_boy.webp')), l.key + ': still its old sheet'));
 });
 
 test('riding v2 on a busy screen (owner, 11 Nov 2026): the others\' outfit sheets held at once are capped (yours and the farm clothes\' always fine), past the cap the farm clothes\'; one unseen for 30 s is let go', () => {

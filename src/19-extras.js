@@ -52,10 +52,11 @@
   var held = F.ride2Held = {}, lastOwn = '';
   F.ride2Own = function () {
     var s = F.session && F.session.state, cos = s && ((L.wornLook && L.wornLook(s)) || 'default');
-    return s && R2.outfits.indexOf(cos) >= 0 ? 'ride2_' + cos + '_' + (s.look === 'girl' ? 'girl' : 'boy') : '';
+    var who = s && s.look === 'girl' ? 'girl' : 'boy';
+    return s && L.ride2Has(cos, who) ? 'ride2_' + cos + '_' + who : '';
   };
   F.ride2For = function (cos, look) {
-    var who = look === 'girl' ? 'girl' : 'boy', def = 'ride2_default_' + who, want = cos && R2.outfits.indexOf(cos) >= 0 ? 'ride2_' + cos + '_' + who : def;
+    var who = look === 'girl' ? 'girl' : 'boy', def = 'ride2_default_' + who, want = cos && L.ride2Has(cos, who) ? 'ride2_' + cos + '_' + who : def;
     var cap = F.cheapPhone && F.cheapPhone() ? R2.othersCheap : R2.others;
     var k = L.ride2Pick(held, want, [F.ride2Own(), 'ride2_default_boy', 'ride2_default_girl'], Date.now(), cap) || def;
     if (have2(k)) return k;
@@ -190,7 +191,7 @@
   M.rideKey = function () {
     var s = this.state, who = s.look === 'girl' ? 'girl' : 'boy', cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default') + '_' + who;
     // the new gallop, for an outfit that has it (C.RIDE2.outfits), once its sheet is here
-    if (R2.outfits.indexOf(cos || 'default') >= 0 && have2('ride2_' + (cos || 'default') + '_' + who)) return 'ride2_' + (cos || 'default') + '_' + who;
+    if (L.ride2Has(cos || 'default', who) && have2('ride2_' + (cos || 'default') + '_' + who)) return 'ride2_' + (cos || 'default') + '_' + who;
     // a costume's riding picture comes from its pack the first time (tools/packs.js 'riding'): the farm clothes till then
     if (cos && (!F.images[key] || !F.images[key + 'shade']) && F.needImage) { F.needImage(key); F.needImage(key + 'shade'); }
     if (!F.images[key] || !F.images[key + 'shade']) key = 'ride_default_' + who;

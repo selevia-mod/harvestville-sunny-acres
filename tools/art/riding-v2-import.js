@@ -9,7 +9,8 @@
 // on one ground line (the lowest hooves of its 4 frames: the leap stays up in the air); each standing frame on its own.
 // That line is FEET in the frame, as the old sheets' (233 of 252: the animals' origin). The edge glow and the
 // generator's coloured specks go (dehalo). The shadow sheet (ride2_*shade): a soft oval on the ground line under each
-// frame (it stays down in the leap), stored at half the size (assets/sizes.json holds the full size). The standing row is brought to its gallop rows' scale (see `fit`). Both are in the 'riding' pack (tools/packs.js). Prints each sheet's frame-14
+// frame (it stays down in the leap), stored at half the size. Each rider's sheet is first brought to the farm clothes'
+// boy's size (`ref`), and the horse alone to his pony's width galloping (`side`), (assets/sizes.json holds the full size). The standing row is brought to its gallop rows' scale (see `fit`). Both are in the 'riding' pack (tools/packs.js). Prints each sheet's frame-14
 // (standing, left) horse width: C.RIDE2.px.  node tools/art/riding-v2-import.js
 const fs = require('fs');
 const path = require('path');
@@ -17,15 +18,18 @@ const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..', '..'), SRC = path.join(ROOT, 'art-src', 'riding', 'v2'), OUT = path.join(ROOT, 'assets');
 const FW = 252, FH = 252, FEET = 233, K = 0.6, SHADE = 2; // (K: for a 1536 px picture; keep FW/FH in step with C.RIDE2)
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
-const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'horse.png' || /^[a-z]+-(boy|girl)\.png$/.test(f)).sort() : [];
+// (the farm clothes' boy first: every rider's sheet is brought to his size, see `ref`)
+const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'horse.png' || /^[a-z]+-(boy|girl)\.png$/.test(f))
+  .sort((a, c) => (a === 'default-boy.png' ? -1 : c === 'default-boy.png' ? 1 : a < c ? -1 : a > c ? 1 : 0)) : [];
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: require('./wild-lib') });
   const sizes = JSON.parse(fs.readFileSync(path.join(OUT, 'sizes.json'), 'utf8'));
+  let ref = 0, side = 0;
   for (const f of files) {
     const name = f === 'horse.png' ? 'ride2_horse' : 'ride2_' + f.slice(0, -4).replace('-', '_');
-    const r = await p.evaluate(async ([src, FW, FH, FEET, K, SHADE]) => {
-      const im = await W.load(src), w = im.width, h = im.height, cw = w / 4, ch = h / 4, k = K * 1536 / w;
+    const cut = (ref, hn) => p.evaluate(async ([src, FW, FH, FEET, K, SHADE, ref, hn]) => {
+      const im = await W.load(src), w = im.width, h = im.height, cw = w / 4, ch = h / 4;
       // each cell's pieces (a piece goes to the cell its middle is in: a tall pose reaching into the next row stays its own)
       const cl = W.cells(W.dehalo(W.cutout(im)), 4, 4, 0.02);
       cl.forEach((x, i) => { if (!x) throw new Error('frame ' + i + ' is missing'); });
@@ -38,6 +42,10 @@ const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'hors
       // folded up (less to see), so it takes the standing-left frame's scale.
       const size = cl.map((x) => { const q = x.c.getContext('2d').getImageData(0, 0, x.w, x.h).data; let n = 0; for (let j = 3; j < q.length; j += 4) if (q[j] > 128) n++; return Math.sqrt(n); });
       const rowSize = (r) => (size[r * 4] + size[r * 4 + 1] + size[r * 4 + 2] + size[r * 4 + 3]) / 4;
+      // (owner, 11 Nov 2026: the cute pony set: the generator drew some outfits up to 15 % smaller or bigger than others.)
+      // Every rider's sheet is brought to the farm clothes' boy's size: its gallop rows (what they cover, as a share of the
+      // picture) the same as his. The horse alone keeps its picture's share (it has no rider to measure against).
+      const gal = (rowSize(0) + rowSize(1) + rowSize(2)) / 3 * 1536 / w, norm = ref ? ref / gal : hn || 1, k = K * 1536 / w * norm;
       const fit = (r, i) => Math.max(0.8, Math.min(1.05, rowSize(r) / size[i]));
       const sc = cl.map(() => 1);
       sc[12] = fit(0, 12); sc[13] = fit(1, 13); sc[14] = fit(2, 14); sc[15] = sc[14];
@@ -69,14 +77,18 @@ const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'hors
       const small = W.canvas(FW * 4 / SHADE, FH * 4 / SHADE), smg = small.getContext('2d');
       smg.imageSmoothingQuality = 'high';
       smg.drawImage(sh, 0, 0, small.width, small.height);
-      return Object.assign(W.out(o, 0.8), { shade: W.out(small, 0.7), widths, line: g16, sc: sc.slice(12) });
-    }, [data(path.join(SRC, f)), FW, FH, FEET, K, SHADE]);
+      return Object.assign(W.out(o, 0.8), { shade: W.out(small, 0.7), widths, line: g16, sc: sc.slice(12), gal, norm });
+    }, [data(path.join(SRC, f)), FW, FH, FEET, K, SHADE, ref, hn]);
+    let r = await cut(f === 'horse.png' ? 0 : ref, 1);
+    // the horse alone: as wide galloping to the left as the farm clothes' boy's pony (it has no rider to measure by)
+    if (f === 'horse.png') r = await cut(0, side / (r.widths.slice(8, 12).reduce((a, x) => a + x, 0) / 4));
+    if (f === 'default-boy.png') { ref = r.gal; side = r.widths.slice(8, 12).reduce((a, x) => a + x, 0) / 4; }
     const put = (n, url) => { const buf = Buffer.from(url.split(',')[1], 'base64'); fs.writeFileSync(path.join(OUT, n), buf); return (buf.length / 1024).toFixed(0) + ' KB'; };
     put(name + '.png', r.png);
     put(name + 'shade.png', r.shade.png);
     sizes[name + 'shade'] = [FW * 4, FH * 4]; // (its full size: 10-boot.js ensureTexture)
     console.log('assets/' + name, FW * 4 + 'x' + FH * 4, put(name + '.webp', r.webp), '+ shade', put(name + 'shade.webp', r.shade.webp),
-      '; px (frame 14)', r.widths[14], '; widths', r.widths.join(','), '; ground in cell', r.line.map((x) => Math.round(x)).join(','), '; standing scaled', r.sc.map((x) => x.toFixed(3)).join(','));
+      '; px (frame 14)', r.widths[14], '; widths', r.widths.join(','), '; ground in cell', r.line.map((x) => Math.round(x)).join(','), '; standing scaled', r.sc.map((x) => x.toFixed(3)).join(','), '; sheet scaled', r.norm.toFixed(3));
   }
   fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes, null, 1) + '\n');
   await b.close();

@@ -1896,11 +1896,14 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.waitForTimeout(300);
   // in a costume: its own riding picture, fetched from the 'riding' pack the first time (owner's art, 10 Nov 2026)
   await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.santa; s.lk = (s.lk || 0) | (1 << i); s.cw = 'santa'; });
-  await page.waitForFunction(() => /^ride_santa_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
+  // (the cute pony set, 11 Nov 2026: the outfits' boys ride in v2; a girl keeps her old sheet until hers comes)
+  const v2sheet = (o) => page.evaluate((o) => (Farm.session.state.look === 'girl' ? 'ride_' + o + '_girl' : 'ride2_' + o + '_boy'), o);
+  const santa = await v2sheet('santa');
+  await page.waitForFunction((k) => Farm.world.horse.sprite.texture.key === k, santa, { timeout: 30000 });
   await shot(page, '30b-riding-santa');
   // Cozy Winter (owner's art, 11 Nov 2026): its own riding picture too, no longer the farm clothes
   await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.winter; s.lk = (s.lk || 0) | (1 << i); s.cw = 'winter'; });
-  await page.waitForFunction(() => /^ride_winter_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
+  await page.waitForFunction((k) => Farm.world.horse.sprite.texture.key === k, await v2sheet('winter'), { timeout: 30000 });
   await shot(page, '30c-riding-winter');
   await page.evaluate(() => { Farm.session.state.cw = ''; });
   await page.evaluate(() => { Farm.input.jx = 0; });

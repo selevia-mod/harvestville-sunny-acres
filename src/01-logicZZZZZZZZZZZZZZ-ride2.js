@@ -8,6 +8,13 @@
   'use strict';
   var L = F.Logic;
 
+  // Whether an outfit (its key, 'default' the farm clothes) has a v2 riding sheet for the boy or the girl: both
+  // (C.RIDE2.outfits), or one of them so far (C.RIDE2.boyOnly / girlOnly).
+  L.ride2Has = function (cos, who) {
+    var R2 = F.Config.RIDE2;
+    return !!cos && (R2.outfits.indexOf(cos) >= 0 || (R2[(who === 'girl' ? 'girl' : 'boy') + 'Only'] || []).indexOf(cos) >= 0);
+  };
+
   // The sheet another rider is drawn with. held: { key: when last seen }, the others' sheets this phone holds (changed
   // here: a sheet picked is marked seen now); want: the sheet of what they wear; keep: sheets always fine (yours, the
   // farm clothes'). Returns want, or null (draw the farm clothes' instead).
