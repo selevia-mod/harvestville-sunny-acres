@@ -206,12 +206,19 @@
     return F.images && F.images[key] ? key : null;
   };
   var L = function () { return F.Logic; };
+  // the pack (tools/packs.js 'weapons'): on the Downloads page once it has pictures
+  if (F.PACK_INFO && F.ASSETS && F.ASSETS.packs && F.ASSETS.packs.weapons && Object.keys(F.ASSETS.packs.weapons).length) {
+    F.PACK_INFO.weapons = { name: 'Weapons', icon: 'bow', desc: 'The Rifle, the Javelin and the Boomerang, and the farmer using them.' };
+  }
   // the pack pictures, asked for once (no app: none) and painted in when they come
   var ART_KEYS = ['wpn_icons', 'wpn_held', 'wpn_spin', 'wpn_bullet'];
   F.askWeaponArt = function () {
     if (F.wpnArtAsked || !F.needImage || !F.packedFile) return;
     F.wpnArtAsked = true;
-    ART_KEYS.forEach(function (k) { if (!(F.images && F.images[k]) && F.packedFile(k)) F.needImage(k); });
+    var girl = F.session && F.session.state && F.session.state.look === 'girl';
+    ART_KEYS.concat(['rifle', 'javelin', 'boomerang'].map(function (k) { return 'wpn_pose_' + k + (girl ? '_girl' : ''); })).forEach(function (k) {
+      if (!(F.images && F.images[k]) && F.packedFile(k)) F.needImage(k);
+    });
   };
   if (F.bus) F.bus.on('packart', function (key) {
     if (ART_KEYS.indexOf(key) < 0 || !F.game) return;

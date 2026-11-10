@@ -33,4 +33,7 @@ module.exports = {
   // raid starts (raid_moves, in the page, stands in until they are here)
   raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
   riding: fs.readdirSync(ASSETS).filter((f) => /^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // the Rifle, the Javelin and the Boomerang (owner's batch 6 when it comes: tools/art/weapons-import.js); until then
+  // the game draws them, so the pack is empty
+  weapons: fs.readdirSync(ASSETS).filter((f) => /^wpn_[a-z_]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };
