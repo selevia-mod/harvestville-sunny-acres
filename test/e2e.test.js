@@ -6573,3 +6573,41 @@ test('a friend\'s house opens when their farm has a horse and you wear another l
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('a place that fails to open never leaves a black screen: back to the farm (or home from a visit), a note, and the error goes to the app (players, 10 Nov 2026: "scary")', async () => {
+  const { page, problems, context } = await open(null);
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await page.evaluate(() => {
+    Farm.ui.closeAll();
+    window.__errs = [];
+    window.gameHost.error = (map, msg) => window.__errs.push([map, msg]);
+    const b = Farm.WorldScene.prototype.buildObjects;
+    Farm.WorldScene.prototype.buildObjects = function () { if (this.mapKey === 'house' && window.__breakHouse) throw new Error('test: the house broke'); return b.apply(this, arguments); };
+    window.__breakHouse = true;
+  });
+  // your own house
+  await page.evaluate(() => { const o = Farm.world.objects.find((w) => w.type === 'warp' && w.props.to === 'house'); Farm.world.travel(o.props.to, o.props.spawn); });
+  await page.waitForFunction(() => window.__errs.length === 1, null, SLOW);
+  await page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.sys.isActive(), null, SLOW);
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /could not open, so you are back on your farm/.test(Farm.ui.toastText.text), null, SLOW);
+  assert.deepStrictEqual(await page.evaluate(() => window.__errs[0]), ['house', 'test: the house broke']);
+  // a friend's house: home again
+  await page.evaluate(() => {
+    const F = Farm, L = F.Logic, mine = F.session.state, st = L.visitState({ v: 1, home: { level: 2 }, soil: [], yard: [], animals: [] }, mine);
+    st.look = mine.look; st.isVisit = true; st.inv = mine.inv;
+    ['sel', 'gold', 'energy', 'water'].forEach((k) => Object.defineProperty(st, k, { get: () => mine[k], set: (x) => { mine[k] = x; }, enumerable: true }));
+    F.session.visit = { host: 'h1', name: 'Snow', state: st, liked: false, gift: null, friend: true, likes: 0, beauty: 0 };
+    F.session.mapFail = null;
+    F.Online.restartWorld();
+  });
+  await page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.state.isVisit, null, SLOW);
+  await page.evaluate(() => { const o = Farm.world.objects.find((w) => w.type === 'warp' && w.props.to === 'house'); Farm.world.travel(o.props.to, o.props.spawn); });
+  await page.waitForFunction(() => window.__errs.length === 2, null, SLOW);
+  await page.waitForFunction(() => !Farm.session.visit && Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.sys.isActive() && !Farm.world.state.isVisit, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => window.__errs[1][0]), 'visit:house');
+  // fixed again: the house opens
+  await page.evaluate(() => { window.__breakHouse = false; const o = Farm.world.objects.find((w) => w.type === 'warp' && w.props.to === 'house'); Farm.world.travel(o.props.to, o.props.spawn); });
+  await page.waitForFunction(() => Farm.world.mapKey === 'house' && !Farm.world.busy && Farm.world.sys.isActive(), null, SLOW);
+  assert.deepStrictEqual(problems.filter((p) => !/map failed|test: the house broke/.test(p)), []);
+  await context.close();
+});
