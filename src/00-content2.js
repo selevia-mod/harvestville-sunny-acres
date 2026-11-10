@@ -67,8 +67,8 @@
   // 'default' the farm clothes). Every other outfit rides in its old sheet (ride_<outfit>_<who>) until its v2 pictures
   // come: add its key here when they do. ride2_horse is the saddled horse alone. A sheet is 4 x 4 frames of fw x fh:
   // 0-3 galloping toward you, 4-7 away, 8-11 to the left (mirrored for the right), 12 standing toward you, 13 away,
-  // 14 left, 15 rearing (left). px: a standing-left horse's width in its frame, shown w tiles wide (the new horse is big
-  // and its rider small: at 2.7 the rider's head is the walking farmer's, owner 11 Nov 2026); gallop: ms a frame at
+  // 14 left, 15 rearing (left). px: a width in the frame shown w tiles wide (198: the standing-left horse as first cut; it is
+  // now brought to the gallop's scale, 169-177, and a galloping one is about 207); gallop: ms a frame at
   // riding speed (slower with a gentle push of the stick, never under fast).
   // w: the horse's width in tiles (owner, 11 Nov 2026: 2.7 "was too big"; the old horse is 1.7)
   C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.0, gallop: 100, fast: 90, slow: 170, rear: 750 };

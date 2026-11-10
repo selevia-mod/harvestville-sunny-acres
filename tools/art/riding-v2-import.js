@@ -9,7 +9,7 @@
 // on one ground line (the lowest hooves of its 4 frames: the leap stays up in the air); each standing frame on its own.
 // That line is FEET in the frame, as the old sheets' (233 of 252: the animals' origin). The edge glow and the
 // generator's coloured specks go (dehalo). The shadow sheet (ride2_*shade): a soft oval on the ground line under each
-// frame (it stays down in the leap). Both are in the 'riding' pack (tools/packs.js). Prints each sheet's frame-14
+// frame (it stays down in the leap). The standing row is brought to its gallop rows' scale (see `fit`). Both are in the 'riding' pack (tools/packs.js). Prints each sheet's frame-14
 // (standing, left) horse width: C.RIDE2.px.  node tools/art/riding-v2-import.js
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +30,16 @@ const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'hors
       cl.forEach((x, i) => { if (!x) throw new Error('frame ' + i + ' is missing'); });
       // its ground: the bottom of its biggest piece (the horse, with its rider), in its cell
       const g16 = cl.map((x, i) => x.foot - Math.floor(i / 4) * ch);
+      // (owner, 11 Nov 2026: "running and standing are different size": the generator drew row 4, standing, bigger than
+      // the gallop rows, mostly its horse; the rider's cap hardly changes.) Each standing frame is brought to the scale of
+      // its direction's gallop row (toward you: row 1, away: row 2, left and rearing: row 3), measured by the square root
+      // of what it covers (horse and rider), which the legs' pose hardly changes, unlike its height. The rearing horse is
+      // folded up (less to see), so it takes the standing-left frame's scale.
+      const size = cl.map((x) => { const q = x.c.getContext('2d').getImageData(0, 0, x.w, x.h).data; let n = 0; for (let j = 3; j < q.length; j += 4) if (q[j] > 128) n++; return Math.sqrt(n); });
+      const rowSize = (r) => (size[r * 4] + size[r * 4 + 1] + size[r * 4 + 2] + size[r * 4 + 3]) / 4;
+      const fit = (r, i) => Math.max(0.8, Math.min(1.05, rowSize(r) / size[i]));
+      const sc = cl.map(() => 1);
+      sc[12] = fit(0, 12); sc[13] = fit(1, 13); sc[14] = fit(2, 14); sc[15] = sc[14];
       const line = g16.map((g, i) => (i < 12 ? Math.max(g16[i - i % 4], g16[i - i % 4 + 1], g16[i - i % 4 + 2], g16[i - i % 4 + 3]) : g));
       const o = W.canvas(FW * 4, FH * 4), g = o.getContext('2d', { willReadFrequently: true }), sh = W.canvas(FW * 4, FH * 4), sg = sh.getContext('2d');
       g.imageSmoothingQuality = 'high';
@@ -38,7 +48,8 @@ const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'hors
         const fx = (i % 4) * FW, fy = Math.floor(i / 4) * FH, sx = (i % 4) * cw, sy = Math.floor(i / 4) * ch;
         g.save(); g.beginPath(); g.rect(fx, fy, FW, FH); g.clip();
         const x = cl[i]; // (placed as in its cell: the cell's middle on the frame's middle, its ground on FEET)
-        g.drawImage(x.c, 0, 0, x.w, x.h, fx + FW / 2 + (x.left - sx - cw / 2) * k, fy + FEET + (x.top - sy - line[i]) * k, x.w * k, x.h * k);
+        const kk = k * sc[i]; // (a standing frame at its gallop row's scale, its hooves still on FEET)
+        g.drawImage(x.c, 0, 0, x.w, x.h, fx + FW / 2 + (x.left - sx - cw / 2) * kk, fy + FEET + (x.top - sy - line[i]) * kk, x.w * kk, x.h * kk);
         g.restore();
         // what it covers in its frame, for its shadow (and its width)
         const px = g.getImageData(fx, fy, FW, FH).data;
@@ -53,13 +64,13 @@ const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'hors
         sg.beginPath(); sg.ellipse(fx + (x0 + x1) / 2 + 2, fy + FEET - 3, rx, Math.max(9, rx * (side ? 0.22 : 0.3)), 0, 0, 7); sg.fill();
         sg.restore();
       }
-      return Object.assign(W.out(o, 0.8), { shade: W.out(sh, 0.7), widths, line: g16 });
+      return Object.assign(W.out(o, 0.8), { shade: W.out(sh, 0.7), widths, line: g16, sc: sc.slice(12) });
     }, [data(path.join(SRC, f)), FW, FH, FEET, K]);
     const put = (n, url) => { const buf = Buffer.from(url.split(',')[1], 'base64'); fs.writeFileSync(path.join(OUT, n), buf); return (buf.length / 1024).toFixed(0) + ' KB'; };
     put(name + '.png', r.png);
     put(name + 'shade.png', r.shade.png);
     console.log('assets/' + name, FW * 4 + 'x' + FH * 4, put(name + '.webp', r.webp), '+ shade', put(name + 'shade.webp', r.shade.webp),
-      '; px (frame 14)', r.widths[14], '; widths', r.widths.join(','), '; ground in cell', r.line.map((x) => Math.round(x)).join(','));
+      '; px (frame 14)', r.widths[14], '; widths', r.widths.join(','), '; ground in cell', r.line.map((x) => Math.round(x)).join(','), '; standing scaled', r.sc.map((x) => x.toFixed(3)).join(','));
   }
   await b.close();
 })().catch((e) => { console.error(e); process.exit(1); });
