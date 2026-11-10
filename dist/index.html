@@ -23033,14 +23033,18 @@ var M = {};
 
 M.applyLook = function () {
 var key = F.playerKey(this);
+if (!this.player || !this.player.scene) return;
 this.player.setTexture(key, 0);
 this.idle();
-if (this.rider) this.rider.setTexture(key, 6);
+if (this.rider && this.rider.scene) this.rider.setTexture(key, 6);
 };
 
 M.setupExtras = function () {
 var s = this.state, self = this;
+
+
 this.horse = null;
+this.rider = null;
 this.cat = null;
 this.mailFlag = null;
 this.chest = null;

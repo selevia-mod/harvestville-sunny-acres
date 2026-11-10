@@ -22,14 +22,18 @@
   // the boy or the girl was just picked: swap the farmer's picture
   M.applyLook = function () {
     var key = F.playerKey(this);
+    if (!this.player || !this.player.scene) return;
     this.player.setTexture(key, 0);
     this.idle();
-    if (this.rider) this.rider.setTexture(key, 6);
+    if (this.rider && this.rider.scene) this.rider.setTexture(key, 6);
   };
 
   M.setupExtras = function () {
     var s = this.state, self = this;
+    // (players, 10 Nov 2026: "can't get inside your houses", a black screen: the farmer on the horse was the last map's,
+    // already gone, and dressing it in your look stopped the house being built. Each map makes its own, or none.)
     this.horse = null;
+    this.rider = null;
     this.cat = null;
     this.mailFlag = null;
     this.chest = null;

@@ -6546,3 +6546,30 @@ test('a tamed companion shows as itself after a restart, away from its place (pl
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('a friend\'s house opens when their farm has a horse and you wear another look (players, 10 Nov 2026: "can\'t get inside your houses", a black screen)', async () => {
+  const { page, problems, context } = await open(null); // (a new game: the look picker first)
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await page.evaluate(() => Farm.ui.closeAll());
+  const snap = { v: 1, fw: 64, day: 20767, look: 'girl', pets: { cat: 1, dog: 'Teo', horse: 1 }, builds: { stable: 1, barn2: 1, coop2: 1 }, soil: [], yard: [], debris: [], animals: [], land: 4, home: {'wall': 4, 'floor': 0, 'level': 4, 'items': [[23, 4, 1, 6, 1], [18, 4, 3, 0, 1], [1, 4, 1, 3, 4], [13, 4, 5, 0, 0], [26, 4, 7, 2, 1], [7, 4, 5, 9, 0], [2, 4, 1, 8, 2], [6, 0, 1, 8, 0], [11, 4, 7, 0, 0], [10, 4, 1, 1, 0], [3, 4, 1, 8, 0], [8, 4, 4, 9, 0], [9, 4, 9, 8, 0], [5, 4, 10, 1, 0], [31, 0, 1, 0, 0], [37, 0, 10, 6, 0], [34, 0, 10, 2, 0], [17, 4, 5, 1, 0], [41, 0, 10, 7, 0], [40, 0, 11, 0, 0], [38, 0, 11, 9, 1], [6, 4, 2, 3, 0], [39, 0, 11, 6, 1], [24, 4, 10, 9, 0], [25, 4, 8, 5, 1], [39, 0, 8, 6, 1], [4, 4, 11, 2, 2], [19, 9, 3, 9, 0], [14, 4, 9, 0, 0], [22, 4, 12, 9, 0], [21, 4, 2, 1, 0], [3, 4, 2, 8, 0], [15, 4, 4, 0, 0], [25, 0, 11, 5, 0]]} };
+  await page.evaluate((data) => {
+    const F = Farm, L = F.Logic, mine = F.session.state, st = L.visitState(data, mine);
+    st.look = mine.look; st.isVisit = true; st.inv = mine.inv;
+    ['sel', 'gold', 'energy', 'water'].forEach((k) => Object.defineProperty(st, k, { get: () => mine[k], set: (x) => { mine[k] = x; }, enumerable: true }));
+    F.session.visit = { host: 'h1', name: 'Snow', state: st, liked: false, gift: null, friend: true, likes: 0, beauty: 0 };
+    F.Online.restartWorld();
+  }, snap);
+  await page.waitForFunction(() => Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.state.isVisit && Farm.world.rider, null, SLOW);
+  // your look is not the one the farm was drawn in (a costume, a Coins look, the party hat): it is put on as each map opens
+  await page.evaluate(() => { Farm.playerKey = function () { return Farm.session.state && Farm.session.state.isVisit ? 'player' : 'player_girl'; }; });
+  const went = await page.evaluate(() => { const o = Farm.world.objects.find((w) => w.type === 'warp' && w.props.to === 'house'); Farm.world.travel(o.props.to, o.props.spawn); return { busy: Farm.world.busy, to: o.props.to, spawn: o.props.spawn }; });
+  assert.ok(went.busy, 'on the way in: ' + JSON.stringify(went));
+  await page.waitForFunction(() => Farm.world.mapKey === 'house' && !Farm.world.busy && Farm.world.sys.isActive(), null, SLOW).catch(async (e) => { throw new Error(problems.join(' | ') + ' STATE ' + JSON.stringify(await page.evaluate(() => ({ map: Farm.world.mapKey, busy: Farm.world.busy, active: Farm.world.sys.isActive(), status: Farm.world.sys.settings.status, rider: !!Farm.world.rider })))); });
+  await page.waitForTimeout(800);
+  const cam = await page.evaluate(() => { const f = Farm.world.cameras.main.fadeEffect; return { fading: f.isRunning && f.direction === false, alpha: f.alpha }; });
+  assert.ok(!(cam.fading && cam.alpha === 1), 'the house is on screen, not black');
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), await page.evaluate(() => Farm.playerKey(Farm.world)), 'in your look');
+  await shot(page, 'visit-house-horse-look');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
