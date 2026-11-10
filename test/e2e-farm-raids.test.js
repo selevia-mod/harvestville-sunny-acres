@@ -383,3 +383,45 @@ test('a raid on your farm: raiders never land on the field or a tile round it, n
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('your trained raiders stand at your Raid Camp (owner, 10 Nov 2026: "I should also see whose I already trained"): every one; one trained walks out; a cheap phone shows 10 of them with +N and fetches no sheets', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  await page.evaluate(() => {
+    const s = Farm.session.state, O = Farm.Config.OUTDOOR, r = Farm.Logic.frState(s);
+    s.yard.items.push({ t: O.index.raid_camp, x: 26, y: 14 });
+    r.camp = 3; r.army = { goat: 6, crow: 3, carabao: 2, cat: 1 }; r.train = [];
+    Farm.world.scene.restart();
+  });
+  await page.waitForFunction(() => Farm.world && Farm.world.mapKey === 'farm' && !Farm.world.busy && Farm.world.campArmy && Farm.world.campArmy.units.length === 12, null, SLOW);
+  const kinds = await page.evaluate(() => { const o = {}; Farm.world.campArmy.units.forEach((u) => { o[u.k] = (o[u.k] || 0) + 1; }); return o; });
+  assert.deepStrictEqual(kinds, { goat: 6, crow: 3, carabao: 2, cat: 1 }, 'every trained raider');
+  const near = await page.evaluate(() => Farm.world.campArmy.units.every((u) => Math.abs(u.x / 256 - 27.5) < 7 && u.y / 256 > 13 && u.y / 256 < 22));
+  assert.ok(near, 'by the camp');
+  // one finishes training: it walks out of the camp
+  await page.evaluate(() => { const r = Farm.Logic.frState(Farm.session.state); r.train.push({ k: 'monkey', until: Date.now() - 1 }); });
+  await page.waitForFunction(() => Farm.world.campArmy.units.some((u) => u.k === 'monkey'), null, SLOW);
+  // a raid used some: they go
+  await page.evaluate(() => Farm.Logic.frUse(Farm.session.state, { goat: 4 }));
+  await page.waitForFunction(() => Farm.world.campArmy.units.filter((u) => u.k === 'goat').length === 2, null, SLOW);
+  await page.evaluate(() => { const w = Farm.world; w.setFeet(27.5 * 256, 20 * 256); });
+  await page.waitForTimeout(1500);
+  await shot(page, 'camp-army');
+  // a cheap phone
+  await page.evaluate(() => { window.gameHost.lite = true; const r = Farm.Logic.frState(Farm.session.state); r.army = { goat: 20, crow: 6, carabao: 4 }; Farm.world.campArmyMs = 0; });
+  await page.waitForFunction(() => Farm.world.campArmy.units.filter((u) => !u.gone).length === 10 && Farm.world.campArmy.label && Farm.world.campArmy.label.visible, null, SLOW);
+  const cheap = await page.evaluate(() => { const ca = Farm.world.campArmy, o = {}; ca.units.filter((u) => !u.gone).forEach((u) => { o[u.k] = (o[u.k] || 0) + 1; }); return { o, label: ca.label.text }; });
+  assert.strictEqual(cheap.label, '+20');
+  assert.ok(cheap.o.goat && cheap.o.crow && cheap.o.carabao, 'every kind among them: ' + JSON.stringify(cheap.o));
+  // a kind it has no sheet for yet: the cheap phone draws it from the battle picture and asks for nothing
+  const asked = await page.evaluate(async () => {
+    const got = [], need = Farm.needImage; Farm.needImage = function (k) { got.push(k); return need.apply(this, arguments); };
+    Farm.Logic.frState(Farm.session.state).army.bayawak = 1; Farm.world.campArmyMs = 0;
+    for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r));
+    const u = Farm.world.campArmy.units.find((x) => x.k === 'bayawak');
+    return { got: got.filter((k) => /^ranim_/.test(k)), tex: u && u.img.texture.key };
+  });
+  assert.deepStrictEqual(asked, { got: [], tex: 'raid_moves' });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
