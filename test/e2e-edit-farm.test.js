@@ -161,3 +161,63 @@ test('raids and the guide read the pieces: a moved ranch\'s pen is kept clear an
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('Decorate: a building is picked by its whole box and dragged; the ranch moves to open grass and the animals live in the new pen; the house and ranch can\'t be put away; a field plot carries its crop', async () => {
+  const { page, problems, context, cdp } = await open(await makeSave(BASE + " L.addAnimal(s, 'cow', false);"));
+  await teleport(page, 22, 12, 'down');
+  await page.evaluate(() => Farm.world.startYard());
+  await page.waitForFunction(() => Farm.world.yd, null, SLOW);
+  await frames(page, 3);
+  const IX = await page.evaluate(() => Farm.Config.OUTDOOR.index);
+  const idx = (t) => page.evaluate((t) => Farm.session.state.yard.items.findIndex((it) => it.t === t), t);
+  // picked anywhere on its box (the dog's yard: its top-left, its middle and its front)
+  const picks = await page.evaluate((t) => { const w = Farm.world, T = 256, i = Farm.session.state.yard.items.findIndex((it) => it.t === t); return [[11, 5], [12, 7], [14, 9]].map((p) => w.yardAt((p[0] + 0.5) * T, (p[1] + 0.5) * T) === i); }, IX.dog_yard);
+  assert.deepStrictEqual(picks, [true, true, true]);
+  // a real drag: Lily's stand one tile left (its middle, along the finger; the dog's yard and the ponds have no room to move
+  // in Part 1: the frame's bushes, forage spots and the field's fence are round them)
+  const toScreen = (x, y) => page.evaluate(([x, y]) => {
+    const cam = Farm.world.cameras.main, T = 256;
+    return { x: ((x + 0.5) * T - cam.worldView.x) * cam.zoom / Farm.R, y: ((y + 0.5) * T - cam.worldView.y) * cam.zoom / Farm.R };
+  }, [x, y]);
+  await page.evaluate(() => { const T = 256; Farm.world.cameras.main.centerOn(16 * T, 30 * T); });
+  await frames(page, 2);
+  const from = await toScreen(16, 30), to = await toScreen(15, 30);
+  const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  await touch('touchStart', from.x, from.y);
+  await frames(page);
+  for (let k = 1; k <= 6; k++) { await touch('touchMove', from.x + (to.x - from.x) * k / 6, from.y); await frames(page, 2); }
+  await touch('touchEnd');
+  await frames(page);
+  const stand = await page.evaluate((i) => { const it = Farm.session.state.yard.items[i]; return [it.x, it.y]; }, await idx(IX.seed_stand));
+  assert.deepStrictEqual(stand, [13, 28], 'the stand moved one tile left: ' + await page.evaluate(() => Farm.ui.toastText && Farm.ui.toastText.text));
+  // the ranch to open grass; it and the house can't be put away
+  const r = await page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic, O = Farm.Config.OUTDOOR, i = (k) => s.yard.items.findIndex((it) => it.t === O.index[k]);
+    return { move: L.moveYard(s, Farm.farm(), i('ranch'), 24, 14), ranch: L.storeYard(s, i('ranch')), house: L.storeYard(s, i('farmhouse')) };
+  });
+  assert.deepStrictEqual(r, { move: 'ok', ranch: 'keep', house: 'keep' });
+  // a field plot with a crop on it moves with the crop
+  const crop = await page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic, O = Farm.Config.OUTDOOR, W = Farm.Config.FARM_W;
+    const plot = () => s.yard.items.findIndex((it) => it.t === O.index.field_plot4 && it.x === 4 && it.y === 11);
+    s.soil[11 * W + 4] = { w: 1, c: 'turnip', p: L.nowMin(), r: 0 };
+    const m = L.moveYard(s, Farm.farm(), plot(), 34, 20); // (where a pond was, once the pond is put away)
+    const pond = s.yard.items.findIndex((it) => it.t === O.index.farm_pond && it.x === 34 && it.y === 20);
+    const st = L.storeYard(s, pond), m2 = L.moveYard(s, Farm.farm(), plot(), 34, 20); // (the pond's going moved the indexes)
+    return [m, st, m2, s.soil[20 * W + 34] && s.soil[20 * W + 34].c, !s.soil[11 * W + 4]];
+  });
+  assert.deepStrictEqual(crop, ['taken', 'ok', 'ok', 'turnip', true], 'the crop went with its plot');
+  // Done: a building moved, so the farm opens again with everything in its new place
+  await page.evaluate(() => Farm.world.endYard());
+  await page.waitForFunction(() => Farm.world && Farm.world.mapKey === 'farm' && !Farm.world.busy && !Farm.world.yd && Farm.world.herd && Farm.world.zones.pen, null, SLOW);
+  await frames(page, 3);
+  const after = await page.evaluate(() => {
+    const w = Farm.world, z = w.zones.pen[0], T = 256, shop = w.objects.find((o) => o.type === 'shop');
+    return { pen: [z.x0, z.y0, z.x1, z.y1], shop: [shop.x0, shop.y0], inPen: w.herd.members.length >= 2 && w.herd.members.every((m) => m.x >= z.x0 * T && m.x <= (z.x1 + 1) * T && m.y >= z.y0 * T && m.y <= (z.y1 + 1) * T), solidOld: !!w.blocked[w.idx(2, 27)], solidNew: !!w.blocked[w.idx(24, 14)] };
+  });
+  assert.deepStrictEqual(after, { pen: [25, 18, 31, 21], shop: [15, 31], inPen: true, solidOld: false, solidNew: true });
+  const saved = await page.evaluate(() => { const s = JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]); return !!s.ef; });
+  assert.ok(saved, 'saved with its buildings (ef)');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
