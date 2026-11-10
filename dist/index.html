@@ -10663,15 +10663,36 @@ return 'ok';
 };
 
 
+
+
 L.landCantPlace = function (s, t, x, y) {
-var box = L.yardBox(t, x, y);
+var box = L.yardBox(t, x, y), plot = L.isPlot && L.isPlot(t);
 for (var i = 0; i < box.length; i++) {
 var px = box[i][0], py = box[i][1];
 if (px < LAND.x0) continue;
-if (!L.landOpen(s, px, py) || s.soil[py * C.FARM_W + px]) return true;
+if (!L.landOpen(s, px, py) || (!plot && s.soil[py * C.FARM_W + px])) return true;
 }
 return false;
 };
+
+
+
+var yardRepair = L.yardRepair;
+L.yardRepair = function (s, farm) {
+(s.yard.items || []).forEach(function (it) {
+if (L.isPlot && L.isPlot(it.t)) return;
+var box = L.yardBox(it.t, it.x, it.y), under = [];
+for (var i = 0; i < box.length; i++) {
+var px = box[i][0], py = box[i][1], idx = py * C.FARM_W + px, t = s.soil[idx];
+if (px < LAND.x0) continue;
+if (!L.landOpen(s, px, py)) return;
+if (t) { if (t.c || t.sp) return; under.push(idx); }
+}
+under.forEach(function (idx) { delete s.soil[idx]; });
+});
+return yardRepair(s, farm);
+};
+
 
 
 L.landTaken = function (s, x, y) {
@@ -24788,8 +24809,9 @@ var buildObjects = P.buildObjects;
 P.buildObjects = function () {
 buildObjects.call(this);
 if (this.mapKey !== 'farm') return;
-var moved = L.yardRepair(this.state, F.farm());
-if (moved) this.time.delayedCall(800, function () { if (F.ui) F.ui.toast(moved + (moved > 1 ? ' pieces' : ' piece') + ' of your yard went back into storage.'); });
+var moved = L.yardRepair(this.state, F.farm()), own = !this.state.isVisit && !F.session.visit && !F.session.raid;
+
+if (moved && own) this.time.delayedCall(1200, function () { if (F.ui) F.ui.toast(moved + (moved > 1 ? ' pieces' : ' piece') + ' of your yard did not fit and went to Storage. Find ' + (moved > 1 ? 'them' : 'it') + ' in Decorate, then Storage.', 6000); });
 this.yardSprites = [];
 this.yardZones = [];
 this.renderYard();

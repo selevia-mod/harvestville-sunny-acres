@@ -30,16 +30,37 @@
     return 'ok';
   };
 
-  // A yard piece out here goes only on land you own, and not on soil.
+  // A yard piece out here goes only on land you own, and not on soil. A Field Plot or the greenhouse may stand on soil:
+  // it is there to be tilled (players, 10 Nov 2026, "nawawala yung mga display ko": a planted greenhouse or plot on bought
+  // land failed this every time the farm opened and went back into storage, and its crops were left behind).
   L.landCantPlace = function (s, t, x, y) {
-    var box = L.yardBox(t, x, y);
+    var box = L.yardBox(t, x, y), plot = L.isPlot && L.isPlot(t);
     for (var i = 0; i < box.length; i++) {
       var px = box[i][0], py = box[i][1];
       if (px < LAND.x0) continue;
-      if (!L.landOpen(s, px, py) || s.soil[py * C.FARM_W + px]) return true;
+      if (!L.landOpen(s, px, py) || (!plot && s.soil[py * C.FARM_W + px])) return true;
     }
     return false;
   };
+  // When the farm opens, a piece on bought land with empty soil under it (no crop, no sprinkler: tilled after, or by
+  // mistake) keeps its place and the soil goes, instead of the piece going into storage (players, 10 Nov 2026: a whole
+  // fence went). With a crop or a sprinkler under it, the crop stays and the piece still goes to storage.
+  var yardRepair = L.yardRepair;
+  L.yardRepair = function (s, farm) {
+    (s.yard.items || []).forEach(function (it) {
+      if (L.isPlot && L.isPlot(it.t)) return;
+      var box = L.yardBox(it.t, it.x, it.y), under = [];
+      for (var i = 0; i < box.length; i++) {
+        var px = box[i][0], py = box[i][1], idx = py * C.FARM_W + px, t = s.soil[idx];
+        if (px < LAND.x0) continue;
+        if (!L.landOpen(s, px, py)) return; // (off your land: not a soil question)
+        if (t) { if (t.c || t.sp) return; under.push(idx); }
+      }
+      under.forEach(function (idx) { delete s.soil[idx]; });
+    });
+    return yardRepair(s, farm);
+  };
+
   // Is a yard piece standing here? (Nothing is tilled under one.) Not a Field Plot or the greenhouse: they are there to be
   // tilled (owner, 8 Nov 2026: players with the greenhouse on their bought land "cannot farm it").
   L.landTaken = function (s, x, y) {

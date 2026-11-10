@@ -55,8 +55,9 @@
   P.buildObjects = function () {
     buildObjects.call(this);
     if (this.mapKey !== 'farm') return;
-    var moved = L.yardRepair(this.state, F.farm());
-    if (moved) this.time.delayedCall(800, function () { if (F.ui) F.ui.toast(moved + (moved > 1 ? ' pieces' : ' piece') + ' of your yard went back into storage.'); });
+    var moved = L.yardRepair(this.state, F.farm()), own = !this.state.isVisit && !F.session.visit && !F.session.raid;
+    // (said clearly and long enough to read, and only on your own farm: a friend's copy is not yours to tidy)
+    if (moved && own) this.time.delayedCall(1200, function () { if (F.ui) F.ui.toast(moved + (moved > 1 ? ' pieces' : ' piece') + ' of your yard did not fit and went to Storage. Find ' + (moved > 1 ? 'them' : 'it') + ' in Decorate, then Storage.', 6000); });
     this.yardSprites = [];
     this.yardZones = [];
     this.renderYard();

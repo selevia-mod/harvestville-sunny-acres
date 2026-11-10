@@ -202,3 +202,39 @@ test('every tile planted on all six blocks and the old field still fits a save',
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size);
 });
+
+test('a planted greenhouse or Field Plot on bought land stays when the farm opens, crops and all (players, 10 Nov 2026: "nawawala yung mga display ko")', () => {
+  const s = fresh();
+  L.buyLand(s);
+  const b = C.LAND.blocks[0], O = C.OUTDOOR;
+  [['greenhouse', b.x0 + 1, b.y0 + 1], ['farm_plot', b.x0 + 6, b.y0 + 1]].forEach(([key, x, y]) => {
+    const t = O.index[key];
+    s.yard.bag[t] = 1;
+    assert.strictEqual(typeof L.placeYard(s, FARM, t, x, y), 'number', key);
+  });
+  s.yard.items.filter((it) => L.isPlot(it.t)).forEach((it) => L.yardBox(it.t, it.x, it.y).forEach((p) => { s.soil[p[1] * W + p[0]] = { w: 1, c: 'turnip', p: L.nowMin(), r: 0 }; }));
+  const n = Object.keys(s.soil).length;
+  const s2 = roundTrip(s);
+  assert.strictEqual(L.yardRepair(s2, FARM), 0, 'nothing goes to storage');
+  assert.strictEqual(s2.yard.items.filter((it) => L.isPlot(it.t)).length, 2);
+  assert.strictEqual(Object.keys(s2.soil).filter((k) => s2.soil[k].c === 'turnip').length, n, 'the crops stay');
+});
+
+test('a fence on bought land with empty soil under it keeps its place and the soil goes; with a crop or a sprinkler under it, the piece goes to storage and they stay', () => {
+  const s = fresh();
+  L.buyLand(s);
+  const b = C.LAND.blocks[0], t = C.OUTDOOR.index.wood_fence;
+  s.yard.bag[t] = 3;
+  [0, 2, 4].forEach((dx) => assert.strictEqual(typeof L.placeYard(s, FARM, t, b.x0 + dx, b.y1), 'number'));
+  const at = (dx) => b.y1 * W + b.x0 + dx;
+  s.soil[at(0)] = { w: 1, c: null, p: 0, r: 0 }; // tilled, empty
+  s.soil[at(2)] = { w: 0, c: 'turnip', p: L.nowMin(), r: 0 }; // a crop
+  s.soil[at(4)] = { w: 0, c: null, p: 0, r: 0, sp: 1 }; // a sprinkler
+  const s2 = roundTrip(s);
+  assert.strictEqual(L.yardRepair(s2, FARM), 2, 'only the two over a crop or a sprinkler move');
+  assert.ok(s2.yard.items.some((it) => it.t === t && it.x === b.x0 && it.y === b.y1), 'the fence over empty soil stays');
+  assert.ok(!s2.soil[at(0)], 'its empty soil is gone');
+  assert.strictEqual(s2.soil[at(2)].c, 'turnip', 'the crop stays');
+  assert.ok(s2.soil[at(4)].sp, 'the sprinkler stays');
+  assert.strictEqual(s2.yard.bag[t], 2);
+});
