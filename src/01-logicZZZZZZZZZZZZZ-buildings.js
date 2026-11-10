@@ -141,6 +141,19 @@
     L.addBuildings(s);
     return s;
   };
+
+  // ---------- visits: a friend's farm as they laid it out; a snapshot from before (or a made-up farm) gets the buildings
+  // where the map had them ----------
+  var snapshot = L.snapshot;
+  L.snapshot = function (s) { var o = snapshot(s); if (s.ef) o.ef = 1; return o; };
+  var visitState = L.visitState;
+  L.visitState = function (snap, mine) {
+    var s = visitState.apply(this, arguments);
+    s.ef = snap && snap.ef ? 1 : 0;
+    if (s.yard) L.addBuildings(s);
+    return s;
+  };
+
   // the house and the ranch are only moved, never put away
   var storeYard = L.storeYard;
   L.storeYard = function (s, i) { var it = s.yard.items[i]; return it && O.types[it.t] && O.types[it.t].keep ? 'keep' : storeYard.apply(this, arguments); };

@@ -2173,6 +2173,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
     const cam = Farm.world.cameras.main, T = 256;
     return { x: ((x + 0.5) * T - cam.worldView.x) * cam.zoom / Farm.R, y: ((y + 0.5) * T - cam.worldView.y) * cam.zoom / Farm.R };
   }, [x, y]);
+  const n0 = await page.evaluate(() => Farm.session.state.yard.items.length); // (the field fence and, since Edit Farm, the farm's buildings and field plots)
   await page.touchscreen.tap(330, 258); // Decorate
   await page.waitForFunction(() => Farm.world.yd && Farm.ui.decorBar, null, SLOW);
 
@@ -2185,8 +2186,8 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
     await frames(page, 2);
   }
   let s = await state(page);
-  assert.deepStrictEqual(s.yard.items.slice(60).map((it) => [it.x, it.y]), [[24, 11], [25, 11], [26, 11]], 'after the 60 pieces of the field fence');
-  assert.deepStrictEqual(await page.evaluate(() => [60, 61, 62].map((i) => Farm.Logic.fenceShape(Farm.session.state, i))), ['h', 'h', 'h']);
+  assert.deepStrictEqual(s.yard.items.slice(n0).map((it) => [it.x, it.y]), [[24, 11], [25, 11], [26, 11]], 'after the farm\'s own pieces');
+  assert.deepStrictEqual(await page.evaluate((n0) => [n0, n0 + 1, n0 + 2].map((i) => Farm.Logic.fenceShape(Farm.session.state, i)), n0), ['h', 'h', 'h']);
   assert.strictEqual(s.yard.bag[0], 5, 'three of the eight starter fences used');
   await page.touchscreen.tap(180, 534); // Done placing
 
@@ -2194,7 +2195,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   await page.touchscreen.tap(90, 598);
   await tapButton(page, 'Place', 2); // Wooden Fence, Flower Bed, Bench
   s = await state(page);
-  const bench = s.yard.items[63];
+  const bench = s.yard.items[n0 + 3];
   const IX = await page.evaluate(() => Farm.Config.OUTDOOR.index);
   assert.strictEqual(bench.t, IX.bench);
   const from = await toScreen(bench.x, bench.y), to = await toScreen(bench.x + 2, bench.y);
@@ -2205,7 +2206,7 @@ test('the yard: place fences by tapping, move a bench, buy garden pieces at Mira
   await touch('touchEnd');
   await frames(page);
   s = await state(page);
-  assert.strictEqual(s.yard.items[63].x, bench.x + 2, 'the bench moved');
+  assert.strictEqual(s.yard.items[n0 + 3].x, bench.x + 2, 'the bench moved');
   await shot(page, '38-yard');
   await page.touchscreen.tap(270, 598); // Done
   await page.waitForFunction(() => !Farm.world.yd && !Farm.world.busy, null, SLOW);

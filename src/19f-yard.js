@@ -176,7 +176,7 @@
   // The tiles you can walk to from the house door; `add` / `drop` = tile indexes to count as solid / open (a piece being
   // placed or moved).
   P.openFromDoor = function (add, drop) {
-    var self = this, W = this.map.width, H = this.map.height, s0 = F.farm().start, seen = new Uint8Array(W * H), debris = this.state.debris || {};
+    var self = this, W = this.map.width, H = this.map.height, s0 = L.farmFor(this.state, F.farm()).start, seen = new Uint8Array(W * H), debris = this.state.debris || {};
     if (s0 < 0) return null;
     var open = function (x, y) {
       var k = y * W + x;

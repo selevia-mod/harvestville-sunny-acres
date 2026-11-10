@@ -162,3 +162,17 @@ test('the house and the ranch can\'t be put away, only moved; the others can', (
   assert.strictEqual(L.storeYard(s, i('ranch')), 'keep');
   assert.strictEqual(L.storeYard(s, i('dog_yard')), 'ok');
 });
+
+test('a visit sees the farm as its owner laid it out; an older snapshot (or a made-up farm) gets the buildings where the map had them', () => {
+  const s = fresh(), h = s.yard.items.find((it) => it.t === O.index.farmhouse);
+  h.x = 24; h.y = 4;
+  const v = L.visitState(L.snapshot(s), fresh());
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(v.yard.items.filter((it) => it.t === O.index.farmhouse).map((it) => [it.x, it.y]))), [[24, 4]]);
+  assert.strictEqual(v.yard.items.filter((it) => L.isBuilding(it.t)).length, s.yard.items.filter((it) => L.isBuilding(it.t)).length, 'nothing added twice');
+  const old = JSON.parse(JSON.stringify(L.snapshot(s))); delete old.ef; old.yard = old.yard.filter((e) => !L.isBuilding(e[0]) && !O.types[e[0]].fieldPlot);
+  const v2 = L.visitState(old, fresh());
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(v2.yard.items.filter((it) => it.t === O.index.farmhouse).map((it) => [it.x, it.y]))), [[4, 3]], 'given back at (4,3)');
+  assert.strictEqual(v2.yard.items.filter((it) => it.t === O.index.farm_pond).length, 3);
+  const bare = L.visitState({ v: 1, home: { level: 3 }, soil: [], yard: [], animals: [] }, fresh());
+  assert.strictEqual(bare.yard.items.filter((it) => O.types[it.t].fieldPlot).length, 16, 'a made-up farm has its field');
+});
