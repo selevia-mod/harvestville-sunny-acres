@@ -86,7 +86,8 @@
       // while decorating a field plot shows its picture, to be dragged)
       var ph = type.picH || type.h, hidden = type.building === 'house' || type.building === 'shop' || (type.fieldPlot && !self.yd);
       var sp = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, ph * T);
-      sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
+      // (the ranch and the dog's yard are low: the animals and the dog inside them are drawn over the picture, 11 Nov 2026)
+      sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot || type.low ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
       if (hidden) sp.setVisible(false);
       self.yardSprites[i] = sp;
       var solid = L.yardSolid(it.t, it.x, it.y);

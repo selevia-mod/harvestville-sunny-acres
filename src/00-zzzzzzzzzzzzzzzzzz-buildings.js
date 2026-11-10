@@ -5,6 +5,7 @@
 //   '#' solid, '.' open grass, 'D' the house door (solid: you face it from the tile below), 'W' water (solid),
 //   'P' the pen's grass, 'Y' the dog's grass, 'G' the pen's gate (open), 'S' Lily's counter (solid: you shop from the
 //   tile below), 'M' the mailbox (solid), 'I' the incubator (solid), 'H' where the horse waits (open).
+// low: drawn under the farmer and the animals (they live inside it, and nothing can stand behind its solid back row).
 (function (F) {
   'use strict';
   var C = F.Config, O = C.OUTDOOR;
@@ -13,10 +14,10 @@
     { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true, prop: 'house_1',
       mask: ['#####.', '#####.', '#####.', '##D##M'] },
     // the barn (left), the coop and its incubator (right), the pen below with its gate in the front fence
-    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch',
+    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true,
       mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '####G####'] }, // (the gate in the front fence, as the owner's picture has it)
     // the doghouse at the back, a low fence on the sides, open at the front
-    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard',
+    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true,
       mask: ['####', '#YY#', '#YY#', '#YY#', 'YYYY'] },
     { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', prop: 'farm_pond',
       mask: ['WWWWW', 'WWWWW', 'WWWWW', 'WWWWW'] },

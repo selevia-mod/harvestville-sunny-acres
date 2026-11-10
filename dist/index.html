@@ -5619,6 +5619,7 @@ C.FRAID.real = { energy: 10, nextGold: 50, shieldHours: 8 };
 
 
 
+
 (function (F) {
 'use strict';
 var C = F.Config, O = C.OUTDOOR;
@@ -5627,10 +5628,10 @@ var NEW = [
 { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true, prop: 'house_1',
 mask: ['#####.', '#####.', '#####.', '##D##M'] },
 
-{ key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch',
+{ key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true,
 mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '####G####'] },
 
-{ key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard',
+{ key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true,
 mask: ['####', '#YY#', '#YY#', '#YY#', 'YYYY'] },
 { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', prop: 'farm_pond',
 mask: ['WWWWW', 'WWWWW', 'WWWWW', 'WWWWW'] },
@@ -25128,7 +25129,8 @@ var type = O.types[it.t], img = F.yardImg(self, it.t, type.kind === 'fence' ? L.
 
 var ph = type.picH || type.h, hidden = type.building === 'house' || type.building === 'shop' || (type.fieldPlot && !self.yd);
 var sp = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, ph * T);
-sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
+
+sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot || type.low ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
 if (hidden) sp.setVisible(false);
 self.yardSprites[i] = sp;
 var solid = L.yardSolid(it.t, it.x, it.y);

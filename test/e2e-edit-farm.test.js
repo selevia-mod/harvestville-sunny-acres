@@ -100,6 +100,11 @@ test('the farm works as before: the door, mailbox, Lily\'s shop, the pen and the
     door: [6, 6], mail: [9, 6], shop: [16, 31, 17], inc: [7, 28], pen: [3, 31, 9, 34], dog: [11, 5, 14, 9],
     water: [true, true, false], herd: true, dogOk: true, tillField: true, stand: true, houseImg: true, solid: [true, true, false],
   });
+  // the animals and the dog are drawn over the ranch's and the dog yard's pictures (11 Nov 2026: they were hidden under them)
+  assert.deepStrictEqual(await page.evaluate(() => {
+    const w = Farm.world, s = w.state, O = Farm.Config.OUTDOOR, sp = (k) => w.yardSprites[s.yard.items.findIndex((it) => it.t === O.index[k])];
+    return [sp('ranch').depth < w.herd.members[0].sprite.depth, sp('dog_yard').depth < w.dog.sprite.depth];
+  }), [true, true]);
   await enterAndLeave(page);
   assert.deepStrictEqual(await tileOf(page), [6, 7], 'out at the door');
   assert.deepStrictEqual(problems, []);

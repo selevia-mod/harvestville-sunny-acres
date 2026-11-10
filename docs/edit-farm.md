@@ -52,6 +52,26 @@ is a strategy. With a War layout chosen, the copy uses it (the farm itself stays
 A visitor sees the farm as its owner laid it out (the snapshot carries the pieces, as the yard already does).
 Town Raid crops and boars find the field plots wherever they are.
 
+## Part 1: done (10-11 Nov 2026, branch feat/edit-farm)
+Plan: docs/superpowers/plans/2026-11-10-edit-farm-part1-movable-buildings.md.
+- Moved off the map into yard pieces (appended types, src/00-zzzzzzzzzzzzzzzzzz-buildings.js): the farmhouse, the
+  Animal Ranch (barn, coop, incubator, pen; its gate in the FRONT fence, as the owner's picture draws it, not on the
+  right as the old map had it), the dog's yard, the 3 ponds, Lily's seed stand, the stable (once built), and the field
+  as twelve 4x4 + four 4x2 field plots. The map (maps/farm.json) keeps only its frame; the old one is
+  test/fixtures/farm-map-before-edit-farm.json.
+- Save flag `ef`: a save without it gets every piece once, where the map had it (L.addBuildings, from L.deserialize,
+  L.newState and L.visitState); an older friend's snapshot, a bandit farm and a made-up raid farm get them too.
+- Each building works where it stands (src/12a-buildings-world.js, src/19fa-buildings-yard.js): the door warp and
+  spawn, the mailbox, the shop, the incubator, the pen and dog zones, the horse's spot, the ponds' water; reachability
+  (L.farmFor) from the house door. The house and the ranch can only be moved, never put away. A moved building opens
+  the farm again after Decorate.
+- Raids: the no-drop field is the plots and a tile round them; the bandit farms' crops sit on the plots and their pen
+  defenses by the ranch's gate; the Bandit Ranch gained a tower and the Hacienda two towers and a sprinkler (re-judged
+  over 5 layouts: the old star table). The guide's field goal is a field plot.
+- The ranch and the dog's yard are drawn under the animals and the dog (their pictures hid them; found by the
+  before/after screenshots against 78b8af5, where the house, ranch, ponds, stand and field otherwise sit where they were).
+- Not in Part 1: layouts (Farm/War), "Use for raids", the tour, choppable farm trees (Part 2). Phones not tested yet.
+
 ## Art (owner)
 art-src/FARM-LAYOUT-PROMPTS.md: house_1, ranch, dog_yard, pond.
 
