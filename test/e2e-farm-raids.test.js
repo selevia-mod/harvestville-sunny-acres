@@ -239,7 +239,7 @@ test('farm raids (owner, 10 Nov 2026): drag looks around (even on the green grou
       const a = cam.getScreenPoint ? null : null;
       const sx = ((x + 0.5) * Farm.Config.TILE - cam.worldView.x) * cam.zoom, sy = ((y + 0.5) * Farm.Config.TILE - cam.worldView.y) * cam.zoom;
       const sx2 = ((x + 3.5) * Farm.Config.TILE - cam.worldView.x) * cam.zoom;
-      if (sx > 20 && sx2 < 700 && sy > 260 && sy < 1000) return { x1: sx / R, x2: sx2 / R, y: sy / R };
+      if (sx > 280 && sx2 < 700 && sy > 300 && sy < 950) return { x1: sx / R, x2: sx2 / R, y: sy / R }; // (away from the edges: the drags below go up to 120 px either way)
     }
     return null;
   });

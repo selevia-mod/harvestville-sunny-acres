@@ -48,7 +48,15 @@
     return im;
   };
   // a number that jumps up and fades (damage: red; on a defense: white)
-  P.bnum = function (x, y, txt, color) {
+  P.bnum = function (x, y, txt, color, key) {
+    // (stacked: a number right after another one on the same thing goes above it, never on it)
+    if (key) {
+      var st = (this.bvNum = this.bvNum || {})[key], now = this.time.now;
+      if (st && now - st.at < 650) { st.n = (st.n + 1) % 3; } else st = this.bvNum[key] = { n: 0 };
+      st.at = now;
+      y -= st.n * 0.42 * T;
+      x += (st.n % 2 ? 0.22 : -0.22) * T * (st.n ? 1 : 0);
+    }
     var t = this.add.text(x, y, txt, { fontFamily: F.UI_FONT || 'sans-serif', fontSize: Math.round(0.52 * T) + 'px', color: color, fontStyle: 'bold', stroke: '#2a1408', strokeThickness: Math.round(0.07 * T) })
       .setOrigin(0.5).setDepth(D.fx + 1).setResolution(F.R || 1);
     this.tweens.add({ targets: t, y: y - 0.7 * T, duration: 260, ease: 'Quad.out' });
@@ -199,6 +207,7 @@
       } });
     }
     var x = r.x * T, y = r.y * T;
+    if (r.hp <= 0 && u.px != null) { x = u.px; y = u.py; } // (knocked out where its picture is)
     if (r.hp <= 0) { // knocked out: lies dizzy, then goes in a puff
       if (!u.out) {
         u.out = time;
@@ -221,26 +230,61 @@
     var hitting = !moving && near && tg.left == null && r.stuck <= 0, grabbing = !moving && near && tg.left != null;
     if (moving && Math.abs(dx) > 0.0004) u.face = dx > 0 ? -1 : 1; // (the pictures face left)
     if (hitting || grabbing) u.face = tg.x > r.x ? -1 : 1;
-    // a swing: wind up (pulls back, squashes), strike (springs forward, stretches), recover
-    var sw = ((time + u.ph * 100) % 720) / 720, pose = hitting ? (sw > 0.28 && sw < 0.5 ? 'hit' : 'run') : (r.got > 0.5 || grabbing) ? 'loot' : 'run';
-    var hop = 0, tilt = 0, lx = 0, sx = 1, sy = 1, fly = d.flies ? 0.7 * T + Math.sin(time / 160 + u.ph) * 0.12 * T : 0;
-    if (moving) {
-      var ph = time / (r.flee > 0 ? 70 : 95) + u.ph, h = Math.abs(Math.sin(ph));
-      hop = h * 0.2 * T; tilt = -6 + Math.sin(ph) * 5; // (leans into the run)
-      sx = 1.06 - 0.1 * h; sy = 0.92 + 0.14 * h; // (squashed on the ground, stretched in the air)
-    }
-    if (grabbing) { var g2 = Math.abs(Math.sin(time / 110 + u.ph)); hop = g2 * 0.1 * T; tilt = -10 * g2; sy = 0.95 + 0.08 * g2; }
-    if (hitting) {
-      if (sw < 0.28) { lx = u.face * 0.14 * T * (sw / 0.28); sx = 1.08; sy = 0.9; tilt = 6; } // (wind-up: back)
-      else if (sw < 0.5) { lx = -u.face * 0.32 * T; sx = 0.92; sy = 1.1; tilt = -10; } // (strike: forward)
-      else lx = -u.face * 0.32 * T * (1 - (sw - 0.5) / 0.5);
+    // (owner, 10 Nov 2026: "Birds flying, cats attacking looks awkward, we need better animation")
+    // the picture follows the battle smoothly (a turn or a scare no longer snaps it), a little behind
+    if (u.px == null) { u.px = x; u.py = y; }
+    u.px += (x - u.px) * 0.3; u.py += (y - u.py) * 0.3;
+    var big = r.k === 'carabao' || r.k === 'boar', pose = 'run', hop = 0, tilt = 0, lx = 0, ly = 0, sx = 1, sy = 1, fly = 0;
+    var sw = ((time + u.ph * 100) % 800) / 800;
+    if (d.flies) {
+      // FLYING: no hops. It glides at a height, wings beating (a quick flutter), banking into turns; to peck it swoops low,
+      // dips its beak in a beat, and climbs again; scared, it flies up high and fast
+      var want = r.flee > 0 ? 1.4 * T : (hitting || grabbing) ? 0.3 * T : 0.95 * T;
+      u.alt = u.alt == null ? want : u.alt + (want - u.alt) * 0.08;
+      var beat = Math.sin(time / (r.flee > 0 ? 28 : 42) + u.ph);
+      fly = u.alt + Math.sin(time / 260 + u.ph) * 0.08 * T;
+      sx = 1 + 0.05 * beat; sy = 1 - 0.07 * beat;
+      u.bank = (u.bank || 0) + ((moving ? Math.max(-14, Math.min(14, dy * 900)) : 0) - (u.bank || 0)) * 0.15;
+      tilt = u.bank - (r.flee > 0 ? 12 : 0);
+      if (hitting || grabbing) {
+        var pk = ((time + u.ph * 100) % 520) / 520, dip = pk < 0.35 ? Math.sin(pk / 0.35 * Math.PI) : 0;
+        ly = dip * 0.12 * T; tilt = -18 * dip; pose = dip > 0.3 ? 'hit' : grabbing ? 'loot' : 'run';
+        if (pk < 0.1 && time - (u.peckAt || 0) > 300) { u.peckAt = time; if (hitting) this.bfx('hit', u.px - u.face * 0.25 * T, u.py - 0.25 * T, { scale: 0.45, life: 40 }); }
+      } else if (r.got > 0.5) pose = 'loot';
+    } else {
+      if (moving) {
+        // RUNNING: a hop a stride, squashed on landing, stretched in the air, leaning into the run
+        var ph = time / (r.flee > 0 ? 70 : 95) + u.ph, h = Math.abs(Math.sin(ph));
+        hop = h * (big ? 0.1 : 0.18) * T; tilt = -5 + Math.sin(ph) * 4;
+        sx = 1.05 - 0.08 * h; sy = 0.93 + 0.12 * h;
+        if (r.got > 0.5) pose = 'loot';
+      } else if (grabbing) {
+        var g2 = Math.abs(Math.sin(time / 110 + u.ph)); hop = g2 * 0.08 * T; tilt = -10 * g2; sy = 0.95 + 0.08 * g2; pose = 'loot';
+      } else if (hitting) {
+        // ATTACKING: crouch back, then a pounce (the small ones leap in an arc; the carabao and the boar charge low), a
+        // swipe at the moment it lands, and back to its place
+        var back = big ? 0.16 : 0.12, reach = big ? 0.42 : 0.36;
+        if (sw < 0.4) { var e = sw / 0.4; lx = u.face * back * T * e; sx = 1 + 0.1 * e; sy = 1 - 0.12 * e; tilt = 8 * e; }
+        else if (sw < 0.6) {
+          var e2 = (sw - 0.4) / 0.2;
+          lx = u.face * back * T + (-u.face * (reach + back)) * T * e2; hop = big ? 0 : Math.sin(e2 * Math.PI) * 0.32 * T;
+          sx = 0.9; sy = 1.12; tilt = -14; pose = 'hit';
+          if (e2 > 0.75 && u.swing !== Math.floor((time + u.ph * 100) / 800)) {
+            u.swing = Math.floor((time + u.ph * 100) / 800);
+            this.bfx('swoosh', u.px - u.face * (reach + 0.25) * T, u.py - 0.4 * T * u.base, { scale: 0.7 * u.base, life: 50, flip: u.face < 0 });
+            if (big) this.cameras.main.shake(60, 0.0015);
+          }
+        } else { var e3 = (sw - 0.6) / 0.4; lx = -u.face * reach * T * (1 - e3); pose = e3 < 0.3 ? 'hit' : 'run'; }
+      } else if (r.got > 0.5) pose = 'loot';
     }
     if (r.stuck > 0) lx = Math.sin(time / 30) * 0.06 * T;
     u.kb *= 0.85; // (a knock back when hit, fading)
     sx *= 1 + 0.3 * u.sq; sy *= 1 - 0.38 * u.sq; // (landing)
     u.img.setFrame(moveFrame(r.k, pose)).setFlipX(u.face < 0).setAngle((tilt + u.spin) * u.face).setScale(u.k * sx, u.k * sy)
-      .setPosition(x + lx + u.kb * u.face, y - hop - fly - u.fall * 2.2 * T).setDepth(D.actor + y / 1e5 + (d.flies ? 0.001 : 0));
-    u.sh.setPosition(x, y + 0.05 * T).setScale(d.flies ? 0.6 : (1 - hop / T) * (1 - 0.7 * u.fall)).setAlpha(1 - 0.5 * u.fall);
+      .setPosition(u.px + lx + u.kb * u.face, u.py - hop - fly + ly - u.fall * 2.2 * T).setDepth(D.actor + u.py / 1e5 + (d.flies ? 0.001 : 0));
+    var shAlt = d.flies ? Math.max(0, Math.min(1, (u.alt || 0) / (1.4 * T))) : 0;
+    u.sh.setPosition(u.px + lx * 0.5, u.py + 0.05 * T).setScale(d.flies ? 0.75 - 0.35 * shAlt : (1 - hop / T) * (1 - 0.7 * u.fall)).setAlpha(d.flies ? 0.75 - 0.35 * shAlt : 1 - 0.5 * u.fall);
+    x = u.px; y = u.py; // (the effects below go where the picture is)
     if (r.stuck > 0) u.img.setTint(0xb08860); else if (r.slow > 0) u.img.setTint(0x9fd4ff); else if (!u.flash) u.img.clearTint();
     // running: dust behind it
     if (moving && !d.flies && time - u.dustAt > 240) { u.dustAt = time; this.bfx('dust', x + u.face * 0.35 * T, y, { scale: 0.45, life: 60, depth: D.flat + 0.3 }); }
@@ -249,14 +293,14 @@
       var lost = u.hp - r.hp;
       u.hp = r.hp;
       u.sum = (u.sum || 0) + lost;
-      if (time - (u.hitAt || 0) > 340) {
+      if (time - (u.hitAt || 0) > 450) {
         u.hitAt = time;
         u.flash = true;
         u.img.setTintFill(0xffffff);
         u.kb = Math.min(0.25, 0.06 + lost / r.max) * T;
         this.time.delayedCall(70, function () { u.flash = false; if (u.img.active) u.img.clearTint(); });
         this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.8, life: 60 });
-        this.bnum(x + (Math.random() - 0.5) * 0.5 * T, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a');
+        this.bnum(x, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a', r.id);
         u.sum = 0;
         var by = this.raidB.defs.filter(function (q) { return q.aim === r.id && R.defenses[q.t].chases; })[0];
         if (by) this.bfx('swoosh', x, y - 0.4 * T, { scale: 0.8, life: 60, flip: by.x > r.x });
@@ -284,10 +328,10 @@
       var lost = u.hp - d.hp;
       u.hp = d.hp;
       u.sum = (u.sum || 0) + lost;
-      if (time - (u.hitAt || 0) > 200) {
+      if (time - (u.hitAt || 0) > 450) {
         u.hitAt = time;
         this.bfx('hit', x + (Math.random() - 0.5) * 0.4 * T, y - 0.5 * T, { scale: 1.0, life: 70 });
-        this.bnum(x, y - 1.3 * T, '-' + Math.max(1, Math.round(u.sum)), '#ffffff');
+        this.bnum(x, y - 1.3 * T, '-' + Math.max(1, Math.round(u.sum)), '#ffffff', d.id);
         u.sum = 0;
         if (u.sp && u.sp.active && d.t !== 'dog') {
           var sp = u.sp;

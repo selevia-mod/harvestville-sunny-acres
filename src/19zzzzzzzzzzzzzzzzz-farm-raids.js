@@ -243,6 +243,28 @@
     });
     var top = this.modals[this.modals.length - 1];
     if (top && top.c) top.c.raidCampTab = tab;
+    // the training times count down while you watch (owner, 10 Nov 2026: "The time is not working real time?"): each second
+    // the "next in m:ss" in a raider's row is written again (its row: the one whose name is that raider's)
+    if (tab === 'party' && top && top.c && r.train.length) {
+      var byName = {};
+      R.raiderOrder.forEach(function (k) { byName[R.raiders[k].name] = k; });
+      var tick = this.time.addEvent({ delay: 1000, loop: true, callback: function () {
+        if (!top.c.active || self.modals[self.modals.length - 1] !== top) return tick.remove();
+        var walk = function (list) {
+          list.forEach(function (o) {
+            if (o.type === 'Text' && o.text.indexOf(' training, next in ') > 0 && o.parentContainer) {
+              var nm = o.parentContainer.list.filter(function (x) { return x.type === 'Text' && byName[x.text.split('  x')[0]] != null; })[0];
+              var k = nm && byName[nm.text.split('  x')[0]];
+              if (k == null) return;
+              var t = nextOf(k);
+              if (t) o.setText(o.text.replace(/next in \d+:\d\d/, 'next in ' + t));
+            }
+            if (o.list) walk(o.list);
+          });
+        };
+        walk(top.c.list);
+      } });
+    }
   };
   // the party you have, as the battle wants it: { k: { n, lv } }
   L.frArmy = function (s) {
