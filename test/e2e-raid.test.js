@@ -323,6 +323,62 @@ test('Town Raid attackers in their own animations (owner, 10 Nov 2026): the Gian
   }
 });
 
+test('Typhoon Night\'s wind (owner\'s art, 11 Nov 2026): see-through gusts blow right to left across the farm, a few at a time, under the buttons, each through its 4 frames; a cheap phone gets one at a time; without the pack, none', async () => {
+  const { page, problems, context } = await open(null, manila(2026, 11, 19, 20, 2), true);
+  await plant(page, 12);
+  await waitModal(page, /TOWN RAID: TYPHOON NIGHT/);
+  await tapButton(page, 'Defend!');
+  await page.waitForFunction(() => Farm.world.gusts && Farm.world.gusts.length > 0, null, SLOW);
+  const look = await page.evaluate(async () => {
+    const w = Farm.world, D = Farm.Config.TOWN_WIND, out = { most: 0, frames: new Set(), alpha: 0, left: true, key: true, depth: true, scene: true };
+    const was = new Map();
+    for (let i = 0; i < 240; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      out.most = Math.max(out.most, w.gusts.length);
+      w.gusts.forEach((g) => {
+        const img = g.img;
+        out.frames.add(img.frame.name % 4);
+        out.alpha = Math.max(out.alpha, img.alpha);
+        if (img.texture.key !== D.key) out.key = false;
+        if (img.depth !== D.depth) out.depth = false;
+        if (img.scene !== w) out.scene = false;
+        if (was.has(g) && img.x > was.get(g) + 0.01) out.left = false;
+        was.set(g, img.x);
+      });
+    }
+    return { most: out.most, D: D.most, frames: [...out.frames].sort(), alpha: out.alpha, left: out.left, key: out.key, depth: out.depth, scene: out.scene };
+  });
+  assert.ok(look.key, 'from its own sheet (ranim_wind)');
+  assert.ok(look.most >= 2 && look.most <= look.D, 'a few at a time: ' + look.most);
+  assert.deepStrictEqual(look.frames, [0, 1, 2, 3], 'each gust through its 4 frames');
+  assert.ok(look.left, 'blowing to the left');
+  assert.ok(look.alpha > 0.3 && look.alpha < 0.75, 'see-through: ' + look.alpha);
+  assert.ok(look.scene && look.depth, 'on the farm (the World scene), over the night: never over the buttons (the UI scene)');
+  await shot(page, 'raid-wind-typhoon');
+  // a cheap phone: one at a time
+  await page.evaluate(() => { window.gameHost.lite = true; });
+  const cheap = await page.evaluate(async () => {
+    const w = Farm.world;
+    while (w.gusts.length > 1) await new Promise((r) => requestAnimationFrame(r)); // (the ones already blowing finish)
+    let most = 0;
+    for (let i = 0; i < 300; i++) { await new Promise((r) => requestAnimationFrame(r)); most = Math.max(most, w.gusts.length); }
+    return most;
+  });
+  assert.ok(cheap <= 1, 'a cheap phone: one gust at a time (' + cheap + ')');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  // without the pack (offline, before it is in): no wind, the debris as before, no errors
+  const off = await open(null, manila(2026, 11, 19, 20, 2));
+  await plant(off.page, 12);
+  await waitModal(off.page, /TOWN RAID: TYPHOON NIGHT/);
+  await tapButton(off.page, 'Defend!');
+  await off.page.waitForFunction(() => Farm.world.raiders.some((a) => a.mode !== 'flee' && a.fade >= 1), null, SLOW);
+  await frames(off.page, 30);
+  assert.strictEqual(await off.page.evaluate(() => Farm.world.gusts.length), 0, 'no pack: no wind');
+  assert.deepStrictEqual(off.problems, []);
+  await off.context.close();
+});
+
 test('Town Raid attackers without their sheets (offline, before the pack is in): the old look, no errors', async () => {
   const { page, problems, context } = await open(null, manila(2026, 11, 9, 20, 2));
   await plant(page, 12);

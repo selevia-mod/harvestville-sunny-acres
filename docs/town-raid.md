@@ -44,6 +44,11 @@ Their own animations (owner's art, 10 Nov 2026; src/19zzzze-town-raid-anim.js, t
 (ranim_tdebris: a branch, a stone or a roof piece tumbling, then cleared). A hit tints them light red. The stand-ins above
 show only until the sheet is on the phone.
 
+Typhoon Night's wind (owner's art, 11 Nov 2026; src/19zzzzf-town-raid-wind.js, tools/art/town-wind-import.js, ranim_wind
+in the 'raiders' pack): while the typhoon is on the farm, see-through gusts blow across the screen from right to left, up
+to 3 at a time (a cheap phone: 1), each one row of the sheet (three streaks, a swirl, two quick dashes, a streak with
+leaves) through its 4 frames. Over the night, under every button. No wind until the sheet is on the phone.
+
 Order: the first raid (Monday 9 Nov 2026) is the boars, then crows, sparks, typhoon, and round again.
 
 ## When
@@ -111,7 +116,7 @@ schedule, cap and tiers; the batch timing can be changed on the server alone.
 ## Pictures that would make it nicer (stand-ins now)
 
 1-4. (done 10 Nov 2026: the Giant Boar, the crows, the Lava Spark and the Typhoon debris have their animations, above;
-   still wanted: **wind streaks** for the typhoon)
+   the typhoon's wind streaks came 11 Nov 2026)
 5. **Raid icons** for the bar, the cards and the tour: a boar head, a crow, a spark, a typhoon swirl (128 px, like the
    item icons).
 6. **Chests**: Helper's (wood), Defender's (iron), Hero's (gold), closed and open.
