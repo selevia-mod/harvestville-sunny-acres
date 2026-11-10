@@ -73,16 +73,14 @@
     if (!s.banditDefs) defs = L.frCapDefs(defs, opts && opts.camp != null ? opts.camp : L.frState(F.session.state).camp);
     // where raiders never come down (owner, 10 Nov 2026: "Attacker can put raider in the middle of the farm, my defense
     // cant put in the middle"): the field and a tile round it, the pen; and 3 tiles from any crop, defense or loot
-    var nd = new Uint8Array(w * h), fi = F.farm && F.farm();
+    var nd = new Uint8Array(w * h);
     var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
-    // (F.farm().field is a mask, one entry a tile, 1 on the field: until 10 Nov 2026 its values were read as tile numbers,
-    // so the field was never kept clear and raiders could land on the crops)
-    var field = (fi && fi.field) || [];
-    for (var fi2 = 0; fi2 < field.length; fi2++) {
-      if (!field[fi2]) continue;
-      var fx = fi2 % w, fy = (fi2 - fx) / w;
-      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy);
-    }
+    // (the field is its plots, where they stand: Edit Farm, 10 Nov 2026; until then the map's field mask, F.farm().field,
+    // whose values were read as tile numbers till 10 Nov 2026, so the field was never kept clear)
+    s.yard.items.forEach(function (it) {
+      if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+      L.yardBox(it.t, it.x, it.y).forEach(function (p) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(p[0] + dx, p[1] + dy); });
+    });
     ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
     var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
       noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
@@ -363,13 +361,22 @@
     var self = this, s = this.state, w = this.map.width;
     if (!s.banditDefs || s.banditBuilt) return;
     s.banditBuilt = true;
-    var rnd = L.frRand(s.banditSeed), field = (this.objects || []).filter(function (o) { return o.name === 'field_sign'; })[0], pen = ((this.zones && this.zones.pen) || [])[0];
+    var rnd = L.frRand(s.banditSeed), pen = ((this.zones && this.zones.pen) || [])[0];
     var free = function (x, y) { return self.inMap(x, y) && self.walkable(x, y) && !self.blocked[self.idx(x, y)]; };
-    // ripe crops: a patch of the field below its sign
-    var crops = ['turnip', 'potato', 'carrot', 'corn'], n = s.banditLoot.crops, fx = field ? field.x0 : 10, fy = field ? field.y1 + 2 : 12;
+    // the field: its plots (Edit Farm, 10 Nov 2026; the map's field sign stood over the second one)
+    var onField = {}, fb = null;
+    s.yard.items.forEach(function (it) {
+      if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+      L.yardBox(it.t, it.x, it.y).forEach(function (p) {
+        onField[p[1] * w + p[0]] = 1;
+        fb = fb ? { x0: Math.min(fb.x0, p[0]), y0: Math.min(fb.y0, p[1]) } : { x0: p[0], y0: p[1] };
+      });
+    });
+    // ripe crops: a patch at the top of the field, from its second plot
+    var crops = ['turnip', 'potato', 'carrot', 'corn'], n = s.banditLoot.crops, fx = fb ? fb.x0 + 4 : 10, fy = fb ? fb.y0 : 12;
     for (var k = 0, tries = 0; k < n && tries < 400; tries++) {
       var x = fx + (tries % 10), y = fy + Math.floor(tries / 10);
-      if (!free(x, y)) continue;
+      if (!free(x, y) || (fb && !onField[y * w + x])) continue;
       var id = crops[Math.floor(rnd() * crops.length)];
       s.soil[y * w + x] = { c: id, p: L.nowMin() - L.growMins({ c: id, w: 1 }) - 5, w: 1, r: 0 }; // (just ripe)
       k++;
@@ -404,7 +411,9 @@
     near('def_sili', b0(s.banditDefs.sili), fx + 5, fy + 1, 5);
     near('def_mudpit', b0(s.banditDefs.mudpit), fx + 5, fy - 3, 4);
     near('def_sprinkler', b0(s.banditDefs.sprinkler), fx + 5, fy + 1, 5);
-    var px = pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
+    // (the pen's defenses at its gate, the way in: since Edit Farm, 10 Nov 2026, nothing stands inside the ranch)
+    var ranch = L.buildingsOf(s, 'ranch')[0], gate = ranch && L.maskTiles(ranch.t, ranch.x, ranch.y, 'G')[0];
+    var px = gate ? gate[0] : pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = gate ? gate[1] + 1 : pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
     near('def_goose', b0(s.banditDefs.goose), px, py, 3);
     near('def_beebox', b0(s.banditDefs.beebox), px, py, 4);
     var door = (this.objects || []).filter(function (o) { return o.name === 'house_door'; })[0], hx = door ? door.x0 : 30, hy = door ? door.y1 + 2 : 10;

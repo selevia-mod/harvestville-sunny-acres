@@ -5558,11 +5558,13 @@ loot: { low: 0.1, mid: 0.2, high: 0.3, stronger: 1.5, weaker: 2 / 3 },
 power: { raider: 3, defense: 4, farm: 10 },
 
 bandits: [
+
+
 { key: 'b1', name: 'Bandit Shack', defs: { fence: 4 }, lv: 1, loot: { gold: 400, crops: 12, produce: 6, stall: 4 } },
 { key: 'b2', name: 'Bandit Patch', defs: { scarecrow: 1, fence: 6 }, lv: 1, loot: { gold: 600, crops: 20, produce: 10, stall: 8 } },
-{ key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1, goose: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
+{ key: 'b3', name: 'Bandit Ranch', defs: { scarecrow: 1, fence: 8, dog: 1, beebox: 1, goose: 1, tower: 1 }, lv: 1, loot: { gold: 900, crops: 28, produce: 14, stall: 12 } },
 { key: 'b4', name: 'Bandit Orchard', defs: { scarecrow: 2, fence: 8, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1 }, lv: 2, loot: { gold: 1300, crops: 36, produce: 18, stall: 16 } },
-{ key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 2, fence: 10, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 1, sili: 1, sprinkler: 1, kampana: 1 }, lv: 2, loot: { gold: 2000, crops: 48, produce: 24, stall: 24 } },
+{ key: 'b5', name: 'Bandit Hacienda', defs: { scarecrow: 2, fence: 10, dog: 1, goose: 1, beebox: 1, mudpit: 1, tower: 3, sili: 1, sprinkler: 2, kampana: 1 }, lv: 2, loot: { gold: 2000, crops: 48, produce: 24, stall: 24 } },
 ],
 
 points: [0, 10, 25, 50],
@@ -47611,7 +47613,16 @@ return fo ? { goal: function (x, y) { return nearRect(fo, x, y); } } : null;
 }
 if (to === 'water') return { goal: function (x, y) { return self.isWater(x + 1, y) || self.isWater(x - 1, y) || self.isWater(x, y + 1) || self.isWater(x, y - 1); } };
 if (to === 'debris') return { goal: function (x, y) { var w = self.map.width; return !!(s.debris[(y + 1) * w + x] || s.debris[(y - 1) * w + x] || s.debris[y * w + x + 1] || s.debris[y * w + x - 1]); } };
-if (to === 'field') { var fs = this.objects.filter(function (x) { return x.name === 'field_sign'; })[0]; if (fs) return { goal: function (x, y) { return nearRect(fs, x, y); } }; }
+if (to === 'field') {
+
+var plots = (s.yard && s.yard.items || []).filter(function (it) { return C.OUTDOOR.types[it.t] && C.OUTDOOR.types[it.t].fieldPlot; }).map(function (it) {
+var ty = C.OUTDOOR.types[it.t];
+return { x0: it.x, y0: it.y, x1: it.x + ty.w - 1, y1: it.y + ty.h - 1 };
+});
+if (this.mapKey === 'farm' && plots.length) return { goal: function (x, y) { return plots.some(function (r) { return nearRect(r, x, y, true); }); } };
+var fs = this.objects.filter(function (x) { return x.name === 'field_sign'; })[0];
+if (fs) return { goal: function (x, y) { return nearRect(fs, x, y); } };
+}
 if (to.indexOf('zone:') === 0) {
 var zs = this.zones[to.slice(5)] || [];
 if (!zs.length) return null;
@@ -49548,16 +49559,14 @@ for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) solid.push(!skip[y * w +
 if (!s.banditDefs) defs = L.frCapDefs(defs, opts && opts.camp != null ? opts.camp : L.frState(F.session.state).camp);
 
 
-var nd = new Uint8Array(w * h), fi = F.farm && F.farm();
+var nd = new Uint8Array(w * h);
 var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
 
 
-var field = (fi && fi.field) || [];
-for (var fi2 = 0; fi2 < field.length; fi2++) {
-if (!field[fi2]) continue;
-var fx = fi2 % w, fy = (fi2 - fx) / w;
-for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy);
-}
+s.yard.items.forEach(function (it) {
+if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+L.yardBox(it.t, it.x, it.y).forEach(function (p) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(p[0] + dx, p[1] + dy); });
+});
 ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
 var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
 noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
@@ -49838,13 +49847,22 @@ var setupYard = P.raidBanditPieces = function () {
 var self = this, s = this.state, w = this.map.width;
 if (!s.banditDefs || s.banditBuilt) return;
 s.banditBuilt = true;
-var rnd = L.frRand(s.banditSeed), field = (this.objects || []).filter(function (o) { return o.name === 'field_sign'; })[0], pen = ((this.zones && this.zones.pen) || [])[0];
+var rnd = L.frRand(s.banditSeed), pen = ((this.zones && this.zones.pen) || [])[0];
 var free = function (x, y) { return self.inMap(x, y) && self.walkable(x, y) && !self.blocked[self.idx(x, y)]; };
 
-var crops = ['turnip', 'potato', 'carrot', 'corn'], n = s.banditLoot.crops, fx = field ? field.x0 : 10, fy = field ? field.y1 + 2 : 12;
+var onField = {}, fb = null;
+s.yard.items.forEach(function (it) {
+if (!O.types[it.t] || !O.types[it.t].fieldPlot) return;
+L.yardBox(it.t, it.x, it.y).forEach(function (p) {
+onField[p[1] * w + p[0]] = 1;
+fb = fb ? { x0: Math.min(fb.x0, p[0]), y0: Math.min(fb.y0, p[1]) } : { x0: p[0], y0: p[1] };
+});
+});
+
+var crops = ['turnip', 'potato', 'carrot', 'corn'], n = s.banditLoot.crops, fx = fb ? fb.x0 + 4 : 10, fy = fb ? fb.y0 : 12;
 for (var k = 0, tries = 0; k < n && tries < 400; tries++) {
 var x = fx + (tries % 10), y = fy + Math.floor(tries / 10);
-if (!free(x, y)) continue;
+if (!free(x, y) || (fb && !onField[y * w + x])) continue;
 var id = crops[Math.floor(rnd() * crops.length)];
 s.soil[y * w + x] = { c: id, p: L.nowMin() - L.growMins({ c: id, w: 1 }) - 5, w: 1, r: 0 };
 k++;
@@ -49879,7 +49897,9 @@ near('scarecrow', b0(s.banditDefs.scarecrow), fx + 5, fy + 1, 4);
 near('def_sili', b0(s.banditDefs.sili), fx + 5, fy + 1, 5);
 near('def_mudpit', b0(s.banditDefs.mudpit), fx + 5, fy - 3, 4);
 near('def_sprinkler', b0(s.banditDefs.sprinkler), fx + 5, fy + 1, 5);
-var px = pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
+
+var ranch = L.buildingsOf(s, 'ranch')[0], gate = ranch && L.maskTiles(ranch.t, ranch.x, ranch.y, 'G')[0];
+var px = gate ? gate[0] : pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = gate ? gate[1] + 1 : pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
 near('def_goose', b0(s.banditDefs.goose), px, py, 3);
 near('def_beebox', b0(s.banditDefs.beebox), px, py, 4);
 var door = (this.objects || []).filter(function (o) { return o.name === 'house_door'; })[0], hx = door ? door.x0 : 30, hy = door ? door.y1 + 2 : 10;

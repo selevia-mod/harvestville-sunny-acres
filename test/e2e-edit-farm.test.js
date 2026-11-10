@@ -115,3 +115,49 @@ test('a moved house: its door warps in, you come out at it, the mailbox and the 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+const frames = (page, n = 3) => page.evaluate((n) => new Promise((r) => {
+  const step = () => (n-- <= 0 ? r() : requestAnimationFrame(step));
+  step();
+}), n);
+async function teleport(page, tx, ty, dir) {
+  await page.evaluate(([tx, ty, dir]) => {
+    const T = Farm.Config.TILE;
+    Farm.world.setFeet(tx * T + T / 2, ty * T + T / 2);
+    Farm.world.dir = dir;
+    Farm.world.idle();
+  }, [tx, ty, dir]);
+  await frames(page);
+}
+const MOVE_RANCH = " const r = s.yard.items.find((it) => it.t === C.OUTDOOR.index.ranch); r.x = 24; r.y = 14;";
+const MOVE_POND = " const p = s.yard.items.filter((it) => it.t === C.OUTDOOR.index.farm_pond).find((it) => it.x === 34 && it.y === 20); p.x = 24; p.y = 4;";
+
+test('raids and the guide read the pieces: a moved ranch\'s pen is kept clear and the old spot is open; the field is its plots; the guide finds a moved pond', async () => {
+  const { page, problems, context } = await open(await makeSave(BASE + MOVE_RANCH + MOVE_POND));
+  const r = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, O = Farm.Config.OUTDOOR, f = w.raidFarm({ camp: 3 }), at = (x, y) => f.drop[y * f.w + x] === '1';
+    const ranch = s.yard.items.find((it) => it.t === O.index.ranch), pen = w.zones.pen[0];
+    let penBad = 0;
+    for (let y = pen.y0; y <= pen.y1; y++) for (let x = pen.x0; x <= pen.x1; x++) if (at(x, y)) penBad++;
+    let oldOpen = 0;
+    for (let y = 31; y <= 34; y++) for (let x = 3; x <= 9; x++) if (at(x, y)) oldOpen++;
+    let fieldBad = 0;
+    s.yard.items.filter((it) => O.types[it.t].fieldPlot).forEach((it) => Farm.Logic.yardBox(it.t, it.x, it.y).forEach((p) => { if (at(p[0], p[1])) fieldBad++; }));
+    return { ranch: [ranch.x, ranch.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], penBad, oldOpen, fieldBad, water: [w.isWater(25, 5), w.isWater(35, 21)] };
+  });
+  assert.deepStrictEqual(r.ranch, [24, 14], 'the ranch stays where it was put');
+  assert.deepStrictEqual(r.pen, [25, 18, 31, 21], 'the pen moved with it');
+  assert.strictEqual(r.penBad, 0, 'no landing in the moved pen');
+  assert.ok(r.oldOpen > 20, 'the old pen spot is open grass to land on: ' + r.oldOpen);
+  assert.strictEqual(r.fieldBad, 0, 'nor on the field');
+  assert.deepStrictEqual(r.water, [true, false], 'the moved pond is water, its old spot is not');
+  // the guide's 'water' goal (the daily quests: "To the field!" / water) leads to the moved pond
+  await teleport(page, 26, 10, 'up');
+  const end = await page.evaluate(() => { const w = Farm.world, g = w.guideGoal({ map: 'farm', to: 'water' }), p = w.guidePath(g.goal); return p && p.length ? p[p.length - 1] : null; });
+  assert.ok(end && end.x >= 23 && end.x <= 29 && end.y >= 3 && end.y <= 8, 'next to the moved pond: ' + JSON.stringify(end));
+  // and the 'field' goal is a field plot
+  const fend = await page.evaluate(() => { const w = Farm.world, g = w.guideGoal({ map: 'farm', to: 'field' }), p = w.guidePath(g.goal); return p && p.length ? p[p.length - 1] : null; });
+  assert.ok(fend && fend.x >= 4 && fend.x <= 19 && fend.y >= 11 && fend.y <= 24, 'on the field: ' + JSON.stringify(fend));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
