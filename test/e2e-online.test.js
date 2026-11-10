@@ -1029,9 +1029,31 @@ test('online: a friend on a horse: you see it under them, and see it go when the
   await owner.page.evaluate(() => Farm.Online.chan.track(Farm.Online.myState()));
   await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !!r.horse; }, null, SLOW);
   assert.deepStrictEqual(await state(), { horse: true, shadow: false, x: 0 });
+  // riding v2 (owner's art, 11 Nov 2026): their horse and farmer one galloping picture, as your own; in the farm clothes
+  await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return r.horse && /^ride2_default_(boy|girl)$/.test(r.horse.sprite.texture.key); }, null, SLOW);
+  assert.ok(await guest.page.evaluate(() => { const r = Object.values(Farm.world.remotes)[0]; return !r.spr.visible && r.horse.v2 && r.horse.sprite.frame.name >= 0 && r.horse.sprite.frame.name < 16; }), 'their v2 horse, no farmer stacked on it');
+  // a busy screen: the others' outfit sheets held at once are capped (10; a cheap phone 4), past it the farm clothes';
+  // one unseen for 30 s is let go
+  const cap = await guest.page.evaluate(() => {
+    const R2 = Farm.Config.RIDE2, held = Farm.ride2Held, n0 = R2.outfits.length, clear = () => Object.keys(held).forEach((k) => delete held[k]);
+    const more = ['elf', 'straw', 'ranch', 'winter', 'flower', 'santa', 'fiesta', 'bunny', 'fire', 'terrace', 'hills', 'lake'];
+    R2.outfits.push(...more); // (as if their v2 sheets were all made: none is in a pack yet, so the farm clothes' stand in)
+    clear();
+    const out = more.map((o) => Farm.ride2For(o, 'boy')), n = Object.keys(held).length;
+    clear(); window.gameHost.lite = true;
+    more.forEach((o) => Farm.ride2For(o, 'boy'));
+    const cheap = Object.keys(held).length;
+    Object.keys(held).forEach((k) => { held[k] = Date.now() - 31000; });
+    Farm.ride2Sweep();
+    const after = Object.keys(held).length;
+    R2.outfits.splice(n0); window.gameHost.lite = false;
+    return { out: [...new Set(out)], n, cheap, after };
+  });
+  assert.deepStrictEqual(cap, { out: ['ride2_default_boy'], n: 10, cheap: 4, after: 0 }, 'capped, the farm clothes past it, let go after 30 s');
   await owner.page.evaluate(() => { Farm.session.riding = false; Farm.Online.chan.track(Farm.Online.myState()); });
   await guest.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return !r.horse; }, null, SLOW);
   assert.deepStrictEqual(await state(), { horse: false, shadow: true, x: null });
+  assert.ok(await guest.page.evaluate(() => Object.values(Farm.world.remotes)[0].spr.visible), 'off it: their farmer walks again');
   assert.deepStrictEqual(guest.problems, []);
   await Promise.all([owner.context.close(), guest.context.close()]);
 });

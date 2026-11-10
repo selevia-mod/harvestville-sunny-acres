@@ -1014,5 +1014,17 @@
  "ride_winter_girl": [
   2880,
   268
+ ],
+ "ride2_default_boyshade": [
+  1008,
+  1008
+ ],
+ "ride2_default_girlshade": [
+  1008,
+  1008
+ ],
+ "ride2_horseshade": [
+  1008,
+  1008
  ]
 }

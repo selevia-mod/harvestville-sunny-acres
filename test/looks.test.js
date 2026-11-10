@@ -105,7 +105,28 @@ test('riding v2 (owner\'s art, approved 11 Nov 2026): the outfits in C.RIDE2 are
   ['ride2_horse'].concat(...outfits.map((o) => ['boy', 'girl'].map((w) => 'ride2_' + o + '_' + w))).forEach((k) => ['', 'shade'].forEach((sh) => {
     assert.ok(packs.riding.indexOf(k + sh) >= 0, k + sh + ': in the riding pack');
     const sz = webpSize(path.join(A, k + sh + '.webp'));
-    if (sz) assert.deepStrictEqual(sz, [R2.fw * 4, R2.fh * 4], k + sh + ': 4 x 4 frames of ' + R2.fw + ' x ' + R2.fh);
+    // (the shadow stored at half the size, a quarter of the memory, drawn at the sheet's: assets/sizes.json, 11 Nov 2026)
+    if (sz) assert.deepStrictEqual(sz, sh ? [R2.fw * 2, R2.fh * 2] : [R2.fw * 4, R2.fh * 4], k + sh + ': 4 x 4 frames of ' + R2.fw + ' x ' + R2.fh + (sh ? ', stored at half' : ''));
+    if (sh) assert.deepStrictEqual(require('../assets/sizes.json')[k + sh], [R2.fw * 4, R2.fh * 4], k + sh + ': drawn at full size');
   }));
   C.LOOKS.filter((l) => outfits.indexOf(l.key) < 0).forEach((l) => assert.ok(fs.existsSync(path.join(A, 'ride_' + l.key + '_boy.webp')), l.key + ': still its old sheet'));
+});
+
+test('riding v2 on a busy screen (owner, 11 Nov 2026): the others\' outfit sheets held at once are capped (yours and the farm clothes\' always fine), past the cap the farm clothes\'; one unseen for 30 s is let go', () => {
+  const held = {}, keep = ['ride2_santa_girl', 'ride2_default_boy', 'ride2_default_girl'], R2 = C.RIDE2;
+  assert.strictEqual(R2.others, 10);
+  assert.strictEqual(R2.othersCheap, 4);
+  assert.strictEqual(R2.letGo, 30000);
+  const outfits = ['elf', 'straw', 'ranch', 'winter', 'flower', 'fiesta', 'bunny'];
+  const got = outfits.map((o, i) => L.ride2Pick(held, 'ride2_' + o + '_boy', keep, 1000 + i, 4));
+  assert.deepStrictEqual(got, ['ride2_elf_boy', 'ride2_straw_boy', 'ride2_ranch_boy', 'ride2_winter_boy', null, null, null], 'a cheap phone: 4, then the farm clothes');
+  assert.strictEqual(Object.keys(held).length, 4);
+  assert.strictEqual(L.ride2Pick(held, 'ride2_elf_boy', keep, 5000, 4), 'ride2_elf_boy', 'one already held: still fine (seen again)');
+  assert.strictEqual(L.ride2Pick(held, 'ride2_santa_girl', keep, 5000, 4), 'ride2_santa_girl', 'yours: always');
+  assert.strictEqual(L.ride2Pick(held, 'ride2_default_girl', keep, 5000, 4), 'ride2_default_girl', 'the farm clothes: always');
+  assert.strictEqual(Object.keys(held).length, 4, 'neither counts');
+  assert.deepStrictEqual([...L.ride2Stale(held, 32000, 30000)].sort(), ['ride2_ranch_boy', 'ride2_straw_boy', 'ride2_winter_boy'], 'unseen for 30 s: let go');
+  assert.deepStrictEqual([...Object.keys(held)], ['ride2_elf_boy'], 'the one seen at 5 s stays');
+  assert.strictEqual(L.ride2Pick(held, 'ride2_fiesta_boy', keep, 32000, 4), 'ride2_fiesta_boy', 'room again');
+  assert.strictEqual(L.ride2Pick(held, null, keep, 32000, 4), null);
 });

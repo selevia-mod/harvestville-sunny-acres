@@ -29,6 +29,51 @@
     if (F.needImage && Date.now() - (asked2[k] || 0) > 10000) { asked2[k] = Date.now(); F.needImage(k); F.needImage(k + 'shade'); }
     return false;
   };
+  // One frame of a v2 horse (yours, or a friend's: 19h-online.js): its gallop while it goes, each frame ms long; standing
+  // when still, or rearing. Says whether the front hooves just landed (a kick of dust).
+  F.ride2Show = function (h, d, side, flip, moving, time, ms, rear) {
+    var row = side ? 2 : d === 'up' ? 1 : 0, dt = Math.min(100, Math.max(0, time - (h.lt || time))), fr, mirror = side && flip, land = false;
+    h.lt = time;
+    if (moving) {
+      h.gp = ((h.gp || 0) + dt / ms) % 4;
+      fr = row * 4 + Math.floor(h.gp);
+      land = Math.floor(h.gp) === 1 && h.gf !== 1;
+      h.gf = Math.floor(h.gp);
+    } else {
+      h.gp = 0; h.gf = -1;
+      fr = rear ? 15 : 12 + row;
+      if (rear) mirror = flip; // (it rears facing the way you face, side on)
+    }
+    F.Anim.show(h, fr, mirror);
+    return land;
+  };
+  // The others' riding sheets (L.ride2Pick, C.RIDE2.others): the one a rider in cos (boy or girl) is drawn with, or
+  // null (not here yet: the old look). Past the cap, the farm clothes' (shared, and in anyway).
+  var held = F.ride2Held = {}, lastOwn = '';
+  F.ride2Own = function () {
+    var s = F.session && F.session.state, cos = s && ((L.wornLook && L.wornLook(s)) || 'default');
+    return s && R2.outfits.indexOf(cos) >= 0 ? 'ride2_' + cos + '_' + (s.look === 'girl' ? 'girl' : 'boy') : '';
+  };
+  F.ride2For = function (cos, look) {
+    var who = look === 'girl' ? 'girl' : 'boy', def = 'ride2_default_' + who, want = cos && R2.outfits.indexOf(cos) >= 0 ? 'ride2_' + cos + '_' + who : def;
+    var cap = F.cheapPhone && F.cheapPhone() ? R2.othersCheap : R2.others;
+    var k = L.ride2Pick(held, want, [F.ride2Own(), 'ride2_default_boy', 'ride2_default_girl'], Date.now(), cap) || def;
+    if (have2(k)) return k;
+    return k !== def && have2(def) ? def : null;
+  };
+  // Every few seconds: the others' sheets nobody showed for C.RIDE2.letGo go from the GPU (anything still on screen stays).
+  // Yours stays; the one you wore before is let go like the others'.
+  F.ride2Sweep = function () {
+    var own = F.ride2Own(), now = Date.now(), tex = F.game && F.game.textures;
+    if (lastOwn && lastOwn !== own && held[lastOwn] == null && !/^ride2_default_/.test(lastOwn)) held[lastOwn] = now;
+    lastOwn = own;
+    delete held[own];
+    L.ride2Stale(held, now, R2.letGo).forEach(function (k) {
+      if (!tex || !F.freeTexture) return;
+      if (tex.exists(k) && !F.freeTexture(k)) { held[k] = now; return; } // (still on screen: kept)
+      if (tex.exists(k + 'shade')) F.freeTexture(k + 'shade');
+    });
+  };
 
   var M = {};
 
@@ -96,6 +141,7 @@
 
   M.updateExtras = function (dt, time) {
     var s = this.state;
+    if (time - (this.r2Swept || 0) > 5000) { this.r2Swept = time; F.ride2Sweep(); }
     if (this.mailFlag) this.mailFlag.setVisible(s.mail.length > 0);
     if (this.cat) this.cat.update(dt, time, s.time);
     var h = this.horse;
@@ -175,21 +221,11 @@
     if (isV2(key)) {
       this.rideTexture(h, key);
       this.rider.setVisible(false);
-      var row = side ? 2 : d === 'up' ? 1 : 0, dt = Math.min(100, Math.max(0, time - (h.lt || time))), fr;
-      h.lt = time;
-      if (this.moving) {
-        h.gp = ((h.gp || 0) + dt / this.gallopMs()) % 4;
-        fr = row * 4 + Math.floor(h.gp);
-        // a kick of dust as the front hooves land (frame 2 of the 4)
-        if (Math.floor(h.gp) === 1 && h.gf !== 1 && this.bits && this.bits.dust) this.bits.dust.explode(1, h.x + (side ? (flip ? -1 : 1) * 0.45 * T : 0), h.y);
-        h.gf = Math.floor(h.gp);
-      } else {
-        h.gp = 0; h.gf = -1;
-        // just got on: it rears up happily (facing the way you face, side on), then stands
-        fr = this.rearUntil && time < this.rearUntil ? 15 : 12 + row;
-        if (fr === 15) mirror = flip;
+      // its gallop; just got on, it rears up happily; a kick of dust as the front hooves land (frame 2 of the 4)
+      if (F.ride2Show(h, d, side, flip, this.moving, time, this.gallopMs(), !!(this.rearUntil && time < this.rearUntil)) && this.bits && this.bits.dust) {
+        this.bits.dust.explode(1, h.x + (side ? (flip ? -1 : 1) * 0.45 * T : 0), h.y);
       }
-      return A.show(h, fr, mirror);
+      return;
     }
     if (key) {
       this.rideTexture(h, key);

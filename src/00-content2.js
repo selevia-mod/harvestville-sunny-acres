@@ -71,7 +71,10 @@
   // now brought to the gallop's scale, 169-177, and a galloping one is about 207); gallop: ms a frame at
   // riding speed (slower with a gentle push of the stick, never under fast).
   // w: the horse's width in tiles (owner, 11 Nov 2026: 2.7 "was too big"; the old horse is 1.7)
-  C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.0, gallop: 100, fast: 90, slow: 170, rear: 750 };
+  // others / othersCheap: how many of the other riders' outfit sheets a phone holds at once (a cheap phone: fewer); past
+  // that they ride in the farm clothes' sheet; letGo: ms unseen before one is let go (01-logicZZZZZZZZZZZZZZ-ride2.js).
+  // A sheet is 1008 x 1008 (4 MB on the GPU), its shadow 504 x 504 drawn twice the size (1 MB).
+  C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.0, gallop: 100, fast: 90, slow: 170, rear: 750, others: 10, othersCheap: 4, letGo: 30000 };
   C.CAT = { name: 'Mochi', frame0: 60, px: 174, w: 0.75, speed: 260, reach: 0.6, height: 0.4 };
 
   // ---------- furniture from Mira (bought outright; it appears in the farmhouse) ----------

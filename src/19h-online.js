@@ -517,6 +517,7 @@
   // at the stable while the owner is out riding it.
   O.dropHorse = function (r) {
     if (!r.horse) return;
+    r.spr.setVisible(true);
     r.horse.sprite.destroy();
     r.horse.sh.destroy();
     r.horse = null;
@@ -528,6 +529,29 @@
     var h = r.horse, k = !moving ? A.FACING[d] : side ? (Math.floor(time / 130) % 2 ? 11 : 7) : A.FACING[d] + A.STEPS[Math.floor(time / 120) % 4];
     h.x = r.x;
     h.y = hy;
+    // riding v2 (owner's art, 11 Nov 2026): the horse and its farmer one picture, galloping, as yours (19-extras.js); their
+    // outfit's sheet while this phone holds few enough (C.RIDE2.others), else the farm clothes'; not here yet: as before
+    var R2 = C.RIDE2, k2 = F.ride2For ? F.ride2For(r.cs, r.look) : null;
+    h.v2 = !!k2;
+    if (k2) {
+      if (h.sprite.texture.key !== k2) {
+        var sc = R2.w * T / R2.px;
+        h.sprite.setTexture(F.ensureTexture(w, k2), 12).setScale(sc);
+        h.sh.setTexture(F.ensureTexture(w, k2 + 'shade'), 12).setScale(sc);
+      }
+      var full = C.SPEED * C.HORSE.speed, ms = r.speed ? Math.max(R2.fast, Math.min(R2.slow, R2.gallop * full / Math.max(1, r.speed))) : R2.gallop;
+      F.ride2Show(h, d, side, flip, moving, time, ms, false);
+      r.spr.setVisible(false);
+      h.sh.setPosition(h.x, h.y);
+      F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
+      r.shadow.setVisible(false);
+      return;
+    }
+    if (h.sprite.texture.key !== 'animals') { // (back from v2: the old horse, the farmer on it)
+      h.sprite.setTexture(F.ensureTexture(w, 'animals'), C.HORSE.frame0).setScale(A.scale(C.HORSE));
+      h.sh.setTexture(F.ensureTexture(w, 'animalshade'), C.HORSE.frame0).setScale(A.scale(C.HORSE));
+    }
+    r.spr.setVisible(true);
     A.show(h, C.HORSE.frame0 + k, k >= 6 && k !== 9 && flip);
     h.sh.setPosition(h.x, h.y);
     F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
@@ -588,7 +612,7 @@
         O.dropHorse(r);
         F.depthTo(r.spr.setFlipX(swinging ? r.spr.flipX : dir === 'right').setPosition(r.x, r.y - FEET_OFFSET), DEPTH.actor + r.y / 1e5);
       }
-      r.tag.setPosition(r.x, r.y - (p.rd ? 2.2 : 1.45) * T);
+      r.tag.setPosition(r.x, r.y - (p.rd ? (r.horse && r.horse.v2 ? 2.45 : 2.2) : 1.45) * T);
     });
     if (w.horse && w.state.isVisit) { // (their horse is out with them)
       var boss = this.others[this.hostId()], out = !!(boss && boss.rd);
