@@ -39,3 +39,8 @@ needed", and it wears out ("boomerang can be destroy if they did not use materia
 (Proposed numbers; the owner set the order: Javelin fastest, Rifle slowest.)
 - Speed stays the same at every level (owner, 11 Nov 2026: "that's okay for now, later on if we add new level, we will
   improve it more"); only range and damage grow, and the Moon specials.
+
+## The Boomerang's wear (owner, 11 Nov 2026)
+Throws before it breaks, by level ("Make it longer, 100, 200, 300, 400, 500, 600 so in one dungeon, they can only do 1
+repair"): Basic 100 · Copper 200 · Silver 300 · Gold 400 · Magma 500 · Moon 600. A warning at 20 throws left; at 0 it
+breaks and is gone. A repair at the Forge (lumber + Rope + a little Gold) brings it back to full.
