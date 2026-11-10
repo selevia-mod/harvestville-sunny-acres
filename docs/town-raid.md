@@ -31,12 +31,18 @@ small chest, 40 for the Farm Guard Chest. No errors, no messages about servers.
 
 ## The four raids (they take turns)
 
-| Raid | Who comes | What works | Hits each | Stand-in picture now |
+| Raid | Who comes | What works | Hits each | Picture (until its animation is on the phone) |
 |---|---|---|---|---|
 | Giant Boar Stampede | boars trample crops | any tool, the Bow | 3 | the Wild Lands boar (a farm pig, tinted dark, if the hunting art is not on the phone) |
 | Crow Swarm | crows peck crops | any tool, the Bow, empty hands | 1 | the labuyo, tinted black (else a black chicken) |
 | Lava Bakunawa's Sparks | sparks land on fields | the Watering Can only | 2 | the Santelmo, glowing (else a drawn flame) |
 | Typhoon Night | branches and stones fly in | Hoe, Axe, Hammer, Sickle | 2 | the lumber and stone icons, spinning |
+
+Their own animations (owner's art, 10 Nov 2026; src/19zzzze-town-raid-anim.js, tools/art/town-raid-anim-import.js, the
+'raiders' pack): the Giant Boar (ranim_tboar: run, trample, hit, run away scared; side / toward you / away), the crows
+(ranim_crow, the Farm Raids crow), the Lava Spark (ranim_tspark: float, burn, doused to an ember, flee) and the debris
+(ranim_tdebris: a branch, a stone or a roof piece tumbling, then cleared). A hit tints them light red. The stand-ins above
+show only until the sheet is on the phone.
 
 Order: the first raid (Monday 9 Nov 2026) is the boars, then crows, sparks, typhoon, and round again.
 
@@ -104,11 +110,8 @@ schedule, cap and tiers; the batch timing can be changed on the server alone.
 
 ## Pictures that would make it nicer (stand-ins now)
 
-1. **Giant Boar** (12 frames like the wild animals: walking 3 directions, eating, running): bigger, bristly, red eyes, a
-   little dust cloud.
-2. **Crow** (12 frames: walking, pecking, flying away): black with a shiny blue edge.
-3. **Lava Spark** (6 to 8 frames of a flickering ember with a face), and a **steam puff** when doused.
-4. **Typhoon debris**: a flying branch, a palm frond, a tin roof sheet, a bucket (4 small pictures), and **wind streaks**.
+1-4. (done 10 Nov 2026: the Giant Boar, the crows, the Lava Spark and the Typhoon debris have their animations, above;
+   still wanted: **wind streaks** for the typhoon)
 5. **Raid icons** for the bar, the cards and the tour: a boar head, a crow, a spark, a typhoon swirl (128 px, like the
    item icons).
 6. **Chests**: Helper's (wood), Defender's (iron), Hero's (gold), closed and open.

@@ -16,7 +16,14 @@ let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
 
-async function open(state, now) {
+// (packs: the app's side of the packs, as e2e-farm-raids.test.js: the files in dist/packs, as the CDN would serve them)
+const packFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file), p = m && path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp');
+  return p && require('fs').existsSync(p) ? 'data:image/webp;base64,' + require('fs').readFileSync(p).toString('base64') : null;
+};
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
+async function open(state, now, packs) {
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const problems = [];
@@ -33,6 +40,11 @@ async function open(state, now) {
     // quiet keeps the daily popups away; raids: this test wants the raids (quiet alone keeps them off)
     window.gameHost = { state, quiet: true, raids: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
   }, [state || null, now]);
+  if (packs) {
+    await context.exposeBinding('__testAsset', (src, file) => packFile(file));
+    await page.addInitScript((here) => { window.__here = here; }, require('fs').readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, '')));
+    await page.addInitScript(HOST_ASSETS);
+  }
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
@@ -271,5 +283,53 @@ test('a boar running off the farm finds no way out of the map and gives up at on
   const r = await page.evaluate(() => { const w = Farm.world, t0 = Date.now(); const out = [w.raidRoute(20, 20, -6, 20), w.raidRoute(20, 20, 300, -8), w.raidRoute(30, 25, 30, 999)]; return { ok: out.every((x) => x === null || Array.isArray(x)), ms: Date.now() - t0 }; });
   assert.ok(r.ok, 'a way, or none');
   assert.ok(r.ms < 500, 'at once: ' + r.ms + ' ms');
+  await context.close();
+});
+
+test('Town Raid attackers in their own animations (owner, 10 Nov 2026): the Giant Boar, the crows, the sparks and the debris each from its sheet, facing where they go; a hit tints red; a doused spark and cleared debris stay where they were hit', async () => {
+  const days = [[9, 'boar', 'GIANT BOAR STAMPEDE', 'ranim_tboar'], [12, 'crow', 'CROW SWARM', 'ranim_crow'], [16, 'spark', "LAVA BAKUNAWA'S SPARKS", 'ranim_tspark'], [19, 'typhoon', 'TYPHOON NIGHT', 'ranim_tdebris']];
+  for (const [day, kind, title, key] of days) {
+    const { page, problems, context } = await open(null, manila(2026, 11, day, 20, 2), true);
+    await plant(page, 12);
+    await waitModal(page, new RegExp('TOWN RAID: ' + title));
+    await tapButton(page, 'Defend!');
+    await page.waitForFunction((key) => Farm.world.raiders.some((a) => a.anim && a.img.texture.key === key && a.mode !== 'flee' && a.fade >= 1), key, SLOW);
+    // frames change as it goes (its run, or the debris tumbling), within its own sheet
+    const seen = await page.evaluate(async (key) => {
+      const out = new Set(), w = Farm.world;
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        w.raiders.forEach((a) => { if (a.anim && a.img.texture.key === key) out.add(a.img.frame.name); });
+      }
+      return [...out];
+    }, key);
+    assert.ok(seen.length >= 3, kind + ': its frames move (' + seen.join(',') + ')');
+    assert.ok(seen.every((f) => f >= 0 && f < (key === 'ranim_tboar' || key === 'ranim_crow' ? 48 : 16)), kind + ': frames from its sheet');
+    // a hit: light red, not a white fill
+    const hit = await page.evaluate(() => {
+      const w = Farm.world, a = w.raiders.filter((x) => x.anim && x.mode !== 'flee' && x.fade >= 1)[0];
+      a.hp = 1;
+      const at = [a.x, a.y];
+      w.raiderStruck(a);
+      return { tint: a.img.tintTopLeft, fill: a.img.tintFill, out: !!a.out, flee: a.mode, stay: a.tx === at[0] && a.ty === at[1] };
+    });
+    assert.strictEqual(hit.fill, false, kind + ': no white fill');
+    assert.strictEqual(hit.tint, 0xff9a8a, kind + ': tinted light red');
+    assert.ok(hit.out && hit.flee === 'flee', kind + ': driven off');
+    assert.strictEqual(hit.stay, kind === 'spark' || kind === 'typhoon', kind + (kind === 'spark' || kind === 'typhoon' ? ': goes out where it was hit' : ': runs off'));
+    await shot(page, 'raid-anim-' + kind);
+    assert.deepStrictEqual(problems, []);
+    await context.close();
+  }
+});
+
+test('Town Raid attackers without their sheets (offline, before the pack is in): the old look, no errors', async () => {
+  const { page, problems, context } = await open(null, manila(2026, 11, 9, 20, 2));
+  await plant(page, 12);
+  await waitModal(page, /TOWN RAID: GIANT BOAR STAMPEDE/);
+  await tapButton(page, 'Defend!');
+  await page.waitForFunction(() => Farm.world.raiders.some((a) => a.mode !== 'flee' && a.fade >= 1), null, SLOW);
+  assert.ok(await page.evaluate(() => Farm.world.raiders.every((a) => !a.anim && a.img.texture.key === 'raid_wild')), 'the wild boar sheet');
+  assert.deepStrictEqual(problems, []);
   await context.close();
 });
