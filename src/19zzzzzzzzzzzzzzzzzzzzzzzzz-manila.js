@@ -204,14 +204,16 @@
       var im = function (k) { return F.images && F.images['props/manila_' + k]; };
       own = im('ferris_stand') && im('ferris_wheel') ? 'props/manila_ferris_stand' : im('ferris_whole') ? 'props/manila_ferris_whole' : null;
     }
+    var vf = /^vehicle:([a-z]+):(\d+)$/.exec(p.art || ''), frame; // (a vehicle parked: one frame of its driving sheet)
+    if (vf) { own = F.images && F.images['manila_' + vf[1]] ? 'manila_' + vf[1] : null; frame = +vf[2]; }
     var drawnKey = !own && /^@/.test(p.stand || '') && F.mnStandIn ? F.mnStandIn(this, p.stand.slice(1), p.v || 0) : null; // (city life: drawn by the game)
     var key = own || drawnKey || (/^tw_/.test(p.stand) ? p.stand : 'props/' + p.stand);
     if (!drawnKey && !F.images[key]) return null;
     if (!drawnKey) F.ensureTexture(this, key);
     // its own shape (128 px a tile), fitted into the box, standing on its bottom
     var pw = (o.x1 - o.x0 + 1) * T, ph = (o.y1 - o.y0 + 1) * T, left = o.x0 * T, bottom = (o.y1 + 1) * T;
-    var fr = this.textures.getFrame(key), nw = fr.realWidth * 2, nh = fr.realHeight * 2, k = Math.min(pw / nw, ph / nh), dw = nw * k, dh = nh * k;
-    var img = this.add.image(left + (pw - dw) / 2, bottom, key).setOrigin(0, 1).setDisplaySize(dw, dh);
+    var fr = this.textures.getFrame(key, frame), nw = fr.realWidth * 2, nh = fr.realHeight * 2, k = Math.min(pw / nw, ph / nh), dw = nw * k, dh = nh * k;
+    var img = this.add.image(left + (pw - dw) / 2, bottom, key, frame).setOrigin(0, 1).setDisplaySize(dw, dh);
     F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + bottom / 1e5); // (flat: a court on the ground)
     if (!own && p.tint) img.setTint(p.tint);
     this.props.push(img);
@@ -386,6 +388,7 @@
     var self = this, mn = this.mn, n = crowdWant(mn.cr, this.state.time);
     mn.folk = [];
     mn.looks = mn.cr.looks.filter(function (l) { return F.images && F.images[l[0]]; });
+    if (!mn.looks.length) mn.looks = (M.crowd.fallback || []).filter(function (l) { return F.images && F.images[l[0]]; }); // (the pack not on this phone yet)
     mn.lookN = 0;
     mn.crowdMs = 0;
     for (var i = 0; i < n; i++) this.mnFolkAdd(false);

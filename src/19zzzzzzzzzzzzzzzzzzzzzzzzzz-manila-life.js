@@ -219,13 +219,43 @@
     });
     this.mnJeepSetup();
     this.mnFerrisSetup();
+    this.mnRailSetup();
+  };
+
+  // ---------- the elevated railway (scenery, owner's art only): its deck over the rails, pillars, the buffer, the train ----------
+  P.mnRailSetup = function () {
+    var R = M.rail, self = this;
+    if (!R || !has('rail_deck')) return;
+    var deck = F.ensureTexture(this, 'props/manila_rail_deck'), fr = this.textures.getFrame(deck), dw = 4 * T, dh = dw * fr.realHeight / fr.realWidth;
+    var depth = DEPTH.actor + R.y * T / 1e5;
+    var put = function (art, x, w, d) {
+      if (!has(art)) return null;
+      var k = F.ensureTexture(self, 'props/manila_' + art), f = self.textures.getFrame(k), h = w * f.realHeight / f.realWidth;
+      var im = self.add.image(x, R.y * T, k).setOrigin(0.5, 1).setDisplaySize(w, h);
+      F.depthTo(im, depth + (d || 0));
+      return im;
+    };
+    R.pillars.forEach(function (x) { put('rail_pillar', x * T, 1.6 * T, -2e-6); });
+    for (var x = R.x0; x < R.x1; x += 4) {
+      var im = this.add.image(x * T, (R.y - 0.4) * T, deck).setOrigin(0, 1).setDisplaySize(dw, dh);
+      F.depthTo(im, depth - 1e-6);
+    }
+    var end = put('rail_end', (R.end + 0.4) * T, 1.8 * T, 0);
+    if (end) end.y -= 0.2 * T;
+    var tx = R.train * T, head = put('city_train_head', tx + 2 * T, 4 * T, 1e-6);
+    if (head) head.y -= 0.75 * T;
+    for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (6 + 4 * c) * T, 4 * T, 1e-6); if (car) car.y -= 0.75 * T; }
   };
 
   // ---------- roles ----------
   var TITLES = { priest: 'FATHER RAMON', dimsum: 'THE DIMSUM VENDOR', castanas: 'THE CASTANAS VENDOR', pickleball: 'A PICKLEBALL PLAYER', office: 'AN OFFICE WORKER', tower_guard: 'THE TOWER GUARD', mall_guard: 'THE MALL GUARD', shopper: 'A SHOPPER', guard: 'THE GUARD', sales: 'THE SALES LADY' };
-  var TOWER_DOORS = [[52.5, 28.6], [59.5, 28.6]], MALL_DOOR = [29.5, 81.6];
+  var TOWER_DOORS = [[52, 28.6], [59, 28.6]], MALL_DOOR = [30, 81.6];
+  // the owner's vehicles (3 x 3 driving sheets, frames of 512 x 384: tools/manila/manila-import.js)
+  if (F.SHEETS) ['tricycle', 'calesa'].forEach(function (k) { F.SHEETS['manila_' + k] = { frameWidth: 512, frameHeight: 384, margin: 0, spacing: 0 }; });
   P.mnRoleAdd = function (key, role, i) {
     var mn = this.mn, own = (role.sheets || []).filter(function (k) { return F.images && F.images[k]; });
+    // (owner, 11 Nov 2026: a role never wears another character's look: out only once its own sheet is in)
+    if (!own.length && !M.roleStandIns) return null;
     var l = own.length ? [own[i % own.length], 0, 0] : role.looks[i % role.looks.length];
     var look = { key: l[0], row: l[1], tint: l[2] || 0 };
     if (!(F.images && F.images[look.key])) look = { key: 'tw_people', row: i % 5, tint: l[2] || 0 };

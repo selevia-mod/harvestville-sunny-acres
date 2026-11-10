@@ -364,7 +364,7 @@ test('fewer at night (about a third), and about 15 on a cheap phone', async () =
   const cheap = await toManila(NOON, { lite: true });
   assert.strictEqual(await cheap.page.evaluate(() => Farm.cheapPhone()), true);
   const c = await cityCount(cheap.page);
-  assert.ok(c >= 18 && c <= 32, 'a cheap phone: ' + c);
+  assert.ok(c >= 10 && c <= 20, 'a cheap phone: ' + c);
   assert.deepStrictEqual(cheap.problems, []);
   await cheap.context.close();
 });
@@ -424,6 +424,9 @@ test('the jeepney stops and honks for someone in front of it, never through them
 });
 test('the Mall: in by its door, a guard and a sales lady and people inside, the food court for energy, out the same door', async () => {
   const { page, problems, context } = await toManila(NOON);
+  // (a role is out only once its own sheet is in: owner, 11 Nov 2026; here, as the pack would bring them)
+  assert.strictEqual(await page.evaluate(() => Farm.world.mn.roles.length), 0, 'no role wears another\'s look');
+  await page.evaluate(async () => { for (const k of ['npc_mall_guard', 'npc_sales_lady']) { const c = document.createElement('canvas'); c.width = 1296; c.height = 208; c.getContext('2d').fillStyle = '#336699'; c.getContext('2d').fillRect(8, 8, 1280, 192); const i = new Image(); await new Promise((ok) => { i.onload = ok; i.src = c.toDataURL(); }); Farm.images[k] = i; } });
   await teleport(page, 29, 81, 'up');
   await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { if (Math.abs(v.x / 256 - 29.5) < 2 && Math.abs(v.y / 256 - 81.5) < 2) { v.hold = 1e9; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); } }));
   await page.waitForTimeout(200);

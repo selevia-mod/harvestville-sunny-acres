@@ -17,7 +17,7 @@
 
   // ---------- city ground ----------
   M.base = 'concrete'; // (was grass: the city's ground is concrete now; grass stays where it is painted)
-  M.spawns.from_mall = [29, 82.1, 'down']; // (out of the Mall's door)
+  M.spawns.from_mall = [30, 82.1, 'down']; // (out of the Mall's door)
   M.ground.push(
     ['grass', 12, 0, 32, 2], ['grass', 48, 0, 42, 2], // (the tree line along the north edge)
     ['cobble', 3, 69, 9, 14], // the Ferris wheel's pier on the bay, by the Mall
@@ -43,7 +43,7 @@
     stops: [
       { key: 'station', name: 'Station', at: [51, 14], shed: [50, 10, 3, 2], wait: [51.5, 12.6] },
       { key: 'talipapa', name: 'Talipapa', at: [87, 40], shed: [82, 39, 3, 2], wait: [85.5, 40.6] },
-      { key: 'college', name: 'College', at: [51, 87], shed: [50, 83, 3, 2], wait: [51.5, 85.6] },
+      { key: 'college', name: 'College', at: [56, 87], shed: [55, 83, 3, 2], wait: [56.5, 85.6] },
       { key: 'mall', name: 'Mall', at: [32, 87], shed: [31, 83, 3, 2], wait: [32.5, 85.6] },
       { key: 'baywalk', name: 'Bay Walk', at: [24, 45], shed: [23, 41, 3, 2], wait: [24.5, 43.6] },
       { key: 'plaza', name: 'Plaza', at: [39, 42], shed: [41, 41, 3, 2], wait: [40.5, 42.6] },
@@ -51,7 +51,7 @@
     // crosswalks: [x, y, w, h, 'h' (on a road running east-west) or 'v']: people cross the road only here
     cross: [[48, 13, 2, 2, 'h'], [65, 13, 2, 2, 'h'], [80, 13, 2, 2, 'h'], [44, 20, 2, 2, 'v'], [44, 29, 2, 2, 'v'], [41, 32, 2, 2, 'h'],
       [38, 37, 2, 2, 'v'], [27, 44, 3, 2, 'h'], [34, 44, 2, 2, 'h'], [21, 50, 2, 2, 'v'], [21, 60, 2, 2, 'v'], [21, 70, 2, 2, 'v'],
-      [21, 80, 2, 2, 'v'], [29, 86, 3, 2, 'h'], [40, 86, 2, 2, 'h'], [55, 86, 2, 2, 'h'], [64, 60, 2, 2, 'v'], [64, 72, 2, 2, 'v'],
+      [21, 80, 2, 2, 'v'], [29, 86, 3, 2, 'h'], [40, 86, 2, 2, 'h'], [49, 86, 2, 2, 'h'], [64, 60, 2, 2, 'v'], [64, 72, 2, 2, 'v'],
       [70, 54, 2, 2, 'h'], [82, 54, 2, 2, 'h'], [86, 44, 2, 2, 'v'], [86, 30, 2, 2, 'v']],
     night: [21 * H, 5 * H], // (at night it runs every other loop, its lights on from 6 PM)
     lights: [18 * H, 6 * H],
@@ -60,18 +60,47 @@
 
   // ---------- new buildings (drawn stand-ins until their pictures: stand '@<name>') ----------
   M.buildings.push(
-    { key: 'tower1', name: 'Business Tower', box: [50, 17, 5, 11], stand: '@tower', v: 0, foot: 3, art: 'office_tower_1', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
-    { key: 'tower2', name: 'Business Tower', box: [57, 17, 5, 11], stand: '@tower', v: 1, foot: 3, art: 'office_tower_2', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
-    { key: 'mall', name: 'The Mall', box: [23, 73, 12, 8], stand: '@mall', foot: 3, art: 'mall', mall: 1, text: 'The Mall by the bay.' },
+    { key: 'tower1', name: 'Business Tower', box: [49, 16, 6, 12], stand: '@tower', v: 0, foot: 3, art: 'office_tower_1', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
+    { key: 'tower2', name: 'Business Tower', box: [56, 16, 6, 12], stand: '@tower', v: 1, foot: 3, art: 'office_tower_2', text: 'A business tower: offices up to the clouds. Its doors are for the people who work there.' },
+    { key: 'mall', name: 'The Mall', box: [23, 72, 14, 9], stand: '@mall', foot: 3, art: 'mall', mall: 1, text: 'The Mall by the bay.' },
     { key: 'ferris', name: 'Ferris Wheel', box: [4, 70, 7, 10], stand: '@ferris_base', foot: 2, art: 'ferris_stand', ferris: 1, text: 'The Ferris wheel by the bay. Rides: coming soon!' },
-    { key: 'college', name: 'College', box: [44, 72, 14, 9], stand: '@college', foot: 3, art: 'college_building', text: 'The College. Its students and its gate: coming soon!' },
+    { key: 'college', name: 'College', box: [44, 71, 14, 9], stand: '@college', foot: 3, art: 'college_building', text: 'The College. Its students and its gate: coming soon!' },
     { key: 'chinatown', name: 'Chinatown', box: [70, 20, 8, 4], stand: '@sign_board', v: 0, foot: 1, art: 'chinatown_arch', text: 'CHINATOWN\nThe red arch, the hopia bakery and the dimsum stall are coming here soon!' },
-    { key: 'talipapa', name: 'Talipapa', box: [81, 33, 4, 3], stand: '@sign_board', v: 1, foot: 1, art: '', text: 'TALIPAPA\nThe wet market: meat, fish and vegetables. Coming soon!' },
     // (owner's additions, 11 Nov 2026) Chinatown's two carts ahead of its arch, and the pickleball court by the Stables
     { key: 'dimsum_cart', name: '', box: [71, 24, 2, 2], stand: '@cart', v: 0, foot: 1, art: 'dimsum_stall', text: 'A dimsum stall: siomai and siopao, steaming hot. Coming soon!' },
     { key: 'castanas_cart', name: '', box: [77, 24, 2, 2], stand: '@cart', v: 1, foot: 1, art: 'chestnut_cart', text: 'A castanas cart: roasted chestnuts in a little paper bag. Coming soon!' },
     { key: 'pickleball', name: 'Pickleball Court', box: [45, 59, 8, 5], stand: '@pickleball_court', foot: 0, flat: 1, art: 'pickleball_court' }
   );
+  // ---------- the owner's pictures for the later steps, placed now as scenery (owner, 11 Nov 2026: "so the city looks
+  // complete"): shown once their pictures are in (no stand-in: stand ''), a tap says "coming soon" ----------
+  var SOON = ' Coming soon!';
+  [
+    { key: 'tp_meat', box: [81, 30, 4, 3], art: 'talipapa_meat', text: 'TALIPAPA: THE MEAT STALL\nPork, chicken and longganisa.' + SOON },
+    { key: 'tp_fish', box: [81, 33, 4, 3], art: 'talipapa_fish', text: 'TALIPAPA: THE FISH STALL\nBangus and galunggong on ice.' + SOON },
+    { key: 'tp_veg', box: [81, 36, 4, 3], art: 'talipapa_veg', text: 'TALIPAPA: THE VEGETABLE STALL\nKangkong, tomatoes and onions.' + SOON },
+    { key: 'cart_fishball', box: [45, 82, 2, 2], art: 'cart_fishball', text: 'THE FISHBALL CART\nFishballs, kikiam and three sauces.' + SOON },
+    { key: 'cart_taho', box: [42, 48, 2, 2], art: 'cart_taho', text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
+    { key: 'cart_sorbetes', box: [15, 49, 2, 2], art: 'cart_sorbetes', text: 'THE SORBETES CART\nIce cream with a bell.' + SOON },
+    { key: 'college_gate', box: [47, 80, 7, 4], foot: 0, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
+    { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
+    { key: 'barangay_hall', box: [33, 56, 5, 5], art: 'barangay_hall', text: 'THE BARANGAY HALL\nThe tanod keeps watch here.' + SOON },
+    { key: 'sari_sari', box: [34, 62, 3, 3], art: 'sari_sari', text: 'THE SARI-SARI STORE\nA little of everything.' + SOON },
+    { key: 'carinderia', box: [24, 63, 5, 4], art: 'carinderia', text: 'THE CARINDERIA\nHome cooking by the pot.' + SOON },
+    { key: 'hopia', box: [79, 25, 5, 4], art: 'hopia_bakery', text: 'THE HOPIA BAKERY\nWarm hopia, fresh from the oven.' + SOON },
+    { key: 'ch_lanterns', box: [66, 23, 2, 2], foot: 1, art: 'china_lanterns' }, { key: 'ch_lions', box: [74, 28, 2, 2], foot: 1, art: 'china_lions' },
+    { key: 'ch_fruit', box: [67, 27, 2, 2], foot: 1, art: 'china_fruit_stall', text: 'A FRUIT AND FLOWER STALL\nOranges, pomelos and chrysanthemums.' + SOON },
+    { key: 'ch_gate', box: [70, 28, 2, 2], foot: 1, art: 'china_moon_gate' },
+    // parked for now: the tricycle by the barangay, the calesa in the walled quarter (the side view of their sheets)
+    { key: 'tricycle', box: [30, 63, 3, 2], art: 'vehicle:tricycle:6', foot: 1, text: 'A TRICYCLE\nRides round the barangay.' + SOON },
+    { key: 'calesa', box: [23, 23, 4, 3], art: 'vehicle:calesa:6', foot: 1, text: 'A CALESA\nRides inside the old walls.' + SOON },
+  ].forEach(function (b) { M.buildings.push(Object.assign({ name: '', stand: '', foot: b.foot != null ? b.foot : 2 }, b)); });
+  // (the barrio's old stand-ins where the barangay now stands; the old kalesa props; a planter on the court)
+  var GONE = { store: 1, house1: 1, house2: 1, house8: 1 };
+  M.buildings = M.buildings.filter(function (b) { return !GONE[b.key]; });
+  M.props = M.props.filter(function (p) { return p[0] !== 'wagon'; });
+  M.decor = M.decor.filter(function (d) { return !(d[0] === 'planter' && d[1] === 31 && d[2] === 56); });
+  // the elevated railway over the station's rails: its deck, pillars, the buffer at its end, the city train at the platform
+  M.rail = { y: 12, x0: 56, x1: 90, pillars: [59, 65, 71, 77, 83, 89], end: 56, train: 64, cars: 2 };
   M.jeep.stops.forEach(function (st, i) {
     M.buildings.push({ key: 'shed_' + st.key, name: '', box: st.shed, stand: '@shed', foot: 1, art: 'shed_' + st.key, shed: i, text: 'A waiting shed. The jeepney stops here.' });
   });
@@ -84,6 +113,10 @@
   // ---------- the crowd, in the busy places ----------
   // About 55 by day in all (owner's people + the named 7 + passers-by); the passers-by stay where players go.
   var Z = M.crowd;
+  // (owner, 11 Nov 2026: no stand-in looks of other characters: the passers-by are the 10 Manila people's sheets, tinted;
+  // the train visitors only while the pack is not on the phone)
+  Z.fallback = Z.looks;
+  Z.looks = M.people.order.map(function (k) { return [M.people[k].sheet, 0]; }).concat(Z.sheets.map(function (k) { return [k, 0]; }));
   Z.day = 44;
   Z.night = 8;
   Z.cheap = 5;
@@ -93,12 +126,14 @@
     market: { w: [7, 4, 2, 0], at: [[61, 49, 'browse'], [64, 49, 'browse'], [67, 49, 'browse'], [70, 49, 'browse'], [75, 49, 'browse'], [78, 49, 'browse'], [66, 46], [70, 44], [76, 45], [64, 45], [79, 45, 'browse']] },
     platform: { w: [4, 2, 3, 1], at: [[58, 9, 'wait'], [66, 9, 'wait'], [70, 8, 'wait'], [74, 9, 'wait'], [78, 8, 'wait'], [82, 9, 'wait'], [86, 8, 'wait'], [68, 8, 'sit'], [76, 8, 'sit']] },
     port: { w: [2, 2, 3, 1], at: [[3, 61, 'left'], [5, 62, 'down'], [8, 61, 'down'], [11, 62, 'down'], [3, 56], [7, 56, 'down'], [15, 60], [18, 61], [13, 53]] },
-    sheds: { w: [4, 3, 4, 2], at: [[51, 12, 'down'], [53, 12, 'down'], [85, 41, 'right'], [85, 38, 'right'], [51, 85, 'down'], [53, 85, 'down'], [33, 85, 'down'], [30, 85, 'down'], [25, 43, 'down'], [26, 43, 'down'], [40, 43, 'left'], [40, 40, 'left']] },
+    sheds: { w: [4, 3, 4, 2], at: [[51, 12, 'down'], [53, 12, 'down'], [85, 41, 'right'], [85, 38, 'right'], [56, 85, 'down'], [58, 85, 'down'], [33, 85, 'down'], [30, 85, 'down'], [25, 43, 'down'], [26, 43, 'down'], [40, 43, 'left'], [40, 40, 'left']] },
     mallfront: { w: [2, 4, 4, 0], at: [[25, 82], [28, 82], [33, 82], [26, 84], [35, 82], [24, 83]] },
     calle: { w: [2, 3, 3, 1], at: [[28, 33], [29, 37], [27, 40], [30, 42], [26, 36, 'left'], [30, 34, 'right']] },
     baywalk: { w: [1, 1, 3, 1], at: [[13, 10, 'left'], [14, 17], [13, 21, 'left'], [14, 28], [13, 37, 'left'], [12, 12, 'sit'], [12, 24, 'sit'], [12, 74, 'sit'], [13, 70, 'left']] },
     church: { w: [2, 1, 1, 0], at: [[25, 18, 'up'], [27, 17, 'up'], [26, 21], [30, 20]] },
     towers: { w: [2, 2, 1, 0], at: [[52, 29], [56, 30], [60, 29], [50, 30], [62, 30]] },
+    chinatown: { w: [2, 2, 3, 1], at: [[72, 27], [76, 27], [69, 26], [78, 29], [73, 30], [66, 27]] },
+    barangay: { w: [1, 2, 3, 2], at: [[24, 62, 'up'], [29, 62, 'up'], [32, 62, 'up'], [33, 66], [36, 66], [30, 66]] },
   };
 
   // ---------- roles (one list each: its looks are stand-in sheets until the owner's people come; a sheet not on this phone
@@ -151,7 +186,7 @@
     props: [['escalator', 15, 7, 3, 3, 2], ['fountain', 21, 7, 3, 3, 2], ['table', 2, 10, 2, 1, 1], ['table', 6, 10, 2, 1, 1], ['table', 10, 10, 2, 1, 1],
       ['bench', 8, 14, 2, 1, 1], ['bench', 18, 14, 2, 1, 1], ['palm', 1, 13, 1, 2, 1], ['palm', 26, 13, 1, 2, 1], ['planter', 19, 12, 3, 1, 1],
       ['map_kiosk', 17, 15, 1, 2, 1], ['claw', 18, 5, 1, 2, 1], ['cabinet', 20, 5, 1, 2, 1], ['counter', 3, 5, 2, 1, 1], ['palm', 26, 7, 1, 2, 1]],
-    door: [13, 17, 2, 1], entrance: [14, 16.6], out: [29, 81.6], // (out: where you come out, in front of the Mall's door)
+    door: [13, 17, 2, 1], entrance: [14, 16.6], out: [30, 81.6], // (out: where you come out, in front of the Mall's door)
     zones: {
       walk: { w: [3, 3, 3, 0], at: [[4, 14], [8, 15], [14, 13], [20, 15], [24, 12], [14, 10], [24, 6], [19, 11], [12, 14], [26, 11]] },
       shops: { w: [3, 3, 3, 0], at: [[6, 5, 'up'], [7, 5, 'up'], [11, 5, 'up'], [19, 7, 'up'], [23, 5, 'up'], [3, 9, 'up'], [7, 9, 'up'], [11, 9, 'up']] },
@@ -191,15 +226,22 @@
       mall_shopfronts: { sheet: [3, 3, ['mall_food_rice', 'mall_food_bbq', 'mall_food_halo', 'mall_boutique', 'mall_toy_pet_shop', 'mall_arcade', 'mall_cinema', 'mall_main_doors', 'mall_shop_shuttered']], w: 4 },
       mall_furniture: { sheet: [5, 2, ['mall_escalator', 'mall_fountain', 'mall_table', 'mall_bench', 'mall_palm', 'mall_planter', 'mall_map_kiosk', 'mall_claw', 'mall_cabinet', 'mall_counter']], w: 2 },
       chinatown_arch: { single: 'chinatown_arch', size: [8, 5] },
-      chinatown_props: { sheet: [3, 2, ['dimsum_stall', '', '', '', 'chestnut_cart', '']], w: 2 }, // (cells 2-4 and 6: Chinatown, step 4)
+      chinatown_props: { sheet: [3, 2, ['dimsum_stall', 'china_lanterns', 'china_lions', 'china_fruit_stall', 'chestnut_cart', 'china_moon_gate']], w: 2 },
+      talipapa_stalls: { sheet: [3, 1, ['talipapa_meat', 'talipapa_fish', 'talipapa_veg']], w: 4 },
+      street_food_carts: { sheet: [3, 1, ['cart_fishball', 'cart_taho', 'cart_sorbetes']], w: 2 },
+      college_gate: { single: 'college_gate', size: [7, 4] }, basketball_court: { single: 'basketball_court', size: [10, 6] },
+      sari_sari: { single: 'sari_sari', size: [3, 3] }, carinderia: { single: 'carinderia', size: [5, 4] }, barangay_hall: { single: 'barangay_hall', size: [6, 5] },
+      hopia_bakery: { single: 'hopia_bakery', size: [5, 4] },
+      tricycle: { vehicle: 'tricycle', size: [2.5, 2] }, calesa: { vehicle: 'calesa', size: [4, 2] },
+      rail_deck: { single: 'rail_deck', size: [4, 2] },
+      rail_pieces: { sheet: [3, 2, ['rail_pillar', 'rail_straight', 'rail_curve', 'rail_end', 'rail_stairs', 'rail_platform']], w: 2 },
+      city_train_head: { single: 'city_train_head', size: [4, 1.75] }, city_train_car: { single: 'city_train_car', size: [4, 1.75] },
       pickleball_court: { single: 'pickleball_court', size: [8, 5] },
       npc_office_worker_1: { person: 1 }, npc_office_worker_2: { person: 1 }, npc_office_worker_3: { person: 1 },
       npc_shopper_1: { person: 1 }, npc_shopper_2: { person: 1 }, npc_mall_guard: { person: 1 }, npc_sales_lady: { person: 1 }, npc_street_guard: { person: 1 },
       npc_priest: { person: 1 }, npc_dimsum_vendor: { person: 1 }, npc_castanas_vendor: { person: 1 }, npc_pickleball_1: { person: 1 }, npc_pickleball_2: { person: 1 },
     },
-    later: ['talipapa_stalls', 'street_food_carts', 'college_gate', 'basketball_court', 'sari_sari', 'carinderia', 'barangay_hall', 'tricycle', 'calesa',
-      'hopia_bakery', 'rail_deck', 'rail_pieces', 'city_train_head', 'city_train_car',
-      'npc_student_1', 'npc_student_2', 'npc_student_3', 'npc_fishball_vendor', 'npc_taho_vendor', 'npc_jeepney_driver', 'npc_meat_vendor', 'npc_fish_vendor',
+    later: ['npc_student_1', 'npc_student_2', 'npc_student_3', 'npc_fishball_vendor', 'npc_taho_vendor', 'npc_jeepney_driver', 'npc_meat_vendor', 'npc_fish_vendor',
       'npc_vegetable_vendor', 'npc_sorbetero', 'npc_sampaguita_seller', 'npc_calesa_driver', 'npc_tricycle_driver', 'npc_tanod', 'npc_baller_1', 'npc_baller_2',
       'npc_jogger', 'npc_fisherman', 'npc_balut_vendor', 'npc_traffic_enforcer', 'npc_hopia_baker', 'npc_carinderia_cook', 'npc_couple_her', 'npc_couple_him'],
   };

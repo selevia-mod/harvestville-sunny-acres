@@ -168,7 +168,7 @@
       ['race_arch', 75, 60, 3, 3, 0], ['hurdle', 70, 61, 2, 1, 0], ['hurdle', 81, 61, 2, 1, 0], ['hurdle', 70, 85, 2, 1, 0],
       ['hurdle', 80, 85, 2, 1, 0], ['hurdle', 66, 72, 2, 1, 0], ['hurdle', 85, 74, 2, 1, 0],
       ['flag_post', 66, 58, 1, 2, 1], ['flag_post', 87, 59, 1, 2, 1], ['flag_post', 76, 73, 1, 2, 1], ['podium', 82, 57, 2, 2, 1],
-      ['trough_oats', 52, 65, 2, 2, 1], ['rail_fence', 54, 71, 2, 1, 0],
+      ['trough_oats', 52, 65, 2, 2, 1],
       // the plaza: palms, a kiosk, a food cart
       ['palm', 56, 50, 2, 2, 1], ['kiosk', 52, 51, 3, 3, 1], ['food_cart', 44, 52, 2, 2, 1],
       // the market and the station
