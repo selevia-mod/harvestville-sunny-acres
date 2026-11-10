@@ -37,7 +37,7 @@
   C.RAID_ANIM = { fr: 200, runW: { goat: 167, crow: 139, cat: 121, carabao: 130, monkey: 153, boar: 126, rooster: 126, bayawak: 134 } };
   if (F.SHEETS) R.raiderOrder.forEach(function (k) { F.SHEETS['ranim_' + k] = { frameWidth: 200, frameHeight: 200 }; });
   var animOf = function (scene, k) { var key = 'ranim_' + k; return F.images && F.images[key] ? F.ensureTexture(scene, key) : null; };
-  var DIRROW = { side: 0, front: 4, back: 8 };
+  var DIRROW = { side: 0, front: 4, back: 8 }; // (the first row of each direction's 4; a frame is row * 4 + column)
   var moveFrame = function (k, pose) { return R.raiderOrder.indexOf(k) * 4 + MOVE[pose]; };
 
   // ---------- effects ----------
@@ -226,11 +226,11 @@
       if (!u.out) {
         u.out = time;
         var ak = animOf(this, r.k);
-        if (ak) { u.img.setTexture(ak, DIRROW[u.dir || 'side'] + 13).setFlipX(u.dir === 'side' || !u.dir ? u.face < 0 : false).setScale(u.ka || u.k); u.dazed = true; } // (tumbling, then lying dizzy)
+        if (ak) { u.img.setTexture(ak, (DIRROW[u.dir || 'side'] + 3) * 4 + 1).setFlipX(u.dir === 'side' || !u.dir ? u.face < 0 : false).setScale(u.ka || u.k); u.dazed = true; } // (tumbling, then lying dizzy)
         else u.img.setFrame(moveFrame(r.k, 'out'));
         u.img.setAngle(ak ? 0 : -25 * u.face).setPosition(x, y).clearTint();
         if (!ak) u.img.setScale(u.k);
-        if (ak) this.time.delayedCall(260, function () { if (u.img.active) u.img.setFrame(DIRROW[u.dir || 'side'] + 14); });
+        if (ak) this.time.delayedCall(260, function () { if (u.img.active) u.img.setFrame((DIRROW[u.dir || 'side'] + 3) * 4 + 2); });
         if (u.hb) u.hb.setVisible(false);
         // knocked flying a little, a bounce, and it lies there dizzy
         this.tweens.add({ targets: u.img, y: y - 0.55 * T, x: x + u.face * 0.35 * T, angle: 0, duration: 180, ease: 'Quad.out', yoyo: false, onComplete: function () {
@@ -321,7 +321,7 @@
       else { row += 3; col = 3; } // (idle)
       if (u.img.texture.key !== ak) u.img.setTexture(ak);
       var keepHop = d.flies ? 0 : 0; // (the run frames rise and fall by themselves)
-      u.img.setFrame(row + col).setFlipX(dir === 'side' && u.face < 0).setAngle(d.flies && dir === 'side' ? tilt * 0.5 * u.face : 0)
+      u.img.setFrame(row * 4 + col).setFlipX(dir === 'side' && u.face < 0).setAngle(d.flies && dir === 'side' ? tilt * 0.5 * u.face : 0)
         .setScale(u.ka * (1 + 0.3 * u.sq), u.ka * (1 - 0.38 * u.sq))
         .setPosition(u.px + (hitting ? lx * 0.5 : 0) + u.kb * u.face, u.py - keepHop - fly + (d.flies ? 0 : 0) - u.fall * 2.2 * T).setDepth(D.actor + u.py / 1e5 + (d.flies ? 0.001 : 0));
       hop = 0; lx = hitting ? lx * 0.5 : 0;

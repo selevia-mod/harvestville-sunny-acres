@@ -323,6 +323,19 @@ test('farm raids v2 (owner, 10 Nov 2026: "make it more ... intense"): a green dr
   await page.evaluate(() => { window.__hitPose = false; const w = Farm.world, d = w.raidDraw; w.raidDraw = function (t) { d.call(this, t); if (Object.values(this.bv.units).some((u) => !u.out && u.img.frame.name % 4 === 1)) window.__hitPose = true; }; });
   assert.ok(await page.waitForFunction(() => window.__hitPose, null, SLOW).then(() => true, () => false), 'someone hitting (the attack pose)');
   await shot(page, 'raid-v2-battle');
+  // (10 Nov 2026: each way it goes has its own 4 rows of 4: toward you frames 16-31, away 32-47; the frame was row +
+  // column, so toward you and away showed the side rows)
+  const ways = await page.evaluate(async () => {
+    const seen = {}, w = Farm.world;
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      Object.values(w.bv.units).forEach((u) => { if (!u.out && u.dir && /^ranim_/.test(u.img.texture.key)) (seen[u.dir] = seen[u.dir] || new Set()).add(Number(u.img.frame.name)); });
+    }
+    return Object.fromEntries(Object.entries(seen).map(([d, set]) => [d, [...set]]));
+  });
+  const block = { side: 0, front: 1, back: 2 };
+  Object.keys(ways).forEach((d) => assert.ok(ways[d].every((f) => Math.floor(f / 16) === block[d]), d + ' frames from its own rows: ' + ways[d]));
+  assert.ok(Object.keys(ways).length >= 2, 'raiders went more than one way: ' + Object.keys(ways));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

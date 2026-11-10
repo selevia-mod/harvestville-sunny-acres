@@ -89,7 +89,7 @@
       else if (a.mode === 'flee') { row = a.stole && rows.loot != null ? rows.loot : rows.flee; col = tick(90); }
       else { row = rows.run; col = tick(an.dirs ? 110 : 130); }
       var dir = an.dirs ? a.dir : 'side';
-      frame = (an.dirs ? DIRROW[dir] : 0) + row * 4 + col;
+      frame = ((an.dirs ? DIRROW[dir] : 0) + row) * 4 + col; // (DIRROW: each direction's first row of 4)
       // sideways it faces where it goes; a spark only turns for its run away (its other rows look straight at you)
       flip = an.dirs ? dir === 'side' && a.flip : row === rows.flee && a.flip;
     }

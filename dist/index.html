@@ -44340,7 +44340,7 @@ else if (a.mode === 'eat') { row = rows.eat; col = tick(150); }
 else if (a.mode === 'flee') { row = a.stole && rows.loot != null ? rows.loot : rows.flee; col = tick(90); }
 else { row = rows.run; col = tick(an.dirs ? 110 : 130); }
 var dir = an.dirs ? a.dir : 'side';
-frame = (an.dirs ? DIRROW[dir] : 0) + row * 4 + col;
+frame = ((an.dirs ? DIRROW[dir] : 0) + row) * 4 + col;
 
 flip = an.dirs ? dir === 'side' && a.flip : row === rows.flee && a.flip;
 }
@@ -50089,11 +50089,11 @@ if (r.hp <= 0) {
 if (!u.out) {
 u.out = time;
 var ak = animOf(this, r.k);
-if (ak) { u.img.setTexture(ak, DIRROW[u.dir || 'side'] + 13).setFlipX(u.dir === 'side' || !u.dir ? u.face < 0 : false).setScale(u.ka || u.k); u.dazed = true; }
+if (ak) { u.img.setTexture(ak, (DIRROW[u.dir || 'side'] + 3) * 4 + 1).setFlipX(u.dir === 'side' || !u.dir ? u.face < 0 : false).setScale(u.ka || u.k); u.dazed = true; }
 else u.img.setFrame(moveFrame(r.k, 'out'));
 u.img.setAngle(ak ? 0 : -25 * u.face).setPosition(x, y).clearTint();
 if (!ak) u.img.setScale(u.k);
-if (ak) this.time.delayedCall(260, function () { if (u.img.active) u.img.setFrame(DIRROW[u.dir || 'side'] + 14); });
+if (ak) this.time.delayedCall(260, function () { if (u.img.active) u.img.setFrame((DIRROW[u.dir || 'side'] + 3) * 4 + 2); });
 if (u.hb) u.hb.setVisible(false);
 
 this.tweens.add({ targets: u.img, y: y - 0.55 * T, x: x + u.face * 0.35 * T, angle: 0, duration: 180, ease: 'Quad.out', yoyo: false, onComplete: function () {
@@ -50184,7 +50184,7 @@ else if (moving || d.flies) { col = Math.floor(time / (r.flee > 0 ? 60 : d.flies
 else { row += 3; col = 3; }
 if (u.img.texture.key !== ak) u.img.setTexture(ak);
 var keepHop = d.flies ? 0 : 0;
-u.img.setFrame(row + col).setFlipX(dir === 'side' && u.face < 0).setAngle(d.flies && dir === 'side' ? tilt * 0.5 * u.face : 0)
+u.img.setFrame(row * 4 + col).setFlipX(dir === 'side' && u.face < 0).setAngle(d.flies && dir === 'side' ? tilt * 0.5 * u.face : 0)
 .setScale(u.ka * (1 + 0.3 * u.sq), u.ka * (1 - 0.38 * u.sq))
 .setPosition(u.px + (hitting ? lx * 0.5 : 0) + u.kb * u.face, u.py - keepHop - fly + (d.flies ? 0 : 0) - u.fall * 2.2 * T).setDepth(D.actor + u.py / 1e5 + (d.flies ? 0.001 : 0));
 hop = 0; lx = hitting ? lx * 0.5 : 0;
