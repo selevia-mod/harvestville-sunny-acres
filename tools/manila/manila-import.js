@@ -21,7 +21,8 @@ const OUT = process.env.MANILA_OUT || path.join(ROOT, 'assets');
 const M = config().MANILA, A = M.art, TILE = 128;
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
-const pic = (name) => { const f = path.join(SRC, name + '.png'); return fs.existsSync(f) ? data(f) : null; };
+// (city life's pictures are in art-src/manila/city/: C.MANILA.life.folder)
+const pic = (name) => { const f = [path.join(SRC, name + '.png'), path.join(SRC, (M.life && M.life.folder) || 'city', name + '.png')].filter((x) => fs.existsSync(x))[0]; return f ? data(f) : null; };
 const put = (file, url) => { const buf = Buffer.from(url.split(',')[1], 'base64'); fs.mkdirSync(path.dirname(path.join(OUT, file)), { recursive: true }); fs.writeFileSync(path.join(OUT, file), buf); return buf.length; };
 const save = (name, r) => {
   put(name + '.png', r.png);
@@ -72,10 +73,11 @@ const save = (name, r) => {
     W.draw(o.getContext('2d'), x.c, x, k, ow / 2, oh);
     return Object.assign(W.out(o, 0.85), { w: ow, h: oh });
   }, [src, wTiles, hTiles, TILE]);
-  for (const name of Object.keys(A.singles)) {
+  const singles = Object.assign({}, A.singles, (M.life && M.life.art) || {}); // (city life's too)
+  for (const name of Object.keys(singles)) {
     const src = pic(name);
     if (!src) continue;
-    const [w, h] = A.singles[name];
+    const [w, h] = singles[name];
     save('props/manila_' + name, await one(src, w, h));
     done.push(name);
   }
@@ -101,7 +103,7 @@ const save = (name, r) => {
   }
 
   // ---------- the people: a 3 x 3 sheet as one row of 9 (a villager's) ----------
-  for (const sheet of M.people.order.map((k) => M.people[k].sheet).concat(M.crowd.sheets || [])) {
+  for (const sheet of M.people.order.map((k) => M.people[k].sheet).concat(M.crowd.sheets || [], (M.life && M.life.people) || [])) {
     const src = pic(sheet);
     if (!src) continue;
     const r = await p.evaluate(async (s) => {

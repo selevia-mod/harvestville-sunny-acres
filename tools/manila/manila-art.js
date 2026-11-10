@@ -24,6 +24,8 @@ const keys = () => {
   Object.keys(A.sheets).forEach((sh) => A.sheets[sh][2].forEach((n) => out.push('props/manila_' + n)));
   M.people.order.forEach((k) => out.push(M.people[k].sheet));
   (M.crowd.sheets || []).forEach((k) => out.push(k)); // (the three ground guides, passers-by for now)
+  // city life (docs/manila-city-life.md): its buildings, props and the jeepney; its people
+  if (M.life) { Object.keys(M.life.art).forEach((n) => out.push('props/manila_' + n)); M.life.people.forEach((k) => out.push(k)); }
   return [...new Set(out)];
 };
 

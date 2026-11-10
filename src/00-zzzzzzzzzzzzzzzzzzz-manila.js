@@ -48,18 +48,16 @@
       ['cobble', 26, 31, 5, 13], ['path', 12, 44, 78, 2],
       // the roads: north to the Gorge Gate, the lane to the station, south to the stables, south-west to the Jungle Gate
       ['path', 44, 0, 4, 36], ['path', 48, 8, 8, 2], ['path', 52, 55, 3, 3],
-      ['path', 39, 55, 3, 15], ['path', 28, 69, 14, 3], ['path', 28, 72, 4, 18],
+      ['path', 39, 55, 3, 15], ['path', 28, 88, 4, 2], // (the Jungle Gate's road off the jeep's south road)
       // the station: its platform (the rails are drawn by the game)
       ['tplaza', 56, 8, 31, 2], ['rails', 56, 10, 34, 2],
       // Central Plaza, Grand Market's cobbles
       ['plaza', 40, 36, 19, 19], ['cobble', 60, 43, 21, 8],
-      // the barrio's lanes and its little court
-      ['path', 20, 66, 18, 2], ['path', 24, 56, 2, 32], ['path', 34, 56, 2, 13], ['tplaza', 32, 76, 5, 6],
+      // the barrio's lane (city life: the Mall took its south half)
+      ['path', 23, 66, 15, 2],
       // the stables' yard, the paddock's grass, the race track (an oval 2 tiles wide)
       ['path', 53, 55, 10, 2], ['track', 66, 61, 21, 26],
       ['grass', 68, 63, 17, 22],
-      // flower beds
-      ['flowers', 41, 41, 2, 2], ['flowers', 56, 41, 2, 2], ['flowers', 56, 51, 2, 2],
     ],
     // the oval's corners, cut back to grass (round, not a box)
     trackCorners: [[66, 61], [86, 61], [66, 86], [86, 86]],
@@ -85,14 +83,11 @@
       { key: 'trading', name: 'Trading Post', box: [74, 36, 6, 6], stand: 'vet', foot: 2, art: 'trading_post', who: 'danny', tint: 0xe0c8a8, text: "Mang Danny's Trading Post: rope, cement, wax and chili. Coming soon!" },
       { key: 'stables', name: 'Stables', box: [54, 57, 8, 6], stand: 'stable', foot: 2, art: 'stables', who: 'kardo', text: "Mang Kardo's Stables. Horse gear, oats and the weekly race: coming soon!" },
       { key: 'grandstand', name: 'Grandstand', box: [68, 56, 13, 4], stand: 'school', foot: 2, art: 'grandstand', tint: 0xf8e0e0, text: 'The grandstand of the race track. The Manila Cup: coming soon!' },
-      { key: 'store', name: 'Corner Store', box: [20, 57, 4, 4], stand: 'florist', foot: 2, art: 'house_4', text: 'A little corner store. Opens soon!' },
+      { key: 'store', name: 'Corner Store', box: [23, 57, 4, 4], stand: 'florist', foot: 2, art: 'house_4', text: 'A little corner store. Opens soon!' },
       { key: 'house1', name: '', box: [27, 57, 4, 4], stand: 'townhouse_1', foot: 2, art: 'house_2' },
       { key: 'house2', name: '', box: [30, 61, 4, 4], stand: 'townhouse_2', foot: 2, art: 'house_3' },
-      { key: 'house3', name: '', box: [20, 69, 4, 4], stand: 'townhouse_3', foot: 2, art: 'house_5' },
-      { key: 'house4', name: '', box: [33, 72, 4, 4], stand: 'townhouse_4', foot: 2, art: 'house_6' },
-      { key: 'house5', name: '', box: [19, 77, 4, 4], stand: 'cottage', foot: 2, art: 'house_1' },
-      { key: 'house6', name: '', box: [19, 83, 4, 4], stand: 'cabin', foot: 2, art: 'house_2' },
-      { key: 'house7', name: '', box: [33, 83, 4, 4], stand: 'shack', foot: 2, art: 'house_3' },
+      { key: 'house3', name: '', box: [28, 68, 4, 4], stand: 'townhouse_3', foot: 2, art: 'house_5' },
+      { key: 'house4', name: '', box: [33, 68, 4, 4], stand: 'townhouse_4', foot: 2, art: 'house_6' },
       { key: 'house8', name: '', box: [36, 57, 3, 4], stand: 'townhouse_4', foot: 2, art: 'house_3' },
       { key: 'cafe', name: '', box: [18, 33, 5, 4], stand: 'bakery', foot: 2, art: 'house_4', tint: 0xf4e4cc, text: 'A bakery on Calle Real. Opens soon!' },
       { key: 'shop2', name: '', box: [32, 33, 5, 4], stand: 'post', foot: 2, art: 'house_4', tint: 0xf0d8c8, text: 'A shop on Calle Real. Opens soon!' },
@@ -110,15 +105,14 @@
       ['fruit_stall', 67, 47, 2, 2, 1, 'fruit_stall'], ['umbrella', 70, 47, 2, 2, 1, 'food_cart'], ['trader_tent', 74, 47, 3, 2, 1, 'kiosk'],
       ['farm_stand', 78, 47, 2, 2, 1, 'market_baskets'],
       // Calle Real's carts
-      ['umbrella', 24, 41, 2, 2, 1, 'food_cart'], ['farm_stand', 31, 41, 2, 2, 1, 'market_baskets'], ['fruit_stall', 24, 35, 2, 2, 1, 'fruit_stall'],
+      ['umbrella', 23, 38, 2, 2, 1, 'food_cart'], ['farm_stand', 31, 41, 2, 2, 1, 'market_baskets'], ['fruit_stall', 24, 35, 2, 2, 1, 'fruit_stall'],
       // the church square, the walled quarter
       ['flowerbed', 24, 19, 2, 1, 1, 'planter'], ['flowerbed', 27, 19, 2, 1, 1, 'planter'], ['lamp', 23, 16, 1, 2, 1, 'street_lamp'], ['lamp', 29, 16, 1, 2, 1, 'street_lamp'],
       ['wagon', 23, 23, 3, 3, 2, 'kalesa'],
       // the port: crates and rope (and nothing in the three berths yet)
       ['farm_stand', 13, 62, 2, 2, 1, 'cargo'],
       // the barrio: the kalesa stand, the jeep stop, the court
-      ['wagon', 36, 62, 3, 3, 2, 'kalesa'], ['lamp', 32, 76, 1, 2, 1, 'street_lamp'], ['lamp', 35, 76, 1, 2, 1, 'street_lamp'],
-      ['playground', 20, 73, 4, 3, 1, 'jeep'],
+      ['wagon', 36, 62, 3, 3, 2, 'kalesa'],
       // the station's benches
       ['bench', 68, 7, 2, 1, 1, 'park_bench'], ['bench', 76, 7, 2, 1, 1, 'park_bench'],
     ],
@@ -139,9 +133,9 @@
     // ---------- the three berths, the gates, the signs ----------
     berths: [[4, 60], [7, 60], [10, 60]], // (sign posts on the pier's north edge; the water beside them is the berth)
     gates: [
-      { key: 'plains', name: 'Plains Gate', box: [89, 42, 1, 6], warp: true, sign: [86, 42], text: 'PLAINS GATE\nThe valley road home to Willowbrook goes east from here.\nThe Open Plains hunting ground: coming soon!' },
+      { key: 'plains', name: 'Plains Gate', box: [89, 42, 1, 6], warp: true, sign: [88, 42], text: 'PLAINS GATE\nThe valley road home to Willowbrook goes east from here.\nThe Open Plains hunting ground: coming soon!' },
       { key: 'gorge', name: 'Gorge Gate', box: [44, 0, 4, 2], sign: [43, 2], text: 'GORGE GATE\nThe Rocky Gorge lies north. Coming soon!' },
-      { key: 'jungle', name: 'Jungle Gate', box: [28, 88, 4, 2], sign: [32, 86], text: 'JUNGLE GATE\nThe Bamboo Jungle lies south. Coming soon!' },
+      { key: 'jungle', name: 'Jungle Gate', box: [28, 88, 4, 2], sign: [26, 88], text: 'JUNGLE GATE\nThe Bamboo Jungle lies south. Coming soon!' },
     ],
     signs: [
       [18, 13, 'SEA GATE\nThe old walled quarter. The church, the Armory, and Lola Amparo.'],
@@ -149,7 +143,6 @@
       [57, 52, 'CENTRAL PLAZA\nWelcome to Manila! The station is north, the market east, the stables south-east, the bay west.'],
       [13, 48, 'MANILA BAY\nThe port and the pier are south. Boats: coming soon!'],
       [52, 10, 'MANILA CENTRAL\nTrains to Willowbrook. Mang Tibo sells the tickets.'],
-      [37, 69, 'JEEP STOP\nJeeps round the city: coming soon!'],
     ],
 
     // ---------- decorations: the owner's pieces, drawn only once their picture is in (no stand-in, nothing in the way
@@ -157,7 +150,7 @@
     // [art, x, y, w, h, foot] (foot 0: drawn over what is already solid, or something you walk under or past)
     decor: [
       // the three gates (owner's art): the Gorge and Jungle arches over their shut roads, the Plains gatehouse by the road
-      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 86, 4, 4, 0], ['gate_plains', 84, 46, 4, 4, 1],
+      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 88, 4, 2, 0], ['gate_plains', 82, 46, 4, 4, 1],
       // the old walls: straight pieces along the north and south walls, bastions at the corners, the Plaza Gate's arch,
       // towers on the west and east walls (all drawn over the solid stone)
       ['wall_bastion', 14, 2, 3, 3, 0], ['wall_bastion', 40, 2, 3, 3, 0], ['wall_bastion', 14, 29, 3, 3, 0], ['wall_bastion', 40, 29, 3, 3, 0],
@@ -169,25 +162,24 @@
       ['wall_tower', 39, 8, 2, 3, 0], ['wall_tower', 39, 15, 2, 3, 0], ['wall_tower', 39, 23, 2, 3, 0], ['wall_stair', 36, 26, 2, 2, 1],
       // the port: mooring posts in the berths' water, cargo, rope and an anchor, a signpost
       ['mooring_post', 3, 63, 1, 1, 0], ['mooring_post', 6, 63, 1, 1, 0], ['mooring_post', 9, 63, 1, 1, 0], ['mooring_post', 12, 63, 1, 1, 0],
-      ['cargo', 17, 50, 2, 2, 1], ['rope_anchor', 13, 51, 2, 2, 1], ['signpost', 13, 57, 1, 2, 1], ['cargo', 19, 63, 2, 2, 1],
-      ['palm', 19, 52, 2, 2, 1], ['palm', 13, 65, 2, 2, 1],
+      ['cargo', 17, 50, 2, 2, 1], ['rope_anchor', 13, 51, 2, 2, 1], ['signpost', 13, 57, 1, 2, 1], ['cargo', 18, 63, 2, 2, 1],
+      ['palm', 17, 52, 2, 2, 1], ['palm', 13, 65, 2, 2, 1],
       // the race: the start arch over the track, 6 hurdles on it, flags, the podium, the oats trough by the stables
       ['race_arch', 75, 60, 3, 3, 0], ['hurdle', 70, 61, 2, 1, 0], ['hurdle', 81, 61, 2, 1, 0], ['hurdle', 70, 85, 2, 1, 0],
       ['hurdle', 80, 85, 2, 1, 0], ['hurdle', 66, 72, 2, 1, 0], ['hurdle', 85, 74, 2, 1, 0],
-      ['flag_post', 65, 58, 1, 2, 1], ['flag_post', 87, 59, 1, 2, 1], ['flag_post', 76, 73, 1, 2, 1], ['podium', 82, 57, 2, 2, 1],
-      ['trough_oats', 63, 58, 2, 2, 1], ['rail_fence', 54, 71, 2, 1, 0],
+      ['flag_post', 66, 58, 1, 2, 1], ['flag_post', 87, 59, 1, 2, 1], ['flag_post', 76, 73, 1, 2, 1], ['podium', 82, 57, 2, 2, 1],
+      ['trough_oats', 52, 65, 2, 2, 1], ['rail_fence', 54, 71, 2, 1, 0],
       // the plaza: palms, a kiosk, a food cart
-      ['palm', 56, 50, 2, 2, 1], ['palm', 42, 40, 2, 2, 1], ['kiosk', 52, 51, 3, 3, 1], ['food_cart', 44, 52, 2, 2, 1],
+      ['palm', 56, 50, 2, 2, 1], ['kiosk', 52, 51, 3, 3, 1], ['food_cart', 44, 52, 2, 2, 1],
       // the market and the station
-      ['food_cart', 62, 49, 2, 2, 1], ['palm', 81, 40, 2, 2, 1], ['market_baskets', 72, 49, 2, 2, 1],
+      ['food_cart', 62, 49, 2, 2, 1], ['market_baskets', 72, 49, 2, 2, 1],
       ['palm', 66, 5, 2, 2, 1], ['palm', 80, 5, 2, 2, 1], ['kiosk', 84, 4, 3, 3, 1],
       // the streets: lamps on the north road and the avenue's east end
       ['street_lamp', 48, 11, 1, 2, 1], ['street_lamp', 48, 17, 1, 2, 1], ['street_lamp', 48, 24, 1, 2, 1], ['street_lamp', 48, 31, 1, 2, 1],
       ['street_lamp', 82, 42, 1, 2, 1], ['street_lamp', 81, 46, 1, 2, 1], ['street_lamp', 60, 42, 1, 2, 1],
       // the bay walk's palms, the barrio's
       ['palm', 14, 33, 2, 2, 1], ['palm', 14, 39, 2, 2, 1], ['palm', 14, 67, 2, 2, 1], ['palm', 14, 80, 2, 2, 1],
-      ['palm', 20, 62, 2, 2, 1], ['palm', 38, 73, 2, 2, 1], ['food_cart', 26, 70, 2, 2, 1], ['planter', 21, 81, 2, 1, 1],
-      ['planter', 26, 59, 1, 1, 1], ['planter', 31, 56, 2, 1, 1],
+      ['palm', 38, 73, 2, 2, 1], ['food_cart', 26, 70, 2, 2, 1], ['planter', 31, 56, 2, 1, 1],
     ],
     // and scattered (the same everywhere, a seeded random): [art, x0, y0, x1, y1, how many, w, h, foot]; only on grass, with
     // a tile of grass all round, so no walk is ever narrowed
@@ -257,12 +249,12 @@
     },
 
     // ---------- where things are (tile points) ----------
-    spawns: { from_train: [64.5, 9.6, 'down'], from_valley: [86.5, 44.6, 'left'] },
+    spawns: { from_train: [64.5, 9.6, 'down'], from_valley: [88.5, 44.6, 'left'] },
     // where the city people go (their schedules name these); 'door_<building>' is in front of its door
     spots: {
       door_market: [67.5, 43.6], door_trading: [76.5, 42.6], door_armory: [34.5, 24.6], door_stables: [57.5, 63.6], door_harbor: [16.5, 59.6],
       door_station: [61.5, 8.6], door_amparo: [20.5, 28.6], door_church: [26.5, 16.6],
-      barrio1: [26.5, 62.6], barrio2: [29.5, 67.6], barrio3: [34.5, 70.6],
+      barrio1: [26.5, 62.6], barrio2: [29.5, 67.6], barrio3: [37.5, 70.6],
       plaza_s: [49.5, 50.6], plaza_fountain: [46.5, 48.6], calle_cart: [28.5, 39.6], church_square: [26.5, 18.6],
       paddock: [57.5, 68.6], grandstand: [73.5, 60.6], pier_end: [5.5, 61.6], baywalk_sunset: [14.5, 46.6],
     },

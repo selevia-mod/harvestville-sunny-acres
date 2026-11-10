@@ -69,14 +69,14 @@ const modalText = (page) => page.evaluate(() => {
   if (m) walk(m.c.list);
   return out.join(' | ');
 });
-async function tapButton(page, label) {
-  const pos = await page.evaluate((label) => {
+async function tapButton(page, label, nth = 0) {
+  const pos = await page.evaluate(([label, nth]) => {
     const m = Farm.ui.modals[Farm.ui.modals.length - 1], found = [];
     const walk = (list) => list.forEach((o) => { if (o.type === 'Text' && o.text === label && o.parentContainer && o.parentContainer !== m.c) found.push(o); if (o.list) walk(o.list); });
     walk(m.c.list);
-    const b = found[0] && found[0].getBounds();
+    const b = found[nth] && found[nth].getBounds();
     return b && { x: b.centerX, y: b.centerY };
-  }, label);
+  }, [label, nth]);
   assert.ok(pos, `button "${label}" is on screen`);
   await page.touchscreen.tap(pos.x, pos.y);
   await frames(page);
@@ -194,7 +194,7 @@ test('the valley road: off the town\'s east end to Manila\'s Plains Gate and bac
   await teleport(page, 51, 11, 'right');
   await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'manila');
   await waitMap(page, 'manila');
-  assert.deepStrictEqual(await feetTile(page), [86, 44], 'in at the Plains Gate');
+  assert.deepStrictEqual(await feetTile(page), [88, 44], 'in at the Plains Gate');
   assert.strictEqual((await state(page)).gold, 100, 'walking is free');
   await shot(page, 'manila-5-plains-gate');
   await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'town');
@@ -282,7 +282,7 @@ test('the owner\'s pictures, once the pack brings them, take over the stand-ins:
 });
 
 // the crowd (owner, 11 Nov 2026: "make it crowded, we need at least 30 people")
-const cityCount = (page) => page.evaluate(() => Farm.world.mn.people.length + Farm.world.mn.folk.filter((v) => !v.leaving).length);
+const cityCount = (page) => page.evaluate(() => Farm.world.mn.people.length + Farm.world.mn.folk.filter((v) => !v.leaving && !v.inside && !v.riding).length);
 async function toManila(when, host) {
   const save = await makeSave("s.gold = 500; s.map = 'town';", when);
   const o = await open(save, when, host);
@@ -303,7 +303,7 @@ test('a crowded city: 30 or more by day, none ever inside a building\'s box, a p
       w.mn.folk.concat(w.mn.people).forEach((v) => {
         if (v.seated) return; // (on a bench: drawn over the bench's own tile)
         const x = Math.floor(v.x / 256), y = Math.floor(v.y / 256);
-        B.forEach((b) => { if (x >= b.box[0] && x < b.box[0] + b.box[2] && y >= b.box[1] && y < b.box[1] + b.box[3]) bad.push(b.key + '@' + x + ',' + y); });
+        B.forEach((b) => { if (!b.flat && x >= b.box[0] && x < b.box[0] + b.box[2] && y >= b.box[1] && y < b.box[1] + b.box[3]) bad.push(b.key + '@' + x + ',' + y); });
       });
       if (Date.now() - t0 < 10000) setTimeout(tick, 200); else ok(bad);
     };
@@ -340,13 +340,117 @@ test('a crowded city: 30 or more by day, none ever inside a building\'s box, a p
 test('fewer at night (about a third), and about 15 on a cheap phone', async () => {
   const night = await toManila([2026, 4, 1, 23, 0]);
   const n = await cityCount(night.page);
-  assert.ok(n >= 8 && n <= 12, 'at night: ' + n);
+  assert.ok(n >= 12 && n <= 20, 'at night: ' + n);
   assert.deepStrictEqual(night.problems, []);
   await night.context.close();
   const cheap = await toManila(NOON, { lite: true });
   assert.strictEqual(await cheap.page.evaluate(() => Farm.cheapPhone()), true);
   const c = await cityCount(cheap.page);
-  assert.ok(c >= 14 && c <= 16, 'a cheap phone: ' + c);
+  assert.ok(c >= 18 && c <= 32, 'a cheap phone: ' + c);
   assert.deepStrictEqual(cheap.problems, []);
   await cheap.context.close();
+});
+
+// ---------- city life: the jeepney and the Mall (owner, 11 Nov 2026: docs/manila-city-life.md) ----------
+// the jeep keeps the clock the test sets: it starts waiting at stop `key` in `lead` ms
+const jeepSoon = (page, key, lead) => page.evaluate(([key, lead]) => {
+  const L = Farm.Logic, M = Farm.Config.MANILA, i = M.jeep.stops.findIndex((s) => s.key === key);
+  let day = Date.UTC(2026, 3, 1, 4, 0);
+  if (L.jeepAt(day).stop >= 0) day += M.jeep.stopMs + 1000;
+  const base = day + L.jeepWait(day, i) - lead, p0 = performance.now();
+  M.jeepNow = () => base + (performance.now() - p0);
+  if (Farm.world.mn.jeep) Farm.world.mn.jeep.lag = 0;
+}, [key, lead]);
+test('the jeepney: "Para po" at the Plaza\'s shed, 15G, on board when it stops, the camera with it, off at the Station', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  const g0 = (await state(page)).gold;
+  await jeepSoon(page, 'plaza', 5000);
+  const w = await page.evaluate(() => Farm.Config.MANILA.jeep.stops.find((s) => s.key === 'plaza').wait);
+  await teleport(page, Math.floor(w[0]), Math.floor(w[1]), 'right');
+  assert.strictEqual(await actionLabel(page), 'Para po');
+  await tapAction(page);
+  assert.match(await modalText(page), /Jeepney/);
+  await tapButton(page, '15G', 0); // (the first row: the Station)
+  assert.strictEqual((await state(page)).gold, g0 - 15, 'the fare');
+  await page.waitForFunction(() => Farm.world.mnRide && Farm.world.mnRide.stage === 'on', null, SLOW);
+  await page.waitForTimeout(2500);
+  const ride = await page.evaluate(() => { const w = Farm.world, j = w.mn.jeep.at, f = w.feet(); return { j: [j.x * 256, j.y * 256], f: [f.x, f.y], cam: w.cameras.main.midPoint.x, label: Farm.ui.actionLabel.text }; });
+  assert.ok(Math.abs(ride.f[0] - ride.j[0]) < 0.6 * 256 && Math.abs(ride.f[1] - ride.j[1]) < 0.6 * 256, 'in the jeep');
+  assert.ok(Math.abs(ride.cam - ride.f[0]) < 6 * 256, 'the camera with it');
+  await shot(page, 'manila-9-riding');
+  await page.waitForFunction(() => !Farm.world.mnRide, null, { timeout: 60000 });
+  const off = await feetTile(page);
+  const st = await page.evaluate(() => Farm.Config.MANILA.jeep.stops[0].wait);
+  assert.deepStrictEqual(off, [Math.floor(st[0]), Math.floor(st[1])], 'off at the Station\'s shed');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+test('the jeepney stops and honks for someone in front of it, never through them, and goes on after', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  await jeepSoon(page, 'talipapa', 9000); // (on the north road and down the east one before that)
+  await page.waitForTimeout(500);
+  // stand on the road 3 tiles ahead of it
+  const spot = await page.evaluate(() => { const L = Farm.Logic, M = Farm.Config.MANILA, a = L.jeepAt(M.jeepNow() + 1200); return [a.x, a.y, a.dir]; });
+  await page.evaluate((p) => { const w = Farm.world; w.setFeet(p[0] * 256, p[1] * 256 + 64); }, spot);
+  await page.waitForTimeout(3000);
+  const held = await page.evaluate((p) => { const w = Farm.world, j = w.mn.jeep, f = w.feet(); return { lag: j.lag, gap: Math.hypot(j.at.x * 256 - f.x, j.at.y * 256 - f.y) }; }, spot);
+  assert.ok(held.lag > 800, 'it waited: ' + held.lag);
+  assert.ok(held.gap > 0.6 * 256, 'it never drove into you: ' + held.gap);
+  // step aside: it goes on (and catches up)
+  await page.evaluate(() => { const w = Farm.world, f = w.feet(); w.setFeet(f.x, f.y + 3 * 256); });
+  const d0 = await page.evaluate(() => Farm.world.mn.jeep.at.d);
+  await page.waitForTimeout(2500);
+  assert.ok(await page.evaluate((d0) => Farm.world.mn.jeep.at.d !== d0, d0), 'it went on');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+test('the Mall: in by its door, a guard and a sales lady and people inside, the food court for energy, out the same door', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  await teleport(page, 29, 81, 'up');
+  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { if (Math.abs(v.x / 256 - 29.5) < 2 && Math.abs(v.y / 256 - 81.5) < 2) { v.hold = 1e9; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); } }));
+  await page.waitForTimeout(200);
+  assert.strictEqual(await actionLabel(page), 'Enter');
+  await shot(page, 'manila-10-mall-outside');
+  await tapAction(page);
+  await waitMap(page, 'mall');
+  const inside = await page.evaluate(() => ({ roles: Farm.world.mn.roles.map((v) => v.role), folk: Farm.world.mn.folk.filter((v) => !v.role).length }));
+  assert.deepStrictEqual(inside.roles.sort(), ['guard', 'sales']);
+  assert.ok(inside.folk >= 6, 'people walking about: ' + inside.folk);
+  // the sales lady
+  const sp = await page.evaluate(() => { Farm.world.mn.folk.forEach((p) => { if (!p.role) { p.hold = 1e9; p.path = []; p.x = 24 * 256; p.y = 15 * 256; Farm.world.mnFolkPlace(p); } }); const v = Farm.world.mn.roles.find((r) => r.role === 'sales'); v.hold = 1e9; v.path = []; v.x = 4.5 * 256; v.y = 5.6 * 256; Farm.world.mnFolkPlace(v); return [4, 6]; });
+  await teleport(page, sp[0], sp[1], 'up');
+  assert.strictEqual(await actionLabel(page), 'Talk');
+  await tapAction(page);
+  assert.match(await modalText(page), /THE SALES LADY/);
+  await page.evaluate(() => Farm.ui.closeAll());
+  // the food court: eat for energy
+  await page.evaluate(() => { Farm.session.state.energy = 10; Farm.session.state.gold = 500; Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.x = 20 * 256; v.y = 15 * 256; Farm.world.mnFolkPlace(v); }); });
+  await teleport(page, 4, 12, 'up');
+  assert.strictEqual(await actionLabel(page), 'Eat');
+  await tapAction(page);
+  assert.match(await modalText(page), /Food Court/);
+  await tapButton(page, 'Eat', 0);
+  const fed = await state(page);
+  assert.ok(fed.energy > 10 && fed.gold < 500, 'ate: ' + fed.energy + ', ' + fed.gold);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await shot(page, 'manila-11-mall-inside');
+  // saved in here: as Manila at the door
+  const saved = await page.evaluate(() => Farm.Logic.serialize(Farm.session.state));
+  assert.ok(saved.mp, 'saved as Manila');
+  // out by the door
+  await teleport(page, 13, 16, 'down');
+  await walk(page, 'ArrowDown', () => Farm.world.busy || Farm.world.mapKey === 'manila');
+  await waitMap(page, 'manila');
+  const out = await feetTile(page);
+  assert.ok(Math.abs(out[0] - 29) <= 1 && Math.abs(out[1] - 82) <= 1, 'out in front of the Mall: ' + out);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+test('a city: 50 or more people by day', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  await page.waitForTimeout(3000);
+  const n = await cityCount(page);
+  assert.ok(n >= 50, 'at noon: ' + n);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
 });

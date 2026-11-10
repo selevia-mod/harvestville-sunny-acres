@@ -35,6 +35,7 @@
   var maps = F.ASSETS && F.ASSETS.maps;
   if (maps && maps.town) {
     maps.manila = L.manilaMap(maps.town);
+    if (maps.house_1 && L.mallMap) maps.mall = L.mallMap(maps.house_1); // (the Mall inside: city life)
     var og = maps.town.layers.filter(function (l) { return l.type === 'objectgroup'; })[0];
     if (og && !og.objects.some(function (o) { return o.name === 'road_east'; })) {
       og.objects.push({ id: 90001, name: 'road_east', type: 'warp', x: 52 * T, y: 11 * T, width: 2 * T, height: 2 * T, rotation: 0, visible: true,
@@ -82,12 +83,17 @@
         }
       }
     };
-    var TILES = [
-      function () { stones('#c8bba4', '#8f8372', '#ddd3c0', '#7e9a5a'); }, // cobble
-      function () { stones('#bfb19a', '#877a68', '#d4c8b2', '#6f9150'); }, // cobble2
-      function () { o.fillStyle = '#efe0bf'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(150,110,70,0.35)'; o.lineWidth = 3; o.strokeRect(1.5, 1.5, S - 3, S - 3); }, // plaza (cream)
-      function () { o.fillStyle = '#d99a6a'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(120,60,30,0.35)'; o.lineWidth = 3; o.strokeRect(1.5, 1.5, S - 3, S - 3); }, // plaza2 (terracotta)
-      function () { // the bay walk: long pale slabs, a little round tile
+    var speck = function (base, dot, n) { o.fillStyle = base; o.fillRect(0, 0, S, S); o.fillStyle = dot; for (var k = 0; k < n; k++) o.fillRect(rnd() * S, rnd() * S, 2, 2); };
+    var DRAW = {
+      cobble: function () { stones('#c8bba4', '#8f8372', '#ddd3c0', '#7e9a5a'); },
+      cobble2: function () { stones('#bfb19a', '#877a68', '#d4c8b2', '#6f9150'); },
+      plaza: function (j) { o.fillStyle = (j % 3 + Math.floor(j / 3)) % 2 ? '#d99a6a' : '#efe0bf'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(150,110,70,0.3)'; o.lineWidth = 3; o.strokeRect(1.5, 1.5, S - 3, S - 3); },
+      asphalt: function () { speck('#5d6168', 'rgba(255,255,255,0.12)', 60); },
+      sidewalk: function () { o.fillStyle = '#c9c5bb'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(90,85,75,0.35)'; o.lineWidth = 2; o.strokeRect(1, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, 1, S / 2 - 1, S / 2 - 1); o.strokeRect(1, S / 2, S / 2 - 1, S / 2 - 1); o.strokeRect(S / 2, S / 2, S / 2 - 1, S / 2 - 1); },
+      concrete: function () { speck('#d8d4ca', 'rgba(80,75,65,0.12)', 30); o.strokeStyle = 'rgba(90,85,75,0.18)'; o.lineWidth = 2; o.strokeRect(1, 1, S - 2, S - 2); },
+      cross_h: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var x = 6; x < S; x += S / 5) o.fillRect(x, 6, S / 10, S - 12); },
+      cross_v: function () { speck('#5d6168', 'rgba(255,255,255,0.1)', 40); o.fillStyle = '#f1efe6'; for (var y = 6; y < S; y += S / 5) o.fillRect(6, y, S - 12, S / 10); },
+      baywalk: function () { // the bay walk: long pale slabs, a little round tile
         o.fillStyle = '#e6d8b8'; o.fillRect(0, 0, S, S);
         o.fillStyle = 'rgba(150,120,80,0.35)';
         for (var y = 0; y < S; y += S / 4) o.fillRect(0, y, S, 2);
@@ -95,21 +101,21 @@
         o.fillStyle = '#e48a4a'; o.beginPath(); o.arc(S * 0.75, S * 0.38, 7, 0, 7); o.fill();
         o.fillStyle = '#4a8ac8'; o.beginPath(); o.arc(S * 0.75, S * 0.38, 3.5, 0, 7); o.fill();
       },
-      function () { o.fillStyle = '#2f8096'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(190,235,240,0.45)'; o.lineWidth = 2; for (var k = 0; k < 6; k++) { var x = rnd() * S, y = rnd() * S; o.beginPath(); o.moveTo(x, y); o.quadraticCurveTo(x + 9, y - 5, x + 18, y); o.stroke(); } }, // bay
-      function () { o.fillStyle = '#2f8096'; o.fillRect(0, 0, S, S); o.fillStyle = 'rgba(255,255,230,0.7)'; for (var k = 0; k < 5; k++) o.fillRect(rnd() * S, rnd() * S, 3, 2); o.strokeStyle = 'rgba(190,235,240,0.35)'; o.lineWidth = 2; o.beginPath(); o.moveTo(10, 80); o.quadraticCurveTo(30, 72, 50, 80); o.stroke(); }, // bay2
-      function () { // old stone wall: big blocks, a lit top
+      bay: function () { o.fillStyle = '#2f8096'; o.fillRect(0, 0, S, S); o.strokeStyle = 'rgba(190,235,240,0.45)'; o.lineWidth = 2; for (var k = 0; k < 6; k++) { var x = rnd() * S, y = rnd() * S; o.beginPath(); o.moveTo(x, y); o.quadraticCurveTo(x + 9, y - 5, x + 18, y); o.stroke(); } },
+      bay2: function () { o.fillStyle = '#2f8096'; o.fillRect(0, 0, S, S); o.fillStyle = 'rgba(255,255,230,0.7)'; for (var k = 0; k < 5; k++) o.fillRect(rnd() * S, rnd() * S, 3, 2); o.strokeStyle = 'rgba(190,235,240,0.35)'; o.lineWidth = 2; o.beginPath(); o.moveTo(10, 80); o.quadraticCurveTo(30, 72, 50, 80); o.stroke(); },
+      wall: function () { // old stone wall: big blocks, a lit top
         o.fillStyle = '#857a68'; o.fillRect(0, 0, S, S);
         for (var r = 0; r < 4; r++) for (var c = -1; c < 3; c++) { o.fillStyle = (r + c) % 2 ? '#b3a68e' : '#a89a82'; o.fillRect(c * S / 2 + (r % 2) * S / 4 + 2, r * S / 4 + 2, S / 2 - 4, S / 4 - 4); }
         o.fillStyle = 'rgba(255,245,220,0.25)'; o.fillRect(0, 0, S, 6);
       },
-      function () { o.fillStyle = '#c9a36f'; o.fillRect(0, 0, S, S); o.fillStyle = 'rgba(110,75,40,0.35)'; for (var k = 0; k < 40; k++) o.fillRect(rnd() * S, rnd() * S, 3, 2); }, // track
-      function () { // the rails: gravel, sleepers, two rails along
+      track: function () { o.fillStyle = '#c9a36f'; o.fillRect(0, 0, S, S); o.fillStyle = 'rgba(110,75,40,0.35)'; for (var k = 0; k < 40; k++) o.fillRect(rnd() * S, rnd() * S, 3, 2); },
+      rails: function () { // the rails: gravel, sleepers, two rails along
         o.fillStyle = '#9a9184'; o.fillRect(0, 0, S, S);
         o.fillStyle = 'rgba(60,50,40,0.3)'; for (var k = 0; k < 50; k++) o.fillRect(rnd() * S, rnd() * S, 3, 3);
         o.fillStyle = '#6e4a2c'; for (var x = 6; x < S; x += S / 4) o.fillRect(x, S * 0.18, S / 8, S * 0.64);
         o.fillStyle = '#c7ccd2'; o.fillRect(0, S * 0.3, S, 6); o.fillRect(0, S * 0.62, S, 6);
       },
-    ];
+    };
     // the owner's ground pictures (the pack's manila_tex_<slot>): a tile, and its twin moved by half (it wraps)
     var tex = function (slot, shift) {
       var img = F.images && F.images[TEX(slot)];
@@ -119,14 +125,28 @@
       [[-1, -1], [0, -1], [-1, 0], [0, 0]].forEach(function (q) { o.drawImage(img, S / 2 + q[0] * S, S / 2 + q[1] * S, S, S); });
       return true;
     };
-    var OWN = [['cobble'], ['cobble', 1], ['plaza'], ['plaza'], ['baywalk'], ['bay'], ['bay', 1]];
-    TILES.forEach(function (draw, i) {
+    // the plaza's picture over 3 x 3 tiles (owner, 11 Nov 2026: it was too small): tile j of 9 is its part (j % 3, j / 3)
+    var plazaPart = function (j) {
+      var img = F.images && F.images[TEX('plaza')];
+      if (!img) return false;
+      o.imageSmoothingQuality = 'high';
+      o.drawImage(img, -(j % 3) * S, -Math.floor(j / 3) * S, 3 * S, 3 * S);
+      return true;
+    };
+    var OWN = { 0: ['cobble'], 1: ['cobble', 1], 2: ['baywalk'], 3: ['bay'], 4: ['bay', 1] };
+    var slot = {};
+    Object.keys(G.T).forEach(function (k) { slot[G.T[k]] = k; });
+    for (var i = 0; i < G.COLS * G.ROWS; i++) {
+      var name = slot[i];
+      if (!name) continue;
       o.clearRect(0, 0, S, S);
-      if (!(OWN[i] && tex(OWN[i][0], OWN[i][1]))) draw();
+      var pj = /^plaza(\d)$/.exec(name);
+      if (pj) { if (!plazaPart(+pj[1])) DRAW.plaza(+pj[1]); }
+      else if (!(OWN[i] && tex(OWN[i][0], OWN[i][1]))) DRAW[name]();
       var x = MG + (i % G.COLS) * (S + SP), y = MG + Math.floor(i / G.COLS) * (S + SP);
       g.drawImage(one, x - MG, y - MG, S + 2 * MG, S + 2 * MG); // (into the margin too: no seams between tiles)
       g.drawImage(one, x, y);
-    });
+    }
     return cv;
   };
   // The ground sheet for this visit: drawn again (and the old one let go) when more of the owner's textures came in.
@@ -144,6 +164,7 @@
   var buildMap = P.buildMap;
   P.buildMap = function () {
     if (this.mapKey === 'manila') { this.outdoors = true; groundReady(this); }
+    if (this.mapKey === 'mall') this.outdoors = false;
     return buildMap.apply(this, arguments);
   };
   var musicMood = P.musicMood;
@@ -156,14 +177,15 @@
   var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
   P.mnDrawProp = function (o) {
     var p = o.props, own = p.art && F.images && F.images['props/manila_' + p.art] ? 'props/manila_' + p.art : null;
-    var key = own || (/^tw_/.test(p.stand) ? p.stand : 'props/' + p.stand);
-    if (!F.images[key]) return null;
-    F.ensureTexture(this, key);
+    var drawnKey = !own && /^@/.test(p.stand || '') && F.mnStandIn ? F.mnStandIn(this, p.stand.slice(1), p.v || 0) : null; // (city life: drawn by the game)
+    var key = own || drawnKey || (/^tw_/.test(p.stand) ? p.stand : 'props/' + p.stand);
+    if (!drawnKey && !F.images[key]) return null;
+    if (!drawnKey) F.ensureTexture(this, key);
     // its own shape (128 px a tile), fitted into the box, standing on its bottom
     var pw = (o.x1 - o.x0 + 1) * T, ph = (o.y1 - o.y0 + 1) * T, left = o.x0 * T, bottom = (o.y1 + 1) * T;
     var fr = this.textures.getFrame(key), nw = fr.realWidth * 2, nh = fr.realHeight * 2, k = Math.min(pw / nw, ph / nh), dw = nw * k, dh = nh * k;
     var img = this.add.image(left + (pw - dw) / 2, bottom, key).setOrigin(0, 1).setDisplaySize(dw, dh);
-    F.depthTo(img, DEPTH.actor + bottom / 1e5);
+    F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + bottom / 1e5); // (flat: a court on the ground)
     if (!own && p.tint) img.setTint(p.tint);
     this.props.push(img);
     // its foot: solid
@@ -182,19 +204,22 @@
   P.setupExtras = function () {
     setupExtras.apply(this, arguments);
     this.mn = null;
-    if (this.mapKey !== 'manila') return;
-    var self = this, spots = [];
-    this.mn = { labels: [], people: [], cullMs: 0, schedMs: 0 };
+    if (this.mapKey !== 'manila' && this.mapKey !== 'mall') return;
+    var self = this, spots = [], mall = this.mapKey === 'mall';
+    this.mn = { labels: [], people: [], cullMs: 0, schedMs: 0, mall: mall,
+      cr: mall ? Object.assign({ looks: M.crowd.looks, tints: M.crowd.tints, lines: M.mall.lines, zones: M.mall.zones }, M.mall.crowd) : M.crowd };
     this.objects = this.objects.filter(function (o) {
       if (o.type !== 'mn_prop') return true;
       var spot = self.mnDrawProp(o);
-      if (spot && (spot.props.text || spot.props.station || spot.props.who)) spots.push(spot);
+      if (spot && (spot.props.text || spot.props.station || spot.props.who || spot.props.food || spot.props.shed != null || spot.props.mall)) spots.push(spot);
       return false;
     }).concat(spots);
-    this.mn.grid = L.manilaGrid(maps.manila, true); // (nobody walks behind a building: its whole box is out of bounds)
-    this.mnPeople();
+    this.mn.grid = L.manilaGrid(maps[this.mapKey], true); // (nobody walks behind a building: its whole box is out of bounds)
+    if (!mall) this.mnPeople();
     this.mnCrowd();
+    if (this.mnLife) this.mnLife();
     var s = this.state;
+    if (mall) return;
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
       this.save();
       this.time.delayedCall(700, function () {
@@ -316,12 +341,14 @@
   // the screen stand still and are not drawn. Tap one: a line about the city.
   var CR = M.crowd;
   var periodOf = function (min) { var h = min / 60; return h >= 6 && h < 11 ? 0 : h >= 11 && h < 16 ? 1 : h >= 16 && h < 21 ? 2 : 3; };
-  var crowdWant = function (min) { var night = periodOf(min) === 3; return CHEAP ? (night ? CR.cheapNight : CR.cheap) : (night ? CR.night : CR.day); };
-  var pickZone = function (p) {
-    var ks = Object.keys(CR.zones), all = ks.reduce(function (a, k) { return a + CR.zones[k].w[p]; }, 0), r = Math.random() * all;
-    for (var i = 0; i < ks.length; i++) { r -= CR.zones[ks[i]].w[p]; if (r < 0) return ks[i]; }
+  var crowdWant = function (cr, min) { var night = periodOf(min) === 3; return CHEAP ? (night ? cr.cheapNight : cr.cheap) : (night ? cr.night : cr.day); };
+  var pickZone = function (cr, p) {
+    var ks = Object.keys(cr.zones), all = ks.reduce(function (a, k) { return a + cr.zones[k].w[p]; }, 0), r = Math.random() * all;
+    for (var i = 0; i < ks.length; i++) { r -= cr.zones[ks[i]].w[p]; if (r < 0) return ks[i]; }
     return ks[0];
   };
+  F.mnPeriodOf = periodOf;
+  F.mnCheap = CHEAP;
   var folkAnims = function (scene, look) {
     ['down', 'up', 'side'].forEach(function (d, j) {
       var f = look.row * 9 + j * 3, ak = 'mnf-' + look.key + '-' + look.row + '-' + d;
@@ -329,9 +356,9 @@
     });
   };
   P.mnCrowd = function () {
-    var self = this, mn = this.mn, n = crowdWant(this.state.time);
+    var self = this, mn = this.mn, n = crowdWant(mn.cr, this.state.time);
     mn.folk = [];
-    mn.looks = CR.looks.filter(function (l) { return F.images && F.images[l[0]]; });
+    mn.looks = mn.cr.looks.filter(function (l) { return F.images && F.images[l[0]]; });
     mn.lookN = 0;
     mn.crowdMs = 0;
     for (var i = 0; i < n; i++) this.mnFolkAdd(false);
@@ -340,15 +367,15 @@
   P.mnFolkAdd = function (offScreen) {
     var mn = this.mn, g = mn.grid, p = periodOf(this.state.time), k = mn.lookN++;
     if (!mn.looks.length) return null;
-    var l = mn.looks[k % mn.looks.length], tint = CR.tints[Math.floor(k / mn.looks.length) % CR.tints.length];
+    var CR = mn.cr, l = mn.looks[k % mn.looks.length], tint = CR.tints[Math.floor(k / mn.looks.length) % CR.tints.length];
     var look = { key: l[0], row: l[1], tint: tint };
     F.ensureTexture(this, look.key);
     folkAnims(this, look);
-    var zone = pickZone(p), at = null, cam = this.cameras.main.worldView;
+    var zone = pickZone(CR, p), at = null, cam = this.cameras.main.worldView;
     for (var t = 0; t < 8 && !at; t++) {
       var pts = CR.zones[zone].at, q = pts[Math.floor(Math.random() * pts.length)], x = (q[0] + 0.5) * T, y = (q[1] + 0.6) * T;
       if (!g.ok(q[0], q[1])) continue;
-      if (offScreen && t < 7 && x > cam.x - 2 * T && x < cam.right + 2 * T && y > cam.y - 2 * T && y < cam.bottom + 3 * T) { zone = pickZone(p); continue; }
+      if (offScreen && t < 7 && x > cam.x - 2 * T && x < cam.right + 2 * T && y > cam.y - 2 * T && y < cam.bottom + 3 * T) { zone = pickZone(CR, p); continue; }
       at = { x: x, y: y, q: q };
     }
     if (!at) return null;
@@ -375,7 +402,8 @@
   var ACT_DIR = { browse: 'up', wait: 'down', sit: 'down', left: 'left', right: 'right', up: 'up', down: 'down' };
   // the next place: in the same zone, or (sometimes; never on a cheap phone) another; a friend goes beside the leader
   P.mnFolkNext = function (v) {
-    var g = this.mn.grid, p = periodOf(this.state.time);
+    var g = this.mn.grid, p = periodOf(this.state.time), CR = this.mn.cr;
+    if (v.role && this.mnRoleNext) return this.mnRoleNext(v);
     if (v.follower && v.pal && !v.pal.gone) {
       var L0 = v.pal.goal;
       if (!L0) return;
@@ -383,7 +411,7 @@
       if (!side) return;
       return this.mnFolkGo(v, L0[0] + side[0], L0[1] + side[1], 'pal');
     }
-    if (!CHEAP && Math.random() < 0.3) v.zone = pickZone(p);
+    if (!CHEAP && Math.random() < 0.3) v.zone = pickZone(CR, p);
     var pts = CR.zones[v.zone].at;
     for (var t = 0; t < 6; t++) {
       var q = pts[Math.floor(Math.random() * pts.length)];
@@ -405,14 +433,15 @@
     mn.crowdMs -= dt;
     if (mn.crowdMs <= 0) {
       mn.crowdMs = 5000;
-      var want = crowdWant(this.state.time), here = mn.folk.filter(function (v) { return !v.leaving; });
+      var want = crowdWant(mn.cr, this.state.time), here = mn.folk.filter(function (v) { return !v.leaving && !v.role; });
       for (var i = here.length - 1; i >= want; i--) here[i].leaving = true;
       for (var j = here.length; j < want; j++) this.mnFolkAdd(true);
     }
     for (var k = mn.folk.length - 1; k >= 0; k--) {
       var v = mn.folk[k];
       if (v.leaving && !v.near) { v.sp.destroy(); v.gone = true; if (v.pal) v.pal.pal = null; mn.folk.splice(k, 1); continue; }
-      if (CHEAP && !v.near) continue; // (a cheap phone: those out of sight stand still)
+      if (v.riding) continue; // (on the jeep: city life)
+      if (CHEAP && !v.near && !v.role) continue; // (a cheap phone: those out of sight stand still)
       if (v.hold > 0) { v.hold -= dt; continue; }
       if (!v.path.length) {
         if (v.arrived) {
@@ -450,7 +479,7 @@
   };
   P.mnFolkAt = function (x, y) {
     var best = null, bd = 0.8 * T;
-    ((this.mn && this.mn.folk) || []).forEach(function (v) { if (v.leaving) return; var d = Math.hypot(v.x - x, v.y - 0.3 * T - y); if (d < bd) { bd = d; best = v; } });
+    ((this.mn && this.mn.folk) || []).forEach(function (v) { if (v.leaving || v.inside || v.riding) return; var d = Math.hypot(v.x - x, v.y - 0.3 * T - y); if (d < bd) { bd = d; best = v; } });
     return best;
   };
   P.mnFolkTalk = function (v) {
@@ -458,7 +487,8 @@
     v.hold = 4000;
     this.mnFolkFace(v, Math.abs(f.x - v.x) > Math.abs(f.y - v.y) ? (f.x > v.x ? 'right' : 'left') : f.y < v.y ? 'up' : 'down');
     sfx('talk');
-    F.ui.dialog('A PASSER-BY\n' + CR.lines[Math.floor(Math.random() * CR.lines.length)]);
+    var lines = (v.role && v.lines) || this.mn.cr.lines;
+    F.ui.dialog((v.title || 'A PASSER-BY') + '\n' + lines[Math.floor(Math.random() * lines.length)]);
   };
 
   // ---------- the frame ----------
@@ -482,7 +512,7 @@
       var was = v.near;
       v.near = near(v);
       if (v.near === was) return;
-      v.sp.setVisible(v.near);
+      v.sp.setVisible(v.near && !v.inside && !v.riding);
       if (!v.near && v.sp.anims.isPlaying) v.sp.anims.pause();
       else if (v.near && v.sp.anims.isPaused) v.sp.anims.resume();
     });

@@ -17,9 +17,12 @@
 
   // ---------- the map ----------
   // Manila's own ground sheet: 5 x 2 tiles of 256 (stored at half size), margin 8, spacing 16, like the town's sheets.
-  M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 2,
-    T: { cobble: 0, cobble2: 1, plaza: 2, plaza2: 3, baywalk: 4, bay: 5, bay2: 6, wall: 7, track: 8, rails: 9 },
-    SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 } };
+  // (city life, 11 Nov 2026: 5 x 5 now, with the city's ground: asphalt, sidewalk, concrete, the crosswalks; and the plaza's
+  // floor drawn over 3 x 3 tiles, so the owner's plaza picture is 3 times bigger: plaza0..plaza8, by x % 3 and y % 3)
+  M.GROUND = { NAME: 'manila_ground', SIZE: 256, MARGIN: 8, SPACING: 16, COLS: 5, ROWS: 5,
+    T: { cobble: 0, cobble2: 1, baywalk: 2, bay: 3, bay2: 4, wall: 5, track: 6, rails: 7, asphalt: 8, sidewalk: 9, concrete: 10, cross_h: 11, cross_v: 12,
+      plaza0: 14, plaza1: 15, plaza2: 16, plaza3: 17, plaza4: 18, plaza5: 19, plaza6: 20, plaza7: 21, plaza8: 22 },
+    SOLID: { bay: 1, bay2: 1, wall: 1, rails: 1 }, WATER: { bay: 1, bay2: 1 }, ROAD: { asphalt: 1 } };
   var G = M.GROUND;
   G.IMAGE_W = 2 * G.MARGIN + G.COLS * G.SIZE + (G.COLS - 1) * G.SPACING;
   G.IMAGE_H = 2 * G.MARGIN + G.ROWS * G.SIZE + (G.ROWS - 1) * G.SPACING;
@@ -66,16 +69,33 @@
       grass: function () { var v = r(); return tg(v < 0.7 ? 'grass' : v < 0.92 ? 'grass2' : 'grass3'); },
       flowers: function () { return tg('flowers'); }, path: function () { return tg('path'); }, sand: function () { return tg('sand'); },
       dock: function () { return tg('dock'); }, tplaza: function () { return tg('plaza'); }, water: function () { return tg('water'); },
-      cobble: function () { return mg(r() < 0.75 ? 'cobble' : 'cobble2'); }, plaza: function (x, y) { return mg((x + y) % 2 ? 'plaza2' : 'plaza'); },
+      cobble: function () { return mg(r() < 0.75 ? 'cobble' : 'cobble2'); }, plaza: function (x, y) { return mg('plaza' + ((y % 3) * 3 + (x % 3))); },
+      asphalt: function () { return mg('asphalt'); }, sidewalk: function () { return mg('sidewalk'); }, concrete: function () { return mg('concrete'); },
+      cross_h: function () { return mg('cross_h'); }, cross_v: function () { return mg('cross_v'); },
       baywalk: function () { return mg('baywalk'); }, bay: function () { return mg(r() < 0.7 ? 'bay' : 'bay2'); }, wall: function () { return mg('wall'); },
       track: function () { return mg('track'); }, rails: function () { return mg('rails'); },
     };
     var fill = function (kind, x0, y0, w, h) {
       for (var y = y0; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) put(ground, x, y, KIND[kind](x, y));
     };
-    fill('grass', 0, 0, W, Hh);
+    fill(M.base || 'grass', 0, 0, W, Hh);
     M.ground.forEach(function (g) { fill(g[0], g[1], g[2], g[3], g[4]); });
     M.trackCorners.forEach(function (c) { put(ground, c[0], c[1], KIND.grass()); });
+    // the jeepney's loop road (city life): 2 lanes of asphalt along its path, a sidewalk on both sides (over plain ground
+    // only: never over the plaza, the cobbles, the bay walk), then the crosswalks
+    if (M.jeep) {
+      var plainG = function (g) { return g === mg('concrete') || g === tg('grass') || g === tg('grass2') || g === tg('grass3') || g === tg('path') || g === tg('sand') || g === tg('flowers'); };
+      var road = {};
+      L.manilaRoadTiles().forEach(function (t) { road[t[1] * W + t[0]] = 1; put(ground, t[0], t[1], mg('asphalt')); });
+      Object.keys(road).forEach(function (k) {
+        var x = k % W, y = Math.floor(k / W);
+        [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].forEach(function (d) {
+          var nx = x + d[0], ny = y + d[1], i = ny * W + nx;
+          if (inMap(nx, ny) && !road[i] && plainG(ground[i])) put(ground, nx, ny, mg('sidewalk'));
+        });
+      });
+      (M.jeep.cross || []).forEach(function (c) { fill(c[4] === 'v' ? 'cross_v' : 'cross_h', c[0], c[1], c[2], c[3]); });
+    }
 
     // what nothing random may stand on: every building, prop, sign, spot and way through
     var taken = {};
@@ -97,7 +117,8 @@
       take(box[0], box[1], box[2], box[3]);
     };
     M.buildings.forEach(function (b) {
-      drawn(b.key, b.stand, b.box, b.foot, { art: b.art || '', label: b.name || '', text: b.text || '', tint: b.tint || 0, who: b.who || '', station: b.station ? 1 : 0, box: 1 });
+      drawn(b.key, b.stand, b.box, b.foot, { art: b.art || '', label: b.name || '', text: b.text || '', tint: b.tint || 0, who: b.who || '', station: b.station ? 1 : 0, box: b.flat ? 0 : 1,
+        v: b.v, shed: b.shed, mall: b.mall ? 1 : 0, ferris: b.ferris ? 1 : 0, flat: b.flat ? 1 : 0 });
     });
     M.props.forEach(function (p, i) { drawn('p' + i, p[0], [p[1], p[2], p[3], p[4]], p[5], { art: p[6] || '' }); });
     M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [15, y, 1, 2], 1, { art: 'street_lamp' }); });
@@ -185,7 +206,7 @@
   // the people's paths; strict: nor anywhere in a building's box (the people never walk behind a building). ({ W, H, ok(x, y) })
   L.manilaGrid = function (map, strict) {
     var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
-    map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; }); }); });
+    map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && p.value === 'mn_asphalt') solid[ts.firstgid + t.id] = 1; }); }); }); // (strict: people keep off the road but at the crosswalks)
     map.layers.forEach(function (l) { if (l.type === 'tilelayer') l.data.forEach(function (g, i) { if (solid[g]) block[i] = 1; }); });
     var S = map.tilewidth;
     map.layers.filter(function (l) { return l.type === 'objectgroup'; })[0].objects.forEach(function (o) {
@@ -198,13 +219,17 @@
     return { W: W, H: Hh, block: block, ok: function (x, y) { return x >= 0 && y >= 0 && x < W && y < Hh && !block[y * W + x]; } };
   };
   // A path of tiles from a to b on that grid (4 ways), or null. [[x, y], ...] from the tile after a to b.
+  var bfsFrom = null; // (one array, reused: a path is looked for often, by many people)
   L.manilaPath = function (grid, ax, ay, bx, by, most) {
-    var W = grid.W, start = ay * W + ax, goal = by * W + bx, from = {}, q = [start], seen = 0;
+    var W = grid.W, start = ay * W + ax, goal = by * W + bx, q = [start], qi = 0, seen = 0;
     if (!grid.ok(bx, by)) return null;
+    if (!bfsFrom || bfsFrom.length !== W * grid.H) bfsFrom = new Int32Array(W * grid.H);
+    bfsFrom.fill(-2);
+    var from = bfsFrom;
     from[start] = -1;
     most = most || 4000;
-    while (q.length && seen++ < most) {
-      var c = q.shift();
+    while (qi < q.length && seen++ < most) {
+      var c = q[qi++];
       if (c === goal) {
         var out = [];
         for (var k = goal; k !== start; k = from[k]) out.unshift([k % W, Math.floor(k / W)]);
@@ -213,7 +238,7 @@
       var cx = c % W, cy = Math.floor(c / W), nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       for (var i = 0; i < 4; i++) {
         var nx = cx + nb[i][0], ny = cy + nb[i][1], n = ny * W + nx;
-        if (from[n] === undefined && grid.ok(nx, ny)) { from[n] = c; q.push(n); }
+        if (nx >= 0 && ny >= 0 && nx < W && ny < grid.H && from[n] === -2 && grid.ok(nx, ny)) { from[n] = c; q.push(n); }
       }
     }
     return null;

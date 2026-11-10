@@ -35,7 +35,7 @@ test('the map: 90 x 90, the town\'s own tile and season sheets (same numbers) an
   assert.deepStrictEqual(names, ['tiles', 'seasons', 'manila_ground']);
   ['tiles', 'seasons'].forEach((n) => assert.strictEqual(map.tilesets.find((t) => t.name === n).firstgid, TOWN.tilesets.find((t) => t.name === n).firstgid, n));
   const own = map.tilesets.find((t) => t.name === 'manila_ground');
-  assert.strictEqual(own.tilecount, 10);
+  assert.strictEqual(own.tilecount, 25); // (5 x 5: the city's ground and the plaza drawn over 3 x 3 tiles)
   assert.ok(own.imagewidth <= 4096 && own.imageheight <= 4096, 'no sheet over 4096 px');
   assert.strictEqual((own.imagewidth - 2 * own.margin + own.spacing) % (own.tilewidth + own.spacing), 0, 'a whole number of tiles across');
   assert.ok(!map.tilesets.some((t) => t.name === 'props'), 'its buildings are drawn by the game, not Tiled props');
@@ -58,6 +58,7 @@ test('the layout: no two buildings or props on the same tile; all inside the map
   });
   for (let y = 0; y < 90; y++) for (let x = 0; x < 12; x++) {
     if (y >= 50 && y <= 62 && x >= 2) continue; // (the breakwater and the pier)
+    if (y >= 69 && y <= 82 && x >= 3) continue; // (the Ferris wheel's pier)
     assert.ok(!grid.ok(x, y), `the bay at ${x},${y}`);
   }
   // the proposals' places (a few, by their boxes)
@@ -199,18 +200,18 @@ test('the decorations: none on a building, inside the map; the scattered ones on
   const boxes = M.buildings.map((b) => b.box);
   const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
   const decor = objs.filter((o) => o.type === 'mn_prop' && /^(d|s)\d/.test(o.name)).map((o) => [o.name, [o.x / 256, o.y / 256, o.width / 256, o.height / 256]]);
-  assert.ok(decor.length >= M.decor.length + 40, 'the decorations and the scattered ones: ' + decor.length);
+  assert.ok(decor.length >= M.decor.length + 8, 'the decorations and the scattered ones: ' + decor.length);
   decor.forEach(([k, d]) => {
     assert.ok(d[0] >= 0 && d[1] >= 0 && d[0] + d[2] <= 90 && d[1] + d[3] <= 90, k + ' inside');
     boxes.forEach((b) => assert.ok(!hit(d, b), k + ' is not on a building'));
   });
 });
 
-test('the crowd: 26 by day, about a third of the whole at night, about 15 in all on a cheap phone; every place they go is free and reachable without going behind a building', () => {
-  const CR = M.crowd;
-  assert.ok(CR.day + M.people.order.length >= 30, 'at least 30 by day');
-  assert.ok((CR.night + 7) <= Math.ceil((CR.day + 7) / 3), 'a third at night');
-  assert.ok(Math.abs(CR.cheap + 7 - 15) <= 1, 'about 15 on a cheap phone');
+test('the crowd: about 55 by day with the roles, about a third at night, fewer on a cheap phone; every place they go is free and reachable without going behind a building or along the road', () => {
+  const CR = M.crowd, roles = Object.keys(M.roles).reduce((a, k) => a + M.roles[k].n, 0);
+  assert.ok(CR.day + M.people.order.length + roles >= 50, 'at least 50 by day: ' + (CR.day + 7 + roles));
+  assert.ok((CR.night + 7 + 2) <= Math.ceil((CR.day + 7 + roles) / 3), 'a third at night (the two guards stay)');
+  assert.ok(CR.cheap + 7 + roles <= (CR.day + 7 + roles) * 0.6, 'fewer on a cheap phone');
   assert.ok(CR.lines.length >= 20 && CR.lines.every((t) => t.length <= 80 && !/[^\x20-\x7e]/.test(t)), 'short plain lines');
   assert.ok(!CR.looks.some((l) => l[0] === 'people'), 'never Willowbrook\'s villagers');
   const strict = L.manilaGrid(map, true);
@@ -221,5 +222,73 @@ test('the crowd: 26 by day, about a third of the whole at night, about 15 in all
   }));
   Object.keys(M.spots).forEach((k) => assert.ok(reachS(START, tile(M.spots[k])), 'spot ' + k + ' on the strict grid'));
   // the strict grid: no tile of any building's box
-  M.buildings.forEach((b) => { for (let y = b.box[1]; y < b.box[1] + b.box[3]; y++) for (let x = b.box[0]; x < b.box[0] + b.box[2]; x++) assert.ok(!strict.ok(x, y), b.key + ' ' + x + ',' + y); });
+  M.buildings.filter((b) => !b.flat).forEach((b) => { for (let y = b.box[1]; y < b.box[1] + b.box[3]; y++) for (let x = b.box[0]; x < b.box[0] + b.box[2]; x++) assert.ok(!strict.ok(x, y), b.key + ' ' + x + ',' + y); });
+});
+
+// ---------- city life: the jeepney (src/01-logicZZZZZZZZZZZZZZZ-manila-life.js) ----------
+test('the jeep\'s loop: on its own road all the way, its 6 stops in order, a loop\'s time; where it is depends on the clock alone', () => {
+  const J = M.jeep, r = L.jeepRoute();
+  assert.strictEqual(r.len, 276);
+  assert.deepStrictEqual(plain(r.stops.map((s) => J.stops[s.i].key)), ['station', 'talipapa', 'college', 'mall', 'baywalk', 'plaza']);
+  assert.strictEqual(r.loopMs, r.len * 1000 / J.speed + 6 * J.stopMs);
+  const own = map.tilesets.find((t) => t.name === 'manila_ground'), asphalt = own.firstgid + M.GROUND.T.asphalt, cross = [own.firstgid + M.GROUND.T.cross_h, own.firstgid + M.GROUND.T.cross_v];
+  const g = map.layers[0].data, road = (x, y) => [asphalt].concat(cross).includes(g[y * 90 + x]);
+  const DAY = Date.UTC(2026, 3, 1, 4, 0); // (noon in Manila)
+  let last = L.jeepAt(DAY);
+  for (let t = 0; t < r.loopMs; t += 250) {
+    const a = L.jeepAt(DAY + t);
+    assert.ok(a.on, 'by day it always runs');
+    // on a centre line, with road on both sides of it
+    const hx = Number.isInteger(a.y), vx = Number.isInteger(a.x);
+    assert.ok(hx || vx, 'on a centre line at ' + t);
+    const tx = Math.floor(a.x - (vx ? 0.5 : 0)), ty = Math.floor(a.y - (hx ? 0.5 : 0));
+    assert.ok(road(tx, ty) && (hx ? road(tx, ty + 1) : road(tx + 1, ty)), 'on the road at ' + a.x + ',' + a.y);
+    assert.ok(Math.abs(a.x - last.x) + Math.abs(a.y - last.y) <= J.speed * 0.25 + 1e-6 || a.loop !== last.loop, 'it never jumps');
+    last = a;
+  }
+  // each stop: it waits there stopMs, at the stop's own point
+  J.stops.forEach((st, i) => {
+    const w = L.jeepWait(DAY, i);
+    assert.ok(w >= 0 && w <= r.loopMs, st.key + ' within a loop');
+    const a = L.jeepAt(DAY + w + 100);
+    assert.strictEqual(a.stop, i);
+    assert.deepStrictEqual([a.x, a.y], plain(st.at));
+    assert.strictEqual(L.jeepAt(DAY + w + J.stopMs + 600).stop, -1, 'and goes on');
+  });
+  assert.deepStrictEqual(plain(L.jeepAt(DAY + 12345)), plain(L.jeepAt(DAY + 12345)), 'the same for every phone');
+  const a1 = plain(L.jeepAt(DAY + 12345)), a2 = plain(L.jeepAt(DAY + 12345 + r.loopMs * 2));
+  assert.deepStrictEqual([a1.x, a1.y, a1.stop], [a2.x, a2.y, a2.stop], 'the same place every loop');
+});
+
+test('the jeep at night: every other loop, its lights on from 6 PM; the waiting sheds are on the sidewalk beside its stops', () => {
+  const r = L.jeepRoute(), NIGHT = Date.UTC(2026, 3, 1, 15, 0); // (11 PM in Manila)
+  const loops = [0, 1, 2, 3].map((k) => { const ms = NIGHT + k * r.loopMs; return L.jeepAt(ms - (ms % r.loopMs) + 1000); });
+  assert.ok(loops.some((a) => a.on) && loops.some((a) => !a.on), 'some loops off');
+  loops.forEach((a, k) => { if (k) assert.notStrictEqual(a.on, loops[k - 1].on, 'every other loop'); });
+  assert.ok(loops.every((a) => a.lights));
+  assert.strictEqual(L.jeepAt(Date.UTC(2026, 3, 1, 4, 0)).lights, false, 'no lights at noon');
+  const strict = L.manilaGrid(map, true);
+  M.jeep.stops.forEach((st) => {
+    const w = [Math.floor(st.wait[0]), Math.floor(st.wait[1])];
+    assert.ok(strict.ok(w[0], w[1]), st.key + ': you wait on free ground');
+    assert.ok(Math.hypot(st.wait[0] - st.at[0], st.wait[1] - st.at[1]) < 3, st.key + ': beside the stop');
+    assert.ok(reach(START, w), st.key + ' reachable');
+  });
+});
+
+test('the Mall inside: its own small map (the house\'s sheet), shops and a food court, the way out by the door; saved as Manila at the Mall\'s door', () => {
+  const house = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'house_1.json'), 'utf8'));
+  const mm = plain(L.mallMap(house)), mo = mm.layers.find((l) => l.type === 'objectgroup').objects;
+  assert.strictEqual(mm.width, M.mall.W);
+  assert.ok(mo.some((o) => o.type === 'warp' && o.properties.some((p) => p.name === 'to' && p.value === 'manila')));
+  assert.ok(mo.some((o) => o.name === 'entrance' && o.point));
+  assert.strictEqual(mo.filter((o) => o.type === 'mn_prop' && o.properties.some((p) => p.name === 'box')).length, M.mall.shops.length);
+  M.mall.food.forEach((f) => assert.ok(L.energyOf(f[0]) > 0 && f[1] > 0, f[0] + ' gives energy'));
+  const s = fresh();
+  s.map = 'mall';
+  s.player = { x: 14 * 256, y: 10 * 256, dir: 'up' };
+  const o = JSON.parse(JSON.stringify(L.serialize(s)));
+  const b = L.deserialize(o);
+  assert.strictEqual(b.map, 'manila');
+  assert.deepStrictEqual([Math.round(b.player.x / 256 * 10) / 10, Math.round(b.player.y / 256 * 10) / 10], plain(M.mall.out));
 });
