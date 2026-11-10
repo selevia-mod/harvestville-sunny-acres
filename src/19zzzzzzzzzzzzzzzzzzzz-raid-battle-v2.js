@@ -289,7 +289,8 @@
           sx = 0.9; sy = 1.12; tilt = -14; pose = 'hit';
           if (e2 > 0.75 && u.swing !== Math.floor((time + u.ph * 100) / 800)) {
             u.swing = Math.floor((time + u.ph * 100) / 800);
-            this.bfx('swoosh', u.px - u.face * (reach + 0.25) * T, u.py - 0.4 * T * u.base, { scale: 0.7 * u.base, life: 50, flip: u.face < 0 });
+            var swx = this.bfx('swoosh', u.px - u.face * (reach + 0.45) * T, u.py - 0.4 * T * u.base, { scale: 0.4 * u.base, life: 40, flip: u.face < 0 }); // (small and faint, beside it: owner, "too much")
+            if (swx) swx.setAlpha(0.6);
             if (big) this.cameras.main.shake(60, 0.0015);
           }
         } else { var e3 = (sw - 0.6) / 0.4; lx = -u.face * reach * T * (1 - e3); pose = e3 < 0.3 ? 'hit' : 'run'; }
@@ -334,14 +335,14 @@
       if (time - (u.hitAt || 0) > 450) {
         u.hitAt = time;
         u.flash = true;
-        u.img.setTintFill(0xffffff);
+        u.img.setTint(0xff9a8a); // (owner, 10 Nov 2026: the white flash was "too much": a light red tint for a moment)
         u.kb = Math.min(0.25, 0.06 + lost / r.max) * T;
         this.time.delayedCall(70, function () { u.flash = false; if (u.img.active) u.img.clearTint(); });
-        this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.8, life: 60 });
+        this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.5, life: 50 });
         this.bnum(x, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a', r.id);
         u.sum = 0;
         var by = this.raidB.defs.filter(function (q) { return q.aim === r.id && R.defenses[q.t].chases; })[0];
-        if (by) this.bfx('swoosh', x, y - 0.4 * T, { scale: 0.8, life: 60, flip: by.x > r.x });
+        if (by) { var sw2 = this.bfx('swoosh', x, y - 0.4 * T, { scale: 0.45, life: 40, flip: by.x > r.x }); if (sw2) sw2.setAlpha(0.6); }
       }
     }
     bar(this, u, x, y - 1.55 * T * u.base - fly, 0.9, r.hp / r.max);
@@ -373,7 +374,7 @@
         u.sum = 0;
         if (u.sp && u.sp.active && d.t !== 'dog') {
           var sp = u.sp;
-          sp.setTintFill(0xffffff);
+          sp.setTint(0xffb8a8);
           this.time.delayedCall(60, function () { if (sp.active) sp.clearTint(); });
           this.tweens.add({ targets: sp, x: u.sx + 0.08 * T, yoyo: true, repeat: 1, duration: 40, onComplete: function () { if (sp.active) sp.x = u.sx; } });
         }
