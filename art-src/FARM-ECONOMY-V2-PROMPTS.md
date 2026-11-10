@@ -6,6 +6,8 @@ Save each picture with the file name shown and send them in one zip (any order).
 - **Icons** (2 pictures): a 4 x 4 grid of 16 icons, in the order listed. 1536 x 1536.
 - **Buildings** (2): the Mixer and the Silo, one each. 1024 x 1024.
 
+(For Claude: when the zip is unpacked here, `node tools/art/economy-import.js` puts the crops and both icon sheets into the game, then `node build.js`. Until then the 8 crops show drawn stand-ins.)
+
 ### crops/banana.png  (1536x1024)
 
 ```
