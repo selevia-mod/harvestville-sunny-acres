@@ -7,6 +7,42 @@ page does not change any of that. The pictures: art-src/MANILA-PROMPTS.md (116 p
 
 Not before the raids are finished (owner, 11 Nov 2026).
 
+## Built so far: step 1, the city (11 Nov 2026, branch feat/manila, not released)
+
+Owner: "start it now"; it ships only on the owner's word. Plan: docs/superpowers/plans/2026-11-11-manila-step1.md.
+**Built:**
+- **The map, 90 x 90**, laid out as section 1 below (the boxes are in src/00-zzzzzzzzzzzzzzzzzzz-manila.js). It is built in
+  code when the game opens (L.manilaMap), so the game page carries no Manila map (the page grew by about 45 KB of code).
+- **The bay and port** (the breakwater and lighthouse, the pier with 3 empty berths, each with a sign), **the walled
+  quarter** (2-tile walls, 4 bastions, the Sea Gate and the Plaza Gate, the church and its square, the Armory, Lola
+  Amparo's house, old houses), **Manila Central** (the platform in front of it, the rails), **the Central Plaza**
+  (fountain, notice board, Hall of Fame, the stage, lamps, benches), **the Grand Market and Trading Post** (stalls, the
+  contract board), **the Stables** (paddock fence), **the grandstand and the oval track**, **the Barrio** (houses, the
+  corner store, the kalesa stand, the jeep stop, the court), **Calle Real** (shops and carts), the roads and **the three
+  gates**. Shops, the Hall of Fame, the stage, the boats and the Gorge and Jungle gates say "Coming soon".
+- **Getting there:** Willowbrook Station has a **Manila** tab: the train, **250 Gold one way, the first ride free**; home
+  from Manila Central's door. **The valley road:** walk off the town's east end (Market Street) to the Plains Gate, and
+  back out of it. The horse rule (6 hearts + Horseshoes) is one switch and one hook for economy part 5
+  (C.MANILA.horseRoad, L.manilaRoad / L.horseRoadOk); for now the road is walked.
+- **The 7 city people** (section 2; the three guides come with their grounds) at their places by the hour, wandering a
+  little, solid, with a first hello and 3 lines each. Stand-in looks: the train visitors' sheet, tinted.
+- **Open to everyone:** the game server's public rooms, 30 a room ("Manila 1"...), no animals (server/lib/pub.js). The
+  server side is NOT deployed: until it is, a phone sees only its own farm's room in Manila (as before).
+- **Art:** none of the owner's yet. Town pictures stand in, fitted into each box, with a name label; the ground is drawn.
+  The owner's batch 1-2 pictures go through `node tools/manila/manila-import.js` (from art-src/manila/) into the
+  download pack **'manila'**, and take over the stand-ins once on the phone (each picture on its own).
+- **Saves:** in Manila the game is saved as the town plus the city spot, so an older game opens in town; nothing is lost.
+
+**Decided by me (owner can change):** the train runs any time (no timetable) and goes straight there; the first ride
+is the free one, either way after that 250G (no Week Pass yet); everyone in the city stays outdoors at night (at their
+door) so there is always someone to talk to; the shops show their keeper but sell nothing yet; the train's station door
+sells the ticket home (Mang Tibo points to it); the plaza lamps moved one tile so nothing stands on a person's spot; the
+platform is in front of the station building and the rails behind it (south); the 6 hurdles and the race come with
+the race (M5); no water animation or sunset glow yet (cheap phones).
+
+**Not built yet:** the contracts, the Trading Post, the Armory and the weapons, the grounds and their caves, the race,
+Lola Amparo's story chapters, hearts and gifts for the city people, boats.
+
 ---
 
 ## 1. Manila's layout (Proposed)
