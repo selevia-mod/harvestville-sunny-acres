@@ -39,7 +39,7 @@
     O.types.push(t);
   });
   // Where the farm map drew each one (tile coordinates of the top-left): every farm starts with them here.
-  C.BUILDINGS = {
+  C.FARM_BUILDINGS = {
     home: [['farmhouse', 4, 3], ['ranch', 2, 27], ['dog_yard', 11, 5], ['farm_pond', 15, 3], ['farm_pond', 34, 10], ['farm_pond', 34, 20],
       ['seed_stand', 14, 28]],
     stable: ['stable_yard', 18, 32],

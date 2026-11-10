@@ -23,7 +23,7 @@
 
 | File | Responsibility |
 |---|---|
-| `src/00-zzzzzzzzzzzzzzzzzz-buildings.js` (new) | The building types and their masks, appended after every other type (loads after `00-zzzzzzzzzzzzzzzzz-raids.js`). The old map spots (`C.BUILDINGS.home`). |
+| `src/00-zzzzzzzzzzzzzzzzzz-buildings.js` (new) | The building types and their masks, appended after every other type (loads after `00-zzzzzzzzzzzzzzzzz-raids.js`). The old map spots (`C.FARM_BUILDINGS.home`). |
 | `src/01-logicZZZZZZZZZZZZZ-buildings.js` (new) | Logic: mask reading (`L.maskAt`, `L.yardSolid`, `L.yardWater`, `L.buildingSpots`), `L.farmFor`, the migration `L.addBuildings`, store rules, save flag `ef`, visit snapshot flag. Loads after `01-logicZZZZZZZZZZZZ-raids2.js`. |
 | `tools/edit-farm-map.js` (new) | One-time rewrite of `maps/farm.json`: removes the drawn buildings, their objects and the field. Refuses to run twice. |
 | `tools/art/farm-layout-import.js` (new) | `art-src/farm-layout/*.png` → `assets/props/house_1`, `ranch`, `dog_yard`, `farm_pond` (`.png` + `.webp`). |
@@ -138,7 +138,7 @@ Expected: FAIL (`Cannot read properties of undefined (reading 'mask')` or index 
     O.types.push(t);
   });
   // Where the farm map drew each one (tile coordinates of the top-left): every farm starts with them here.
-  C.BUILDINGS = {
+  C.FARM_BUILDINGS = {
     home: [['farmhouse', 4, 3], ['ranch', 2, 27], ['dog_yard', 11, 5], ['farm_pond', 15, 3], ['farm_pond', 34, 10], ['farm_pond', 34, 20],
       ['seed_stand', 14, 28]],
     stable: ['stable_yard', 18, 32],
@@ -430,7 +430,7 @@ test('the house and the ranch can\'t be put away, only moved; the others can', (
   // ---------- every farm gets its buildings once (save flag 'ef') ----------
   var put = function (s, key, x, y) { s.yard.items.push({ t: O.index[key], x: x, y: y }); };
   L.addBuildings = function (s) {
-    var B = C.BUILDINGS, have = {};
+    var B = C.FARM_BUILDINGS, have = {};
     s.yard.items.forEach(function (it) { var k = O.types[it.t] && O.types[it.t].key; if (k) have[k] = (have[k] || 0) + 1; });
     B.home.forEach(function (b) { if (!have[b[0]]) put(s, b[0], b[1], b[2]); else have[b[0]]--; });
     if (s.builds && s.builds.stable && !have.stable_yard) put(s, B.stable[0], B.stable[1], B.stable[2]);
