@@ -28,6 +28,9 @@ stopping at a hunting ground on the way.
 
 Still to decide: the city's name, its people, the animals of each ground, prices, the order of building.
 
+**When:** not before the raids are finished (owner, 11 Nov 2026: "we will not release this new idea until we fix all the
+raids"). Designed now, built after.
+
 ## The weapons (owner's numbers, 11 Nov 2026)
 
 | Level | Bow (range / damage) | Rifle | Javelin | Boomerang |
