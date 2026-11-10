@@ -24,3 +24,16 @@ Javelin and the Moon Boomerang hit 2 animals standing side by side. All of them 
 Owner's first words on each: the Rifle "long range, more powerful but slow attacking"; the Javelin "powerful, fast
 attacking, short range"; the Boomerang "not so powerful, not so long range, not so fast attack but no bullets/arrow
 needed", and it wears out ("boomerang can be destroy if they did not use materials to fix the durability when its low").
+
+## Speed and ammo (owner, 11 Nov 2026)
+- The Javelin is faster than the Bow ("Javelin should be faster than bow") and has ammo: javelins bought like arrows
+  ("Javelin also has ammo, they will buy javelin like arrows, only boomerang has no ammo").
+- The Rifle has ammo (bullets). The Boomerang has none: it flies back, and it wears out.
+
+| Weapon | Time between shots | Ammo |
+|---|---|---|
+| Bow | 0.43 s (as now) | arrows, 60G for 10 (6G each) |
+| Javelin | 0.35 s | javelins, 150G for 5 (30G each): the most damage a second, so the dearest to use |
+| Rifle | 1.6 s | bullets, 200G for 10 (20G each) |
+| Boomerang | 1.0 s | none; durability, repaired with materials |
+(Proposed numbers; the owner set the order: Javelin fastest, Rifle slowest.)
