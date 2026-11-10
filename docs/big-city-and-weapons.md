@@ -26,7 +26,11 @@ Three hunting grounds (each ~3x Pulag), each suited to one new weapon, each with
 Getting there: the train from Willowbrook Station (a ticket), or the valley road on horseback (6 hearts and Horseshoes),
 stopping at a hunting ground on the way.
 
-Still to decide: the city's name, its people, the animals of each ground, prices, the order of building.
+**Name** (owner, 11 Nov 2026): the city is **Manila**; its port is **Manila Bay** ("lets add some port so soon players can
+play in boat"): boats come later. Real place names are fine (the game already has Banaue, Taal, Palawan...); no real
+company names or logos, no official seals, landmarks only as cozy cartoon inspirations.
+
+Still to decide: its people, the animals of each ground, prices, the order of building.
 
 **When:** not before the raids are finished (owner, 11 Nov 2026: "we will not release this new idea until we fix all the
 raids"). Designed now, built after.
