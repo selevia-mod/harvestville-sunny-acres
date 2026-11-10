@@ -6529,3 +6529,20 @@ test('hunting places: Palawan Underground River (place 15): the Jeep at 160 hunt
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('a tamed companion shows as itself after a restart, away from its place (players, 10 Nov 2026: "kahit anong refresh sigbin talaga kasama ko"; a wild duck "nagiging manok na pula")', async () => {
+  const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'pulag'; s.places = s.places || {}; s.places.sierra = { n: 0, ch: 0, st: 0, t: 0, tm: 1, ta: 0, g: 0, b: 0, dl: -1, bc: 0, deep: 0 }; s.comp = 'sierra';");
+  const { page, problems, context } = await open(save);
+  await page.waitForFunction(() => Farm.world && Farm.world.mapKey === 'pulag' && Farm.world.comp, null, SLOW);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.companion(Farm.session.state)), 'sierra');
+  // its own picture is asked for and comes; the companion changes to it, picture and frame together
+  await page.waitForFunction(() => Farm.world.comp.img.texture.key === 'wild_unggoy', null, SLOW);
+  await frames(page, 20);
+  const c = await page.evaluate(() => { const i = Farm.world.comp.img; return { key: i.texture.key, frame: i.frame.name, frames: i.texture.frameTotal, tint: i.isTinted }; });
+  assert.strictEqual(c.key, 'wild_unggoy', 'its own sheet, not the tinted sigbin');
+  assert.ok(Number(c.frame) >= 0 && Number(c.frame) < c.frames - 1, 'a frame of that sheet: ' + c.frame);
+  assert.strictEqual(c.tint, false, 'in its own colours');
+  await shot(page, 'companion-own-picture');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

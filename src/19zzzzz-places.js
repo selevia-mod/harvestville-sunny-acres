@@ -341,8 +341,13 @@
   };
 
   // ---------- the companion ----------
+  // (players, 10 Nov 2026: "kahit anong refresh sigbin talaga kasama ko", a wild duck "nagiging manok na pula": a
+  // companion's own picture is in the 'places' pack and was never asked for, so after a restart it showed as the stand-in
+  // row, a tinted sigbin, labuyo or deer, until its place was visited. It is asked for now; when it comes the companion
+  // changes to it, its texture and frame together (before, only the frame changed: a frame of the stand-in sheet showed).)
   var compFrame = function (def, kind, k) {
     if (def.sheet && F.images && F.images[def.sheet]) return { key: def.sheet, frame: (def.row || 0) * 12 + k };
+    if (def.sheet && F.needImage) F.needImage(def.sheet);
     return { key: 'wild', frame: WI.order.indexOf(def.sheetRow || kind) * 12 + k };
   };
   P.setupCompanion = function (x, y) {
@@ -414,6 +419,10 @@
       k = c.still > 1200 ? 10 : c.dir === 'side' ? 6 : c.dir === 'up' ? 3 : 0;
     }
     var fr = compFrame(c.def, c.kind, k);
+    if (c.img.texture.key !== fr.key) { // its own picture came: that sheet, in its own colours
+      c.img.setTexture(F.ensureTexture(this, fr.key), fr.frame);
+      if (fr.key === 'wild' && c.def.tint) c.img.setTint(c.def.tint); else c.img.clearTint();
+    }
     c.img.setFrame(fr.frame).setFlipX(k >= 6 && c.flip).setPosition(c.x, c.y);
     c.sh.setPosition(c.x, c.y + 4);
     F.depthTo(c.img, DEPTH.actor + c.y / 1e5);
