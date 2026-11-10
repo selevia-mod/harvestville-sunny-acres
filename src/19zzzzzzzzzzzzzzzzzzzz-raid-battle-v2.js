@@ -69,6 +69,12 @@
     this.tweens.add({ targets: t, y: y - 0.7 * T, duration: 260, ease: 'Quad.out' });
     this.tweens.add({ targets: t, alpha: 0, delay: 380, duration: 260, onComplete: function () { t.destroy(); } });
   };
+  // the middle of a picture as drawn (owner, 10 Nov 2026: "Center the hit art so players can see it")
+  var midOf = function (img, fx, fy) {
+    if (!img || !img.active || !img.visible) return { x: fx, y: fy };
+    var b = img.getBounds();
+    return { x: b.centerX, y: b.y + b.height * 0.5 };
+  };
   // a health bar over something: a dark back, its colour by how much is left
   var bar = function (scene, u, x, y, wide, frac) {
     if (!u.hb) { u.hb = scene.add.graphics().setDepth(D.fx + 0.5); }
@@ -338,7 +344,8 @@
         u.img.setTint(0xff9a8a); // (owner, 10 Nov 2026: the white flash was "too much": a light red tint for a moment)
         u.kb = Math.min(0.25, 0.06 + lost / r.max) * T;
         this.time.delayedCall(70, function () { u.flash = false; if (u.img.active) u.img.clearTint(); });
-        this.bfx('hit', x + (Math.random() - 0.5) * 0.3 * T, y - 0.6 * T * u.base - fly, { scale: 0.5, life: 50 });
+        var hm = midOf(u.img, x, y - 0.6 * T * u.base - fly);
+        this.bfx('hit', hm.x, hm.y, { scale: 0.6, life: 90, depth: D.fx + 2 });
         this.bnum(x, y - 1.3 * T * u.base - fly, '-' + Math.max(1, Math.round(u.sum)), '#ff6a4a', r.id);
         u.sum = 0;
         var by = this.raidB.defs.filter(function (q) { return q.aim === r.id && R.defenses[q.t].chases; })[0];
@@ -369,7 +376,8 @@
       u.sum = (u.sum || 0) + lost;
       if (time - (u.hitAt || 0) > 450) {
         u.hitAt = time;
-        this.bfx('hit', x + (Math.random() - 0.5) * 0.4 * T, y - 0.5 * T, { scale: 1.0, life: 70 });
+        var dm = midOf(u.sp, x, y - 0.5 * T);
+        this.bfx('hit', dm.x, dm.y, { scale: 0.75, life: 90, depth: D.fx + 2 });
         this.bnum(x, y - 1.3 * T, '-' + Math.max(1, Math.round(u.sum)), '#ffffff', d.id);
         u.sum = 0;
         if (u.sp && u.sp.active && d.t !== 'dog') {
