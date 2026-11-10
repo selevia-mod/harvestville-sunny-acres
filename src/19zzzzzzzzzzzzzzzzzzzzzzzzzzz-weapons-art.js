@@ -162,13 +162,17 @@
   // ---------- in the world: held, flying ----------
   // the weapon side on, pointing right: { key, w, h, grip (0..1 along it, where the hand is), tip (0..1, where the shot leaves) }
   var HELD = { rifle: { w: 220, h: 80, grip: 0.62, tip: 0.98 }, javelin: { w: 250, h: 44, grip: 0.46, tip: 1 }, boomerang: { w: 104, h: 104, grip: 0.5, tip: 0.5 } };
+  // the owner's pictures (wpn_held: each weapon end to end in its 256 x 128 cell): the front hand on the Rifle's stock
+  // under the barrel, the Javelin's red grip; their muzzle and point at the right end
+  var ART = { rifle: { w: 256, h: 128, grip: 0.6, tip: 0.97 }, javelin: { w: 256, h: 128, grip: 0.45, tip: 0.98 }, boomerang: { w: 128, h: 128, grip: 0.5, tip: 0.5 } };
   F.weaponTexture = function (scene, k, lv) {
     lv = Math.max(0, Math.min(5, lv | 0));
-    var key = 'wpnfx-' + k + '-' + lv + '-' + (F.wpnArtV || 0), H = HELD[k];
+    var art = F.images && F.images[k === 'boomerang' ? 'wpn_spin' : 'wpn_held'], H = art ? ART[k] : HELD[k];
+    var key = 'wpnfx-' + k + '-' + lv + '-' + (F.wpnArtV || 0) + (art ? 'a' : '');
     if (!scene.textures.exists(key)) {
-      var cv = canvas(H.w, H.h), g = cv.getContext('2d'), art;
-      if (k === 'boomerang' && (art = F.images && F.images.wpn_spin)) g.drawImage(art, 0, lv * 128, 128, 128, 0, 0, H.w, H.h);
-      else if (k !== 'boomerang' && (art = F.images && F.images.wpn_held)) g.drawImage(art, lv * 256, (k === 'rifle' ? 0 : 1) * 96, 256, 96, 0, (H.h - H.w * 96 / 256) / 2, H.w, H.w * 96 / 256);
+      var cv = canvas(H.w, H.h), g = cv.getContext('2d');
+      if (art && k === 'boomerang') g.drawImage(art, 0, lv * 128, 128, 128, 0, 0, H.w, H.h);
+      else if (art) g.drawImage(art, lv * 256, (k === 'rifle' ? 0 : 1) * 128, 256, 128, 0, 0, H.w, H.h);
       else {
         g.translate(H.w / 2, H.h / 2);
         var sc = k === 'boomerang' ? H.w / 100 : H.w / 106;
@@ -177,7 +181,18 @@
       }
       scene.textures.addCanvas(key, cv);
     }
-    return { key: key, w: H.w, h: H.h, grip: H.grip, tip: H.tip };
+    return { key: key, w: H.w, h: H.h, grip: H.grip, tip: H.tip, art: !!art };
+  };
+  // Where the empty hand is in each of the owner's 9 poses (rows facing you, away, left; columns ready, aim or throw,
+  // after), in the 288 x 384 frame: the weapon's grip goes there, and the fist is drawn again over it. Measured on the
+  // imported sheets (tools/art/weapons-import.js): if a sheet is drawn again, measure it again.
+  F.WPN_GRIPS = {
+    wpn_pose_rifle: [[208, 238], [205, 193], [179, 215], [205, 215], [212, 180], [224, 191], [65, 217], [42, 167], [74, 187]],
+    wpn_pose_rifle_girl: [[210, 250], [205, 213], [224, 240], [225, 216], [228, 183], [236, 196], [60, 212], [57, 177], [69, 182]],
+    wpn_pose_javelin: [[62, 160], [52, 100], [136, 265], [212, 151], [227, 86], [239, 196], [215, 152], [52, 102], [34, 222]],
+    wpn_pose_javelin_girl: [[42, 155], [60, 118], [204, 265], [42, 140], [228, 80], [224, 246], [212, 148], [48, 118], [34, 222]],
+    wpn_pose_boomerang: [[72, 182], [205, 250], [140, 212], [78, 182], [235, 162], [150, 178], [198, 168], [42, 172], [70, 190]],
+    wpn_pose_boomerang_girl: [[62, 180], [212, 268], [140, 212], [80, 165], [238, 182], [150, 180], [205, 160], [40, 190], [52, 170]],
   };
   // the Rifle's shot: a small bright round, with the owner's picture when it is in
   F.bulletTexture = function (scene, lv) {

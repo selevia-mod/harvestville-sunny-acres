@@ -4,7 +4,7 @@
 // its stand-in, so any of these can be missing: what is there goes in.
 //   art-src/weapons/icons_rifle.png, icons_javelin.png, icons_boomerang.png (3 x 2: Basic..Moon), icons_ammo.png (2 x 2:
 //     bullets, javelins, a repair kit (no slot yet), a broken boomerang)        -> assets/wpn_icons (8 x 3 cells of 128)
-//   held_rifle.png, held_javelin.png (3 x 2, side on, pointing right)        -> assets/wpn_held (6 x 2 cells of 256 x 96)
+//   held_rifle.png, held_javelin.png (3 x 2, side on, pointing right)       -> assets/wpn_held (6 x 2 cells of 256 x 128, end to end)
 //   spin_boomerang.png (4 x 6: a row a level)                                  -> assets/wpn_spin (4 x 6 cells of 128)
 //   proj_bullet.png (3 x 2)                                                    -> assets/wpn_bullet (6 cells of 128)
 //   rifle-boy.png, rifle-girl.png, javelin-boy.png ... boomerang-girl.png (3 x 3 poses, as the archer's)
@@ -36,9 +36,10 @@ const save = (name, r) => {
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: require('./wild-lib') });
   // cells of a sheet, each fitted into a w x h box (one scale for the whole sheet when `same`), as data URLs
-  const cut = (file, cols, rows, w, h, same) => p.evaluate(async ([src, cols, rows, w, h, same]) => {
+  // (fill: as wide as the cell, so the game knows where a weapon's ends are: its grip and its tip, by its length)
+  const cut = (file, cols, rows, w, h, same, fill) => p.evaluate(async ([src, cols, rows, w, h, same, fill]) => {
     const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), cols, rows, 0.02);
-    const fit = (q) => Math.min(w * 0.9 / q.w, h * 0.9 / q.h);
+    const fit = (q) => (fill ? Math.min(w * 0.96 / q.w, h * 0.98 / q.h) : Math.min(w * 0.9 / q.w, h * 0.9 / q.h));
     const one = Math.min(...cl.filter(Boolean).map(fit));
     return cl.map((q) => {
       if (!q) return null;
@@ -46,7 +47,7 @@ const save = (name, r) => {
       W.draw(o.getContext('2d'), q.c, q, same ? one : fit(q), w / 2, null, h / 2);
       return o.toDataURL('image/png');
     });
-  }, [data(file), cols, rows, w, h, !!same]).catch((e) => { throw new Error(file + ': ' + e.message); });
+  }, [data(file), cols, rows, w, h, !!same, !!fill]).catch((e) => { throw new Error(file + ': ' + e.message); });
   // a sheet of `cols` cells of w x h from a list of data URLs (null: left empty)
   const sheet = (list, cols, w, h, gap) => p.evaluate(async ([list, cols, w, h, gap]) => {
     const rows = Math.ceil(list.length / cols), m = gap ? 8 : 0, s = gap ? 16 : 0;
@@ -69,7 +70,7 @@ const save = (name, r) => {
     else save('wpn_icons', await sheet(C.WPN_ICONS.map((n) => icons[n]), 8, 128, 128));
   }
   // ---------- held, spinning, the bullet ----------
-  if (has('held_rifle.png') && has('held_javelin.png')) save('wpn_held', await sheet((await cut('held_rifle.png', 3, 2, 256, 96, true)).concat(await cut('held_javelin.png', 3, 2, 256, 96, true)), 6, 256, 96));
+  if (has('held_rifle.png') && has('held_javelin.png')) save('wpn_held', await sheet((await cut('held_rifle.png', 3, 2, 256, 128, false, true)).concat(await cut('held_javelin.png', 3, 2, 256, 128, false, true)), 6, 256, 128));
   if (has('spin_boomerang.png')) save('wpn_spin', await sheet(await cut('spin_boomerang.png', 4, 6, 128, 128, true), 4, 128, 128));
   if (has('proj_bullet.png')) save('wpn_bullet', await sheet(await cut('proj_bullet.png', 3, 2, 128, 128, true), 6, 128, 128));
   // ---------- the farmer's poses: the archer's frames, each pose stood on its feet (as tools/art/archer-import.js) ----------
@@ -77,7 +78,15 @@ const save = (name, r) => {
     const f = k + '-' + who + '.png';
     if (!has(f)) continue;
     const poses = await p.evaluate(async ([src]) => {
-      const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), 3, 3, 0.02), FW = 288, FH = 384, BASE = 372;
+      // (a pocket of the flat magenta shut in between an arm and the body is not reached by the flood fill: it shows as
+      // a dark purple patch by the hand. Strongly purple, dark pixels go; the girl's lavender overalls are lighter.)
+      const c0 = W.cutout(await W.load(src)), g0 = c0.getContext('2d'), d0 = g0.getImageData(0, 0, c0.width, c0.height), q0 = d0.data;
+      for (let i = 0; i < q0.length; i += 4) {
+        const r = q0[i], g = q0[i + 1], bl = q0[i + 2];
+        if (q0[i + 3] && r - g > 40 && bl - g > 40 && g < 90 && Math.abs(r - bl) < 90) q0[i + 3] = 0;
+      }
+      g0.putImageData(d0, 0, 0);
+      const cl = W.cells(W.dehalo(c0), 3, 3, 0.02), FW = 288, FH = 384, BASE = 372;
       const k = Math.min(...cl.filter(Boolean).map((q) => Math.min(FW * 0.96 / q.w, FH * 0.94 / q.h)));
       return cl.map((q) => { if (!q) return null; const o = W.canvas(FW, FH); W.draw(o.getContext('2d'), q.c, q, k, FW / 2, BASE); return o.toDataURL('image/png'); });
     }, [data(f)]).catch((e) => { throw new Error(f + ': ' + e.message); });

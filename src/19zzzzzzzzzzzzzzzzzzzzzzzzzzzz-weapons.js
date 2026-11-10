@@ -42,7 +42,9 @@
     right: { row: 2, grip: SIDE_GRIP, flip: true },
   };
   var LET_GO = 2;
-  var HELD_LEN = { rifle: 1.15, javelin: 1.5, boomerang: 0.5 }; // tiles
+  var HELD_LEN = { rifle: 0.85, javelin: 1.2, boomerang: 0.55 }; // tiles
+  // seen along its length (aiming up or down the screen) a long weapon looks shorter
+  var along = function (k, ang) { return k === 'boomerang' ? 1 : 1 - 0.35 * Math.abs(Math.sin(ang)); };
 
   // ---------- holding one ----------
   var create = P.create;
@@ -109,33 +111,41 @@
   // The weapon in the farmer's hand, turned to `ang`: its grip at (x, y).
   var heldImage = function (w, k, lv, x, y, ang) {
     var t = F.weaponTexture(w, k, lv), len = HELD_LEN[k] * T, sc = len / t.w;
-    return w.add.image(x, y, t.key).setOrigin(t.grip, 0.5).setScale(sc).setRotation(k === 'boomerang' ? ang - Math.PI / 2 : ang)
+    return w.add.image(x, y, t.key).setOrigin(t.grip, 0.5).setScale(sc * along(k, ang), sc).setRotation(k === 'boomerang' ? ang - Math.PI / 2 : ang)
       .setFlipY(k !== 'boomerang' && Math.cos(ang) < 0); // (pointing left: the right way up)
   };
   var glowAt = function (w, x, y, r, depth) {
-    return w.add.circle(x, y, r, F.WPN_GLOW, 0.32).setDepth(depth).setBlendMode(Phaser.BlendModes.ADD);
+    return w.add.circle(x, y, r, F.WPN_GLOW, 0.2).setDepth(depth).setBlendMode(Phaser.BlendModes.ADD);
   };
   // where the fist is in this pose, in the world
-  var gripAt = function (p, dir, stage) {
-    var at = POSE[dir], side = at.flip ? -1 : 1, g = at.grip[stage];
+  // (the owner's pose sheets have their own hands: F.WPN_GRIPS; the archer's stand in with the Bow's)
+  var handOf = function (key, dir, stage) { var at = POSE[dir], own = key && F.WPN_GRIPS[key]; return own ? own[at.row * 3 + stage] : at.grip[stage]; };
+  var gripAt = function (p, dir, stage, key) {
+    var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage);
     return { x: p.x + (g[0] - 144) * side, y: p.y + g[1] - 192 };
   };
   // The farmer in their pose with the weapon (the archer sheets as stand-ins), turned to the animal while it lasts.
   var posePut = function (w, sh) {
-    var p = w.player, at = POSE[sh.dir], pt = sh.body ? gripAt(p, sh.dir, sh.stage) : { x: p.x + Math.cos(sh.ang) * 0.3 * T, y: p.y - 0.15 * T };
+    var p = w.player, at = POSE[sh.dir], pt = sh.body ? gripAt(p, sh.dir, sh.stage, sh.key) : { x: p.x + Math.cos(sh.ang) * 0.3 * T, y: p.y - 0.15 * T };
     var a = sh.target;
     if (a && a.hp > 0 && a.img.active && sh.stage !== LET_GO) sh.ang = Math.atan2((a.y - 0.3 * a.def.w * T) - pt.y, a.x - pt.x);
     var kick = sh.kick || 0;
     pt = { x: pt.x - Math.cos(sh.ang) * kick, y: pt.y - Math.sin(sh.ang) * kick };
     sh.grip = pt;
-    if (sh.held) sh.held.setPosition(pt.x, pt.y).setRotation(sh.k === 'boomerang' ? sh.ang - Math.PI / 2 + (sh.spin || 0) : sh.ang).setFlipY(sh.k !== 'boomerang' && Math.cos(sh.ang) < 0);
-    if (sh.glow) sh.glow.setPosition(pt.x + Math.cos(sh.ang) * 0.3 * T, pt.y + Math.sin(sh.ang) * 0.3 * T);
+    if (sh.held) {
+      // (a boomerang is held by one arm, tilted, over the hand; a long weapon lies along the aim, its grip in the fist)
+      var boom = sh.k === 'boomerang', tilt = at.flip || (sh.dir !== 'left' && Math.cos(sh.ang) > 0) ? 0.55 : -0.55;
+      sh.held.setPosition(pt.x, pt.y - (boom ? 0.12 * T : 0)).setRotation(boom ? tilt : sh.ang).setFlipY(!boom && Math.cos(sh.ang) < 0);
+      sh.held.scaleX = sh.held.scaleY * along(sh.k, sh.ang);
+    }
+    if (sh.glow) sh.glow.setPosition(pt.x + Math.cos(sh.ang) * 0.15 * T, pt.y + Math.sin(sh.ang) * 0.15 * T);
     if (sh.body) {
       var frame = at.row * 3 + sh.stage;
       sh.body.setPosition(p.x, p.y).setFrame(frame).setFlipX(!!at.flip);
-      if (sh.fist) { var g = at.grip[sh.stage]; sh.fist.setPosition(p.x, p.y).setFrame(frame).setFlipX(!!at.flip).setCrop(g[0] - 30, g[1] - 30, 60, 60); }
+      if (sh.fist) { var g = handOf(sh.key, sh.dir, sh.stage); sh.fist.setPosition(p.x, p.y).setFrame(frame).setFlipX(!!at.flip).setCrop(g[0] - 30, g[1] - 30, 60, 60); }
     }
   };
+  P.wpnPose = function () { if (this.wpnShot) posePut(this, this.wpnShot); }; // (the tests' pose checks)
   var poseEnd = function (w, sh) {
     [sh.body, sh.fist, sh.held, sh.glow].forEach(function (o) { if (o && o.active) o.destroy(); });
     sh.held = sh.glow = null;
@@ -163,19 +173,21 @@
     }
     var d = this.dirVec(), at = POSE[this.dir], key = F.weaponPoseKey(k), depth = p.depth + (at.behind ? -0.001 : 0.001), how = SHOT[k];
     p.anims.stop();
-    var sh = this.wpnShot = { k: k, lv: lv, dir: this.dir, target: target, ang: Math.atan2(d[1], d[0]), stage: key ? how.stage : 0, broke: r === 'broke' };
+    var own = !!(key && F.WPN_GRIPS[key]); // (the owner's poses: ready, then aim or throw, then after)
+    var sh = this.wpnShot = { k: k, lv: lv, dir: this.dir, target: target, ang: Math.atan2(d[1], d[0]), stage: key && !own ? how.stage : 0, broke: r === 'broke', key: key, own: own };
     if (key) {
       F.ensureTexture(this, key);
       sh.body = this.add.image(p.x, p.y, key, 0).setDepth(p.depth);
-      if (!at.behind) sh.fist = this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003);
+      if (!at.behind && k !== 'boomerang') sh.fist = this.add.image(p.x, p.y, key, 0).setDepth(depth + 0.0003);
       p.setVisible(false);
     }
     sh.held = heldImage(this, k, lv, p.x, p.y, sh.ang).setDepth(depth);
-    if (L.weaponMoon(k, lv)) sh.glow = glowAt(this, p.x, p.y, 0.7 * T, depth - 0.0005);
+    if (L.weaponMoon(k, lv)) sh.glow = glowAt(this, p.x, p.y, 0.36 * T, depth - 0.0005); // (the Moon pictures glow too: a soft one)
     posePut(this, sh);
     this.acting = W[k].still;
     this.wpnNext = this.time.now + L.weaponGap(k);
     sfx(k === 'rifle' ? 'cast' : 'swoosh');
+    if (own && k === 'rifle') this.time.delayedCall(110, function () { if (self.wpnShot === sh) { sh.stage = 1; posePut(self, sh); } }); // (up to the shoulder)
     this.time.delayedCall(how.at, function () { if (self.wpnShot === sh) self.weaponLoose(sh); });
     // a boomerang wearing out: a word at 20 throws left; its last throw flies, and it breaks as it comes back
     if (r === 'warn') F.ui.toast('Your Boomerang has ' + W.boomerang.warn + ' throws left. Bram can fix it at the Forge.', 3000, 0x7a5a12);
@@ -185,8 +197,12 @@
 
   P.weaponLoose = function (sh) {
     // (it leaves from the hand, so an animal right in front is not flown past; the Rifle's round shows from the muzzle on)
-    var self = this, k = sh.k, range = L.weaponRange(k, sh.lv) * T, tip = tipOf(sh), from = sh.grip;
-    sh.stage = sh.body ? LET_GO : 0;
+    var self = this, k = sh.k, range = L.weaponRange(k, sh.lv) * T;
+    // (the owner's poses: a javelin or boomerang leaves the hand at the throw, then the arm follows through)
+    sh.stage = !sh.body ? 0 : sh.own && k !== 'rifle' ? 1 : LET_GO;
+    posePut(this, sh);
+    if (sh.own && k !== 'rifle') this.time.delayedCall(90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
+    var tip = tipOf(sh), from = sh.grip;
     if (k === 'rifle') { // a pop, a puff, and the kick
       sfx('smash');
       this.wpnPuff(tip.x, tip.y, sh.lv);
@@ -220,7 +236,7 @@
     sh = { k: o.k, lv: o.lv, x: o.x, y: o.y, x0: o.x, y0: o.y, ang: o.ang, c: c, s: sn, range: o.range, went: 0, t: 0, shown: !!o.shown,
       broke: !!o.broke, back: o.back || null, moon: moon, pierce: moon === 'pierce' ? 1 : 0, through: [], hit: false, sparkAt: 0, hide: o.hide || 0 };
     if (o.k === 'rifle') {
-      sh.img = this.add.image(o.x, o.y, F.bulletTexture(this, o.lv)).setDisplaySize(0.2 * T, 0.2 * T).setDepth(DEPTH.fx).setVisible(!sh.hide);
+      sh.img = this.add.image(o.x, o.y, F.bulletTexture(this, o.lv)).setDisplaySize(0.22 * T, 0.22 * T).setRotation(o.ang).setDepth(DEPTH.fx).setVisible(!sh.hide);
       sh.streak = this.add.rectangle(o.x, o.y, 1, moon ? 16 : 10, moon ? F.WPN_GLOW : 0xfff3d6, moon ? 0.9 : 0.7).setOrigin(1, 0.5).setRotation(o.ang).setDepth(DEPTH.fx - 0.001).setVisible(!sh.hide);
     } else {
       var t = F.weaponTexture(this, o.k, o.lv), len = HELD_LEN[o.k] * T;
@@ -228,7 +244,7 @@
         .setOrigin(o.k === 'javelin' ? 0.97 : 0.5, 0.5); // (a javelin's point leads: it is where it hits)
       sh.shade = this.add.ellipse(o.x, o.y, (o.k === 'javelin' ? 0.9 : 0.4) * T, 0.12 * T, 0x000000, 0.22).setDepth(DEPTH.shadow).setRotation(o.k === 'javelin' ? o.ang * 0.25 : 0);
     }
-    if (moon) sh.glow = glowAt(this, o.x, o.y, (o.k === 'rifle' ? 0.3 : 0.5) * T, DEPTH.fx - 0.002);
+    if (moon) sh.glow = glowAt(this, o.x, o.y, (o.k === 'rifle' ? 0.2 : 0.3) * T, DEPTH.fx - 0.002);
     this.wpnShots.push(sh);
     return sh;
   };
