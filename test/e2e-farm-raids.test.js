@@ -348,3 +348,25 @@ test('the Raid Camp sells and places defenses (owner, 10 Nov 2026: "i bought all
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('a raid on your farm: raiders never land on the field or a tile round it, nor in the pen; open grass is fine (10 Nov 2026: the field was never kept clear)', async () => {
+  const { page, problems, context } = await open(null);
+  await closeAll(page);
+  const r = await page.evaluate(() => {
+    const w = Farm.world, f = w.raidFarm({ camp: 3 }), at = (x, y) => f.drop[y * f.w + x] === '1';
+    const field = Farm.farm().field, pen = (w.zones.pen || [])[0];
+    let fieldOk = 0, fieldBad = 0;
+    for (let i = 0; i < field.length; i++) if (field[i]) { if (at(i % f.w, Math.floor(i / f.w))) fieldBad++; else fieldOk++; }
+    let penBad = 0;
+    for (let y = pen.y0; y <= pen.y1; y++) for (let x = pen.x0; x <= pen.x1; x++) if (at(x, y)) penBad++;
+    const open = f.drop.split('').filter((c) => c === '1').length;
+    return { fieldOk, fieldBad, penBad, open, ring: at(3, 15) || at(20, 15) };
+  });
+  assert.ok(r.fieldOk > 200, 'the field is there: ' + JSON.stringify(r));
+  assert.strictEqual(r.fieldBad, 0, 'no landing on the field');
+  assert.strictEqual(r.ring, false, 'nor a tile round it');
+  assert.strictEqual(r.penBad, 0, 'nor in the pen');
+  assert.ok(r.open > 100, 'open ground left to land on: ' + r.open);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

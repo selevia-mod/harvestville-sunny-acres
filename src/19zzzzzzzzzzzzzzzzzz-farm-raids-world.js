@@ -71,7 +71,14 @@
     // cant put in the middle"): the field and a tile round it, the pen; and 3 tiles from any crop, defense or loot
     var nd = new Uint8Array(w * h), fi = F.farm && F.farm();
     var mark = function (x, y) { if (x >= 0 && y >= 0 && x < w && y < h) nd[y * w + x] = 1; };
-    ((fi && fi.field) || []).forEach(function (i) { var fx = i % w, fy = (i - fx) / w; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy); });
+    // (F.farm().field is a mask, one entry a tile, 1 on the field: until 10 Nov 2026 its values were read as tile numbers,
+    // so the field was never kept clear and raiders could land on the crops)
+    var field = (fi && fi.field) || [];
+    for (var fi2 = 0; fi2 < field.length; fi2++) {
+      if (!field[fi2]) continue;
+      var fx = fi2 % w, fy = (fi2 - fx) / w;
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(fx + dx, fy + dy);
+    }
     ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
     var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
       noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
