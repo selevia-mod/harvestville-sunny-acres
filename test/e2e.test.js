@@ -1868,7 +1868,32 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await shot(page, '30-riding');
   // (owner, 10 Nov 2026: she stood on the horse) the horse and its farmer are one picture, drawn together; off it, the
   // saddled horse alone
-  assert.ok(await page.evaluate(() => { const w = Farm.world; return /^ride_default_(boy|girl)$/.test(w.horse.sprite.texture.key) && !w.rider.visible && !w.player.visible; }), 'riding: the horse with its farmer');
+  assert.ok(await page.evaluate(() => { const w = Farm.world; return /^ride2?_default_(boy|girl)$/.test(w.horse.sprite.texture.key) && !w.rider.visible && !w.player.visible; }), 'riding: the horse with its farmer');
+  // riding v2 (owner's art, approved 11 Nov 2026): the farm clothes gallop in the new sheet once the pack is in, its 4
+  // gallop frames playing while you go (no bounce of ours: the art moves), its standing frame when you stop
+  await page.waitForFunction(() => /^ride2_default_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
+  const gallop = await page.evaluate(async () => {
+    const w = Farm.world, T = Farm.Config.TILE, seen = new Set(), at = [w.feet().x, w.feet().y];
+    let ys = new Set();
+    for (let i = 0; i < 50; i++) {
+      w.setFeet(at[0], at[1]); // (galloping on the spot, clear of the fences)
+      await new Promise((r) => requestAnimationFrame(r));
+      seen.add(w.horse.sprite.frame.name);
+      ys.add(Math.round(w.horse.sprite.y - w.horse.y));
+    }
+    Farm.input.jx = 0;
+    for (let i = 0; i < 20; i++) await new Promise((r) => requestAnimationFrame(r));
+    const stand = w.horse.sprite.frame.name;
+    w.rearUntil = w.time.now + 400; // (as on getting on: it rears)
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    return { seen: [...seen].sort((a, b) => a - b), ys: [...ys], stand, rear: w.horse.sprite.frame.name, T };
+  });
+  assert.deepStrictEqual(gallop.seen, [8, 9, 10, 11], 'galloping sideways: its 4 gallop frames');
+  assert.deepStrictEqual(gallop.ys, [0], 'no bounce of ours on the v2 sheet');
+  assert.strictEqual(gallop.stand, 14, 'stopped: standing, side on');
+  assert.strictEqual(gallop.rear, 15, 'getting on: it rears up');
+  await page.evaluate(() => { Farm.input.jx = 1; });
+  await page.waitForTimeout(300);
   // in a costume: its own riding picture, fetched from the 'riding' pack the first time (owner's art, 10 Nov 2026)
   await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.santa; s.lk = (s.lk || 0) | (1 << i); s.cw = 'santa'; });
   await page.waitForFunction(() => /^ride_santa_(boy|girl)$/.test(Farm.world.horse.sprite.texture.key), null, { timeout: 30000 });
@@ -1888,7 +1913,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   assert.strictEqual(await actionLabel(page), 'Get off');
   await tapAction(page);
   assert.strictEqual(await page.evaluate(() => Farm.session.riding), false);
-  assert.strictEqual(await page.evaluate(() => Farm.world.horse.sprite.texture.key), 'horse_ride', 'off it: the saddled horse alone');
+  assert.strictEqual(await page.evaluate(() => Farm.world.horse.sprite.texture.key), 'ride2_horse', 'off it: the saddled horse alone (v2)');
 
   // a heart event with Leo (2 hearts) when you first talk to him today
   await go(page, 'town', 'from_farm');

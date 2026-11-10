@@ -32,5 +32,7 @@ module.exports = {
   // the raiders' animations, side / front / back (owner's art, 10 Nov 2026; tools/art/raider-anim-import.js): fetched as a
   // raid starts (raid_moves, in the page, stands in until they are here)
   raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
-  riding: fs.readdirSync(ASSETS).filter((f) => /^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // (and riding v2, the gallop: ride2_horse and ride2_<outfit>_<who>, every one of them, the farm clothes' too: until they
+  // are in, the old sheets stand in; tools/art/riding-v2-import.js, C.RIDE2)
+  riding: fs.readdirSync(ASSETS).filter((f) => (/^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)) || /^ride2_(horse|[a-z]+_(boy|girl))(shade)?\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

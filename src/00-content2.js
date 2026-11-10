@@ -62,6 +62,15 @@
 
   // ---------- pets ----------
   C.HORSE = { name: 'Chestnut', frame0: 72, px: 168, w: 1.7, speed: 1.7, reach: 0.9, height: 1.0 };
+  // Riding v2, a real gallop (owner's art, approved 11 Nov 2026; art-src/RIDING-V2-PROMPTS.md, tools/art/riding-v2-import.js):
+  // the outfits whose riding sheets are in the new format (art-src/riding/v2/<outfit>-<boy|girl>.png -> ride2_<outfit>_<who>,
+  // 'default' the farm clothes). Every other outfit rides in its old sheet (ride_<outfit>_<who>) until its v2 pictures
+  // come: add its key here when they do. ride2_horse is the saddled horse alone. A sheet is 4 x 4 frames of fw x fh:
+  // 0-3 galloping toward you, 4-7 away, 8-11 to the left (mirrored for the right), 12 standing toward you, 13 away,
+  // 14 left, 15 rearing (left). px: a standing-left horse's width in its frame, shown w tiles wide (the new horse is big
+  // and its rider small: at 2.7 the rider's head is the walking farmer's, owner 11 Nov 2026); gallop: ms a frame at
+  // riding speed (slower with a gentle push of the stick, never under fast).
+  C.RIDE2 = { outfits: ['default'], fw: 252, fh: 252, px: 198, w: 2.7, gallop: 100, fast: 90, slow: 170, rear: 750 };
   C.CAT = { name: 'Mochi', frame0: 60, px: 174, w: 0.75, speed: 260, reach: 0.6, height: 0.4 };
 
   // ---------- furniture from Mira (bought outright; it appears in the farmhouse) ----------

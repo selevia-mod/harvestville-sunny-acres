@@ -17,6 +17,18 @@
   if (F.SHEETS) { F.SHEETS.horse_ride = F.SHEETS.animals; F.SHEETS.horse_rideshade = F.SHEETS.animalshade; }
   var RIDE = { px: 174, ridden: 177 }; // (the horse's width sideways, in its picture: alone, and with its farmer)
   var GALLOP = 105; // ms a stride while riding
+  // Riding v2 (C.RIDE2, 00-content2.js): a real gallop drawn in 4 frames, so the code-made bounce and steps are for the old
+  // sheets only. Its sheets come from the 'riding' pack; until they are here the old ones stand in.
+  var R2 = C.RIDE2, isV2 = function (k) { return /^ride2_/.test(k || ''); };
+  var asked2 = {}; // (when each was last asked for: offline, again 10 s later, not every frame)
+  var have2 = function (k) {
+    if (F.images[k] && F.images[k + 'shade']) {
+      if (F.SHEETS) F.SHEETS[k] = F.SHEETS[k + 'shade'] = { frameWidth: R2.fw, frameHeight: R2.fh };
+      return true;
+    }
+    if (F.needImage && Date.now() - (asked2[k] || 0) > 10000) { asked2[k] = Date.now(); F.needImage(k); F.needImage(k + 'shade'); }
+    return false;
+  };
 
   var M = {};
 
@@ -51,6 +63,7 @@
           this.horse.ride = true;
           this.horse.sprite.setTexture(F.ensureTexture(this, 'horse_ride'), 10).setScale(hs);
           this.horse.sh.setTexture(F.ensureTexture(this, 'horse_rideshade'), 10).setScale(hs);
+          this.rideTexture(this.horse, null); // (the v2 horse, when it is here)
         }
       }
     }
@@ -97,6 +110,11 @@
       if (h.ride) {
         this.rideSeat(h, d, side, flip, time);
         this.shadow.setVisible(false);
+        if (h.v2) { // (the art gallops: no bounce of ours; its shadow stays on the ground in the leap)
+          h.sh.setPosition(h.x, h.y).setScale(h.sprite.scaleX, h.sprite.scaleY);
+          F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
+          return;
+        }
         // (owner, 10 Nov 2026: riding "looks like flying": a gallop's bounce each stride, the shadow staying on the
         // ground, and a kick of dust from the hooves as they land)
         var stride = this.moving ? Math.floor(time / GALLOP) : -1, bob = this.moving ? Math.abs(Math.sin(time / GALLOP * Math.PI)) * 0.06 * T : 0;
@@ -113,8 +131,10 @@
     } else {
       this.player.setVisible(true);
       this.rider.setVisible(false);
-      if (h.ridden) this.rideTexture(h, null);
-      F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (Math.floor(time / 2600) % 3 === 0 ? 10 : 9), false);
+      if (h.ride) this.rideTexture(h, null);
+      var look = Math.floor(time / 2600) % 3 === 0; // (now and then it turns its head: side on)
+      if (h.v2) F.Anim.show(h, look ? 14 : 12, false);
+      else F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (look ? 10 : 9), false);
     }
     h.sh.setPosition(h.x, h.y);
     F.depthTo(h.sprite.setPosition(h.x, h.y), DEPTH.actor + h.y / 1e5);
@@ -123,6 +143,8 @@
   // Riding: the horse with its farmer, one picture (see RIDE above)
   M.rideKey = function () {
     var s = this.state, who = s.look === 'girl' ? 'girl' : 'boy', cos = L.wornLook ? L.wornLook(s) : '', key = 'ride_' + (cos || 'default') + '_' + who;
+    // the new gallop, for an outfit that has it (C.RIDE2.outfits), once its sheet is here
+    if (R2.outfits.indexOf(cos || 'default') >= 0 && have2('ride2_' + (cos || 'default') + '_' + who)) return 'ride2_' + (cos || 'default') + '_' + who;
     // a costume's riding picture comes from its pack the first time (tools/packs.js 'riding'): the farm clothes till then
     if (cos && (!F.images[key] || !F.images[key + 'shade']) && F.needImage) { F.needImage(key); F.needImage(key + 'shade'); }
     if (!F.images[key] || !F.images[key + 'shade']) key = 'ride_default_' + who;
@@ -131,16 +153,44 @@
     return key;
   };
   // the horse's picture: the ridden one (key), or back to the saddled horse alone (null)
+  // (alone: the v2 horse when it is here, else the old one)
   M.rideTexture = function (h, key) {
-    var k = key || 'horse_ride', sc = C.HORSE.w * T / (key ? RIDE.ridden : RIDE.px);
+    var k = key || (have2('ride2_horse') ? 'ride2_horse' : 'horse_ride'), v2 = isV2(k), sc = v2 ? R2.w * T / R2.px : C.HORSE.w * T / (key ? RIDE.ridden : RIDE.px);
     if (h.sprite.texture.key === k) return;
-    h.sprite.setTexture(F.ensureTexture(this, k), h.sprite.frame.name).setScale(sc);
-    h.sh.setTexture(F.ensureTexture(this, k + 'shade'), h.sh.frame.name).setScale(sc);
+    // (a frame the other format has: the right one is shown straight after)
+    var fr = v2 === !!h.v2 ? h.sprite.frame.name : v2 ? 12 : 9;
+    h.sprite.setTexture(F.ensureTexture(this, k), fr).setScale(sc);
+    h.sh.setTexture(F.ensureTexture(this, k + 'shade'), fr).setScale(sc);
     h.ridden = !!key;
+    h.v2 = v2;
+  };
+  // ms a gallop frame: from how fast the horse goes (a gentle push of the stick, slower legs)
+  M.gallopMs = function () {
+    var b = this.player && this.player.body, v = b ? Math.hypot(b.velocity.x, b.velocity.y) : 0, full = C.SPEED * C.HORSE.speed;
+    return Math.max(R2.fast, Math.min(R2.slow, R2.gallop * full / Math.max(1, v)));
   };
   M.rideSeat = function (h, d, side, flip, time) {
     // moving, the legs never rest: step, other step (the walk's 'stand' between steps made a galloping horse glide)
     var A = F.Anim, k = A.FACING[d] + (this.moving ? 1 + Math.floor(time / GALLOP) % 2 : 0), mirror = side && flip, key = this.rideKey();
+    if (isV2(key)) {
+      this.rideTexture(h, key);
+      this.rider.setVisible(false);
+      var row = side ? 2 : d === 'up' ? 1 : 0, dt = Math.min(100, Math.max(0, time - (h.lt || time))), fr;
+      h.lt = time;
+      if (this.moving) {
+        h.gp = ((h.gp || 0) + dt / this.gallopMs()) % 4;
+        fr = row * 4 + Math.floor(h.gp);
+        // a kick of dust as the front hooves land (frame 2 of the 4)
+        if (Math.floor(h.gp) === 1 && h.gf !== 1 && this.bits && this.bits.dust) this.bits.dust.explode(1, h.x + (side ? (flip ? -1 : 1) * 0.45 * T : 0), h.y);
+        h.gf = Math.floor(h.gp);
+      } else {
+        h.gp = 0; h.gf = -1;
+        // just got on: it rears up happily (facing the way you face, side on), then stands
+        fr = this.rearUntil && time < this.rearUntil ? 15 : 12 + row;
+        if (fr === 15) mirror = flip;
+      }
+      return A.show(h, fr, mirror);
+    }
     if (key) {
       this.rideTexture(h, key);
       this.rider.setVisible(false);
@@ -179,6 +229,7 @@
     F.session.riding = true;
     F.session.horseAt = null;
     this.rideFlip = false;
+    this.rearUntil = this.time.now + R2.rear; // (the v2 horse rears as you get on: rideSeat)
     sfx('neigh');
     if (L.petHorse(this.state) === 'ok') {
       F.ui.toast(this.state.horse.name + ' nuzzles you. Off you go!');

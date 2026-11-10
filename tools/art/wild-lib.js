@@ -87,7 +87,7 @@ window.W = {
         if (L ? cellOf[L] !== k : false) d.data[(y * cw + x) * 4 + 3] = 0;
       }
       og.putImageData(d, 0, 0);
-      return { c: o, x: 0, y: 0, w: cw, h: ch, top: b.y0, bottom: b.y1, foot: b.foot };
+      return { c: o, x: 0, y: 0, w: cw, h: ch, top: b.y0, bottom: b.y1, foot: b.foot, left: b.x0 };
     });
   },
   // a piece scaled by k, its middle at cx and its bottom at base (or centred when base is null)
