@@ -1557,8 +1557,10 @@ test('REAL pub: Manila: two strangers off the train are in Manila 1 together, se
   await waitRemotes(ana.page, ['Ben Barn']);
   await waitRemotes(ben.page, ['Ana Acres']);
   // Ben walks a few tiles: Ana sees him there
-  await ben.page.evaluate(() => { const w = Farm.world; w.setFeet(58.5 * 256, 9.6 * 256); });
-  await ana.page.waitForFunction((id) => { const r = Farm.world.remotes[id]; return r && Math.abs(r.x - 58.5 * 256) < 80; }, ben.uid, SLOW);
+  // (a few tiles from where he stands: the city was turned round on 11 Nov 2026, so no fixed spot)
+  const to = await ben.page.evaluate(() => { const w = Farm.world, f = w.feet(), T = 256; for (let d = 3; d <= 8; d++) for (const dx of [d, -d]) { const tx = Math.floor(f.x / T) + dx, ty = Math.floor(f.y / T); if (!w.blocked[w.idx(tx, ty)]) { w.setFeet((tx + 0.5) * T, f.y); return (tx + 0.5) * T; } } return null; });
+  assert.ok(to, 'Ben has room to walk');
+  await ana.page.waitForFunction(([id, x]) => { const r = Farm.world.remotes[id]; return r && Math.abs(r.x - x) < 80; }, [ben.uid, to], SLOW);
   assert.match((await gsState(ana.page)).chip, /^Manila \d+ · 2 here$/);
   assert.strictEqual(await ana.page.evaluate(() => Farm.world.wild), null, 'no animals in the city');
   for (const who of [ana, ben]) assert.deepStrictEqual(who.relay.filter((m) => m.map === 'manila' && (m.ev === 'mv' || HUNT[m.ev])), [], who.name + ': nothing about Manila on the old relay');
