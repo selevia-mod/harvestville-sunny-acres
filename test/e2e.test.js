@@ -3289,7 +3289,7 @@ test('the Tailor Shop: Tita Luz in the park, the Elf for free, a Gold look bough
   // the Elf is everyone's
   await tapButton(page, 'Wear');
   await page.waitForFunction(() => Farm.world.player.texture.key === 'look_elf_boy', null, SLOW);
-  assert.deepStrictEqual(await page.evaluate(() => window.__asked), ['looks/v1/elf-boy']);
+  assert.deepStrictEqual(await page.evaluate(() => window.__asked), [await page.evaluate(() => Farm.lookFile('elf-boy'))]);
   assert.strictEqual(await page.evaluate(() => Farm.Logic.wornLook(Farm.session.state)), 'elf');
   await shot(page, 'tailor-3-elf');
   // a Gold look: bought once, for its price
@@ -4902,7 +4902,7 @@ test('the Lair\'s Fire look: not in the shop until it is yours, then the walk, e
     }
   }
   assert.deepStrictEqual((await page.evaluate(() => window.__asked)).filter((f) => /fire/.test(f)).sort(),
-    ['looks/v1/fire-boy', 'looks/v1/fire-boy-archer', 'looks/v1/fire-girl', 'looks/v1/fire-girl-archer']);
+    await page.evaluate(() => ['fire-boy', 'fire-boy-archer', 'fire-girl', 'fire-girl-archer'].map(Farm.lookFile).sort()));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

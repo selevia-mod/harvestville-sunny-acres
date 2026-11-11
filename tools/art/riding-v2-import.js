@@ -16,7 +16,10 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..', '..'), SRC = path.join(ROOT, 'art-src', 'riding', 'v2'), OUT = path.join(ROOT, 'assets');
-const FW = 252, FH = 252, FEET = 233, K = 0.6, SHADE = 2; // (K: for a 1536 px picture; keep FW/FH in step with C.RIDE2)
+// (K: for a 1536 px picture; keep FW/FH in step with C.RIDE2. 0.6 for the first cute-pony set; the 30-degree set, 12 Nov
+// 2026, draws horse and rider a little smaller in the cell: 0.6 x 177 / 172 keeps the farm clothes' boy's standing-left
+// pony 177 px wide, C.RIDE2.px, so every horse stays the size it was in the world)
+const FW = 252, FH = 252, FEET = 233, K = 0.6 * 177 / 172, SHADE = 2;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 // (the farm clothes' boy first: every rider's sheet is brought to his size, see `ref`)
 const files = fs.existsSync(SRC) ? fs.readdirSync(SRC).filter((f) => f === 'horse.png' || /^[a-z]+-(boy|girl)\.png$/.test(f))

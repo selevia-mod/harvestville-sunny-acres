@@ -1,6 +1,8 @@
 'use strict';
 // Generates every sprite sheet into assets/ by drawing them with Canvas 2D in headless
 // Chromium (tools/art/draw.js). Run: npm run art
+// node tools/make-art.js <sheet> [<sheet> ...]: writes only those sheets (e.g. player player_girl people), leaving every
+// other one as it is (many were painted over by the importers since: a full run would undo them). Then squeeze.js.
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -66,6 +68,9 @@ const OUT = path.join(__dirname, '..', 'assets');
   // the full size of each WebP copy stored smaller (the game scales it back up)
   // the animals are the owner's pictures now (tools/art/animals3q-import.js): those sheets are not redrawn here
   ['animals', 'animals2'].forEach((name) => { delete sheets[name]; });
+  const ONLY = process.argv.slice(2);
+  if (ONLY.length) Object.keys(sheets).forEach((name) => { if (!ONLY.includes(name)) delete sheets[name]; });
+  ONLY.forEach((name) => { if (!sheets[name]) throw new Error(`no sheet "${name}"`); });
   const sizes = JSON.parse(fs.readFileSync(path.join(OUT, 'sizes.json'), 'utf8'));
   Object.keys(sheets).forEach((name) => { if (sheets[name].size) sizes[name] = sheets[name].size; });
   fs.writeFileSync(path.join(OUT, 'sizes.json'), JSON.stringify(sizes, null, 1) + '\n');

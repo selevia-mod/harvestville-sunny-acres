@@ -51,6 +51,8 @@ const save = (name, r) => {
     window.res = (c, q) => Object.assign(W.out(c, q || 0.8), { size: c.width + 'x' + c.height });
   ` });
 
+  // (people: only the visitors' sheet, e.g. after their 30-degree pictures, 12 Nov 2026)
+  if (!process.argv.includes('people')) {
   // ---------- the station ----------
   save('tw_station', await p.evaluate(async ([src, PPT]) => {
     const c = await clean(src), bx = box(c), w = 5 * PPT, h = 4 * PPT, o = W.canvas(w, h), g = o.getContext('2d');
@@ -117,6 +119,8 @@ const save = (name, r) => {
     cl.forEach((x, i) => W.draw(g, x.c, x, k, 8 + i * 144 + 64, 8 + 124));
     return res(o);
   }, data('crates.png')));
+
+  }
 
   // ---------- the visitors: a row each, 9 frames (rows of the picture: down, up, left; columns: still, step, step) ----------
   const who = TW.visitors.concat([TW.collector]).map((v) => v.key);

@@ -1,6 +1,6 @@
 // Looks on screen (owner, 2-3 Nov 2026; rules: 01-logicK.js, the list: 00-zzzlooks.js): Tita Luz at her Tailor Shop in
 // town, the shop (All looks / My looks), wearing one anywhere, and friends seeing it. A look's pictures are not in the
-// page: they are the Costumes pack (10b-packs.js: the app brings them from the CDN, looks/v1/<name>.webp, or the phone's
+// page: they are the Costumes pack (10b-packs.js: the app brings them from the CDN, packs/look-<name>.<hash>.webp, F.lookFile, or the phone's
 // copy), and until they come, or if they never do, the farmer wears their own clothes. Coins and Stars looks are sold by the
 // server (farm_looks_v1, farm_look_buy_v1: supabase/farm_online_13.sql); Gold looks in the game.
 (function (F) {
@@ -33,7 +33,7 @@
     if (a && (a.state === 'loading' || (a.state === 'failed' && Date.now() - a.at < RETRY))) return false;
     asked[key] = { state: 'loading', at: Date.now() };
     var file = fileOf(cos, look, archer);
-    F.fetchFile({ file: 'looks/v1/' + file }).then(function (url) { gotLook(key, !!archer, url); });
+    F.fetchFile({ file: F.lookFile(file) }).then(function (url) { gotLook(key, !!archer, url); });
     return false;
   };
   // still on its way (asked, not here yet, not failed): 19w-bow.js waits for it rather than show plain clothes

@@ -15,6 +15,8 @@
   var WAIT = 30000; // an answer that never comes is given up on
 
   var LOOK_FILES = function () { return Object.keys((F.ASSETS && F.ASSETS.lookBytes) || {}).sort(); };
+  // a look's file: packs/look-<name>.<hash> (build.js; the 30-degree pictures, 12 Nov 2026), or the old looks/v1/<name>
+  F.lookFile = function (n) { return (F.ASSETS && F.ASSETS.lookFiles && F.ASSETS.lookFiles[n]) || 'looks/v1/' + n; };
   // A pack: what players see, and its files: [{ file, bytes, key (an image in the page), look (a look sheet) }]
   F.PACK_INFO = {
     wild: { name: 'Wild Lands', icon: 'bow', desc: 'Pulag, Makiling and Magayon: the wild animals, Kanor and the bow.', need: true },
@@ -28,7 +30,7 @@
     riding: { name: 'Riding costumes', icon: 'ribbon', desc: 'Your farmer riding the horse in each Tailor Shop look.' },
   };
   F.packFiles = function (pack) {
-    if (pack === 'looks') return LOOK_FILES().map(function (n) { return { file: 'looks/v1/' + n, bytes: F.ASSETS.lookBytes[n], look: n }; });
+    if (pack === 'looks') return LOOK_FILES().map(function (n) { return { file: F.lookFile(n), bytes: F.ASSETS.lookBytes[n], look: n }; });
     var p = (F.ASSETS && F.ASSETS.packs && F.ASSETS.packs[pack]) || {};
     return Object.keys(p).map(function (k) { return { file: p[k].file, bytes: p[k].bytes, key: k }; });
   };

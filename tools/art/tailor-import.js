@@ -6,7 +6,8 @@
 //   assets/props/tailor_shop.*         the shop at 160 px a tile, 5 by 4 (in the page)
 //   assets/looks_thumbs.png/.webp      each look's front pose, boy then girl, 128 x 192 (in the page: the shop's list)
 //   assets/looks/<look>-<boy|girl>.webp and -archer.webp   the 36 look sheets: NOT in the page (6 MB). They go on the
-//                                      CDN (app-assets/looks/v1/) and come in through the app (19zj-looks.js).
+//                                      CDN (app-assets/packs/look-<name>.<hash>.webp: build.js; looks/v1/ before the
+//                                      30-degree pictures) and come in through the app (19zj-looks.js).
 // The Fire look (the Lair's, 5 Nov 2026) was cut in this repo, not in harvest-hat-art: tools/art/fire-look-cut.cjs writes
 // art-src/looks/cut/, the same layout as looks-cutter/out, and a look found there is taken from there.
 // node tools/art/tailor-import.js
@@ -25,6 +26,8 @@ const cutOf = (name) => {
   return fs.existsSync(here) ? here : path.join(ART, 'looks-cutter', 'out', name + '.png');
 };
 const PPT = 160;
+// (Tita Luz at the 30-degree camera, 12 Nov 2026; the looks: tools/art/looks-cut.js writes art-src/looks/cut/ for all 14)
+const LUZ30 = path.join(ROOT, 'art-src', 'tailor', 'shop-keeper-clean.png');
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const save = (name, r, png) => {
@@ -46,7 +49,7 @@ const LIB = require('./wild-lib');
     const k = Math.min(...cl.map((x) => Math.min(240 / x.w, 360 / x.h)));
     cl.forEach((x, i) => W.draw(g, x.c, x, k, 8 + (i % 3) * 272 + 128, 8 + Math.floor(i / 3) * 400 + 376));
     return W.out(sheet, 0.82);
-  }, data(path.join(ART, 'looks-final', 'shop-keeper-clean.png')));
+  }, data(fs.existsSync(LUZ30) ? LUZ30 : path.join(ART, 'looks-final', 'shop-keeper-clean.png')));
   save('tita_luz', luz);
 
   // ---------- the shop, standing on the bottom edge of its 5 x 4 tiles ----------

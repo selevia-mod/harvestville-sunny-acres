@@ -246,26 +246,28 @@
       { hand: [126, 182], tip: [126, 182] }, { hand: [283, 162], tip: [283, 162] }, { hand: [198, 178], tip: [198, 178] },
       { hand: [246, 168], tip: [246, 168] }, { hand: [90, 172], tip: [90, 172] }, { hand: [118, 190], tip: [118, 190] }],
   };
-  // the owner's rifle-boy (11 Nov 2026), measured on the imported sheet: the hand on the grip and the muzzle; facing you
-  // the rifle points at you (its muzzle on the barrel's end), facing away it is over his right shoulder (the shot leaves it)
-  F.WPN_HOLD_PTS.wpn_hold_rifle_boy = [
-    { hand: [220, 273], tip: [280, 290] }, { hand: [183, 190], tip: [183, 177] }, { hand: [192, 193], tip: [269, 150] },
-    { hand: [237, 259], tip: [240, 250] }, { hand: [225, 178], tip: [229, 165] }, { hand: [219, 178], tip: [222, 165] },
-    { hand: [193, 252], tip: [57, 265] }, { hand: [150, 190], tip: [10, 165] }, { hand: [179, 169], tip: [59, 132] }];
-  // the owner's rifle-girl (11 Nov 2026), measured the same way
-  F.WPN_HOLD_PTS.wpn_hold_rifle_girl = [
-    { hand: [225, 268], tip: [285, 283] }, { hand: [183, 190], tip: [183, 177] }, { hand: [199, 177], tip: [275, 123] },
-    { hand: [237, 245], tip: [237, 235] }, { hand: [232, 160], tip: [236, 148] }, { hand: [228, 160], tip: [232, 148] },
-    { hand: [193, 252], tip: [57, 268] }, { hand: [149, 192], tip: [9, 165] }, { hand: [182, 169], tip: [65, 132] }];
-  // the owner's javelin and boomerang, boy and girl (11 Nov 2026, v3; the front row the owner's fix), measured the same way.
-  // The javelin: raised over the shoulder, thrown (it leaves from that hand), the hand empty after. The boomerang: held by
-  // the head, thrown (the hand of the throw; the picture's flying one is left out by the importer), caught.
+  // The owner's 30-degree pictures (12 Nov 2026), measured on the imported sheets with a grid: the hand that holds it and
+  // the weapon's tip (the Rifle's muzzle, the Javelin's point; the Boomerang: the hand of the throw, or the boomerang held
+  // in both hands). Facing you the rifle points at you (its muzzle ring), facing away it rests at the shoulder.
   var pts = function (list) { return list.map(function (q) { return { hand: q[0], tip: q[1] || q[0] }; }); };
-  // (the javelin's sheets are fitted by his body, cap to boots, not the raised javelin: these follow that fit)
-  F.WPN_HOLD_PTS.wpn_hold_javelin_boy = pts([[[183,  119],  [64,  182]],  [[162,  113],  [9,  170]],  [[173,  207]],  [[360,  153],  [380,  115]],  [[320,  141],  [332,  109]],  [[312,  159]],  [[370,  22],  [173,  12]],  [[207,  41],  [47,  38]],  [[138,  220]]]);
-  F.WPN_HOLD_PTS.wpn_hold_javelin_girl = pts([[[183,  119],  [64,  182]],  [[162,  113],  [9,  170]],  [[173,  207]],  [[360,  154],  [379,  116]],  [[320,  142],  [332,  110]],  [[312,  160]],  [[371,  19],  [172,  9]],  [[206,  38],  [45,  35]],  [[137,  219]]]);
-  F.WPN_HOLD_PTS.wpn_hold_boomerang_boy = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
-  F.WPN_HOLD_PTS.wpn_hold_boomerang_girl = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
+  F.WPN_HOLD_PTS.wpn_hold_rifle_boy = pts([[[220, 273], [268, 292]], [[183, 190], [178, 160]], [[192, 193], [269, 150]],
+    [[248, 240], [288, 228]], [[225, 178], [229, 165]], [[219, 178], [222, 165]],
+    [[193, 252], [57, 265]], [[150, 190], [14, 156]], [[179, 169], [60, 124]]]);
+  F.WPN_HOLD_PTS.wpn_hold_rifle_girl = pts([[[225, 268], [268, 305]], [[183, 190], [180, 162]], [[199, 177], [257, 150]],
+    [[118, 208], [55, 190]], [[232, 160], [236, 148]], [[228, 160], [232, 148]],
+    [[193, 252], [57, 268]], [[149, 192], [21, 150]], [[182, 169], [70, 125]]]);
+  // The javelin (frames 448 wide): raised by the head, thrown (it leaves from that hand), the hand empty after.
+  F.WPN_HOLD_PTS.wpn_hold_javelin_boy = pts([[[140, 142], [68, 125]], [[137, 140], [57, 125]], [[119, 205]],
+    [[280, 150], [330, 58]], [[307, 118], [397, 28]], [[299, 140]],
+    [[325, 25], [118, 18]], [[205, 40], [27, 35]], [[138, 220]]]);
+  F.WPN_HOLD_PTS.wpn_hold_javelin_girl = pts([[[145, 140], [90, 152]], [[150, 145], [77, 135]], [[140, 208]],
+    [[295, 135], [385, 48]], [[315, 105], [410, 38]], [[308, 130]],
+    [[312, 22], [118, 15]], [[184, 45], [30, 50]], [[120, 222]]]);
+  // The boomerang: held up by the head, thrown (the picture's flying one is left out by the importer), caught.
+  F.WPN_HOLD_PTS.wpn_hold_boomerang_boy = pts([[[120, 186]], [[240, 188]], [[192, 205]], [[250, 172]], [[281, 155]], [[190, 218]],
+    [[250, 165]], [[98, 182]], [[150, 205]]]);
+  F.WPN_HOLD_PTS.wpn_hold_boomerang_girl = pts([[[115, 180]], [[240, 205]], [[192, 205]], [[262, 180]], [[291, 160]], [[194, 225]],
+    [[268, 158]], [[96, 172]], [[182, 205]]]);
   F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };
 
   F.weaponPoseKey = function (k) {
