@@ -299,3 +299,28 @@ test('lands 7-9: walk to the new column, the For Sale sign wants Gold and Pearls
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
 });
+
+test("horse gear looks: bought at the Keeper's, the horse wears them (stand-ins: a tint and a lantern's glow), taken off again", async () => {
+  const save = await makeSave("s.pearls = 2000; s.builds.stable = 1; s.horse = { name: 'Kidlat', love: 50, pet: 0 }; s.energy = 200;");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'farm');
+  const has = await page.evaluate(() => !!Farm.world.horse);
+  assert.ok(has, "the horse is on the farm");
+  await page.evaluate(() => Farm.ui.openKeeper('horse'));
+  await tapButton(page, '400 Pearls');
+  await page.waitForFunction(() => Farm.Logic.horseLookOn(Farm.session.state, 'saddle'), null, SLOW);
+  await tapButton(page, '600 Pearls');
+  await page.waitForFunction(() => Farm.Logic.horseLookOn(Farm.session.state, 'lantern'), null, SLOW);
+  assert.strictEqual((await state(page)).pearls, 1000);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await page.evaluate(() => { const w = Farm.world, p = w.horse; w.setFeet(p.x, p.y + 1.6 * 256); w.dir = 'up'; w.idle(); });
+  await frames(page, 6);
+  const look = await page.evaluate(() => { const p = Farm.world.horse; return { tint: p.sprite.tintTopLeft, glow: !!(p.hlGlow && p.hlGlow.visible) }; });
+  assert.deepStrictEqual(look, { tint: 0xffd8b0, glow: true });
+  await shot(page, 'horse-looks');
+  await page.evaluate(() => { const s = Farm.session.state; Farm.Logic.horseLookWear(s, 'saddle', false); Farm.Logic.horseLookWear(s, 'lantern', false); });
+  await frames(page, 6);
+  assert.deepStrictEqual(await page.evaluate(() => { const p = Farm.world.horse; return { tint: p.sprite.tintTopLeft, glow: !!(p.hlGlow && p.hlGlow.visible) }; }), { tint: 0xffffff, glow: false });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
