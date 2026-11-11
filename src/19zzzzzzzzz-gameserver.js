@@ -67,6 +67,8 @@
   // everyone (Manila, owner 11 Nov 2026: C.MANILA, its 'pub' switch on): a public room with no animals (server/lib/pub.js)
   var cityMap = function (map) { var M = C.MANILA; return !!(M && M.on && M.pub && map === M.key); };
   var pubMap = function (map) { return !!map && ((L.isWildMap(map) && !(F.dungeonOf && F.dungeonOf(map))) || cityMap(map)); };
+  // a cave the server holds (one that is solo for now, The Lost Tower, is not: its own phone runs it)
+  var caveOf = function (map) { var d = F.dungeonOf && F.dungeonOf(map); return !!d && !d.solo; };
   // a world the server can hold: one with wild animals (a place, a cave), or the city
   var holdable = function (w) { return !!(w.wild || cityMap(w.mapKey)); };
   // the place's short name, as the room shows it ("Banaue 2"): the first word of its name
@@ -845,12 +847,12 @@
     this.gsGen = ++gen;
     var s = F.session && F.session.state, map = s && s.map, v = F.session && F.session.visit;
     // held from the start, so this phone puts none of the floor's creatures out before the server answers
-    var hold = !!(url() && map && (F.dungeonOf(map) || pubMap(map)) && O.on && O.me && !(v && !v.inTown)); // (a cave, or a hunting place: step 2)
+    var hold = !!(url() && map && (caveOf(map) || pubMap(map)) && O.on && O.me && !(v && !v.inTown)); // (a cave, or a hunting place: step 2)
     if (hold) gs = { w: this, gen: this.gsGen, mode: 'connecting', dead: false, placeholder: true };
     create.call(this);
     if (!hold || !gs || !gs.placeholder || gs.w !== this) return;
     gs = null;
-    if (holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
+    if (holdable(this) && ((this.lair && caveOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
   };
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
@@ -881,7 +883,7 @@
     // online came after you went down (or the switch was turned on): the server from now on
     if ((!gs || gs.gen !== this.gsGen) && !(typeof document !== 'undefined' && document.hidden) && Math.floor(time / 1000) !== this.gsLook) { // (put away: back when it is seen again)
       this.gsLook = Math.floor(time / 1000);
-      if (url() && holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
+      if (url() && holdable(this) && ((this.lair && caveOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
     }
     var g = live();
     if (g && g.w === this && g.gen === this.gsGen) {
