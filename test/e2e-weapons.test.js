@@ -319,11 +319,11 @@ test('out of ammo; the Armory (dev only) sells more; with the old places off the
   assert.match(arms, /Boomerang/);
   await shot(page, 'wpn-armory');
   await closeAll(page);
-  // the switch off (as for players today): not in the old places
+  // the switch off (a test of the switch: players have it on, owner "all area"): the weapons do not work
   await page.evaluate(() => { Farm.Config.WEAPONS_OLD_PLACES = false; Farm.world.hintKey = null; });
   await frames(page, 4);
   const off = await page.evaluate(() => Farm.world.resolve());
-  assert.ok(off && off.disabled && /Manila/.test(off.why), 'not here');
+  assert.ok(off && off.disabled && /hunting places/.test(off.why), 'not here');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
