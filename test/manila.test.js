@@ -311,3 +311,13 @@ test('city life\'s pictures: every file MANILA-CITY-LIFE-PROMPTS.md asks for is 
   M.mall.shops.forEach((sh) => assert.ok(made.has('props/manila_' + sh.art), sh.key + ': ' + sh.art));
   M.mall.props.forEach((p) => assert.ok(made.has('props/manila_mall_' + p[0]), 'mall ' + p[0]));
 });
+
+test('the valley road comes in on Manila\'s right side, just inside the Plains Gate, facing in: free ground, off the jeep\'s road', () => {
+  const p = M.spawns.from_valley, t = tile(p), strict = L.manilaGrid(map, true);
+  assert.ok(t[0] >= 75, 'the right side: ' + t);
+  assert.strictEqual(p[2], 'left');
+  assert.ok(strict.ok(t[0], t[1]) && grid.ok(t[0], t[1]), 'free ground (not the road, not a building)');
+  const gate = M.decor.find((d) => d[0] === 'gate_plains');
+  assert.ok(gate[1] > t[0] && gate[2] <= t[1] && gate[2] + gate[4] > t[1], 'just inside (west of) the gate\'s arch over the avenue');
+  assert.ok(reach(t, [88, 44]), 'and out through it to the valley road');
+});

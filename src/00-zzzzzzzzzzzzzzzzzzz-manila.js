@@ -150,7 +150,7 @@
     // [art, x, y, w, h, foot] (foot 0: drawn over what is already solid, or something you walk under or past)
     decor: [
       // the three gates (owner's art): the Gorge and Jungle arches over their shut roads, the Plains gatehouse by the road
-      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 88, 4, 2, 0], ['gate_plains', 82, 46, 4, 4, 1],
+      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 88, 4, 2, 0], ['gate_plains', 82, 42, 4, 4, 0],
       // the old walls: straight pieces along the north and south walls, bastions at the corners, the Plaza Gate's arch,
       // towers on the west and east walls (all drawn over the solid stone)
       ['wall_bastion', 14, 2, 3, 3, 0], ['wall_bastion', 40, 2, 3, 3, 0], ['wall_bastion', 14, 29, 3, 3, 0], ['wall_bastion', 40, 29, 3, 3, 0],
@@ -176,7 +176,7 @@
       ['palm', 66, 5, 2, 2, 1], ['palm', 80, 5, 2, 2, 1], ['kiosk', 84, 4, 3, 3, 1],
       // the streets: lamps on the north road and the avenue's east end
       ['street_lamp', 48, 11, 1, 2, 1], ['street_lamp', 48, 17, 1, 2, 1], ['street_lamp', 48, 24, 1, 2, 1], ['street_lamp', 48, 31, 1, 2, 1],
-      ['street_lamp', 82, 42, 1, 2, 1], ['street_lamp', 81, 46, 1, 2, 1], ['street_lamp', 60, 42, 1, 2, 1],
+      ['street_lamp', 81, 46, 1, 2, 1], ['street_lamp', 60, 42, 1, 2, 1],
       // the bay walk's palms, the barrio's
       ['palm', 14, 33, 2, 2, 1], ['palm', 14, 39, 2, 2, 1], ['palm', 14, 67, 2, 2, 1], ['palm', 14, 80, 2, 2, 1],
       ['palm', 38, 73, 2, 2, 1], ['food_cart', 26, 70, 2, 2, 1], ['planter', 31, 56, 2, 1, 1],
@@ -249,7 +249,7 @@
     },
 
     // ---------- where things are (tile points) ----------
-    spawns: { from_train: [64.5, 9.6, 'down'], from_valley: [88.5, 44.6, 'left'] },
+    spawns: { from_train: [64.5, 9.6, 'down'], from_valley: [80.5, 44.6, 'left'] },
     // where the city people go (their schedules name these); 'door_<building>' is in front of its door
     spots: {
       door_market: [67.5, 43.6], door_trading: [76.5, 42.6], door_armory: [34.5, 24.6], door_stables: [57.5, 63.6], door_harbor: [16.5, 59.6],

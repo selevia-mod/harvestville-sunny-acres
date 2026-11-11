@@ -116,6 +116,7 @@
   // (owner, 11 Nov 2026: no stand-in looks of other characters: the passers-by are the 10 Manila people's sheets, tinted;
   // the train visitors only while the pack is not on the phone)
   Z.fallback = Z.looks;
+  Z.tints = Z.tints.filter(function (c) { return c; }); // (always tinted: a passer-by never looks just like one of the 7)
   Z.looks = M.people.order.map(function (k) { return [M.people[k].sheet, 0]; }).concat(Z.sheets.map(function (k) { return [k, 0]; }));
   Z.day = 44;
   Z.night = 8;

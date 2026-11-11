@@ -194,12 +194,15 @@ test('the valley road: off the town\'s east end to Manila\'s Plains Gate and bac
   await teleport(page, 51, 11, 'right');
   await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'manila');
   await waitMap(page, 'manila');
-  assert.deepStrictEqual(await feetTile(page), [88, 44], 'in at the Plains Gate');
+  // (owner, 11 Nov 2026: off the town's right side, you come in on Manila's right side, just inside the Plains Gate, facing in)
+  assert.deepStrictEqual(await feetTile(page), [80, 44], 'in at the Plains Gate, on the city\'s right side');
+  assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'left', 'facing into the city');
   assert.strictEqual((await state(page)).gold, 100, 'walking is free');
   await shot(page, 'manila-5-plains-gate');
-  await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'town');
+  await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'town'); // (east through the gate, over the jeep's road)
   await waitMap(page, 'town');
-  assert.deepStrictEqual(await feetTile(page), [51, 11], 'back at the town\'s east end');
+  assert.deepStrictEqual(await feetTile(page), [51, 11], 'back at the town\'s right (east) end');
+  assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'left', 'facing into the town');
   // the horse rule (economy part 5) turned on and not met: the road says why, and you stay in town
   await clearRoad();
   await page.evaluate(() => { Farm.Config.MANILA.horseRoad = true; Farm.Logic.horseRoadOk = () => ({ ok: false, why: 'The valley road is long: ride your horse.' }); });
