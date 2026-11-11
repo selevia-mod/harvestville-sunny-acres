@@ -240,8 +240,12 @@
       var im = this.add.image(x * T, (R.y - 0.4) * T, deck).setOrigin(0, 1).setDisplaySize(dw, dh);
       F.depthTo(im, depth - 1e-6);
     }
-    var end = put('rail_end', (R.end + 0.4) * T, 1.8 * T, 0);
-    if (end) end.y -= 0.2 * T;
+    // (the owner's end piece has its buffer on the right; the track ends at the WEST, so it is turned round)
+    var end = put('rail_end', (R.end + 0.9) * T, 1.8 * T, 0);
+    if (end) { end.y -= 0.2 * T; end.setFlipX(true); }
+    // a covered platform with benches on the deck, east of the parked train, and stairs down to the avenue's sidewalk
+    if (R.platform) { var pf = put('rail_platform', (R.platform + 2) * T, 4 * T, 2e-6); if (pf) pf.y -= 0.3 * T; }
+    if (R.stairs) { var st = put('rail_stairs', (R.stairs + 1) * T, 2 * T, 3e-6); if (st) st.y += 0.9 * T; }
     var tx = R.train * T, head = put('city_train_head', tx + 2 * T, 4 * T, 1e-6);
     if (head) head.y -= 0.75 * T;
     for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (6 + 4 * c) * T, 4 * T, 1e-6); if (car) car.y -= 0.75 * T; }

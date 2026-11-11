@@ -85,7 +85,7 @@
     { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
     { key: 'barangay_hall', box: [33, 56, 5, 5], art: 'barangay_hall', text: 'THE BARANGAY HALL\nThe tanod keeps watch here.' + SOON },
     { key: 'sari_sari', box: [34, 62, 3, 3], art: 'sari_sari', text: 'THE SARI-SARI STORE\nA little of everything.' + SOON },
-    { key: 'carinderia', box: [24, 63, 5, 4], art: 'carinderia', text: 'THE CARINDERIA\nHome cooking by the pot.' + SOON },
+    { key: 'carinderia', box: [24, 63, 5, 3], art: 'carinderia', text: 'THE CARINDERIA\nHome cooking by the pot.' + SOON },
     { key: 'hopia', box: [79, 25, 5, 4], art: 'hopia_bakery', text: 'THE HOPIA BAKERY\nWarm hopia, fresh from the oven.' + SOON },
     { key: 'ch_lanterns', box: [66, 23, 2, 2], foot: 1, art: 'china_lanterns' }, { key: 'ch_lions', box: [74, 28, 2, 2], foot: 1, art: 'china_lions' },
     { key: 'ch_fruit', box: [67, 27, 2, 2], foot: 1, art: 'china_fruit_stall', text: 'A FRUIT AND FLOWER STALL\nOranges, pomelos and chrysanthemums.' + SOON },
@@ -95,17 +95,30 @@
     { key: 'calesa', box: [23, 23, 4, 3], art: 'vehicle:calesa:6', foot: 1, text: 'A CALESA\nRides inside the old walls.' + SOON },
   ].forEach(function (b) { M.buildings.push(Object.assign({ name: '', stand: '', foot: b.foot != null ? b.foot : 2 }, b)); });
   // (the barrio's old stand-ins where the barangay now stands; the old kalesa props; a planter on the court)
-  var GONE = { store: 1, house1: 1, house2: 1, house8: 1 };
+  var GONE = { store: 1, house1: 1, house2: 1, house8: 1, house4: 1 };
   M.buildings = M.buildings.filter(function (b) { return !GONE[b.key]; });
+  // (house3 stood with its back to the barangay's lane: it moves to the lane's north side, its door down to it)
+  M.buildings.forEach(function (b) { if (b.key === 'house3') { b.box = [37, 62, 4, 4]; b.art = 'house_4'; } });
   M.props = M.props.filter(function (p) { return p[0] !== 'wagon'; });
   M.decor = M.decor.filter(function (d) { return !(d[0] === 'planter' && d[1] === 31 && d[2] === 56); });
+  // the old walls (owner's front-on pieces, 11 Nov 2026): round towers at the four corners (a corner shows no side of a
+  // wall), a wall with a turret now and then along the north and south runs; the west and east runs stay stone with
+  // round towers (a wall piece there would show its front turned sideways)
+  M.decor.forEach(function (d) {
+    if (d[0] === 'wall_bastion') { d[0] = 'wall_tower'; d[1] += 0.5; d[3] = 2; }
+    if (d[0] === 'wall_straight' && ((d[2] === 4 && (d[1] === 24 || d[1] === 33)) || (d[2] === 29 && (d[1] === 20 || d[1] === 34)))) d[0] = 'wall_bastion';
+  });
+  // Calle Real's shops face south: a cobbled lane runs east-west in front of the upper ones (the lower ones face the avenue)
+  M.ground.push(['cobble', 16, 37, 22, 1]);
   // the elevated railway over the station's rails: its deck, pillars, the buffer at its end, the city train at the platform
-  M.rail = { y: 12, x0: 56, x1: 90, pillars: [59, 65, 71, 77, 83, 89], end: 56, train: 64, cars: 2 };
+  M.rail = { y: 12, x0: 56, x1: 90, pillars: [59, 65, 71, 77, 83, 89], end: 56, train: 64, cars: 2, platform: 80, stairs: 86 };
   M.jeep.stops.forEach(function (st, i) {
     M.buildings.push({ key: 'shed_' + st.key, name: '', box: st.shed, stand: '@shed', foot: 1, art: 'shed_' + st.key, shed: i, text: 'A waiting shed. The jeepney stops here.' });
   });
   // rows of plain 2-storey shophouses (store below, home above): they don't open; four looks
-  [[48, 3], [52, 3], [26, 49], [30, 49], [43, 64], [47, 65], [16, 68], [16, 73], [16, 78], [69, 16], [75, 16]]
+  // (owner, 11 Nov 2026: the pictures face the camera, from the south: every shophouse stands just north of a street or
+  // square, its shop front and door down to it)
+  [[48, 3], [52, 3], [74, 49], [78, 49], [58, 81], [37, 81], [62, 16], [79, 16]]
     .forEach(function (p, i) {
       M.buildings.push({ key: 'shop_' + i, name: '', box: [p[0], p[1], 4, 4], stand: '@shophouse', v: i % 4, foot: 2, art: 'shophouse_' + (i % 6 + 1) });
     });
@@ -124,7 +137,7 @@
   Z.cheapNight = 4;
   Z.zones = {
     plaza: { w: [3, 4, 7, 2], at: [[44, 41], [48, 41], [51, 42], [55, 46], [43, 47], [47, 50], [52, 50], [55, 43], [44, 51], [45, 41, 'sit'], [50, 50, 'sit'], [45, 50, 'sit'], [41, 38]] },
-    market: { w: [7, 4, 2, 0], at: [[61, 49, 'browse'], [64, 49, 'browse'], [67, 49, 'browse'], [70, 49, 'browse'], [75, 49, 'browse'], [78, 49, 'browse'], [66, 46], [70, 44], [76, 45], [64, 45], [79, 45, 'browse']] },
+    market: { w: [7, 4, 2, 0], at: [[61, 49, 'browse'], [64, 49, 'browse'], [67, 49, 'browse'], [70, 49, 'browse'], [73, 46], [77, 46], [66, 46], [70, 44], [76, 45], [64, 45], [79, 45, 'browse']] },
     platform: { w: [4, 2, 3, 1], at: [[58, 9, 'wait'], [66, 9, 'wait'], [70, 8, 'wait'], [74, 9, 'wait'], [78, 8, 'wait'], [82, 9, 'wait'], [86, 8, 'wait'], [68, 8, 'sit'], [76, 8, 'sit']] },
     port: { w: [2, 2, 3, 1], at: [[3, 61, 'left'], [5, 62, 'down'], [8, 61, 'down'], [11, 62, 'down'], [3, 56], [7, 56, 'down'], [15, 60], [18, 61], [13, 53]] },
     sheds: { w: [4, 3, 4, 2], at: [[51, 12, 'down'], [53, 12, 'down'], [85, 41, 'right'], [85, 38, 'right'], [56, 85, 'down'], [58, 85, 'down'], [33, 85, 'down'], [30, 85, 'down'], [25, 43, 'down'], [26, 43, 'down'], [40, 43, 'left'], [40, 40, 'left']] },
