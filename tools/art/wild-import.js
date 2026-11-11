@@ -6,7 +6,7 @@
 //   assets/props/<name>.*     the props, the Lodge and the flying arrow, at 160 px a tile
 //   tiles.png/.webp           3 new ground tiles (wild_grass, wild_forest, wild_trail), made seamless from one corner
 //                             quarter of each picture (the pictures came mirrored, like a kaleidoscope)
-// node tools/art/wild-import.js
+// node tools/art/wild-import.js [kanor]   (kanor: only Kanor's sheet, e.g. after his 30-degree picture, 12 Nov 2026)
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -50,7 +50,8 @@ const LIB = require('./wild-lib');
 
   // ---------- Kanor: 3x3 frames of 256x384 (rows: down, up, left; cols: still, step, step) ----------
   const kanor = await p.evaluate(async (src) => {
-    const c = W.cutout(await W.load(src)), cl = W.cells(c, 3, 3);
+    // (holes: the magenta shut in between his bow and his back goes too: it showed purple, 12 Nov 2026)
+    const c = W.dehalo(W.cutout(await W.load(src), { holes: true })), cl = W.cells(c, 3, 3);
     if (cl.some((x) => !x)) throw new Error('kanor: a frame is missing');
     const sheet = W.canvas(8 * 2 + 3 * 256 + 2 * 16, 8 * 2 + 3 * 384 + 2 * 16), g = sheet.getContext('2d');
     const k = Math.min(...cl.map((x) => Math.min(240 / x.w, 360 / x.h)));
@@ -58,6 +59,7 @@ const LIB = require('./wild-lib');
     return W.out(sheet, 0.82);
   }, data(path.join(SRC, 'hunter_kanor.png')));
   save('kanor', kanor);
+  if (process.argv.includes('kanor')) { await b.close(); return; }
 
   // ---------- icons: art-src/icons/<name>.png, and painted into items.png/.webp after the old ones ----------
   const icons = {};
