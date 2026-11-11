@@ -1923,7 +1923,7 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   let alone = await off();
   assert.strictEqual(alone.key, 'ride2_horse', 'off it: the saddled horse alone (v2)');
   assert.strictEqual(alone.scale, ridden, 'the same size as ridden');
-  assert.ok({ down: [12, 14], up: [13], side: [14] }[alone.face].includes(alone.frame), 'standing the way it faced (' + alone.face + ': ' + alone.frame + ')');
+  assert.ok({ down: [12], up: [13], side: [14] }[alone.face].includes(alone.frame), 'standing the way it faced (' + alone.face + ': ' + alone.frame + ')');
   if (alone.face === 'side') assert.strictEqual(alone.flip, alone.faceFlip, 'mirrored for the right');
   // its sheet not on the phone yet when you get on (a slow download): it comes while you ride, so getting off shows it
   await page.evaluate(() => {

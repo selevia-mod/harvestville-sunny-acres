@@ -103,7 +103,7 @@
       var at = F.session.riding ? this.feet() : F.session.horseAt && F.session.horseAt.map === this.mapKey ? F.session.horseAt
         : this.mapKey === 'farm' ? this.points.horse : null;
       if (at) {
-        this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE), face: at.face || 'down', faceFlip: !!at.flip };
+        this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE), face: at.face || 'stable', faceFlip: !!at.flip };
         this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
         if (F.images.horse_ride && F.images.horse_rideshade) {
           var hs = C.HORSE.w * T / RIDE.px;
@@ -184,7 +184,7 @@
       var look = Math.floor(time / 2600) % 3 === 0; // (now and then it turns its head: side on)
       // (owner, 11 Nov 2026: got off, the old horse stood there: the v2 horse alone always, once its sheet is in, standing
       // the way it faced when you got off, mirrored for the right; at the stable it faces you, now and then side on)
-      if (h.v2) F.Anim.show(h, h.face === 'up' ? 13 : h.face === 'side' ? 14 : look ? 14 : 12, h.face === 'side' && !!h.faceFlip);
+      if (h.v2) F.Anim.show(h, h.face === 'up' ? 13 : h.face === 'side' ? 14 : h.face === 'down' ? 12 : look ? 14 : 12, h.face === 'side' && !!h.faceFlip);
       else F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (look ? 10 : 9), false);
     }
     h.sh.setPosition(h.x, h.y);
