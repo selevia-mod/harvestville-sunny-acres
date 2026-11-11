@@ -39,9 +39,15 @@ const sharedState = (ms) => {
   return { day: Math.floor(t / DAY), time: (((t % DAY) + DAY) % DAY) / 60000, wild: { n: 0, by: {}, gone: {}, job: 0, best: {} }, places: {} };
 };
 
-// Which maps are hunting places (L.isWildMap, but not a cave, not a place still in the making), with a map and a zone.
+// A city open to everyone (Manila, owner 11 Nov 2026: C.MANILA, "open to everyone also"): a public room with no animals,
+// for who is here, where they walk, chat and waves (rooms of 30 like a hunting place). Its map is built at run time.
+const isCity = (R, map) => !!(R.C.MANILA && R.C.MANILA.on && map === R.C.MANILA.key);
+// Which maps are hunting places (L.isWildMap, but not a cave, not a place still in the making), with a map and a zone;
+// and the city.
 const isPubMap = (R, maps, map) => {
-  if (typeof map !== 'string' || !R.L.isWildMap(map) || R.dungeonOf(map)) return false;
+  if (typeof map !== 'string') return false;
+  if (isCity(R, map)) return !!maps.get(map);
+  if (!R.L.isWildMap(map) || R.dungeonOf(map)) return false;
   const a = R.WI.areas[map], p = R.C.PLACES && R.C.PLACES[map];
   if (!a || a.dungeon || (p && p.dev)) return false;
   const m = maps.get(map);
@@ -53,6 +59,7 @@ class PubRoom extends Room {
     const R = game.R;
     super(game, 'pub|' + map + '|' + n, 'pub', map, 0, { key: map, lair: false, floors: 0, place: R.L.placeOf(map), pub: true }, mapData);
     this.pub = true;
+    this.city = isCity(R, map); // (no animals: L.wildHere has none for it, so none are ever made or walk in)
     this.ch = n;
     this.cap = game.pubCap || PUB_CAP;
     this.gone = new Map(); // slot -> when it was hunted (ms)
@@ -215,6 +222,7 @@ class PubRoom extends Room {
   // ---------- what a phone says (beyond a cave's) ----------
   // Bait: one a phone at a time, for WI.baitMins (and the 30 s the game gives it); the nearest shy animal goes to it.
   bait(p, msg) {
+    if (this.city) return; // (nothing to lure in a city)
     const R = this.R, T = R.T, now = this.game.now(), had = this.baits.get(p.id);
     if (had && had.until > now) return;
     const x = num(msg.x, 0, this.fl.W * T, NaN), y = num(msg.y, 0, this.fl.H * T, NaN);
@@ -308,4 +316,4 @@ class PubRoom extends Room {
   }
 }
 
-module.exports = { PubRoom, isPubMap, sharedState, lookOf, PUB_CAP, VIEW, VIEW_MAX, VIEW_KEEP, COPIES, AR_MAX };
+module.exports = { PubRoom, isPubMap, isCity, sharedState, lookOf, PUB_CAP, VIEW, VIEW_MAX, VIEW_KEEP, COPIES, AR_MAX };

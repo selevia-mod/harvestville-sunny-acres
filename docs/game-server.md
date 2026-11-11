@@ -209,3 +209,25 @@ happens for `pub` (a new room opens). Any good token may join `pub` (no farm che
 - Game e2e against the REAL server: 4 real game pages on one place (two strangers, two friends with `with`), one list
   for all, a kill gone for all, a stranger's card, bait, and a cheap-phone check: 29 bots walking round one page
   (the page's frame time while drawing them).
+
+# Step 3: Manila, the city, open to everyone (owner, 11 Nov 2026)
+
+Owner: the big city is "open to everyone also". Manila (`C.MANILA`, src/00-zzzzzzzzzzzzzzzzzzz-manila.js) is a public room
+exactly like a hunting place's (`topic: 'pub'`, `map: 'manila'`, `floor: 0`, rooms of 30: "Manila 1", "Manila 2"...),
+with **no animals**: who is here, where they walk, chat (`say`), waves and emotes (`em`), how they look (`lk`).
+
+- Server (`server/lib/pub.js` `isCity`, `server/lib/maps.js`): `manila` is a public map while `C.MANILA.on`. Its map is
+  not a file: the server builds it from the game's own layout (`L.manilaMap`, from `maps/town.json`'s sheets), as the
+  phones do. `L.wildHere` has nothing for it, so a room never makes an animal and none walk in; a `hit` is never counted;
+  `bt` (bait) is ignored; no `cl`. An empty room goes at once (as every public room).
+- Phone (`src/19zzzzzzzzz-gameserver.js`): a world the server can hold is a wild one or the city (`C.MANILA.pub`). The
+  Online button shows "Manila 1" and its count; a stranger's card says "is in Manila with you".
+- A server from before this step says `no` (`topic`) to `manila`: the phone plays it the old way (your farm's room:
+  friends only), as with any refused place. So the app can ship first and the server after.
+- Tests: `server/test/manila.test.js`; e2e "REAL pub: Manila: two strangers ..." in `test/e2e-gameserver-pub.test.js`.
+
+**To deploy** (by a person, the usual release in server/README.md "Each release"; nothing else changes on the droplet):
+rsync `src`, `maps` and `server` from this branch, `npm ci --omit=dev`, restart `harvest-game`. The new files it needs
+are `src/00-zzzzzzzzzzzzzzzzzzz-manila.js` and `src/01-logicZZZZZZZZZZZZZZ-manila.js` (it reads every 00- and 01- file),
+and the changed `server/lib/pub.js` and `server/lib/maps.js`. No new environment, no SQL, no Caddy change. Check after:
+`curl https://168-144-137-57.sslip.io/health` says ok, and a phone in Manila shows "Manila 1" on its Online button.

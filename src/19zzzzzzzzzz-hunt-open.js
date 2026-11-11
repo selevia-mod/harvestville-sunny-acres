@@ -116,6 +116,7 @@
   F.GameServer.onPubLive = function () {
     var s = F.session && F.session.state;
     if (asked || !s || L.tipSeen(s, 'hunt_open_tour') || (window.gameHost && window.gameHost.quiet)) return;
+    if (F.Config.MANILA && F.world && F.world.mapKey === F.Config.MANILA.key) return; // (the city: not the hunting places' tour)
     asked = true;
     var tries = 0;
     var show = function () {

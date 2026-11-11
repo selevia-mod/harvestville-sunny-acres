@@ -5,7 +5,9 @@ window.W = {
   load: (s) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('bad image')); i.src = s; }),
   canvas: (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; },
   // transparent pictures stay as they are; a flat magenta/white background touching the edge is flood-filled away
-  cutout(img) {
+  // opt.holes: the background shut inside the drawing too (under an arch, between railings), not only what touches the
+  // edge (Manila, 11 Nov 2026: the Chinatown arch's opening came out purple)
+  cutout(img, opt) {
     const c = W.canvas(img.width, img.height), g = c.getContext('2d');
     g.drawImage(img, 0, 0);
     const w = c.width, h = c.height, d = g.getImageData(0, 0, w, h), px = d.data;
@@ -21,7 +23,7 @@ window.W = {
     const dist = (i) => Math.abs(px[i] - key[0]) + Math.abs(px[i + 1] - key[1]) + Math.abs(px[i + 2] - key[2]);
     for (let x = 0; x < w; x++) st.push(x, (h - 1) * w + x);
     for (let y = 0; y < h; y++) st.push(y * w, y * w + w - 1);
-    while (st.length) {
+    const fill = () => { while (st.length) {
       const p = st.pop();
       if (seen[p]) continue;
       seen[p] = 1;
@@ -31,7 +33,9 @@ window.W = {
       if (dd >= TOL) continue;
       const x = p % w, y = (p - x) / w;
       if (x > 0) st.push(p - 1); if (x < w - 1) st.push(p + 1); if (y > 0) st.push(p - w); if (y < h - 1) st.push(p + w);
-    }
+    } };
+    fill();
+    if (opt && opt.holes) { for (let p = 0; p < w * h; p++) if (!seen[p] && dist(p * 4) < TOL * 0.6) st.push(p); fill(); } // (only the background's own colour starts one)
     if (magenta) for (let i = 0; i < px.length; i += 4) if (px[i + 3] && px[i] > px[i + 1] + 60 && px[i + 2] > px[i + 1] + 60) {
       const m = Math.min(px[i], px[i + 2]) - px[i + 1]; px[i] -= m * 0.6; px[i + 2] -= m * 0.6;
     }

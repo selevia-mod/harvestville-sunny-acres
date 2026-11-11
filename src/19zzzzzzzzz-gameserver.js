@@ -63,10 +63,15 @@
   var gen = 0;
   var gs = null; // this floor's session: { w, gen, mode: 'connecting' | 'live' | 'retry' | 'off', ws, ... }
 
-  // a hunting place open to everyone (step 2): a wild map that is not a cave (nor Bakunawa's Lair)
-  var pubMap = function (map) { return !!map && L.isWildMap(map) && !(F.dungeonOf && F.dungeonOf(map)); };
+  // a hunting place open to everyone (step 2): a wild map that is not a cave (nor Bakunawa's Lair); and a city open to
+  // everyone (Manila, owner 11 Nov 2026: C.MANILA, its 'pub' switch on): a public room with no animals (server/lib/pub.js)
+  var cityMap = function (map) { var M = C.MANILA; return !!(M && M.on && M.pub && map === M.key); };
+  var pubMap = function (map) { return !!map && ((L.isWildMap(map) && !(F.dungeonOf && F.dungeonOf(map))) || cityMap(map)); };
+  // a world the server can hold: one with wild animals (a place, a cave), or the city
+  var holdable = function (w) { return !!(w.wild || cityMap(w.mapKey)); };
   // the place's short name, as the room shows it ("Banaue 2"): the first word of its name
   var placeWord = function (map) {
+    if (cityMap(map)) return C.MANILA.name || 'Manila';
     var a = WI.areas[map], p = C.PLACES && C.PLACES[map], n = (p && p.name) || (a && a.name) || map;
     return String(n).split(' ')[0];
   };
@@ -268,7 +273,7 @@
 
   // ---------- what the server says ----------
   // (gsLocal: this phone's own, beside the server's: a place's tame animal in a public room)
-  var find = function (w, slot) { return w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0]; };
+  var find = function (w, slot) { return w.wild && w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0]; };
   // a packed animal; a public room's more copies of the roster are slots 100, 200 and 300 up (the game's own stop at 99)
   var unpack = function (row) {
     var s = Array.isArray(row) ? Number(row[0]) : NaN;
@@ -333,6 +338,7 @@
 
   // Monsters: the whole floor ('wl', full) or the ones that changed ('tk'). st: the server's clock (none in a 'wl').
   var apply = function (w, st, rows, full) {
+    if (!w.wild) return; // (the city: none)
     var list = w.wild.animals, seen = {};
     (Array.isArray(rows) ? rows.slice(0, 60) : []).forEach(function (row) {
       var r = unpack(row);
@@ -560,7 +566,7 @@
 
   var hear = function (g, m, my) {
     var w = g.w;
-    if (g.dead || !w || w.gsGen !== g.gen || !w.wild) return;
+    if (g.dead || !w || w.gsGen !== g.gen || !holdable(w)) return;
     var t = m.t;
     if (t === 'no') return fail(g, 'no:' + String(m.why || ''), true);
     if (t === 'wl') {
@@ -572,7 +578,7 @@
       clearTimeout(g.waitT);
       g.waitT = null;
       g.you = String(m.you || (O.me && O.me.id) || '');
-      w.wild.heard = true; // (what is here is what the server says, even nothing: a floor already cleared opens, 19zt-lair.js)
+      if (w.wild) w.wild.heard = true; // (what is here is what the server says, even nothing: a floor already cleared opens, 19zt-lair.js)
       if (w.lair) w.lair.seen = true;
       var at = isFinite(Number(m.st)) ? Number(m.st) : null; // (the server's clock, when it says)
       if (at != null) g.skew = Date.now() - at;
@@ -844,7 +850,7 @@
     create.call(this);
     if (!hold || !gs || !gs.placeholder || gs.w !== this) return;
     gs = null;
-    if (this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
+    if (holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
   };
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
@@ -875,7 +881,7 @@
     // online came after you went down (or the switch was turned on): the server from now on
     if ((!gs || gs.gen !== this.gsGen) && !(typeof document !== 'undefined' && document.hidden) && Math.floor(time / 1000) !== this.gsLook) { // (put away: back when it is seen again)
       this.gsLook = Math.floor(time / 1000);
-      if (url() && this.wild && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
+      if (url() && holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
     }
     var g = live();
     if (g && g.w === this && g.gen === this.gsGen) {
@@ -892,7 +898,7 @@
       // a hit the server never answered stops counting: its bar goes back to what the server last said
       if (Math.floor(time / 250) !== g.pendAt) {
         g.pendAt = Math.floor(time / 250);
-        this.wild.animals.forEach(function (a) { if (a.gsPend && a.gsPend.length && a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a)); });
+        if (this.wild) this.wild.animals.forEach(function (a) { if (a.gsPend && a.gsPend.length && a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a)); });
       }
       if (g.pub) {
         // who the nearest 15 are, now and then (you walk, they walk); and others' bait, gone when its time is up
@@ -913,7 +919,7 @@
   var cardFor = function (id) {
     var g = pubLive();
     if (!g || !g.ppl[id] || !F.ui || !F.ui.parkPlayer || F.ui.modals.length) return false;
-    F.ui.parkPlayer(id, 'hunting in ' + placeWord(g.map));
+    F.ui.parkPlayer(id, (cityMap(g.map) ? 'in ' : 'hunting in ') + placeWord(g.map));
     return true;
   };
   // Facing someone: Wave opens their card (as in Central Park; 19zzz-c-park-online.js).
