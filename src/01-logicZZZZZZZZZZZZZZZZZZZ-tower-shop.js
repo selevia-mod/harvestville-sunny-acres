@@ -63,9 +63,10 @@
     var g = K.gear[i];
     return { id: 'k:' + g.id, old: 'keeper', keeper: g.id, slot: g.slot, name: g.name, icon: C.towerIcon('k_' + g.id), less: 0, desc: L.keeperText(g) };
   };
+  // (short: it fits a shop row) "Tower hits cost 10% less energy; +10% walking there."
   L.keeperText = function (g) {
-    return Math.round(g.less * 100) + '% less energy when a Tower enemy reaches you' + (g.speed ? ', and ' + Math.round(g.speed * 100) + '% faster walking there' : '') +
-      (g.sight ? ', and you see ' + TR.dark.lantern + ' tiles farther on its Darkness floors' : '') + '. Only in The Lost Tower.';
+    return 'Tower hits cost ' + Math.round(g.less * 100) + '% less energy' + (g.speed ? '; +' + Math.round(g.speed * 100) + '% walking there' : '') +
+      (g.sight ? '; +' + TR.dark.lantern + ' tiles of sight in the dark' : '') + '.';
   };
   var keeperId = function (id) { var m = /^k:([a-z]+)$/.exec(id || ''); return m ? L.keeperIndex(m[1]) : -1; };
   var gearPiece = L.gearPiece;

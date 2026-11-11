@@ -61,10 +61,15 @@
   };
 
   P.askLand = function (i) {
-    var self = this, s = this.state, owned = L.landOwned(s), price = L.landPrice(s), ui = F.ui;
+    var self = this, s = this.state, owned = L.landOwned(s), price = L.landPrice(s), pearls = L.landPearls(s), have = s.pearls || 0, ui = F.ui;
+    var n = function (v) { return v.toLocaleString('en-US'); };
     if (i !== owned) return ui.dialog('FOR SALE\nNot yet. These blocks sell one at a time: look for the sign with a coin over it.');
-    var text = 'BUY THIS LAND?\n10 by 10 tiles of your own for ' + price.toLocaleString('en-US') + 'G. You have ' + s.gold.toLocaleString('en-US') + 'G.';
-    if (s.gold < price) return ui.dialog(text.replace('BUY THIS LAND?', 'FOR SALE'));
+    // (lands 7 to 9: Gold and Pearls, from The Lost Tower; what is missing is said)
+    var text = 'BUY THIS LAND?\n10 by 10 tiles of your own for ' + n(price) + 'G' + (pearls ? ' and ' + n(pearls) + ' Pearls' : '') + '. You have ' + n(s.gold) + 'G' + (pearls ? ' and ' + n(have) + ' Pearls' : '') + '.';
+    var miss = [];
+    if (s.gold < price) miss.push(n(price - s.gold) + ' more Gold');
+    if (have < pearls) miss.push(n(pearls - have) + ' more Pearls (climb The Lost Tower in Manila)');
+    if (miss.length) return ui.dialog(text.replace('BUY THIS LAND?', 'FOR SALE') + '\nYou need ' + miss.join(' and ') + '.');
     ui.confirm(text, function () { self.landBought(); });
   };
   P.landBought = function () {
@@ -77,7 +82,7 @@
     for (var k = 0; k < 10; k++) this.puff({ x: b.x0 + Math.floor(Math.random() * 10), y: b.y0 + Math.floor(Math.random() * 10) }, 0xd9b77a, 2);
     sfx('coin');
     this.changed();
-    F.ui.toast(LAND.blocks[i + 1] ? 'This land is yours! Till it, plant it or decorate it.' : 'All six blocks are yours!', 3200);
+    F.ui.toast(LAND.blocks[i + 1] ? 'This land is yours! Till it, plant it or decorate it.' : 'All ' + LAND.blocks.length + ' blocks are yours!', 3200);
   };
 
   var resolve = P.resolve;

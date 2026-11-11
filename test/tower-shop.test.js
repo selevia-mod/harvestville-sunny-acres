@@ -64,7 +64,7 @@ test("the Keeper's gear is gear: its slot, the Gear page's pieces, wear and take
     const id = L.worn(s, slot), g = L.gearPiece(id);
     assert.ok(/^k:/.test(id), slot);
     assert.strictEqual(g.slot, slot);
-    assert.ok(g.desc && /Only in The Lost Tower/.test(g.desc));
+    assert.ok(g.desc && /^Tower hits cost \d+% less energy/.test(g.desc));
     assert.ok(L.piecesFor(s, slot).includes(id));
   });
   L.takeOff(s, 'head');
