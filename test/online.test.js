@@ -82,7 +82,8 @@ test('junk in a snapshot is dropped instead of breaking the game', () => {
   assert.ok(v.yard.items.every((it) => C.OUTDOOR.types[it.t] && Number.isInteger(it.x) && Number.isInteger(it.y)), 'only real pieces');
   const FARM = L.farmInfo(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8')));
   L.yardRepair(v, FARM);
-  assert.strictEqual(v.yard.items.filter((it) => it.t !== C.OUTDOOR.index.field_fence).length, 0, 'and the farm map refuses ones in impossible places');
+  // (the farm's buildings and field plots, given to every farm since Edit Farm, 10 Nov 2026, are not junk)
+  assert.strictEqual(v.yard.items.filter((it) => it.t !== C.OUTDOOR.index.field_fence && !L.isBuilding(it.t) && !C.OUTDOOR.types[it.t].fieldPlot).length, 0, 'and the farm map refuses ones in impossible places');
   assert.ok(!v.builds.hacked);
   assert.deepStrictEqual(plain(v.animals.map((a) => [a.kind, a.name])), [['chicken', 'A very long chic'], ['cow', 'Bessie']]);
   assert.strictEqual(v.dog.name, C.DOG.name);

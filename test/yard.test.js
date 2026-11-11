@@ -19,17 +19,21 @@ const FARM = L.farmInfo(MAP);
 const O = C.OUTDOOR, ix = O.index;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = []; /* (the field's fence: land.test.js) */ s.gold = 1e6; return s; };
+// (the field's fence: land.test.js. The buildings and the field plots stay: they are yard pieces since Edit Farm, 10 Nov 2026)
+const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = s.yard.items.filter((it) => it.t !== ix.field_fence); s.gold = 1e6; return s; };
+const n0 = (s) => s.yard.items.length;
 
 test('the farm is 38 wide and the save says so; the meadow is free to build on, the field and buildings are not', () => {
   assert.strictEqual(MAP.width, C.FARM_W);
-  const free = (x, y) => !FARM.noPlace[y * FARM.w + x];
+  const free = (x, y) => !FARM.noPlace[y * FARM.w + x], s = fresh(), at = (x, y) => L.yardCantPlace(s, FARM, ix.planter, x, y, null);
   assert.ok(free(28, 15) && free(24, 30), 'the meadow');
-  assert.ok(!free(10, 15), 'the field');
-  assert.ok(!free(6, 4), 'the house');
-  assert.ok(!free(5, 31), 'the pen');
+  assert.strictEqual(at(28, 15), null);
+  assert.strictEqual(at(10, 15), 'taken', 'the field (its plots)');
+  assert.strictEqual(at(6, 4), 'taken', 'the house');
+  assert.strictEqual(at(5, 31), 'taken', 'the pen');
   assert.ok(!free(11, 37) && !free(0, 10), 'the road and the edge');
-  assert.ok(FARM.start >= 0 && L.yardReachable(FARM, []), 'everything reachable to begin with');
+  const f = L.farmFor(s, FARM);
+  assert.ok(f.start >= 0 && L.yardReachable(f, s.yard.items), 'everything reachable to begin with');
 });
 
 test('a new farm starts with a few pieces in storage; buying adds more, festival ones only in season', () => {
@@ -46,41 +50,41 @@ test('a new farm starts with a few pieces in storage; buying adds more, festival
 });
 
 test('placing, moving and storing pieces; pieces never overlap; paths go under things', () => {
-  const s = fresh();
+  const s = fresh(), n = n0(s);
   L.buyYard(s, ix.apple_tree, 2);
   L.buyYard(s, ix.stone_path, 3);
   const a = L.placeYard(s, FARM, ix.apple_tree, 25, 14);
-  assert.strictEqual(a, 0);
+  assert.strictEqual(a, n);
   assert.strictEqual(L.placeYard(s, FARM, ix.apple_tree, 25, 14), 'taken');
-  assert.strictEqual(L.placeYard(s, FARM, ix.apple_tree, 26, 12), 0 + 1, 'a tree behind another: only the trunks must not touch');
-  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 25, 16), 2, 'a path under the tree trunk row is fine');
+  assert.strictEqual(L.placeYard(s, FARM, ix.apple_tree, 26, 12), n + 1, 'a tree behind another: only the trunks must not touch');
+  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 25, 16), n + 2, 'a path under the tree trunk row is fine');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 25, 16), 'taken', 'but not two paths');
-  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 10, 15), 'blocked', 'not on the field');
+  assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 10, 15), 'taken', 'not on the field (its plots)');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 36, 15), 'blocked', 'not under the border trees');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 37, 15), 'blocked', 'nor under the second row of them');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 39, 15), 'outside', 'past them is land you have to buy');
-  assert.strictEqual(L.moveYard(s, FARM, 0, 30, 20), 'ok');
-  assert.deepStrictEqual(plain(s.yard.items[0]), { t: ix.apple_tree, x: 30, y: 20 });
-  assert.strictEqual(L.storeYard(s, 0), 'ok');
+  assert.strictEqual(L.moveYard(s, FARM, n, 30, 20), 'ok');
+  assert.deepStrictEqual(plain(s.yard.items[n]), { t: ix.apple_tree, x: 30, y: 20 });
+  assert.strictEqual(L.storeYard(s, n), 'ok');
   assert.strictEqual(s.yard.bag[ix.apple_tree], 1);
-  assert.strictEqual(s.yard.items.length, 2);
+  assert.strictEqual(s.yard.items.length, n + 2);
 });
 
 test('fences join their neighbours: rails along a row, a column, posts at corners and on their own', () => {
-  const s = fresh();
+  const s = fresh(), n = n0(s);
   [[24, 20], [25, 20], [26, 20], [26, 21], [26, 22], [30, 30]].forEach(([x, y]) => { L.buyYard(s, ix.picket_fence, 1); L.placeYard(s, FARM, ix.picket_fence, x, y); });
-  assert.deepStrictEqual([0, 1, 2, 3, 4, 5].map((i) => L.fenceShape(s, i)), ['h', 'h', 'p', 'v', 'v', 'p']);
+  assert.deepStrictEqual([0, 1, 2, 3, 4, 5].map((i) => L.fenceShape(s, n + i)), ['h', 'h', 'p', 'v', 'v', 'p']);
 });
 
 test('nothing can wall off the house, the field gates, the pen, the shop or the road', () => {
-  const s = fresh();
+  const s = fresh(), n = n0(s);
   L.buyYard(s, ix.hedge, 3);
   // the house door opens onto (6, 7): hedges either side are fine, but not the last one shutting it in
-  assert.strictEqual(L.placeYard(s, FARM, ix.hedge, 5, 7), 0);
-  assert.strictEqual(L.placeYard(s, FARM, ix.hedge, 7, 7), 1);
+  assert.strictEqual(L.placeYard(s, FARM, ix.hedge, 5, 7), n);
+  assert.strictEqual(L.placeYard(s, FARM, ix.hedge, 7, 7), n + 1);
   assert.strictEqual(L.placeYard(s, FARM, ix.hedge, 6, 8), 'blocks');
   assert.strictEqual(L.placeYard(s, FARM, ix.stone_path, 6, 8), 'none', 'paths never block (and we have none)');
-  assert.ok(L.yardReachable(FARM, s.yard.items));
+  assert.ok(L.yardReachable(L.farmFor(s, FARM), s.yard.items));
 });
 
 test('outdoor beauty adds to Home Beauty: tile pieces every time, other repeats count half', () => {
@@ -100,12 +104,12 @@ test('the yard is saved; pieces that no longer fit go back into storage', () => 
   const s = fresh();
   L.buyYard(s, ix.windmill, 1);
   L.placeYard(s, FARM, ix.windmill, 30, 10);
-  const back = roundTrip(s);
+  const back = roundTrip(s), n = n0(back);
   assert.deepStrictEqual(plain(back.yard), plain(s.yard));
   back.yard.items.push({ t: ix.well, x: 10, y: 15 }); // on the field (a bad save)
   assert.strictEqual(L.yardRepair(back, FARM), 1);
   assert.strictEqual(back.yard.bag[ix.well], 1);
-  assert.strictEqual(back.yard.items.length, 1);
+  assert.strictEqual(back.yard.items.length, n);
 });
 
 test('an older save (24 tiles wide) keeps its crops and debris in the same places on the wider farm', () => {

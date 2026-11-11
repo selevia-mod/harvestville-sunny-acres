@@ -11,7 +11,8 @@
   var O = F.Online;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};
-  var BASKET_AT = [10, 6]; // on the grass by the mailbox, at the end of the path (not solid: you walk past it)
+  // on the grass by the mailbox (not solid: you walk past it); beside the house wherever it stands (Edit Farm, 10 Nov 2026)
+  var basketAt = function (s) { var h = F.houseBlock && F.houseBlock(s); return h ? [h.x + 6, h.y + 3] : [10, 6]; };
 
   var P = F.WorldScene.prototype;
   var visiting = function (w) { return !!(w.state && w.state.isVisit); };
@@ -23,7 +24,7 @@
     create.call(this);
     this.basket = null;
     if (this.mapKey !== 'farm') return;
-    var x = BASKET_AT[0], y = BASKET_AT[1];
+    var at = basketAt(this.state), x = at[0], y = at[1];
     F.ensureTexture(this, 'props/basket_empty');
     F.ensureTexture(this, 'props/basket_full');
     var img = this.add.image((x + 0.5) * T, (y + 0.92) * T, 'props/basket_empty').setOrigin(0.5, 1);
@@ -68,7 +69,8 @@
     var s = this.state, r = L.takeBasket(s);
     if (!r.got) return F.ui.toast('Your bag is full. Make some room first.');
     sfx('pick');
-    this.floatTextAt((BASKET_AT[0] + 0.5) * T, BASKET_AT[1] * T, '+' + r.got);
+    var at = basketAt(this.state);
+    this.floatTextAt((at[0] + 0.5) * T, at[1] * T, '+' + r.got);
     F.ui.toast('You took ' + r.got + (r.got > 1 ? ' crops' : ' crop') + ' from the basket.' + (r.left ? ' ' + r.left + ' did not fit in your bag.' : ''), 2600, 0x2f5a22);
     this.changed();
     this.save();

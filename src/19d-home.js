@@ -11,7 +11,9 @@
   var DEPTH = F.WorldScene.DEPTH;
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var CELL = 384, U = 128, GAP = 16; // the furniture sheets' layout (tools/art/furniture.js)
-  var HOUSE_BLOCK = { x: 4, y: 3, w: 5, h: 4 }; // the farmhouse on the farm map (tiles)
+  // the farmhouse: a yard piece since Edit Farm (10 Nov 2026), 5 x 4 tiles where its picture stands (its mailbox beside)
+  var houseBlock = function (s) { var it = F.Logic.buildingsOf && F.Logic.buildingsOf(s, 'house')[0]; return it ? { x: it.x, y: it.y, w: 5, h: 4 } : null; };
+  F.houseBlock = houseBlock;
   var WHY = {
     outside: "It doesn't fit there.", wall: 'That one hangs on the back wall.', taken: "Something's already there.",
     door: 'Keep the doorway clear!', blocks: "That would block the way to something you use.", lastbed: 'Every home needs a bed!',
@@ -69,16 +71,13 @@
 
   // The farmhouse on the farm: from the Cottage up, its picture replaces the cabin's tiles (which stay solid).
   P.showHouse = function () {
-    var lv = this.state.home.level, b = HOUSE_BLOCK, walls = this.layers.Walls;
-    if (lv < 2 || !walls) return;
-    for (var y = b.y; y < b.y + b.h; y++) for (var x = b.x; x < b.x + b.w; x++) {
-      var t = walls.getTileAt(x, y);
-      if (t) t.setAlpha(0);
-    }
-    var key = 'props/house_' + lv;
+    var lv = this.state.home.level, b = houseBlock(this.state);
+    if (!b) return;
+    var key = 'props/house_' + Math.max(1, lv); // (level 1: the owner's picture, 10 Nov 2026; it was drawn in the map)
     F.ensureTexture(this, key);
     this.houseImg = this.add.image(b.x * T, (b.y + b.h) * T, key).setOrigin(0, 1).setDisplaySize(5 * T, 5 * T).setDepth(DEPTH.Walls + 0.05);
   };
+
 
   // ----- inside
   P.buildHome = function () {

@@ -230,7 +230,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
     map: Farm.world.mapKey, own: Farm.session.state === Farm.world.state, bench: Farm.world.state.yard.items.length,
     ownMap: Farm.session.state.map, host: Farm.session.visit.name,
   }));
-  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 61, ownMap: 'farm', host: 'Moon Meadow' }); // the bench, and the field's fence
+  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 84, ownMap: 'farm', host: 'Moon Meadow' }); // the bench, the field's fence, and (Edit Farm, 10 Nov 2026) the farm's 7 buildings and 16 field plots
   await waitRemotes(ana.page, ['Moon Meadow (owner)']);
   await waitToast(owner.page, /Ana Acres is visiting your farm!/);
   await waitRemotes(owner.page, ['Ana Acres']);
@@ -640,6 +640,29 @@ test('online: a friend picks your ripe fruit tree into your basket; they see it 
   for (const p of [host, friend]) await p.context.close();
 });
 
+test('online: a visitor sees the farm as its owner laid it out: the moved house (its door), the moved ranch (its pen and animals) (Edit Farm, 10 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  await host.page.evaluate(() => {
+    const s = Farm.session.state, L = Farm.Logic, O = Farm.Config.OUTDOOR, i = (k) => s.yard.items.findIndex((it) => it.t === O.index[k]);
+    if (L.moveYard(s, Farm.farm(), i('farmhouse'), 24, 4) !== 'ok' || L.moveYard(s, Farm.farm(), i('ranch'), 24, 14) !== 'ok') throw new Error('no room');
+    L.addAnimal(s, 'cow', false);
+    return Farm.Online.publish(true);
+  });
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(friend.page, true);
+  const r = await friend.page.evaluate(() => {
+    const w = Farm.world, d = w.objects.find((o) => o.type === 'warp' && o.props.to === 'house'), z = w.zones.pen[0], T = 256;
+    return { door: [d.x0, d.y0], pen: [z.x0, z.y0, z.x1, z.y1], inPen: w.herd.members.length > 0 && w.herd.members.every((m) => m.x >= z.x0 * T && m.x <= (z.x1 + 1) * T && m.y >= z.y0 * T && m.y <= (z.y1 + 1) * T), oldRanch: !!w.blocked[w.idx(2, 27)] };
+  });
+  assert.deepStrictEqual(r, { door: [26, 7], pen: [25, 18, 31, 21], inPen: true, oldRanch: false });
+  assert.deepStrictEqual(host.problems, []);
+  assert.deepStrictEqual(friend.problems, []);
+  await Promise.all([host.context.close(), friend.context.close()]);
+});
+
 test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 20G each); you take them at home', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);
@@ -914,6 +937,9 @@ test('online: a friend walks smoothly on your screen: no stops and starts, no fl
       return r.anim === '' && Math.hypot(r.x - f.x, r.y - f.y) < 12;
     }, await feet(), SLOW);
   };
+  // (out in the open meadow first: since Edit Farm, 10 Nov 2026, the dog's yard has fenced sides, right of the house door)
+  await guest.page.evaluate(() => { const T = Farm.Config.TILE; Farm.world.setFeet(22.5 * T, 12.5 * T); Farm.world.idle(); });
+  await owner.page.waitForFunction(() => { const r = Object.values(Farm.world.remotes)[0]; return r && r.anim === '' && Math.hypot(r.x - 22.5 * 256, r.y - 12.5 * 256) < 12; }, null, SLOW);
   await walk(1, 0);
   await walk(-0.71, 0.7);
   assert.deepStrictEqual(owner.problems, []);

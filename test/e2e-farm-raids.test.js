@@ -362,23 +362,31 @@ test('the Raid Camp sells and places defenses (owner, 10 Nov 2026: "i bought all
   await context.close();
 });
 
-test('a raid on your farm: raiders never land on the field or a tile round it, nor in the pen; open grass is fine (10 Nov 2026: the field was never kept clear)', async () => {
+test('a raid on your farm: raiders never land on the field or a tile round it, nor on the ranch or a tile round it; open grass is fine (10 Nov 2026: the field was never kept clear; 11 Nov: the ranch)', async () => {
   const { page, problems, context } = await open(null);
   await closeAll(page);
   const r = await page.evaluate(() => {
     const w = Farm.world, f = w.raidFarm({ camp: 3 }), at = (x, y) => f.drop[y * f.w + x] === '1';
-    const field = Farm.farm().field, pen = (w.zones.pen || [])[0];
+    // (the field is its plots, where they stand: Edit Farm, 10 Nov 2026)
+    const O = Farm.Config.OUTDOOR, field = [], pen = (w.zones.pen || [])[0];
+    Farm.session.state.yard.items.filter((it) => O.types[it.t].fieldPlot).forEach((it) => Farm.Logic.yardBox(it.t, it.x, it.y).forEach((p) => field.push(p)));
     let fieldOk = 0, fieldBad = 0;
-    for (let i = 0; i < field.length; i++) if (field[i]) { if (at(i % f.w, Math.floor(i / f.w))) fieldBad++; else fieldOk++; }
+    field.forEach((p) => { if (at(p[0], p[1])) fieldBad++; else fieldOk++; });
     let penBad = 0;
     for (let y = pen.y0; y <= pen.y1; y++) for (let x = pen.x0; x <= pen.x1; x++) if (at(x, y)) penBad++;
+    // the ranch and a tile round it (owner, 11 Nov 2026): its gate opens onto the bottom path, where nothing can be put
+    const ranch = Farm.session.state.yard.items.find((it) => it.t === O.index.ranch);
+    let ranchBad = 0;
+    for (let y = ranch.y - 1; y <= ranch.y + 9; y++) for (let x = ranch.x - 1; x <= ranch.x + 9; x++) if (at(x, y)) ranchBad++;
     const open = f.drop.split('').filter((c) => c === '1').length;
-    return { fieldOk, fieldBad, penBad, open, ring: at(3, 15) || at(20, 15) };
+    return { fieldOk, fieldBad, penBad, ranchBad, gate: at(6, 36), open, ring: at(3, 15) || at(20, 15) };
   });
   assert.ok(r.fieldOk > 200, 'the field is there: ' + JSON.stringify(r));
   assert.strictEqual(r.fieldBad, 0, 'no landing on the field');
   assert.strictEqual(r.ring, false, 'nor a tile round it');
   assert.strictEqual(r.penBad, 0, 'nor in the pen');
+  assert.strictEqual(r.ranchBad, 0, 'nor on the ranch or a tile round it');
+  assert.strictEqual(r.gate, false, 'nor just outside its gate');
   assert.ok(r.open > 100, 'open ground left to land on: ' + r.open);
   assert.deepStrictEqual(problems, []);
   await context.close();

@@ -144,11 +144,11 @@ test('yard pieces go on land you own, not on the tracks or fenced land, and not 
 });
 
 test('the two ponds fill the can from the track, and a yard piece that stood there is moved off', () => {
-  const walls = MAP.layers.filter((l) => l.name === 'Walls')[0].data, ts = MAP.tilesets[0];
-  const water = (x, y) => (ts.tiles.filter((t) => t.id === walls[y * W + x] - 1)[0] || { properties: [] }).properties.some((p) => p.name === 'water');
+  const s = fresh(), O = C.OUTDOOR; // (the ponds are yard pieces since Edit Farm, 10 Nov 2026)
+  const water = (x, y) => s.yard.items.some((it) => L.yardWater(it.t, it.x, it.y).some((p) => p[0] === x && p[1] === y));
   assert.ok(water(38, 11), 'beside the track');
   assert.ok(water(38, 21));
-  const s = fresh();
+  assert.ok(s.yard.items.filter((it) => it.t === O.index.farm_pond).length === 3);
   s.yard.items.push({ t: C.OUTDOOR.index.planter, x: 35, y: 11 });
   assert.strictEqual(L.yardRepair(s, FARM), 1);
   assert.ok(!s.yard.items.some((it) => it.x === 35 && it.y === 11), 'it went to storage');
@@ -197,7 +197,7 @@ test('every tile planted on all six blocks and the old field still fits a save',
   s.soil = {};
   const now = L.nowMin();
   C.LAND.blocks.forEach((b) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) s.soil[y * W + x] = { w: 1, c: 'pumpkin', p: now, r: 0 }; });
-  FARM.field.forEach((f, i) => { if (f) s.soil[i] = { w: 1, c: 'pumpkin', p: now, r: 0 }; });
+  L.fieldPlotTiles(s).forEach((i) => { s.soil[i] = { w: 1, c: 'pumpkin', p: now, r: 0 }; }); // (the field: its plots)
   assert.strictEqual(Object.keys(s.soil).length, 824);
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size);
@@ -216,7 +216,7 @@ test('a planted greenhouse or Field Plot on bought land stays when the farm open
   const n = Object.keys(s.soil).length;
   const s2 = roundTrip(s);
   assert.strictEqual(L.yardRepair(s2, FARM), 0, 'nothing goes to storage');
-  assert.strictEqual(s2.yard.items.filter((it) => L.isPlot(it.t)).length, 2);
+  assert.strictEqual(s2.yard.items.filter((it) => L.isPlot(it.t) && !O.types[it.t].fieldPlot).length, 2);
   assert.strictEqual(Object.keys(s2.soil).filter((k) => s2.soil[k].c === 'turnip').length, n, 'the crops stay');
 });
 

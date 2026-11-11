@@ -93,7 +93,16 @@
     }
     if (to === 'water') return { goal: function (x, y) { return self.isWater(x + 1, y) || self.isWater(x - 1, y) || self.isWater(x, y + 1) || self.isWater(x, y - 1); } };
     if (to === 'debris') return { goal: function (x, y) { var w = self.map.width; return !!(s.debris[(y + 1) * w + x] || s.debris[(y - 1) * w + x] || s.debris[y * w + x + 1] || s.debris[y * w + x - 1]); } };
-    if (to === 'field') { var fs = this.objects.filter(function (x) { return x.name === 'field_sign'; })[0]; if (fs) return { goal: function (x, y) { return nearRect(fs, x, y); } }; }
+    if (to === 'field') {
+      // (the field is its plots, where they stand: Edit Farm, 10 Nov 2026; the sign stays where the map put it)
+      var plots = (s.yard && s.yard.items || []).filter(function (it) { return C.OUTDOOR.types[it.t] && C.OUTDOOR.types[it.t].fieldPlot; }).map(function (it) {
+        var ty = C.OUTDOOR.types[it.t];
+        return { x0: it.x, y0: it.y, x1: it.x + ty.w - 1, y1: it.y + ty.h - 1 };
+      });
+      if (this.mapKey === 'farm' && plots.length) return { goal: function (x, y) { return plots.some(function (r) { return nearRect(r, x, y, true); }); } };
+      var fs = this.objects.filter(function (x) { return x.name === 'field_sign'; })[0];
+      if (fs) return { goal: function (x, y) { return nearRect(fs, x, y); } };
+    }
     if (to.indexOf('zone:') === 0) {
       var zs = this.zones[to.slice(5)] || [];
       if (!zs.length) return null;
