@@ -97,7 +97,8 @@ test('the farm works as before: the door, mailbox, Lily\'s shop, the pen and the
     };
   });
   assert.deepStrictEqual(r, {
-    door: [6, 6], mail: [9, 6], shop: [16, 31, 17], inc: [7, 28], pen: [3, 31, 9, 34], dog: [11, 5, 14, 9],
+    door: [6, 6], mail: [9, 6], shop: [16, 31, 17], inc: [8, 30], pen: [3, 31, 9, 34], dog: [11, 8, 14, 9], // (round 2, 11 Nov 2026: the coop's door at its ramp; the dog's patch in front of his doghouse)
+   
     water: [true, true, false], herd: true, dogOk: true, tillField: true, stand: true, houseImg: true, solid: [true, true, false],
   });
   // the animals and the dog are drawn over the ranch's and the dog yard's pictures (11 Nov 2026: they were hidden under them)
@@ -134,7 +135,8 @@ async function teleport(page, tx, ty, dir) {
   }, [tx, ty, dir]);
   await frames(page);
 }
-const MOVE_RANCH = " const r = s.yard.items.find((it) => it.t === C.OUTDOOR.index.ranch); r.x = 24; r.y = 14;";
+// (and its old fences put away, as a player moving it would: round 2, 11 Nov 2026, gives old farms their pen fence as pieces)
+const MOVE_RANCH = " const r = s.yard.items.find((it) => it.t === C.OUTDOOR.index.ranch); r.x = 24; r.y = 14; s.yard.items = s.yard.items.filter((it) => it.t !== C.OUTDOOR.index.ranch_fence);";
 const MOVE_POND = " const p = s.yard.items.filter((it) => it.t === C.OUTDOOR.index.farm_pond).find((it) => it.x === 34 && it.y === 20); p.x = 24; p.y = 4;";
 
 test('raids and the guide read the pieces: a moved ranch\'s pen is kept clear and the old spot is open; the field is its plots; the guide finds a moved pond', async () => {
@@ -146,16 +148,16 @@ test('raids and the guide read the pieces: a moved ranch\'s pen is kept clear an
     for (let y = pen.y0; y <= pen.y1; y++) for (let x = pen.x0; x <= pen.x1; x++) if (at(x, y)) penBad++;
     let oldOpen = 0;
     for (let y = 31; y <= 34; y++) for (let x = 3; x <= 9; x++) if (at(x, y)) oldOpen++;
-    let ranchBad = 0; // (owner, 11 Nov 2026: nor on the ranch or a tile round it, wherever it stands)
-    for (let y = ranch.y - 1; y <= ranch.y + 9; y++) for (let x = ranch.x - 1; x <= ranch.x + 9; x++) if (at(x, y)) ranchBad++;
+    let ranchBad = 0; const badAt = []; // (owner, 11 Nov 2026: nor on the ranch or a tile round it, wherever it stands)
+    for (let y = ranch.y - 1; y <= ranch.y + 8; y++) for (let x = ranch.x - 1; x <= ranch.x + 9; x++) if (at(x, y)) { ranchBad++; badAt.push(x + ',' + y); }
     let fieldBad = 0;
     s.yard.items.filter((it) => O.types[it.t].fieldPlot).forEach((it) => Farm.Logic.yardBox(it.t, it.x, it.y).forEach((p) => { if (at(p[0], p[1])) fieldBad++; }));
-    return { ranch: [ranch.x, ranch.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], penBad, ranchBad, open: [at(28, 25), at(34, 18)], oldOpen, fieldBad, water: [w.isWater(25, 5), w.isWater(35, 21)] };
+    return { badAt, ranch: [ranch.x, ranch.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], penBad, ranchBad, open: [at(28, 25), at(34, 18)], oldOpen, fieldBad, water: [w.isWater(25, 5), w.isWater(35, 21)] };
   });
   assert.deepStrictEqual(r.ranch, [24, 14], 'the ranch stays where it was put');
   assert.deepStrictEqual(r.pen, [25, 18, 31, 21], 'the pen moved with it');
   assert.strictEqual(r.penBad, 0, 'no landing in the moved pen');
-  assert.strictEqual(r.ranchBad, 0, 'nor on the moved ranch or a tile round it');
+  assert.strictEqual(r.ranchBad, 0, 'nor on the moved ranch or a tile round it: ' + r.badAt.join(' '));
   assert.deepStrictEqual(r.open, [true, true], 'two tiles out is open grass again');
   assert.ok(r.oldOpen > 20, 'the old pen spot is open grass to land on: ' + r.oldOpen);
   assert.strictEqual(r.fieldBad, 0, 'nor on the field');
@@ -179,8 +181,8 @@ test('Decorate: a building is picked by its whole box and dragged; the ranch mov
   await frames(page, 3);
   const IX = await page.evaluate(() => Farm.Config.OUTDOOR.index);
   const idx = (t) => page.evaluate((t) => Farm.session.state.yard.items.findIndex((it) => it.t === t), t);
-  // picked anywhere on its box (the dog's yard: its top-left, its middle and its front)
-  const picks = await page.evaluate((t) => { const w = Farm.world, T = 256, i = Farm.session.state.yard.items.findIndex((it) => it.t === t); return [[11, 5], [12, 7], [14, 9]].map((p) => w.yardAt((p[0] + 0.5) * T, (p[1] + 0.5) * T) === i); }, IX.dog_yard);
+  // picked anywhere on its box (the doghouse: its corners)
+  const picks = await page.evaluate((t) => { const w = Farm.world, T = 256, i = Farm.session.state.yard.items.findIndex((it) => it.t === t); return [[12, 6], [13, 7], [12, 7]].map((p) => w.yardAt((p[0] + 0.5) * T, (p[1] + 0.5) * T) === i); }, IX.dog_yard);
   assert.deepStrictEqual(picks, [true, true, true]);
   // a real drag: Lily's stand one tile left (its middle, along the finger; the dog's yard and the ponds have no room to move
   // in Part 1: the frame's bushes, forage spots and the field's fence are round them)
@@ -222,7 +224,7 @@ test('Decorate: a building is picked by its whole box and dragged; the ranch mov
   await frames(page, 3);
   const after = await page.evaluate(() => {
     const w = Farm.world, z = w.zones.pen[0], T = 256, shop = w.objects.find((o) => o.type === 'shop');
-    return { pen: [z.x0, z.y0, z.x1, z.y1], shop: [shop.x0, shop.y0], inPen: w.herd.members.length >= 2 && w.herd.members.every((m) => m.x >= z.x0 * T && m.x <= (z.x1 + 1) * T && m.y >= z.y0 * T && m.y <= (z.y1 + 1) * T), solidOld: !!w.blocked[w.idx(2, 27)], solidNew: !!w.blocked[w.idx(24, 14)] };
+    return { pen: [z.x0, z.y0, z.x1, z.y1], shop: [shop.x0, shop.y0], inPen: w.herd.members.length >= 2 && w.herd.members.every((m) => m.x >= z.x0 * T && m.x <= (z.x1 + 1) * T && m.y >= z.y0 * T && m.y <= (z.y1 + 1) * T), solidOld: !!w.blocked[w.idx(2, 27)], solidNew: !!w.blocked[w.idx(26, 16)] }; // (the barn's base; round 2: its roof row and its empty corners are open)
   });
   assert.deepStrictEqual(after, { pen: [25, 18, 31, 21], shop: [15, 31], inPen: true, solidOld: false, solidNew: true });
   const saved = await page.evaluate(() => { const s = JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]); return !!s.ef; });

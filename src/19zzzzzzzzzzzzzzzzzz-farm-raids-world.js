@@ -26,8 +26,8 @@
     s.banditKey = b.key;
     // (a bandit's own fences only: the new-farm template's 60-piece field fence walled every bandit farm alike, so its own
     // fences hardly fitted; once raiders could no longer land in the field, 10 Nov 2026, that wall decided every battle)
-    var ff = O.index.field_fence;
-    s.yard.items = s.yard.items.filter(function (it) { return it.t !== ff; });
+    var ff = O.index.field_fence, rf = O.index.ranch_fence; // (and not the pen fence old farms get back, 11 Nov 2026)
+    s.yard.items = s.yard.items.filter(function (it) { return it.t !== ff && it.t !== rf; });
     return s;
   };
 
@@ -83,8 +83,11 @@
       var type = O.types[it.t];
       if (!type || !(type.fieldPlot || type.building === 'ranch')) return;
       L.yardBox(it.t, it.x, it.y).forEach(function (p) { for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) mark(p[0] + dx, p[1] + dy); });
+      var pa = L.penArea && L.penArea(it); // (round 2: the barn, the coop and their animals' patch are one block, as the old ranch was)
+      if (pa) for (var y = it.y; y <= Math.max(pa.y1, it.y + type.h - 1) + 1; y++) for (var x = Math.min(pa.x0, it.x) - 1; x <= Math.max(pa.x1, it.x + type.w - 1) + 1; x++) mark(x, y);
     });
-    ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0; y <= z.y1; y++) for (var x = z.x0; x <= z.x1; x++) mark(x, y); });
+    // (and the animals' patch in front of the barn and coop, with a tile round it: it was inside the old ranch, 11 Nov 2026)
+    ((this.zones && this.zones.pen) || []).forEach(function (z) { for (var y = z.y0 - 1; y <= z.y1 + 1; y++) for (var x = z.x0 - 1; x <= z.x1 + 1; x++) mark(x, y); });
     var farm = { w: w, h: h, solid: solid.join(''), defs: defs, loot: loot, name: (opts && opts.name) || (F.session.visit && F.session.visit.name) || '', keep: R.battle.keepReal,
       noDrop: Array.prototype.map.call(nd, function (v) { return v ? '1' : '0'; }).join('') };
     farm.drop = L.frDropCells(farm);
@@ -416,7 +419,7 @@
     near('def_sprinkler', b0(s.banditDefs.sprinkler), fx + 5, fy + 1, 5);
     // (the pen's defenses at its gate, the way in: since Edit Farm, 10 Nov 2026, nothing stands inside the ranch)
     var ranch = L.buildingsOf(s, 'ranch')[0], gate = ranch && L.maskTiles(ranch.t, ranch.x, ranch.y, 'G')[0];
-    var px = gate ? gate[0] : pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = gate ? gate[1] + 1 : pen ? Math.floor((pen.y0 + pen.y1) / 2) : fy;
+    var px = gate ? gate[0] : pen ? Math.floor((pen.x0 + pen.x1) / 2) : fx + 15, py = gate ? gate[1] + 1 : pen ? pen.y1 + 1 : fy; // (round 2: in front of the animals' patch)
     near('def_goose', b0(s.banditDefs.goose), px, py, 3);
     near('def_beebox', b0(s.banditDefs.beebox), px, py, 4);
     var door = (this.objects || []).filter(function (o) { return o.name === 'house_door'; })[0], hx = door ? door.x0 : 30, hy = door ? door.y1 + 2 : 10;

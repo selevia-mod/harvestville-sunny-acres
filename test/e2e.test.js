@@ -1621,7 +1621,7 @@ test('fishing at the pond and foraging', async () => {
   const { page, problems, context } = await open(await makeSave("L.addItem(s, 'rod', 1);"));
   await page.evaluate(() => { Farm.Config.FISH_WINDOW = 1e9; }); // headless frames are slow: don't let it get away
   await hold(page, 'rod');
-  await teleport(page, 14, 4, 'right'); // the pond is to the east
+  await teleport(page, 14, 5, 'right'); // the pond is to the east (its oval's water: round 2, 11 Nov 2026)
   assert.strictEqual(await actionLabel(page), 'Fish');
   await tapAction(page);
   assert.ok(await page.evaluate(() => Farm.world.fishing && Farm.world.fishing.state === 'wait'));
@@ -4185,7 +4185,7 @@ test('skills: a till levels up Farming, its card opens Skills; the farmer card a
   // fishing at Fishing 3: a 10% bigger green bar; the table is the plain one again after
   await page.evaluate(() => { Farm.Config.FISH_WINDOW = 1e9; Farm.session.state.sk2.fish = Farm.Config.SKILLS.need[3]; });
   await hold(page, 'rod');
-  await teleport(page, 14, 4, 'right');
+  await teleport(page, 14, 5, 'right');
   assert.strictEqual(await actionLabel(page), 'Fish');
   await tapAction(page);
   await page.evaluate(() => { Farm.world.fishing.biteAt = 0; });
@@ -6790,28 +6790,16 @@ test("the farm map's bushes, rocks, stumps and tall grass: cleared with the tool
 // Owner, 11 Nov 2026 (iPhone, "Visual bug on barn, i go thru the arts"): the ranch's picture lies under everyone (so the
 // animals in the pen are over it), and the farmer on the tiles behind the coop was drawn on top of the coop. Its barn and
 // coop are drawn again as a standing picture: behind them you are behind them; the pen's animals stay in front.
-test("the ranch's barn and coop stand in front of whoever is behind them; the pen's animals stay in front (owner, 11 Nov 2026)", async () => {
+test("the ranch's barn and coop stand in front of whoever is behind them; the animals in front of it stay in front (owner, 11 Nov 2026)", async () => {
   const save = await makeSave("s.goal = 99; s.wv = C.NEWS_LATEST; s.animals = []; ['cow','chicken','pig'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });");
   const { page, problems, context } = await open(save);
   await closeAll(page);
-  const ranch = await page.evaluate(() => { const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, it = s.yard.items.find((i) => O[i.t] && O[i.t].key === 'ranch'); return { x: it.x, y: it.y }; });
-  await teleport(page, ranch.x + 6, ranch.y + 3, 'up'); // (a walkable tile behind the coop's front)
+  const ranch = await page.evaluate(() => { const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, it = s.yard.items.find((i) => O[i.t] && O[i.t].key === 'ranch'); return { x: it.x, y: it.y, i: s.yard.items.indexOf(it) }; });
+  await teleport(page, ranch.x + 4, ranch.y + 1, 'down'); // (behind the barn's roof: open ground, 11 Nov 2026)
   await frames(page, 3);
-  const d = await page.evaluate((r) => {
-    const w = Farm.world, T = Farm.Config.TILE, bk = w.yardBacks.find((b) => Math.abs(b.x - r.x * T) < 1);
-    return { backs: w.yardBacks.length, player: w.player.depth, back: bk && bk.depth, animals: w.herd.members.map((m) => m.sprite.depth) };
-  }, ranch);
-  assert.ok(d.back !== undefined, "the ranch's standing picture");
-  assert.ok(d.player < d.back, 'the farmer behind the coop is drawn behind it');
-  assert.ok(d.animals.every((a) => a > d.back), "the pen's animals are drawn in front of it");
-  await shot(page, 'ranch-behind-coop');
-  // Decorate: one picture to drag; Done draws the standing one again
-  await page.evaluate(() => Farm.world.startYard());
-  await frames(page, 2);
-  assert.ok(await page.evaluate(() => Farm.world.yardBacks.every((b) => !b.visible)), 'hidden while decorating');
-  await page.evaluate(() => Farm.world.endYard());
-  await frames(page, 2);
-  assert.ok(await page.evaluate(() => Farm.world.yardBacks.length === 2 && Farm.world.yardBacks.every((b) => b.visible)), 'back after Done');
+  const d = await page.evaluate((r) => { const w = Farm.world; return { player: w.player.depth, ranch: w.yardSprites[r.i].depth, animals: w.herd.members.map((m) => m.sprite.depth) }; }, ranch);
+  assert.ok(d.player < d.ranch, 'the farmer behind the barn is drawn behind it');
+  assert.ok(d.animals.every((a) => a > d.ranch), 'the animals in front of it are drawn in front');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -6826,14 +6814,14 @@ test('the dog lives in front of his doghouse and sleeps in its doorway, never on
   await frames(page, 4);
   const yardOf = () => { const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, it = s.yard.items.find((i) => O[i.t] && O[i.t].key === 'dog_yard'); return { x: it.x, y: it.y, i: s.yard.items.indexOf(it) }; };
   const night = await page.evaluate((src) => {
-    const yd = eval('(' + src + ')')(), w = Farm.world, T = Farm.Config.TILE, d = w.dog, bk = w.yardBacks.find((b) => Math.abs(b.x - yd.x * T) < 1);
-    return { T, yd, x: d.x, y: d.y, depth: d.sprite.depth, back: bk && bk.depth, frame: d.sprite.frame.name };
+    const yd = eval('(' + src + ')')(), w = Farm.world, T = Farm.Config.TILE, d = w.dog, sp = w.yardSprites[yd.i];
+    return { T, yd, x: d.x, y: d.y, depth: d.sprite.depth, back: sp && sp.depth, frame: d.sprite.frame.name };
   }, yardOf.toString());
-  assert.ok(night.back !== undefined, "the doghouse's standing picture");
-  assert.ok(night.y >= (night.yd.y + 3) * night.T, 'asleep below the doghouse, not on its roof');
-  assert.ok(Math.abs(night.x - (night.yd.x + 2) * night.T) < night.T * 0.1, 'in the doorway (the middle)');
+  assert.ok(night.back !== undefined, "the doghouse's picture");
+  assert.ok(night.y >= (night.yd.y + 2) * night.T, 'asleep below the doghouse, not on its roof');
+  assert.ok(Math.abs(night.x - (night.yd.x + 1) * night.T) < night.T * 0.1, 'in the doorway (the middle)');
   assert.ok(night.depth > night.back, 'drawn in front of the doghouse');
-  if (process.env.SHOTS) { await teleport(page, night.yd.x + 5, night.yd.y + 4, 'left'); await frames(page, 4); }
+  if (process.env.SHOTS) { await teleport(page, night.yd.x + 4, night.yd.y + 3, 'left'); await frames(page, 4); }
   await shot(page, 'dog-asleep-doorway');
   await context.close();
   // by day he roams the open yard only
@@ -6843,9 +6831,50 @@ test('the dog lives in front of his doghouse and sleeps in its doorway, never on
   const day = await page.evaluate((src) => {
     const yd = eval('(' + src + ')')(), d = Farm.world.dog, T = Farm.Config.TILE, ys = [];
     for (let k = 0; k < 40; k++) ys.push(d.spot().y);
-    return { min: Math.min(...ys) / T, top: yd.y + 3 };
+    return { min: Math.min(...ys) / T, top: yd.y + 2 };
   }, yardOf.toString());
   assert.ok(day.min >= day.top, 'his spots are all in front of the doghouse');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 11 Nov 2026: the barn and coop only, the doghouse only, a new pond (all at 30 degrees); fences are the players'
+// own (old farms get their old pen and dog fences as real pieces); no invisible walls round the pictures.
+test('the farm round 2: barn and coop only with the animals in front, the doghouse only, the new pond, the old fences as pieces, no invisible walls (owner, 11 Nov 2026)', async () => {
+  const save = await makeSave("s.goal = 99; s.wv = C.NEWS_LATEST; s.animals = []; ['cow','chicken','pig','cow','chicken'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const info = await page.evaluate(() => {
+    const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, L = Farm.Logic, w = Farm.world, T = Farm.Config.TILE;
+    const it = (k) => s.yard.items.find((i) => O[i.t] && O[i.t].key === k);
+    const ranch = it('ranch'), dog = it('dog_yard'), pen = w.zones.pen[0], da = w.zones.dogarea[0];
+    const fences = s.yard.items.filter((i) => O[i.t] && O[i.t].key === 'ranch_fence').map((i) => i.x + ',' + i.y);
+    return { ranch: [ranch.x, ranch.y], dog: [dog.x, dog.y], pen: [pen.x0, pen.y0, pen.x1, pen.y1], dogArea: [da.x0, da.y0, da.x1, da.y1], fences, fv2: L.serialize(s).fv2,
+      herdInPen: w.herd.members.every((m) => m.x >= pen.px && m.x <= pen.px + pen.pw && m.y >= pen.py && m.y <= pen.py + pen.ph) };
+  });
+  assert.deepStrictEqual(info.ranch, [2, 27]);
+  assert.deepStrictEqual(info.pen, [3, 31, 9, 34], 'the animals live on the patch in front of the barn, where the pen was');
+  assert.ok(info.herdInPen, 'every animal on it');
+  assert.deepStrictEqual(info.dog, [12, 6], 'the doghouse where the old one stood');
+  assert.deepStrictEqual(info.dogArea, [11, 8, 14, 9], "the dog's ground in front of it");
+  assert.strictEqual(info.fv2, 1);
+  for (const f of ['2,31', '2,35', '10,31', '3,35', '5,35', '7,35', '9,35', '11,5', '14,5', '11,7']) assert.ok(info.fences.includes(f), 'an old fence piece at ' + f);
+  assert.ok(!info.fences.includes('6,35'), "the pen's gate is open");
+  // nothing can be built on the animals' patch; a fence beside it can
+  const place = await page.evaluate(() => {
+    const L = Farm.Logic, s = Farm.session.state, O = Farm.Config.OUTDOOR.index;
+    return { inPen: L.yardCantPlace(s, Farm.farm(), O.wood_fence, 5, 32, null), beside: L.yardCantPlace(s, Farm.farm(), O.wood_fence, 1, 32, null) };
+  });
+  assert.strictEqual(place.inPen, 'taken', "the animals' patch stays free");
+  // no invisible walls: the tiles beside the barn, behind its roof, beside the doghouse and at the pond's corners are open
+  const open1 = await page.evaluate(() => { const w = Farm.world; return [[2, 27], [2, 30], [10, 29], [6, 27], [12, 6], [13, 6], [15, 3], [19, 3]].map((p) => p + ':' + (!w.blocked[w.idx(p[0], p[1])] && w.walkable(p[0], p[1]))); });
+  assert.deepStrictEqual(open1.filter((x) => /false/.test(x)), [], 'all open');
+  const solid1 = await page.evaluate(() => { const w = Farm.world; return [[5, 29], [5, 30], [12, 7], [17, 5]].map((p) => p + ':' + !!w.blocked[w.idx(p[0], p[1])]); });
+  assert.deepStrictEqual(solid1.filter((x) => /false/.test(x)), [], "the buildings' bases and the pond's water are solid");
+  if (process.env.SHOTS) { await teleport(page, 6, 36, 'up'); await frames(page, 4); }
+  await shot(page, 'round2-ranch');
+  if (process.env.SHOTS) { await teleport(page, 16, 9, 'up'); await frames(page, 4); }
+  await shot(page, 'round2-dog-pond');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

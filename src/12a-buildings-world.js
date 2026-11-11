@@ -39,12 +39,13 @@
         var m = tiles('M')[0];
         if (m) { self.objects.push(rect('mail', 'mailbox', [m[0], m[1], m[0], m[1]])); self.mailAt = m; }
       } else if (b === 'ranch') {
-        var pen = box(tiles('P')), inc = box(tiles('I'));
+        var pa = L.penArea && L.penArea(it), pen = pa ? [pa.x0, pa.y0, pa.x1, pa.y1] : box(tiles('P')), inc = box(tiles('I'));
         if (pen) (self.zones.pen = self.zones.pen || []).push(rect('pen', 'animal_pen', pen));
         if (inc) self.objects.push(rect('incubator', 'incubator', inc));
       } else if (b === 'dog') {
         // (the open yard in front of the doghouse: owner, 11 Nov 2026, "check the dog": with the whole yard he slept on its roof)
-        (self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', [it.x, it.y + (type.dogTop || 0), it.x + type.w - 1, it.y + type.h - 1]));
+        var da = L.dogArea && L.dogArea(it); // (the doghouse's: the open ground in front of it, 11 Nov 2026)
+        (self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', da ? [da.x0, da.y0, da.x1, da.y1] : [it.x, it.y + (type.dogTop || 0), it.x + type.w - 1, it.y + type.h - 1]));
       } else if (b === 'shop') {
         var c = box(tiles('S'));
         if (c) self.objects.push(rect('shop', 'seed_shop', c));

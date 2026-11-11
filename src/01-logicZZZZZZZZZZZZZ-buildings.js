@@ -44,7 +44,8 @@
         var mail = L.maskTiles(it.t, it.x, it.y, 'M')[0];
         if (mail) info.needs.push([below(mail), mail[1] * W + mail[0] - 1]);
       } else if (b === 'ranch') {
-        info.needs.push(L.maskTiles(it.t, it.x, it.y, 'G').map(below)); // (the tile in front of the gate)
+        // (the animals' patch in front of it, 11 Nov 2026; before, the tile in front of its gate)
+        info.needs.push(L.penTiles ? L.penTiles(it).map(function (p) { return p[1] * W + p[0]; }) : L.maskTiles(it.t, it.x, it.y, 'G').map(below));
       } else if (b === 'shop') {
         info.needs.push(L.maskTiles(it.t, it.x, it.y, 'S').map(below));
       } else if (b === 'stable') {

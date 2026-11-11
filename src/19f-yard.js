@@ -70,6 +70,14 @@
     this.yardSprites.forEach(function (img) { img.destroy(); });
     (this.yardBacks || []).forEach(function (img) { img.destroy(); });
     this.yardBacks = [];
+    (this.yardMarks || []).forEach(function (m) { m.destroy(); });
+    this.yardMarks = [];
+    if (this.yd && L.penArea) s.yard.items.forEach(function (it) { // (while decorating: the animals' patch in front of the barn, kept free)
+      var a = L.penArea(it);
+      if (!a) return;
+      self.yardMarks.push(self.add.rectangle(a.x0 * T, a.y0 * T, (a.x1 - a.x0 + 1) * T, (a.y1 - a.y0 + 1) * T, 0x9be37a, 0.22)
+        .setOrigin(0, 0).setStrokeStyle(10, 0xffffff, 0.7).setDepth(DEPTH.flat + 0.5));
+    });
     this.yardZones.forEach(function (z) { self.solids.remove(z, true, true); });
     Object.keys(this.yardBlocked || {}).forEach(function (i) { delete self.blocked[i]; });
     this.yardSprites = [];
@@ -137,6 +145,7 @@
     this.busy = true;
     F.input.reset();
     this.yd = { sel: null, drag: null, pan: null, brush: null, zoom: cam.zoom };
+    this.renderYard(); // (decorating: the field plots and the animals' patch show, 11 Nov 2026)
     cam.setZoom(cam.zoom * 0.6);
     cam.centerOn(Math.max(f.x, 22 * T), f.y + T);
     this.ydBox = this.add.graphics().setDepth(DEPTH.fx + 1);

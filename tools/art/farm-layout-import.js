@@ -11,8 +11,9 @@ const ROOT = path.join(__dirname, '..', '..'), ART = path.join(ROOT, 'art-src', 
 const U = 96; // (e54, 11 Nov 2026: 96 px a tile, not the props' 128: the page was over its limit with these four in it; drawn over the box all the same)
 const PIECES = [
   { src: 'house_1', key: 'house_1', w: 5, h: 5, q: 0.66 },
-  { src: 'ranch', key: 'ranch', w: 9, h: 9, q: 0.65, u: 80 }, // (the big flat one at 80 px a tile, a little more squeezed: e54's page limit)
-  { src: 'dog_yard', key: 'dog_yard', w: 4, h: 5, q: 0.66 },
+  // (owner, 11 Nov 2026: the barn and coop only, the doghouse only, a new pond; all at 30 degrees like the new characters)
+  { src: 'ranch', key: 'ranch', w: 9, h: 4, q: 0.66 },
+  { src: 'doghouse', key: 'dog_yard', w: 2, h: 2, q: 0.7 },
   { src: 'pond', key: 'farm_pond', w: 5, h: 4, q: 0.66 },
 ];
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');

@@ -20,7 +20,7 @@ const O = C.OUTDOOR, ix = O.index;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 // (the field's fence: land.test.js. The buildings and the field plots stay: they are yard pieces since Edit Farm, 10 Nov 2026)
-const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = s.yard.items.filter((it) => it.t !== ix.field_fence); s.gold = 1e6; return s; };
+const fresh = () => { const s = L.newState(); s.seed = 11; s.yard.items = s.yard.items.filter((it) => it.t !== ix.field_fence && it.t !== ix.ranch_fence); s.gold = 1e6; return s; };
 const n0 = (s) => s.yard.items.length;
 
 test('the farm is 38 wide and the save says so; the meadow is free to build on, the field and buildings are not', () => {

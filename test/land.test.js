@@ -146,8 +146,9 @@ test('yard pieces go on land you own, not on the tracks or fenced land, and not 
 test('the two ponds fill the can from the track, and a yard piece that stood there is moved off', () => {
   const s = fresh(), O = C.OUTDOOR; // (the ponds are yard pieces since Edit Farm, 10 Nov 2026)
   const water = (x, y) => s.yard.items.some((it) => L.yardWater(it.t, it.x, it.y).some((p) => p[0] === x && p[1] === y));
-  assert.ok(water(38, 11), 'beside the track');
-  assert.ok(water(38, 21));
+  assert.ok(water(38, 12), 'beside the track'); // (the round-2 pond is an oval: its top row is narrower, 11 Nov 2026)
+  assert.ok(water(38, 22));
+  assert.ok(!water(38, 11) && !water(34, 10), 'its empty corners are open ground');
   assert.ok(s.yard.items.filter((it) => it.t === O.index.farm_pond).length === 3);
   s.yard.items.push({ t: C.OUTDOOR.index.planter, x: 35, y: 11 });
   assert.strictEqual(L.yardRepair(s, FARM), 1);

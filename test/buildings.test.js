@@ -25,8 +25,8 @@ test('the buildings are appended yard types, each mask as big as the piece', () 
     assert.strictEqual(t.cat, 'none', k + ' is not for sale');
   });
   assert.strictEqual(O.types[O.index.farmhouse].mask.join('').split('D').length - 1, 1, 'one door');
-  assert.ok(O.types[O.index.ranch].mask.some((r) => r.indexOf('G') >= 0), 'the ranch has a gate');
-  assert.ok(O.types[O.index.farm_pond].mask.every((r) => /^W+$/.test(r)), 'a pond is all water');
+  assert.ok(O.types[O.index.ranch].pen, 'the ranch has its animals\' patch in front (round 2, 11 Nov 2026: no gate, no fence)');
+  assert.ok(O.types[O.index.farm_pond].mask.join('').split('W').length - 1 >= 12, 'a pond is mostly water');
   assert.strictEqual(O.types[O.index.field_plot4].kind, 'plot');
   assert.strictEqual(O.types[O.index.field_plot42].kind, 'plot');
 });
@@ -49,18 +49,10 @@ test('the masks match the farm map they came from (78b8af5): its walls, the pen,
     }
   };
   check('farmhouse', 4, 3, [0, 1, 2, 3, 4]); // (the mailbox column is a prop, not a wall)
-  check('ranch', 2, 27);
-  check('farm_pond', 15, 3); check('farm_pond', 34, 10); check('farm_pond', 34, 20);
+  // (the ranch, the doghouse and the pond are the round-2 pictures since 11 Nov 2026: their masks follow the art: test/e2e.test.js)
   check('seed_stand', 14, 28);
   const obj = (n) => m.layers.find((l) => l.type === 'objectgroup').objects.find((o) => o.name === n), tile = (v) => Math.floor(v / 256);
   const at = (key, x0, y0, letter) => { const t = O.types[O.index[key]], out = []; t.mask.forEach((r, dy) => r.split('').forEach((c, dx) => { if (c === letter) out.push([x0 + dx, y0 + dy]); })); return out; };
-  const pen = obj('animal_pen'), P = at('ranch', 2, 27, 'P');
-  assert.strictEqual(P.length, (pen.width / 256) * (pen.height / 256));
-  assert.deepStrictEqual(P[0], [tile(pen.x), tile(pen.y)]);
-  const inc = obj('incubator');
-  assert.deepStrictEqual(at('ranch', 2, 27, 'I')[0], [tile(inc.x), tile(inc.y)]);
-  const dog = obj('dog_yard');
-  assert.deepStrictEqual([at('dog_yard', 11, 5, 'Y')[0][1], at('dog_yard', 11, 5, 'Y').length > 0], [tile(dog.y) + 1, true]);
   const shop = obj('seed_shop');
   assert.deepStrictEqual(at('seed_stand', 14, 28, 'S'), [[tile(shop.x), tile(shop.y)], [tile(shop.x) + 1, tile(shop.y)]]);
   const door = obj('house_door'), d = at('farmhouse', 4, 3, 'D')[0];
@@ -76,10 +68,10 @@ test('a building\'s mask decides its solid tiles, its water and its open tiles',
   assert.ok(!solid.includes('9,3'), 'beside the mailbox is open');
   assert.strictEqual(L.maskAt(h, 4, 3, 6, 6), 'D');
   const p = O.index.farm_pond;
-  assert.strictEqual(L.yardSolid(p, 15, 3).length, 20, 'water is solid');
-  assert.strictEqual(L.yardWater(p, 15, 3).length, 20);
+  assert.strictEqual(L.yardSolid(p, 15, 3).length, 13, 'water is solid; the oval\'s corners are open');
+  assert.strictEqual(L.yardWater(p, 15, 3).length, 13);
   assert.strictEqual(L.yardSolid(O.index.field_plot4, 4, 11).length, 0, 'a field plot is walked on');
-  assert.strictEqual(L.maskTiles(O.index.ranch, 2, 27, 'G').length, 1, 'the gate');
+  assert.strictEqual(L.penTiles({ t: O.index.ranch, x: 2, y: 27 }).length, 28, 'the animals\' patch, 7 x 4');
   // pieces without a mask keep the foot rule
   assert.strictEqual(L.yardSolid(O.index.bench, 5, 5).length, 2);
 });
@@ -108,7 +100,7 @@ test('a new farm has its buildings where the map had them, and its field as 16 p
   const s = fresh(), at = (k) => JSON.parse(JSON.stringify(s.yard.items.filter((it) => it.t === O.index[k]).map((it) => it.x + ',' + it.y)));
   assert.deepStrictEqual(at('farmhouse'), ['4,3']);
   assert.deepStrictEqual(at('ranch'), ['2,27']);
-  assert.deepStrictEqual(at('dog_yard'), ['11,5']);
+  assert.deepStrictEqual(at('dog_yard'), ['12,6'], 'the doghouse alone, where the old yard\'s house stood');
   assert.deepStrictEqual(at('farm_pond'), ['15,3', '34,10', '34,20']);
   assert.deepStrictEqual(at('seed_stand'), ['14,28']);
   assert.strictEqual(at('field_plot4').length, 12);
@@ -130,15 +122,20 @@ test('the house door and the buildings\' openings come from the pieces', () => {
   assert.ok(f2.needs.length >= BASE.needs.length + 4);
 });
 
-test('the ranch\'s gate must stay reachable: a hedge shutting it is refused', () => {
-  const s = fresh(), t = O.index.hedge, r = s.yard.items.find((it) => it.t === O.index.ranch);
-  r.x = 24; r.y = 12; // out in the meadow: its gate at (28,20), entered from (28,21)
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(L.maskTiles(r.t, r.x, r.y, 'G').map((p) => p.join(',')))), ['28,20']);
-  s.yard.bag[t] = 3;
-  assert.strictEqual(typeof L.placeYard(s, BASE, t, 27, 21), 'number');
-  assert.strictEqual(typeof L.placeYard(s, BASE, t, 29, 21), 'number');
-  assert.strictEqual(L.yardCantPlace(s, BASE, t, 28, 22, null), 'blocks', 'the last one shutting the gate in');
+test('the ranch\'s animals\' patch must stay reachable: a fence shutting it in is refused (round 2, 11 Nov 2026)', () => {
+  const s = fresh(), t = O.index.wood_fence, r = s.yard.items.find((it) => it.t === O.index.ranch);
+  r.x = 24; r.y = 12; // out in the meadow: its patch is (25..31, 16..19), the barn and coop behind it
+  assert.deepStrictEqual(plainA(L.penArea(r)), { x0: 25, y0: 16, x1: 31, y1: 19 });
+  const ring = [];
+  for (let y = 16; y <= 19; y++) ring.push([24, y], [32, y]);
+  for (let x = 25; x <= 31; x++) ring.push([x, 20]); // (corners need no fence: the animals walk straight, not diagonally)
+  s.yard.bag[t] = ring.length;
+  ring.slice(0, -1).forEach((p) => assert.strictEqual(typeof L.placeYard(s, BASE, t, p[0], p[1]), 'number', 'fence at ' + p));
+  const last = ring[ring.length - 1];
+  assert.strictEqual(L.yardCantPlace(s, BASE, t, last[0], last[1], null), 'blocks', 'the last one shutting the animals in');
+  assert.strictEqual(L.yardCantPlace(s, BASE, t, 28, 17, null), 'taken', 'and nothing goes on the patch itself');
 });
+const plainA = (v) => JSON.parse(JSON.stringify(v));
 
 test('an older save gets them once, its soil and crops stay on the same tiles, and nothing else moves', () => {
   const s = fresh(), W = C.FARM_W;

@@ -25,9 +25,10 @@
   var REST = {};
   var restFor = function (s) {
     var L2 = F.Logic, d = L2.buildingsOf && L2.buildingsOf(s, 'dog')[0], r = L2.buildingsOf && L2.buildingsOf(s, 'ranch')[0];
-    REST.andoy = d ? [d.x + 1.6, d.y + 3.7] : REST0.andoy;
-    REST.lucing = d ? [d.x + 0.3, d.y + 3.7] : REST0.lucing;
-    REST.kiko = d ? [d.x + 3, d.y + 3.7] : REST0.kiko;
+    // (from the doghouse, which stands a tile in from the old dog yard's corner since round 2, 11 Nov 2026: the same spots)
+    REST.andoy = d ? [d.x + 0.6, d.y + 2.7] : REST0.andoy;
+    REST.lucing = d ? [d.x - 0.7, d.y + 2.7] : REST0.lucing;
+    REST.kiko = d ? [d.x + 2, d.y + 2.7] : REST0.kiko;
     REST.berto = r ? [r.x + 10, r.y + 4.7] : REST0.berto;
     return REST;
   };
