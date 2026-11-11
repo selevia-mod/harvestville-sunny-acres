@@ -207,7 +207,7 @@
     // the pose: the weapon drawn in the hands when your look has that sheet (wpn_hold_*), else the empty-hand poses with the
     // weapon drawn over them (a look without one yet), else the archer's
     var hold = F.holdOwn(k);
-    hold = hold && F.holdHere(hold) && L.holdHas(hold, this.dir) ? F.holdSheet(hold) : null; // (a direction it has no picture for: the old way)
+    hold = hold && !F.holdOff && F.holdHere(hold) && L.holdHas(hold, this.dir) ? F.holdSheet(hold) : null; // (a direction it has no picture for: the old way; F.holdOff: always the old way)
     var d = this.dirVec(), at = POSE[this.dir], key = hold || F.weaponPoseKey(k), depth = p.depth + (at.behind ? -0.001 : 0.001), how = SHOT[k];
     p.anims.stop();
     var own = !!(key && (hold || F.WPN_GRIPS[key])); // (the owner's poses: ready, then aim or throw, then after)
@@ -233,7 +233,7 @@
     if (!hold) sh.held = heldImage(this, k, lv, p.x, p.y, sh.ang).setDepth(depth);
     if (hold && lv) { // (drawn in its plain look: the level shows as a soft glow of its colour round it; the Moon's own glow)
       var moonLv = L.weaponMoon(k, lv), col = moonLv ? F.WPN_GLOW : parseInt(F.WPN_PAL[lv].shot.slice(1), 16);
-      sh.glow = this.add.circle(p.x, p.y, (moonLv ? 0.42 : 0.34) * T, col, moonLv ? 0.3 : 0.2).setDepth(p.depth + 0.0008).setBlendMode(Phaser.BlendModes.ADD);
+      sh.glow = this.add.circle(p.x, p.y, (moonLv ? 0.32 : 0.22) * T, col, moonLv ? 0.26 : 0.14).setDepth(p.depth + 0.0008).setBlendMode(Phaser.BlendModes.ADD);
     } else if (!hold && L.weaponMoon(k, lv)) sh.glow = glowAt(this, p.x, p.y, 0.36 * T, depth - 0.0005); // (the Moon pictures glow too: a soft one)
     posePut(this, sh);
     this.acting = W[k].still;
@@ -259,8 +259,9 @@
     if (k === 'rifle' && sh.rig) { sfx('smash'); this.rigFire(sh); this.wpnPuff(sh.rigTip.x, sh.rigTip.y, sh.lv, sh.rig.view === 'back' ? sh.rig.cont.depth - 0.002 : null); } // (facing away: behind his head)
     else if (k === 'rifle') { // a pop, a flash, a puff, a light shake and the kick (motion: the shot's clock)
       sfx('smash');
-      this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, POSE[sh.dir].behind && sh.body ? sh.body.depth - 0.002 : null);
-      this.wpnPuff(tip.x, tip.y, sh.lv);
+      var behind = POSE[sh.dir].behind && sh.body ? sh.body.depth - 0.002 : null; // (facing away: behind his head)
+      this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, behind);
+      this.wpnPuff(tip.x, tip.y, sh.lv, behind);
       this.cameras.main.shake(100, 0.002);
     } else {
       sfx('bowshot');

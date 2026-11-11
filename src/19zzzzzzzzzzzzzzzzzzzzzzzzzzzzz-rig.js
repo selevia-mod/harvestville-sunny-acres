@@ -32,7 +32,7 @@
   var create = P.create;
   P.create = function () {
     create.call(this);
-    if (this.wild && L.hasWeapon(this.state, 'rifle')) askArt();
+    if (this.wild && L.hasWeapon(this.state, 'rifle') && (F.rigOn || (window.gameHost && window.gameHost.rigOn))) askArt(); // (parked: its pack only when it is on)
   };
   var texture = function (w) {
     var tex = w.textures, key = F.ensureTexture(w, 'rig_boy'), t = tex.get(key);

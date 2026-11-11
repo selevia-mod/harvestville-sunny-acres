@@ -382,7 +382,7 @@ const openSpace = (page) => page.evaluate(() => {
 
 test('the Rifle rig: he aims and shoots built from parts in all four ways, both hands on the rifle, the dog to the side; back to his sheet at the same size and place', async () => {
   const { page, problems, context } = await huntWith(`L.getWeapon(s, 'rifle'); s.wpn.rifle = 3; L.buyAmmo(s, 'bullets', 5);`);
-  await page.evaluate(() => { Farm.rigOn = true; }); // (parked, owner 11 Nov 2026: off unless asked for)
+  await page.evaluate(() => { Farm.rigOn = true; Farm.holdOff = true; Farm.needImage('rig_boy'); }); // (parked, owner 11 Nov 2026: off unless asked for; and not the drawn-in sheet)
   await page.waitForFunction(() => Farm.images.rig_boy && Farm.Config.RIG_BOY, null, SLOW);
   assert.ok(await openSpace(page), 'an open spot');
   await hold(page, 'rifle');

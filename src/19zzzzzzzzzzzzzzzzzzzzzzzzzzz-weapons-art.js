@@ -243,6 +243,12 @@
       { hand: [126, 182], tip: [126, 182] }, { hand: [283, 162], tip: [283, 162] }, { hand: [198, 178], tip: [198, 178] },
       { hand: [246, 168], tip: [246, 168] }, { hand: [90, 172], tip: [90, 172] }, { hand: [118, 190], tip: [118, 190] }],
   };
+  // the owner's rifle-boy (11 Nov 2026), measured on the imported sheet: the hand on the grip and the muzzle; facing you
+  // the rifle points at you (its muzzle on the barrel's end), facing away it is over his right shoulder (the shot leaves it)
+  F.WPN_HOLD_PTS.wpn_hold_rifle_boy = [
+    { hand: [220, 273], tip: [280, 290] }, { hand: [183, 190], tip: [183, 177] }, { hand: [192, 193], tip: [269, 150] },
+    { hand: [237, 259], tip: [240, 250] }, { hand: [225, 178], tip: [229, 165] }, { hand: [219, 178], tip: [222, 165] },
+    { hand: [193, 252], tip: [57, 265] }, { hand: [150, 190], tip: [10, 165] }, { hand: [179, 169], tip: [59, 132] }];
   F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };
 
   F.weaponPoseKey = function (k) {
