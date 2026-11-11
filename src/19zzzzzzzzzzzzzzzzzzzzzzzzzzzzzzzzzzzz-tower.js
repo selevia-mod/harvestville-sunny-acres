@@ -1,0 +1,283 @@
+// The Lost Tower in the world (owner, 12 Nov 2026; content 00-zzzzzzzzzzzzzzzzzzzzzz-tower.js, rules
+// 01-logicZZZZZZZZZZZZZZZZZ-tower.js). It runs on the caves' own code (19zt-lair.js): F.dungeonOf('tower') gives the
+// floor's realm as a cave (its colours, its roster, the deepest floor and the lift), so the stairs up are the caves' gate
+// (shut until every enemy is down), the lift by the way in stops every 10 floors you have reached, and the room is lit as a
+// cave. What is the Tower's own:
+// - each floor's room is built from its number (L.towerMap) and put in F.ASSETS.maps and Phaser's tilemap cache just
+//   before the floor opens (the page carries no tower map);
+// - the enemies: as strong as their floor (L.towerHits, L.towerLoss, L.towerSpeed), all at once or in waves (C.TOWER.wave);
+// - the door: Manila's lighthouse (the warp 'tower_door', L.manilaMap); in at the last lift you reached; out by the ladder,
+//   or with no energy left, back at the lighthouse;
+// - Pearls when a floor's last enemy falls, the first time (L.towerPay), a "+N Pearls" pop; the floor, the enemies left and
+//   your Pearls on a chip while you climb, and your Pearls in the bag.
+// With friends (up to 4 on a floor): the game server holds a tower floor as it holds a cave's (19zzzzzzzzz-gameserver.js,
+// server/lib/tower.js), and 19zzz...z-tower-friends.js is the Tower's side of it (the team's Pearls, the tricks it is
+// told of, friends' floors on the lift). No server: the floor is this phone's alone, as before. Each realm's trick
+// (F.towerTricks): 19zzz...zz-tower-tricks.js.
+(function (F) {
+  'use strict';
+  var C = F.Config;
+  var L = F.Logic;
+  var T = C.TILE;
+  var TW = C.TOWER;
+  var P = F.WorldScene.prototype;
+  var U = F.UIScene.prototype;
+  var maps = F.ASSETS && F.ASSETS.maps;
+  var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+  var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  var floorNow = function () { return (F.session && F.session.lairFloor) || 1; };
+  var GOLD = 0x7a5a12, BLUE = 0x1e4a6a;
+  if (!maps || !maps.lair) return;
+  F.FLOORS.tower = TW.floors;
+
+  // ---------- the cave each realm is (19zt-lair.js F.dungeonOf) ----------
+  var WORDS = {
+    note: /^The stairs up are open/,
+    open: function (next) { return 'The stairs up are open! Walk onto them for floor ' + next + '.'; },
+    sealed: function (w) {
+      var n = towerLeft(w);
+      return 'The stairs up are sealed. ' + (n ? n + (n > 1 ? ' enemies are' : ' enemy is') + ' still on this floor.' : 'Beat every enemy on this floor to open them.');
+    },
+    go: 'Go up',
+  };
+  var LEAD = { guard: ' guards it!', mini: ' waits here: a mini boss!', boss: ' rules this realm. Beat it!' };
+  var cfgs = {};
+  var towerCfg = function (floor) {
+    var zn = L.towerZone(floor);
+    if (cfgs[zn]) return cfgs[zn];
+    var z = TW.zones[zn - 1];
+    return (cfgs[zn] = {
+      key: 'tower', tower: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
+      look: z.look, lava: z.lava, art: { gate: z.art.gate, cave: z.art.cave }, bg: z.bg, propTint: z.propTint, embers: false,
+      lift: 'Tower Lift', icon: 'sparkle', name: 'The Lost Tower', d: {}, words: WORDS,
+      line: function (f) {
+        var role = L.towerRole(f), lead = role && C.WILD.animals[z[role]];
+        return 'The Lost Tower, floor ' + f + (f % TW.zoneSize === 1 ? ': ' + z.name : '') + '. ' + (lead ? lead.name + LEAD[role] : 'Beat every enemy to open the stairs up.');
+      },
+      // the floor's enemies placed so far (all, or the waves that have come)
+      roster: function (f) { var w = F.world, lr = w && w.lair; return L.towerInWave(L.towerRoster(f), (lr && lr.cfg.tower && lr.wave) || 0, TW.wave); },
+      reach: function (s, f) { return L.towerReach(s, f); },
+      stops: function (s) { return L.towerStops(s); },
+    });
+  };
+  var dungeonOf = F.dungeonOf;
+  F.dungeonOf = function (map) { return map === 'tower' ? towerCfg(floorNow()) : dungeonOf(map); };
+  var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
+  // enemies of this floor still to beat (on the floor, and the waves still to come; and a splitter's copies, lr.extra:
+  // 19zzz...zz-tower-tricks.js)
+  var towerLeft = function (w) {
+    if (w.lair.gsTl != null && w.wildFollowing() === 'gs') return w.lair.gsTl; // (the game server holds the floor: its count)
+    var lr = w.lair, r = lr.roster || (lr.roster = L.towerRoster(lr.floor)), n = 0, k; // (asked every frame: the floor's list made once)
+    for (k = 0; k < r.length; k++) if (!lr.down[r[k].slot]) n++;
+    for (k in lr.extra || {}) if (!lr.down[k]) n++;
+    return n;
+  };
+  F.towerLeft = towerLeft;
+
+  // ---------- each floor's room, put where the scene reads it ----------
+  var built = 0;
+  var install = function (scene, floor) {
+    if (built !== floor || !maps.tower) {
+      maps.tower = L.towerMap(floor, maps.lair);
+      built = floor;
+    }
+    var cache = scene.cache.tilemap;
+    if (cache.exists('tower') && cache.get('tower').data === maps.tower) return;
+    if (cache.exists('tower')) cache.remove('tower');
+    cache.add('tower', { format: Phaser.Tilemaps.Formats.TILED_JSON, data: maps.tower });
+  };
+  var create = P.create;
+  P.create = function () {
+    var s = F.session && F.session.state;
+    if (s && s.map === 'tower') {
+      install(this, floorNow());
+      var tex = this.textures; // (the pools of the floor before: their pictures are named by where they lay)
+      tex.getTextureKeys().forEach(function (k) { if (/^fx-towerpool/.test(k)) tex.remove(k); });
+    }
+    create.apply(this, arguments);
+    var lr = this.lair;
+    if (!inTower(this)) return;
+    lr.wave = lr.wave || 0;
+    lr.paid = false;
+    this.towerMs = 0;
+  };
+  // in at the door: the last lift you reached (owner: never start over from floor 1)
+  var travel = P.travel;
+  P.travel = function (to, spawn, floor) {
+    if (to === 'tower' && !this.busy) {
+      if (F.session.visit) { if (F.ui) F.ui.toast('The Lost Tower is for your own game.', 2400); return; }
+      if (floor == null) floor = L.towerStart(this.state);
+      floor = Math.max(1, Math.min(TW.floors, Math.floor(floor) || 1));
+    }
+    return travel.call(this, to, spawn, floor);
+  };
+
+  // the lighthouse's door comes first, even with the Bow in your hands (as the caves' ladder does)
+  var resolve = P.resolve;
+  P.resolve = function () {
+    if (this.mapKey === 'manila') {
+      var t = this.facing(), o = this.inMap(t.x, t.y) ? this.objectAt(t.x, t.y) : null;
+      if (o && o.name === 'tower_door') return this.objectAction(o, L.held(this.state), null);
+    }
+    return resolve.apply(this, arguments);
+  };
+
+  // ---------- the enemies ----------
+  // as strong as their floor (a copy of its kind's numbers, made from the kind each time: the next floor's are its own)
+  var strength = P.lairStrength;
+  P.lairStrength = function (a) {
+    if (!inTower(this)) return strength.apply(this, arguments);
+    var f = this.lair.floor, def = C.WILD.animals[a.kind], role = def.role === 'normal' ? null : def.role, sp = L.towerSpeed(f);
+    a.hp = a.max = L.towerHits(f, role);
+    a.def = Object.assign({}, def, { hp: a.max, hit: L.towerLoss(f, role), walk: def.walk * sp, run: def.run * sp });
+    if (a.def.boss) this.wildBar(a);
+  };
+  // every one of the wave is on the floor (somewhere free, a little away from you if it can)
+  P.towerPlace = function (fade) {
+    var self = this, w = this.wild, f = this.feet(), here = {};
+    if (!w) return 0;
+    w.animals.forEach(function (a) { here[a.slot] = true; });
+    var n = 0;
+    L.wildHere(this.state, 'tower').forEach(function (e) {
+      if (here[e.slot]) return;
+      var p = self.wildSpot(w.zone, f, 6) || self.wildSpot(w.zone, f, 3) || self.wildSpot(w.zone);
+      if (!p) return;
+      var a = self.addWildAnimal(e.kind, e.slot, p.x, p.y, 1);
+      self.lairStrength(a);
+      n++;
+      if (!fade) return;
+      a.img.setAlpha(0);
+      a.sh.setAlpha(0);
+      a.fade = 0;
+    });
+    return n;
+  };
+  var setupWild = P.setupWild;
+  P.setupWild = function () {
+    var r = setupWild.apply(this, arguments);
+    if (inTower(this) && this.wild && !this.wildFollowing()) this.towerPlace(false); // (a crowded floor: none left out)
+    return r;
+  };
+  // No walking in from the edges: the next wave comes when the last is mostly down (C.TOWER.wave).
+  var wildArrive = P.wildArrive;
+  P.wildArrive = function (dt) {
+    if (!inTower(this)) return wildArrive.apply(this, arguments);
+    var lr = this.lair, size = TW.wave;
+    if (!(size > 0) || lr.wave + 1 >= L.towerWaves(L.towerRoster(lr.floor).length, size)) return;
+    if (!L.towerWaveDue(size, this.wild.animals.length)) return;
+    lr.wave++;
+    if (this.towerPlace(true) && F.ui) F.ui.toast('Wave ' + (lr.wave + 1) + ' of ' + L.towerWaves(L.towerRoster(lr.floor).length, size) + '!', 1800, BLUE);
+  };
+  // the stairs open only when every enemy of the floor is down, the waves still to come too
+  var openGate = P.openLairGate;
+  P.openLairGate = function () {
+    if (inTower(this) && towerLeft(this) > 0) return;
+    return openGate.apply(this, arguments);
+  };
+  // each one down: no "hunted!" for each of 60, no kilos (the chip counts them down)
+  var wildDown = P.wildDown;
+  P.wildDown = function (a) {
+    if (!inTower(this)) return wildDown.apply(this, arguments);
+    var ui = F.ui, own = ui && Object.prototype.hasOwnProperty.call(ui, 'toast'), toast = ui && ui.toast;
+    if (ui) ui.toast = function () {};
+    this.floatTextAt = function () {};
+    try { return wildDown.apply(this, arguments); } finally {
+      if (ui) { if (own) ui.toast = toast; else delete ui.toast; }
+      delete this.floatTextAt;
+    }
+  };
+
+  // ---------- a floor cleared: Pearls, the first time ----------
+  // others: with a team (the game server's 'cl'), how many of the others on the floor were new to it (L.towerTeamPay: a
+  // helper's Pearl); none given: alone.
+  P.towerCleared = function (others) {
+    var lr = this.lair, s = this.state, r = L.towerRec(s), had = lr.floor <= r.cl, team = others != null, f = this.feet(), self = this;
+    var n = team ? L.towerTeamPay(s, lr.floor, others) : L.towerPay(s, lr.floor);
+    lr.paid = true;
+    if (n > 0) {
+      sfx('fanfare');
+      this.floatTextAt(f.x, f.y - 1.6 * T, '+' + n + ' Pearl' + (n > 1 ? 's' : ''));
+      var line = had ? 'Floor ' + lr.floor + ' cleared together! +1 Pearl for helping (' + r.hn + ' of ' + TW.pearls.helperDay + ' today).'
+        : 'Floor ' + lr.floor + ' cleared! +' + n + ' Pearl' + (n > 1 ? 's' : '') + '. You have ' + fmt(s.pearls) + '.';
+      this.time.delayedCall(300, function () { if (F.ui && self.lair === lr) F.ui.toast(line, 2600, GOLD); });
+    } else if (F.ui) F.ui.toast('Floor ' + lr.floor + ' cleared' + (team && had && others > 0 ? ' together! You have helped ' + TW.pearls.helperDay + ' times today: no more helper Pearls until tomorrow.' : '!'), team && had && others > 0 ? 3200 : 1600, BLUE);
+    this.changed();
+    this.save();
+    return n;
+  };
+  var update = P.update;
+  P.update = function (time, delta) {
+    update.apply(this, arguments);
+    var lr = this.lair;
+    if ((this.towerMs = (this.towerMs || 0) - delta) <= 0) { this.towerMs = 400; this.towerChip(); }
+    if (!inTower(this) || !this.wild || this.busy || !this.sys.isActive() || lr.paid || !lr.seen || this.wildFollowing()) return;
+    if (towerLeft(this) === 0) this.towerCleared();
+  };
+
+  // ---------- out of energy: out at the lighthouse (next time, from the last lift you reached) ----------
+  var faint = P.faint;
+  P.faint = function () {
+    if (!inTower(this)) return faint.apply(this, arguments);
+    if (F.ui) F.ui.toast('Out of energy! You climb down and out of the Lost Tower. Eat, rest, and climb again from the last lift you reached.', 4200);
+    this.travel('manila', 'from_tower');
+  };
+
+  // ---------- the chip: the floor, the enemies left, your Pearls ----------
+  P.towerChip = function () {
+    var ui = F.ui;
+    if (!ui || !ui.add || !ui.sys || !ui.sys.isActive()) return;
+    var on = inTower(this) && !this.busy;
+    if (!ui.towerChipBox) {
+      if (!on) return;
+      ui.towerBg = ui.add.rectangle(0, 0, 10, 26, 0x14202c, 0.82).setOrigin(0, 0.5).setStrokeStyle(1.5, 0xbfe4f0, 0.6);
+      ui.towerText = ui.add.text(10, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#eaf6ff' }).setOrigin(0, 0.5);
+      ui.towerChipBox = ui.add.container(8, 178, [ui.towerBg, ui.towerText]).setDepth(45);
+      ui.events.once('shutdown', function () { ui.towerChipBox = null; });
+    }
+    ui.towerChipBox.setVisible(on);
+    if (!on) return;
+    var left = towerLeft(this), s = this.state;
+    ui.towerText.setText('Floor ' + this.lair.floor + '   ' + (left ? left + ' left' : 'clear!') + '   Pearls ' + fmt(s.pearls || 0));
+    ui.towerBg.setSize(ui.towerText.width + 20, 26);
+  };
+
+  // ---------- your Pearls in the bag (with the Lumber and the Stone) ----------
+  var openInventory = U.openInventory;
+  U.openInventory = function () {
+    var r = openInventory.apply(this, arguments), s = F.session && F.session.state, refresh = this.invRefresh, m = this.modals[this.modals.length - 1];
+    if (!s || !m || typeof refresh !== 'function' || !((s.pearls || 0) > 0 || (s.tower && s.tower.deep))) return r;
+    var line = null;
+    (function find(list) { list.forEach(function (o) { if (!line && o.type === 'Text' && /^Lumber /.test(o.text)) line = o; if (o.list) find(o.list); }); })(m.c.list);
+    if (!line) return r;
+    this.invRefresh = function () {
+      refresh.apply(this, arguments);
+      if (line.active) line.setText(line.text + '     Pearls ' + fmt(s.pearls || 0));
+    };
+    this.invRefresh();
+    return r;
+  };
+
+  // ---------- the tower's own pictures, when they come (the 'tower' pack: tools/tower/tower-art.js) ----------
+  // Its creatures' sheets are asked for as a floor opens and take over from the stand-ins on the next floor; the realm's
+  // stairs and tiles the same way, through the caves' own code (19zt-lair.js askArt).
+  if (F.PACK_INFO && F.packFiles && F.packFiles('tower').length) {
+    F.PACK_INFO.tower = { name: 'The Lost Tower', icon: 'sparkle', desc: "The Lost Tower's creatures and its realms' looks." };
+    var soft = F.softPacks;
+    F.softPacks = function (map) { var out = soft ? soft(map) : []; return map === 'tower' && out.indexOf('tower') < 0 ? out.concat(['tower']) : out; };
+  }
+  var addWildAnimal = P.addWildAnimal;
+  P.addWildAnimal = function (kind) {
+    var def = C.WILD.animals[kind];
+    if (def && def.tower && def.sheet && !(F.images && F.images[def.sheet]) && F.needImage && F.packedFile && F.packedFile(def.sheet)) F.needImage(def.sheet);
+    return addWildAnimal.apply(this, arguments);
+  };
+
+  // ---------- for the tests: every enemy of this floor beaten at once (yours) ----------
+  F.towerClearFloor = function () {
+    var w = F.world, lr = w && w.lair;
+    if (!inTower(w)) return false;
+    w.wild.animals.slice().forEach(function (a) { a.hp = 0; a.hits = 1; a.mine = true; w.wildDown(a); });
+    L.towerRoster(lr.floor).forEach(function (e) { lr.down[e.slot] = true; }); // (and the waves still to come)
+    return true;
+  };
+})(window.Farm = window.Farm || {});

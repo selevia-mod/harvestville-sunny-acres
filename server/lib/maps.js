@@ -5,7 +5,7 @@
 //   - the `wild` zone object, in tiles (buildObjects' rect);
 //   - the gate down (lair_gate / dungeon_gate), which is not ground for a monster (19zt-lair.js wildFree).
 // A city (Manila: C.MANILA) has no file in maps/: the game builds its map from its layout at run time (L.manilaMap, from
-// the town's sheets), and so does this.
+// the town's sheets), and so does this; and so are The Lost Tower's floors (L.towerMap, from the Lair's).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -28,8 +28,8 @@ const rectOf = (o, T) => ({
 const fileOf = (R, key) => JSON.parse(fs.readFileSync(path.join(R.root, 'maps', key + '.json'), 'utf8'));
 const cityMap = (R, key) => (R.C.MANILA && key === R.C.MANILA.key && R.L.manilaMap ? R.L.manilaMap(fileOf(R, 'town')) : null);
 
-function readMap(R, key) {
-  const T = R.T, raw = cityMap(R, key) || fileOf(R, key);
+function readMap(R, key, built) {
+  const T = R.T, raw = built || cityMap(R, key) || fileOf(R, key);
   const W = raw.width, H = raw.height;
   const sets = raw.tilesets.slice().sort((a, b) => a.firstgid - b.firstgid);
   const tileProps = {}; // gid -> its properties
@@ -93,17 +93,32 @@ function floorGround(m, withGate) {
   return free;
 }
 
+// The Lost Tower's floors: each built from its number on the Lair's sheets (L.towerMap, as the phones build it), the last
+// TOWER_KEEP of them kept.
+const TOWER_KEEP = 64;
+
 function makeMaps(R) {
-  const cache = {};
-  return {
+  const cache = {}, tower = new Map();
+  const maps = {
     get(key) {
       if (!Object.prototype.hasOwnProperty.call(cache, key)) {
         try { cache[key] = readMap(R, key); } catch (e) { cache[key] = null; }
       }
       return cache[key];
     },
+    tower(floor) {
+      if (tower.has(floor)) { const m = tower.get(floor); tower.delete(floor); tower.set(floor, m); return m; }
+      let m = null;
+      try { m = R.L.towerMap ? readMap(R, 'tower', R.L.towerMap(floor, fileOf(R, 'lair'))) : null; } catch (e) { m = null; }
+      tower.set(floor, m);
+      if (tower.size > TOWER_KEEP) tower.delete(tower.keys().next().value);
+      return m;
+    },
+    // a cave's map for one of its floors (the same map for every floor, but the Tower's)
+    of(cfg, floor) { return cfg.tower ? maps.tower(floor) : maps.get(cfg.key); },
     floorGround,
   };
+  return maps;
 }
 
 module.exports = { makeMaps, readMap, floorGround };

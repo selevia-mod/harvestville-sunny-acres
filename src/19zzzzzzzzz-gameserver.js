@@ -67,6 +67,8 @@
   // everyone (Manila, owner 11 Nov 2026: C.MANILA, its 'pub' switch on): a public room with no animals (server/lib/pub.js)
   var cityMap = function (map) { var M = C.MANILA; return !!(M && M.on && M.pub && map === M.key); };
   var pubMap = function (map) { return !!map && ((L.isWildMap(map) && !(F.dungeonOf && F.dungeonOf(map))) || cityMap(map)); };
+  // a cave the server holds (one marked solo is not: its own phone runs it; The Lost Tower is held, its friends' step 4)
+  var caveOf = function (map) { var d = F.dungeonOf && F.dungeonOf(map); return !!d && !d.solo; };
   // a world the server can hold: one with wild animals (a place, a cave), or the city
   var holdable = function (w) { return !!(w.wild || cityMap(w.mapKey)); };
   // the place's short name, as the room shows it ("Banaue 2"): the first word of its name
@@ -181,6 +183,7 @@
           var mate = withWho(g);
           if (mate) hi.with = mate;
         } else hi.with = caveFriends(); // a cave: your friends, so you land on a friend's floor (owner, 7 Nov 2026: "automatic")
+        if (w.gsHi) w.gsHi(hi); // (what a cave adds of its own: The Lost Tower's tn, 19zzz...z-tower-friends.js)
         send(g, hi);
         g.lastMv = null;
         g.piMs = 0;
@@ -274,10 +277,11 @@
   // ---------- what the server says ----------
   // (gsLocal: this phone's own, beside the server's: a place's tame animal in a public room)
   var find = function (w, slot) { return w.wild && w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0]; };
-  // a packed animal; a public room's more copies of the roster are slots 100, 200 and 300 up (the game's own stop at 99)
+  // a packed animal; a public room's more copies of the roster are slots 100, 200 and 300 up (the game's own stop at 99),
+  // and The Lost Tower's splitters' copies 10000 up (L.towerCopySlot)
   var unpack = function (row) {
     var s = Array.isArray(row) ? Number(row[0]) : NaN;
-    if (!(s >= 100 && s < 400 && s === Math.floor(s))) return L.wildUnpack(row);
+    if (!(((s >= 100 && s < 400) || (s >= 10000 && s < 10200)) && s === Math.floor(s))) return L.wildUnpack(row);
     var q = row.slice();
     q[0] = s % 100;
     var r = L.wildUnpack(q);
@@ -340,7 +344,7 @@
   var apply = function (w, st, rows, full) {
     if (!w.wild) return; // (the city: none)
     var list = w.wild.animals, seen = {};
-    (Array.isArray(rows) ? rows.slice(0, 60) : []).forEach(function (row) {
+    (Array.isArray(rows) ? rows.slice(0, 200) : []).forEach(function (row) { // (The Lost Tower: 61 and a splitter's copies)
       var r = unpack(row);
       if (!r) return;
       seen[r.slot] = true;
@@ -352,6 +356,7 @@
         a.img.setAlpha(0);
         a.sh.setAlpha(0);
         a.fade = 0;
+        if (w.gsBorn) w.gsBorn(a); // (a cave's own: The Lost Tower's floor strength and tricks)
       }
       if (born || full) { // (a 'wl' puts each where the server has it: after a dropped line, the floor as it is now)
         a.path = trail();
@@ -583,6 +588,7 @@
       var at = isFinite(Number(m.st)) ? Number(m.st) : null; // (the server's clock, when it says)
       if (at != null) g.skew = Date.now() - at;
       apply(w, at, m.mons, true);
+      if (w.gsHear) w.gsHear(m);
       dropTrails(g);
       if (g.pub) {
         g.ch = Math.max(0, Math.min(9999, Math.floor(Number(m.ch)) || 0));
@@ -672,6 +678,7 @@
     }
     if (t === 'dn') {
       if (holdFor(g, w, m, typeof m.lh === 'string' && m.lh ? m.lh : (Array.isArray(m.by) ? String(m.by[m.by.length - 1] || '') : ''))) return;
+      if (w.gsHear) w.gsHear(m);
       return down(g, w, m);
     }
     if (t === 'bp') {
@@ -682,13 +689,15 @@
     }
     if (t === 'cl') {
       if (g.pub) return; // (a public room never clears)
-      if (w.lair) { w.lair.seen = true; w.openLairGate(true); }
+      if (w.lair) { w.lair.seen = true; if (w.gsHear) w.gsHear(m); w.openLairGate(true); }
       return;
     }
     if (t === 'po') {
       var c = Number(m.c);
       if (isFinite(c)) g.rtt = Math.max(0, Date.now() - c);
+      return;
     }
+    if (w.gsHear) w.gsHear(m); // (a cave's own news: The Lost Tower's 'sh', 'ly', 'up', 'hl', 'wv', 'fq')
   };
 
   // A monster down: its puff on every phone; the drops only for a phone in 'by' (wildDown's own path for yours).
@@ -751,8 +760,8 @@
     wildStruck.apply(this, arguments);
     var d = before - a.hp; // (the bow's damage, a Strong shot's too: 19zz-skills.js; none for one that wants feeding)
     if (!(d > 0)) return;
-    var n = ++g.n;
-    if (!send(g, { t: 'hit', s: a.slot, d: d, n: n })) { // (the line is down: it never counted)
+    var n = ++g.n, k = this.state.wpnHit ? this.state.wpnHit.k : undefined; // (k: the weapon; The Lost Tower's shields want a Rifle's)
+    if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k })) { // (the line is down: it never counted)
       if (a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a));
       return;
     }
@@ -845,12 +854,12 @@
     this.gsGen = ++gen;
     var s = F.session && F.session.state, map = s && s.map, v = F.session && F.session.visit;
     // held from the start, so this phone puts none of the floor's creatures out before the server answers
-    var hold = !!(url() && map && (F.dungeonOf(map) || pubMap(map)) && O.on && O.me && !(v && !v.inTown)); // (a cave, or a hunting place: step 2)
+    var hold = !!(url() && map && (caveOf(map) || pubMap(map)) && O.on && O.me && !(v && !v.inTown)); // (a cave, or a hunting place: step 2)
     if (hold) gs = { w: this, gen: this.gsGen, mode: 'connecting', dead: false, placeholder: true };
     create.call(this);
     if (!hold || !gs || !gs.placeholder || gs.w !== this) return;
     gs = null;
-    if (holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
+    if (holdable(this) && ((this.lair && caveOf(this.mapKey)) || pubMap(this.mapKey))) start(this);
   };
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
@@ -881,7 +890,7 @@
     // online came after you went down (or the switch was turned on): the server from now on
     if ((!gs || gs.gen !== this.gsGen) && !(typeof document !== 'undefined' && document.hidden) && Math.floor(time / 1000) !== this.gsLook) { // (put away: back when it is seen again)
       this.gsLook = Math.floor(time / 1000);
-      if (url() && holdable(this) && ((this.lair && F.dungeonOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
+      if (url() && holdable(this) && ((this.lair && caveOf(this.mapKey)) || pubMap(this.mapKey)) && O.on && O.me && !(F.session.visit && !F.session.visit.inTown)) start(this);
     }
     var g = live();
     if (g && g.w === this && g.gen === this.gsGen) {
@@ -1113,6 +1122,10 @@
     // 8 Nov 2026: "Missing chat on dungeon" - a friend from another farm is not in your farm's room, only here)
     floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
     isFriend: isFriend, // (tests)
+    // (The Lost Tower, 19zzz...z-tower-friends.js: a hit the phone shows itself, a question for the server, your friends)
+    hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k }); },
+    ask: function (m) { var g = live(); return !!g && g.w === F.world && send(g, m); },
+    friends: function () { return caveFriends(); },
     friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); }, // (tests)
     baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; }, // (others' bait drawn here, by whose)
     state: function () {

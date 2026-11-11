@@ -81,6 +81,17 @@
     return p && !p.legacy && p.dungeon ? F.dungeonOf(p.dungeon.key) : null;
   };
   var isGate = function (o) { return o.type === 'lair_gate' || o.type === 'dungeon_gate'; };
+  // What the gate's words say (a cave's cfg.words can say its own: The Lost Tower's stairs go up, 19zzz...z-tower.js)
+  var WORDS = {
+    note: /^The gate down is open/,
+    open: function (next) { return 'The gate down is open! Walk onto it for floor ' + next + '.'; },
+    sealed: function (w) {
+      var n = w.wild ? w.wild.animals.length : 0;
+      return 'The gate down is sealed. ' + (n ? n + (n > 1 ? ' creatures are' : ' creature is') + ' still on this floor.' : 'Hunt every creature on this floor to open it.');
+    },
+    go: 'Go down',
+  };
+  var words = function (cfg) { return (cfg && cfg.words) || WORDS; };
 
   // ---------- the session and the save ----------
   var newSession = F.newSession;
@@ -140,7 +151,7 @@
     var tc = F.dungeonOf(to);
     if (tc && !this.busy) F.session.lairFloor = Math.max(1, Math.min(tc.floors, Math.floor(floor) || 1));
     // off this floor: its "gate down is open" note goes too (it stayed up on the next floor)
-    if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && /^The gate down is open/.test(F.ui.toastText.text)) F.ui.hideToast();
+    if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && words(this.lair.cfg).note.test(F.ui.toastText.text)) F.ui.hideToast();
     return travel.call(this, to, spawn, floor);
   };
 
@@ -610,7 +621,8 @@
     this.time.delayedCall(500, function () {
       if (!F.ui || !self.sys.isActive() || F.ui.modals.length) return; // (a panel opened at once: not over its title)
       var line;
-      if (cfg.lair) {
+      if (cfg.line) line = cfg.line(floor); // (a cave that says its own: The Lost Tower)
+      else if (cfg.lair) {
         var boss = L.lairBossFloor(floor) && floor < LA.floors, bottom = floor >= LA.floors;
         line = bottom ? "Floor 50, the bottom of the Lair. The Bakunawa sleeps here: it rises only for two hunters or more."
           : "Bakunawa's Lair, floor " + floor + (boss ? '. A Bungisngis guards it!' : '. Clear it to open the gate down.');
@@ -709,7 +721,7 @@
     if (!loud) return;
     sfx('found');
     this.cameras.main.shake(220, 0.003);
-    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr && !self.busy) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
+    this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr && !self.busy) F.ui.toast(words(lr.cfg).open(lr.floor + 1), 3000, 0x2f5a22); });
   };
   // a cave's picture came in while its stand-in is up: the mouth takes the picture where it stands; the gate is set up
   // again with it (shut or open, as it was)
@@ -734,10 +746,7 @@
       if (open) w.openLairGate(false);
     }
   });
-  var sealed = function (w) {
-    var n = w.wild ? w.wild.animals.length : 0;
-    return 'The gate down is sealed. ' + (n ? n + (n > 1 ? ' creatures are' : ' creature is') + ' still on this floor.' : 'Hunt every creature on this floor to open it.');
-  };
+  var sealed = function (w) { return words(w.lair && w.lair.cfg).sealed(w); };
   P.lairDown = function () {
     var lr = this.lair, s = this.state, next = lr.floor + 1;
     if (this.busy || !lr.open) return;
@@ -800,7 +809,7 @@
     var self = this;
     if (o.type === 'lairlift') return { label: 'Lift', icon: C.ICON.crate, run: function () { F.ui.openLairLift(); } };
     if (isGate(o) && this.lair && this.lair.gate) {
-      if (this.lair.open) return { label: 'Go down', icon: -1, run: function () { self.lairDown(); } };
+      if (this.lair.open) return { label: words(this.lair.cfg).go, icon: -1, run: function () { self.lairDown(); } };
       return { label: 'Sealed', icon: -1, disabled: true, why: sealed(this) };
     }
     return extraObjectAction.call(this, o, held, def);

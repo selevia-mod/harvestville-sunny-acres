@@ -53,4 +53,7 @@ module.exports = {
   // farm economy v2 (12 Nov 2026): the owner's icons for the Mixer's materials and the crop potions
   // (tools/art/economy2-icons.js); the game draws stand-ins until they are on the phone (the page had no room for them)
   econ: fs.existsSync(path.join(ASSETS, 'econ2_icons.png')) ? ['econ2_icons'] : [],
+  // The Lost Tower (owner, 12 Nov 2026): its creatures, each realm's stairs and cave tiles, each once its picture is in
+  // (tools/tower/tower-art.js; until then the game draws stand-ins, src/19zzz...z-tower.js)
+  tower: require('./tower/tower-art').packed(),
 };

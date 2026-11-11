@@ -2,7 +2,7 @@
 // 01- file run in a vm with a bare `window`, so the server's monsters use the very numbers the phones do (C.WILD,
 // C.LAIR, the places' caves, L.lairRoster, L.dunRoster, L.lairHp, L.dunHp, L.wildPack, L.gearNotice, ...).
 // The world's half of a cave (19zt-lair.js) needs Phaser, so its two small rules the server needs are copied here:
-// which cave a map is (F.dungeonOf) and its floor list (cfg.roster).
+// which cave a map is (F.dungeonOf) and its floor list (cfg.roster); The Lost Tower's too (19zzz...z-tower.js towerCfg).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +24,9 @@ function load(root) {
   // Which cave a map is (19zt-lair.js F.dungeonOf, without its pictures): the Lair, or a hunting place's dungeon.
   const cfgs = {};
   const dungeonOf = (map) => {
+    if (map === 'tower' && C.TOWER && L.towerRoster) { // The Lost Tower (lib/tower.js): each floor's map from its number
+      return cfgs[map] || (cfgs[map] = { key: 'tower', tower: true, lair: false, floors: C.TOWER.floors, cap: C.TOWER.team || 4, roster: (f) => L.towerRoster(f) });
+    }
     if (typeof map !== 'string' || !Object.prototype.hasOwnProperty.call(C.DUNGEONS, map)) return null;
     if (cfgs[map]) return cfgs[map];
     if (map === 'lair') {

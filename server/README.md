@@ -16,6 +16,7 @@ server/
   lib/wild.js           the monsters' rules, from src/19v-wild.js and src/19zt-lair.js, with no Phaser
   lib/room.js           one floor: phones, monsters, hits, kills, the 20 Hz news
   lib/pub.js            a hunting place open to everyone (step 2): 30 a room, shared animals, bait, arrows, who sees whom
+  lib/tower.js          The Lost Tower's floors (step 4): 4 a room, the floor's own enemies and tricks, who is paid at the clear
   lib/game.js           every room and connection, the messages in, the tick (no network: tests drive it)
   lib/server.js         HTTP + WebSocket on 127.0.0.1, /health, the tick on the clock, the minute's log line
   lib/auth.js           a phone's token (ES256, the project's JWKS) and farm_topic_ok_v1, asked as that player
