@@ -76,7 +76,8 @@
   // A sheet is 1008 x 1008 (4 MB on the GPU), its shadow 504 x 504 drawn twice the size (1 MB).
   // (owner, 11 Nov 2026: the cute chubby pony replaces the first v2 set; the outfits' boys came first: boyOnly rides v2
   // as the boy, the girl keeps her old sheet until hers comes, then the outfit moves to outfits)
-  C.RIDE2 = { outfits: ['default'], boyOnly: ['bunny', 'elf', 'feather', 'fiesta', 'fire', 'flower', 'forest', 'hills', 'lake', 'ranch', 'santa', 'straw', 'terrace', 'winter'], girlOnly: [], fw: 252, fh: 252, px: 177, w: 1.7, gallop: 100, fast: 90, slow: 170, rear: 750, others: 10, othersCheap: 4, letGo: 30000 };
+  // (owner, 11 Nov 2026: the girls came too: every outfit is in both)
+  C.RIDE2 = { outfits: ['default', 'bunny', 'elf', 'feather', 'fiesta', 'fire', 'flower', 'forest', 'hills', 'lake', 'ranch', 'santa', 'straw', 'terrace', 'winter'], boyOnly: [], girlOnly: [], fw: 252, fh: 252, px: 177, w: 1.7, gallop: 100, fast: 90, slow: 170, rear: 750, others: 10, othersCheap: 4, letGo: 30000 };
   C.CAT = { name: 'Mochi', frame0: 60, px: 174, w: 0.75, speed: 260, reach: 0.6, height: 0.4 };
 
   // ---------- furniture from Mira (bought outright; it appears in the farmhouse) ----------

@@ -1896,8 +1896,8 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.waitForTimeout(300);
   // in a costume: its own riding picture, fetched from the 'riding' pack the first time (owner's art, 10 Nov 2026)
   await page.evaluate(() => { const s = Farm.session.state, i = Farm.Config.LOOK_INDEX.santa; s.lk = (s.lk || 0) | (1 << i); s.cw = 'santa'; });
-  // (the cute pony set, 11 Nov 2026: the outfits' boys ride in v2; a girl keeps her old sheet until hers comes)
-  const v2sheet = (o) => page.evaluate((o) => (Farm.session.state.look === 'girl' ? 'ride_' + o + '_girl' : 'ride2_' + o + '_boy'), o);
+  // (the cute pony set, 11 Nov 2026: every outfit's boy and girl ride in v2)
+  const v2sheet = (o) => page.evaluate((o) => 'ride2_' + o + '_' + (Farm.session.state.look === 'girl' ? 'girl' : 'boy'), o);
   const santa = await v2sheet('santa');
   await page.waitForFunction((k) => Farm.world.horse.sprite.texture.key === k, santa, { timeout: 30000 });
   await shot(page, '30b-riding-santa');
