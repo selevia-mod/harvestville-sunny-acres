@@ -53864,7 +53864,14 @@ var setupExtras = P.setupExtras;
 P.setupExtras = function () {
 setupExtras.call(this);
 if (this.mapKey !== 'farm' || !this.state.horse || visiting(this)) return;
-var img = (this.props || []).filter(function (p) { return p.texture && p.texture.key === 'props/stable'; })[0];
+
+var st = L.buildingsOf && L.buildingsOf(this.state, 'stable')[0];
+if (st) {
+var w = C.OUTDOOR.types[st.t].w;
+this.objects.push({ type: 'stable', name: 'stable', x0: st.x, y0: st.y + 1, x1: st.x + w - 1, y1: st.y + 2, props: {} });
+return;
+}
+var img =(this.props || []).filter(function (p) { return p.texture && p.texture.key === 'props/stable'; })[0];
 if (!img) return;
 var x0 = Math.round(img.x / T), y1 = Math.round(img.y / T) - 1;
 this.objects.push({ type: 'stable', name: 'stable', x0: x0, y0: y1 - 1, x1: x0 + Math.round(img.displayWidth / T) - 1, y1: y1, props: {} });
