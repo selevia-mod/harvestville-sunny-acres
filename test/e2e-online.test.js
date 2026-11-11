@@ -164,7 +164,8 @@ const waitModal = (page, re) => page.waitForFunction((src) => {
   throw new Error(e.message.split('\n')[0] + '\n  wanted: ' + re + '\n  shown: ' + await modalText(page).catch(() => '?'));
 });
 const toast = (page) => page.evaluate(() => (Farm.ui.toastText.visible ? Farm.ui.toastText.text : ''));
-const waitToast = (page, re) => page.waitForFunction((src) => Farm.ui.toastText.visible && new RegExp(src).test(Farm.ui.toastText.text), re.source, SLOW);
+// (a toast shows for 2 s or so: a test that keeps a log of them (window.__tl) also finds one it was too slow to see)
+const waitToast = (page, re) => page.waitForFunction((src) => (Farm.ui.toastText.visible && new RegExp(src).test(Farm.ui.toastText.text)) || (window.__tl || []).some((m) => new RegExp(src).test(m)), re.source, SLOW);
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, name + '.png') }); };
 
 // Types into the text box over the game and presses OK.
@@ -1157,6 +1158,8 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   await guest.page.waitForFunction((slot) => { const a = Farm.world.wild.animals.filter((x) => x.slot === slot)[0]; return a && a.mode === 'idle' && a.path; }, first, SLOW);
   await new Promise((r) => setTimeout(r, 900)); // (it has come to rest on the guest's phone)
   await shootAt(guest, first, at);
+  // (every toast the owner gets from here on: the one for the guest's kill shows for 2 s, and a loaded machine can take longer to look)
+  for (const who of [host, guest]) await who.page.evaluate(() => { window.__tl = []; const t = Farm.ui.toast; Farm.ui.toast = function (m) { window.__tl.push(String(m)); return t.apply(this, arguments); }; });
   // the owner sees the guest draw and let go, not just an arrow coming out of a farmer standing still (owner, 3 Nov)
   const theirShot = await host.page.waitForFunction((id) => {
     const r = Farm.world.remotes[id], s = r && r.shot;
@@ -1173,7 +1176,7 @@ test('online: hunting with friends: asked to join, the same animals on both phon
   assert.strictEqual((await counts(guest.page)).n, 1, 'the guest hunted it');
   assert.deepStrictEqual(await counts(host.page), { n: 0, drops: 0 }, 'nothing for the owner, who never hit it');
   assert.ok(await host.page.evaluate((slot) => Farm.session.state.wild.gone['pulag:' + slot] != null, first), 'and it waits to come back on the phone running the hunt (OPPO, 31 Oct)');
-  await waitToast(host.page, /Ana Acres got the /);
+  await host.page.waitForFunction(() => (window.__tl || []).some((m) => /Ana Acres got the /.test(m)), null, SLOW);
   // both hit one: it is a hunt for both, and each has their own drops
   const second = (await herd(host.page)).filter((a) => a[1] === 'rabbit' || a[1] === 'deer')[0][0];
   const at2 = await hold(second);
