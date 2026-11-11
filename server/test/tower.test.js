@@ -177,6 +177,9 @@ test('revivers (Mayari\'s Starfall): beaten, one lies 3 s and stands with half i
   for (let k = 0; k < 40 && !a.lying; k++) strike(w, ann, a, 5);
   assert.ok(a.lying > 0, 'it lies down');
   assert.strictEqual(ann.last('ly').s, a.slot);
+  w.run(100);
+  const row = [].concat(...ann.all('tk').map((m) => m.m)).filter((r) => r[0] === a.slot).pop();
+  assert.ok(row && L.wildUnpack(row).hp > 0 && L.wildUnpack(row).hp < 1, 'the phones see it with a sliver of hits (their arrows can still find it)');
   assert.ok(room.mons.indexOf(a) >= 0, 'still on the floor (the stairs wait for it)');
   assert.ok(!ann.all('dn').some((m) => m.s === a.slot));
   w.run(3100);

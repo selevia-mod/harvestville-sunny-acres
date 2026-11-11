@@ -8,7 +8,7 @@
 //   heal    every 4 s a healer mends the most hurt one near it ('hl' to all; its new hp in the next tick)
 //   flock   its fliers circle a player and dive together (the nearest player to the flock); a dive that reaches one: 'bp'
 //   split   a beaten splitter becomes two copies, slots L.towerCopySlot (10000 up), with half its hits
-//   revive  a beaten reviver lies 3 s ('ly'), then stands with half its hits ('up'), unless hit again while it lies
+//   revive  a beaten reviver lies 3 s ('ly', its hp a sliver above 0), then stands with half its hits ('up'), unless hit again
 //   waves   C.TOWER.wave > 0: the next wave comes when the last is mostly down ('wv')
 // The phone does the rest itself (the song, the dark, the puddles: they only change what that phone sees or does).
 // The last enemy down: 'cl' with `pay: 1` and `nw` (how many on the floor had never cleared it, from each phone's `tn`) to
@@ -22,6 +22,7 @@ module.exports = function makeTower(R, W) {
   if (!TW || !L.towerRoster) return null;
   const COPY = L.towerCopySlot ? L.towerCopySlot(0, 0) : 10000;
   const span = (fl, a, b) => a + fl.rand() * (b - a);
+  const LYING = 0.001; // a lying reviver's hits
   const has = (r, id) => !!(L.towerHas && L.towerHas(r.floor, id));
 
   // a tower room's own state
@@ -223,7 +224,7 @@ module.exports = function makeTower(R, W) {
     if (a.revive && !a.revived) { // beaten once: it lies a moment
       a.revived = true;
       a.lying = TR.revive.ms;
-      a.hp = 0;
+      a.hp = LYING; // (still up: the phones' arrows find only what has hits left, and a hit now finishes it)
       a.vx = a.vy = 0;
       a.mode = 'idle';
       r.broadcast({ t: 'ly', s: a.slot });
