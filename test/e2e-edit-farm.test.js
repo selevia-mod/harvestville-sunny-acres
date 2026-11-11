@@ -230,3 +230,24 @@ test('Decorate: a building is picked by its whole box and dragged; the ranch mov
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('Done with nothing moved hides the field plots again (OPPO, 11 Nov 2026: their frames stayed over the field)', async () => {
+  const { page, problems, context } = await open(await makeSave(BASE));
+  await teleport(page, 22, 12, 'down');
+  const shown = () => page.evaluate(() => {
+    const w = Farm.world, O = Farm.Config.OUTDOOR;
+    return w.state.yard.items.filter((it, i) => O.types[it.t].fieldPlot && w.yardSprites[i] && w.yardSprites[i].visible).length;
+  });
+  assert.strictEqual(await shown(), 0, 'not shown on the farm');
+  await page.evaluate(() => Farm.world.startYard());
+  await page.waitForFunction(() => Farm.world.yd, null, SLOW);
+  await page.evaluate(() => Farm.world.renderYard()); // (as a piece moved and put back draws the yard again)
+  await frames(page, 3);
+  assert.ok((await shown()) > 0, 'shown while decorating');
+  await page.evaluate(() => Farm.world.endYard());
+  await frames(page, 3);
+  assert.strictEqual(await page.evaluate(() => Farm.world.mapKey === 'farm' && !Farm.world.yd), true);
+  assert.strictEqual(await shown(), 0, 'hidden again after Done');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

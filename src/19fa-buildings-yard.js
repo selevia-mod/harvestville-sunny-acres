@@ -84,6 +84,10 @@
   P.endYard = function () {
     var yd = this.yd, moved = yd && yd.buildings != null && yd.buildings !== where(this.state);
     endYard.apply(this, arguments);
+    // the field plots' pictures are shown only while decorating (to be dragged): hidden again on Done (OPPO, 11 Nov 2026:
+    // after a pond moved and moved back, the plots' frames stayed over the field until the farm was opened again)
+    var spr = this.yardSprites || [];
+    (this.state.yard.items || []).forEach(function (it, i) { var ty = F.Config.OUTDOOR.types[it.t]; if (ty && ty.fieldPlot && spr[i]) spr[i].setVisible(false); });
     if (!moved) return;
     var self = this;
     this.busy = true;

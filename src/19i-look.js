@@ -564,7 +564,7 @@
       c.add(this.txt(W / 2, top + 40, o.empty || 'Nothing here yet.', 14, INK, { align: 'center', lineSpacing: 4, wordWrap: { width: 280 } }).setOrigin(0.5, 0));
       return o;
     }
-    var list = this.add.container(0, 0), y = top + 2, x0 = (W - (TILE.cols * TILE.w + (TILE.cols - 1) * TILE.gap)) / 2;
+    var list = this.add.container(0, 0), y = top + 2, x0 = (W - (TILE.cols * TILE.w + (TILE.cols - 1) * TILE.gap)) / 2, jobs = [];
     var groups = { can: [], need: [], have: [] };
     rows.forEach(function (r) { groups[U.rowState(r)].push(r); });
     var many = ['can', 'need', 'have'].filter(function (k) { return groups[k].length; }).length > 1;
@@ -578,12 +578,27 @@
       groups[k].forEach(function (r, i) {
         var col = i % TILE.cols;
         if (i && !col) y += TILE.h + TILE.gap;
-        self.tile(list, x0 + col * (TILE.w + TILE.gap), y, r, k, o);
+        jobs.push([x0 + col * (TILE.w + TILE.gap), y, r, k]);
       });
       y += TILE.h + TILE.gap + 4;
     });
+    // the tiles in view first, the rest six a frame after (owner, 11 Nov 2026: Lily's shop opened with a quarter-second
+    // stop on the OPPO, every tile built at once); c.slimAll() builds the rest at once
+    var built = 0, more = function (n) {
+      if (!c.scene) return;
+      for (var end = Math.min(jobs.length, built + n); built < end; built++) self.tile(list, jobs[built][0], jobs[built][1], jobs[built][2], jobs[built][3], o);
+      if (c.slimScroll) c.slimScroll(c.slimAt || 0); // (a new tile out of view takes no taps)
+      if (built < jobs.length) self.time.delayedCall(16, function () { more(6); });
+    };
     c.add(list);
     this.scrollList(c, list, top - 2, bottom, y - top, TILE.h);
+    var first = jobs.filter(function (j) { return j[1] < bottom; }).length;
+    for (; built < first; built++) self.tile(list, jobs[built][0], jobs[built][1], jobs[built][2], jobs[built][3], o);
+    if (c.slimScroll) c.slimScroll(c.slimAt || 0);
+    c.slimAll = function () { more(jobs.length); };
+    var into = c.slimInto;
+    if (into) c.slimInto = function (obj) { more(jobs.length); return into(obj); };
+    if (built < jobs.length) this.time.delayedCall(16, function () { more(6); });
     return o;
   };
   // One tile: its picture, its name (two lines at most), its price or a tick.
