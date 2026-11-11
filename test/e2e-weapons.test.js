@@ -458,10 +458,11 @@ test('the weapon drawn in the hands: his own sheet with no weapon drawn on top, 
   const a = await page.evaluate(() => { const sh = Farm.world.wpnShot; return { key: sh.body.texture.key, held: !!sh.held, fist: !!sh.fist, glow: !!sh.glow, drawn: sh.drawnIn, rig: !!sh.rig, frame: sh.body.frame.name }; });
   assert.deepStrictEqual(a, { key: 'wpn_hold_rifle_boy', held: false, fist: false, glow: true, drawn: true, rig: false, frame: 7 }, 'aimed (the middle pose)');
   await page.waitForFunction(() => Farm.world.wpnShots.length > 0, null, SLOW);
-  const g0 = await page.evaluate(() => { const sh = Farm.world.wpnShot; return [sh.grip.x, sh.grip.y]; });
+  // (his hand in the after-shot picture, side on facing left, shown the moment it leaves: where the round must start)
+  const g0 = await page.evaluate(() => { const w = Farm.world, p = w.player, q = Farm.holdPts('wpn_hold_rifle_boy', 'rifle')[8].hand, b = w.wpnShots[0]; return [p.x + q[0] - Farm.holdFW('wpn_hold_rifle_boy') / 2, p.y + q[1] - 192, b.x0, b.y0, b.hide]; });
   await page.waitForTimeout(50); // (the kick, in the next frames)
-  const b = await page.evaluate((g0) => { const w = Farm.world, sh = w.wpnShot, b = w.wpnShots[0] || { x0: NaN, y0: NaN, hide: 0 }; return { from: [b.x0, b.y0], grip: g0, hide: b.hide, frame: sh.body.frame.name, moved: Math.hypot(sh.body.x - w.player.x, sh.body.y - w.player.y) }; }, g0);
-  assert.ok(Math.hypot(b.from[0] - b.grip[0], b.from[1] - b.grip[1]) < 12, 'the round leaves from his hand');
+  const b = await page.evaluate((g0) => { const w = Farm.world, sh = w.wpnShot; return { from: [g0[2], g0[3]], grip: g0.slice(0, 2), hide: g0[4], frame: sh.body.frame.name, moved: Math.hypot(sh.body.x - w.player.x, sh.body.y - w.player.y) }; }, g0);
+  assert.ok(Math.hypot(b.from[0] - b.grip[0], b.from[1] - b.grip[1]) < 12, 'the round leaves from his hand ' + b.from.map(Math.round) + ' ~ ' + b.grip.map(Math.round));
   assert.ok(b.hide > 40, 'and shows from the rifle\'s tip');
   assert.strictEqual(b.frame, 8, 'the kick pose');
   assert.ok(b.moved > 1, 'the kick moves him (' + b.moved.toFixed(1) + ')');

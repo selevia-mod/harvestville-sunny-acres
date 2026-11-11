@@ -261,8 +261,9 @@
   // The javelin: raised over the shoulder, thrown (it leaves from that hand), the hand empty after. The boomerang: held by
   // the head, thrown (the hand of the throw; the picture's flying one is left out by the importer), caught.
   var pts = function (list) { return list.map(function (q) { return { hand: q[0], tip: q[1] || q[0] }; }); };
-  F.WPN_HOLD_PTS.wpn_hold_javelin_boy = pts([[[185, 123], [68, 185]], [[164, 117], [14, 173]], [[175, 210]]].concat([[[358, 159], [377, 122]], [[319, 147], [331, 116]], [[311, 165]], [[370, 22], [173, 12]], [[207, 41], [47, 38]], [[138, 220]]]));
-  F.WPN_HOLD_PTS.wpn_hold_javelin_girl = pts([[[185, 123], [68, 185]], [[164, 117], [14, 173]], [[175, 210]]].concat([[[358, 159], [377, 122]], [[319, 147], [331, 116]], [[311, 165]], [[370, 22], [173, 12]], [[207, 41], [47, 38]], [[138, 220]]]));
+  // (the javelin's sheets are fitted by his body, cap to boots, not the raised javelin: these follow that fit)
+  F.WPN_HOLD_PTS.wpn_hold_javelin_boy = pts([[[183,  119],  [64,  182]],  [[162,  113],  [9,  170]],  [[173,  207]],  [[360,  153],  [380,  115]],  [[320,  141],  [332,  109]],  [[312,  159]],  [[370,  22],  [173,  12]],  [[207,  41],  [47,  38]],  [[138,  220]]]);
+  F.WPN_HOLD_PTS.wpn_hold_javelin_girl = pts([[[183,  119],  [64,  182]],  [[162,  113],  [9,  170]],  [[173,  207]],  [[360,  154],  [379,  116]],  [[320,  142],  [332,  110]],  [[312,  160]],  [[371,  19],  [172,  9]],  [[206,  38],  [45,  35]],  [[137,  219]]]);
   F.WPN_HOLD_PTS.wpn_hold_boomerang_boy = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
   F.WPN_HOLD_PTS.wpn_hold_boomerang_girl = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
   F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };

@@ -28,7 +28,7 @@ const OUT = process.env.HOLD_OUT || path.join(ROOT, 'assets');
 const REAL = OUT === path.join(ROOT, 'assets');
 const WEAPONS = ['rifle', 'javelin', 'boomerang', 'bow'];
 const ROWS = ['front', 'back', 'left']; // (the sheet's rows: facing you, away, left)
-const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, BASE = 370, TALL = 348;
+const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, TALL = 348; // (the boots 14 above a frame's bottom: 370 of 384)
 
 (async () => {
   const sheets = {}; // key -> { row: file }
@@ -46,7 +46,8 @@ const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, BASE = 370, TALL = 348
   for (const key of Object.keys(sheets).sort()) {
     const have = ROWS.filter((r) => sheets[key][r]);
     const srcs = ROWS.map((r) => (sheets[key][r] ? 'data:image/png;base64,' + fs.readFileSync(path.join(ART, sheets[key][r])).toString('base64') : null));
-    const run = (FW) => p.evaluate(async ([srcs, FW, FH, BASE, TALL]) => {
+    const byBody = /_javelin_/.test(key); // (the javelin over his head is not his height: owner, 11 Nov 2026)
+    const run = (FW, FH) => p.evaluate(async ([srcs, FW, FH, BASE, TALL, byBody]) => {
       // the three figures of a picture: { c (canvas holding only its pieces), w, h, fx (the boots' middle) }
       const figures = (c) => {
         const w = c.width, h = c.height, px = c.getContext('2d').getImageData(0, 0, w, h).data, lab = new Int32Array(w * h), comps = [null];
@@ -91,10 +92,17 @@ const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, BASE = 370, TALL = 348
           const rows = Math.max(3, Math.round(fh * 0.05)), bd = g.getImageData(0, fh - rows, fw, rows).data;
           let n = 0, sx = 0;
           for (let j = 0; j < bd.length; j += 4) if (bd[j + 3] > 80) { n++; sx += (j / 4) % fw; }
-          return { c: o, w: fw, h: fh, fx: n ? sx / n : fw / 2 };
+          // his own height, cap to boots, for a weapon raised over his head (the javelin): from the first long run of wide
+          // rows (the cap), not the shaft above it
+          const all = g.getImageData(0, 0, fw, fh).data, cnt = [];
+          for (let y = 0; y < fh; y++) { let c = 0; for (let x = 0; x < fw; x++) if (all[(y * fw + x) * 4 + 3] > 80) c++; cnt.push(c); }
+          const most = Math.max.apply(null, cnt), runNeed = Math.round(fh * 0.12);
+          let top = 0, run = 0;
+          for (let y = 0; y < fh; y++) { if (cnt[y] >= most * 0.2) { if (++run >= runNeed) { top = y - run + 1; break; } } else run = 0; }
+          return { c: o, w: fw, h: fh, fx: n ? sx / n : fw / 2, body: fh - top };
         });
       };
-      const dropped = [], narrow = [];
+      const dropped = [], narrow = [], low = [];
       const sheet = W.canvas(8 * 2 + FW * 3 + 16 * 2, 8 * 2 + FH * 3 + 16 * 2), g = sheet.getContext('2d'), scales = [];
       g.imageSmoothingQuality = 'high';
       for (let row = 0; row < 3; row++) {
@@ -103,9 +111,11 @@ const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, BASE = 370, TALL = 348
         const c0 = W.cutout(await W.load(srcs[row])), g0 = c0.getContext('2d'), d0 = g0.getImageData(0, 0, c0.width, c0.height), q0 = d0.data;
         for (let i = 0; i < q0.length; i += 4) { const r = q0[i], gg = q0[i + 1], bl = q0[i + 2]; if (q0[i + 3] && r - gg > 40 && bl - gg > 40 && gg < 90 && Math.abs(r - bl) < 90 && bl - r < 30) q0[i + 3] = 0; } // (magenta: blue no more than red; the girl's lavender is clearly bluer)
         g0.putImageData(d0, 0, 0);
-        const fig = figures(W.dehalo(c0)), med = fig.map((q) => q.h).sort((a, z) => a - z)[1];
+        const fig = figures(W.dehalo(c0)), med = fig.map((q) => (byBody ? q.body : q.h)).sort((a, z) => a - z)[1];
         let k = TALL / med;
+        const want = k;
         fig.forEach((q) => { k = Math.min(k, (BASE - 2) / q.h); });
+        if (k < want * 0.97) low.push(row); // (a weapon raised over his head would leave the frame at his height)
         const tall = k;
         fig.forEach((q) => { k = Math.min(k, (FW / 2 - 2) / Math.max(q.fx, q.w - q.fx)); }); // (never out of its frame)
         if (k < tall * 0.97) narrow.push(row);
@@ -118,16 +128,18 @@ const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, BASE = 370, TALL = 348
       const half = W.canvas(sheet.width / 2, sheet.height / 2), hg = half.getContext('2d');
       hg.imageSmoothingQuality = 'high';
       hg.drawImage(sheet, 0, 0, half.width, half.height);
-      return { png: sheet.toDataURL('image/png'), webp: half.toDataURL('image/webp', 0.82), w: sheet.width, h: sheet.height, scales, dropped: dropped.length, narrow };
-    }, [srcs, FW, FH, BASE, TALL]).catch((e) => { throw new Error(key + ': ' + e.message); });
+      return { png: sheet.toDataURL('image/png'), webp: half.toDataURL('image/webp', 0.82), w: sheet.width, h: sheet.height, scales, dropped: dropped.length, narrow, low };
+    }, [srcs, FW, FH, FH - 14, TALL, byBody]).catch((e) => { throw new Error(key + ': ' + e.message); });
     // (a weapon held far out to the side, a javelin's long shaft: frames 512 wide, so the farmer keeps his size)
-    let r = await run(FW);
-    for (const wide of FW_WIDE) { if (!r.narrow.length) break; r = await run(wide); }
+    // (taller frames, 448, for a weapon held over the head, so he keeps his height; the feet stay 14 above the frame's bottom)
+    let fh = FH, r = await run(FW, fh);
+    if (r.low.length) { fh = 448; r = await run(FW, fh); }
+    for (const wide of FW_WIDE) { if (!r.narrow.length) break; r = await run(wide, fh); }
     fs.writeFileSync(path.join(OUT, key + '.png'), Buffer.from(r.png.split(',')[1], 'base64'));
     fs.writeFileSync(path.join(OUT, key + '.webp'), Buffer.from(r.webp.split(',')[1], 'base64'));
     if (REAL) sizes[key] = [r.w, r.h];
     rows[key] = have;
-    console.log(key, (r.w > 1200 ? '(frames ' + Math.round((r.w - 48) / 3) + ' wide) ' : '') + ROWS.map((row, i) => row + (r.scales[i] ? ' x' + r.scales[i] : ' (none: the old way)')).join(', ') + (r.dropped ? ' | a flying weapon left out of ' + r.dropped + ' picture(s)' : ''));
+    console.log(key, (r.w > 1200 || r.h > 1200 ? '(frames ' + Math.round((r.w - 48) / 3) + ' x ' + Math.round((r.h - 48) / 3) + ') ' : '') + ROWS.map((row, i) => row + (r.scales[i] ? ' x' + r.scales[i] : ' (none: the old way)')).join(', ') + (r.dropped ? ' | a flying weapon left out of ' + r.dropped + ' picture(s)' : ''));
   }
   await b.close();
   if (!REAL) return;

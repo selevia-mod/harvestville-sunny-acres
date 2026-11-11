@@ -144,6 +144,16 @@
       o.x -= v[0] * 9 * kk; o.y -= v[1] * 9 * kk;
       if (sh.dir === 'left' || sh.dir === 'right') o.rot = (sh.dir === 'left' ? 0.06 : -0.06) * kk; // (he rocks back)
       sh.kick = 0;
+    } else if (sh.k === 'javelin') {
+      // the javelin (owner, 11 Nov 2026: polish): a wind-up, leaning back (~100 ms), then on the throw a quick forward
+      // lunge, a few px, that settles back
+      var lean = sh.dir === 'left' ? 1 : sh.dir === 'right' ? -1 : 0;
+      if (!sh.fired) { var wu = Math.min(1, t / 100); o.x -= v[0] * 5 * wu; o.y -= v[1] * 5 * wu; o.rot = 0.07 * lean * wu; }
+      else {
+        var ul = (now - sh.fired) / 240, fl = ul < 0.2 ? ul / 0.2 : Math.max(0, 1 - (ul - 0.2) / 0.8);
+        fl = fl * fl * (3 - 2 * fl);
+        o.x += v[0] * 9 * fl; o.y += v[1] * 9 * fl; o.rot = -0.05 * lean * fl;
+      }
     } else if (sh.fired) {
       var u = Math.min(1, (now - sh.fired) / 220), f = 6 * Math.sin(Math.PI * u);
       o.x += v[0] * f; o.y += v[1] * f;
@@ -242,6 +252,8 @@
     this.wpnNext = this.time.now + L.weaponGap(k);
     sfx(k === 'rifle' ? 'cast' : 'swoosh');
     if (own && k === 'rifle') this.time.delayedCall(110, function () { if (self.wpnShot === sh) { sh.stage = 1; posePut(self, sh); } }); // (up to the shoulder)
+    // (drawn in: the throw picture shows just before the weapon leaves, so it can be gone from the hand the moment it flies)
+    if (sh.drawnIn && k !== 'rifle') this.time.delayedCall(Math.max(0, how.at - 70), function () { if (self.wpnShot === sh) { sh.stage = 1; posePut(self, sh); } });
     this.time.delayedCall(how.at, function () { if (self.wpnShot === sh) self.weaponLoose(sh); });
     // a boomerang wearing out: a word at 20 throws left; its last throw flies, and it breaks as it comes back
     if (r === 'warn') F.ui.toast('Your Boomerang has ' + W.boomerang.warn + ' throws left. Bram can fix it at the Forge.', 3000, 0x7a5a12);
@@ -253,13 +265,17 @@
     // (it leaves from the hand, so an animal right in front is not flown past; the Rifle's round shows from the muzzle on)
     var self = this, k = sh.k, range = L.weaponRange(k, sh.lv) * T;
     // (the owner's poses: a javelin or boomerang leaves the hand at the throw, then the arm follows through)
-    sh.stage = !sh.body ? 0 : sh.own && k !== 'rifle' ? 1 : LET_GO;
+    // Drawn in, the weapon is never in the picture and in the air at once: a javelin goes straight to the empty hand after
+    // the throw; a boomerang keeps the throw picture where its hand is empty (side on, facing away: the importer left the
+    // flying one out), and facing you, where it is still drawn in the hand, he is back to standing at once. (A drawn-in
+    // boomerang's third picture is the catch: never while it is out.)
+    var drawnBoom = sh.drawnIn && k === 'boomerang', drawnJav = sh.drawnIn && k === 'javelin';
+    sh.stage = !sh.body ? 0 : sh.own && k !== 'rifle' ? 1 : LET_GO; // (the javelin's hand of the throw: where it leaves)
     sh.fired = this.time.now;
     posePut(this, sh);
-    // (a drawn-in boomerang's third picture is the catch: not while it is flying out; the farmer is back to standing soon)
-    var drawnBoom = sh.drawnIn && k === 'boomerang';
-    if (sh.own && k !== 'rifle' && !drawnBoom) this.time.delayedCall(sh.drawnIn ? 60 : 90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
+    if (sh.own && k !== 'rifle' && !sh.drawnIn) this.time.delayedCall(90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
     var tip = tipOf(sh), from = sh.grip;
+    if (drawnJav && sh.body) { sh.stage = LET_GO; posePut(this, sh); } // (the same moment: the empty hand, nothing drawn in it)
     if (k === 'rifle' && sh.rig) { sfx('smash'); this.rigFire(sh); this.wpnPuff(sh.rigTip.x, sh.rigTip.y, sh.lv, sh.rig.view === 'back' ? sh.rig.cont.depth - 0.002 : null); } // (facing away: behind his head)
     else if (k === 'rifle') { // a pop, a flash, a puff, a light shake and the kick (motion: the shot's clock)
       sfx('smash');
@@ -279,10 +295,12 @@
     }
     posePut(this, sh);
     var fa = sh.rig && sh.rigAng != null ? sh.rigAng : sh.ang; // (the rig's rifle points where it can: the shot goes that way)
-    this.wpnFly({ k: k, lv: sh.lv, x: from.x, y: from.y, ang: fa, range: range, shown: false, broke: sh.broke, hide: k === 'rifle' ? Math.hypot(tip.x - from.x, tip.y - from.y) : 0 });
+    var tg = sh.target, flight = tg && tg.hp > 0 && tg.img.active ? Math.hypot(tg.x - from.x, (tg.y - 0.3 * tg.def.w * T) - from.y) + 0.3 * T : 0;
+    this.wpnFly({ k: k, lv: sh.lv, x: from.x, y: from.y, ang: fa, range: range, shown: false, broke: sh.broke, hide: k === 'rifle' ? Math.hypot(tip.x - from.x, tip.y - from.y) : 0, flight: flight });
     this.tellArrow({ x: Math.round(from.x), y: Math.round(from.y), a: fa, l: L.shotRange(range, k), b: sh.lv });
-    var rest = drawnBoom ? 90 : Math.max(60, W[k].still - SHOT[k].at);
-    this.time.delayedCall(rest, function () { if (self.wpnShot === sh) { poseEnd(self, sh); self.idle(); } });
+    var rest = drawnBoom ? (sh.dir === 'down' ? 0 : 90) : Math.max(60, W[k].still - SHOT[k].at);
+    if (!rest) { poseEnd(this, sh); this.idle(); }
+    else this.time.delayedCall(rest, function () { if (self.wpnShot === sh) { poseEnd(self, sh); self.idle(); } });
   };
 
   // the Rifle's flash at the muzzle: a bright dot and a little cross, gone in 80 ms (depth: behind him, facing away)
@@ -324,7 +342,18 @@
       var t = F.weaponTexture(this, o.k, o.lv), len = lenOf(o.k);
       sh.img = this.add.image(o.x, o.y, t.key).setScale(len / t.w).setDepth(DEPTH.fx).setRotation(o.k === 'boomerang' ? 0 : o.ang).setFlipY(o.k === 'javelin' && c < 0)
         .setOrigin(o.k === 'javelin' ? 0.97 : 0.5, 0.5); // (a javelin's point leads: it is where it hits)
+      sh.sc0 = len / t.w;
       sh.shade = this.add.ellipse(o.x, o.y, (o.k === 'javelin' ? 0.9 : 0.4) * T, 0.12 * T, 0x000000, 0.22).setDepth(DEPTH.shadow).setRotation(o.k === 'javelin' ? o.ang * 0.25 : 0);
+      if (o.k === 'javelin') {
+        // seen along its flight (thrown at you or away), a javelin is short: about a third of its side-on length
+        sh.fore = 1 - 0.66 * Math.abs(sn);
+        sh.img.setScale(sh.sc0 * sh.fore, sh.sc0);
+        sh.shade.setSize((0.15 + 0.75 * sh.fore) * T, 0.12 * T);
+        sh.flight = Math.max(0.5 * T, Math.min(o.range, o.flight || o.range)); // (it comes down on what it was thrown at)
+        // a faint speed trail behind it, in its level's colour
+        var tc = moon ? F.WPN_GLOW : parseInt(F.WPN_PAL[o.lv].shot.slice(1), 16);
+        sh.streak = this.add.rectangle(o.x, o.y, 1, 0.05 * T, tc, 0.35).setOrigin(1, 0.5).setDepth(DEPTH.fx - 0.001);
+      }
     }
     if (moon) sh.glow = glowAt(this, o.x, o.y, (o.k === 'rifle' ? 0.2 : 0.3) * T, DEPTH.fx - 0.002);
     else if (o.k === 'boomerang' && o.lv && F.images && F.images.wpn_boom) // (one wooden boomerang for every level: its level a soft glow of its colour)
@@ -386,12 +415,12 @@
         this.wpnStrike(sh, hit);
         if (pair) { sh.through.push(hit); this.wpnStrike(sh, pair); }
         if (sh.pierce > 0) { sh.pierce -= 1; sh.through.push(hit); continue; } // (the Moon Rifle: on into the one behind)
-        if (sh.k === 'javelin') return this.wpnStick(sh, 260);
+        if (sh.k === 'javelin') return this.wpnStick(sh, 450, hit);
         drop(this, sh);
         return false;
       }
-      if (sh.went >= sh.range) {
-        if (sh.k === 'javelin') return this.wpnStick(sh, 520);
+      if (sh.went >= (sh.k === 'javelin' ? sh.flight || sh.range : sh.range)) {
+        if (sh.k === 'javelin') return this.wpnStick(sh, 1000); // (a miss: in the ground at an angle, about a second)
         if (this.bits) this.bits.dust.explode(2, sh.x, sh.y);
         drop(this, sh);
         return false;
@@ -401,25 +430,39 @@
       var out = sh.went - sh.hide;
       sh.img.setPosition(sh.x, sh.y).setVisible(out > 0);
       sh.streak.setPosition(sh.x, sh.y).setSize(Math.max(1, Math.min(out, 2.2 * T)), sh.streak.height).setVisible(out > 0);
-    } else { // the javelin's arc: up and down again over its reach, its point following the path
-      var u = Math.min(1, sh.went / sh.range), H = (0.3 + 0.07 * sh.range / T) * T, h = 4 * H * u * (1 - u), dh = 4 * H * (1 - 2 * u) / sh.range * speed;
+    } else { // the javelin's arc: a little up, then down onto what it was thrown at, its point following the path
+      var D = sh.flight || sh.range, u = Math.min(1, sh.went / D), H = Math.min(0.22 * D, (0.18 + 0.05 * D / T) * T), h = 4 * H * u * (1 - u), dh = 4 * H * (1 - 2 * u) / D * speed;
+      var away = sh.s < -0.5 ? 1 - 0.3 * u : 1, rot = Math.atan2(sh.s * speed - dh, sh.c * speed) + (Math.abs(sh.s) > 0.85 ? (sh.c < 0 ? -0.25 : 0.25) : 0);
       sh.h = h;
-      sh.img.setPosition(sh.x, sh.y - h).setRotation(Math.atan2(sh.s * speed - dh, sh.c * speed)).setFlipY(sh.c < 0);
-      sh.shade.setPosition(sh.x, sh.y + 0.05 * T);
+      sh.img.setPosition(sh.x, sh.y - h).setRotation(rot).setFlipY(sh.c < -0.05).setScale(sh.sc0 * sh.fore * away, sh.sc0 * away); // (away: smaller as it goes)
+      sh.shade.setPosition(sh.x, sh.y + 0.05 * T).setScale(away);
+      var tl = lenOf('javelin') * sh.fore * away;
+      if (sh.streak) sh.streak.setPosition(sh.x, sh.y - h).setRotation(rot).setSize(tl + Math.min(sh.went, 0.7 * T) * sh.fore, sh.streak.height);
     }
     return true;
   };
   // a javelin stands where it came down for a moment, then fades
-  P.wpnStick = function (sh, ms) {
+  // A javelin that hit: a short thunk (it pops and the screen gives a tiny jolt), it stays in the animal as it flew, then
+  // fades. A miss: it stands in the ground at an angle, its point in, for about a second.
+  P.wpnStick = function (sh, ms, hit) {
     var img = sh.img;
     if (sh.streak) sh.streak.destroy();
     if (sh.glow) sh.glow.destroy();
-    if (this.bits) this.bits.dust.explode(2, sh.x, sh.y + 0.1 * T);
     if (sh.shade) sh.shade.destroy();
-    if (img && img.active) {
-      img.setPosition(sh.x, sh.y - 0.15 * T).setRotation(sh.c < 0 ? -2.3 : -0.85).setFlipY(false).setDepth(DEPTH.actor + sh.y / 1e5);
+    if (!(img && img.active)) return false;
+    if (hit) {
+      if (!sh.shown) this.cameras.main.shake(60, 0.0018);
+      var sx = img.scaleX, sy = img.scaleY;
+      img.setDepth(hit.img.depth + 0.0001);
+      this.tweens.add({ targets: img, scaleX: sx * 1.12, scaleY: sy * 1.12, duration: 50, yoyo: true });
       this.tweens.add({ targets: img, alpha: 0, delay: ms, duration: 220, onComplete: function () { img.destroy(); } });
+      return false;
     }
+    if (this.bits) this.bits.dust.explode(2, sh.x, sh.y + 0.1 * T);
+    var side = Math.abs(sh.c) > 0.5, f = sh.fore || 1;
+    img.setPosition(sh.x, sh.y).setRotation(side ? (sh.c < 0 ? Math.PI - 0.9 : 0.9) : (sh.s > 0 ? 1.25 : 1.9)) /* (the point down in the ground) */.setFlipY(false)
+      .setScale((sh.sc0 || img.scaleY) * Math.max(0.55, f), sh.sc0 || img.scaleY).setDepth(DEPTH.actor + sh.y / 1e5);
+    this.tweens.add({ targets: img, alpha: 0, delay: ms, duration: 250, onComplete: function () { img.destroy(); } });
     return false;
   };
   // The boomerang: out to its reach and back in a loop, spinning; it hits the first animal it touches (the Moon one: that
