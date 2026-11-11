@@ -163,14 +163,24 @@
   };
 
   // ---------- raids pay in crops ----------
-  // The crops a battle took, by item: { id: n }. st: the farm it was fought on (its soil says what grew where); taken:
-  // L.frTaken(b) (or the server's own). A tile whose crop is not known (the copy saw a crop the farm's look no longer has)
-  // counts as the crop seen most; a crop that is not a farm crop (grass) is not counted.
-  L.frCropsOf = function (st, taken) {
-    var got = {}, unknown = 0, w = (taken && taken.w) || C.FARM_W;
+  // A farm's raid copy says which crop each of its ripe crops is (copy.ck: a letter a crop, in the order of its loot's
+  // crops; '.' unknown): the copy is what the battle is fought on, the farm's look (the visit) may be older or newer.
+  var ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  L.frCropCode = function (loot, soil, w) {
+    return (loot || []).filter(function (p) { return p.kind === 'crops'; }).map(function (p) {
+      var t = soil && soil[p.y * w + p.x], i = t && t.c ? C.CROP_KEYS.indexOf(t.c) : -1;
+      return i >= 0 && i < ABC.length ? ABC.charAt(i) : '.';
+    }).join('');
+  };
+  // The crops a battle took, by item: { id: n }. taken: L.frTaken(b) (or the server's own); copy: the battle copy (its
+  // ck), else st: the farm it was fought on (its soil). A tile whose crop is not known counts as the crop seen most; a
+  // crop that is not a farm crop (grass) is not counted.
+  L.frCropsOf = function (st, taken, copy) {
+    var got = {}, unknown = 0, w = (taken && taken.w) || C.FARM_W, at = {}, k = 0, ck = copy && typeof copy.ck === 'string' ? copy.ck : '';
+    ((copy && copy.loot) || []).forEach(function (p) { if (p.kind === 'crops') { var i = ABC.indexOf(ck.charAt(k++)); if (i >= 0 && C.CROP_KEYS[i]) at[p.x + ',' + p.y] = C.CROP_KEYS[i]; } });
     ((taken && taken.items) || []).forEach(function (it) {
       if (it[0] !== 'crops') return;
-      var t = st && st.soil && st.soil[it[2] * w + it[1]], crop = t && t.c && C.CROPS[t.c], id = crop && crop.item;
+      var t = st && st.soil && st.soil[it[2] * w + it[1]], crop = C.CROPS[at[it[1] + ',' + it[2]] || (t && t.c)], id = crop && crop.item;
       if (!crop) { unknown += it[3]; return; }
       if (L.isFarmCrop(id)) got[id] = (got[id] || 0) + it[3];
     });

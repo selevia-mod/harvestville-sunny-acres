@@ -66,6 +66,7 @@
   P.raidCopy = function () {
     var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, camp: L.frState(s).camp, name: O.myName() });
     farm.loot = farm.loot.slice(0, 300);
+    farm.ck = L.frCropCode(farm.loot, s.soil, farm.w); // (which crop each is: the raider takes those crops home, economy v2)
     farm.value = L.frCopyValue(farm);
     return farm;
   };
@@ -208,7 +209,7 @@
     b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
     L.frUse(s, used);
     // (farm economy v2: the ripe crops they carried, from this farm's field, wait for the server to count the raid)
-    L.frCropsKeep(s, rd.raid, L.frCropsOf(this.state, L.frTaken(b)));
+    L.frCropsKeep(s, rd.raid, L.frCropsOf(this.state, L.frTaken(b), rd.copy));
     F.Host.save(s);
     if (ui.raidSay) ui.raidSay('Checking your raid...');
     FR.check(rd.raid, b.moves, rd.kind === 'ghost' ? rd.copy : null).then(function (r) {

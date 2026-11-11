@@ -186,6 +186,15 @@ test('raids pay in crops: what the battle took from the field, by crop; the farm
   assert.deepStrictEqual([L.siloHas(s, 'corn'), L.countItem(s, 'corn') + L.countItem(s, 'cabbage')], [2, 2]);
   // the defender's farm is never touched
   assert.strictEqual(st.soil[5 * 1 + 12 * W].c, 'corn');
+  // the battle copy says which crop each is (its look may be older): it wins over the soil seen
+  const loot = [{ kind: 'gold', x: 3, y: 3, n: 400 }, { kind: 'crops', x: 5, y: 12, n: 1 }, { kind: 'crops', x: 9, y: 12, n: 1 }, { kind: 'crops', x: 7, y: 12, n: 1 }];
+  const ck = L.frCropCode(loot, st.soil, W);
+  assert.strictEqual(ck.length, 3);
+  assert.strictEqual(ck.charAt(1), '.', 'no crop there: unknown');
+  const copy = { loot, ck: ck.slice(0, 1) + ck.charAt(0) + ck.charAt(2) }; // (the copy saw corn at 9,12)
+  const empty = L.newState();
+  assert.deepStrictEqual(plain(L.frCropsOf(empty, taken, copy)), { corn: 4, cabbage: 1 }, 'from the copy alone; the rest counts as its most');
+  assert.ok(JSON.stringify({ ck: L.frCropCode(Array.from({ length: 300 }, (_, i) => ({ kind: 'crops', x: i % W, y: 12 })), st.soil, W) }).length < 320, 'a letter a crop: small in the copy');
 });
 
 test("a real raid's crops wait for the game server, then come home (never more than the server says); kept in the save; the last 5", () => {
