@@ -167,3 +167,72 @@ test('energy a tower creature costs: its floor\'s hit, halved by a dish\'s power
   assert.ok(L.chargeLoss(s, 12, 'boar') < 12, '...where it still works');
   assert.strictEqual(L.chargeLoss(s, 1, 'talangka'), 1);
 });
+
+// ---------- 4. a map per floor, built in code ----------
+const LAIR = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'lair.json'), 'utf8'));
+const solidGids = (m) => {
+  const out = new Set();
+  m.tilesets.forEach((ts) => (ts.tiles || []).forEach((t) => (t.properties || []).forEach((p) => { if (p.name === 'collides' && p.value) out.add(ts.firstgid + t.id); })));
+  return out;
+};
+// walkable tiles of a floor (no solid tile, not under a prop's foot), and those reached on foot from the way in
+const walkOf = (m) => {
+  const W = m.width, H = m.height, solid = solidGids(m), block = new Uint8Array(W * H), S = m.tilewidth;
+  m.layers.filter((l) => l.type === 'tilelayer').forEach((l) => l.data.forEach((g, i) => { if (solid.has(g)) block[i] = 1; }));
+  const objs = m.layers.find((l) => l.type === 'objectgroup').objects, props = m.tilesets.find((t) => t.name === 'props');
+  objs.filter((o) => o.gid).forEach((o) => {
+    const t = props.tiles.find((q) => q.id === o.gid - props.firstgid), foot = (t.properties.find((p) => p.name === 'foot') || {}).value || 0;
+    const x0 = Math.round(o.x / S), w = Math.round(o.width / S), y1 = Math.round(o.y / S) - 1;
+    for (let y = y1 - foot + 1; y <= y1; y++) for (let x = x0; x < x0 + w; x++) block[y * W + x] = 1;
+  });
+  const seen = new Uint8Array(W * H), q = [3 * W + 5];
+  seen[q[0]] = 1;
+  while (q.length) {
+    const c = q.pop(), x = c % W, y = Math.floor(c / W);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const n = (y + dy) * W + x + dx; if (!block[n] && !seen[n]) { seen[n] = 1; q.push(n); } });
+  }
+  return { W, H, block, seen, objs };
+};
+
+test('L.towerMap: a floor\'s room in the caves\' layout, sized by its band, the way in at the top left, the way out to Manila\'s lighthouse', () => {
+  [1, 101, 250, 333, 450, 777].forEach((f) => {
+    const m = plain(L.towerMap(f, LAIR)), sz = plain(L.towerSize(f));
+    assert.deepStrictEqual([m.width, m.height], sz, 'floor ' + f);
+    assert.deepStrictEqual(m.layers.map((l) => l.name), ['Ground', 'Walls', 'Objects']);
+    assert.deepStrictEqual(m.tilesets.map((t) => t.name), LAIR.tilesets.map((t) => t.name), 'the caves\' own sheets');
+    m.layers.filter((l) => l.type === 'tilelayer').forEach((l) => assert.strictEqual(l.data.length, sz[0] * sz[1]));
+    const objs = m.layers[2].objects, by = (n) => objs.find((o) => o.name === n);
+    assert.deepStrictEqual([by('entrance').x, by('entrance').y], [Math.round(5.5 * 256), Math.round(3.6 * 256)], 'the way in, under the ladder');
+    const out = by('exit'), pr = Object.fromEntries(out.properties.map((p) => [p.name, p.value]));
+    assert.deepStrictEqual([out.type, out.x / 256, out.y / 256], ['warp', 5, 2]);
+    assert.deepStrictEqual(pr, { to: 'manila', spawn: 'from_tower', label: 'Go out' });
+    assert.strictEqual(by('dungeon_gate').type, 'dungeon_gate');
+    assert.deepStrictEqual([by('dungeon_gate').width, by('dungeon_gate').height], [512, 512], 'the stairs up: 2 x 2');
+    const wild = by('wild');
+    assert.deepStrictEqual([wild.x, wild.y, wild.width, wild.height].map((v) => v / 256), [1, 4, sz[0] - 2, sz[1] - 5]);
+    // the walls round it, the ladder, and the lift's tiles left free
+    const walls = m.layers[1].data, W = sz[0], lg = LAIR.tilesets[0].firstgid;
+    assert.strictEqual(walls[2 * W + 5], lg + 11, 'the ladder up (out)');
+    [[2, 2], [3, 2], [2, 3], [3, 3]].forEach(([x, y]) => assert.strictEqual(walls[y * W + x], 0, 'the lift\'s tile ' + x + ',' + y));
+    for (let x = 0; x < W; x++) assert.ok(walls[x] && walls[(sz[1] - 1) * W + x], 'top and bottom walls');
+  });
+});
+
+test('every floor differs and is the same for every player; every free tile and the stairs up are reached on foot from the way in', () => {
+  const key = (f) => JSON.stringify(plain(L.towerMap(f, LAIR)).layers.slice(1));
+  assert.strictEqual(key(7), key(7), 'the same floor, the same room');
+  const many = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(key));
+  assert.strictEqual(many.size, 10, 'ten floors, ten rooms');
+  for (let f = 1; f <= 1000; f += 7) {
+    const m = plain(L.towerMap(f, LAIR)), w = walkOf(m), g = w.objs.find((o) => o.name === 'dungeon_gate');
+    for (let i = 0; i < w.W * w.H; i++) if (!w.block[i]) assert.ok(w.seen[i], `floor ${f}: tile ${i % w.W},${Math.floor(i / w.W)} cannot be reached`);
+    const gx = g.x / 256, gy = g.y / 256;
+    [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([dx, dy]) => assert.ok(w.seen[(gy + dy) * w.W + gx + dx], `floor ${f}: the stairs up are reached`));
+    assert.ok(gy >= Math.floor(w.H / 2) - 1, 'the stairs up are in the lower half');
+    // pillars and pools are there, and room for the enemies (at least 20 free tiles each)
+    const walls = m.layers[1].data, lg = LAIR.tilesets[0].firstgid;
+    assert.ok(walls.some((v) => v === lg + 5), `floor ${f}: pools`);
+    const free = Array.from(w.seen).filter(Boolean).length;
+    assert.ok(free >= L.towerCount(f) * 20, `floor ${f}: ${free} free tiles for ${L.towerCount(f)}`);
+  }
+});
