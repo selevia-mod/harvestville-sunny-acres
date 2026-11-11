@@ -290,6 +290,60 @@ test('helper Pearls (the hook for the online step): 1 on a floor you cleared, he
   assert.strictEqual(L.towerPay(s, 5, { helper: true }), 1, 'a new day, 50 more');
 });
 
+// The team rule (the online step, 12 Nov 2026: server/lib/tower.js says at the clear how many on the floor were new to it;
+// each phone pays itself by L.towerTeamPay, `others` = that count without itself).
+const climbed = (to, edit) => { const s = fresh(); for (let f = 1; f <= to; f++) { L.towerReach(s, f); L.towerPay(s, f); } s.pearls = 0; if (edit) edit(s); return s; };
+test('Pearls with a team: the first-timer gets the floor\'s own Pearls (no team bonus), a helper 1, a helper at 50 today nothing, a team that had all cleared it nothing', () => {
+  // floor 7, three on it: Ana new to it (cleared 6), Ben and Cy cleared it long ago; Cy has helped 50 times today
+  const ana = climbed(6), ben = climbed(20), cy = climbed(20, (s) => { s.tower.hd = s.day; s.tower.hn = 50; });
+  const nw = 1; // (the server: one of the three was new to it)
+  assert.strictEqual(L.towerTeamPay(ana, 7, nw - 1), L.towerPearls(7), 'Ana: floor 7\'s first-time Pearls, as alone');
+  assert.strictEqual(L.towerTeamPay(ben, 7, nw), 1, 'Ben, helping: 1');
+  assert.strictEqual(L.towerTeamPay(cy, 7, nw), 0, 'Cy: 50 today already');
+  assert.deepStrictEqual([ana.pearls, ben.pearls, cy.pearls], [1, 1, 0]);
+  assert.strictEqual(ana.tower.cl, 7);
+  assert.strictEqual(ben.tower.hn, 1);
+  cy.day += 1;
+  assert.strictEqual(L.towerTeamPay(cy, 7, 1), 1, 'Cy, tomorrow: 1 again');
+  // floor 8, the same three: Ana new again; nobody else is
+  assert.strictEqual(L.towerTeamPay(ana, 8, 0), 1);
+  // floor 5: all three had cleared it: nothing for anyone, helping nobody
+  [ana, ben, cy].forEach((s) => { const before = s.pearls; assert.strictEqual(L.towerTeamPay(s, 5, 0), 0); assert.strictEqual(s.pearls, before); });
+  // a big boss floor, two new to it: each its whole 100, no more for being two
+  const d1 = climbed(99), d2 = climbed(99), helper = climbed(150);
+  assert.strictEqual(L.towerTeamPay(d1, 100, 1), 100);
+  assert.strictEqual(L.towerTeamPay(d2, 100, 1), 100);
+  assert.strictEqual(L.towerTeamPay(helper, 100, 2), 1, 'helping two at once: still 1');
+});
+test('helper Pearls with a team stop at 50 a day, however many floors and friends; alone on a cleared floor, nothing', () => {
+  const s = climbed(300);
+  let got = 0;
+  for (let f = 1; f <= 120; f++) got += L.towerTeamPay(s, f, 1 + (f % 3));
+  assert.strictEqual(got, 50);
+  assert.strictEqual(s.tower.hn, 50);
+  assert.strictEqual(L.towerTeamPay(s, 3, 3), 0);
+  const solo = climbed(10);
+  assert.strictEqual(L.towerTeamPay(solo, 4, 0), 0, 'a solo replay pays nothing');
+  assert.strictEqual(L.towerPay(solo, 4), 0);
+  assert.strictEqual(solo.pearls, 0);
+  // the helper count is saved (tw2) and kept across a reload
+  const r = roundTrip(s);
+  assert.deepStrictEqual([r.tower.hd, r.tower.hn], [s.day, 50]);
+});
+test('a tower enemy from a friend\'s phone or the game server keeps its floor\'s whole bar (L.wildUnpack), a big boss of floor 1000 too', () => {
+  [[1, 'normal'], [500, 'normal'], [999, 'mini'], [1000, 'boss'], [990, 'guard']].forEach(([f, role]) => {
+    const z = L.towerZoneOf(f), kind = role === 'normal' ? z.normal[0] : z[role], max = L.towerHits(f, role === 'normal' ? null : role);
+    const row = L.wildPack({ slot: 3, kind, x: 2560, y: 2560, dir: 'side', left: true, mode: 'charge', hp: max - 1, size: 1, look: false, max });
+    const u = L.wildUnpack(row);
+    assert.ok(u, 'read: floor ' + f);
+    assert.strictEqual(u.kind, kind);
+    assert.deepStrictEqual([u.hp, u.max], [max - 1, max], 'floor ' + f + ' ' + role);
+  });
+  // a place's creature is as before
+  const u = L.wildUnpack(L.wildPack({ slot: 1, kind: 'bayawak', x: 0, y: 0, dir: 'side', left: false, mode: 'idle', hp: 999, size: 1, look: false, max: 999 }));
+  assert.ok(u && u.max < 999, 'a place creature is capped as before');
+});
+
 test('the lift: 1, 11, 21 ... up to the deepest floor reached; the door takes you to the last of them', () => {
   const s = fresh();
   assert.deepStrictEqual(plain(L.towerStops(s)), [1]);

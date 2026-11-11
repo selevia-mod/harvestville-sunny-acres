@@ -10,8 +10,10 @@
 //   or with no energy left, back at the lighthouse;
 // - Pearls when a floor's last enemy falls, the first time (L.towerPay), a "+N Pearls" pop; the floor, the enemies left and
 //   your Pearls on a chip while you climb, and your Pearls in the bag.
-// Solo for now: the game server does not hold a tower floor (cfg.solo, 19zzzzzzzzz-gameserver.js). Friends on a floor, the
-// helpers' Pearls online are a later step. Each realm's trick (F.towerTricks): 19zzz...zz-tower-tricks.js.
+// With friends (up to 4 on a floor): the game server holds a tower floor as it holds a cave's (19zzzzzzzzz-gameserver.js,
+// server/lib/tower.js), and 19zzz...z-tower-friends.js is the Tower's side of it (the team's Pearls, the tricks it is
+// told of, friends' floors on the lift). No server: the floor is this phone's alone, as before. Each realm's trick
+// (F.towerTricks): 19zzz...zz-tower-tricks.js.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -45,7 +47,7 @@
     if (cfgs[zn]) return cfgs[zn];
     var z = TW.zones[zn - 1];
     return (cfgs[zn] = {
-      key: 'tower', tower: true, solo: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
+      key: 'tower', tower: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
       look: z.look, lava: z.lava, art: { gate: z.art.gate, cave: z.art.cave }, bg: z.bg, propTint: z.propTint, embers: false,
       lift: 'Tower Lift', icon: 'sparkle', name: 'The Lost Tower', d: {}, words: WORDS,
       line: function (f) {
@@ -64,6 +66,7 @@
   // enemies of this floor still to beat (on the floor, and the waves still to come; and a splitter's copies, lr.extra:
   // 19zzz...zz-tower-tricks.js)
   var towerLeft = function (w) {
+    if (w.lair.gsTl != null && w.wildFollowing() === 'gs') return w.lair.gsTl; // (the game server holds the floor: its count)
     var lr = w.lair, r = lr.roster || (lr.roster = L.towerRoster(lr.floor)), n = 0, k; // (asked every frame: the floor's list made once)
     for (k = 0; k < r.length; k++) if (!lr.down[r[k].slot]) n++;
     for (k in lr.extra || {}) if (!lr.down[k]) n++;
@@ -185,14 +188,19 @@
   };
 
   // ---------- a floor cleared: Pearls, the first time ----------
-  P.towerCleared = function () {
-    var lr = this.lair, s = this.state, n = L.towerPay(s, lr.floor), f = this.feet(), self = this;
+  // others: with a team (the game server's 'cl'), how many of the others on the floor were new to it (L.towerTeamPay: a
+  // helper's Pearl); none given: alone.
+  P.towerCleared = function (others) {
+    var lr = this.lair, s = this.state, r = L.towerRec(s), had = lr.floor <= r.cl, team = others != null, f = this.feet(), self = this;
+    var n = team ? L.towerTeamPay(s, lr.floor, others) : L.towerPay(s, lr.floor);
     lr.paid = true;
     if (n > 0) {
       sfx('fanfare');
-      this.floatTextAt(f.x, f.y - 1.6 * T, '+' + n + ' Pearls');
-      this.time.delayedCall(300, function () { if (F.ui && self.lair === lr) F.ui.toast('Floor ' + lr.floor + ' cleared! +' + n + ' Pearl' + (n > 1 ? 's' : '') + '. You have ' + fmt(s.pearls) + '.', 2600, GOLD); });
-    } else if (F.ui) F.ui.toast('Floor ' + lr.floor + ' cleared!', 1600, BLUE);
+      this.floatTextAt(f.x, f.y - 1.6 * T, '+' + n + ' Pearl' + (n > 1 ? 's' : ''));
+      var line = had ? 'Floor ' + lr.floor + ' cleared together! +1 Pearl for helping (' + r.hn + ' of ' + TW.pearls.helperDay + ' today).'
+        : 'Floor ' + lr.floor + ' cleared! +' + n + ' Pearl' + (n > 1 ? 's' : '') + '. You have ' + fmt(s.pearls) + '.';
+      this.time.delayedCall(300, function () { if (F.ui && self.lair === lr) F.ui.toast(line, 2600, GOLD); });
+    } else if (F.ui) F.ui.toast('Floor ' + lr.floor + ' cleared' + (team && had && others > 0 ? ' together! You have helped ' + TW.pearls.helperDay + ' times today: no more helper Pearls until tomorrow.' : '!'), team && had && others > 0 ? 3200 : 1600, BLUE);
     this.changed();
     this.save();
     return n;

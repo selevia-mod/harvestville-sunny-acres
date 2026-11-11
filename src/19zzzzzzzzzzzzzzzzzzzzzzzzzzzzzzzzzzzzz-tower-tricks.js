@@ -404,8 +404,10 @@
   var heal = function (w, a) {
     var b = L.towerHealPick(a, w.wild.animals, T);
     if (!b) return;
-    var n = L.towerHealOf(b);
-    b.hp += n;
+    b.hp += L.towerHealOf(b);
+    healFx(w, a, b);
+  };
+  var healFx = function (w, a, b) { // (a mends b: what you see)
     var y = b.y - b.lift - 0.45 * b.def.w * b.size * T;
     glowAt(w, b.x, y, (b.def.w * b.size + 1.2) * T, 0x6dff8e);
     glowAt(w, a.x, a.y - a.lift - 0.45 * a.def.w * a.size * T, (a.def.w * a.size + 0.6) * T, 0x6dff8e);
@@ -484,6 +486,8 @@
     if (k.on.burst) puddle(this, a.x, a.y);
     return wildDown.apply(this, arguments);
   };
+  // (what each trick looks like, for a floor the game server runs: 19zzz...z-tower-friends.js)
+  F.towerFx = { tk: tk, word: word, puddle: puddle, shieldBreak: shieldBreak, shieldBounce: shieldBounce, healFx: healFx, lieDown: lieDown, standUp: standUp };
   var clearFloor = F.towerClearFloor;
   F.towerClearFloor = function () {
     clearing = true;
