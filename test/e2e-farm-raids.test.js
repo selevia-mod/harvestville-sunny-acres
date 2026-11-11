@@ -127,8 +127,8 @@ test('farm raids: the Raid Camp panel (party, raiders, defenses, practice), trai
   await page.waitForTimeout(400);
   assert.match(await modalText(page), /Raid Camp.*Power \d+.*Raid Camp, level 3.*Goat.*Crows.*Cat.*Carabao/);
   await shot(page, 'raid-camp');
-  // train: Gold now, the goat joins when its time is up
-  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; for (let i = 0; i < 3; i++) L.trainRaider(s, 'goat', Date.now() - 60000); L.trainDone(s, Date.now()); });
+  // train: Gold and a cabbage each now (farm economy v2: raiders eat crops), the goat joins when its time is up
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; L.siloPut(s, 'cabbage', 3); for (let i = 0; i < 3; i++) L.trainRaider(s, 'goat', Date.now() - 60000); L.trainDone(s, Date.now()); });
   assert.strictEqual(await page.evaluate(() => Farm.session.state.fr.army.goat), 3);
   for (const tab of ['raiders', 'defenses', 'practice']) {
     await page.evaluate((t) => { Farm.ui.closeAll(); Farm.ui.openRaidCamp(t, 0); }, tab);

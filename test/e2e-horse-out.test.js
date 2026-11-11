@@ -173,7 +173,7 @@ test('bond and gear open places: blocked without 6 hearts, then without Horsesho
   assert.match(t, /Horseshoes/);
   assert.match(t, /Lantern Bridle/);
   assert.match(t, /Saddlebags/);
-  assert.match(t, /Needs Rope from the Mixer, coming soon\./);
+  assert.match(t, /Saddlebags \| 2 Soft Leather, 3 Rope, 1,200G\./); // (part 3: Rope from the Mixer, so they can be made)
   await shot(page, 'horse-stable');
   await tapButton(page, 'Make');
   await page.waitForFunction(() => Farm.Logic.horseHas(Farm.session.state, 'horseshoes'), null, SLOW);
