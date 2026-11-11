@@ -1322,7 +1322,7 @@ test('online: hunting together (players, 6 Nov 2026: "bow and arrows lang nakiki
     await guest.page.waitForFunction(() => Farm.world.player.texture.key === 'look_fire_boy', null, SLOW);
     await host.page.evaluate(() => {
       const asset = window.gameHost.asset;
-      window.gameHost.asset = function (f, save) { if (/-archer$/.test(f)) return setTimeout(function () { window.__gameAsset(f, null); }, 0); return asset.call(this, f, save); };
+      window.gameHost.asset = function (f, save) { if (/-archer(\.[0-9a-f]{8})?$/.test(f)) return setTimeout(function () { window.__gameAsset(f, null); }, 0); return asset.call(this, f, save); };
     });
   });
   // the visitor goes ahead to Makiling; the owner follows a little later
