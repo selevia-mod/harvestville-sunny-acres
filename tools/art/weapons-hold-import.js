@@ -93,7 +93,7 @@ const FW = 384, FH = 384, BASE = 370, TALL = 348;
         if (!srcs[row]) { scales.push(null); continue; }
         // (a pocket of the flat magenta shut in between an arm and the body: dark strongly-purple pixels go, as in the pose import)
         const c0 = W.cutout(await W.load(srcs[row])), g0 = c0.getContext('2d'), d0 = g0.getImageData(0, 0, c0.width, c0.height), q0 = d0.data;
-        for (let i = 0; i < q0.length; i += 4) { const r = q0[i], gg = q0[i + 1], bl = q0[i + 2]; if (q0[i + 3] && r - gg > 40 && bl - gg > 40 && gg < 90 && Math.abs(r - bl) < 90) q0[i + 3] = 0; }
+        for (let i = 0; i < q0.length; i += 4) { const r = q0[i], gg = q0[i + 1], bl = q0[i + 2]; if (q0[i + 3] && r - gg > 40 && bl - gg > 40 && gg < 90 && Math.abs(r - bl) < 90 && bl - r < 30) q0[i + 3] = 0; } // (magenta: blue no more than red; the girl's lavender is clearly bluer)
         g0.putImageData(d0, 0, 0);
         const fig = figures(W.dehalo(c0)), med = fig.map((q) => q.h).sort((a, z) => a - z)[1];
         let k = TALL / med;
