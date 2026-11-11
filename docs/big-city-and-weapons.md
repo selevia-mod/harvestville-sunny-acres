@@ -72,3 +72,15 @@ needed", and it wears out ("boomerang can be destroy if they did not use materia
 Throws before it breaks, by level ("Make it longer, 100, 200, 300, 400, 500, 600 so in one dungeon, they can only do 1
 repair"): Basic 100 · Copper 200 · Silver 300 · Gold 400 · Magma 500 · Moon 600. A warning at 20 throws left; at 0 it
 breaks and is gone. A repair at the Forge (lumber + Rope + a little Gold) brings it back to full.
+
+## Built (11 Nov 2026, branch feat/weapons; not in the app yet)
+The three weapons are in the game's code (plan: docs/superpowers/plans/2026-11-11-new-weapons.md): the owner's reach,
+hit, shot times, ammo, wear and Moon specials. The owner's batch 6 (art-src/weapons) is in, as the weapons pack (914 KB,
+not in the page): tools/art/weapons-import.js; each pose sheet's hands are measured in F.WPN_GRIPS (measure again if a
+sheet is redrawn). Until a phone has the pack, drawn stand-ins show. Players cannot get them yet: the Armory is `F.ui.openArmory`, for Manila's Armory to open; only a
+test switch (`gameHost.devWeapons`) shows a way to it. **Still for the owner: do the new weapons work in the old
+hunting places (Pulag to Palawan, the caves, the Lair)?** One switch, `C.WEAPONS_OLD_PLACES`, now off: only Manila's
+grounds (`C.WEAPON_GROUNDS`, which Manila fills). Decided while building (can change): a shot costs the Bow's 2 energy;
+the boomerang's repair asks for Rope as soon as the Mixer makes it (lumber + Gold until then); a material the game does
+not have yet (Farm Cement, Beeswax, Manila's drops) is not asked for until it does; an upgraded boomerang comes back with
+its new level's full throws; a broken one is gone and a new one starts at Basic (no rebuild discount yet).

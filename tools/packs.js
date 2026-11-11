@@ -38,4 +38,9 @@ module.exports = {
   // (and riding v2, the gallop: ride2_horse and ride2_<outfit>_<who>, every one of them, the farm clothes' too: until they
   // are in, the old sheets stand in; tools/art/riding-v2-import.js, C.RIDE2)
   riding: fs.readdirSync(ASSETS).filter((f) => (/^ride_[a-z]+_(boy|girl)(shade)?\.png$/.test(f) && !/^ride_default_/.test(f)) || /^ride2_(horse|[a-z]+_(boy|girl))(shade)?\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // the Rifle, the Javelin and the Boomerang (owner's batch 6 when it comes: tools/art/weapons-import.js); until then
+  // the game draws them, so the pack is empty
+  weapons: fs.readdirSync(ASSETS).filter((f) => /^wpn_[a-z_]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // the farmer boy's rig parts for the Rifle (tools/art/rig-import.js; the joints are in the page, src/00-...-rig-boy.js)
+  rig: fs.readdirSync(ASSETS).filter((f) => /^rig_[a-z_]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
 };

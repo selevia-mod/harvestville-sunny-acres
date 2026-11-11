@@ -1138,5 +1138,29 @@
  "ride2_winter_girlshade": [
   1008,
   1008
+ ],
+ "wpn_hold_rifle_boy": [
+  1200,
+  1200
+ ],
+ "wpn_hold_rifle_girl": [
+  1200,
+  1200
+ ],
+ "wpn_hold_boomerang_boy": [
+  1392,
+  1200
+ ],
+ "wpn_hold_boomerang_girl": [
+  1392,
+  1200
+ ],
+ "wpn_hold_javelin_boy": [
+  1776,
+  1200
+ ],
+ "wpn_hold_javelin_girl": [
+  1776,
+  1200
  ]
 }

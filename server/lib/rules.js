@@ -35,7 +35,8 @@ function load(root) {
   };
 
   // The hardest an arrow can hit: the best bow, plus one for a strong shot (Hunting 5+, 01-logicZ-skills.js s.skHit).
-  const maxDamage = Math.max.apply(null, WI.bow.damage) + 1;
+  // (11 Nov 2026: and the new weapons' best, C.WEAPONS: a Gold or better Javelin hits 4, 5 with a strong shot)
+  const maxDamage = Math.max.apply(null, WI.bow.damage.concat(...Object.values(C.WEAPONS || {}).map((w) => w.damage))) + 1;
 
   return { F, C, L, WI, T: C.TILE, dungeonOf, maxDamage, root: root || ROOT };
 }

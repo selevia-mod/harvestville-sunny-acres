@@ -87,6 +87,10 @@
     } else if (d.mode === 'point') {
       tx = d.x; ty = d.y;
     }
+    // never on the farmer while he shoots (19zzzzzzzzzzzzzzzzzzzzzzzzzzzzz-rig.js): following, it keeps to his side; doing
+    // anything else (pointing, fetching) right on him, it steps off quickly
+    var aside = !d.owner && this.dogAside ? this.dogAside(f) : null, onHim = Math.hypot(d.x - f.x, d.y - f.y) < 0.8 * T;
+    if (aside && (d.mode === 'follow' || (onHim && d.mode !== 'carry'))) { tx = aside.x; ty = aside.y; near = 0.2 * T; if (onHim) speed = C.SPEED * 1.8; }
     var dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy);
     if (d.mode === 'follow' && dist > HD.run * T) speed = C.SPEED * 1.45;
     if (d.mode === 'follow' && dist > 12 * T) { d.x = tx; d.y = ty; dist = 0; } // (left far behind: it catches up)

@@ -115,9 +115,9 @@ test('a hit: everyone hears it at once; the damage is capped; one a 150 ms per p
   assert.deepStrictEqual(a.last('hp'), { t: 'hp', s: 0, hp: 37, by: 'a', n: 2 });
   assert.strictEqual(b.all('hp').length, 1);
   w.wait(150);
-  a.say({ t: 'hit', s: 0, d: 999, n: 3 }); // no bow hits that hard: the best bow and a strong shot
+  a.say({ t: 'hit', s: 0, d: 999, n: 3 }); // nothing hits that hard: the best weapon (a Gold+ Javelin, 4) and a strong shot
   assert.strictEqual(a.last('hp').hp, 37 - R.maxDamage);
-  assert.strictEqual(R.maxDamage, 4);
+  assert.strictEqual(R.maxDamage, 5);
   // nonsense is dropped
   w.wait(150);
   a.say({ t: 'hit', s: 0, d: 'lots', n: 4 });
