@@ -1914,9 +1914,31 @@ test('new things: mail, a heart event, the horse and saddlebag, the cat, furnitu
   await page.evaluate(() => Farm.ui.closeAll());
   await hold(page, 'hoe');
   assert.strictEqual(await actionLabel(page), 'Get off');
+  const ridden = await page.evaluate(() => Farm.world.horse.sprite.scaleX);
   await tapAction(page);
   assert.strictEqual(await page.evaluate(() => Farm.session.riding), false);
-  assert.strictEqual(await page.evaluate(() => Farm.world.horse.sprite.texture.key), 'ride2_horse', 'off it: the saddled horse alone (v2)');
+  // (owner, 11 Nov 2026: after getting off the old horse stood there) the v2 horse alone, standing the way it faced, the
+  // same size as the pony you rode
+  const off = () => page.evaluate(() => { const h = Farm.world.horse; return { key: h.sprite.texture.key, frame: h.sprite.frame.name, flip: h.sprite.flipX, scale: h.sprite.scaleX, face: h.face, faceFlip: !!h.faceFlip }; });
+  let alone = await off();
+  assert.strictEqual(alone.key, 'ride2_horse', 'off it: the saddled horse alone (v2)');
+  assert.strictEqual(alone.scale, ridden, 'the same size as ridden');
+  assert.ok({ down: [12, 14], up: [13], side: [14] }[alone.face].includes(alone.frame), 'standing the way it faced (' + alone.face + ': ' + alone.frame + ')');
+  if (alone.face === 'side') assert.strictEqual(alone.flip, alone.faceFlip, 'mirrored for the right');
+  // its sheet not on the phone yet when you get on (a slow download): it comes while you ride, so getting off shows it
+  await page.evaluate(() => {
+    const w = Farm.world;
+    w.setFeet(w.horse.x, w.horse.y - 20);
+    w.mount();
+    ['ride2_horse', 'ride2_horseshade'].forEach((k) => { delete Farm.images[k]; if (w.textures.exists(k)) w.textures.remove(k); });
+  });
+  await page.waitForFunction(() => Farm.session.riding && Farm.images.ride2_horse && Farm.images.ride2_horseshade, null, { timeout: 30000 });
+  await page.evaluate(() => { Farm.input.jx = -1; });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { Farm.input.jx = 0; Farm.world.dir = 'left'; Farm.world.dismount(); });
+  await frames(page, 3);
+  alone = await off();
+  assert.deepStrictEqual([alone.key, alone.frame, alone.flip, alone.scale], ['ride2_horse', 14, false, ridden], 'got off going left: the v2 horse standing side on, facing left, the same size');
 
   // a heart event with Leo (2 hearts) when you first talk to him today
   await go(page, 'town', 'from_farm');

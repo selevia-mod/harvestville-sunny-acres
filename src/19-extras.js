@@ -20,13 +20,14 @@
   // Riding v2 (C.RIDE2, 00-content2.js): a real gallop drawn in 4 frames, so the code-made bounce and steps are for the old
   // sheets only. Its sheets come from the 'riding' pack; until they are here the old ones stand in.
   var R2 = C.RIDE2, isV2 = function (k) { return /^ride2_/.test(k || ''); };
-  var asked2 = {}; // (when each was last asked for: offline, again 10 s later, not every frame)
+  var asked2 = {}; // (when each was last asked for: again 4 s later if it is not in, not every frame)
   var have2 = function (k) {
     if (F.images[k] && F.images[k + 'shade']) {
       if (F.SHEETS) F.SHEETS[k] = F.SHEETS[k + 'shade'] = { frameWidth: R2.fw, frameHeight: R2.fh };
       return true;
     }
-    if (F.needImage && Date.now() - (asked2[k] || 0) > 10000) { asked2[k] = Date.now(); F.needImage(k); F.needImage(k + 'shade'); }
+    // (only once the app can be asked: a call before that, at boot, must not hold the next one back)
+    if (F.needImage && (!F.canFetch || F.canFetch()) && Date.now() - (asked2[k] || 0) > 4000) { asked2[k] = Date.now(); F.needImage(k); F.needImage(k + 'shade'); }
     return false;
   };
   // One frame of a v2 horse (yours, or a friend's: 19h-online.js): its gallop while it goes, each frame ms long; standing
@@ -102,7 +103,7 @@
       var at = F.session.riding ? this.feet() : F.session.horseAt && F.session.horseAt.map === this.mapKey ? F.session.horseAt
         : this.mapKey === 'farm' ? this.points.horse : null;
       if (at) {
-        this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE) };
+        this.horse = { x: at.x, y: at.y, sprite: F.Anim.image(this, at.x, at.y, C.HORSE), sh: F.Anim.shadow(this, at.x, at.y, C.HORSE), face: at.face || 'down', faceFlip: !!at.flip };
         this.rider = this.add.image(0, 0, F.playerKey(this), 6).setVisible(false);
         if (F.images.horse_ride && F.images.horse_rideshade) {
           var hs = C.HORSE.w * T / RIDE.px;
@@ -147,6 +148,7 @@
     if (this.cat) this.cat.update(dt, time, s.time);
     var h = this.horse;
     if (!h) return;
+    if (h.ride) have2('ride2_horse'); // (asked for while you ride too: in before you get off)
     if (F.session.riding) {
       // it goes the way you go: the farmer's back on the way up; the way down, its head and mane are in front of you
       var f = this.feet(), flip = !!this.rideFlip, A = F.Anim, side = this.dir === 'left' || this.dir === 'right', d = side ? 'side' : this.dir;
@@ -180,7 +182,9 @@
       this.rider.setVisible(false);
       if (h.ride) this.rideTexture(h, null);
       var look = Math.floor(time / 2600) % 3 === 0; // (now and then it turns its head: side on)
-      if (h.v2) F.Anim.show(h, look ? 14 : 12, false);
+      // (owner, 11 Nov 2026: got off, the old horse stood there: the v2 horse alone always, once its sheet is in, standing
+      // the way it faced when you got off, mirrored for the right; at the stable it faces you, now and then side on)
+      if (h.v2) F.Anim.show(h, h.face === 'up' ? 13 : h.face === 'side' ? 14 : look ? 14 : 12, h.face === 'side' && !!h.faceFlip);
       else F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + (look ? 10 : 9), false);
     }
     h.sh.setPosition(h.x, h.y);
@@ -248,10 +252,13 @@
   M.dismount = function () {
     var f = this.feet();
     F.session.riding = false;
-    F.session.horseAt = { map: this.mapKey, x: f.x, y: f.y + 20 };
+    var side = this.dir === 'left' || this.dir === 'right', face = side ? 'side' : this.dir === 'up' ? 'up' : 'down', flip = side && !!this.rideFlip;
+    F.session.horseAt = { map: this.mapKey, x: f.x, y: f.y + 20, face: face, flip: flip };
     if (this.horse) {
       this.horse.x = f.x;
       this.horse.y = f.y + 20;
+      this.horse.face = face; // (it stays facing the way it went)
+      this.horse.faceFlip = flip;
     }
     this.player.setVisible(true);
     if (this.rider) this.rider.setVisible(false);
