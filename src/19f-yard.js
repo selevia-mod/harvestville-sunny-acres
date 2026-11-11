@@ -68,6 +68,8 @@
   P.renderYard = function () {
     var self = this, s = this.state;
     this.yardSprites.forEach(function (img) { img.destroy(); });
+    (this.yardBacks || []).forEach(function (img) { img.destroy(); });
+    this.yardBacks = [];
     this.yardZones.forEach(function (z) { self.solids.remove(z, true, true); });
     Object.keys(this.yardBlocked || {}).forEach(function (i) { delete self.blocked[i]; });
     this.yardSprites = [];
@@ -90,6 +92,15 @@
       sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot || type.low ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
       if (hidden) sp.setVisible(false);
       self.yardSprites[i] = sp;
+      // (owner, 11 Nov 2026, "Visual bug on barn, i go thru the arts": the ranch is low, so the farmer on the tiles behind the
+      // coop was drawn on top of it. Its buildings, the top `back` rows, are drawn again as a standing picture sorted at
+      // their front, as the map's Above layer was: behind them you are behind them. Not while decorating: one picture to drag.)
+      if (type.back && type.low && !self.yd) {
+        var fr = sp.frame, bk = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, ph * T);
+        bk.setCrop(0, 0, fr.width, fr.height * type.back / ph);
+        bk.setDepth(DEPTH.actor + (it.y + type.back) * T / 1e5);
+        self.yardBacks.push(bk);
+      }
       var solid = L.yardSolid(it.t, it.x, it.y);
       if (!solid.length) return;
       solid.forEach(function (p) {
@@ -121,6 +132,7 @@
 
   P.startYard = function () {
     if (this.mapKey !== 'farm' || this.yd) return;
+    (this.yardBacks || []).forEach(function (b) { b.setVisible(false); }); // (one picture to drag; drawn again on Done)
     var cam = this.cameras.main, f = this.feet();
     this.busy = true;
     F.input.reset();
@@ -143,6 +155,7 @@
     this.input.off('pointerup', this.yardUp, this);
     this.ydBox.destroy();
     this.yd = null;
+    this.renderYard(); // (as it stands now, with the ranch's standing picture: 11 Nov 2026)
     this.busy = false;
     this.unstick();
     this.updateCamera(1);

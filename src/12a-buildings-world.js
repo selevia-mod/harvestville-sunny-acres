@@ -43,7 +43,8 @@
         if (pen) (self.zones.pen = self.zones.pen || []).push(rect('pen', 'animal_pen', pen));
         if (inc) self.objects.push(rect('incubator', 'incubator', inc));
       } else if (b === 'dog') {
-        (self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', [it.x, it.y, it.x + type.w - 1, it.y + type.h - 1])); // (the whole yard, as the map's)
+        // (the open yard in front of the doghouse: owner, 11 Nov 2026, "check the dog": with the whole yard he slept on its roof)
+        (self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', [it.x, it.y + (type.dogTop || 0), it.x + type.w - 1, it.y + type.h - 1]));
       } else if (b === 'shop') {
         var c = box(tiles('S'));
         if (c) self.objects.push(rect('shop', 'seed_shop', c));

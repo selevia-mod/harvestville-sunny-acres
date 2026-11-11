@@ -6664,3 +6664,188 @@ test('a place that fails to open never leaves a black screen: back to the farm (
   assert.deepStrictEqual(problems.filter((p) => !/map failed|test: the house broke/.test(p)), []);
   await context.close();
 });
+
+// Owner, 11 Nov 2026 (iPhone, 9:05 PM, "Bug on animals"): at night every animal fell asleep where it stood, so a full pen
+// was a pile: a hen lying on the pig, a hen on a cow, cows inside each other. Now each has its own sleeping spot: the big
+// ones at the back, the hens at the front, spread out (a full pen overlaps a little, in tidy rows, never on top).
+const sleepers = (page) => page.evaluate(() => {
+  const w = Farm.world, T = Farm.Config.TILE, p = w.herd.pen;
+  return { T, pen: p, list: w.herd.members.map((m) => ({ kind: Object.keys(Farm.Config.ANIMALS).find((k) => Farm.Config.ANIMALS[k] === m.def), w: m.def.w * m.small, x: m.x, y: m.y, pose: m.pose })) };
+});
+const pileUps = ({ T, list }) => {
+  const bad = [];
+  for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
+    const A = list[a], B = list[b], d = Math.hypot(A.x - B.x, A.y - B.y);
+    if (d < 0.5 * T) bad.push(A.kind + '+' + B.kind + ' ' + (d / T).toFixed(2));
+  }
+  return bad;
+};
+test('animals asleep at night: each in its own spot, big ones at the back, never on top of each other (owner, 11 Nov 2026)', async () => {
+  const full = "s.goal = 99; s.wv = C.NEWS_LATEST; s.builds.coop2 = 1; s.builds.barn2 = 1; s.animals = [];" +
+    "['chicken','cow','chicken','pig','cow','chicken','carabao','cow','chicken','pig','chicken','cow','carabao','chicken','cow','pig','chicken','cow','carabao','chicken','cow','pig','cow','carabao'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });";
+  const NIGHT = [2026, 4, 1, 21, 5];
+  let { page, problems, context } = await open(await makeSave(full, NIGHT), NIGHT);
+  await closeAll(page);
+  await frames(page, 6);
+  let z = await sleepers(page);
+  assert.strictEqual(z.list.length, 24);
+  assert.ok(z.list.every((m) => m.pose === 'sleep'), 'all asleep');
+  assert.ok(z.list.every((m) => m.x >= z.pen.x0 && m.x <= z.pen.x1 && m.y >= z.pen.y0 && m.y <= z.pen.y1), 'all in the pen');
+  assert.deepStrictEqual(pileUps(z), [], 'nobody lies on anybody');
+  const row = (k) => z.list.filter((m) => m.kind === k).reduce((a, m) => a + m.y, 0) / z.list.filter((m) => m.kind === k).length;
+  assert.ok(row('chicken') > row('cow') && row('chicken') > row('carabao'), 'the hens at the front, the big ones behind');
+  if (process.env.SHOTS) { await teleport(page, 11, 33, 'left'); await frames(page, 4); }
+  await shot(page, 'night-pen-full');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+  // a few animals: room for everyone, nobody even touches
+  const few = "s.goal = 99; s.wv = C.NEWS_LATEST; s.animals = [];" +
+    "['chicken','cow','chicken','pig','cow','chicken'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });";
+  ({ page, problems, context } = await open(await makeSave(few, NIGHT), NIGHT));
+  await closeAll(page);
+  await frames(page, 6);
+  z = await sleepers(page);
+  for (let a = 0; a < z.list.length; a++) for (let b = a + 1; b < z.list.length; b++) {
+    const A = z.list[a], B = z.list[b];
+    assert.ok(Math.abs(A.x - B.x) >= 0.45 * (A.w + B.w) * z.T || Math.abs(A.y - B.y) >= 0.6 * z.T, `${A.kind} and ${B.kind} apart`);
+  }
+  if (process.env.SHOTS) { await teleport(page, 11, 33, 'left'); await frames(page, 4); }
+  await shot(page, 'night-pen-few');
+  await context.close();
+  // at 8 PM they walk to their spots, then sleep (not where they stood)
+  const EVE = [2026, 4, 1, 19, 59];
+  ({ page, problems, context } = await open(await makeSave(full, EVE), EVE));
+  await closeAll(page);
+  await frames(page, 6);
+  assert.ok((await sleepers(page)).list.every((m) => m.pose !== 'sleep'), 'awake before 8 PM');
+  await page.evaluate(() => { window.__now += 61 * 1000; });
+  await page.waitForFunction(() => Farm.world.herd.members.every((m) => m.pose === 'sleep'), null, { timeout: 30000 });
+  assert.deepStrictEqual(pileUps(await sleepers(page)), [], 'they walked to their own spots');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 11 Nov 2026: "This stump, rock and other blocking outside the farm land should be removable also", and a screen
+// recording: the Dog Yard red everywhere north of the field ("You can't build there", the map's tufts of grass in the way).
+test("the farm map's bushes, rocks, stumps and tall grass: cleared with the tools for good, and Decorate builds over them (owner, 11 Nov 2026)", async () => {
+  const DAY = [2026, 4, 1, 10, 0];
+  const save = await makeSave('s.goal = 99; s.wv = C.NEWS_LATEST; s.energy = 100;', DAY);
+  let { page, problems, context } = await open(save, DAY);
+  await closeAll(page);
+  const info = await page.evaluate(() => {
+    const w = Farm.world, by = {};
+    Object.keys(w.deco).forEach((i) => { (by[w.deco[i]] = by[w.deco[i]] || []).push(Number(i)); });
+    return { W: w.map.width, by };
+  });
+  assert.ok(info.by.stump && info.by.stone && info.by.branch && info.by.weed, 'stumps, rocks, bushes and tall grass on the map: ' + Object.keys(info.by));
+  const before = await state(page);
+  const TOOLS = { stump: 'axe', stone: 'hammer', branch: 'axe', weed: 'sickle' }, cleared = [];
+  for (const kind of Object.keys(TOOLS)) {
+    const idx = info.by[kind][0], t = { x: idx % info.W, y: Math.floor(idx / info.W) };
+    for (let k = 0; k < 4; k++) {
+      if (!(await page.evaluate((i) => !!Farm.world.deco[i], idx))) break;
+      await page.evaluate(([tool, t]) => Farm.world.useTool(tool, t, 0), [TOOLS[kind], t]);
+      await page.waitForFunction(() => !Farm.world.landing, null, SLOW);
+      await frames(page, 2);
+    }
+    const gone = await page.evaluate(([i, t]) => ({ deco: !!Farm.world.deco[i], tile: !!Farm.world.layers.Walls.getTileAt(t.x, t.y) }), [idx, t]);
+    assert.deepStrictEqual(gone, { deco: false, tile: false }, `the ${kind} is cleared`);
+    cleared.push(idx);
+  }
+  const after = await state(page);
+  assert.strictEqual(after.lumber - before.lumber, 4 + 1, 'a stump gives 4 lumber, a bush 1');
+  assert.strictEqual(after.stone - before.stone, 1, 'a rock gives a stone');
+  const saved = await page.evaluate(() => Farm.Logic.serialize(Farm.session.state));
+  assert.deepStrictEqual(saved.dco.slice().sort((a, b) => a - b), cleared.slice().sort((a, b) => a - b), 'saved as cleared');
+  assert.ok(Array.isArray(saved.dg) && saved.dg.length === 2, "the dog's own save is untouched");
+  await context.close();
+  // opened again: still gone
+  ({ page, problems, context } = await open(saved, DAY));
+  await closeAll(page);
+  const back = await page.evaluate((list) => list.map((i) => !!Farm.world.deco[i] || !!Farm.world.layers.Walls.getTileAt(i % Farm.world.map.width, Math.floor(i / Farm.world.map.width))), cleared);
+  assert.deepStrictEqual(back, [false, false, false, false], 'they stay gone');
+  // Decorate: a piece over a tuft of tall grass that used to say "You can't build there" (the Dog Yard in the recording; on
+  // a new farm the buildings stand round every tuft, so a small piece shows the same rule)
+  const placed = await page.evaluate(() => {
+    const L = Farm.Logic, s = Farm.session.state, farm = Farm.farm(), w = Farm.world, W = farm.w, O = Farm.Config.OUTDOOR.types;
+    const t = Object.keys(O).find((k) => O[k].w === 1 && O[k].h === 1 && !O[k].building && !O[k].fieldPlot && L.yardOnSale(s, k));
+    const weeds = Object.keys(w.deco).map(Number).filter((i) => w.deco[i] === 'weed');
+    for (const g of weeds) {
+      const gx = g % W, gy = Math.floor(g / W);
+      if (L.yardCantPlace(s, farm, t, gx, gy, null)) continue;
+      s.yard.bag[t] = (s.yard.bag[t] || 0) + 1;
+      const r = L.placeYard(s, farm, t, gx, gy);
+      w.renderYard();
+      return { t, r: typeof r, g, blockedBefore: farm.noPlace[g], gone: !w.deco[g] && !w.layers.Walls.getTileAt(gx, gy), saved: L.decoGone(s).indexOf(g) >= 0 };
+    }
+    return { t, none: weeds.length };
+  });
+  assert.strictEqual(placed.r, 'number', 'a piece goes over the tall grass: ' + JSON.stringify(placed));
+  assert.strictEqual(placed.blockedBefore, 1, 'that tile used to say "You can\'t build there"');
+  assert.ok(placed.gone && placed.saved, 'the grass under it is cleared');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 11 Nov 2026 (iPhone, "Visual bug on barn, i go thru the arts"): the ranch's picture lies under everyone (so the
+// animals in the pen are over it), and the farmer on the tiles behind the coop was drawn on top of the coop. Its barn and
+// coop are drawn again as a standing picture: behind them you are behind them; the pen's animals stay in front.
+test("the ranch's barn and coop stand in front of whoever is behind them; the pen's animals stay in front (owner, 11 Nov 2026)", async () => {
+  const save = await makeSave("s.goal = 99; s.wv = C.NEWS_LATEST; s.animals = []; ['cow','chicken','pig'].forEach(function (k) { s.animals.push({ kind: k, name: k, love: 100, fed: 1, pet: 1, ready: 0, brushed: 0, young: 0, preg: 0 }); });");
+  const { page, problems, context } = await open(save);
+  await closeAll(page);
+  const ranch = await page.evaluate(() => { const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, it = s.yard.items.find((i) => O[i.t] && O[i.t].key === 'ranch'); return { x: it.x, y: it.y }; });
+  await teleport(page, ranch.x + 6, ranch.y + 3, 'up'); // (a walkable tile behind the coop's front)
+  await frames(page, 3);
+  const d = await page.evaluate((r) => {
+    const w = Farm.world, T = Farm.Config.TILE, bk = w.yardBacks.find((b) => Math.abs(b.x - r.x * T) < 1);
+    return { backs: w.yardBacks.length, player: w.player.depth, back: bk && bk.depth, animals: w.herd.members.map((m) => m.sprite.depth) };
+  }, ranch);
+  assert.ok(d.back !== undefined, "the ranch's standing picture");
+  assert.ok(d.player < d.back, 'the farmer behind the coop is drawn behind it');
+  assert.ok(d.animals.every((a) => a > d.back), "the pen's animals are drawn in front of it");
+  await shot(page, 'ranch-behind-coop');
+  // Decorate: one picture to drag; Done draws the standing one again
+  await page.evaluate(() => Farm.world.startYard());
+  await frames(page, 2);
+  assert.ok(await page.evaluate(() => Farm.world.yardBacks.every((b) => !b.visible)), 'hidden while decorating');
+  await page.evaluate(() => Farm.world.endYard());
+  await frames(page, 2);
+  assert.ok(await page.evaluate(() => Farm.world.yardBacks.length === 2 && Farm.world.yardBacks.every((b) => b.visible)), 'back after Done');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 11 Nov 2026 (iPhone, "Even the dog house is wrong, check the dog"): the dog slept on the doghouse's roof. His yard
+// is now the open ground in front of the doghouse; at night he sleeps in its doorway; the doghouse stands like a building.
+test('the dog lives in front of his doghouse and sleeps in its doorway, never on it (owner, 11 Nov 2026)', async () => {
+  const NIGHT = [2026, 4, 1, 21, 5];
+  const save = await makeSave('s.goal = 99; s.wv = C.NEWS_LATEST;', NIGHT);
+  let { page, problems, context } = await open(save, NIGHT);
+  await closeAll(page);
+  await frames(page, 4);
+  const yardOf = () => { const s = Farm.session.state, O = Farm.Config.OUTDOOR.types, it = s.yard.items.find((i) => O[i.t] && O[i.t].key === 'dog_yard'); return { x: it.x, y: it.y, i: s.yard.items.indexOf(it) }; };
+  const night = await page.evaluate((src) => {
+    const yd = eval('(' + src + ')')(), w = Farm.world, T = Farm.Config.TILE, d = w.dog, bk = w.yardBacks.find((b) => Math.abs(b.x - yd.x * T) < 1);
+    return { T, yd, x: d.x, y: d.y, depth: d.sprite.depth, back: bk && bk.depth, frame: d.sprite.frame.name };
+  }, yardOf.toString());
+  assert.ok(night.back !== undefined, "the doghouse's standing picture");
+  assert.ok(night.y >= (night.yd.y + 3) * night.T, 'asleep below the doghouse, not on its roof');
+  assert.ok(Math.abs(night.x - (night.yd.x + 2) * night.T) < night.T * 0.1, 'in the doorway (the middle)');
+  assert.ok(night.depth > night.back, 'drawn in front of the doghouse');
+  if (process.env.SHOTS) { await teleport(page, night.yd.x + 5, night.yd.y + 4, 'left'); await frames(page, 4); }
+  await shot(page, 'dog-asleep-doorway');
+  await context.close();
+  // by day he roams the open yard only
+  const DAY = [2026, 4, 1, 10, 0];
+  ({ page, problems, context } = await open(await makeSave('s.goal = 99; s.wv = C.NEWS_LATEST;', DAY), DAY));
+  await closeAll(page);
+  const day = await page.evaluate((src) => {
+    const yd = eval('(' + src + ')')(), d = Farm.world.dog, T = Farm.Config.TILE, ys = [];
+    for (let k = 0; k < 40; k++) ys.push(d.spot().y);
+    return { min: Math.min(...ys) / T, top: yd.y + 3 };
+  }, yardOf.toString());
+  assert.ok(day.min >= day.top, 'his spots are all in front of the doghouse');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

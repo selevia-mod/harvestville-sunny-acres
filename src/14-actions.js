@@ -14,13 +14,35 @@
 
   // ---------- setting up the map's contents ----------
   M.setupFarm = function () {
+    this.findDeco();
     this.crops = {};
     this.refreshAllSoil();
     this.refreshDebris();
     var pen = this.zones.pen && this.zones.pen[0];
     this.herd = new F.Herd(this, pen ? { x0: pen.px, y0: pen.py, x1: pen.px + pen.pw, y1: pen.py + pen.ph } : null);
     var yard = this.zones.dogarea && this.zones.dogarea[0];
-    if (yard) this.dog = new F.Dog(this, { x0: yard.px, y0: yard.py, x1: yard.px + yard.pw, y1: yard.py + yard.ph });
+    if (yard) {
+      this.dog = new F.Dog(this, { x0: yard.px, y0: yard.py, x1: yard.px + yard.pw, y1: yard.py + yard.ph });
+      this.dog.bed = { x: yard.px + yard.pw / 2, y: yard.py + T * 0.35 }; // (at night: in the doorway, 11 Nov 2026)
+    }
+  };
+
+  // The map's bushes, rocks, stumps and tall grass (src/01-logicZZZ-deco.js): which tile is which, and the cleared ones off
+  // the map (and off the seasons' list, or a new season would paint a cleared bush back).
+  M.findDeco = function () {
+    var self = this, D = C.FARM_DECO, w = this.map.width, ts = this.map.getTileset('tiles'), first = ts ? ts.firstgid : 1, walls = this.layers.Walls;
+    this.deco = {};
+    if (!walls) return;
+    (this.seasonal || []).forEach(function (e) { if (e.layer === 'Walls' && D.slots[e.slot]) self.deco[e.y * w + e.x] = D.slots[e.slot]; });
+    walls.forEachTile(function (t) { if (t.index > 0 && D.ids[t.index - first]) self.deco[t.y * w + t.x] = D.ids[t.index - first]; });
+    L.decoGone(this.state).forEach(function (idx) { if (self.deco[idx]) self.removeDeco(idx); });
+  };
+  M.decoAt = function (x, y) { return this.mapKey === 'farm' && this.deco ? this.deco[this.idx(x, y)] || null : null; };
+  M.removeDeco = function (idx) {
+    var w = this.map.width, x = idx % w, y = Math.floor(idx / w);
+    delete this.deco[idx];
+    if (this.layers.Walls) this.layers.Walls.removeTileAt(x, y);
+    this.seasonal = (this.seasonal || []).filter(function (e) { return !(e.layer === 'Walls' && e.x === x && e.y === y); });
   };
 
   M.refreshDebris = function () {
@@ -245,6 +267,13 @@
       if (hits === 0) return { kind: 'hard', idx: idx, debris: debris };
       return null;
     }
+    var deco = farm && !soil ? this.decoAt(x, y) : null;
+    if (deco) { // an old bush, rock, stump or tall grass of the map: cleared like the same debris
+      var dh = L.debrisHits(s, deco, tool);
+      if (dh > 0) return { kind: 'debris', idx: idx, debris: deco, hits: dh, deco: true };
+      if (dh === 0) return { kind: 'hard', idx: idx, debris: deco };
+      return null;
+    }
     if (tool === 'hoe') return this.isTillable(x, y) && (!soil || L.isWithered(soil)) && !this.forage[idx] ? { kind: 'till', idx: idx } : null;
     if (tool === 'can') return soil && !soil.w && L.cropStage(soil) < 3 ? { kind: 'water', idx: idx } : null;
     if (tool === 'sickle') return soil && L.isRipe(soil) && C.CROPS[soil.c].sickle ? { kind: 'cut', idx: idx } : null;
@@ -343,15 +372,16 @@
           return;
         }
         delete self.hits[e.idx];
-        var r = L.clearDebris(s, e.idx);
+        var r = e.deco ? L.clearDeco(s, e.idx, e.debris) : L.clearDebris(s, e.idx);
+        if (!r) return;
         gotLumber += r.lumber;
         gotStone += r.stone;
         counts.clear++;
         if (e.debris === 'stump' || e.debris === 'boulder') heavy = 2;
         else if (e.debris !== 'weed') heavy = Math.max(heavy, 1);
         fx.push(function () {
-          self.popOut('Debris', tile);
-          self.removeDebrisTile(e.idx);
+          self.popOut(e.deco ? 'Walls' : 'Debris', tile);
+          if (e.deco) { self.removeDeco(e.idx); self.recollide(); } else self.removeDebrisTile(e.idx);
           self.impact(tool, e, tile, true);
           sfx(e.debris === 'weed' ? 'leaves' : e.debris === 'branch' || e.debris === 'stump' ? 'woodbreak' : 'stonebreak');
           if (r.lumber) self.flyTile(tile, C.ICON.lumber);

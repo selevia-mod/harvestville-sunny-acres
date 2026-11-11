@@ -5646,10 +5646,10 @@ var NEW = [
 { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true, prop: 'house_1',
 mask: ['#####.', '#####.', '#####.', '##D##M'] },
 
-{ key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true,
+{ key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true, back: 4,
 mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '####G####'] },
 
-{ key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true,
+{ key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true, back: 3, dogTop: 3,
 mask: ['####', '#YY#', '#YY#', '#YY#', 'YYYY'] },
 { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', prop: 'farm_pond',
 mask: ['WWWWW', 'WWWWW', 'WWWWW', 'WWWWW'] },
@@ -14186,6 +14186,94 @@ return s;
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZ-deco.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config, L = F.Logic;
+
+C.FARM_DECO = { ids: { 76: 'stone', 82: 'stump' }, slots: { 10: 'branch', 11: 'weed' }, mapIds: { 75: 'branch', 76: 'stone', 82: 'stump', 83: 'weed' } };
+var clean = function (list) {
+return (Array.isArray(list) ? list : []).filter(function (n, i, a) { return Number.isInteger(n) && n >= 0 && n < 1e5 && a.indexOf(n) === i; });
+};
+L.decoGone = function (s) { return (s.decoGone = s.decoGone || []); };
+
+L.clearDeco = function (s, idx, kind) {
+if (!C.DEBRIS[kind] || L.decoGone(s).indexOf(idx) >= 0) return null;
+s.decoGone.push(idx);
+s.debris[idx] = kind;
+return L.clearDebris(s, idx);
+};
+
+
+
+var farmInfo = L.farmInfo;
+L.farmInfo = function (map) {
+var info = farmInfo(map), ts = (map.tilesets || []).filter(function (t) { return t.name === 'tiles'; })[0], first = ts ? ts.firstgid : 1;
+var walls = (map.layers || []).filter(function (l) { return l.name === 'Walls' && l.data; })[0];
+info.deco = {};
+if (walls) walls.data.forEach(function (gid, i) { var k = gid && C.FARM_DECO.mapIds[gid - first]; if (k) info.deco[i] = k; });
+return info;
+};
+var under = function (farm, t, x, y) {
+if (!farm || !farm.deco || !F.Config.OUTDOOR.types[t]) return [];
+return L.yardBox(t, x, y).map(function (p) { return p[1] * farm.w + p[0]; }).filter(function (i) { return farm.deco[i]; });
+};
+var cantPlace = L.yardCantPlace;
+L.yardCantPlace = function (s, farm, t, x, y, skip) {
+var why = cantPlace(s, farm, t, x, y, skip);
+if (why !== 'blocked') return why;
+var np = farm.noPlace, freed = under(farm, t, x, y).filter(function (i) { return np[i]; });
+if (!freed.length) return why;
+freed.forEach(function (i) { np[i] = 0; });
+try { return cantPlace(s, farm, t, x, y, skip); } finally { freed.forEach(function (i) { np[i] = 1; }); }
+};
+var cover = function (s, farm, t, x, y) {
+var gone = L.decoGone(s);
+under(farm, t, x, y).forEach(function (i) { if (gone.indexOf(i) < 0) gone.push(i); });
+};
+var placeYard = L.placeYard;
+L.placeYard = function (s, farm, t, x, y) {
+var r = placeYard(s, farm, t, x, y);
+if (typeof r === 'number') cover(s, farm, t, x, y);
+return r;
+};
+var moveYard = L.moveYard;
+L.moveYard = function (s, farm, i, x, y) {
+var it = s.yard.items[i], r = moveYard(s, farm, i, x, y);
+if (r === 'ok' && it) cover(s, farm, it.t, x, y);
+return r;
+};
+
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s);
+if (s.decoGone && s.decoGone.length) o.dco = s.decoGone.slice();
+return o;
+};
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (s) s.decoGone = clean(o && o.dco);
+return s;
+};
+var snapshot = L.snapshot;
+L.snapshot = function (s) {
+var snap = snapshot(s);
+if (s.decoGone && s.decoGone.length) snap.dco = s.decoGone.slice();
+return snap;
+};
+var visitState = L.visitState;
+L.visitState = function (snap, mine) {
+var s = visitState(snap, mine);
+if (s) s.decoGone = clean(snap && snap.dco);
+return s;
+};
+})(window.Farm = window.Farm || {});
+
 // ---- src/01-logicZZZ-park.js
 
 
@@ -20029,7 +20117,8 @@ var pen = box(tiles('P')), inc = box(tiles('I'));
 if (pen) (self.zones.pen = self.zones.pen || []).push(rect('pen', 'animal_pen', pen));
 if (inc) self.objects.push(rect('incubator', 'incubator', inc));
 } else if (b === 'dog') {
-(self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', [it.x, it.y, it.x + type.w - 1, it.y + type.h - 1]));
+
+(self.zones.dogarea = self.zones.dogarea || []).push(rect('dogarea', 'dog_yard', [it.x, it.y + (type.dogTop || 0), it.x + type.w - 1, it.y + type.h - 1]));
 } else if (b === 'shop') {
 var c = box(tiles('S'));
 if (c) self.objects.push(rect('shop', 'seed_shop', c));
@@ -20131,6 +20220,38 @@ return { x: Phaser.Math.Between(p.x0 + T * 0.6, p.x1 - T * 0.6), y: Phaser.Math.
 }
 
 
+
+
+sleepSpots() {
+var p = this.pen || { x0: 0, y0: 0, x1: 4 * T, y1: 4 * T };
+var X0 = p.x0 + T * 0.45, X1 = p.x1 - T * 0.45, W = X1 - X0;
+var back = p.y0 + T * 0.95, front = p.y1 - T * 0.2;
+var wid = function (m) { return m.def.w * T * m.small * 1.05; };
+var order = this.members.slice().sort(function (a, b) { return wid(b) - wid(a) || a.i - b.i; });
+var maxRows = Math.max(1, Math.floor((front - back) / (T * 0.6)) + 1), rows = [[]], used = [0];
+order.forEach(function (m) {
+var r = rows.length - 1;
+if (used[r] && used[r] + wid(m) > W) {
+if (rows.length < maxRows) { rows.push([]); used.push(0); r++; } else r = used.indexOf(Math.min.apply(null, used));
+}
+rows[r].push(m);
+used[r] += wid(m);
+});
+rows.forEach(function (row, r) {
+var y = rows.length === 1 ? (back + front) / 2 : back + (front - back) * r / (rows.length - 1);
+var gap = (W - used[r]) / (row.length + 1), x = X0 + Math.max(0, gap);
+if (gap < 0) gap = row.length > 1 ? (W - used[r]) / (row.length - 1) : 0;
+if (r % 2 && gap > T * 0.3) x += Math.min(gap / 2, T * 0.3);
+row.forEach(function (m) {
+m.sx = Math.min(X1 - wid(m) / 2, x + wid(m) / 2);
+m.sy = y;
+x += wid(m) + gap;
+});
+});
+this.laid = this.members.length;
+}
+
+
 scatter() {
 var self = this;
 this.members.forEach(function (m) {
@@ -20143,9 +20264,22 @@ m.wait = Math.random() * 2500;
 
 update(dt, time, minutes) {
 var self = this, night = minutes >= NIGHT;
+if (night && this.laid !== this.members.length) this.sleepSpots();
+var snap = night && !this.seen;
+this.seen = true;
 this.members.forEach(function (m) {
 if (night) {
+var dx = m.sx - m.x, dy = m.sy - m.y, d = Math.sqrt(dx * dx + dy * dy), step = m.def.speed * dt / 1000;
+if (snap || d <= step) {
+m.x = m.tx = m.sx;
+m.y = m.ty = m.sy;
 m.pose = 'sleep';
+} else {
+m.x += dx / d * step;
+m.y += dy / d * step;
+F.Anim.face(m, dx, dy);
+m.pose = 'walk';
+}
 } else if (m.joy > 0) {
 m.joy -= dt;
 m.pose = 'happy';
@@ -20253,6 +20387,15 @@ var k = 9, f = this.scene.feet(), walking = false, def = this.def;
 var near = Math.abs(f.x - this.x) < 2 * T && Math.abs(f.y - this.y) < 2 * T;
 if (minutes >= NIGHT) {
 k = 10;
+var bed = this.bed;
+if (bed) {
+var bx = bed.x - this.x, by = bed.y - this.y, bd = Math.sqrt(bx * bx + by * by), bs = def.speed * dt / 1000;
+if (!this.awake || bd <= bs) { this.x = this.tx = bed.x; this.y = this.ty = bed.y; }
+else {
+this.x += bx / bd * bs; this.y += by / bd * bs; F.Anim.face(this, bx, by); walking = true;
+k = def === C.CAT || this.dir !== 'side' ? FACING[this.dir] + STEPS[Math.floor(time / 120) % 4] : Math.floor(time / 120) % 2 ? 11 : 7;
+}
+}
 } else if (this.sit > 0 || near) {
 this.sit = Math.max(0, this.sit - dt);
 if (Math.abs(f.x - this.x) > 20) this.flip = f.x > this.x;
@@ -20279,6 +20422,7 @@ if (def === C.CAT || this.dir !== 'side') k = FACING[this.dir] + STEPS[Math.floo
 else k = Math.floor(time / 120) % 2 ? 11 : 7;
 }
 }
+this.awake = true;
 F.Anim.show(this, def.frame0 + k, k >= 6 && k !== 9 && this.flip);
 var scale = F.Anim.scale(def);
 if (this.joy > 0) this.joy -= dt;
@@ -20324,13 +20468,35 @@ var M = {};
 
 
 M.setupFarm = function () {
+this.findDeco();
 this.crops = {};
 this.refreshAllSoil();
 this.refreshDebris();
 var pen = this.zones.pen && this.zones.pen[0];
 this.herd = new F.Herd(this, pen ? { x0: pen.px, y0: pen.py, x1: pen.px + pen.pw, y1: pen.py + pen.ph } : null);
 var yard = this.zones.dogarea && this.zones.dogarea[0];
-if (yard) this.dog = new F.Dog(this, { x0: yard.px, y0: yard.py, x1: yard.px + yard.pw, y1: yard.py + yard.ph });
+if (yard) {
+this.dog = new F.Dog(this, { x0: yard.px, y0: yard.py, x1: yard.px + yard.pw, y1: yard.py + yard.ph });
+this.dog.bed = { x: yard.px + yard.pw / 2, y: yard.py + T * 0.35 };
+}
+};
+
+
+
+M.findDeco = function () {
+var self = this, D = C.FARM_DECO, w = this.map.width, ts = this.map.getTileset('tiles'), first = ts ? ts.firstgid : 1, walls = this.layers.Walls;
+this.deco = {};
+if (!walls) return;
+(this.seasonal || []).forEach(function (e) { if (e.layer === 'Walls' && D.slots[e.slot]) self.deco[e.y * w + e.x] = D.slots[e.slot]; });
+walls.forEachTile(function (t) { if (t.index > 0 && D.ids[t.index - first]) self.deco[t.y * w + t.x] = D.ids[t.index - first]; });
+L.decoGone(this.state).forEach(function (idx) { if (self.deco[idx]) self.removeDeco(idx); });
+};
+M.decoAt = function (x, y) { return this.mapKey === 'farm' && this.deco ? this.deco[this.idx(x, y)] || null : null; };
+M.removeDeco = function (idx) {
+var w = this.map.width, x = idx % w, y = Math.floor(idx / w);
+delete this.deco[idx];
+if (this.layers.Walls) this.layers.Walls.removeTileAt(x, y);
+this.seasonal = (this.seasonal || []).filter(function (e) { return !(e.layer === 'Walls' && e.x === x && e.y === y); });
 };
 
 M.refreshDebris = function () {
@@ -20555,6 +20721,13 @@ if (hits > 0) return { kind: 'debris', idx: idx, debris: debris, hits: hits };
 if (hits === 0) return { kind: 'hard', idx: idx, debris: debris };
 return null;
 }
+var deco = farm && !soil ? this.decoAt(x, y) : null;
+if (deco) {
+var dh = L.debrisHits(s, deco, tool);
+if (dh > 0) return { kind: 'debris', idx: idx, debris: deco, hits: dh, deco: true };
+if (dh === 0) return { kind: 'hard', idx: idx, debris: deco };
+return null;
+}
 if (tool === 'hoe') return this.isTillable(x, y) && (!soil || L.isWithered(soil)) && !this.forage[idx] ? { kind: 'till', idx: idx } : null;
 if (tool === 'can') return soil && !soil.w && L.cropStage(soil) < 3 ? { kind: 'water', idx: idx } : null;
 if (tool === 'sickle') return soil && L.isRipe(soil) && C.CROPS[soil.c].sickle ? { kind: 'cut', idx: idx } : null;
@@ -20653,15 +20826,16 @@ heavy = Math.max(heavy, 1);
 return;
 }
 delete self.hits[e.idx];
-var r = L.clearDebris(s, e.idx);
+var r = e.deco ? L.clearDeco(s, e.idx, e.debris) : L.clearDebris(s, e.idx);
+if (!r) return;
 gotLumber += r.lumber;
 gotStone += r.stone;
 counts.clear++;
 if (e.debris === 'stump' || e.debris === 'boulder') heavy = 2;
 else if (e.debris !== 'weed') heavy = Math.max(heavy, 1);
 fx.push(function () {
-self.popOut('Debris', tile);
-self.removeDebrisTile(e.idx);
+self.popOut(e.deco ? 'Walls' : 'Debris', tile);
+if (e.deco) { self.removeDeco(e.idx); self.recollide(); } else self.removeDebrisTile(e.idx);
 self.impact(tool, e, tile, true);
 sfx(e.debris === 'weed' ? 'leaves' : e.debris === 'branch' || e.debris === 'stump' ? 'woodbreak' : 'stonebreak');
 if (r.lumber) self.flyTile(tile, C.ICON.lumber);
@@ -25476,6 +25650,8 @@ this.renderYard();
 P.renderYard = function () {
 var self = this, s = this.state;
 this.yardSprites.forEach(function (img) { img.destroy(); });
+(this.yardBacks || []).forEach(function (img) { img.destroy(); });
+this.yardBacks = [];
 this.yardZones.forEach(function (z) { self.solids.remove(z, true, true); });
 Object.keys(this.yardBlocked || {}).forEach(function (i) { delete self.blocked[i]; });
 this.yardSprites = [];
@@ -25498,6 +25674,15 @@ var sp = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin
 sp.setDepth(type.kind === 'path' ? DEPTH.Ground + 0.5 : !type.foot || type.low ? DEPTH.flat : DEPTH.actor + (it.y + ph) * T / 1e5);
 if (hidden) sp.setVisible(false);
 self.yardSprites[i] = sp;
+
+
+
+if (type.back && type.low && !self.yd) {
+var fr = sp.frame, bk = self.add.image(it.x * T, (it.y + ph) * T, img.key, img.frame).setOrigin(0, 1).setDisplaySize(type.w * T, ph * T);
+bk.setCrop(0, 0, fr.width, fr.height * type.back / ph);
+bk.setDepth(DEPTH.actor + (it.y + type.back) * T / 1e5);
+self.yardBacks.push(bk);
+}
 var solid = L.yardSolid(it.t, it.x, it.y);
 if (!solid.length) return;
 solid.forEach(function (p) {
@@ -25529,6 +25714,7 @@ if (!this.yd) updateCamera.call(this, lerp);
 
 P.startYard = function () {
 if (this.mapKey !== 'farm' || this.yd) return;
+(this.yardBacks || []).forEach(function (b) { b.setVisible(false); });
 var cam = this.cameras.main, f = this.feet();
 this.busy = true;
 F.input.reset();
@@ -25551,6 +25737,7 @@ this.input.off('pointermove', this.yardMove, this);
 this.input.off('pointerup', this.yardUp, this);
 this.ydBox.destroy();
 this.yd = null;
+this.renderYard();
 this.busy = false;
 this.unstick();
 this.updateCamera(1);
@@ -26020,6 +26207,23 @@ var self = this;
 this.busy = true;
 this.cameras.main.fadeOut(200, 0, 0, 0);
 this.cameras.main.once('camerafadeoutcomplete', function () { self.state.player = { x: null, y: null, dir: 'down' }; self.scene.restart(); });
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19fb-deco.js
+
+(function (F) {
+'use strict';
+var L = F.Logic, P = F.WorldScene.prototype;
+var renderYard = P.renderYard;
+P.renderYard = function () {
+var r = renderYard.apply(this, arguments);
+if (this.mapKey === 'farm' && this.deco) {
+var self = this, n = 0;
+L.decoGone(this.state).forEach(function (idx) { if (self.deco[idx]) { self.removeDeco(idx); n++; } });
+if (n) this.recollide();
+}
+return r;
 };
 })(window.Farm = window.Farm || {});
 

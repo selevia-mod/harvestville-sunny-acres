@@ -14,10 +14,10 @@
     { key: 'farmhouse', name: 'Farmhouse', w: 6, h: 4, building: 'house', keep: true, prop: 'house_1',
       mask: ['#####.', '#####.', '#####.', '##D##M'] },
     // the barn (left), the coop and its incubator (right), the pen below with its gate in the front fence
-    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true,
+    { key: 'ranch', name: 'Animal Ranch', w: 9, h: 9, building: 'ranch', keep: true, prop: 'ranch', low: true, back: 4, // (the barn and coop rows, 19f-yard.js)
       mask: ['#########', '####.II##', '####.II.#', '#####...#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '#PPPPPPP#', '####G####'] }, // (the gate in the front fence, as the owner's picture has it)
     // the doghouse at the back, a low fence on the sides, open at the front
-    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true,
+    { key: 'dog_yard', name: 'Dog Yard', w: 4, h: 5, building: 'dog', prop: 'dog_yard', low: true, back: 3, dogTop: 3, // (the doghouse rows; the dog lives below them)
       mask: ['####', '#YY#', '#YY#', '#YY#', 'YYYY'] },
     { key: 'farm_pond', name: 'Pond', w: 5, h: 4, building: 'pond', prop: 'farm_pond',
       mask: ['WWWWW', 'WWWWW', 'WWWWW', 'WWWWW'] },

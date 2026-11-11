@@ -71,6 +71,38 @@
       return { x: Phaser.Math.Between(p.x0 + T * 0.6, p.x1 - T * 0.6), y: Phaser.Math.Between(p.y0 + T * 0.7, p.y1 - T * 0.15) };
     }
 
+    // Where each sleeps tonight (owner, 11 Nov 2026, "Bug on animals": they fell asleep where they stood, so a full pen was a
+    // pile, a hen lying on the pig). Rows across the pen, the big ones at the back and the hens at the front, spread out;
+    // a full pen (24) overlaps a little, side by side, never on top. The same spots every night (no dice).
+    sleepSpots() {
+      var p = this.pen || { x0: 0, y0: 0, x1: 4 * T, y1: 4 * T };
+      var X0 = p.x0 + T * 0.45, X1 = p.x1 - T * 0.45, W = X1 - X0;
+      var back = p.y0 + T * 0.95, front = p.y1 - T * 0.2;
+      var wid = function (m) { return m.def.w * T * m.small * 1.05; };
+      var order = this.members.slice().sort(function (a, b) { return wid(b) - wid(a) || a.i - b.i; });
+      var maxRows = Math.max(1, Math.floor((front - back) / (T * 0.6)) + 1), rows = [[]], used = [0];
+      order.forEach(function (m) {
+        var r = rows.length - 1;
+        if (used[r] && used[r] + wid(m) > W) {
+          if (rows.length < maxRows) { rows.push([]); used.push(0); r++; } else r = used.indexOf(Math.min.apply(null, used));
+        }
+        rows[r].push(m);
+        used[r] += wid(m);
+      });
+      rows.forEach(function (row, r) {
+        var y = rows.length === 1 ? (back + front) / 2 : back + (front - back) * r / (rows.length - 1);
+        var gap = (W - used[r]) / (row.length + 1), x = X0 + Math.max(0, gap);
+        if (gap < 0) gap = row.length > 1 ? (W - used[r]) / (row.length - 1) : 0; // too many for the row: a little over each other, evenly
+        if (r % 2 && gap > T * 0.3) x += Math.min(gap / 2, T * 0.3); // every other row a little to the side
+        row.forEach(function (m) {
+          m.sx = Math.min(X1 - wid(m) / 2, x + wid(m) / 2);
+          m.sy = y;
+          x += wid(m) + gap;
+        });
+      });
+      this.laid = this.members.length;
+    }
+
     // New day: everyone wakes up somewhere new.
     scatter() {
       var self = this;
@@ -84,9 +116,22 @@
 
     update(dt, time, minutes) {
       var self = this, night = minutes >= NIGHT;
+      if (night && this.laid !== this.members.length) this.sleepSpots();
+      var snap = night && !this.seen; // (the farm opened at night: they are already in bed)
+      this.seen = true;
       this.members.forEach(function (m) {
         if (night) {
-          m.pose = 'sleep';
+          var dx = m.sx - m.x, dy = m.sy - m.y, d = Math.sqrt(dx * dx + dy * dy), step = m.def.speed * dt / 1000;
+          if (snap || d <= step) {
+            m.x = m.tx = m.sx;
+            m.y = m.ty = m.sy;
+            m.pose = 'sleep';
+          } else { // to bed
+            m.x += dx / d * step;
+            m.y += dy / d * step;
+            F.Anim.face(m, dx, dy);
+            m.pose = 'walk';
+          }
         } else if (m.joy > 0) {
           m.joy -= dt; // petted, fed: it looks up, pleased
           m.pose = 'happy';
@@ -194,6 +239,15 @@
       var near = Math.abs(f.x - this.x) < 2 * T && Math.abs(f.y - this.y) < 2 * T;
       if (minutes >= NIGHT) {
         k = 10;
+        var bed = this.bed;
+        if (bed) { // to his bed in the doorway, then asleep (at once if the farm opened at night)
+          var bx = bed.x - this.x, by = bed.y - this.y, bd = Math.sqrt(bx * bx + by * by), bs = def.speed * dt / 1000;
+          if (!this.awake || bd <= bs) { this.x = this.tx = bed.x; this.y = this.ty = bed.y; }
+          else {
+            this.x += bx / bd * bs; this.y += by / bd * bs; F.Anim.face(this, bx, by); walking = true;
+            k = def === C.CAT || this.dir !== 'side' ? FACING[this.dir] + STEPS[Math.floor(time / 120) % 4] : Math.floor(time / 120) % 2 ? 11 : 7;
+          }
+        }
       } else if (this.sit > 0 || near) {
         this.sit = Math.max(0, this.sit - dt);
         if (Math.abs(f.x - this.x) > 20) this.flip = f.x > this.x;
@@ -220,6 +274,7 @@
           else k = Math.floor(time / 120) % 2 ? 11 : 7; // the dog runs
         }
       }
+      this.awake = true;
       F.Anim.show(this, def.frame0 + k, k >= 6 && k !== 9 && this.flip);
       var scale = F.Anim.scale(def);
       if (this.joy > 0) this.joy -= dt;
