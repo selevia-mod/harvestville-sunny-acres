@@ -133,7 +133,9 @@ const FW = 384, FW_WIDE = [448, 512, 576, 640], FH = 384, TALL = 348; // (the bo
     // (a weapon held far out to the side, a javelin's long shaft: frames 512 wide, so the farmer keeps his size)
     // (taller frames, 448, for a weapon held over the head, so he keeps his height; the feet stay 14 above the frame's bottom)
     let fh = FH, r = await run(FW, fh);
-    if (r.low.length) { fh = 448; r = await run(FW, fh); }
+    // (no taller frames: the game reads every hold sheet as 384 high (F.holdSheet), so a weapon raised over the head makes
+    // the farmer a little smaller in that row instead, 12 Nov 2026)
+    if (r.low.length) console.log(key + ': raised over the head in ' + r.low.map((i) => ROWS[i]).join(', ') + ': a little smaller there to fit 384');
     for (const wide of FW_WIDE) { if (!r.narrow.length) break; r = await run(wide, fh); }
     fs.writeFileSync(path.join(OUT, key + '.png'), Buffer.from(r.png.split(',')[1], 'base64'));
     fs.writeFileSync(path.join(OUT, key + '.webp'), Buffer.from(r.webp.split(',')[1], 'base64'));
