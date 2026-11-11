@@ -260,8 +260,13 @@
     else if (k === 'rifle') { // a pop, a flash, a puff, a light shake and the kick (motion: the shot's clock)
       sfx('smash');
       var behind = POSE[sh.dir].behind && sh.body ? sh.body.depth - 0.002 : null; // (facing away: behind his head)
-      this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, behind);
-      this.wpnPuff(tip.x, tip.y, sh.lv, behind);
+      if (sh.dir === 'down' && sh.drawnIn) { // (facing you the muzzle is at his face: a small quick flash, the smoke off to the side)
+        this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, null, 0.45);
+        this.wpnPuff(tip.x, tip.y, sh.lv, null, true);
+      } else {
+        this.wpnFlashAt(tip.x, tip.y, sh.ang, sh.lv, behind);
+        this.wpnPuff(tip.x, tip.y, sh.lv, behind);
+      }
       this.cameras.main.shake(100, 0.002);
     } else {
       sfx('bowshot');
@@ -277,15 +282,24 @@
   };
 
   // the Rifle's flash at the muzzle: a bright dot and a little cross, gone in 80 ms (depth: behind him, facing away)
-  P.wpnFlashAt = function (x, y, ang, lv, depth) {
-    var c = L.weaponMoon('rifle', lv) ? F.WPN_GLOW : 0xfff2b0, d = depth != null ? depth : DEPTH.fx + 0.03;
-    var bits = [this.add.circle(x, y, 0.13 * T, c, 0.95)].concat([0, 1].map(function (i) { return this.add.rectangle(x, y, 0.5 * T, 0.05 * T, c, 0.9).setRotation(ang + i * Math.PI / 2); }, this));
+  P.wpnFlashAt = function (x, y, ang, lv, depth, size) {
+    var c = L.weaponMoon('rifle', lv) ? F.WPN_GLOW : 0xfff2b0, d = depth != null ? depth : DEPTH.fx + 0.03, z = size || 1;
+    var bits = [this.add.circle(x, y, 0.13 * T * z, c, 0.95)].concat([0, 1].map(function (i) { return this.add.rectangle(x, y, 0.5 * T * z, 0.05 * T * z, c, 0.9).setRotation(ang + i * Math.PI / 2); }, this));
     bits.forEach(function (b) { b.setDepth(d).setBlendMode(Phaser.BlendModes.ADD); });
     this.tweens.add({ targets: bits, alpha: 0, scale: 1.6, duration: 80, onComplete: function () { bits.forEach(function (b) { b.destroy(); }); } });
   };
   // the Rifle's puff at the muzzle (cheap: a few soft circles)
-  P.wpnPuff = function (x, y, lv, depth) {
+  P.wpnPuff = function (x, y, lv, depth, aside) {
     var moon = !!L.weaponMoon('rifle', lv), n = cheap() ? 2 : 4;
+    if (aside) { // (facing you: small puffs that start below and to the side of the muzzle and drift away from the face, gone in 0.2 s)
+      var sideways = Math.random() < 0.5 ? -1 : 1;
+      for (var j = 0; j < Math.min(n, 3); j++) {
+        var px = x + sideways * (0.28 + 0.08 * j) * T, py = y + 0.18 * T;
+        var q = this.add.circle(px, py, (0.05 + Math.random() * 0.03) * T, moon ? F.WPN_GLOW : 0xfff3d6, 0.75).setDepth(depth != null ? depth : DEPTH.fx + 0.02);
+        this.tweens.add({ targets: q, x: px + sideways * 0.3 * T, y: py + 0.06 * T, alpha: 0, scale: 1.6, duration: 200, onComplete: function (tw, t) { t[0].destroy(); } });
+      }
+      return;
+    }
     for (var i = 0; i < n; i++) {
       var c = this.add.circle(x, y, (0.1 + Math.random() * 0.06) * T, moon ? F.WPN_GLOW : 0xfff3d6, 0.85).setDepth(depth != null ? depth : DEPTH.fx + 0.02);
       this.tweens.add({ targets: c, x: x + (Math.random() - 0.5) * 0.4 * T, y: y - (0.1 + Math.random() * 0.3) * T, alpha: 0, scale: 2.2, duration: 320 + i * 60, onComplete: function (tw, t) { t[0].destroy(); } });
