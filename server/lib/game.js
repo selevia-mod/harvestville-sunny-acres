@@ -7,6 +7,7 @@ const { makeMaps } = require('./maps');
 const makeWild = require('./wild');
 const { Room } = require('./room');
 const { PubRoom, isPubMap } = require('./pub');
+const makeTower = require('./tower');
 
 const VERSION = 1;
 const TOPIC = /^farm:[0-9a-f-]{36}$/; // a farm's live room (step 1: caves only; the park comes later)
@@ -25,6 +26,7 @@ class Game {
     this.R = o.rules || rules();
     this.maps = makeMaps(this.R);
     this.wild = makeWild(this.R);
+    this.tower = makeTower(this.R, this.wild); // The Lost Tower's floors (lib/tower.js)
     this.auth = o.auth; // { check(token, topic) -> Promise<{ uid } | { why }> }
     this.fraid = o.fraid || null; // Farm Raids: { settle(token, raid, moves, played) } (lib/fraid.js), or none
     this.now = o.now || Date.now;
@@ -103,6 +105,28 @@ class Game {
     else if (msg.t === 'say') room.say(p, msg); // (a cave's too: friends meet there from their own farms now)
     else if (msg.t === 'em') room.emote(p, msg);
     else if (msg.t === 'lk') room.look(p, msg);
+    else if (msg.t === 'fq') this.friendFloors(c, msg);
+  }
+  // The Lost Tower: on which floors your friends are (`with`: ids, as a cave's hi), so the lift can take you to one
+  // (owner, 12 Nov 2026: "a friend can follow or join you on your floor"): `fq` back, f = [[floor, n, name], ...], the
+  // floors with space where one of them is, at most 8, each let in by the server's own check (as pickCave). One ask in
+  // 3 s a phone.
+  async friendFloors(c, msg) {
+    const now = this.now(), want = new Set((Array.isArray(msg.with) ? msg.with : []).filter((x) => typeof x === 'string' && x.length <= 64).slice(0, 200));
+    if (c.fqBusy || now - (c.fqAt || 0) < 3000 || !c.token || !c.player) return;
+    c.fqAt = now;
+    c.fqBusy = true;
+    const uid = c.player.id, out = [];
+    const rooms = Array.from(this.rooms.values()).filter((r) => r.cfg && r.cfg.tower && r !== c.room && r.players.size && r.players.size < r.cap && !r.players.has(uid))
+      .map((r) => ({ r, mate: Array.from(r.players.values()).filter((p) => want.has(p.id))[0] })).filter((x) => x.mate)
+      .sort((a, b) => a.r.floor - b.r.floor).slice(0, 8);
+    for (const x of rooms) {
+      let ok = null;
+      try { ok = await this.auth.check(c.token, x.r.topic); } catch (e) { ok = null; }
+      if (ok && String(ok.uid) === uid) out.push([x.r.floor, x.r.players.size, x.mate.name]);
+    }
+    c.fqBusy = false;
+    if (c.open) this.send(c, { t: 'fq', f: out });
   }
   // Farm Raids (lib/fraid.js): one check at a time on a line; the answer is 'frr'.
   async raidCheck(c, msg) {
@@ -125,7 +149,7 @@ class Game {
     if (hi.v !== VERSION) return this.refuse(c, 'version');
     if (hi.topic === 'pub') return this.helloPub(c, hi);
     const cfg = this.R.dungeonOf(hi.map), floor = Math.floor(Number(hi.floor));
-    const map = cfg ? this.maps.get(cfg.key) : null;
+    const map = cfg && floor >= 1 && floor <= cfg.floors && (!cfg.tower || this.tower) ? this.maps.of(cfg, floor) : null;
     if (typeof hi.topic !== 'string' || !TOPIC.test(hi.topic) || !map || !map.zone || !(floor >= 1 && floor <= cfg.floors)) return this.refuse(c, 'topic');
     if (typeof hi.token !== 'string' || !hi.token || hi.token.length > 4096) return this.refuse(c, 'auth');
     c.busy = true;
@@ -137,6 +161,7 @@ class Game {
     if (!r || !r.uid) return this.refuse(c, r && r.why === 'topic' ? 'topic' : 'auth');
     if (c.room) c.room.leave(c); // (a new floor on the same socket)
     const uid = String(r.uid);
+    c.token = hi.token; // (the Tower's `fq`: the same check, for your friends' floors)
     c.busy = true;
     let room = null;
     try { room = await this.pickCave(c, hi, uid, cfg, floor, map); } catch (e) { room = null; }

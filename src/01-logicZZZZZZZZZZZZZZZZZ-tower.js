@@ -73,7 +73,7 @@
   L.towerPearls = function (f) { return L.towerZone(f) * TW.pearls[L.towerRole(f) || 'normal']; };
   // The last enemy of floor f fell: the Pearls it pays (0 when none), added to s.pearls. A floor newer than the deepest
   // you have cleared pays its Pearls (alone or in a team, no team bonus). One you had cleared: nothing, unless you were
-  // helping a friend clear it (opts.helper: 1 Pearl, at most 50 a day; the online part is a later step).
+  // helping a friend clear it (opts.helper: 1 Pearl, at most 50 a day; with a team: L.towerTeamPay).
   L.towerPay = function (s, f, opts) {
     var r = rec(s), n = 0;
     f = fl(f);
@@ -86,6 +86,23 @@
     }
     s.pearls = (s.pearls || 0) + n;
     return n;
+  };
+
+  // The last enemy of floor f fell with a team on it (the game server's 'cl': docs/game-server.md, "Step 4"): what it pays
+  // you. others: how many of the others on the floor had never cleared it. New to you: its first-time Pearls (no team
+  // bonus). Cleared before: 1 helper Pearl (at most 50 a day) when one of the others is new to it; else nothing.
+  L.towerTeamPay = function (s, f, others) { return L.towerPay(s, f, { helper: others > 0 }); };
+
+  // A tower creature as a friend's phone or the game server says it (L.wildPack): its hits are its floor's (L.towerHits),
+  // far more than its kind's own 2, so the list's cap is the strongest a floor makes it (01-logicD.js caps at the kind's).
+  var wildUnpack = L.wildUnpack;
+  L.wildUnpack = function (r) {
+    var o = wildUnpack(r), def = o && WI.animals[o.kind];
+    if (!def || !def.tower) return o;
+    var top = L.towerHits(TW.floors, def.role === 'normal' ? null : def.role);
+    o.hp = Math.max(0, Math.min(top, Number(r[7]) || 0));
+    o.max = Math.max(1, Math.min(top, Number(r[10]) || 1));
+    return o;
   };
 
   // ---------- a tower creature's charge ----------

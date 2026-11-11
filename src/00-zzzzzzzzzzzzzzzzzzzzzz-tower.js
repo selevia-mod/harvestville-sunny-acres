@@ -26,8 +26,9 @@
     // a floor's leader, against a normal enemy of its floor: hp = its hits x, hit = its energy x (each its own attack)
     roles: { guard: { hp: 5, hit: 1.5 }, mini: { hp: 10, hit: 2 }, boss: { hp: 40, hit: 3 } },
     // Pearls the first time a floor is cleared: realm z pays z x these; a helper on a floor they cleared before: 1, at most
-    // 50 a day (the online part is a later step)
+    // 50 a day (L.towerTeamPay: when a friend on the floor with them clears it for the first time)
     pearls: { normal: 1, guard: 5, mini: 30, boss: 100, helper: 1, helperDay: 50 },
+    team: 4, // players on a floor together at most (the game server's room for it: server/lib/tower.js)
     seed: 20261112, // (every floor's room and enemies come from its number and this: the same for every player)
     zones: [],
   };

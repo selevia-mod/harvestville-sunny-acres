@@ -34,7 +34,8 @@ class Room {
     this.map = map;
     this.floor = floor;
     this.cfg = cfg;
-    this.cap = game.cap;
+    this.cap = cfg.cap || game.cap; // (The Lost Tower: 4)
+    this.tw = cfg.tower && game.tower ? game.tower.state(this) : null; // The Lost Tower's own (lib/tower.js)
     this.players = new Map(); // id -> player
     this.recent = new Map(); // player id -> when their line dropped (a reconnect comes back to this floor)
     this.mons = []; // the monsters still up
@@ -104,9 +105,10 @@ class Room {
     conn.player = p;
     this.emptySince = 0;
     this.crew();
+    if (this.tw) this.game.tower.joined(this, uid, hi);
     if (!this.started) { // the floor as a first visitor finds it, around this first phone
       this.started = true;
-      this.mons = this.game.wild.populate(this.fl, this.cfg, this.floor, { x, y });
+      this.mons = this.tw ? this.game.tower.populate(this, { x, y }) : this.game.wild.populate(this.fl, this.cfg, this.floor, { x, y });
       this.mons.forEach((a) => this.sent.set(a.slot, this.pack(a).join(',')));
       if (!this.mons.length && !this.bakunawa) this.clear = true;
     }
@@ -115,8 +117,10 @@ class Room {
     else this.moved.add(p.id);
     const others = [];
     this.players.forEach((q) => { if (q !== p) others.push(this.pplRow(q)); });
-    this.send(p, { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: others, cap: this.cap, n: this.n, st: now, pp: 1 }); // (pp: who is here is ours to say)
-    if (this.clear) this.send(p, { t: 'cl' }); // (a floor already cleared opens for a friend who comes later)
+    const wl = { t: 'wl', you: p.id, tick: this.game.tickMs, mons: this.mons.map((a) => this.pack(a)), ppl: others, cap: this.cap, n: this.n, st: now, pp: 1 }; // (pp: who is here is ours to say)
+    if (this.tw) wl.tw = this.game.tower.welcome(this); // (The Lost Tower: enemies left, shields broken, revivers lying)
+    this.send(p, wl);
+    if (this.clear) this.send(p, this.tw ? this.game.tower.clearFor(this, uid) : { t: 'cl' }); // (a floor already cleared opens for a friend who comes later)
     return null;
   }
 
@@ -140,7 +144,7 @@ class Room {
 
   // A place's boss grows for each friend who comes down (19zzzzz-places.js update): hpEach more each, never less.
   grow() {
-    if (this.cfg.lair) return;
+    if (this.cfg.lair || this.tw) return; // (The Lost Tower's enemies never grow with the team: owner, 12 Nov 2026)
     const crew = this.players.size;
     this.mons.forEach((a) => {
       if (!a.def.boss || !a.def.hpEach || !a.crew || crew <= a.crew) return;
@@ -225,6 +229,7 @@ class Room {
     }
     this.game.stats.hitsOk = (this.game.stats.hitsOk || 0) + 1;
     p.lastHit[slot] = now;
+    if (this.tw) return this.game.tower.hit(this, a, p, d, typeof msg.k === 'string' ? msg.k.slice(0, 16) : '', n); // (its shields, revivers, splitters)
     const down = this.game.wild.wildStruck(this.fl, a, p, d);
     this.broadcast({ t: 'hp', s: a.slot, hp: Math.max(0, a.hp), by: p.id, n });
     if (down) this.down(a, p.id);
@@ -237,16 +242,20 @@ class Room {
     this.mons.splice(this.mons.indexOf(a), 1);
     this.sent.delete(a.slot);
     this.goneNow.push(a.slot);
+    if (this.tw) this.game.tower.gone(this, a);
     const need = a.def.minHits || 1;
     const by = Object.keys(a.hits).filter((id) => a.hits[id] >= need);
     if (last && by.indexOf(last) < 0) by.push(last);
-    this.broadcast({ t: 'dn', s: a.slot, kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), by, lh: last || '', size: Math.round(a.size * 100) / 100 }); // (lh: the last hit's: a hunting place shares with their friends only, on each phone)
-    if (!this.mons.length) this.cleared();
+    const dn = { t: 'dn', s: a.slot, kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), by, lh: last || '', size: Math.round(a.size * 100) / 100 }; // (lh: the last hit's: a hunting place shares with their friends only, on each phone)
+    if (this.tw) dn.tl = this.game.tower.left(this); // (The Lost Tower: how many are still to beat)
+    this.broadcast(dn);
+    if (!this.mons.length && (!this.tw || !this.game.tower.left(this))) this.cleared();
   }
 
   cleared() {
     if (this.clear) return;
     this.clear = true;
+    if (this.tw) return this.game.tower.cleared(this); // (with who is paid: lib/tower.js)
     this.broadcast({ t: 'cl' });
   }
 
@@ -257,7 +266,8 @@ class Room {
     const W = this.game.wild, fl = this.fl;
     this.arrive(dt);
     const reach = (a, p) => this.send(p, { t: 'bp', s: a.slot, hit: a.def.hit || 0 });
-    for (let i = 0; i < this.mons.length; i++) W.updateWild(fl, this.mons[i], dt, reach);
+    if (this.tw) this.game.tower.step(this, dt, reach); // (The Lost Tower: its tricks and waves, lib/tower.js)
+    else for (let i = 0; i < this.mons.length; i++) W.updateWild(fl, this.mons[i], dt, reach);
     this.tell();
   }
 
