@@ -35,6 +35,10 @@
   var GATE = { squash: 0.85, drop: 0.08 };
   var ART = { mouth: 'props/lair_mouth', gate: 'props/lair_gate', cave: 'lair_cave' }; // (tools/art/lair-world-import.js)
   var real = function (key) { return !!(F.images && F.images[key]); };
+  // (12 Nov 2026: the Lair's mouth and gate are in the 'lair' pack, out of the page: tools/packs.js.) A picture of a
+  // cave that is not in yet is asked for (from the phone, or downloaded); its drawn stand-in shows until it comes, and
+  // then it takes its place where it stands (F.bus 'packart', below)
+  var askArt = function (key) { if (key && !real(key) && F.needImage && F.packedFile && F.packedFile(key)) F.needImage(key); };
   // the cave tiles' places in the indoor sheet (tools/tiles.js INDOOR)
   var ID = { void: 5, cave: 6, cave2: 7, cave_wall: 8, cave_top: 9 };
   // ...and their places in the Lair's own tiles (assets/lair_cave: 128 px tiles in a row, then the lava at 192 px)
@@ -560,6 +564,7 @@
     var img = this.add.image(p.x, p.y + 0.08 * T, mouthTexture(this, cfg)).setOrigin(0.5, 1);
     img.setDisplaySize(MOUTH.w * T, real(cfg.art.mouth) ? MOUTH.w * T * img.height / img.width : MOUTH.h * T);
     if (!cfg.lair && !real(cfg.art.mouth)) img.setTint(cfg.propTint); // (a place's drawn stand-in, in its cave's colour)
+    if (!real(cfg.art.mouth)) { this.lairMouthImg = { img: img, cfg: cfg }; askArt(cfg.art.mouth); } // (the stand-in: replaced when it comes)
     F.depthTo(img, DEPTH.actor + p.y / 1e5);
     var glow = this.add.image(p.x, p.y - 0.3 * T, glowTexture(this)).setDisplaySize(1.6 * T, 1.2 * T).setBlendMode(ADD).setAlpha(0.5).setDepth(img.depth + 0.00001);
     this.tweens.add({ targets: glow, alpha: 0.85, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -579,9 +584,11 @@
     var s = F.session && F.session.state, cfg = s ? F.dungeonOf(s.map) : null, on = !!cfg, floor = floorNow();
     // (set before the world is made: setupWild, in 19v-wild.js, asks L.wildHere and wildFree)
     this.lairMouth = false;
+    this.lairMouthImg = null;
     this.lair = on ? { cfg: cfg, floor: floor, down: {}, seen: false, open: false, gate: null, gateRect: floor < cfg.floors ? gateRect(cfg) : null, onGate: false, embers: 0, lava: [] } : null;
     create.call(this);
     this.setupLairMouth();
+    if (L.isWildMap && L.isWildMap(this.mapKey)) { askArt(ART.mouth); askArt(ART.gate); } // (in the Wild Lands: ready before Magayon)
     if (!this.lair || this.mapKey !== cfg.key) {
       this.lair = null; // (its painted sheet is kept for the session: 2 MB, and painting it again cost ~0.2 s each time in)
       return;
@@ -676,6 +683,7 @@
       this.objects = this.objects.filter(function (o) { return !isGate(o); });
       return;
     }
+    askArt(lr.cfg.art.gate);
     var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false, lr.cfg);
     var img = this.add.image(x, y, tf[0], tf[1]).setDisplaySize(size, size).setDepth(DEPTH.flat);
     if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
@@ -703,6 +711,29 @@
     this.cameras.main.shake(220, 0.003);
     this.time.delayedCall(1400, function () { if (F.ui && self.lair === lr && !self.busy) F.ui.toast('The gate down is open! Walk onto it for floor ' + (lr.floor + 1) + '.', 3000, 0x2f5a22); });
   };
+  // a cave's picture came in while its stand-in is up: the mouth takes the picture where it stands; the gate is set up
+  // again with it (shut or open, as it was)
+  F.bus.on('packart', function (key) {
+    var w = F.world;
+    if (!w || !w.sys || !w.sys.isActive() || !real(key)) return;
+    var m = w.lairMouthImg;
+    if (m && m.cfg.art.mouth === key && m.img.active) {
+      w.lairMouthImg = null;
+      m.img.setTexture(F.ensureTexture(w, key)).clearTint();
+      m.img.setDisplaySize(MOUTH.w * T, MOUTH.w * T * m.img.height / m.img.width);
+    }
+    var lr = w.lair, gt = lr && lr.gate;
+    if (gt && lr.cfg.art.gate === key && gt.img.active && gt.img.texture.key !== key) {
+      var open = lr.open;
+      w.tweens.killTweensOf(gt.glow);
+      gt.img.destroy();
+      gt.glow.destroy();
+      lr.gate = null;
+      lr.open = false;
+      w.setupLairGate();
+      if (open) w.openLairGate(false);
+    }
+  });
   var sealed = function (w) {
     var n = w.wild ? w.wild.animals.length : 0;
     return 'The gate down is sealed. ' + (n ? n + (n > 1 ? ' creatures are' : ' creature is') + ' still on this floor.' : 'Hunt every creature on this floor to open it.');

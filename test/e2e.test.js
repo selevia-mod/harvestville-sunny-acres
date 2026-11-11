@@ -6878,3 +6878,82 @@ test('the farm round 2: barn and coop only with the animals in front, the doghou
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('pictures out of the page (12 Nov 2026: the page was over its 19.5 MiB): the Lair\'s mouth and gate and the Hall of Fame show stand-ins until their pictures come, then the pictures where they stand; on the phone, they are in before you arrive', async () => {
+  const SOFT = /^packs\/props-(lair_mouth|lair_gate|hall_of_fame)\./;
+  // a phone with every pack but these on it; their files come only when the test lets them (window.__release)
+  const openSlow = async (save) => {
+    const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    const page = await context.newPage(), problems = [];
+    page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+    page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
+    await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+    await page.addInitScript(([s, now, here, soft]) => {
+      window.__now = now;
+      window.__release = false;
+      const re = new RegExp(soft);
+      window.gameHost = { state: s, quiet: true, saves: [], save(x) { this.saves.push(JSON.stringify(x)); this.state = x; }, now: () => window.__now, here: here };
+      window.gameHost.asset = function (f, save) {
+        const answer = function () { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };
+        if (!re.test(f)) return setTimeout(answer, 20);
+        const wait = function () { if (window.__release) answer(); else setTimeout(wait, 50); };
+        wait();
+      };
+    }, [save, at(START), allPackFiles().filter((f) => !SOFT.test(f)), SOFT.source]);
+    await page.goto(PAGE, { timeout: 90000 });
+    await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
+    await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
+    return { page, problems, context };
+  };
+  // none of them is in the page itself
+  assert.strictEqual(require('fs').readFileSync(PAGE.replace(/^file:\/\//, ''), 'utf8').indexOf('"props/lair_mouth":"data:'), -1, 'the mouth is not in the page');
+  {
+    const save = await makeSave("s.start -= 3; s.goal = 99; s.wv = Farm.Config.NEWS_LATEST; s.map = 'magayon'; s.wild.n = 50; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40);");
+    const { page, problems, context } = await openSlow(save);
+    await closeAll(page);
+    await waitMap(page, 'magayon');
+    const mouth = () => page.evaluate(() => { const w = Farm.world, has = (k) => w.children.list.some((o) => o.texture && o.texture.key === k); return [has('props/lair_mouth'), has('fx-lairmouth')]; });
+    assert.deepStrictEqual(await mouth(), [false, true], 'the drawn mouth while its picture comes');
+    if (SHOTS) { await page.evaluate(() => { const w = Farm.world, p = w.points.from_lair; w.setFeet(p.x, p.y); w.dir = 'down'; w.idle(); }); await page.waitForTimeout(800); await shot(page, 'soft-lair-mouth-standin'); }
+    assert.ok(!(await page.evaluate(() => !!Farm.world.blocked[Farm.world.idx(20, 3)])), 'its door is open all the same');
+    await page.evaluate(() => { window.__release = true; });
+    await page.waitForFunction(() => Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/lair_mouth'), null, SLOW);
+    assert.deepStrictEqual(await mouth(), [true, false], 'the picture in its place');
+    assert.deepStrictEqual(await page.evaluate(() => { const o = Farm.world.children.list.find((x) => x.texture && x.texture.key === 'props/lair_mouth'); return [Math.round(o.displayWidth), o.tintTopLeft === 0xffffff]; }), [Math.round(3.7 * 256), true]);
+    await page.waitForFunction(() => !!Farm.images['props/lair_gate'], null, SLOW); // (asked for in the Wild Lands, before the Lair)
+    // the gate: as if it had not come yet, then in the Lair it comes
+    await page.evaluate(() => { window.__release = false; delete Farm.images['props/lair_gate']; const w = Farm.world; w.setFeet(20.5 * 256, 3.5 * 256); w.dir = 'up'; });
+    await waitMap(page, 'lair');
+    assert.deepStrictEqual(await page.evaluate(() => [Farm.world.lair.gate.img.texture.key, Farm.world.lair.open]), ['fx-lairgate0', false], 'the drawn gate');
+    await page.evaluate(() => { window.__release = true; });
+    await page.waitForFunction(() => Farm.world.lair.gate.img.texture.key === 'props/lair_gate' && Farm.world.lair.gate.img.frame.name === 'shut', null, SLOW);
+    // it opens in its picture when the floor is clear
+    await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice().forEach((a) => { a.hp = 1; w.wildStruck(a); }); });
+    await page.waitForFunction(() => Farm.world.lair.open && Farm.world.lair.gate.img.frame.name === 'open' && Farm.world.lair.gate.glow.visible, null, SLOW);
+    assert.strictEqual(await page.evaluate(() => Farm.world.children.list.filter((o) => o.texture && /^fx-lairgate/.test(o.texture.key) && o.active).length), 0, 'no drawn gate left');
+    assert.deepStrictEqual(problems, []);
+    await context.close();
+  }
+  {
+    const save = await makeSave("s.map = 'town';");
+    const { page, problems, context } = await openSlow(save);
+    await closeAll(page);
+    await go(page, 'park', 'from_town');
+    const hall = () => page.evaluate(() => {
+      const o = Farm.world.props.find((p) => p.texture.key === 'props/hall_of_fame');
+      return o && [o.texture.source[0].image instanceof HTMLCanvasElement, Math.round(o.displayWidth), Math.round(o.displayHeight)];
+    });
+    assert.deepStrictEqual(await hall(), [true, 1536, 1280], 'a drawn building in its place while its picture comes');
+    if (SHOTS) { await teleport(page, 20, 9, 'up'); await page.waitForTimeout(800); await shot(page, 'soft-hall-standin'); }
+    await page.evaluate(() => { window.__release = true; });
+    await page.waitForFunction(() => !!Farm.images['props/hall_of_fame'], null, SLOW);
+    await frames(page, 2);
+    assert.deepStrictEqual(await hall(), [false, 1536, 1280], 'the picture, the same size');
+    // on the phone now: back in town and in again, it is there from the start
+    await go(page, 'town', 'from_park');
+    await go(page, 'park', 'from_town');
+    assert.deepStrictEqual(await hall(), [false, 1536, 1280]);
+    assert.deepStrictEqual(problems, []);
+    await context.close();
+  }
+});
