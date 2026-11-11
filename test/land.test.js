@@ -20,11 +20,11 @@ const W = C.FARM_W;
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
 const fresh = () => { clock.set(2026, 4, 1, 10, 0); const s = L.newState(); s.seed = 11; s.gold = 1e6; L.takeNotes(); return s; };
 
-test('six blocks of 10 by 10, 630,000G in all, nothing overlapping, inside the map and clear of walls', () => {
+test('nine blocks of 10 by 10 (six for 630,000G, three more for Gold and Pearls), nothing overlapping, inside the map and clear of walls', () => {
   assert.strictEqual(MAP.width, W);
-  assert.strictEqual(C.LAND.blocks.length, 6);
-  assert.deepStrictEqual(Array.from(C.LAND.prices), [10000, 20000, 40000, 80000, 160000, 320000]);
-  assert.strictEqual(C.LAND.prices.reduce((a, b) => a + b, 0), 630000);
+  assert.strictEqual(C.LAND.blocks.length, 9);
+  assert.deepStrictEqual(Array.from(C.LAND.prices), [10000, 20000, 40000, 80000, 160000, 320000, 800000, 1600000, 3000000]);
+  assert.strictEqual(C.LAND.prices.slice(0, 6).reduce((a, b) => a + b, 0), 630000);
   const seen = {}, walls = MAP.layers.filter((l) => l.name === 'Walls')[0].data;
   C.LAND.blocks.forEach((b) => {
     assert.strictEqual(b.x1 - b.x0, 9);
@@ -36,7 +36,7 @@ test('six blocks of 10 by 10, 630,000G in all, nothing overlapping, inside the m
       assert.strictEqual(walls[y * W + x], 0, 'wall at ' + x + ',' + y);
     }
   });
-  assert.strictEqual(Object.keys(seen).length, 600);
+  assert.strictEqual(Object.keys(seen).length, 900);
 });
 
 test('every block can be walked to from the road, and so can its sign', () => {
@@ -64,7 +64,8 @@ test('blocks sell in order for twice the last, and you need the gold', () => {
   s.gold = 9999;
   assert.strictEqual(L.buyLand(s), 'gold');
   assert.strictEqual(L.landOwned(s), 0);
-  s.gold = 1e6;
+  s.gold = 1e7;
+  s.pearls = 1e4;
   C.LAND.prices.forEach((p, i) => {
     assert.strictEqual(L.landPrice(s), p);
     const before = s.gold;
@@ -84,7 +85,7 @@ test('the save keeps the land, and a farm that never bought any says nothing', (
   assert.strictEqual(roundTrip(s).land, 2);
   const o = JSON.parse(JSON.stringify(L.serialize(s)));
   o.ld = 99;
-  assert.strictEqual(L.deserialize(o).land, 6, 'bad numbers stay in range');
+  assert.strictEqual(L.deserialize(o).land, 9, 'bad numbers stay in range');
 });
 
 test('a save from the 38-wide farm: crops and debris stay on their tiles, and soil on bought land survives a clean', () => {
@@ -192,14 +193,16 @@ test('an older save gets the fence once, around whatever was already there', () 
   assert.strictEqual(roundTrip(back).yard.items.filter((it) => it.t === ff).length, 60, 'not twice');
 });
 
-test('every tile planted on all six blocks and the old field still fits a save', () => {
+test('every tile planted on all nine blocks and the old field still fits a save', () => {
   const s = fresh();
-  for (let i = 0; i < 6; i++) L.buyLand(s);
+  s.gold = 1e7;
+  s.pearls = 1e4;
+  for (let i = 0; i < 9; i++) assert.strictEqual(L.buyLand(s), 'ok');
   s.soil = {};
   const now = L.nowMin();
   C.LAND.blocks.forEach((b) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) s.soil[y * W + x] = { w: 1, c: 'pumpkin', p: now, r: 0 }; });
   L.fieldPlotTiles(s).forEach((i) => { s.soil[i] = { w: 1, c: 'pumpkin', p: now, r: 0 }; }); // (the field: its plots)
-  assert.strictEqual(Object.keys(s.soil).length, 824);
+  assert.strictEqual(Object.keys(s.soil).length, 1124);
   const size = JSON.stringify(L.serialize(s)).length;
   assert.ok(size < C.MAX_SAVE_BYTES, 'save is ' + size);
 });

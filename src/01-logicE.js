@@ -21,11 +21,16 @@
     return i >= 0 && i < L.landOwned(s);
   };
   L.landPrice = function (s) { return LAND.prices[L.landOwned(s)] || 0; };
+  // lands 7 to 9 take Pearls too (from The Lost Tower: s.pearls), with the Gold (owner, 12 Nov 2026)
+  L.landPearls = function (s) { return (LAND.pearls && LAND.pearls[L.landOwned(s)]) || 0; };
+  // 'ok' | 'max' | 'gold' | 'pearls' (nothing is taken unless both are there)
   L.buyLand = function (s) {
     if (L.landOwned(s) >= LAND.blocks.length) return 'max';
-    var price = L.landPrice(s);
+    var price = L.landPrice(s), pearls = L.landPearls(s);
     if (s.gold < price) return 'gold';
+    if ((s.pearls || 0) < pearls) return 'pearls';
     s.gold -= price;
+    if (pearls) s.pearls -= pearls;
     s.land = L.landOwned(s) + 1;
     return 'ok';
   };
@@ -117,7 +122,7 @@
     s.land = Math.max(0, Math.min(LAND.blocks.length, Math.floor(Number(snap && snap.land)) || 0));
     var fw = Math.floor(Number(snap && snap.fw)) || OLD_W;
     if (fw !== C.FARM_W) {
-      L.addFieldFence(s); // from before it was yard pieces
+      if (fw <= OLD_W) L.addFieldFence(s); // from before it was yard pieces (a 64-wide farm has its own, maybe moved)
       var move = function (table) {
         var out = {};
         Object.keys(table).forEach(function (idx) { out[Math.floor(idx / fw) * C.FARM_W + idx % fw] = table[idx]; });
