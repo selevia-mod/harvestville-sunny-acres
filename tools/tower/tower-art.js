@@ -26,6 +26,13 @@ const keys = () => {
     z.normal.concat([z.guard, z.mini, z.boss]).forEach((k) => { const d = C.WILD.animals[k]; out.push(d.sheet, d.sheet + 'shade'); });
     out.push(z.art.gate, z.art.cave);
   });
+  // the Keeper's shop (00-zzzzzzzzzzzzzzzzzzzzzzz-tower-shop.js; prompts ~/Downloads/lost-tower-shop-art/PROMPTS.md): the
+  // keeper's 3 x 3 sheet, the shop's icons (C.TOWER_ICONS' order, 8 cells of 128 a row), the Keeper's gear worn (the
+  // farmer's poses, boy and girl) and the horse's three looks (overlays laid out like ride2_horse)
+  const K = C.KEEPER;
+  out.push(K.person.sheet, 'tower_icons');
+  K.gear.forEach((g) => out.push(g.art + '_boy', g.art + '_girl'));
+  K.horse.forEach((h) => out.push(h.art));
   return [...new Set(out)];
 };
 

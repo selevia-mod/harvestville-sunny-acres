@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
-const W = 64; // farm width in tiles
+const W = 75; // farm width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
 const SLOW = { timeout: 90000 }; // headless frames can be slow

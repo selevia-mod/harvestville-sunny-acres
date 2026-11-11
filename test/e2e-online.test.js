@@ -486,7 +486,7 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   await nameFarm(friend.page, 'Ana Acres');
   await nameFarm(stranger.page, 'Ben Barn');
   server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid }); // friends (mutual Selebox follows)
-  const W = 64, tiles = [[10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15], [16, 15]].map(([x, y]) => y * W + x);
+  const W = 75, tiles = [[10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15], [16, 15]].map(([x, y]) => y * W + x);
   await host.page.evaluate((tiles) => {
     const s = Farm.session.state, now = Farm.Logic.nowMin();
     tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now, r: 0 }; });
@@ -670,7 +670,7 @@ test('online: a friend picks your ripe crops into your Harvest Basket (5 a day, 
   await nameFarm(host.page, 'Moon Meadow');
   await nameFarm(friend.page, 'Ana Acres');
   server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
-  const W = 64, tiles = [10, 11, 12, 13, 14, 15].map((x) => 15 * W + x);
+  const W = 75, tiles = [10, 11, 12, 13, 14, 15].map((x) => 15 * W + x);
   await host.page.evaluate((tiles) => {
     const s = Farm.session.state, now = Farm.Logic.nowMin();
     tiles.forEach((i) => { delete s.debris[i]; s.soil[i] = { w: 0, c: 'turnip', p: now - 30, r: 0 }; }); // ripe

@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
 
 const PAGE = 'file://' + path.resolve(__dirname, '..', 'dist', 'index.html');
 const SHOTS = process.env.SHOTS;
-const W = 64; // farm width in tiles
+const W = 75; // farm width in tiles
 const ACTION_BTN = { x: 294, y: 512 };
 // Headless Chromium renders on the CPU, so frames are slow; give clock- and fade-driven waits room.
 const SLOW = { timeout: 90000 }; // headless frames can be slow
@@ -318,10 +318,10 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   // a patch of the field with a weed, a branch and a stone on it (and nothing else)
   await page.evaluate(() => {
     const s = Farm.session.state;
-    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 64 + x];
-    s.debris[12 * 64 + 5] = 'weed';
-    s.debris[12 * 64 + 6] = 'branch';
-    s.debris[12 * 64 + 7] = 'stone';
+    for (let y = 11; y <= 15; y++) for (let x = 4; x <= 8; x++) delete s.debris[y * 75 + x];
+    s.debris[12 * 75 + 5] = 'weed';
+    s.debris[12 * 75 + 6] = 'branch';
+    s.debris[12 * 75 + 7] = 'stone';
     Farm.world.refreshDebris();
   });
   await teleport(page, 5, 11, 'down');
@@ -391,14 +391,14 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
   // 15 real minutes later the watered row is ripe; the dry rows never started (owner, 29 Oct 2026: crops need water)
   await advance(page, 15);
   s = await state(page);
-  assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 64 + 5])));
-  assert.strictEqual(await page.evaluate(() => Farm.Logic.cropStage(Farm.session.state.soil[13 * 64 + 5])), 0, 'the unwatered row is still a seed');
+  assert.ok(await page.evaluate(() => Farm.Logic.isRipe(Farm.session.state.soil[12 * 75 + 5])));
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.cropStage(Farm.session.state.soil[13 * 75 + 5])), 0, 'the unwatered row is still a seed');
   await teleport(page, 5, 12, 'down');
   await page.evaluate(() => { Farm.world.hintKey = null; });
   await frames(page);
   await tapAction(page);
   assert.match(await page.evaluate(() => Farm.ui.toastText.text), /Turnip needs water to grow/);
-  assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 64 + 5].stage), 3, 'the field shows it');
+  assert.strictEqual(await page.evaluate(() => Farm.world.crops[12 * 75 + 5].stage), 3, 'the field shows it');
   await teleport(page, 5, 11, 'down');
   await shot(page, '05-ripe');
 
@@ -742,10 +742,10 @@ test('the Bow is a real shot: it comes up, the string pulls back, then the arrow
 test('players\' suggestions on the farm: dig up a growing crop, a Power-Up shows its minutes (owner, 2 Nov 2026)', async () => {
   const { page, problems, context } = await open();
   await closeAll(page);
-  const idx = 12 * 64 + 6;
+  const idx = 12 * 75 + 6;
   await page.evaluate((idx) => {
     const s = Farm.session.state;
-    for (let y = 11; y <= 14; y++) for (let x = 4; x <= 9; x++) delete s.debris[y * 64 + x];
+    for (let y = 11; y <= 14; y++) for (let x = 4; x <= 9; x++) delete s.debris[y * 75 + x];
     s.soil[idx] = { w: 1, c: 'turnip', p: Farm.Logic.nowMin(), r: 0 };
     Farm.world.refreshDebris();
     Farm.world.refreshTile(idx);
@@ -886,7 +886,7 @@ test('more land: a fenced block with a For Sale sign, bought, tilled, and still 
   await hold(page, 'hoe');
   await teleport(page, 44, 29, 'right');
   await tapAction(page);
-  const idx = 29 * 64 + 45;
+  const idx = 29 * 75 + 45;
   assert.ok(await page.evaluate((i) => !!Farm.session.state.soil[i], idx), 'tilled');
   // a save and a reload keep the land and the soil
   const save = await page.evaluate(() => JSON.stringify(Farm.Logic.serialize(Farm.session.state)));
@@ -1384,7 +1384,7 @@ test('owner batch: one tap harvests the Sickle\'s reach; a bigger bag; the energ
     s.goal = 1;
     s.gold = 9000;
     s.tools.sickle = 2; // Silver: a 3x3 patch
-    for (let y = 13; y <= 15; y++) for (let x = 9; x <= 11; x++) s.soil[y * 64 + x] = { c: 'carrot', p: L.nowMin() - 60, w: 0, r: 0 };
+    for (let y = 13; y <= 15; y++) for (let x = 9; x <= 11; x++) s.soil[y * 75 + x] = { c: 'carrot', p: L.nowMin() - 60, w: 0, r: 0 };
   `, SAT);
   const { page, problems, context } = await open(save, SAT);
   await closeAll(page);
@@ -1496,11 +1496,11 @@ test('New game in the pause menu replaces a progressed farm with a fresh one', a
   assert.strictEqual(await page.evaluate(() => Farm.world.player.texture.key), 'player');
   await page.evaluate(() => window.__gameBack());
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Apr 1');
-  await page.evaluate(() => { delete Farm.session.state.debris[12 * 64 + 5]; Farm.world.refreshDebris(); });
+  await page.evaluate(() => { delete Farm.session.state.debris[12 * 75 + 5]; Farm.world.refreshDebris(); });
   await teleport(page, 5, 11, 'down');
   await tapHotbar(page, 0);
   await tapAction(page);
-  assert.ok((await state(page)).soil[12 * 64 + 5], 'can till on the new farm');
+  assert.ok((await state(page)).soil[12 * 75 + 5], 'can till on the new farm');
   assert.strictEqual(await page.evaluate(() => Farm.ui.goldText.text), '300'); // the coin says it is gold
   assert.deepStrictEqual(problems, []);
   await context.close();
@@ -1518,9 +1518,9 @@ const tileGid = (page, layer, x, y) => page.evaluate(([l, x, y]) => Farm.world.l
 test('seasons follow the months: summer on June 1st, winter on December 1st; the farm changes, every seed all year (economy v2)', async () => {
   const MAY31 = [2026, 5, 31, 22, 0];
   const save = await makeSave(`
-    L.till(s, 12 * 64 + 5);
+    L.till(s, 12 * 75 + 5);
     L.addItem(s, 'seed_onion', 1);
-    L.plant(s, 12 * 64 + 5, s.inv.findIndex((x) => x && x.id === 'seed_onion'));
+    L.plant(s, 12 * 75 + 5, s.inv.findIndex((x) => x && x.id === 'seed_onion'));
   `, MAY31);
   const { page, problems, context } = await open(save, MAY31);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'May 31');
@@ -1531,27 +1531,27 @@ test('seasons follow the months: summer on June 1st, winter on December 1st; the
   // (economy v2, 11 Nov 2026: no more seasons) a summer seed goes in in spring too
   await page.evaluate(() => {
     Farm.Logic.addItem(Farm.session.state, 'seed_tomato', 2);
-    Farm.Logic.till(Farm.session.state, 12 * 64 + 6);
-    Farm.Logic.till(Farm.session.state, 12 * 64 + 7);
+    Farm.Logic.till(Farm.session.state, 12 * 75 + 6);
+    Farm.Logic.till(Farm.session.state, 12 * 75 + 7);
     Farm.world.refreshAllSoil();
   });
   await hold(page, 'seed_tomato');
   await teleport(page, 6, 11, 'down');
   await tapAction(page);
-  assert.strictEqual((await state(page)).soil[12 * 64 + 6].c, 'tomato', 'tomato in spring');
+  assert.strictEqual((await state(page)).soil[12 * 75 + 6].c, 'tomato', 'tomato in spring');
 
   const report = await nextMorning(page);
   assert.match(report, /Summer has arrived! Every crop still grows all year\./);
   assert.doesNotMatch(report, /new kinds of seeds/);
   let s = await state(page);
   assert.strictEqual(await page.evaluate(() => Farm.ui.dayText.text), 'Jun 1');
-  assert.strictEqual(s.soil[12 * 64 + 5].c, 'onion', 'the spring onion grows on');
+  assert.strictEqual(s.soil[12 * 75 + 5].c, 'onion', 'the spring onion grows on');
   const summerGrass = await tileGid(page, 'Ground', 2, 3);
   assert.strictEqual(summerGrass, springGrass + 12, 'grass switched to the summer art');
   await teleport(page, 6, 9, 'down');
   await shot(page, '16-summer');
 
-  assert.strictEqual(s.soil[12 * 64 + 6].c, 'tomato', 'the tomato grows on');
+  assert.strictEqual(s.soil[12 * 75 + 6].c, 'tomato', 'the tomato grows on');
 
   // the shop's seeds tab: every seed, in summer too (spring's turnips, the new crops)
   await setClock(page, [2026, 6, 1, 10, 0]);
@@ -3148,7 +3148,7 @@ test('rare surprises: a sparkling rock glints, pays once and stays paid after cl
     const F = Farm, L = F.Logic, C = F.Config, w = F.world, s = w.state;
     C.RARE.crop = 1;
     s.tools.sickle = 0;
-    const idx = 15 * 64 + 10, t = { c: 'tomato', p: 0, w: 0, r: 0 };
+    const idx = 15 * 75 + 10, t = { c: 'tomato', p: 0, w: 0, r: 0 };
     t.p = L.nowMin() - L.growMins(t);
     s.soil[idx] = t;
     w.refreshTile(idx);
@@ -3875,10 +3875,10 @@ test('Bakunawa\'s Lair: in through the mouth in Magayon, floor 1\'s creatures in
 
 test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the farm, wait by the field to talk, the morning report says what they did, and you can let them go (4 Nov)', async () => {
   const save = await makeSave(`s.stats.earned = 4000; s.gold = 5000; s.goal = 99; s.wv = C.NEWS_LATEST;
-    for (let y = 11; y <= 16; y++) for (let x = 3; x <= 12; x++) delete s.debris[y * 64 + x];
+    for (let y = 11; y <= 16; y++) for (let x = 3; x <= 12; x++) delete s.debris[y * 75 + x];
     const now = L.nowMin();
-    for (let x = 4; x <= 9; x++) s.soil[12 * 64 + x] = { w: 0, c: 'potato', p: now, r: 0, h: 1 };
-    for (let x = 4; x <= 6; x++) s.soil[15 * 64 + x] = { w: 1, c: 'turnip', p: now - 20, r: 0, h: 1 };`);
+    for (let x = 4; x <= 9; x++) s.soil[12 * 75 + x] = { w: 0, c: 'potato', p: now, r: 0, h: 1 };
+    for (let x = 4; x <= 6; x++) s.soil[15 * 75 + x] = { w: 1, c: 'turnip', p: now - 20, r: 0, h: 1 };`);
   const { page, problems, context } = await open(save);
   await closeAll(page);
   const idx = (x, y) => y * W + x;
@@ -3935,7 +3935,7 @@ test('farmhands: hired at the Sunny Inn (tour first), they water and pick on the
   await shot(page, 'farmhands-working');
   await page.waitForFunction(() => Object.values(Farm.world.fh.hands).every((h) => !h.queue.length && !h.job && !h.path.length), null, { timeout: 240000 });
   assert.deepStrictEqual(await page.evaluate(() => Object.keys(Farm.world.fh.hold)), [], 'every tile shows what was done');
-  assert.strictEqual(await page.evaluate((i) => Farm.world.layers.Soil.getTileAt(i % 64, Math.floor(i / 64)).index === Farm.world.gids.tilled_wet, idx(9, 12)), true);
+  assert.strictEqual(await page.evaluate((i) => Farm.world.layers.Soil.getTileAt(i % 75, Math.floor(i / 75)).index === Farm.world.gids.tilled_wet, idx(9, 12)), true);
   assert.strictEqual(await page.evaluate(() => Farm.world.basket.badge.text), '3');
   // talk to Andoy while he waits
   await teleport(page, 12, 9, 'up');
@@ -4636,7 +4636,7 @@ test('Willowbrook Station: its tour, a cargo order filled crate by crate, the To
 // ---------- farm tech (src/19zz-farmtech.js, rules 01-logicZ-farmtech.js) ----------
 test('farm tech: Bram makes a sprinkler, fertilizer from Lily, the sprinkler waters a fertilized patch, a Gold crop shows its star', async () => {
   const save = await makeSave(`s.time = 600; s.gold = 20000;
-    for (let y = 15; y <= 17; y++) for (let x = 9; x <= 11; x++) s.soil[y * 64 + x] = { w: 0, c: null, p: 0, r: 0 };
+    for (let y = 15; y <= 17; y++) for (let x = 9; x <= 11; x++) s.soil[y * 75 + x] = { w: 0, c: null, p: 0, r: 0 };
     L.addItem(s, 'ore_copper', 3); L.addItem(s, 'sprinkler_silver', 1); L.addItem(s, 'fert_rich', 1); L.addItem(s, 'seed_turnip', 1);
     s.inv[3] = { id: 'turnip', n: 2, q: 2 }; s.inv[4] = { id: 'tomato', n: 1, q: 1 };`);
   const { page, problems, context } = await open(save);
@@ -4777,7 +4777,7 @@ test('farm tech: the greenhouse from Mira grows a summer melon in spring, watere
   const save = await makeSave(`s.time = 600; s.gold = 20000;
     const gh = C.OUTDOOR.index.greenhouse; L.buyYard(s, gh, 1); L.placeYard(s, Farm.farm(), gh, 24, 20);
     L.addItem(s, 'seed_melon', 2); L.addItem(s, 'hoe', 1);
-    for (let x = 24; x <= 27; x++) L.till(s, 21 * 64 + x);`);
+    for (let x = 24; x <= 27; x++) L.till(s, 21 * 75 + x);`);
   const { page, problems, context } = await open(save);
   await closeAll(page);
   let s = await state(page);
