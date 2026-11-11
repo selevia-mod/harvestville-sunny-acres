@@ -54,9 +54,17 @@ Object.keys(PACKS).forEach((pack) => {
     delete images[key];
   });
 });
-// the Tailor Shop's looks (assets/looks, already on the CDN as looks/v1/<name>.webp): only their sizes, for the Downloads page
-const lookBytes = {};
-if (fs.existsSync(path.join(ROOT, 'assets', 'looks'))) list('assets/looks', '.webp').forEach((f) => { lookBytes[path.basename(f, '.webp')] = fs.statSync(path.join(ROOT, 'assets', 'looks', f)).size; });
+// the Tailor Shop's looks (assets/looks): their sizes, for the Downloads page, and each one's file. They were on the CDN as
+// looks/v1/<name>.webp; since the 30-degree pictures (12 Nov 2026) each is a pack file named by what is in it,
+// packs/look-<name>.<hash> (app-assets/packs/, like every pack), so a phone holding the old picture fetches the new one.
+const lookBytes = {}, lookFiles = {};
+if (fs.existsSync(path.join(ROOT, 'assets', 'looks'))) list('assets/looks', '.webp').forEach((f) => {
+  const name = path.basename(f, '.webp'), data = fs.readFileSync(path.join(ROOT, 'assets', 'looks', f));
+  const file = 'look-' + name + '.' + crypto.createHash('sha256').update(data).digest('hex').slice(0, 8);
+  fs.writeFileSync(path.join(ROOT, 'dist', 'packs', file + '.webp'), data);
+  lookBytes[name] = data.length;
+  lookFiles[name] = 'packs/' + file;
+});
 
 const maps = {};
 list('maps', '.json').forEach((f) => {
@@ -78,7 +86,7 @@ const sizesFile = path.join(ROOT, 'assets', 'sizes.json');
 const sizes = fs.existsSync(sizesFile) ? JSON.parse(read('assets/sizes.json')) : {};
 const packed = (k) => Object.keys(packs).some((p) => packs[p][k]);
 Object.keys(sizes).forEach((k) => { if ((!images[k] || !images[k].startsWith('data:image/webp')) && !packed(k)) delete sizes[k]; });
-const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes, packs, lookBytes }) + ';';
+const assets = 'window.Farm=window.Farm||{};window.Farm.ASSETS=' + JSON.stringify({ images, maps, sizes, packs, lookBytes, lookFiles }) + ';';
 // The code without its comments and indentation (tools/strip-js.js: ~0.4 MB less page; each line where it was)
 const { strip } = require('./tools/strip-js');
 const game = list('src', '.js').map((f) => {
