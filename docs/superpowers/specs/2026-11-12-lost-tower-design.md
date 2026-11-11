@@ -79,20 +79,28 @@ Tricks, one new one per zone, and they stay:
 | 801-900 | Revivers: stand up again unless finished quickly |
 | 901-1000 | all of them |
 
-## The ten zones (100 floors each; creatures drawn cute, from Filipino legend)
+## The ten realms (owner, 12 Nov 2026: "theme per floors ... filipino mythology")
+The tower climbs from the bottom of Manila Bay to the last moon. Every 100 floors is a realm of Filipino mythology with its own
+look (floor, pools, wall top, wall face, 6 props, the stairs up) and its own enemies: 3 normal, a guard, a mini boss and the
+big boss. The full list, with every picture's prompt and file name: art-src/LOST-TOWER-PROMPTS.md (generator:
+tools/art/tower-enemy-prompts.py). Enemies are FIERCE and ANGRY, not gory (owner).
 
-| Floors | Zone | Its creatures | Big boss (floor 100 of the zone) |
-|---|---|---|---|
-| 1-100 | Keeper's Stairs | crabs, gulls, eels | Tambanakua, the giant crab |
-| 101-200 | Coral Halls | Siyokoy | the Siyokoy Captain |
-| 201-300 | Shipwreck Deck | ghost lanterns, barnacle beasts | Pugita, the giant octopus |
-| 301-400 | Moonlit Lagoon | Sirena | Magindara, guardian of the sea |
-| 401-500 | Storm Gallery | storm birds | Galura, the giant eagle |
-| 501-600 | Kataw Court | the sea's nobles | the Kataw King |
-| 601-700 | Lantern Spire | living lights | the Great Santelmo |
-| 701-800 | Cloud Bridge | Minokawa chicks | Minokawa, the moon-eating bird |
-| 801-900 | Starfall | star creatures | the Star Keeper |
-| 901-1000 | The Great Light | all of them, strongest | Bakunawa of the Bay |
+| Floors | Realm | Normal enemies | Guard | Mini boss | Big boss |
+|---|---|---|---|---|---|
+| 1-100 | Tambanakua's Tide Stairs | talangka, kanaway (flies), igat | alimango (Alimango Knight) | ulang | tambanakua |
+| 101-200 | Pugita's Deep (shielded) | kugita, umang (shield), dikya (flies) | kugita_kabalyero | pating (armour) | pugita |
+| 201-300 | Berberoka's Swamp (bursting) | palakang_putik, kuhol, parol_multo (flies) | putik_golem | dambuhalang_kuhol | berberoka |
+| 301-400 | Magindara's Lagoon (song) | sirena, dikya_buwan (flies), palakang_buwan | sirena_koro | sirenang_bituin | magindara |
+| 401-500 | Anitun Tabu's Storm Gallery (flocks) | langay, kabag, ulap (all fly) | lawin_kidlat | bagyo | galura |
+| 501-600 | The Kataw Court (healers) | kataw, kataw_manggagamot (healer), kabayo_dagat | bantay_hari | kataw_reyna (heals) | kataw_hari |
+| 601-700 | Santelmo's Lantern Spire (darkness) | santelmong_asul, alitaptap (fly), anino | lampara_golem | dambuhalang_anino | dakilang_santelmo |
+| 701-800 | Biringan, the Invisible City (splitters) | engkanto, minokawa_sisiw (flies), ulap_blob | bantay_biringan | tigmamanukan | minokawa |
+| 801-900 | Mayari's Starfall (revivers) | tala, bituing_alimasag, gamugamo_buwan | bituing_golem | pagong_batong_buwan | tagapag_ingat_bituin |
+| 901-1000 | The Seventh Moon (everything) | bakunawa_anak, laho, parola_golem | bakunawa_bata | dakilang_laho | bakunawa_ng_look |
+
+Each creature's picture is `tower/zone<n>/wild_<id>.png` (the 12-pose sheet like the places' creatures); each realm's look
+is `tower/zone<n>/{floor,water,rock_top,rock_face,props,stairs}.png`. Until a picture is in: an existing animal's row of the
+wild sheet, tinted, and the cave tiles painted in the realm's colours (as the caves do).
 
 ## Guards and bosses (owner: "10 - guard, 50 - mini boss, 100 - big boss")
 - **Guard** (floors ending in 10, 20, 30, 40, 60, 70, 80, 90): the floor's enemies plus one guard, 5 times a normal
