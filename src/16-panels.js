@@ -158,12 +158,14 @@
     this.panelImg(c, 30, top, W - 60, PH);
     c.add(this.txt(W / 2, top + 10, 'Paused', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
     // the card
-    var cy = top + 44, card = this.add.graphics();
-    card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, CH, 12);
-    card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, CH, 12);
-    card.lineStyle(1, 0x7a4d26, 0.18).lineBetween(L0 + 14, cy + 75, R0 - 14, cy + 75); // (over the links' row)
-    card.fillStyle(0xf2d79a, 1).fillCircle(L0 + 36, cy + 39, 28);
-    c.add(card);
+    var cy = top + 44, CW = R0 - L0;
+    var cardKey = this.bake('ui-pcard-' + CW + 'x' + CH, CW + 2, CH + 2, function (g) { // (once, as a picture)
+      g.fillStyle(0xfff6dc, 1).fillRoundedRect(1, 1, CW, CH, 12);
+      g.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(1, 1, CW, CH, 12);
+      g.lineStyle(1, 0x7a4d26, 0.18).lineBetween(15, 76, CW - 13, 76); // (over the links' row)
+      g.fillStyle(0xf2d79a, 1).fillCircle(37, 40, 28);
+    });
+    c.add(this.add.image(L0 - 1, cy - 1, cardKey).setOrigin(0).setDisplaySize(CW + 2, CH + 2));
     var face = this.add.image(L0 + 36, cy + 41, F.playerKey(this), 0).setCrop(0, 0, 256, 250);
     face.setScale(0.24).setOrigin(0.5, 0.42);
     c.add(face);
@@ -205,11 +207,14 @@
     // picture tiles, 4 a row
     var tw = (R0 - L0 - 18) / 4, th = 58;
     var tile = function (k, ty, icon, label, cb, on) {
-      var tx = L0 + k * (tw + 6), g = self.add.graphics(), rc = self.add.container(0, 0);
+      var tx = L0 + k * (tw + 6), rc = self.add.container(0, 0);
       var fill = on === true ? 0xd8efc4 : on === false ? 0xe9dcc2 : 0xfff6dc;
-      g.fillStyle(fill, 1).fillRoundedRect(tx, ty, tw, th, 10);
-      g.lineStyle(1.5, on === true ? 0x5fa84a : 0x7a4d26, on === true ? 0.9 : 0.3).strokeRoundedRect(tx, ty, tw, th, 10);
-      rc.add(g);
+      // (drawn once into a picture: live Graphics are drawn again every frame; owner, 11 Nov 2026, smoother on the OPPO)
+      var bg = self.bake('ui-ptile-' + Math.round(tw) + 'x' + th + '-' + on, tw + 2, th + 2, function (g) {
+        g.fillStyle(fill, 1).fillRoundedRect(1, 1, tw, th, 10);
+        g.lineStyle(1.5, on === true ? 0x5fa84a : 0x7a4d26, on === true ? 0.9 : 0.3).strokeRoundedRect(1, 1, tw, th, 10);
+      });
+      rc.add(self.add.image(tx - 1, ty - 1, bg).setOrigin(0).setDisplaySize(tw + 2, th + 2));
       var im = self.add.image(tx + tw / 2, ty + 22, 'items', C.ICON[icon]).setScale(0.2);
       if (on === false) im.setAlpha(0.45);
       rc.add(im);

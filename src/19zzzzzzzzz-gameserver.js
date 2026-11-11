@@ -1025,24 +1025,37 @@
   // closed with X before then, it stays closed).
   var onlineCache = {};
   var cacheKey = function (ui, tab, page) { var k = ui.onlineKind || {}; return tab + ':' + (page || 0) + ':' + (k[tab] || ''); };
+  // what a list looks like (its words, numbers and buttons, not its callbacks): the server's list the same as the one shown
+  // from last time is not drawn again (owner, 11 Nov 2026: "online menu, it feels like a bit heavy": every tab was drawn
+  // twice, every text a new picture for the phone's graphics)
+  var look = function (rows, sub, empty) {
+    try { return JSON.stringify([rows, sub, empty], function (k, v) { return typeof v === 'function' ? undefined : v; }); } catch (e) { return null; }
+  };
   var listPanelBefore = U.listPanel;
   U.listPanel = function (o) {
     if (o && o.title === 'Online' && o.tab && o.tab !== 'here' && Array.isArray(o.rows) && !o.quick) {
-      onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: o.sub ? o.sub() : '', empty: o.empty || '' };
+      var sub = o.sub ? o.sub() : '', sig = look(o.rows, sub, o.empty || '');
+      onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: sub, empty: o.empty || '', sig: sig };
+      var top = this.modals[this.modals.length - 1], sw = this.swapping;
+      if (sig && top && top.quick === 'cached' && top.sig === sig && top.tab === o.tab && top.page === (o.page || 0) && sw && sw.m === top && top.quickO) {
+        this.swapping = null; // (the same list: the one on screen stays, and is now the real one)
+        top.quick = null;
+        return top.quickO;
+      }
     }
     return listPanelBefore.apply(this, arguments);
   };
   var quickOnline = function (ui, tab, page) {
     if (!F.Net.available() || !O.on || !F.session.state.net.named) return; // (the join and name steps are their own panels)
     var had = onlineCache[cacheKey(ui, tab, page)];
-    ui.listPanel({
+    var qo = ui.listPanel({
       title: 'Online', tab: tab, page: page || 0, tabs: O.TABS, quick: true,
       rows: had ? had.rows : [], empty: had ? had.empty : '',
       sub: function () { return had ? had.sub : 'Loading...'; },
       reopen: function (t, p) { ui.openOnline(t, p); },
     });
     var top = ui.modals[ui.modals.length - 1];
-    if (top) top.quick = had ? 'cached' : 'loading';
+    if (top) { top.quick = had ? 'cached' : 'loading'; top.sig = had ? had.sig : null; top.tab = tab; top.page = page || 0; top.quickO = qo; }
     ui.swapping = { m: top, at: Date.now() }; // (the server's list takes this one's place)
   };
   var openOnline = U.openOnline;

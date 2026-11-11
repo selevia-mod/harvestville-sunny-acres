@@ -17718,6 +17718,57 @@ leave: function () { clearTimeout(timer); timer = null; return quiet(c.leave());
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/09-text-metrics.js
+
+
+
+
+
+(function () {
+'use strict';
+if (!window.Phaser || !Phaser.GameObjects || !Phaser.GameObjects.TextStyle) return;
+var TS = Phaser.GameObjects.TextStyle.prototype, cache = {}, defTest = null;
+var keyOf = function (fontStyle, fontSize, fontFamily, test, bx, by) {
+return [fontStyle, fontSize, fontFamily].join(' ').trim() + '|' + test + '|' + bx + '|' + by;
+};
+var mine = function (ts) { return keyOf(ts.fontStyle, ts.fontSize, ts.fontFamily, ts.testString, ts.baselineX, ts.baselineY); };
+var keep = function (ts) { if (ts.metrics) cache[mine(ts)] = { ascent: ts.metrics.ascent, descent: ts.metrics.descent, fontSize: ts.metrics.fontSize }; };
+var pick = function (style, k, own, def, setDefaults) { return style && style[k] !== undefined ? style[k] : setDefaults ? def : own; };
+var setStyle = TS.setStyle;
+TS.setStyle = function (style, updateText, setDefaults) {
+if (style && !style.metrics && !style.font && (defTest !== null || style.testString !== undefined)) {
+var size = pick(style, 'fontSize', this.fontSize, '16px', setDefaults);
+if (typeof size === 'number') size += 'px';
+var k = keyOf(pick(style, 'fontStyle', this.fontStyle, '', setDefaults), size, pick(style, 'fontFamily', this.fontFamily, 'Courier', setDefaults),
+pick(style, 'testString', this.testString, defTest, setDefaults), pick(style, 'baselineX', this.baselineX, 1.2, setDefaults), pick(style, 'baselineY', this.baselineY, 1.4, setDefaults));
+var m = cache[k];
+if (m) {
+var s2 = {}; for (var p in style) s2[p] = style[p];
+s2.metrics = { ascent: m.ascent, descent: m.descent, fontSize: m.fontSize };
+style = s2;
+}
+}
+var r = setStyle.call(this, style, updateText, setDefaults);
+if (defTest === null && setDefaults && !(style && style.testString !== undefined)) defTest = this.testString;
+keep(this);
+return r;
+};
+var update = TS.update;
+TS.update = function (recalc) {
+if (recalc) {
+this._font = [this.fontStyle, this.fontSize, this.fontFamily].join(' ').trim();
+var m = cache[mine(this)];
+if (m) { this.metrics = { ascent: m.ascent, descent: m.descent, fontSize: m.fontSize }; return this.parent.updateText(); }
+var r = update.call(this, recalc);
+keep(this);
+return r;
+}
+return update.call(this, recalc);
+};
+window.Farm = window.Farm || {};
+window.Farm.textMetricsCache = cache;
+})();
+
 // ---- src/10-boot.js
 
 (function (F) {
@@ -21821,12 +21872,14 @@ var CH = 102, PH = 446, top = Math.round((C.HEIGHT - PH) / 2), L0 = 42, R0 = W -
 this.panelImg(c, 30, top, W - 60, PH);
 c.add(this.txt(W / 2, top + 10, 'Paused', 20, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
 
-var cy = top + 44, card = this.add.graphics();
-card.fillStyle(0xfff6dc, 1).fillRoundedRect(L0, cy, R0 - L0, CH, 12);
-card.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(L0, cy, R0 - L0, CH, 12);
-card.lineStyle(1, 0x7a4d26, 0.18).lineBetween(L0 + 14, cy + 75, R0 - 14, cy + 75);
-card.fillStyle(0xf2d79a, 1).fillCircle(L0 + 36, cy + 39, 28);
-c.add(card);
+var cy = top + 44, CW = R0 - L0;
+var cardKey = this.bake('ui-pcard-' + CW + 'x' + CH, CW + 2, CH + 2, function (g) {
+g.fillStyle(0xfff6dc, 1).fillRoundedRect(1, 1, CW, CH, 12);
+g.lineStyle(1.5, 0x7a4d26, 0.35).strokeRoundedRect(1, 1, CW, CH, 12);
+g.lineStyle(1, 0x7a4d26, 0.18).lineBetween(15, 76, CW - 13, 76);
+g.fillStyle(0xf2d79a, 1).fillCircle(37, 40, 28);
+});
+c.add(this.add.image(L0 - 1, cy - 1, cardKey).setOrigin(0).setDisplaySize(CW + 2, CH + 2));
 var face = this.add.image(L0 + 36, cy + 41, F.playerKey(this), 0).setCrop(0, 0, 256, 250);
 face.setScale(0.24).setOrigin(0.5, 0.42);
 c.add(face);
@@ -21868,11 +21921,14 @@ this.button(c, W / 2, by, R0 - L0, 44, 'Resume', function () { self.closeModal()
 
 var tw = (R0 - L0 - 18) / 4, th = 58;
 var tile = function (k, ty, icon, label, cb, on) {
-var tx = L0 + k * (tw + 6), g = self.add.graphics(), rc = self.add.container(0, 0);
+var tx = L0 + k * (tw + 6), rc = self.add.container(0, 0);
 var fill = on === true ? 0xd8efc4 : on === false ? 0xe9dcc2 : 0xfff6dc;
-g.fillStyle(fill, 1).fillRoundedRect(tx, ty, tw, th, 10);
-g.lineStyle(1.5, on === true ? 0x5fa84a : 0x7a4d26, on === true ? 0.9 : 0.3).strokeRoundedRect(tx, ty, tw, th, 10);
-rc.add(g);
+
+var bg = self.bake('ui-ptile-' + Math.round(tw) + 'x' + th + '-' + on, tw + 2, th + 2, function (g) {
+g.fillStyle(fill, 1).fillRoundedRect(1, 1, tw, th, 10);
+g.lineStyle(1.5, on === true ? 0x5fa84a : 0x7a4d26, on === true ? 0.9 : 0.3).strokeRoundedRect(1, 1, tw, th, 10);
+});
+rc.add(self.add.image(tx - 1, ty - 1, bg).setOrigin(0).setDisplaySize(tw + 2, th + 2));
 var im = self.add.image(tx + tw / 2, ty + 22, 'items', C.ICON[icon]).setScale(0.2);
 if (on === false) im.setAlpha(0.45);
 rc.add(im);
@@ -28297,9 +28353,23 @@ if (o.tabs) this.tabSwitch(c, 152, o.tabs, o.tab, function (key) { self.swapTo(f
 if (empty) { c.add(empty); return o; }
 
 var top = y0 - 4, bottom = 76 + ph - 12, list = this.add.container(0, 0);
-rows.forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
+
+
+var built = Math.min(rows.length, 4);
+rows.slice(0, built).forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
 c.add(list);
 this.scrollList(c, list, top, bottom, full - 10 - y0 + 4, SLIM.h);
+var more = function (all) {
+if (!c.scene || built >= rows.length) return;
+var end = all ? rows.length : Math.min(rows.length, built + 3);
+for (; built < end; built++) self.slimRow(list, y0 + built * SLIM.step, rows[built]);
+if (c.slimScroll) c.slimScroll(c.slimAt || 0);
+if (built < rows.length) self.time.delayedCall(16, function () { more(false); });
+};
+c.slimAll = function () { more(true); };
+var into = c.slimInto;
+if (into) c.slimInto = function (obj) { more(true); return into(obj); };
+if (built < rows.length) this.time.delayedCall(16, function () { more(false); });
 return o;
 };
 
@@ -28413,9 +28483,8 @@ var fx = 24;
 o.filters.forEach(function (f) {
 var on = f[0] === pick, t = self.txt(0, 0, f[1], 11, on ? '#ffffff' : '#5a3a1e', { fontStyle: 'bold' }).setOrigin(0.5);
 var w = Math.max(44, t.width + 18), chip = self.add.container(fx + w / 2, y0 + 10);
-var g = self.add.graphics();
-g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(-w / 2, -11, w, 22, 11);
-chip.add([g, t]);
+var cw = Math.round(w), bg = self.bake('ui-chip-' + cw + '-' + (on ? 1 : 0), cw, 22, function (g) { g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(0, 0, cw, 22, 11); });
+chip.add([self.add.image(-cw / 2, -11, bg).setOrigin(0).setDisplaySize(cw, 22), t]);
 var z = self.add.zone(0, 0, w, 26).setInteractive({ useHandCursor: true });
 F.tapOn(z, function () { if (on) return; sfx('pick'); U.tileFilters[key] = f[0]; self.swapTo(function () { o.reopen(o.tab, 0); }); });
 chip.add(z);
@@ -28457,12 +28526,15 @@ U.tile = function (parent, x, y, row, state, o) {
 var self = this, r = this.add.container(x, y), w = TILE.w, h = TILE.h, b = (row.buttons || [])[0];
 r.rowH = h;
 r.row = row;
-var g = this.add.graphics();
+
+
+var bg = this.bake('ui-tile-' + w + 'x' + h + '-' + state, w, h + 3, function (g) {
 g.fillStyle(0x7a4d26, 0.18).fillRoundedRect(0, 3, w, h, 10);
 g.fillStyle(state === 'have' ? 0xf0e6cf : 0xfffbf0, 1).fillRoundedRect(0, 0, w, h, 10);
 g.lineStyle(1.5, state === 'can' ? 0x7fbf5a : 0xd9b77f, 1).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 10);
-r.add(g);
-r.add(this.add.circle(w / 2, 36, 27, 0xf2d79a, 0.9));
+g.fillStyle(0xf2d79a, 0.9).fillCircle(w / 2, 36, 27);
+});
+r.add(this.add.image(0, 0, bg).setOrigin(0).setDisplaySize(w, h + 3));
 var pic = this.tilePicture(row, w / 2, 36, 48);
 if (pic) { if (state === 'have') pic.setAlpha(0.6); r.add(pic); }
 var name = this.txt(w / 2, 68, row.name || '', 10, state === 'have' ? '#8a7a5a' : INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 10 } }).setOrigin(0.5, 0);
@@ -47612,24 +47684,37 @@ var HERE = ['here', 'Here'];
 
 var onlineCache = {};
 var cacheKey = function (ui, tab, page) { var k = ui.onlineKind || {}; return tab + ':' + (page || 0) + ':' + (k[tab] || ''); };
+
+
+
+var look = function (rows, sub, empty) {
+try { return JSON.stringify([rows, sub, empty], function (k, v) { return typeof v === 'function' ? undefined : v; }); } catch (e) { return null; }
+};
 var listPanelBefore = U.listPanel;
 U.listPanel = function (o) {
 if (o && o.title === 'Online' && o.tab && o.tab !== 'here' && Array.isArray(o.rows) && !o.quick) {
-onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: o.sub ? o.sub() : '', empty: o.empty || '' };
+var sub = o.sub ? o.sub() : '', sig = look(o.rows, sub, o.empty || '');
+onlineCache[cacheKey(this, o.tab, o.page)] = { rows: o.rows.slice(), sub: sub, empty: o.empty || '', sig: sig };
+var top = this.modals[this.modals.length - 1], sw = this.swapping;
+if (sig && top && top.quick === 'cached' && top.sig === sig && top.tab === o.tab && top.page === (o.page || 0) && sw && sw.m === top && top.quickO) {
+this.swapping = null;
+top.quick = null;
+return top.quickO;
+}
 }
 return listPanelBefore.apply(this, arguments);
 };
 var quickOnline = function (ui, tab, page) {
 if (!F.Net.available() || !O.on || !F.session.state.net.named) return;
 var had = onlineCache[cacheKey(ui, tab, page)];
-ui.listPanel({
+var qo = ui.listPanel({
 title: 'Online', tab: tab, page: page || 0, tabs: O.TABS, quick: true,
 rows: had ? had.rows : [], empty: had ? had.empty : '',
 sub: function () { return had ? had.sub : 'Loading...'; },
 reopen: function (t, p) { ui.openOnline(t, p); },
 });
 var top = ui.modals[ui.modals.length - 1];
-if (top) top.quick = had ? 'cached' : 'loading';
+if (top) { top.quick = had ? 'cached' : 'loading'; top.sig = had ? had.sig : null; top.tab = tab; top.page = page || 0; top.quickO = qo; }
 ui.swapping = { m: top, at: Date.now() };
 };
 var openOnline = U.openOnline;

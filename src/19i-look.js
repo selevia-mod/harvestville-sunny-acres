@@ -418,9 +418,23 @@
     if (empty) { c.add(empty); return o; }
     // the rows: one container, masked to the panel, moved by a finger
     var top = y0 - 4, bottom = 76 + ph - 12, list = this.add.container(0, 0);
-    rows.forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
+    // the rows in view first, the rest a few a frame after (owner, 11 Nov 2026: "online menu, it feels like a bit heavy":
+    // all 30 rows at once took a quarter of a second in one frame on the OPPO); c.slimAll() builds the rest at once
+    var built = Math.min(rows.length, 4); // (the top four at once; the rest, three a frame, are there before a finger can scroll)
+    rows.slice(0, built).forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
     c.add(list);
     this.scrollList(c, list, top, bottom, full - 10 - y0 + 4, SLIM.h);
+    var more = function (all) {
+      if (!c.scene || built >= rows.length) return;
+      var end = all ? rows.length : Math.min(rows.length, built + 3);
+      for (; built < end; built++) self.slimRow(list, y0 + built * SLIM.step, rows[built]);
+      if (c.slimScroll) c.slimScroll(c.slimAt || 0); // (a new row out of view takes no taps)
+      if (built < rows.length) self.time.delayedCall(16, function () { more(false); });
+    };
+    c.slimAll = function () { more(true); };
+    var into = c.slimInto;
+    if (into) c.slimInto = function (obj) { more(true); return into(obj); };
+    if (built < rows.length) this.time.delayedCall(16, function () { more(false); });
     return o;
   };
   // A list in a panel that scrolls: masked between top and bottom (panel units), content `height` tall; a finger drags
@@ -534,9 +548,8 @@
       o.filters.forEach(function (f) {
         var on = f[0] === pick, t = self.txt(0, 0, f[1], 11, on ? '#ffffff' : '#5a3a1e', { fontStyle: 'bold' }).setOrigin(0.5);
         var w = Math.max(44, t.width + 18), chip = self.add.container(fx + w / 2, y0 + 10);
-        var g = self.add.graphics();
-        g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(-w / 2, -11, w, 22, 11);
-        chip.add([g, t]);
+        var cw = Math.round(w), bg = self.bake('ui-chip-' + cw + '-' + (on ? 1 : 0), cw, 22, function (g) { g.fillStyle(on ? 0x5fa84a : 0xe2c890, 1).fillRoundedRect(0, 0, cw, 22, 11); });
+        chip.add([self.add.image(-cw / 2, -11, bg).setOrigin(0).setDisplaySize(cw, 22), t]);
         var z = self.add.zone(0, 0, w, 26).setInteractive({ useHandCursor: true });
         F.tapOn(z, function () { if (on) return; sfx('pick'); U.tileFilters[key] = f[0]; self.swapTo(function () { o.reopen(o.tab, 0); }); });
         chip.add(z);
@@ -578,12 +591,15 @@
     var self = this, r = this.add.container(x, y), w = TILE.w, h = TILE.h, b = (row.buttons || [])[0];
     r.rowH = h;
     r.row = row; // (the tests: a tile by what its panel offers)
-    var g = this.add.graphics();
-    g.fillStyle(0x7a4d26, 0.18).fillRoundedRect(0, 3, w, h, 10);
-    g.fillStyle(state === 'have' ? 0xf0e6cf : 0xfffbf0, 1).fillRoundedRect(0, 0, w, h, 10);
-    g.lineStyle(1.5, state === 'can' ? 0x7fbf5a : 0xd9b77f, 1).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 10);
-    r.add(g);
-    r.add(this.add.circle(w / 2, 36, 27, 0xf2d79a, 0.9));
+    // the card and its picture's round back, drawn once into a picture per look and shown as an image (owner, 11 Nov 2026:
+    // the seed shop ran at 13 fps on the OPPO: 57 live Graphics in one panel were drawn again every frame)
+    var bg = this.bake('ui-tile-' + w + 'x' + h + '-' + state, w, h + 3, function (g) {
+      g.fillStyle(0x7a4d26, 0.18).fillRoundedRect(0, 3, w, h, 10);
+      g.fillStyle(state === 'have' ? 0xf0e6cf : 0xfffbf0, 1).fillRoundedRect(0, 0, w, h, 10);
+      g.lineStyle(1.5, state === 'can' ? 0x7fbf5a : 0xd9b77f, 1).strokeRoundedRect(0.75, 0.75, w - 1.5, h - 1.5, 10);
+      g.fillStyle(0xf2d79a, 0.9).fillCircle(w / 2, 36, 27);
+    });
+    r.add(this.add.image(0, 0, bg).setOrigin(0).setDisplaySize(w, h + 3));
     var pic = this.tilePicture(row, w / 2, 36, 48);
     if (pic) { if (state === 'have') pic.setAlpha(0.6); r.add(pic); }
     var name = this.txt(w / 2, 68, row.name || '', 10, state === 'have' ? '#8a7a5a' : INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 10 } }).setOrigin(0.5, 0);
