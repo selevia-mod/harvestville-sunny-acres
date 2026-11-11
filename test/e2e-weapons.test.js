@@ -427,14 +427,21 @@ test('the Rifle rig: he aims and shoots built from parts in all four ways, both 
 // ---------- the weapon drawn in the hands (owner, 11 Nov 2026) ----------
 // A hold sheet made in the page for the test (the owner's are not in yet): the old empty-hand pose sheet's frames, each
 // in a frame of 384 (as tools/art/weapons-hold-import.js lays them out), only the directions given.
-const makeHold = (page, key, from, rows) => page.evaluate(([key, from, rows]) => {
-  const im = Farm.images[from], c = document.createElement('canvas'), g = c.getContext('2d');
-  c.width = c.height = 8 * 2 + 384 * 3 + 16 * 2;
-  for (let i = 0; i < 9; i++) g.drawImage(im, 8 + (i % 3) * (288 + 16), 8 + Math.floor(i / 3) * (384 + 16), 288, 384, 8 + (i % 3) * 400 + 48, 8 + Math.floor(i / 3) * 400, 288, 384);
-  Farm.images[key] = c;
-  Farm.holdSheet(key);
-  Farm.Config.WPN_HOLD_ROWS[key] = rows;
-}, [key, from, rows]);
+const makeHold = async (page, key, from, rows) => {
+  // (the owner's real sheet when the pack has it, fetched; else one made in the page from the old pose sheet)
+  const real = await page.evaluate((key) => { if (!Farm.holdPacked(key) || !Farm.packedFile(key)) return false; Farm.needImage(key); return true; }, key);
+  if (real) await page.waitForFunction((key) => !!Farm.images[key], key, SLOW);
+  await page.evaluate(([key, from, rows, real]) => {
+    if (!real) {
+      const im = Farm.images[from], c = document.createElement('canvas'), g = c.getContext('2d');
+      c.width = c.height = 8 * 2 + 384 * 3 + 16 * 2;
+      for (let i = 0; i < 9; i++) g.drawImage(im, 8 + (i % 3) * (288 + 16), 8 + Math.floor(i / 3) * (384 + 16), 288, 384, 8 + (i % 3) * 400 + 48, 8 + Math.floor(i / 3) * 400, 288, 384);
+      Farm.images[key] = c;
+    }
+    Farm.holdSheet(key);
+    Farm.Config.WPN_HOLD_ROWS[key] = rows; // (only these directions, for the test)
+  }, [key, from, rows, real]);
+};
 
 test('the weapon drawn in the hands: his own sheet with no weapon drawn on top, the level\'s glow, the shot from its hand and tip, the motion; a direction or a look without one keeps the old way; the rig is off', async () => {
   const { page, problems, context } = await huntWith(`L.getWeapon(s, 'rifle'); s.wpn.rifle = 2; L.getWeapon(s, 'javelin'); L.buyAmmo(s, 'bullets', 5); L.buyAmmo(s, 'javelins', 2);`);
@@ -473,7 +480,7 @@ test('the weapon drawn in the hands: his own sheet with no weapon drawn on top, 
   await page.waitForFunction(() => Farm.world.wpnShots.length > 0, null, SLOW);
   const j = await page.evaluate(() => {
     const w = Farm.world, b = w.wpnShots[0], p = w.player, q = Farm.holdPts('wpn_hold_javelin_boy', 'javelin')[7].hand;
-    return { from: [b.x0, b.y0], want: [p.x + q[0] - 192, p.y + q[1] - 192], drawn: w.wpnShot.drawnIn };
+    return { from: [b.x0, b.y0], want: [p.x + q[0] - Farm.holdFW('wpn_hold_javelin_boy') / 2, p.y + q[1] - 192], drawn: w.wpnShot.drawnIn };
   });
   assert.ok(j.drawn);
   assert.ok(Math.hypot(j.from[0] - j.want[0], j.from[1] - j.want[1]) < 14, 'the javelin from the hand of the throw ' + j.from.map(Math.round) + ' ~ ' + j.want.map(Math.round));

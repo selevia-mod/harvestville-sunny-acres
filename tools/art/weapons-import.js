@@ -72,6 +72,9 @@ const save = (name, r) => {
   // ---------- held, spinning, the bullet ----------
   if (has('held_rifle.png') && has('held_javelin.png')) save('wpn_held', await sheet((await cut('held_rifle.png', 3, 2, 256, 128, false, true)).concat(await cut('held_javelin.png', 3, 2, 256, 128, false, true)), 6, 256, 128));
   if (has('spin_boomerang.png')) save('wpn_spin', await sheet(await cut('spin_boomerang.png', 4, 6, 128, 128, true), 4, 128, 128));
+  // the owner's new boomerang (11 Nov 2026: 'that old boomerang is boring'), plain wood: what flies, for every level (the
+  // game spins it and shows the level as a glow): art-src/weapons/boomerang-plain-wood.png -> assets/wpn_boom (128 x 128)
+  if (fs.existsSync(path.join(ART, 'boomerang-plain-wood.png'))) save('wpn_boom', await sheet(await cut('boomerang-plain-wood.png', 1, 1, 128, 128), 1, 128, 128));
   if (has('proj_bullet.png')) save('wpn_bullet', await sheet(await cut('proj_bullet.png', 3, 2, 128, 128, true), 6, 128, 128));
   // ---------- the farmer's poses: the archer's frames, each pose stood on its feet (as tools/art/archer-import.js) ----------
   for (const k of C.WEAPON_KINDS) for (const who of ['boy', 'girl']) {

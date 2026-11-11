@@ -43,6 +43,8 @@
   };
   var LET_GO = 2;
   var HELD_LEN = { rifle: 0.85, javelin: 1.2, boomerang: 0.55 }; // tiles
+  // (the owner's new boomerang, wpn_boom, flies at the size it has in the throw pictures)
+  var lenOf = function (k) { return (k === 'boomerang' && F.images && F.images.wpn_boom ? 0.42 : HELD_LEN[k]) * T; };
   // seen along its length (aiming up or down the screen) a long weapon looks shorter
   var along = function (k, ang) { return k === 'boomerang' ? 1 : 1 - 0.35 * Math.abs(Math.sin(ang)); };
 
@@ -110,7 +112,7 @@
   // ---------- your shot ----------
   // The weapon in the farmer's hand, turned to `ang`: its grip at (x, y).
   var heldImage = function (w, k, lv, x, y, ang) {
-    var t = F.weaponTexture(w, k, lv), len = HELD_LEN[k] * T, sc = len / t.w;
+    var t = F.weaponTexture(w, k, lv), len = lenOf(k), sc = len / t.w;
     return w.add.image(x, y, t.key).setOrigin(t.grip, 0.5).setScale(sc * along(k, ang), sc).setRotation(k === 'boomerang' ? ang - Math.PI / 2 : ang)
       .setFlipY(k !== 'boomerang' && Math.cos(ang) < 0); // (pointing left: the right way up)
   };
@@ -128,7 +130,7 @@
     return own ? own[i] : at.grip[stage];
   };
   var gripAt = function (p, dir, stage, key, k, tip) {
-    var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage, k, tip), half = isHold(key) ? 192 : 144;
+    var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage, k, tip), half = isHold(key) ? F.holdFW(key) / 2 : 144;
     return { x: p.x + (g[0] - half) * side, y: p.y + g[1] - 192 };
   };
   // The shot's motion on the sheet (owner, 11 Nov 2026: smoother, as the rig was): the whole farmer eases up into the
@@ -187,7 +189,7 @@
   var tipOf = function (sh) {
     if (sh.rig && sh.rigTip) return sh.rigTip;
     if (sh.drawnIn && sh.tipPt) return sh.tipPt;
-    var t = F.weaponTexture(F.world, sh.k, sh.lv), len = HELD_LEN[sh.k] * T, out = (t.tip - t.grip) * len;
+    var t = F.weaponTexture(F.world, sh.k, sh.lv), len = lenOf(sh.k), out = (t.tip - t.grip) * len;
     return { x: sh.grip.x + Math.cos(sh.ang) * out, y: sh.grip.y + Math.sin(sh.ang) * out };
   };
 
@@ -254,7 +256,9 @@
     sh.stage = !sh.body ? 0 : sh.own && k !== 'rifle' ? 1 : LET_GO;
     sh.fired = this.time.now;
     posePut(this, sh);
-    if (sh.own && k !== 'rifle') this.time.delayedCall(sh.drawnIn ? 60 : 90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
+    // (a drawn-in boomerang's third picture is the catch: not while it is flying out; the farmer is back to standing soon)
+    var drawnBoom = sh.drawnIn && k === 'boomerang';
+    if (sh.own && k !== 'rifle' && !drawnBoom) this.time.delayedCall(sh.drawnIn ? 60 : 90, function () { if (self.wpnShot === sh) { sh.stage = LET_GO; posePut(self, sh); } });
     var tip = tipOf(sh), from = sh.grip;
     if (k === 'rifle' && sh.rig) { sfx('smash'); this.rigFire(sh); this.wpnPuff(sh.rigTip.x, sh.rigTip.y, sh.lv, sh.rig.view === 'back' ? sh.rig.cont.depth - 0.002 : null); } // (facing away: behind his head)
     else if (k === 'rifle') { // a pop, a flash, a puff, a light shake and the kick (motion: the shot's clock)
@@ -277,7 +281,7 @@
     var fa = sh.rig && sh.rigAng != null ? sh.rigAng : sh.ang; // (the rig's rifle points where it can: the shot goes that way)
     this.wpnFly({ k: k, lv: sh.lv, x: from.x, y: from.y, ang: fa, range: range, shown: false, broke: sh.broke, hide: k === 'rifle' ? Math.hypot(tip.x - from.x, tip.y - from.y) : 0 });
     this.tellArrow({ x: Math.round(from.x), y: Math.round(from.y), a: fa, l: L.shotRange(range, k), b: sh.lv });
-    var rest = Math.max(60, W[k].still - SHOT[k].at);
+    var rest = drawnBoom ? 90 : Math.max(60, W[k].still - SHOT[k].at);
     this.time.delayedCall(rest, function () { if (self.wpnShot === sh) { poseEnd(self, sh); self.idle(); } });
   };
 
@@ -317,12 +321,14 @@
       sh.img = this.add.image(o.x, o.y, F.bulletTexture(this, o.lv)).setDisplaySize(0.22 * T, 0.22 * T).setRotation(o.ang).setDepth(DEPTH.fx).setVisible(!sh.hide);
       sh.streak = this.add.rectangle(o.x, o.y, 1, moon ? 16 : 10, moon ? F.WPN_GLOW : 0xfff3d6, moon ? 0.9 : 0.7).setOrigin(1, 0.5).setRotation(o.ang).setDepth(DEPTH.fx - 0.001).setVisible(!sh.hide);
     } else {
-      var t = F.weaponTexture(this, o.k, o.lv), len = HELD_LEN[o.k] * T;
+      var t = F.weaponTexture(this, o.k, o.lv), len = lenOf(o.k);
       sh.img = this.add.image(o.x, o.y, t.key).setScale(len / t.w).setDepth(DEPTH.fx).setRotation(o.k === 'boomerang' ? 0 : o.ang).setFlipY(o.k === 'javelin' && c < 0)
         .setOrigin(o.k === 'javelin' ? 0.97 : 0.5, 0.5); // (a javelin's point leads: it is where it hits)
       sh.shade = this.add.ellipse(o.x, o.y, (o.k === 'javelin' ? 0.9 : 0.4) * T, 0.12 * T, 0x000000, 0.22).setDepth(DEPTH.shadow).setRotation(o.k === 'javelin' ? o.ang * 0.25 : 0);
     }
     if (moon) sh.glow = glowAt(this, o.x, o.y, (o.k === 'rifle' ? 0.2 : 0.3) * T, DEPTH.fx - 0.002);
+    else if (o.k === 'boomerang' && o.lv && F.images && F.images.wpn_boom) // (one wooden boomerang for every level: its level a soft glow of its colour)
+      sh.glow = this.add.circle(o.x, o.y, 0.24 * T, parseInt(F.WPN_PAL[o.lv].shot.slice(1), 16), 0.22).setDepth(DEPTH.fx - 0.002).setBlendMode(Phaser.BlendModes.ADD);
     this.wpnShots.push(sh);
     return sh;
   };
@@ -366,7 +372,7 @@
   // (in small steps, a quarter tile at most: on a slow phone a frame can be 0.1 s, and a bullet goes 3 tiles in that)
   var STEP = 0.25 * T;
   P.wpnStep = function (sh, dt) {
-    if (sh.moon && sh.glow) sh.glow.setPosition(sh.x, sh.y - (sh.h || 0));
+    if (sh.glow) sh.glow.setPosition(sh.x, sh.y - (sh.h || 0) - (sh.k === 'boomerang' ? 0.15 * T : 0));
     if (sh.moon && !cheap() && this.moonSpark && sh.went >= sh.sparkAt) { sh.sparkAt = sh.went + 0.4 * T; this.moonSpark(sh.x, sh.y - (sh.h || 0)); }
     if (sh.k === 'boomerang') return this.wpnBoomerang(sh, dt);
     var speed = SHOT[sh.k].speed * T, total = speed * dt / 1000, n = Math.max(1, Math.ceil(total / STEP)), step = total / n;
@@ -580,7 +586,7 @@
       if (done) { q.img.destroy(); if (q.glow) q.glow.destroy(); if (p && p.active) p.setVisible(true); return false; }
       var at = POSE[q.dir], hp = F.holdPts(q.key, q.k)[at.row * 3 + 1], side = at.flip ? -1 : 1;
       q.img.setPosition(p.x, p.y).setFrame(at.row * 3 + (now >= q.at ? 2 : 1));
-      if (q.glow) q.glow.setPosition(p.x + (hp.hand[0] - 192) * side, p.y + hp.hand[1] - 192);
+      if (q.glow) q.glow.setPosition(p.x + (hp.hand[0] - F.holdFW(q.key) / 2) * side, p.y + hp.hand[1] - 192);
       heldOthers[q.key] = now; // (seen)
       return true;
     });

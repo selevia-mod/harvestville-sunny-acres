@@ -168,10 +168,12 @@
   F.weaponTexture = function (scene, k, lv) {
     lv = Math.max(0, Math.min(5, lv | 0));
     var art = F.images && F.images[k === 'boomerang' ? 'wpn_spin' : 'wpn_held'], H = art ? ART[k] : HELD[k];
-    var key = 'wpnfx-' + k + '-' + lv + '-' + (F.wpnArtV || 0) + (art ? 'a' : '');
+    var key = 'wpnfx-' + k + '-' + lv + '-' + (F.wpnArtV || 0) + (art ? 'a' : '') + (k === 'boomerang' && F.images && F.images.wpn_boom ? 'b' : '');
     if (!scene.textures.exists(key)) {
       var cv = canvas(H.w, H.h), g = cv.getContext('2d');
-      if (art && k === 'boomerang') g.drawImage(art, 0, lv * 128, 128, 128, 0, 0, H.w, H.h);
+      var boom = k === 'boomerang' && F.images && F.images.wpn_boom; // (the owner's new boomerang, plain wood, for every level)
+      if (boom) g.drawImage(boom, 0, 0, 128, 128, 0, 0, H.w, H.h);
+      else if (art && k === 'boomerang') g.drawImage(art, 0, lv * 128, 128, 128, 0, 0, H.w, H.h);
       else if (art) g.drawImage(art, lv * 256, (k === 'rifle' ? 0 : 1) * 128, 256, 128, 0, 0, H.w, H.h);
       else {
         g.translate(H.w / 2, H.h / 2);
@@ -216,8 +218,9 @@
   });
   // ---------- the weapon drawn in the hands (wpn_hold_*: tools/art/weapons-hold-import.js) ----------
   // 9 poses in frames of 384 (the farmer as tall as in his walking sheet, his boots on its line), from the weapons pack.
-  var HOLD_SHEET = { frameWidth: 384, frameHeight: 384, margin: 8, spacing: 16 };
-  F.holdSheet = function (key) { if (!F.SHEETS[key]) F.SHEETS[key] = HOLD_SHEET; return key; };
+  // (frames 384 wide, or 512 for a weapon held far out: the sheet's own size says, F.sizes)
+  F.holdFW = function (key) { var z = (F.sizes && F.sizes[key]) || (F.ASSETS && F.ASSETS.sizes && F.ASSETS.sizes[key]); return z ? Math.round((z[0] - 48) / 3) : 384; }; // (F.sizes is set later, in 20-main.js)
+  F.holdSheet = function (key) { if (!F.SHEETS[key]) F.SHEETS[key] = { frameWidth: F.holdFW(key), frameHeight: 384, margin: 8, spacing: 16 }; return key; };
   Object.keys((F.ASSETS && F.ASSETS.packs && F.ASSETS.packs.weapons) || {}).forEach(function (k) { if (/^wpn_hold_/.test(k)) F.holdSheet(k); });
   F.holdHere = function (key) { return !!(F.images && F.images[key]); };
   F.holdPacked = function (key) { return F.holdHere(key) || !!(F.packedFile && F.packedFile(key)); };
@@ -254,6 +257,14 @@
     { hand: [225, 268], tip: [285, 283] }, { hand: [183, 190], tip: [183, 177] }, { hand: [199, 177], tip: [275, 123] },
     { hand: [237, 245], tip: [237, 235] }, { hand: [232, 160], tip: [236, 148] }, { hand: [228, 160], tip: [232, 148] },
     { hand: [193, 252], tip: [57, 268] }, { hand: [149, 192], tip: [9, 165] }, { hand: [182, 169], tip: [65, 132] }];
+  // the owner's javelin and boomerang, boy and girl (11 Nov 2026, v3; the front row the owner's fix), measured the same way.
+  // The javelin: raised over the shoulder, thrown (it leaves from that hand), the hand empty after. The boomerang: held by
+  // the head, thrown (the hand of the throw; the picture's flying one is left out by the importer), caught.
+  var pts = function (list) { return list.map(function (q) { return { hand: q[0], tip: q[1] || q[0] }; }); };
+  F.WPN_HOLD_PTS.wpn_hold_javelin_boy = pts([[[185, 123], [68, 185]], [[164, 117], [14, 173]], [[175, 210]]].concat([[[358, 159], [377, 122]], [[319, 147], [331, 116]], [[311, 165]], [[370, 22], [173, 12]], [[207, 41], [47, 38]], [[138, 220]]]));
+  F.WPN_HOLD_PTS.wpn_hold_javelin_girl = pts([[[185, 123], [68, 185]], [[164, 117], [14, 173]], [[175, 210]]].concat([[[358, 159], [377, 122]], [[319, 147], [331, 116]], [[311, 165]], [[370, 22], [173, 12]], [[207, 41], [47, 38]], [[138, 220]]]));
+  F.WPN_HOLD_PTS.wpn_hold_boomerang_boy = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
+  F.WPN_HOLD_PTS.wpn_hold_boomerang_girl = pts([[[125, 178]], [[300, 178]], [[223, 226]]].concat([[[288, 182]], [[310, 139]], [[223, 221]], [[293, 154]], [[128, 178]], [[218, 226]]]));
   F.holdPts = function (key, k) { return F.WPN_HOLD_PTS[key] || F.WPN_HOLD_PTS[k]; };
 
   F.weaponPoseKey = function (k) {
@@ -268,7 +279,7 @@
     F.PACK_INFO.weapons = { name: 'Weapons', icon: 'bow', desc: 'The Rifle, the Javelin and the Boomerang, and the farmer using them.' };
   }
   // the pack pictures, asked for once (no app: none) and painted in when they come
-  var ART_KEYS = ['wpn_icons', 'wpn_held', 'wpn_spin', 'wpn_bullet'];
+  var ART_KEYS = ['wpn_icons', 'wpn_held', 'wpn_spin', 'wpn_bullet', 'wpn_boom']; // (wpn_boom: the new boomerang in flight; its icons are still the old one)
   F.askWeaponArt = function () {
     if (F.wpnArtAsked || !F.needImage || !F.packedFile) return;
     F.wpnArtAsked = true;
