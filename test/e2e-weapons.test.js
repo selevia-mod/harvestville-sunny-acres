@@ -143,6 +143,8 @@ async function huntWith(edit) {
     const L = Farm.Logic, C = Farm.Config, s = Farm.session.state;
     C.WEAPONS_OLD_PLACES = true;
     s.gold = 2e6; s.lumber = 200; s.energy = 999;
+    // (with Farm Economy v2 the Javelin and the Boomerang also ask for the Mixer's Rope and Beeswax: some in the bag)
+    ['rope', 'beeswax'].forEach((id) => { if (C.ITEMS[id]) L.addItem(s, id, 30); });
     // eslint-disable-next-line no-eval
     eval(edit);
   }, edit);
