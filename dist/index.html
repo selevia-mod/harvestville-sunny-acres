@@ -6652,6 +6652,7 @@ roles: { guard: { hp: 5, hit: 1.5 }, mini: { hp: 10, hit: 2 }, boss: { hp: 40, h
 
 
 pearls: { normal: 1, guard: 5, mini: 30, boss: 100, helper: 1, helperDay: 50 },
+team: 4,
 seed: 20261112,
 zones: [],
 };
@@ -19730,6 +19731,23 @@ if (r.hn < TW.pearls.helperDay) { n = TW.pearls.helper; r.hn += n; }
 }
 s.pearls = (s.pearls || 0) + n;
 return n;
+};
+
+
+
+
+L.towerTeamPay = function (s, f, others) { return L.towerPay(s, f, { helper: others > 0 }); };
+
+
+
+var wildUnpack = L.wildUnpack;
+L.wildUnpack = function (r) {
+var o = wildUnpack(r), def = o && WI.animals[o.kind];
+if (!def || !def.tower) return o;
+var top = L.towerHits(TW.floors, def.role === 'normal' ? null : def.role);
+o.hp = Math.max(0, Math.min(top, Number(r[7]) || 0));
+o.max = Math.max(1, Math.min(top, Number(r[10]) || 1));
+return o;
 };
 
 
@@ -49565,6 +49583,7 @@ if (g.pub) {
 var mate = withWho(g);
 if (mate) hi.with = mate;
 } else hi.with = caveFriends();
+if (w.gsHi) w.gsHi(hi);
 send(g, hi);
 g.lastMv = null;
 g.piMs = 0;
@@ -49659,9 +49678,10 @@ if (this.lair) this.lair.seen = true;
 
 var find = function (w, slot) { return w.wild && w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0]; };
 
+
 var unpack = function (row) {
 var s = Array.isArray(row) ? Number(row[0]) : NaN;
-if (!(s >= 100 && s < 400 && s === Math.floor(s))) return L.wildUnpack(row);
+if (!(((s >= 100 && s < 400) || (s >= 10000 && s < 10200)) && s === Math.floor(s))) return L.wildUnpack(row);
 var q = row.slice();
 q[0] = s % 100;
 var r = L.wildUnpack(q);
@@ -49724,7 +49744,7 @@ if (a.def.boss || a.hp < (a.max || a.def.hp)) w.wildBar(a);
 var apply = function (w, st, rows, full) {
 if (!w.wild) return;
 var list = w.wild.animals, seen = {};
-(Array.isArray(rows) ? rows.slice(0, 60) : []).forEach(function (row) {
+(Array.isArray(rows) ? rows.slice(0, 200) : []).forEach(function (row) {
 var r = unpack(row);
 if (!r) return;
 seen[r.slot] = true;
@@ -49736,6 +49756,7 @@ a = w.addWildAnimal(r.kind, r.slot, r.x, r.y, r.size);
 a.img.setAlpha(0);
 a.sh.setAlpha(0);
 a.fade = 0;
+if (w.gsBorn) w.gsBorn(a);
 }
 if (born || full) {
 a.path = trail();
@@ -49967,6 +49988,7 @@ if (w.lair) w.lair.seen = true;
 var at = isFinite(Number(m.st)) ? Number(m.st) : null;
 if (at != null) g.skew = Date.now() - at;
 apply(w, at, m.mons, true);
+if (w.gsHear) w.gsHear(m);
 dropTrails(g);
 if (g.pub) {
 g.ch = Math.max(0, Math.min(9999, Math.floor(Number(m.ch)) || 0));
@@ -50056,6 +50078,7 @@ return;
 }
 if (t === 'dn') {
 if (holdFor(g, w, m, typeof m.lh === 'string' && m.lh ? m.lh : (Array.isArray(m.by) ? String(m.by[m.by.length - 1] || '') : ''))) return;
+if (w.gsHear) w.gsHear(m);
 return down(g, w, m);
 }
 if (t === 'bp') {
@@ -50066,13 +50089,15 @@ return;
 }
 if (t === 'cl') {
 if (g.pub) return;
-if (w.lair) { w.lair.seen = true; w.openLairGate(true); }
+if (w.lair) { w.lair.seen = true; if (w.gsHear) w.gsHear(m); w.openLairGate(true); }
 return;
 }
 if (t === 'po') {
 var c = Number(m.c);
 if (isFinite(c)) g.rtt = Math.max(0, Date.now() - c);
+return;
 }
+if (w.gsHear) w.gsHear(m);
 };
 
 
@@ -50135,8 +50160,8 @@ var before = a.hp;
 wildStruck.apply(this, arguments);
 var d = before - a.hp;
 if (!(d > 0)) return;
-var n = ++g.n;
-if (!send(g, { t: 'hit', s: a.slot, d: d, n: n })) {
+var n = ++g.n, k = this.state.wpnHit ? this.state.wpnHit.k : undefined;
+if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k })) {
 if (a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a));
 return;
 }
@@ -50497,6 +50522,10 @@ pubHere: function () { var w = F.world; return !!(w && pubHolding(w)); },
 
 floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
 isFriend: isFriend,
+
+hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k }); },
+ask: function (m) { var g = live(); return !!g && g.w === F.world && send(g, m); },
+friends: function () { return caveFriends(); },
 friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); },
 baits: function () { return gs && gs.baits ? Object.keys(gs.baits).sort() : []; },
 state: function () {
@@ -57177,6 +57206,8 @@ imgs.forEach(function (img) { var sz = img.softSize || [img.displayWidth, img.di
 
 
 
+
+
 (function (F) {
 'use strict';
 var C = F.Config;
@@ -57210,7 +57241,7 @@ var zn = L.towerZone(floor);
 if (cfgs[zn]) return cfgs[zn];
 var z = TW.zones[zn - 1];
 return (cfgs[zn] = {
-key: 'tower', tower: true, solo: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
+key: 'tower', tower: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
 look: z.look, lava: z.lava, art: { gate: z.art.gate, cave: z.art.cave }, bg: z.bg, propTint: z.propTint, embers: false,
 lift: 'Tower Lift', icon: 'sparkle', name: 'The Lost Tower', d: {}, words: WORDS,
 line: function (f) {
@@ -57229,6 +57260,7 @@ var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
 
 
 var towerLeft = function (w) {
+if (w.lair.gsTl != null && w.wildFollowing() === 'gs') return w.lair.gsTl;
 var lr = w.lair, r = lr.roster || (lr.roster = L.towerRoster(lr.floor)), n = 0, k;
 for (k = 0; k < r.length; k++) if (!lr.down[r[k].slot]) n++;
 for (k in lr.extra || {}) if (!lr.down[k]) n++;
@@ -57350,14 +57382,19 @@ delete this.floatTextAt;
 };
 
 
-P.towerCleared = function () {
-var lr = this.lair, s = this.state, n = L.towerPay(s, lr.floor), f = this.feet(), self = this;
+
+
+P.towerCleared = function (others) {
+var lr = this.lair, s = this.state, r = L.towerRec(s), had = lr.floor <= r.cl, team = others != null, f = this.feet(), self = this;
+var n = team ? L.towerTeamPay(s, lr.floor, others) : L.towerPay(s, lr.floor);
 lr.paid = true;
 if (n > 0) {
 sfx('fanfare');
-this.floatTextAt(f.x, f.y - 1.6 * T, '+' + n + ' Pearls');
-this.time.delayedCall(300, function () { if (F.ui && self.lair === lr) F.ui.toast('Floor ' + lr.floor + ' cleared! +' + n + ' Pearl' + (n > 1 ? 's' : '') + '. You have ' + fmt(s.pearls) + '.', 2600, GOLD); });
-} else if (F.ui) F.ui.toast('Floor ' + lr.floor + ' cleared!', 1600, BLUE);
+this.floatTextAt(f.x, f.y - 1.6 * T, '+' + n + ' Pearl' + (n > 1 ? 's' : ''));
+var line = had ? 'Floor ' + lr.floor + ' cleared together! +1 Pearl for helping (' + r.hn + ' of ' + TW.pearls.helperDay + ' today).'
+: 'Floor ' + lr.floor + ' cleared! +' + n + ' Pearl' + (n > 1 ? 's' : '') + '. You have ' + fmt(s.pearls) + '.';
+this.time.delayedCall(300, function () { if (F.ui && self.lair === lr) F.ui.toast(line, 2600, GOLD); });
+} else if (F.ui) F.ui.toast('Floor ' + lr.floor + ' cleared' + (team && had && others > 0 ? ' together! You have helped ' + TW.pearls.helperDay + ' times today: no more helper Pearls until tomorrow.' : '!'), team && had && others > 0 ? 3200 : 1600, BLUE);
 this.changed();
 this.save();
 return n;
@@ -57846,8 +57883,10 @@ if (a.fs && a.def.flies) a.lift = 0.45 * T + Math.sin((a.step += dt || 0) / 90) 
 var heal = function (w, a) {
 var b = L.towerHealPick(a, w.wild.animals, T);
 if (!b) return;
-var n = L.towerHealOf(b);
-b.hp += n;
+b.hp += L.towerHealOf(b);
+healFx(w, a, b);
+};
+var healFx = function (w, a, b) {
 var y = b.y - b.lift - 0.45 * b.def.w * b.size * T;
 glowAt(w, b.x, y, (b.def.w * b.size + 1.2) * T, 0x6dff8e);
 glowAt(w, a.x, a.y - a.lift - 0.45 * a.def.w * a.size * T, (a.def.w * a.size + 0.6) * T, 0x6dff8e);
@@ -57926,6 +57965,8 @@ if (a.split) splitOf(this, a);
 if (k.on.burst) puddle(this, a.x, a.y);
 return wildDown.apply(this, arguments);
 };
+
+F.towerFx = { tk: tk, word: word, puddle: puddle, shieldBreak: shieldBreak, shieldBounce: shieldBounce, healFx: healFx, lieDown: lieDown, standUp: standUp };
 var clearFloor = F.towerClearFloor;
 F.towerClearFloor = function () {
 clearing = true;
@@ -57953,6 +57994,160 @@ if (k.on.dark) setDark(this, k);
 if (this.busy) return;
 if (k.puddles.length) stepPuddles(this, k);
 if (k.on.song) stepSong(this, k, dt);
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-tower-friends.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var T = C.TILE;
+var TW = C.TOWER;
+var GS = F.GameServer, FX = F.towerFx;
+if (!F.WorldScene || !TW || !GS || !FX) return;
+var P = F.WorldScene.prototype;
+var U = F.UIScene.prototype;
+var BLUE = 0x1e4a6a;
+var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
+var onServer = function (w) { return inTower(w) && w.wildFollowing() === 'gs'; };
+var cnt = function (v) { v = Math.floor(Number(v)); return isFinite(v) && v >= 0 ? Math.min(v, 9999) : null; };
+var list = function (v) { return Array.isArray(v) ? v.slice(0, 200) : []; };
+var find = function (w, slot) { return w.wild ? w.wild.animals.filter(function (a) { return a.slot === slot && !a.gsLocal; })[0] : null; };
+
+
+P.gsHi = function (hi) {
+if (!inTower(this)) return;
+hi.tn = this.lair.floor > L.towerRec(this.state).cl ? 1 : 0;
+this.lair.tn = hi.tn;
+};
+
+
+P.gsBorn = function (a) {
+if (!inTower(this)) return;
+var lr = this.lair;
+if (L.towerIsCopy(a.slot)) {
+a.tf = Object.assign(L.towerFlags(lr.floor, a.kind, Math.floor((a.slot - L.towerCopySlot(0, 0)) / 2), false), { shield: false, flock: false, split: false, revive: false });
+(lr.extra || (lr.extra = {}))[a.slot] = true;
+}
+this.lairStrength(a);
+};
+
+
+P.gsHear = function (m) {
+if (!inTower(this)) return;
+var self = this, lr = this.lair, t = m.t, a, b;
+if (t === 'wl') {
+var tw = m.tw && typeof m.tw === 'object' ? m.tw : {}, ly = list(tw.ly), here = {};
+lr.gsTl = cnt(tw.tl);
+lr.wave = cnt(tw.wv) || 0;
+
+this.wild.animals.forEach(function (x) { here[x.slot] = 1; });
+L.towerInWave(L.towerRoster(lr.floor), lr.wave, TW.wave).forEach(function (e) { if (!here[e.slot]) lr.down[e.slot] = true; });
+list(tw.sh).forEach(function (s) { var x = find(self, s); if (x && x.shield) { x.shield = false; if (x.shieldImg) { x.shieldImg.destroy(); x.shieldImg = null; } } });
+this.wild.animals.forEach(function (x) {
+if (ly.indexOf(x.slot) >= 0) { if (!x.lying) FX.lieDown(self, x); } else if (x.lying) FX.standUp(self, x);
+});
+return;
+}
+if (t === 'dn') {
+var tl = cnt(m.tl), x0 = Number(m.x), y0 = Number(m.y);
+if (tl != null) lr.gsTl = tl;
+a = find(this, m.s);
+if (FX.tk(this).on.burst && isFinite(x0) && isFinite(y0)) FX.puddle(this, x0, y0);
+if (a && a.split && !L.towerIsCopy(a.slot)) FX.word(this, 'Split!', a.x, a.y - (0.9 + a.def.w * a.size) * T, '#ffe8b0');
+return;
+}
+if (t === 'cl') {
+lr.gsTl = 0;
+if (m.pay && !lr.paid) this.towerCleared(Math.max(0, (cnt(m.nw) || 0) - (lr.tn ? 1 : 0)));
+return;
+}
+if (t === 'sh') { a = find(this, m.s); if (a && a.shield) FX.shieldBreak(this, a); return; }
+if (t === 'ly') { a = find(this, m.s); if (a && !a.lying) FX.lieDown(this, a); return; }
+if (t === 'up') {
+a = find(this, m.s);
+if (!a || !a.lying) return;
+FX.standUp(this, a);
+var hp = cnt(m.hp);
+if (hp != null) a.hp = Math.min(a.max || hp, hp);
+return;
+}
+if (t === 'hl') { a = find(this, m.s); b = find(this, m.to); if (a && b) FX.healFx(this, a, b); return; }
+if (t === 'wv') { var n = cnt(m.n), of = cnt(m.of); if (n && of && F.ui) F.ui.toast('Wave ' + n + ' of ' + of + '!', 1800, BLUE); return; }
+if (t === 'fq') heardFloors(m);
+};
+
+
+var struck = P.wildStruck;
+P.wildStruck = function (a, friend) {
+if (friend || !a.shield || !onServer(this)) return struck.apply(this, arguments);
+var k = this.state.wpnHit ? this.state.wpnHit.k : undefined;
+if (L.towerShieldHit(k) !== 'break') FX.shieldBounce(this, a);
+GS.hit(a, 1, k);
+};
+
+var wildCopy = P.wildCopy;
+P.wildCopy = function (a) {
+if (a.lying && inTower(this)) return;
+return wildCopy.apply(this, arguments);
+};
+
+var gsSpawn = P.gsSpawn;
+P.gsSpawn = function () {
+if (!inTower(this)) return gsSpawn.apply(this, arguments);
+this.towerPlace(false);
+this.lair.seen = true;
+};
+
+
+var fr = { at: 0, list: [] };
+var heardFloors = function (m) {
+fr.at = Date.now();
+fr.list = list(m.f).slice(0, 8).filter(function (f) { return Array.isArray(f) && cnt(f[0]) >= 1 && cnt(f[0]) <= TW.floors; })
+.map(function (f) { return [cnt(f[0]), Math.min(TW.team, cnt(f[1]) || 1), (L.cleanName ? L.cleanName(f[2]) : L.cleanText(f[2], 24)) || 'A friend']; });
+var ui = F.ui, top = ui && ui.modals[ui.modals.length - 1];
+if (top && top === ui.towerLiftM && fr.list.length) ui.swapTo(function () { ui.openLairLift(ui.towerLiftPage || 0); });
+};
+var friendRows = function (ui) {
+var deep = L.towerRec(F.session.state).deep, here = F.session.lairFloor;
+return fr.list.filter(function (f) { return f[0] !== here; }).map(function (f) {
+var floor = f[0], ok = floor <= deep;
+return {
+icon: C.ICON.heart, name: f[2] + ', floor ' + floor, desc: f[1] + ' of ' + TW.team + ' on it. ' + (ok ? 'Climb with them!' : 'Reach floor ' + floor + ' to join them.'),
+buttons: ok ? [{ label: 'Join', cb: function () { ui.closeModal(); sfx('ladder'); F.world.travel('tower', 'entrance', floor); } }] : [],
+};
+});
+};
+var openLairLift = U.openLairLift;
+U.openLairLift = function (page) {
+if (onServer(F.world) && Date.now() - fr.at > 5000) { fr.at = Date.now(); GS.ask({ t: 'fq', with: GS.friends() }); }
+this.towerLiftPage = page || 0;
+return openLairLift.apply(this, arguments);
+};
+var listPanel = U.listPanel;
+U.listPanel = function (o) {
+var lift = o && o.title === 'Tower Lift' && inTower(F.world) && Array.isArray(o.rows);
+if (lift && fr.list.length && onServer(F.world)) o = Object.assign({}, o, { rows: friendRows(this).concat(o.rows) });
+var r = listPanel.apply(this, [o].concat([].slice.call(arguments, 1)));
+if (lift) this.towerLiftM = this.modals[this.modals.length - 1];
+return r;
 };
 })(window.Farm = window.Farm || {});
 
