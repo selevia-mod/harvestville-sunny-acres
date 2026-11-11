@@ -176,9 +176,12 @@ class Game {
   // on it; else a friend's (one of `with`, the phone's friends) on this floor that has space and lets you in (the
   // server's own check: friends, or a farm open to all); else your own farm's.
   async pickCave(c, hi, uid, cfg, floor, map) {
-    const now = this.now(), key = hi.topic + '|' + cfg.key + '|' + floor;
+    const now = this.now();
+    let key = hi.topic + '|' + cfg.key + '|' + floor;
     const same = Array.from(this.rooms.values()).filter((r) => !r.pub && r.map === cfg.key && r.floor === floor);
-    const space = (r) => r.players.size < r.cap;
+    // (The Lost Tower: one new to the floor never lands on a cleared one, unless they were on it at the clear: its
+    // first-time Pearls would be lost, the save keeps only the deepest floor cleared)
+    const space = (r) => r.players.size < r.cap && !(r.tw && hi.tn && r.clear && !r.tw.owed.has(uid));
     let room = same.filter((r) => r.players.has(uid))[0]
       || same.filter((r) => space(r) && r.recent.has(uid) && now - r.recent.get(uid) < 30000)[0] || null;
     const own = this.rooms.get(key);
@@ -186,6 +189,7 @@ class Game {
     if (!room && Array.isArray(hi.with)) {
       const want = new Set(hi.with.filter((x) => typeof x === 'string' && x.length <= 64).slice(0, 200));
       const theirs = same.filter((r) => r.topic !== hi.topic && space(r) && Array.from(r.players.keys()).some((id) => want.has(id)));
+      if (cfg.tower) theirs.sort((a, b) => (a.clear ? 1 : 0) - (b.clear ? 1 : 0)); // (a friend still fighting first)
       for (const r of theirs) {
         let ok = null;
         try { ok = await this.auth.check(hi.token, r.topic); } catch (e) { ok = null; }
@@ -195,6 +199,11 @@ class Game {
     }
     if (!room) {
       room = this.rooms.get(key);
+      if (room && room.tw && !space(room) && room.players.size < room.cap) { // (your own floor, cleared while you were away: a fresh one)
+        if (room.players.size) key = hi.topic + '|' + cfg.key + '|' + floor + '#' + (this.fresh = (this.fresh || 0) + 1);
+        else this.rooms.delete(key);
+        room = null;
+      }
       if (!room) { room = new Room(this, key, hi.topic, cfg.key, floor, cfg, map); this.rooms.set(key, room); }
     }
     return room;

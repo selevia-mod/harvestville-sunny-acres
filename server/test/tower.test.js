@@ -95,11 +95,37 @@ test('kills are shared, one clear for the team: everyone on the floor then is to
   const dee3 = await up(w, 'dee', 3, { tn: 0 });
   assert.deepStrictEqual(dee3.all('cl'), [{ t: 'cl' }]);
   dee3.say({ t: 'bye' }); // (four is a full floor)
-  // Eve, a friend coming to the cleared floor: it opens for her, nothing paid
-  const eve = await up(w, 'eve', 3, { tn: 1 });
+  // Eve, a friend coming to the cleared floor (she cleared it before): it opens for her, nothing paid
+  const eve = await up(w, 'eve', 3, { tn: 0 });
   assert.ok(eve.c.room === room, 'eve on the floor');
   assert.deepStrictEqual(eve.all('cl'), [{ t: 'cl' }]);
   assert.strictEqual(eve.last('wl').tw.tl, 0);
+});
+
+test('one new to a floor never lands on a friend\'s cleared floor (its first-time Pearls would be lost): a fresh one; a helper does, and one owed by a dropped line is let back', async () => {
+  const w = world();
+  const bo = await up(w, 'bo', 6, { tn: 0 }), room = bo.c.room;
+  clearFloor(w, [bo], room);
+  assert.strictEqual(room.clear, true);
+  const ann = await up(w, 'ann', 6, { tn: 1 });
+  assert.ok(ann.c.room !== room, 'Ann, new to floor 6: not on Bo\'s cleared floor');
+  assert.strictEqual(ann.c.room.mons.length, 20, 'her own, with its enemies');
+  assert.deepStrictEqual(ann.all('cl'), []);
+  const cy = await up(w, 'cy', 6, { tn: 0 });
+  assert.ok(cy.c.room === ann.c.room, 'Cy (cleared it before) goes to a friend\'s floor that is not cleared: Ann\'s');
+  // Bo's own floor, cleared while he was away, and he is new to it now (a game from another phone): a fresh one too
+  bo.say({ t: 'bye' });
+  const bo2 = await up(w, 'bo', 6, { tn: 1, with: [] });
+  assert.ok(bo2.c.room !== room && !bo2.c.room.clear, 'a fresh floor');
+  // one whose line dropped at the clear comes back to it, new to it or not (they are paid)
+  const dee = await up(w, 'dee', 7, { tn: 1, with: [] }), r7 = dee.c.room;
+  const eve = await up(w, 'eve', 7, { tn: 1, with: ['dee'] });
+  assert.ok(eve.c.room === r7);
+  eve.drop();
+  clearFloor(w, [dee], r7);
+  const eve2 = await up(w, 'eve', 7, { tn: 1, with: ['dee'] });
+  assert.ok(eve2.c.room === r7);
+  assert.deepStrictEqual(eve2.all('cl'), [{ t: 'cl', pay: 1, nw: 2 }]);
 });
 
 test('alone on a floor: the clear says nobody else was new to it', async () => {
