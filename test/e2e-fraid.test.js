@@ -179,11 +179,12 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   await B.page.waitForTimeout(700);
   await shot(B.page, 'fraid-raided');
   assert.match(card, /raided you: [★☆]{3}/);
-  assert.match(card, /They took /);
+  assert.match(card, /Just for fun: nothing was taken from your farm\./); // (owner, 11 Nov 2026: raids are just for fun)
   assert.match(card, /Your farm is safe for 8 hours/);
   assert.match(card, /Replay.*Revenge.*OK/s);
   const crops1 = await B.page.evaluate(() => Object.values(Farm.session.state.soil).filter((t) => t && t.c && Farm.Logic.isRipe(t)).length);
-  assert.strictEqual(crops0 - crops1, raid.taken.crops || 0, 'the crops they took are gone');
+  assert.strictEqual(crops1, crops0, 'every crop is still on the farm (the raider still got the prize)');
+  assert.deepStrictEqual(await B.page.evaluate(() => [Farm.session.state.shelves[0].n, Farm.session.state.shelves[1].coins]), [12, 400], "the stall's goods and coins are all still there");
   assert.ok(raid.seen, 'seen once');
   assert.ok(server.db.fraid.copies.get(B.uid).raided > Date.now(), 'the farm is shielded');
 

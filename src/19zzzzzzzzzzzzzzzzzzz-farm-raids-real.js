@@ -202,7 +202,7 @@
     var s = F.session.state, b = this.raidB, ui = F.ui, stars = L.frStars(b);
     if (rd.kind === 'replay') {
       sfx('nope');
-      return ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'The raid on your farm', line: 'They took ' + Math.round(L.frShare(b) * 100) + '% of what they could reach' });
+      return ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'The raid on your farm', line: 'They reached ' + Math.round(L.frShare(b) * 100) + '%. Just for fun: you lost nothing' });
     }
     var used = {};
     b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
@@ -262,20 +262,13 @@
   };
   // it is gone from your farm (only what is still there), and seen once
   var lose = function (x) {
-    var s = F.session.state, w = F.world;
-    x.lost = L.frLoss(s, x.taken || {}, x.taken && x.taken.w);
-    if (w && w.refreshTile && x.taken && x.taken.items) x.taken.items.forEach(function (it) { if (it[0] === 'crops') { try { w.refreshTile(it[2] * x.taken.w + it[1]); } catch (e) { /* off the map */ } } });
-    F.bus.emit('hud');
+    // Raids are just for fun (owner, 11 Nov 2026: "nothing will destroy and lost in owner when raid but the attacker can
+    // still get loots ... they can enjoy raiding without harming other players"): the raider's prize comes from the game,
+    // the farm raided keeps everything. (L.frLoss is no longer called.)
+    x.lost = { crops: 0, produce: 0, stall: 0, gold: 0 };
     F.Net.rpc('farm_fraid_seen_v1', { p_raid: x.raid }).catch(noop);
   };
-  var lostText = function (x) {
-    var l = x.lost || {}, bits = [];
-    if (l.crops) bits.push(plural(l.crops, 'crop'));
-    if (l.produce) bits.push(l.produce + ' eggs and milk');
-    if (l.stall) bits.push(plural(l.stall, 'stall good'));
-    if (l.gold) bits.push(l.gold.toLocaleString('en-US') + ' Gold from the stall');
-    return bits.length ? 'They took ' + bits.join(', ') + '.' : 'They took nothing that was still there.';
-  };
+  var lostText = function () { return 'Just for fun: nothing was taken from your farm.'; };
   var showLost = function (list, i) {
     var x = list[i], ui = F.ui;
     if (!x) return;
