@@ -10,7 +10,9 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SHEETS = [['archer_boy.png', 'archer'], ['archer_girl.png', 'archer_girl']];
-const FW = 288, FH = 384, BASE = 372, SCALE = 0.75;
+// (SCALE: the 30-degree pictures, 12 Nov 2026, draw the farmer a little smaller in the cell than the old ones did: 0.79
+// keeps him as big next to his walking sheet as before, about 0.92 of his walking height facing you, crouched to shoot)
+const FW = 288, FH = 384, BASE = 372, SCALE = 0.79;
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();

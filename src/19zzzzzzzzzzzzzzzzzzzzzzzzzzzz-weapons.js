@@ -34,10 +34,10 @@
   };
   // The archer poses (the hands empty: tools/art/archer-import.js) and the fist that holds the weapon in each, as
   // 19w-bow.js has them (rows facing you, away, left; columns ready, full, let go).
-  var SIDE_GRIP = [[33, 199], [43, 199], [36, 199]];
+  var SIDE_GRIP = F.ARCHER_GRIPS.boy.side; // (each archer sheet's own: F.archerGrip, 19w-bow.js)
   var POSE = {
-    down: { row: 0, grip: [[170, 231], [179, 232], [180, 230]] },
-    up: { row: 1, grip: [[92, 49], [86, 49], [94, 48]], behind: true },
+    down: { row: 0, grip: F.ARCHER_GRIPS.boy.down },
+    up: { row: 1, grip: F.ARCHER_GRIPS.boy.up, behind: true },
     left: { row: 2, grip: SIDE_GRIP },
     right: { row: 2, grip: SIDE_GRIP, flip: true },
   };
@@ -127,7 +127,7 @@
     var at = POSE[dir], i = at.row * 3 + stage;
     if (isHold(key)) { var q = F.holdPts(key, k)[i]; return tip ? q.tip : q.hand; }
     var own = key && F.WPN_GRIPS[key];
-    return own ? own[i] : at.grip[stage];
+    return own ? own[i] : F.archerGrip ? F.archerGrip(key, dir, stage) : at.grip[stage];
   };
   var gripAt = function (p, dir, stage, key, k, tip) {
     var at = POSE[dir], side = at.flip ? -1 : 1, g = handOf(key, dir, stage, k, tip), half = isHold(key) ? F.holdFW(key) / 2 : 144;

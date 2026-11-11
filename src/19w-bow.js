@@ -23,12 +23,23 @@
   // bow is beyond the farmer, so the arm, cap and head are in front of it, and it looks smaller; aiming down it is
   // nearer. Facing you the string only comes back a little, or it would cross the face.
   var READY = 0, FULL = 1, LET_GO = 2;
-  var SIDE_GRIP = [[33, 199], [43, 199], [36, 199]];
+  // (the owner's 30-degree archers, 12 Nov 2026, measured on the imported sheets: the boy's and the girl's fists are not in
+  // quite the same places any more, so each has its own; a look's bow sheet is cut onto its farmer's, so it takes theirs)
+  F.ARCHER_GRIPS = {
+    boy: { down: [[185, 252], [187, 257], [189, 257]], up: [[91, 55], [87, 55], [89, 54]], side: [[48, 203], [46, 200], [46, 205]] },
+    girl: { down: [[171, 252], [176, 255], [176, 256]], up: [[89, 59], [85, 60], [82, 60]], side: [[46, 192], [43, 192], [44, 193]] },
+  };
+  var SIDE_GRIP = F.ARCHER_GRIPS.boy.side;
   var POSE = {
-    down: { row: 0, grip: [[170, 231], [179, 232], [180, 230]], back: 14, scale: 1.4 },
-    up: { row: 1, grip: [[92, 49], [86, 49], [94, 48]], back: 40, scale: 1.3, behind: true },
+    down: { row: 0, grip: F.ARCHER_GRIPS.boy.down, back: 14, scale: 1.4 },
+    up: { row: 1, grip: F.ARCHER_GRIPS.boy.up, back: 40, scale: 1.3, behind: true },
     left: { row: 2, grip: SIDE_GRIP, back: 84 },
     right: { row: 2, grip: SIDE_GRIP, back: 84, flip: true },
+  };
+  // the fist holding the bow in this archer sheet (archer, archer_girl, look_<cos>_<boy|girl>_archer), its direction and stage
+  F.archerGrip = function (key, dir, stage) {
+    var g = F.ARCHER_GRIPS[/girl/.test(key || '') ? 'girl' : 'boy'];
+    return g[dir === 'left' || dir === 'right' ? 'side' : dir][stage];
   };
   var FIST = 30; // half the square around the fist that goes over the bow
   var RECOIL = 8; // world units you rock back when you let go
@@ -76,7 +87,7 @@
 
   // The bow turned to what you aim at, the string, the arrow on it, and the farmer's pose.
   var pose = function (w, shot) {
-    var p = shot.who || w.player, at = POSE[shot.dir || w.dir], side = at.flip ? -1 : 1, grip = at.grip[shot.stage];
+    var p = shot.who || w.player, at = POSE[shot.dir || w.dir], side = at.flip ? -1 : 1, grip = F.archerGrip(shot.body && shot.body.texture && shot.body.texture.key, shot.dir || w.dir, shot.stage);
     var bx = p.x - Math.cos(shot.ang) * shot.recoil, by = p.y - Math.sin(shot.ang) * shot.recoil;
     var x = bx + (grip[0] - 144) * side, y = by + grip[1] - 192;
     var a = shot.target;
