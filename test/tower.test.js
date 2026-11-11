@@ -40,7 +40,7 @@ test('C.TOWER: 1000 floors, 10 realms of 100, a lift every 10, all at once by de
   });
   assert.strictEqual(TW.zones[0].trick, null);
   assert.deepStrictEqual(plain(TW.zones.slice(1).map((z) => z.trick)), ['shield', 'burst', 'song', 'flock', 'heal', 'dark', 'split', 'revive', 'all']);
-  assert.deepStrictEqual(plain(ctx.window.Farm.towerTricks), {}, 'the tricks registry is there, empty for now');
+  assert.deepStrictEqual(Object.keys(ctx.window.Farm.towerTricks).sort(), ['burst', 'dark', 'flock', 'heal', 'revive', 'shield', 'song', 'split'], 'each realm\'s trick in the registry (test/tower-tricks.test.js)');
 });
 
 test('which realm a floor is in, and the floor bands: enemies and size', () => {
