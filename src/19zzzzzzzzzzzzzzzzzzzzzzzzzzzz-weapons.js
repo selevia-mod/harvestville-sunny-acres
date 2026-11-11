@@ -58,7 +58,7 @@
     if (this.wild && C.WEAPON_KINDS.some(function (k) { return L.hasWeapon(F.session.state, k); }) && F.askWeaponArt) F.askWeaponArt();
   };
   var works = function (w) { return !!w.wild && L.weaponsWork(w.mapKey); };
-  var whyNot = function (k) { return 'The ' + W[k].name + ' is for the hunting grounds past Manila.'; };
+  var whyNot = function (k) { return 'The ' + W[k].name + ' works only in the hunting places.'; };
 
   var resolve = P.resolve;
   P.resolve = function () {

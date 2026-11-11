@@ -22,7 +22,7 @@
   };
 
   L.isWeapon = function (id) { return !!W[id]; };
-  // Do they work on this map? Manila's grounds always; the old hunting places only with C.WEAPONS_OLD_PLACES on.
+  // Do they work on this map? Manila's grounds and every old hunting place, its cave and the Lair (C.WEAPONS_OLD_PLACES).
   L.weaponsWork = function (map) {
     return C.WEAPON_GROUNDS.indexOf(map) >= 0 || (!!C.WEAPONS_OLD_PLACES && L.isWildMap(map));
   };

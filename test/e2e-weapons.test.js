@@ -1,5 +1,5 @@
 // The Rifle, the Javelin and the Boomerang in a phone-sized headless Chromium (owner, 11 Nov 2026), with the old hunting
-// places switched on for them (C.WEAPONS_OLD_PLACES: the owner has not decided; off for players) and the Armory reached
+// places on for them (C.WEAPONS_OLD_PLACES: owner, 11 Nov 2026, "all area"; the test also turns it off once) and the Armory reached
 // through gameHost.devWeapons. One file at a time: node --test --test-concurrency=1 test/e2e-weapons.test.js (build first).
 // Uses real taps/keys for input; teleports the player between spots to keep it fast.
 // Set SHOTS=/some/dir to save screenshots along the way.

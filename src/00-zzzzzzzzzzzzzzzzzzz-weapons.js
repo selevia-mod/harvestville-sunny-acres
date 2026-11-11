@@ -9,9 +9,9 @@
   'use strict';
   var C = F.Config;
 
-  // Where they work. Manila's grounds (its map keys, added there) always; the old hunting places (Pulag to Palawan, their
-  // caves, the Lair) only with this on. The owner has NOT decided about the old places (11 Nov 2026): off until they do.
-  C.WEAPONS_OLD_PLACES = false;
+  // Where they work. Manila's grounds (its map keys, added there) and the old hunting places (Pulag to Palawan, their
+  // caves, the Lair): owner, 11 Nov 2026, "all area". Never on the farm, in town or at home.
+  C.WEAPONS_OLD_PLACES = true;
   C.WEAPON_GROUNDS = [];
 
   C.WEAPON_LEVELS = ['Basic', 'Copper', 'Silver', 'Gold', 'Magma', 'Moon'];

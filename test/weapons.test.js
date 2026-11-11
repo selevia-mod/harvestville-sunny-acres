@@ -177,17 +177,13 @@ test('the boomerang is fixed at the Forge back to full: lumber and Gold (Rope to
   assert.strictEqual(L.repairBoomerang(L.newState()), 'none');
 });
 
-test('where they work: only Manila\'s grounds; the old hunting places only with C.WEAPONS_OLD_PLACES (owner has not decided)', () => {
-  assert.strictEqual(C.WEAPONS_OLD_PLACES, false);
-  assert.strictEqual(L.weaponsWork('pulag'), false);
-  assert.strictEqual(L.weaponsWork('banaue'), false);
+test('where they work: every hunting place, its cave and the Lair, and Manila\'s grounds (owner, 11 Nov 2026: "all area"); never the farm, town or home', () => {
+  assert.strictEqual(C.WEAPONS_OLD_PLACES, true);
+  Object.keys(C.WILD.areas).forEach((m) => assert.strictEqual(L.weaponsWork(m), true, m));
+  ['pulag', 'makiling', 'magayon', 'lair', 'banaue', 'banaue_cave', 'palawan_cave'].forEach((m) => assert.strictEqual(L.weaponsWork(m), true, m));
   C.WEAPON_GROUNDS.push('manila_plains');
   try { assert.strictEqual(L.weaponsWork('manila_plains'), true); } finally { C.WEAPON_GROUNDS.pop(); }
-  C.WEAPONS_OLD_PLACES = true;
-  try {
-    ['pulag', 'makiling', 'magayon', 'lair', 'banaue', 'banaue_cave'].forEach((m) => assert.strictEqual(L.weaponsWork(m), true, m));
-    ['farm', 'town', 'house'].forEach((m) => assert.strictEqual(L.weaponsWork(m), false, m));
-  } finally { C.WEAPONS_OLD_PLACES = false; }
+  ['farm', 'town', 'house', 'mine'].forEach((m) => assert.strictEqual(L.weaponsWork(m), false, m));
 });
 
 test("a weapon's hit: the world says which shot, and the Bow's damage is as before otherwise", () => {
