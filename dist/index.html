@@ -19909,6 +19909,166 @@ return s;
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZ-tower-tricks.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var TW = C.TOWER;
+var WI = C.WILD;
+var TR = F.towerTricks;
+
+TR.shield = { id: 'shield', zone: 2, name: 'Shielded', kinds: ['umang', 'kugita_kabalyero', 'pating', 'pugita'], share: 0.25, shareHome: true,
+breaker: 'rifle', tint: 0x9cc4e8 };
+TR.burst = { id: 'burst', zone: 3, name: 'Bursting', size: 2, ms: 6000, slow: 0.4, most: 10 };
+TR.song = { id: 'song', zone: 4, name: "Sirena's song", kinds: ['sirena', 'sirena_koro', 'sirenang_bituin', 'magindara', 'palakang_buwan'], share: 0.125,
+reach: 6, slow: 0.5 };
+TR.flock = { id: 'flock', zone: 5, name: 'Flying flocks', size: [3, 5], share: 0.25, ring: 0.65, circle: 4.5, rest: [2500, 4500], dive: 1600, back: 1200 };
+TR.heal = { id: 'heal', zone: 6, name: 'Healers', kinds: ['kataw_manggagamot', 'kataw_reyna', 'bantay_hari'], share: 0.1, reach: 5, part: 0.2, every: 4000 };
+TR.dark = { id: 'dark', zone: 7, name: 'Darkness', sight: 3.5, lantern: 2, fireSight: 2,
+
+fire: ['santelmong_asul', 'alitaptap', 'lampara_golem', 'dakilang_santelmo', 'parol_multo', 'tala', 'parola_golem'] };
+TR.split = { id: 'split', zone: 8, name: 'Splitters', size: 0.6, part: 0.5, n: 2 };
+TR.revive = { id: 'revive', zone: 9, name: 'Revivers', ms: 3000, part: 0.5 };
+var ORDER = ['shield', 'burst', 'song', 'flock', 'heal', 'dark', 'split', 'revive'];
+L.TOWER_TRICKS = ORDER;
+var COPY = 10000;
+
+
+
+L.towerTricks = function (f) {
+var z = L.towerZone(f);
+return ORDER.filter(function (id) { return TR[id].zone <= z; });
+};
+L.towerHas = function (f, id) { return !!TR[id] && TR[id].zone <= L.towerZone(f); };
+
+
+var roleOf = function (kind) { var d = WI.animals[kind]; return d && d.tower ? d.role : null; };
+
+
+var carries = function (f, id, kind, slot) {
+var t = TR[id], z = L.towerZone(f);
+if (t.kinds.indexOf(kind) >= 0) return true;
+if (roleOf(kind) !== 'normal' || (!t.shareHome && z <= t.zone)) return false;
+return L.rand(TW.seed, f, slot, 101 + ORDER.indexOf(id)) < t.share;
+};
+
+
+L.towerFlags = function (f, kind, slot, copy) {
+var has = function (id) { return L.towerHas(f, id); }, role = roleOf(kind), def = WI.animals[kind] || {};
+var mid = role === 'normal' || role === 'mini';
+return {
+shield: !copy && has('shield') && carries(f, 'shield', kind, slot),
+sing: has('song') && carries(f, 'song', kind, slot),
+heal: has('heal') && carries(f, 'heal', kind, slot),
+fire: has('dark') && TR.dark.fire.indexOf(kind) >= 0,
+flock: !copy && has('flock') && role === 'normal' && (!!def.flies || (L.towerZone(f) > TR.flock.zone && L.rand(TW.seed, f, slot, 104) < TR.flock.share)),
+split: !copy && has('split') && mid,
+revive: !copy && has('revive') && mid,
+};
+};
+
+
+
+
+L.towerShieldHit = function (k) { return k === TR.shield.breaker ? 'break' : 'bounce'; };
+
+
+
+L.towerInPuddle = function (puddles, x, y, now, tile) {
+var r = TR.burst.size / 2 * tile;
+for (var i = 0; i < puddles.length; i++) {
+var p = puddles[i];
+if (p.until > now && (x - p.x) * (x - p.x) + (y - p.y) * (y - p.y) <= r * r) return true;
+}
+return false;
+};
+
+L.towerWalk = function (inPuddle) { return inPuddle ? 1 - TR.burst.slow : 1; };
+
+
+
+L.towerSung = function (list, x, y, tile) {
+var r = TR.song.reach * tile;
+for (var i = 0; i < list.length; i++) {
+var a = list[i];
+if (a.sing && a.hp > 0 && !a.lying && (a.x - x) * (a.x - x) + (a.y - y) * (a.y - y) <= r * r) return true;
+}
+return false;
+};
+
+L.towerGap = function (gap, sung) { return sung ? Math.round(gap * (1 + TR.song.slow)) : gap; };
+
+
+
+
+L.towerFlocks = function (f) {
+var out = {}, list = L.towerRoster(f).filter(function (e) { return L.towerFlags(f, e.kind, e.slot).flock; }), g = 0, i = 0, sz = TR.flock.size;
+while (i < list.length) {
+var left = list.length - i, n = sz[0] + Math.floor(L.rand(TW.seed, f, 105, g) * (sz[1] - sz[0] + 1));
+if (left <= sz[1]) n = left;
+else if (left - n < sz[0]) n = left - sz[0];
+for (var k = 0; k < n; k++, i++) out[list[i].slot] = g;
+g++;
+}
+return out;
+};
+
+
+L.towerRing = function (k, n, a, out) {
+var t = a + k * 2 * Math.PI / Math.max(1, n);
+out = out || [0, 0];
+out[0] = Math.cos(t) * TR.flock.ring;
+out[1] = Math.sin(t) * TR.flock.ring * 0.7;
+return out;
+};
+
+
+
+
+L.towerHealPick = function (healer, list, tile) {
+var r = TR.heal.reach * tile, best = null, bk = 2, bd = 0;
+for (var i = 0; i < list.length; i++) {
+var a = list[i];
+if (a === healer || !(a.hp > 0) || a.lying || !(a.hp < a.max)) continue;
+var d = (a.x - healer.x) * (a.x - healer.x) + (a.y - healer.y) * (a.y - healer.y);
+if (d > r * r) continue;
+var k = a.hp / a.max;
+if (k < bk || (k === bk && d < bd)) { best = a; bk = k; bd = d; }
+}
+return best;
+};
+
+L.towerHealOf = function (a) { return Math.min(a.max - a.hp, Math.max(1, Math.round(a.max * TR.heal.part))); };
+
+
+
+L.towerSight = function (s) { return TR.dark.sight; };
+
+
+L.towerHalf = function (max, part) { return Math.max(1, Math.ceil(max * part)); };
+L.towerSplitHp = function (max) { return L.towerHalf(max, TR.split.part); };
+L.towerReviveHp = function (max) { return L.towerHalf(max, TR.revive.part); };
+L.towerCopySlot = function (slot, i) { return COPY + slot * 2 + i; };
+L.towerIsCopy = function (slot) { return slot >= COPY; };
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 
 (function (F) {
@@ -57067,9 +57227,12 @@ var dungeonOf = F.dungeonOf;
 F.dungeonOf = function (map) { return map === 'tower' ? towerCfg(floorNow()) : dungeonOf(map); };
 var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
 
+
 var towerLeft = function (w) {
-var lr = w.lair;
-return L.towerRoster(lr.floor).filter(function (e) { return !lr.down[e.slot]; }).length;
+var lr = w.lair, r = lr.roster || (lr.roster = L.towerRoster(lr.floor)), n = 0, k;
+for (k = 0; k < r.length; k++) if (!lr.down[r[k].slot]) n++;
+for (k in lr.extra || {}) if (!lr.down[k]) n++;
+return n;
 };
 F.towerLeft = towerLeft;
 
@@ -57273,6 +57436,523 @@ if (!inTower(w)) return false;
 w.wild.animals.slice().forEach(function (a) { a.hp = 0; a.hits = 1; a.mine = true; w.wildDown(a); });
 L.towerRoster(lr.floor).forEach(function (e) { lr.down[e.slot] = true; });
 return true;
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-tower-tricks.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var T = C.TILE;
+var TR = F.towerTricks;
+var maps = F.ASSETS && F.ASSETS.maps;
+if (!maps || !maps.lair || !TR || !TR.shield || !F.WorldScene) return;
+var P = F.WorldScene.prototype;
+var DEPTH = F.WorldScene.DEPTH;
+var ADD = Phaser.BlendModes.ADD;
+var DARK = 29.5, LIGHT = 31, WORD = 32;
+var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
+var rand = function (a, b) { return a + Math.random() * (b - a); };
+var hex = function (s) { return parseInt(String(s).replace('#', ''), 16) || 0xffffff; };
+var clearing = false;
+
+
+var A = F.Audio, sfxOf = A && A.sfx;
+var tone = function (freq, dur, type, vol, slide, delay) {
+var ctx = A.ctx, t = ctx.currentTime + (delay || 0), o = ctx.createOscillator(), g = ctx.createGain();
+o.type = type;
+o.frequency.setValueAtTime(freq, t);
+if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+g.gain.setValueAtTime(0.0001, t);
+g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+o.connect(g);
+g.connect(A.sfxGain);
+o.start(t);
+o.stop(t + dur + 0.05);
+};
+var OWN = {
+tt_clink: function () { tone(2400, 0.12, 'square', 0.05); tone(3600, 0.18, 'sine', 0.07, null, 0.01); },
+tt_pop: function () { tone(900, 0.12, 'triangle', 0.25, 160); tone(2800, 0.08, 'sine', 0.08); },
+tt_heal: function () { tone(660, 0.18, 'sine', 0.08, 990); },
+};
+if (A && sfxOf) A.sfx = function (name) {
+if (OWN[name]) { if (A.ctx && A.opts.sfx && A.ctx.state === 'running') OWN[name](); return; }
+return sfxOf.apply(A, arguments);
+};
+
+
+var canvas = function (w, key, size, draw) {
+if (!w.textures.exists(key)) {
+var t = w.textures.createCanvas(key, size, size);
+draw(t.getContext(), size);
+t.refresh();
+}
+return key;
+};
+var shieldTex = function (w) {
+return canvas(w, 'fx-towershield', 128, function (g, n) {
+var gr = g.createRadialGradient(n / 2, n / 2, n * 0.2, n / 2, n / 2, n / 2 - 4);
+gr.addColorStop(0, 'rgba(160,210,255,0.05)');
+gr.addColorStop(0.8, 'rgba(160,210,255,0.22)');
+gr.addColorStop(1, 'rgba(200,235,255,0.5)');
+g.fillStyle = gr;
+g.beginPath(); g.arc(n / 2, n / 2, n / 2 - 4, 0, Math.PI * 2); g.fill();
+g.lineWidth = 5; g.strokeStyle = 'rgba(220,240,255,0.9)'; g.stroke();
+g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,0.85)';
+g.beginPath(); g.arc(n / 2, n / 2, n / 2 - 16, Math.PI * 1.1, Math.PI * 1.45); g.stroke();
+});
+};
+var puddleTex = function (w) {
+return canvas(w, 'fx-towerpuddle', 128, function (g, n) {
+var gr = g.createRadialGradient(n / 2, n / 2, 4, n / 2, n / 2, n / 2);
+gr.addColorStop(0, 'rgba(255,255,255,0.85)');
+gr.addColorStop(0.75, 'rgba(255,255,255,0.7)');
+gr.addColorStop(1, 'rgba(255,255,255,0)');
+g.fillStyle = gr;
+g.fillRect(0, 0, n, n);
+g.fillStyle = 'rgba(255,255,255,0.5)';
+[[0.35, 0.4, 0.06], [0.62, 0.55, 0.045], [0.5, 0.3, 0.035]].forEach(function (b) { g.beginPath(); g.arc(b[0] * n, b[1] * n, b[2] * n, 0, Math.PI * 2); g.fill(); });
+});
+};
+
+var SPAN = 64, HOLE = 3.5;
+var darkTex = function (w) {
+return canvas(w, 'fx-towerdark', 512, function (g, n) {
+var r = HOLE / SPAN * n;
+g.fillStyle = 'rgb(3,5,12)';
+g.fillRect(0, 0, n, n);
+g.globalCompositeOperation = 'destination-out';
+var gr = g.createRadialGradient(n / 2, n / 2, r * 0.7, n / 2, n / 2, r * 1.15);
+gr.addColorStop(0, 'rgba(0,0,0,1)');
+gr.addColorStop(1, 'rgba(0,0,0,0)');
+g.fillStyle = gr;
+g.fillRect(0, 0, n, n);
+g.globalCompositeOperation = 'source-over';
+});
+};
+var glowKey = function (w) {
+return canvas(w, 'fx-glow', 128, function (g, n) {
+var gr = g.createRadialGradient(n / 2, n / 2, 4, n / 2, n / 2, n / 2);
+gr.addColorStop(0, 'rgba(255,220,140,0.95)');
+gr.addColorStop(0.4, 'rgba(255,190,90,0.45)');
+gr.addColorStop(1, 'rgba(255,170,60,0)');
+g.fillStyle = gr;
+g.fillRect(0, 0, n, n);
+});
+};
+
+
+var pool = function (k, name, n, make) {
+var p = k.pools[name] || (k.pools[name] = { list: [], i: 0 });
+var o;
+if (p.list.length < n) { o = make(); p.list.push(o); } else { o = p.list[p.i]; p.i = (p.i + 1) % n; }
+return o;
+};
+var STYLE = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '120px', fontStyle: 'bold', color: '#ffffff', stroke: '#1a1020', strokeThickness: 20 };
+
+var word = function (w, text, x, y, color) {
+var k = tk(w), o = pool(k, 'w:' + text, 6, function () { return w.add.text(0, 0, text, Object.assign({}, STYLE, { color: color || '#ffffff' })).setOrigin(0.5, 1).setDepth(WORD); });
+w.tweens.killTweensOf(o);
+o.setPosition(x, y).setAlpha(1).setScale(0.8).setVisible(true);
+w.tweens.add({ targets: o, y: y - 0.7 * T, alpha: 0, scale: 1, duration: 800, ease: 'Quad.out', onComplete: function () { o.setVisible(false); } });
+return o;
+};
+var glowAt = function (w, x, y, size, color) {
+var k = tk(w), o = pool(k, 'glow', 8, function () { return w.add.image(0, 0, glowKey(w)).setBlendMode(ADD).setDepth(DEPTH.fx + 0.05); });
+w.tweens.killTweensOf(o);
+o.setPosition(x, y).setTint(color).setDisplaySize(size, size).setAlpha(0.95).setVisible(true);
+w.tweens.add({ targets: o, alpha: 0, scaleX: o.scaleX * 1.5, scaleY: o.scaleY * 1.5, duration: 600, onComplete: function () { o.setVisible(false); } });
+};
+
+
+
+var tk = function (w) {
+var lr = w.lair;
+if (lr.tk) return lr.tk;
+var on = {};
+L.towerTricks(lr.floor).forEach(function (id) { on[id] = true; });
+lr.tk = { on: on, flocks: on.flock ? L.towerFlocks(lr.floor) : {}, fl: {}, puddles: [], pools: {}, sung: false, songMs: 0, noteMs: 0, noteI: 0,
+bowAt: -1e9, bowGap: 0, wpnAt: -1e9, inPud: false, dark: null, sight: 0, mark: null, ring: [0, 0],
+col: hex(lr.cfg.zone && lr.cfg.zone.lava ? lr.cfg.zone.lava.hot[1] : '#80a040') };
+return lr.tk;
+};
+F.towerTk = function (w) { w = w || F.world; return inTower(w) ? tk(w) : null; };
+
+
+var strength = P.lairStrength;
+P.lairStrength = function (a) {
+strength.apply(this, arguments);
+if (!inTower(this)) return;
+var k = tk(this);
+if (!a.tf) a.tf = L.towerFlags(this.lair.floor, a.kind, a.slot, L.towerIsCopy(a.slot));
+if (a.copyHp) { a.hp = a.max = a.copyHp; a.def.hp = a.max; }
+var fl = a.tf;
+a.sing = fl.sing;
+a.heal = fl.heal;
+a.fire = fl.fire && k.on.dark;
+a.split = fl.split;
+a.revive = fl.revive;
+if (a.shield == null) a.shield = fl.shield;
+if (a.shield && !a.shieldImg) a.shieldImg = this.add.image(a.x, a.y, shieldTex(this)).setAlpha(0.85);
+if (a.heal && a.healT == null) a.healT = rand(0.3, 1) * TR.heal.every;
+if (a.fire && !a.light) a.light = this.add.image(a.x, a.y, glowKey(this)).setBlendMode(ADD).setDepth(LIGHT).setTint(a.def.tint || 0xffd890).setAlpha(0.85)
+.setDisplaySize(TR.dark.fireSight * 2.4 * T, TR.dark.fireSight * 2.4 * T);
+if (fl.flock && !a.fs) joinFlock(this, a);
+this.drawWild(a);
+};
+var drawWild = P.drawWild;
+P.drawWild = function (a, dt) {
+drawWild.apply(this, arguments);
+if (!a.tf) return;
+var top = a.y - a.lift - 0.42 * a.def.w * a.size * T;
+if (a.light) {
+a.light.setPosition(a.x, top);
+F.depthTo(a.img, DARK + 0.01 + a.y / 1e7);
+}
+if (a.shieldImg) {
+var d = (a.def.w * a.size + 0.45) * T;
+a.shieldImg.setPosition(a.x, top).setDisplaySize(d, d);
+F.depthTo(a.shieldImg, a.img.depth + 0.00001);
+}
+};
+var wildGone = P.wildGone;
+P.wildGone = function (a) {
+wildGone.apply(this, arguments);
+if (a.shieldImg) { if (a.shieldImg.active) a.shieldImg.destroy(); a.shieldImg = null; }
+if (a.light) { a.light.destroy(); a.light = null; }
+if (a.fs) leaveFlock(a);
+};
+
+
+var shieldBreak = function (w, a) {
+var img = a.shieldImg;
+a.shield = false;
+a.shieldImg = null;
+sfx('tt_pop');
+if (w.bits) w.bits.dust.explode(5, a.x, a.y - 0.4 * a.def.w * a.size * T);
+if (img && img.active) w.tweens.add({ targets: img, scaleX: img.scaleX * 1.6, scaleY: img.scaleY * 1.6, alpha: 0, duration: 220, ease: 'Quad.out', onComplete: function () { img.destroy(); } });
+word(w, 'Broken!', a.x, a.y - (0.9 + a.def.w * a.size) * T, '#ffe08a');
+};
+var shieldBounce = function (w, a) {
+var img = a.shieldImg;
+sfx('tt_clink');
+if (img && img.active) {
+w.tweens.killTweensOf(img);
+img.setAlpha(1);
+w.tweens.add({ targets: img, alpha: 0.85, duration: 260 });
+}
+word(w, 'Shield!', a.x, a.y - (0.9 + a.def.w * a.size) * T, '#bfe4ff');
+};
+var struck = P.wildStruck;
+P.wildStruck = function (a, friend) {
+if (!inTower(this) || !a.shield || this.wild.lead) return struck.apply(this, arguments);
+
+var s = this.state, k = !friend && s.wpnHit ? s.wpnHit.k : null;
+if (!friend && L.towerShieldHit(k) === 'break') shieldBreak(this, a);
+else shieldBounce(this, a);
+if (a.def.angry && !a.fs && !a.lying) { a.cool = 0; this.wildCharge(a); }
+};
+
+
+var puddle = function (w, x, y) {
+var k = tk(w), list = k.puddles, now = w.time.now, p = null, i;
+if (list.length < TR.burst.most) {
+p = { x: 0, y: 0, until: 0, img: w.add.image(0, 0, puddleTex(w)).setDepth(DEPTH.flat + 0.05).setTint(k.col) };
+list.push(p);
+} else for (i = 0; i < list.length; i++) if (!p || list[i].until < p.until) p = list[i];
+p.x = x;
+p.y = y;
+p.until = now + TR.burst.ms;
+w.tweens.killTweensOf(p.img);
+p.img.setPosition(x, y).setVisible(true).setAlpha(0.8).setDisplaySize(TR.burst.size * T * 0.3, TR.burst.size * T * 0.3);
+w.tweens.add({ targets: p.img, displayWidth: TR.burst.size * T, displayHeight: TR.burst.size * T, duration: 220, ease: 'Back.out' });
+sfx('water');
+};
+var stepPuddles = function (w, k) {
+var now = w.time.now, list = k.puddles;
+for (var i = 0; i < list.length; i++) {
+var p = list[i], left = p.until - now;
+if (!p.img.visible) continue;
+if (left <= 0) p.img.setVisible(false);
+else if (left < 700) p.img.setAlpha(0.8 * left / 700);
+}
+};
+
+var move = P.move;
+P.move = function (body) {
+var k = inTower(this) && this.lair.tk;
+if (!k || !k.puddles.length) return move.apply(this, arguments);
+var c = this.player.body.center, slow = L.towerInPuddle(k.puddles, c.x, c.y, this.time.now, T);
+if (!slow) { k.inPud = false; return move.apply(this, arguments); }
+if (!k.inPud) { k.inPud = true; word(this, 'Sticky!', c.x, c.y - 1.9 * T, '#d8f0a0'); }
+var sp = C.SPEED;
+C.SPEED = sp * L.towerWalk(true);
+try { return move.apply(this, arguments); } finally { C.SPEED = sp; }
+};
+
+
+var stepSong = function (w, k, dt) {
+var c = w.player.body.center, list = w.wild.animals;
+if ((k.songMs -= dt) <= 0) { k.songMs = 200; k.sung = L.towerSung(list, c.x, c.y, T); }
+if (k.sung && !k.mark) k.mark = w.add.text(0, 0, '\u266a slowed', Object.assign({}, STYLE, { fontSize: '96px', color: '#cfe6ff', strokeThickness: 16 })).setOrigin(0.5, 1).setDepth(WORD);
+if (k.mark) k.mark.setVisible(k.sung).setPosition(c.x, c.y - 2.15 * T);
+
+if ((k.noteMs -= dt) > 0 || !list.length) return;
+k.noteMs = 260;
+var reach = (TR.song.reach + 3) * T;
+for (var j = 0; j < list.length; j++) {
+var a = list[(k.noteI + j) % list.length];
+if (!a.sing || !(a.hp > 0) || a.lying || Math.abs(a.x - c.x) > reach || Math.abs(a.y - c.y) > reach) continue;
+k.noteI = (k.noteI + j + 1) % list.length;
+var y = a.y - a.lift - (0.6 + a.def.w * a.size * 0.8) * T, x = a.x + rand(-0.3, 0.3) * T;
+var o = pool(k, 'note', 10, function () { return w.add.text(0, 0, '\u266a', Object.assign({}, STYLE, { fontSize: '150px', color: '#e6f2ff' })).setOrigin(0.5, 1).setDepth(WORD); });
+w.tweens.killTweensOf(o);
+o.setPosition(x, y).setAlpha(0.95).setVisible(true).setAngle(rand(-15, 15));
+w.tweens.add({ targets: o, x: x + rand(-0.4, 0.4) * T, y: y - 0.9 * T, alpha: 0, duration: 1000, onComplete: function (tw, t) { t[0].setVisible(false); } });
+return;
+}
+};
+var songWait = function (w, k) {
+if (k.mark && k.mark.visible) { w.tweens.killTweensOf(k.mark); k.mark.setScale(1.25); w.tweens.add({ targets: k.mark, scale: 1, duration: 200 }); }
+return null;
+};
+var shoot = P.shoot;
+P.shoot = function () {
+var k = inTower(this) && tk(this);
+if (!k || !k.on.song) return shoot.apply(this, arguments);
+var now = this.time.now, was = this.shot;
+if (k.sung && now < k.bowAt + L.towerGap(k.bowGap, true)) return songWait(this, k);
+var r = shoot.apply(this, arguments);
+if (this.shot && this.shot !== was) { k.bowAt = now; k.bowGap = this.acting || 0; }
+return r;
+};
+var fireWeapon = P.fireWeapon;
+P.fireWeapon = function () {
+var k = inTower(this) && tk(this), wk = k && L.heldWeapon(this.state);
+if (!k || !k.on.song || !wk) return fireWeapon.apply(this, arguments);
+var now = this.time.now, gap = L.towerGap(L.weaponGap(wk), true);
+if (k.sung && now < k.wpnAt + gap) return songWait(this, k);
+var before = this.wpnNext, r = fireWeapon.apply(this, arguments);
+if (this.wpnNext !== before) { k.wpnAt = now; if (k.sung) this.wpnNext = now + gap; }
+return r;
+};
+
+
+var joinFlock = function (w, a) {
+var k = tk(w), n = k.flocks[a.slot];
+if (n == null) return;
+var fs = k.fl[n] || (k.fl[n] = { n: n, members: [], x: a.x, y: a.y, ang: rand(0, 6.3), orb: rand(0, 6.3), spin: Math.random() < 0.5 ? -1 : 1,
+mode: 'circle', t: rand(TR.flock.rest[0], TR.flock.rest[1]), frame: -1 });
+if (fs.members.indexOf(a) < 0) fs.members.push(a);
+a.fs = fs;
+};
+var leaveFlock = function (a) {
+var m = a.fs.members, i = m.indexOf(a);
+if (i >= 0) m.splice(i, 1);
+a.fs = null;
+};
+
+var toward = function (o, x, y, most) {
+var dx = x - o.x, dy = y - o.y, d = Math.sqrt(dx * dx + dy * dy);
+if (d <= most || d < 1) { o.x = x; o.y = y; return d; }
+o.x += dx / d * most;
+o.y += dy / d * most;
+return d;
+};
+
+var stepFlock = function (w, fs, dt) {
+var frame = w.game.loop.frame;
+if (fs.frame === frame) return;
+fs.frame = frame;
+var lead = fs.members[0];
+if (!lead) return;
+var c = w.player.body.center, def = lead.def, z = w.wild.zone, R = TR.flock.circle * T, s = dt / 1000;
+fs.ang += fs.spin * dt * 0.0025;
+fs.t -= dt;
+if (fs.mode === 'circle') {
+fs.orb += fs.spin * dt * 0.0005;
+toward(fs, c.x + Math.cos(fs.orb) * R, c.y + Math.sin(fs.orb) * R * 0.8, def.walk * 2.2 * T * s);
+var near = Math.hypot(fs.x - c.x, fs.y - c.y) < R + 3 * T;
+if (fs.t <= 0 && def.angry > 0 && near) { fs.mode = 'dive'; fs.t = TR.flock.dive; fs.hit = false; sfx('nope'); }
+else if (fs.t <= 0) fs.t = 600;
+} else if (fs.mode === 'dive') {
+toward(fs, c.x, c.y, def.run * 1.15 * T * s);
+if (fs.t <= 0) { fs.mode = 'back'; fs.t = TR.flock.back; }
+} else {
+var dx = fs.x - c.x, dy = fs.y - c.y, d = Math.max(1, Math.hypot(dx, dy));
+toward(fs, fs.x + dx / d * T, fs.y + dy / d * T, def.walk * 2.2 * T * s);
+if (fs.t <= 0) { fs.mode = 'circle'; fs.t = rand(TR.flock.rest[0], TR.flock.rest[1]); }
+}
+fs.x = Math.max((z.x0 + 0.5) * T, Math.min((z.x1 + 0.5) * T, fs.x));
+fs.y = Math.max((z.y0 + 0.5) * T, Math.min((z.y1 + 0.5) * T, fs.y));
+};
+var flockMember = function (w, a, dt, frozen) {
+var fs = a.fs, k = w.lair.tk, c = w.player.body.center;
+if (!frozen) stepFlock(w, fs, dt);
+var x0 = a.x, y0 = a.y;
+if (!frozen) {
+L.towerRing(fs.members.indexOf(a), fs.members.length, fs.ang, k.ring);
+var tx = fs.x + k.ring[0] * T, ty = fs.y + k.ring[1] * T, most = a.def.run * 1.5 * T * dt / 1000;
+toward(a, tx, ty, most);
+if (!a.def.flies && !w.wildFree(Math.floor(a.x / T), Math.floor(a.y / T))) { a.x = x0; a.y = y0; }
+}
+var ms = Math.max(1, dt) / 1000;
+a.vx = Math.abs(a.x - x0) > 0.5 ? (a.x - x0) / ms : 0;
+a.vy = Math.abs(a.y - y0) > 0.5 ? (a.y - y0) / ms : 0;
+a.mode = fs.mode === 'dive' ? 'charge' : 'flock';
+a.t = 1000;
+var d = Math.hypot(a.x - c.x, a.y - c.y) / T;
+if (fs.mode === 'dive' && !fs.hit && !frozen && d < 0.7) {
+fs.hit = true;
+fs.mode = 'back';
+fs.t = TR.flock.back;
+w.wildHit(a);
+if (!w.lair || !a.fs) return;
+a.mode = 'flock';
+}
+w.wildShow(a, d, dt);
+};
+
+var wildPose = P.wildPose;
+P.wildPose = function (a) { return a.fs && a.def.flies && (a.vx || a.vy) ? 11 : wildPose.apply(this, arguments); };
+var wildFeel = P.wildFeel;
+P.wildFeel = function (a, was, dt) {
+wildFeel.apply(this, arguments);
+if (a.fs && a.def.flies) a.lift = 0.45 * T + Math.sin((a.step += dt || 0) / 90) * 0.05 * T;
+};
+
+
+var heal = function (w, a) {
+var b = L.towerHealPick(a, w.wild.animals, T);
+if (!b) return;
+var n = L.towerHealOf(b);
+b.hp += n;
+var y = b.y - b.lift - 0.45 * b.def.w * b.size * T;
+glowAt(w, b.x, y, (b.def.w * b.size + 1.2) * T, 0x6dff8e);
+glowAt(w, a.x, a.y - a.lift - 0.45 * a.def.w * a.size * T, (a.def.w * a.size + 0.6) * T, 0x6dff8e);
+word(w, '+', b.x, y - 0.5 * b.def.w * b.size * T, '#8dff9e');
+sfx('tt_heal');
+};
+
+
+var lieDown = function (w, a) {
+a.revived = true;
+a.lying = TR.revive.ms;
+a.hp = 1e-6;
+a.vx = a.vy = 0;
+a.mode = 'idle';
+a.lift = 0;
+w.drawWild(a);
+a.img.setAlpha(0.4).setAngle(a.left ? -80 : 80);
+a.sh.setAlpha(0.4);
+if (w.bits) w.bits.dust.explode(4, a.x, a.y - 0.2 * T);
+};
+var standUp = function (w, a) {
+a.lying = 0;
+a.hp = L.towerReviveHp(a.max);
+a.img.setAlpha(1).setAngle(0);
+a.sh.setAlpha(1);
+a.cool = 0;
+a.t = 0;
+if (w.bits) w.bits.dust.explode(5, a.x, a.y - 0.3 * T);
+glowAt(w, a.x, a.y - 0.4 * a.def.w * a.size * T, (a.def.w * a.size + 1) * T, 0xd8c8ff);
+word(w, 'Up again!', a.x, a.y - (0.9 + a.def.w * a.size) * T, '#e0d4ff');
+sfx('nope');
+if (a.def.angry) w.wildCharge(a);
+w.wildBar(a);
+};
+var splitOf = function (w, a) {
+var lr = w.lair, extra = lr.extra || (lr.extra = {});
+for (var i = 0; i < TR.split.n; i++) {
+var slot = L.towerCopySlot(a.slot, i);
+if (extra[slot]) continue;
+var x = a.x + (i ? 1 : -1) * 0.45 * T, y = a.y + (i ? 0.15 : -0.15) * T;
+if (!w.wildFree(Math.floor(x / T), Math.floor(y / T))) { x = a.x; y = a.y; }
+extra[slot] = true;
+var c = w.addWildAnimal(a.kind, slot, x, y, TR.split.size * a.size);
+c.copyHp = L.towerSplitHp(a.max);
+c.tf = Object.assign({}, a.tf, { shield: false, flock: false, split: false, revive: false });
+c.left = !a.left;
+w.lairStrength(c);
+c.mode = 'idle';
+c.t = 250;
+c.cool = 0;
+}
+if (w.bits) w.bits.dust.explode(6, a.x, a.y - 0.3 * T);
+word(w, 'Split!', a.x, a.y - (0.9 + a.def.w * a.size) * T, '#ffe8b0');
+};
+
+
+var updateWild = P.updateWild;
+P.updateWild = function (a, dt, frozen) {
+if (!a.tf || !inTower(this) || this.wild.lead) return updateWild.apply(this, arguments);
+if (a.lying) {
+if (!frozen && (a.lying -= dt) <= 0) standUp(this, a);
+return;
+}
+if (a.heal && !frozen && (a.healT -= dt) <= 0) { a.healT = TR.heal.every; heal(this, a); }
+if (a.fs) return flockMember(this, a, dt, frozen);
+return updateWild.apply(this, arguments);
+};
+
+var wildDown = P.wildDown;
+P.wildDown = function (a) {
+if (!inTower(this) || this.wild.lead || !a.tf || clearing) return wildDown.apply(this, arguments);
+var k = tk(this);
+if (a.revive && !a.revived) return lieDown(this, a);
+a.lying = 0;
+if (a.split) splitOf(this, a);
+if (k.on.burst) puddle(this, a.x, a.y);
+return wildDown.apply(this, arguments);
+};
+var clearFloor = F.towerClearFloor;
+F.towerClearFloor = function () {
+clearing = true;
+try { return clearFloor.apply(this, arguments); } finally { clearing = false; }
+};
+
+
+var setDark = function (w, k) {
+if (!k.dark) k.dark = w.add.image(0, 0, darkTex(w)).setDepth(DARK).setAlpha(0.94);
+var sight = L.towerSight(w.state);
+if (sight !== k.sight) {
+k.sight = sight;
+var size = SPAN * T * sight / HOLE;
+k.dark.setDisplaySize(size, size);
+}
+var c = w.player.body.center;
+k.dark.setPosition(c.x, c.y - 0.4 * T);
+};
+var update = P.update;
+P.update = function (time, delta) {
+update.apply(this, arguments);
+if (!inTower(this) || !this.wild || !this.player || !this.player.body || !this.sys.isActive()) return;
+var k = tk(this), dt = Math.min(delta, 100);
+if (k.on.dark) setDark(this, k);
+if (this.busy) return;
+if (k.puddles.length) stepPuddles(this, k);
+if (k.on.song) stepSong(this, k, dt);
 };
 })(window.Farm = window.Farm || {});
 

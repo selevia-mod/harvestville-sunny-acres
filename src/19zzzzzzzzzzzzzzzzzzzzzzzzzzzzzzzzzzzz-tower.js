@@ -11,7 +11,7 @@
 // - Pearls when a floor's last enemy falls, the first time (L.towerPay), a "+N Pearls" pop; the floor, the enemies left and
 //   your Pearls on a chip while you climb, and your Pearls in the bag.
 // Solo for now: the game server does not hold a tower floor (cfg.solo, 19zzzzzzzzz-gameserver.js). Friends on a floor, the
-// helpers' Pearls online and each realm's trick (F.towerTricks) are later steps.
+// helpers' Pearls online are a later step. Each realm's trick (F.towerTricks): 19zzz...zz-tower-tricks.js.
 (function (F) {
   'use strict';
   var C = F.Config;

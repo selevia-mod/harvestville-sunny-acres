@@ -127,7 +127,7 @@
     C.TOWER.zones.push(z);
   });
 
-  // what each realm adds (shielded, bursting, ...): a later step registers them here by their zone's trick id
+  // what each realm adds (shielded, bursting, ...), by its zone's trick id: 01-logicZZZZZZZZZZZZZZZZZZ-tower-tricks.js
   F.towerTricks = F.towerTricks || {};
 
   // ---------- the door: Manila's lighthouse ----------
