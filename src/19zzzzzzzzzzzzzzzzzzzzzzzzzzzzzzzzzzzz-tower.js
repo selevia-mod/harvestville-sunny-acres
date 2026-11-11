@@ -95,15 +95,13 @@
     lr.paid = false;
     this.towerMs = 0;
   };
-  // in at the door: the last lift you reached (owner: never start over from floor 1); the room is ready before the fade
+  // in at the door: the last lift you reached (owner: never start over from floor 1)
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
     if (to === 'tower' && !this.busy) {
       if (F.session.visit) { if (F.ui) F.ui.toast('The Lost Tower is for your own game.', 2400); return; }
       if (floor == null) floor = L.towerStart(this.state);
       floor = Math.max(1, Math.min(TW.floors, Math.floor(floor) || 1));
-      maps.tower = L.towerMap(floor, maps.lair);
-      built = floor;
     }
     return travel.call(this, to, spawn, floor);
   };
@@ -119,11 +117,11 @@
   };
 
   // ---------- the enemies ----------
-  // as strong as their floor (a copy of each one's numbers: the next floor's are its own)
+  // as strong as their floor (a copy of its kind's numbers, made from the kind each time: the next floor's are its own)
   var strength = P.lairStrength;
   P.lairStrength = function (a) {
     if (!inTower(this)) return strength.apply(this, arguments);
-    var f = this.lair.floor, def = a.def, role = def.role === 'normal' ? null : def.role, sp = L.towerSpeed(f);
+    var f = this.lair.floor, def = C.WILD.animals[a.kind], role = def.role === 'normal' ? null : def.role, sp = L.towerSpeed(f);
     a.hp = a.max = L.towerHits(f, role);
     a.def = Object.assign({}, def, { hp: a.max, hit: L.towerLoss(f, role), walk: def.walk * sp, run: def.run * sp });
     if (a.def.boss) this.wildBar(a);

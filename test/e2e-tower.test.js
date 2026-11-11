@@ -248,6 +248,8 @@ test('The Lost Tower in waves (C.TOWER.wave): the next wave comes when the last 
   await page.evaluate(() => { Farm.Config.TOWER.wave = 20; Farm.world.travel('tower', 'entrance', 501); });
   await waitFloor(page, 501);
   assert.deepStrictEqual(await page.evaluate(() => [Farm.world.map.width, Farm.world.map.height, Farm.world.wild.animals.length, Farm.towerLeft(Farm.world)]), [46, 38, 20, 60]);
+  // floor 501: 22 hits each, 12 energy a hit, a quarter faster (once: the floor's numbers are made from the kind)
+  assert.ok(await page.evaluate(() => Farm.world.wild.animals.every((a) => { const k = Farm.Config.WILD.animals[a.kind]; return a.hp === 22 && a.def.hit === 12 && Math.abs(a.def.run - k.run * 1.25) < 1e-9 && Math.abs(a.def.walk - k.walk * 1.25) < 1e-9; })));
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); }); });
   // 16 of the first 20 down: not yet; the 17th: the second wave comes
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice(0, 15).forEach((a) => { a.hp = 0; a.mine = true; a.hits = 1; w.wildDown(a); }); });
