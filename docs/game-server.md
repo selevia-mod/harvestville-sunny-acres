@@ -231,3 +231,47 @@ rsync `src`, `maps` and `server` from this branch, `npm ci --omit=dev`, restart 
 are `src/00-zzzzzzzzzzzzzzzzzzz-manila.js` and `src/01-logicZZZZZZZZZZZZZZ-manila.js` (it reads every 00- and 01- file),
 and the changed `server/lib/pub.js` and `server/lib/maps.js`. No new environment, no SQL, no Caddy change. Check after:
 `curl https://168-144-137-57.sslip.io/health` says ok, and a phone in Manila shows "Manila 1" on its Online button.
+
+# Step 4: The Lost Tower, with friends (owner, 12 Nov 2026)
+
+The Lost Tower (docs/superpowers/specs/2026-11-12-lost-tower-design.md) is held like a cave: a floor is a cave room,
+`<farm topic>|tower|<floor>`, friends from their own games put together by `with` exactly as on a cave floor
+(`pickCave`). What differs (server/lib/tower.js, server/test/tower.test.js; the phone's side
+src/19zzz...z-tower-friends.js):
+
+- **Up to 4** a floor (`C.TOWER.team`, the room's `cap`): a fifth gets their own floor.
+- **Its map is built from the floor's number** (`L.towerMap(floor, maps/lair.json)`, as the phones build it;
+  `lib/maps.js` keeps the last 64 floors). Its enemies are the floor's roster (`L.towerRoster`): the same for everyone
+  and **never more or stronger for a team** (no `hpEach`, no `grow`): hits `L.towerHits`, the energy a charge costs
+  `L.towerLoss` (the `bp`'s `hit`), speed `L.towerSpeed`. All at once, or in waves when `C.TOWER.wave` > 0.
+- **One new to a floor never lands on a cleared tower floor** (its first-time Pearls would be lost: the save keeps only
+  the deepest floor cleared): a fresh one; unless their line dropped while they were on it at the clear. A friend still
+  fighting comes before a cleared friend's floor.
+- The realms' tricks that move or change an enemy run on the server, as the phone runs them alone: shields, healers,
+  flocks, splitters, revivers, waves. The song, the dark and the puddles are each phone's own (they only change what that
+  phone sees or does).
+
+### The wire (only on a tower floor; a cave's is unchanged)
+
+| t | way | fields | what |
+|---|---|---|---|
+| `hi` | phone → | `tn` (1: this floor is new to me: floor > my deepest cleared) | as a cave's hi, `map: 'tower'`, `floor` 1..1000 |
+| `hit` | phone → | `k` (the weapon: `rifle`, `javelin`, `boomerang`; none: the Bow) | a shield: only `k: 'rifle'` breaks it, and is spent on it; any other hit bounces (no damage, `hp` back as it is) |
+| `wl` | → phone | `tw: { tl, sh, ly, wv }` | `tl` enemies still to beat (on the floor, copies, waves to come), `sh` slots whose shield is broken, `ly` revivers lying now, `wv` the wave now (0 first) |
+| `dn` | → phone | `tl` | as a cave's, with how many are still to beat after it |
+| `cl` | → phone | `pay: 1`, `nw` | the last enemy fell: to everyone on the floor then (and, once, to one whose line had dropped within 30 s, when they come back), `nw` = how many of them were new to it (their `tn`). Coming to a floor cleared before you came: `cl` with no `pay` (the stairs open, nothing paid) |
+| `sh` | → phone | `s`, `by` | a shield broke |
+| `ly` / `up` | → phone | `s` / `s`, `hp` | a reviver lies down (3 s; a hit then finishes it) / stands with half its hits |
+| `hl` | → phone | `s`, `to` | a healer mended `to` (its new hp in the next tick) |
+| `wv` | → phone | `n`, `of` | wave n of `of` came |
+| `fq` | phone → | `with` (ids, as hi) | on which tower floors your friends are; one ask in 3 s |
+| `fq` | → phone | `f: [[floor, n, name], ...]` | the floors (at most 8) with space where one of `with` is, each let in by the server's check (`farm_topic_ok_v1`, as `pickCave`) |
+
+- A splitter's copies are slots `L.towerCopySlot(slot, i)` = 10000 + slot x 2 + i (the phone takes 10000..10199), half
+  the parent's hits, its tricks but never a shield, a flock, a split or a revive. A flock member's row says `walk` or
+  `charge` (the wire has no `flock` mode). A lying reviver's row has hp 0 (it is still on the floor: `tl` counts it).
+- **The Pearls are each phone's**, as every reward: on `cl` with `pay`, `L.towerTeamPay(s, floor, nw - (my tn))`: new to
+  me, the floor's first-time Pearls (no team bonus); cleared before, 1 helper Pearl (50 a day) when another on the floor
+  was new to it; else nothing.
+- An older server (no tower) refuses the hi (`no` `topic`): the phone plays the floor alone, as before. So the app can
+  ship before the server.
