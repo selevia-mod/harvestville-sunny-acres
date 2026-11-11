@@ -87,5 +87,11 @@ Shots in the five new hunting places cost 3-4 energy (2 in the Wild Lands), so p
 2. Raiders eat crops + raids pay in crops + the Silo.
 3. The Mixer + materials on defense and camp levels.
 4. Crop potions + hunting energy.
-5. The horse goes out (bond, gear, stamina, shooting while riding, dungeons).
+5. The horse goes out (bond, gear, stamina, shooting while riding, dungeons). BUILT 11 Nov 2026 (feat/horse-out): numbers in
+   C.HORSE_OUT (src/00-zzzzzzzzzzzzzzzzzzz-horse.js), rules src/01-logicZZZZZZZZZZZZZZ-horse.js, the world
+   src/19zzzzzzzzzzzzzzzzzzzzzzzzz-horse-out.js, tests test/horse-out.test.js and test/e2e-horse-out.test.js; plan
+   docs/superpowers/plans/2026-11-11-horse-out.md. Hearts are love / 10 (10 hearts). The game has no iron ore or lantern
+   item: Horseshoes = 5 Copper Ore + 1 Soft Leather + 800G, Lantern Bridle = 1 Crystal + 2 Copper Ore + 1,500G (owner can
+   change). Saddlebags show "Needs Rope from the Mixer, coming soon": part 3 turns them on (see the PART 3 note in C.HORSE_OUT).
+   A horse from before gets 3 hearts once, so town riding stays open. Others see you riding in places with no server change.
 Old saves: nothing anyone owns is lost; a raider already trained stays; a level already reached stays.
