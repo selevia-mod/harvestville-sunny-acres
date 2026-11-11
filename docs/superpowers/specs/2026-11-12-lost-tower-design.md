@@ -33,6 +33,23 @@ Anyone who can reach Manila can go in. Inside, floor 1, or any lift floor you ha
 | 401-500 | 50 |
 | 501-1000 | 60 |
 
+**Bigger floors** (owner, 12 Nov 2026: "Since this has many enemies, we need to make the floor bigger than the dungeon").
+Today a Palawan cave floor is 18 x 14 for at most 7 enemies (about 36 tiles each). The Tower's room grows with its
+enemies, a little more crowded than the caves:
+
+| Floors | Enemies | Floor size (tiles) | Tiles per enemy |
+|---|---|---|---|
+| 1-100 | 20 | 28 x 24 | 34 |
+| 101-200 | 25 | 30 x 26 | 31 |
+| 201-300 | 30 | 34 x 28 | 32 |
+| 301-400 | 45 | 40 x 34 | 30 |
+| 401-500 | 50 | 42 x 36 | 30 |
+| 501-1000 | 60 | 46 x 38 | 29 |
+
+The floors are **built in code** from the floor number (like Manila's map, L.manilaMap), not drawn maps: the page carries
+no map for them, and every floor is laid out differently (pillars, rocks, water, where the stairs are), the same for
+every player on it. Each zone has its own look.
+
 **Phones first:** today's caves have at most 7 enemies on a floor. Before anything else is built, a test floor with 60
 enemies goes on the OPPO and is measured. If it is too slow, the floor keeps its number but they come in **waves** (for
 example 60 = 3 waves of 20, the next wave arriving when the last is mostly down), so the difficulty is the same.
@@ -150,7 +167,7 @@ Frames and the title last one week.
 - Zone 1 can open on drawn stand-ins and existing animal art, so the building does not wait for every picture.
 
 ## Build order (each its own update, shown on the phones before any publish)
-1. The 60-enemy test floor on the OPPO: all at once, or waves.
+1. The 60-enemy test floor (46 x 38, the biggest) on the OPPO: all at once, or waves.
 2. The Tower itself: floors, enemies and their rules, lifts, Pearls, solo; zone 1 and its big boss.
 3. Friends on the same floor (up to 4), helper Pearls with the daily 50.
 4. The Keeper's shop and gear, lands 7 to 9.
