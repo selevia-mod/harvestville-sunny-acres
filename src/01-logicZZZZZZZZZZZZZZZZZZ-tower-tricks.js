@@ -117,8 +117,15 @@
     }
     return out;
   };
-  // where a flock's member k of n flies round its middle (angle a, radians): its offset in tiles
-  L.towerRing = function (k, n, a) { var t = a + k * 2 * Math.PI / Math.max(1, n); return [Math.cos(t) * TR.flock.ring, Math.sin(t) * TR.flock.ring * 0.7]; };
+  // where a flock's member k of n flies round its middle (angle a, radians): its offset in tiles, [x, y] (into out when
+  // given: the world asks every frame, and makes no new array for it)
+  L.towerRing = function (k, n, a, out) {
+    var t = a + k * 2 * Math.PI / Math.max(1, n);
+    out = out || [0, 0];
+    out[0] = Math.cos(t) * TR.flock.ring;
+    out[1] = Math.sin(t) * TR.flock.ring * 0.7;
+    return out;
+  };
 
   // ---------- healers ----------
   // Whom a healer mends: the most hurt (the least of its hits left, as a share) of the others within reach, alive and

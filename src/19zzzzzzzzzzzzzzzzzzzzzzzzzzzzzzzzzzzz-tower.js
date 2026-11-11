@@ -61,10 +61,13 @@
   var dungeonOf = F.dungeonOf;
   F.dungeonOf = function (map) { return map === 'tower' ? towerCfg(floorNow()) : dungeonOf(map); };
   var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
-  // enemies of this floor still to beat (on the floor, and the waves still to come)
+  // enemies of this floor still to beat (on the floor, and the waves still to come; and a splitter's copies, lr.extra:
+  // 19zzz...zz-tower-tricks.js)
   var towerLeft = function (w) {
-    var lr = w.lair;
-    return L.towerRoster(lr.floor).filter(function (e) { return !lr.down[e.slot]; }).length;
+    var lr = w.lair, r = lr.roster || (lr.roster = L.towerRoster(lr.floor)), n = 0, k; // (asked every frame: the floor's list made once)
+    for (k = 0; k < r.length; k++) if (!lr.down[r[k].slot]) n++;
+    for (k in lr.extra || {}) if (!lr.down[k]) n++;
+    return n;
   };
   F.towerLeft = towerLeft;
 
