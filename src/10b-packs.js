@@ -129,10 +129,13 @@
     return fs.length > 0 && fs.every(function (f) { return f.key && F.images && F.images[f.key]; });
   };
   // Into the page (from the phone, or downloading first). Resolves true when every picture is in.
+  // (one load of a pack at a time: a second ask while it comes waits for the same answers, not a second copy of each file)
+  var loading = {};
   F.loadPack = function (pack) {
     if (F.packReady(pack)) return Promise.resolve(true);
+    if (loading[pack]) return loading[pack];
     var fs = F.packFiles(pack).filter(function (f) { return f.key; });
-    return Promise.all(fs.map(F.fetchFile)).then(function (r) { F.bus.emit('packs'); return r.every(Boolean); });
+    return (loading[pack] = Promise.all(fs.map(F.fetchFile)).then(function (r) { delete loading[pack]; F.bus.emit('packs'); return r.every(Boolean); }));
   };
   // Onto the phone, one file after another so the bar moves evenly. Resolves true when all of it is there.
   var running = {};

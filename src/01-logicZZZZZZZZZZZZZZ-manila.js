@@ -205,6 +205,8 @@
 
   // What a tile of the built map is: walkable (no solid tile, not under a building's or prop's foot), for the tests and
   // the people's paths; strict: nor anywhere in a building's box (the people never walk behind a building). ({ W, H, ok(x, y) })
+  // a gate walked through: [first, last] column of its opening, from its box's left (C.MANILA.pass), or null
+  L.manilaPass = function (art) { var p = C.MANILA.pass; return (p && art && p[art]) || null; };
   L.manilaGrid = function (map, strict) {
     var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
     map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && /^mn_(asphalt|lane_)/.test(p.value)) solid[ts.firstgid + t.id] = 1; }); }); }); // (strict: people keep off the road but at the crosswalks)
@@ -215,7 +217,9 @@
       var x0 = Math.round(o.x / S), y0 = Math.round(o.y / S), w = Math.round(o.width / S), h = Math.round(o.height / S), foot = h;
       if (o.type === 'mn_prop') (o.properties || []).forEach(function (p) { if (p.name === 'foot') foot = p.value; });
       if (strict && o.type === 'mn_prop' && (o.properties || []).some(function (p) { return p.name === 'box' && p.value; })) foot = h; // (a building's whole box)
-      for (var y = y0 + h - foot; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < Hh) block[y * W + x] = 1;
+      var art = o.type === 'mn_prop' && (o.properties || []).filter(function (p) { return p.name === 'art'; })[0], pass = art && L.manilaPass(art.value);
+      if (pass) { foot = h; } // (a gate walked through: solid but its opening)
+      for (var y = y0 + h - foot; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < Hh && !(pass && x - x0 >= pass[0] && x - x0 <= pass[1])) block[y * W + x] = 1;
     });
     return { W: W, H: Hh, block: block, ok: function (x, y) { return x >= 0 && y >= 0 && x < W && y < Hh && !block[y * W + x]; } };
   };

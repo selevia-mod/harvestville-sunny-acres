@@ -73,7 +73,7 @@ test('on foot from the train: every door, every person\'s spot, the plaza, the t
   Object.keys(M.spots).forEach((k) => assert.ok(reach(START, tile(M.spots[k])), 'spot ' + k));
   assert.ok(reach(START, tile(M.spawns.from_valley)), 'the Plains Gate (the valley road)');
   assert.ok(reach(START, [49, 50]), 'the plaza');
-  assert.ok(reach(START, [46, 2]), 'up to the Gorge Gate');
+  assert.ok(reach(START, [46, 3]), 'up to (in front of) the Gorge Gate');
   assert.ok(reach(START, [29, 87]), 'down to the Jungle Gate');
   M.berths.forEach((b) => assert.ok(reach(START, [b[0], b[1] + 1]), 'by berth ' + b));
   assert.ok(reach(START, [16, 15]) && reach(START, [28, 29]), 'both gates of the walled quarter');
@@ -222,7 +222,9 @@ test('the crowd: about 55 by day with the roles, about a third at night, fewer o
   }));
   Object.keys(M.spots).forEach((k) => assert.ok(reachS(START, tile(M.spots[k])), 'spot ' + k + ' on the strict grid'));
   // the strict grid: no tile of any building's box
-  M.buildings.filter((b) => !b.flat).forEach((b) => { for (let y = b.box[1]; y < b.box[1] + b.box[3]; y++) for (let x = b.box[0]; x < b.box[0] + b.box[2]; x++) assert.ok(!strict.ok(x, y), b.key + ' ' + x + ',' + y); });
+  // (but a gate's way through: its opening, M.pass)
+  const open = (b, x) => { const p = L.manilaPass(b.art); return !!p && x - b.box[0] >= p[0] && x - b.box[0] <= p[1]; };
+  M.buildings.filter((b) => !b.flat).forEach((b) => { for (let y = b.box[1]; y < b.box[1] + b.box[3]; y++) for (let x = b.box[0]; x < b.box[0] + b.box[2]; x++) assert.ok(open(b, x) || !strict.ok(x, y), b.key + ' ' + x + ',' + y); });
 });
 
 // ---------- city life: the jeepney (src/01-logicZZZZZZZZZZZZZZZ-manila-life.js) ----------
@@ -312,12 +314,34 @@ test('city life\'s pictures: every file MANILA-CITY-LIFE-PROMPTS.md asks for is 
   M.mall.props.forEach((p) => assert.ok(made.has('props/manila_mall_' + p[0]), 'mall ' + p[0]));
 });
 
+test('gates: nobody stands inside a gate\'s picture; a gate walked through is solid but its opening, and its opening goes through', () => {
+  const gates = M.decor.map((d) => ({ art: d[0], box: [d[1], d[2], d[3], d[4]] })).concat(M.buildings).filter((b) => /gate|arch/.test(b.art || ''));
+  assert.ok(gates.length >= 6, gates.map((g) => g.art).join());
+  gates.forEach((g) => {
+    const p = L.manilaPass(g.art), [x0, y0, w, h] = g.box;
+    for (let y = Math.max(0, y0); y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      const inOpening = p && x - x0 >= p[0] && x - x0 <= p[1];
+      if (!inOpening) assert.ok(!grid.ok(x, y), g.art + ' ' + x + ',' + y + ' is solid');
+      else assert.ok(grid.ok(x, y), g.art + ' ' + x + ',' + y + ' (its opening) is free');
+    }
+    if (p) assert.ok(reach([x0 + p[0], y0 - 1], [x0 + p[0], y0 + h]), g.art + ': through it, north to south');
+  });
+  assert.deepStrictEqual(plain(Object.keys(M.pass).sort()), ['chinatown_arch', 'race_arch', 'wall_gate']);
+});
+
 test('the valley road comes in on Manila\'s right side, just inside the Plains Gate, facing in: free ground, off the jeep\'s road', () => {
   const p = M.spawns.from_valley, t = tile(p), strict = L.manilaGrid(map, true);
   assert.ok(t[0] >= 75, 'the right side: ' + t);
   assert.strictEqual(p[2], 'left');
   assert.ok(strict.ok(t[0], t[1]) && grid.ok(t[0], t[1]), 'free ground (not the road, not a building)');
+  // (owner's bug, 11 Nov 2026: she stood inside the gate's picture.) The gate stands beside the avenue's end, solid all
+  // over; the arrival and the way out to the valley road are clear of its picture (her sprite is 1.5 tiles tall)
   const gate = M.decor.find((d) => d[0] === 'gate_plains');
-  assert.ok(gate[1] > t[0] && gate[2] <= t[1] && gate[2] + gate[4] > t[1], 'just inside (west of) the gate\'s arch over the avenue');
-  assert.ok(reach(t, [88, 44]), 'and out through it to the valley road');
+  assert.strictEqual(gate[5], gate[4], 'the gate is solid all over');
+  for (let y = gate[2]; y < gate[2] + gate[4]; y++) for (let x = gate[1]; x < gate[1] + gate[3]; x++) assert.ok(!grid.ok(x, y), 'gate ' + x + ',' + y);
+  assert.ok(t[1] + 1 < gate[2] || t[0] < gate[1] - 1, 'she arrives clear of it');
+  assert.ok(gate[1] - t[0] <= 3 && gate[2] - t[1] <= 4, 'and right by it');
+  const out = L.manilaPath(grid, t[0], t[1], 88, 44, 9000);
+  assert.ok(out, 'out to the valley road');
+  out.forEach((q) => assert.ok(!(q[0] >= gate[1] && q[0] < gate[1] + gate[3] && q[1] + 1 >= gate[2]), 'the way out passes in front of nothing of the gate: ' + q));
 });

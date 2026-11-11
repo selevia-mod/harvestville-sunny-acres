@@ -4962,7 +4962,7 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   await page.evaluate(() => Farm.ui.openDownloads());
   await frames(page, 3);
   const text = await modalText(page);
-  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 5, text); // (Furniture styles too, and the Hunting places: 6 Nov)
+  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 6, text); // (Furniture styles too, and the Hunting places: 6 Nov; Manila: 11 Nov)
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

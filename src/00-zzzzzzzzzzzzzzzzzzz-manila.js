@@ -134,7 +134,7 @@
     berths: [[4, 60], [7, 60], [10, 60]], // (sign posts on the pier's north edge; the water beside them is the berth)
     gates: [
       { key: 'plains', name: 'Plains Gate', box: [89, 42, 1, 6], warp: true, sign: [88, 42], text: 'PLAINS GATE\nThe valley road home to Willowbrook goes east from here.\nThe Open Plains hunting ground: coming soon!' },
-      { key: 'gorge', name: 'Gorge Gate', box: [44, 0, 4, 2], sign: [43, 2], text: 'GORGE GATE\nThe Rocky Gorge lies north. Coming soon!' },
+      { key: 'gorge', name: 'Gorge Gate', box: [44, 0, 4, 3], sign: [43, 2], text: 'GORGE GATE\nThe Rocky Gorge lies north. Coming soon!' },
       { key: 'jungle', name: 'Jungle Gate', box: [28, 88, 4, 2], sign: [26, 88], text: 'JUNGLE GATE\nThe Bamboo Jungle lies south. Coming soon!' },
     ],
     signs: [
@@ -150,7 +150,7 @@
     // [art, x, y, w, h, foot] (foot 0: drawn over what is already solid, or something you walk under or past)
     decor: [
       // the three gates (owner's art): the Gorge and Jungle arches over their shut roads, the Plains gatehouse by the road
-      ['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 88, 4, 2, 0], ['gate_plains', 82, 42, 4, 4, 0],
+      ['gate_gorge', 44, 0, 4, 3, 3], ['gate_jungle', 28, 88, 4, 2, 2], ['gate_plains', 82, 48, 4, 4, 4],
       // the old walls: straight pieces along the north and south walls, bastions at the corners, the Plaza Gate's arch,
       // towers on the west and east walls (all drawn over the solid stone)
       ['wall_bastion', 14, 2, 3, 3, 0], ['wall_bastion', 40, 2, 3, 3, 0], ['wall_bastion', 14, 29, 3, 3, 0], ['wall_bastion', 40, 29, 3, 3, 0],

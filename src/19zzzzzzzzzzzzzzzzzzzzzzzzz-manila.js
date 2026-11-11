@@ -214,11 +214,23 @@
     var pw = (o.x1 - o.x0 + 1) * T, ph = (o.y1 - o.y0 + 1) * T, left = o.x0 * T, bottom = (o.y1 + 1) * T;
     var fr = this.textures.getFrame(key, frame), nw = fr.realWidth * 2, nh = fr.realHeight * 2, k = Math.min(pw / nw, ph / nh), dw = nw * k, dh = nh * k;
     var img = this.add.image(left + (pw - dw) / 2, bottom, key, frame).setOrigin(0, 1).setDisplaySize(dw, dh);
-    F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + bottom / 1e5); // (flat: a court on the ground)
+    var pass = own && L.manilaPass(p.art); // (a gate walked through: behind whoever is in its opening or in front of it)
+    F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + (pass ? bottom - dh : bottom) / 1e5); // (pass: by the picture's top) // (flat: a court on the ground)
     if (!own && p.tint) img.setTint(p.tint);
     this.props.push(img);
     // its foot: solid
     var foot = Math.min(o.y1 - o.y0 + 1, p.foot || 0);
+    if (pass) { // its pillars solid top to bottom, its opening free
+      var self = this;
+      [[o.x0, o.x0 + pass[0] - 1], [o.x0 + pass[1] + 1, o.x1]].forEach(function (r) {
+        if (r[1] < r[0]) return;
+        for (var y = o.y0; y <= o.y1; y++) for (var x = r[0]; x <= r[1]; x++) self.blocked[self.idx(x, y)] = true;
+        var z = self.add.zone((r[0] + r[1] + 1) / 2 * T, (o.y0 + o.y1 + 1) / 2 * T, (r[1] - r[0] + 1) * T - 16, ph - 16);
+        self.physics.add.existing(z, true);
+        self.solids.add(z);
+      });
+      foot = 0;
+    }
     if (foot > 0) {
       for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = o.x0; x <= o.x1; x++) this.blocked[this.idx(x, y)] = true;
       var zone = this.add.zone(left + pw / 2, bottom - foot * T / 2 + 8, pw - 16, foot * T - 16);
@@ -233,6 +245,7 @@
   P.setupExtras = function () {
     setupExtras.apply(this, arguments);
     this.mn = null;
+    this.mnArt = null;
     if (this.mapKey !== 'manila' && this.mapKey !== 'mall') return;
     var self = this, spots = [], mall = this.mapKey === 'mall';
     this.mn = { labels: [], people: [], cullMs: 0, schedMs: 0, mall: mall,
@@ -247,8 +260,11 @@
     if (!mall) this.mnPeople();
     this.mnCrowd();
     if (this.mnLife) this.mnLife();
-    var s = this.state;
-    if (mall) return;
+    var s = this.state, again = F.session.mnRedraw;
+    F.session.mnRedraw = false;
+    this.mnArt = { tried: false };
+    this.mnArtCheck();
+    if (mall || again) return;
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
       this.save();
       this.time.delayedCall(700, function () {
@@ -592,6 +608,34 @@
     }
     return travel.apply(this, arguments);
   };
+
+  // ---------- the city's pictures, however you came in (owner's bug on the phone, 11 Nov 2026) ----------
+  // The road and the train load them on the way in (above). Two ways in did not: opening the game where you left it,
+  // in Manila or the Mall (no travel at all), and the pack reaching the phone while you were already in the city (the
+  // download after the game opens). Both kept the stand-ins up for good. So the game opens there with the pictures in
+  // when they are on the phone (19zl-packs-ui.js asks F.softPacks), and in the city, once they are on the phone, they
+  // go in and the city is drawn again where you stand.
+  var CITY = { manila: 1, mall: 1 };
+  var cityPack = function () { return !!(F.packFiles && F.packFiles('manila').length); };
+  var cityArt = function () { return F.packFiles('manila').filter(function (f) { return f.key && F.images && F.images[f.key]; }).length; };
+  F.softPacks = function (map) { return CITY[map] && cityPack() ? ['manila'] : []; };
+  P.mnArtCheck = function () {
+    var a = this.mnArt;
+    if (!a || a.tried || !CITY[this.mapKey] || !cityPack() || F.packReady('manila') || !F.canFetch() || !F.packOnPhone('manila')) return;
+    a.tried = true; // (once a visit: a file that will not come does not ask again and again)
+    var self = this, had = cityArt();
+    F.loadPack('manila').then(function () { if (cityArt() > had) self.mnRedraw(a); });
+  };
+  P.mnRedraw = function (a) {
+    var self = this;
+    if (this.mnArt !== a || !this.sys || !this.sys.isActive() || !CITY[this.mapKey]) return; // (gone elsewhere since: drawn there with them)
+    if (this.busy || (this.mnRide && this.mnRide.stage)) return this.time.delayedCall(1000, function () { self.mnRedraw(a); }); // (after the ride)
+    this.mnArt = null;
+    F.session.mnRedraw = true; // (no hello again)
+    this.save();
+    this.scene.restart(); // (where you stand: s.player)
+  };
+  F.bus.on('packs', function () { var w = F.world; if (w && w.mnArtCheck && w.sys && w.sys.isActive()) w.mnArtCheck(); });
 
   // ---------- the train ----------
   // Willowbrook Station's panel gets a Manila tab; it opens the ticket (as Manila Central's door does).

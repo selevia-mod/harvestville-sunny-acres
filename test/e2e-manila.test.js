@@ -478,3 +478,110 @@ test('a city: 50 or more people by day', async () => {
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Owner's bug on the phone, 11 Nov 2026: "Manila" said on your phone in Downloads, yet the city showed its stand-ins.
+// The app's way (lib/sunny-acres in the app): no pack in the page; gameHost.here lists the files on the phone, and
+// gameHost.asset(file) answers a moment later with window.__gameAsset (a data URL) or __gameAssetSaved.
+const fs = require('fs');
+const PACKS = path.resolve(__dirname, '..', 'dist', 'packs');
+async function openApp(savedState, here, city = true) {
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 } });
+  await context.exposeBinding('__appAsset', (src, file) => {
+    const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file), p = m && path.join(PACKS, m[1] + '.webp');
+    return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+  });
+  const page = await context.newPage();
+  const problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  await page.addInitScript(([state, now, here]) => {
+    window.gameHost = { state, quiet: true, save(s) { this.state = s; }, now: () => now, here,
+      asset(f, save) { setTimeout(() => window.__appAsset(f).then((u) => (save ? window.__gameAssetSaved(f, !!u) : window.__gameAsset(f, u))), 20 + Math.random() * 60); } };
+  }, [savedState, at(NOON), here]);
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction((city) => window.Farm && Farm.world && Farm.world.player && (!city || Farm.world.mn), city, SLOW);
+  return { page, problems, context };
+}
+const cityLook = (page) => page.evaluate(() => {
+  const w = Farm.world, keys = w.children.list.filter((o) => o.texture).map((o) => o.texture.key);
+  return { map: w.mapKey, ready: Farm.packReady('manila'), station: keys.includes('props/manila_station_manila'), towers: keys.filter((k) => /^props\/manila_office_tower/.test(k)).length,
+    rail: keys.filter((k) => k === 'props/manila_rail_deck').length, jeep: w.mn.jeep && w.mn.jeep.img.texture.key };
+});
+test('the city\'s pack from the phone (the app\'s way): a game opened in Manila has its pictures; a pack that reaches the phone while you are there redraws the city where you stand', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 40 * 256 + 128, y: 44 * 256 + 128, dir: 'left' };");
+  const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+  // 1. opened where it was left, the pack on the phone: no travel, the pictures in from the start
+  const a = await openApp(save, all);
+  const first = await cityLook(a.page);
+  assert.strictEqual(first.map, 'manila');
+  assert.ok(first.ready, 'the pack went in before the city was drawn');
+  assert.ok(first.station, 'Manila Central is the owner\'s picture, not the town-style stand-in');
+  assert.strictEqual(first.towers, 2, 'both Business Towers');
+  assert.ok(first.rail > 0, 'the elevated rail');
+  assert.strictEqual(first.jeep, 'manila_jeepney');
+  assert.deepStrictEqual(await feetTile(a.page), [40, 44]);
+  assert.deepStrictEqual(a.problems, []);
+  await a.context.close();
+  // 2. nothing on the phone yet: the stand-ins; then the pack comes down while you stand there
+  const b = await openApp(save, []);
+  const bare = await cityLook(b.page);
+  assert.ok(!bare.ready && !bare.station && !bare.rail, 'the stand-ins meanwhile');
+  await b.page.evaluate(() => Farm.downloadPack('manila'));
+  await b.page.waitForFunction(() => Farm.packReady('manila') && Farm.world.mn && Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/manila_station_manila'), null, SLOW);
+  const after = await cityLook(b.page);
+  assert.ok(after.station && after.towers === 2 && after.rail > 0 && after.jeep === 'manila_jeepney', 'drawn again with the owner\'s pictures');
+  assert.deepStrictEqual(await feetTile(b.page), [40, 44], 'where you stood');
+  assert.deepStrictEqual(b.problems, []);
+  await b.context.close();
+});
+
+// Owner's bug, 11 Nov 2026: at the east entry the farmer stood INSIDE the Plains Gate's picture, only her head showing
+// between its doors. No gate's picture is ever drawn over her: not where she comes in, not on the way out, not while
+// she walks through a gate's opening (the walled quarter's, the Chinatown arch, the race's finish arch).
+const gateOver = (page) => page.evaluate(() => {
+  const w = Farm.world, p = w.player, a = p.getBounds(), feet = w.feet().y; // (her body: down to her feet, not the frame's empty edge)
+  a.bottom = Math.min(a.bottom, feet);
+  return w.props.filter((i) => /gate|arch/.test(i.texture.key) && i.depth > p.depth).filter((i) => { const b = i.getBounds(); return b.x < a.right && a.x < b.right && b.y < a.bottom && a.y < b.bottom; }).map((i) => i.texture.key);
+});
+test('no gate is ever drawn over the farmer: in at the Plains Gate, out along the avenue, and through the openings of the gates you walk through', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'town';");
+  const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+  const { page, problems, context } = await openApp(save, all, false);
+  await waitMap(page, 'town');
+  await page.evaluate(() => Farm.world.travel('manila', 'from_valley'));
+  await waitMap(page, 'manila');
+  await frames(page, 4);
+  const keys = await page.evaluate(() => Farm.world.props.map((i) => i.texture.key).filter((k) => /gate|arch/.test(k)).sort());
+  assert.ok(['props/manila_gate_plains', 'props/manila_wall_gate', 'props/manila_chinatown_arch', 'props/manila_race_arch'].every((k) => keys.includes(k)), 'the gates are the owner\'s pictures: ' + keys);
+  assert.deepStrictEqual(await feetTile(page), [80, 44], 'in on the city\'s right side');
+  assert.deepStrictEqual(await gateOver(page), [], 'nothing of the gate over her where she comes in');
+  await shot(page, 'manila-8-plains-gate-entry');
+  // out east along the avenue to the valley road, looking every few frames
+  await page.keyboard.down('ArrowRight');
+  for (let i = 0; i < 200 && !(await page.evaluate(() => Farm.world.busy || Farm.world.mapKey !== 'manila')); i++) {
+    assert.deepStrictEqual(await gateOver(page), [], 'on the way out at ' + (await feetTile(page)));
+    await frames(page, 2);
+  }
+  await page.keyboard.up('ArrowRight');
+  await waitMap(page, 'town');
+  await page.evaluate(() => Farm.world.travel('manila', 'from_valley'));
+  await waitMap(page, 'manila');
+  // through each walk-through gate, north to south, on her own feet
+  const M = await page.evaluate(() => JSON.parse(JSON.stringify({ decor: Farm.Config.MANILA.decor, buildings: Farm.Config.MANILA.buildings, pass: Farm.Config.MANILA.pass })));
+  const gates = M.decor.map((d) => ({ art: d[0], box: [d[1], d[2], d[3], d[4]] })).concat(M.buildings).filter((b) => M.pass[b.art]);
+  assert.strictEqual(gates.length, 3);
+  for (const g of gates) {
+    const x = g.box[0] + M.pass[g.art][0], y1 = g.box[1] + g.box[3];
+    await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.sp.setVisible(false); })); // (nobody in her way)
+    await teleport(page, x, g.box[1] - 1, 'down');
+    await page.keyboard.down('ArrowDown');
+    for (let i = 0; i < 200 && (await feetTile(page))[1] <= y1; i++) {
+      assert.deepStrictEqual(await gateOver(page), [], g.art + ' at ' + (await feetTile(page)));
+      await frames(page, 2);
+    }
+    await page.keyboard.up('ArrowDown');
+    assert.ok((await feetTile(page))[1] >= y1, g.art + ': she walked through it (' + (await feetTile(page)) + ')');
+    if (g.art === 'wall_gate') await shot(page, 'manila-9-through-the-wall-gate');
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

@@ -81,7 +81,7 @@
     { key: 'cart_fishball', box: [45, 82, 2, 2], art: 'cart_fishball', text: 'THE FISHBALL CART\nFishballs, kikiam and three sauces.' + SOON },
     { key: 'cart_taho', box: [42, 48, 2, 2], art: 'cart_taho', text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
     { key: 'cart_sorbetes', box: [15, 49, 2, 2], art: 'cart_sorbetes', text: 'THE SORBETES CART\nIce cream with a bell.' + SOON },
-    { key: 'college_gate', box: [47, 80, 7, 4], foot: 0, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
+    { key: 'college_gate', box: [47, 80, 7, 4], foot: 4, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
     { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
     { key: 'barangay_hall', box: [33, 56, 5, 5], art: 'barangay_hall', text: 'THE BARANGAY HALL\nThe tanod keeps watch here.' + SOON },
     { key: 'sari_sari', box: [34, 62, 3, 3], art: 'sari_sari', text: 'THE SARI-SARI STORE\nA little of everything.' + SOON },
@@ -89,7 +89,7 @@
     { key: 'hopia', box: [79, 25, 5, 4], art: 'hopia_bakery', text: 'THE HOPIA BAKERY\nWarm hopia, fresh from the oven.' + SOON },
     { key: 'ch_lanterns', box: [66, 23, 2, 2], foot: 1, art: 'china_lanterns' }, { key: 'ch_lions', box: [74, 28, 2, 2], foot: 1, art: 'china_lions' },
     { key: 'ch_fruit', box: [67, 27, 2, 2], foot: 1, art: 'china_fruit_stall', text: 'A FRUIT AND FLOWER STALL\nOranges, pomelos and chrysanthemums.' + SOON },
-    { key: 'ch_gate', box: [70, 28, 2, 2], foot: 1, art: 'china_moon_gate' },
+    { key: 'ch_gate', box: [70, 28, 2, 2], foot: 2, art: 'china_moon_gate' },
     // parked for now: the tricycle by the barangay, the calesa in the walled quarter (the side view of their sheets)
     { key: 'tricycle', box: [30, 63, 3, 2], art: 'vehicle:tricycle:6', foot: 1, text: 'A TRICYCLE\nRides round the barangay.' + SOON },
     { key: 'calesa', box: [23, 23, 4, 3], art: 'vehicle:calesa:6', foot: 1, text: 'A CALESA\nRides inside the old walls.' + SOON },
@@ -101,6 +101,14 @@
   M.buildings.forEach(function (b) { if (b.key === 'house3') { b.box = [37, 62, 4, 4]; b.art = 'house_4'; } });
   M.props = M.props.filter(function (p) { return p[0] !== 'wagon'; });
   M.decor = M.decor.filter(function (d) { return !(d[0] === 'planter' && d[1] === 31 && d[2] === 56); });
+  // Gates (owner's bug, 11 Nov 2026: the farmer stood INSIDE the Plains Gate's picture, only her head showing between its
+  // doors). A front-on picture paints its ground and doors in, so nobody may stand inside one, except in the opening of a
+  // gate you walk through (north-south, the way it faces). Those: their columns of the box that are the way through
+  // (from the box's left); the rest of the box is solid, top to bottom, and the picture is drawn behind whoever is in
+  // the opening or in front of it (its depth goes by the box's top). Every other gate is solid all over (decided by me,
+  // owner can change): the Plains Gate stands beside the avenue's end as its landmark, the valley road going on east
+  // past it; the College gate, the moon gate and the Gorge Gate are not walked through.
+  M.pass = { wall_gate: [1, 1], chinatown_arch: [3, 4], race_arch: [1, 1] }; // (the race's finish arch: two thin posts)
   // the old walls (owner's front-on pieces, 11 Nov 2026): round towers at the four corners (a corner shows no side of a
   // wall), a wall with a turret now and then along the north and south runs; the west and east runs stay stone with
   // round towers (a wall piece there would show its front turned sideways)

@@ -166,11 +166,13 @@
     var go = function () { calls.forEach(function (c) { self.scene[c[0]](c[1], c[2]); }); };
     var s = F.session && F.session.state;
     var want = s ? packsFor(s.map).filter(function (k) { return !F.packReady(k); }) : [];
-    if (!want.length) return go();
+    // a place that can do without its pack (Manila: its stand-ins) still takes it in first when it is on the phone
+    var soft = s && F.softPacks ? F.softPacks(s.map).filter(function (k) { return !F.packReady(k) && F.packOnPhone(k); }) : [];
+    if (!want.length && !soft.length) return go();
     var back = function () { s.map = 'town'; s.player = { x: null, y: null, dir: 'right' }; F.session.spawn = 'from_pulag'; go(); };
     if (!want.every(F.packOnPhone)) return back(); // (in town by the west road: the Wild Lands ask when you walk back out)
-    var done = false, timer = setTimeout(function () { if (!done) { done = true; back(); } }, 8000);
-    Promise.all(want.map(F.loadPack)).then(function (r) { if (done) return; done = true; clearTimeout(timer); if (r.every(Boolean)) go(); else back(); });
+    var done = false, timer = setTimeout(function () { if (!done) { done = true; if (want.length) back(); else go(); } }, 8000);
+    Promise.all(want.concat(soft).map(F.loadPack)).then(function (r) { if (done) return; done = true; clearTimeout(timer); if (r.slice(0, want.length).every(Boolean)) go(); else back(); });
   };
 
 })(window.Farm = window.Farm || {});

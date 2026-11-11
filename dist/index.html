@@ -5837,7 +5837,7 @@ crates: [[16, 63], [17, 63], [16, 64], [19, 49]],
 berths: [[4, 60], [7, 60], [10, 60]],
 gates: [
 { key: 'plains', name: 'Plains Gate', box: [89, 42, 1, 6], warp: true, sign: [88, 42], text: 'PLAINS GATE\nThe valley road home to Willowbrook goes east from here.\nThe Open Plains hunting ground: coming soon!' },
-{ key: 'gorge', name: 'Gorge Gate', box: [44, 0, 4, 2], sign: [43, 2], text: 'GORGE GATE\nThe Rocky Gorge lies north. Coming soon!' },
+{ key: 'gorge', name: 'Gorge Gate', box: [44, 0, 4, 3], sign: [43, 2], text: 'GORGE GATE\nThe Rocky Gorge lies north. Coming soon!' },
 { key: 'jungle', name: 'Jungle Gate', box: [28, 88, 4, 2], sign: [26, 88], text: 'JUNGLE GATE\nThe Bamboo Jungle lies south. Coming soon!' },
 ],
 signs: [
@@ -5853,7 +5853,7 @@ signs: [
 
 decor: [
 
-['gate_gorge', 44, 0, 4, 3, 0], ['gate_jungle', 28, 88, 4, 2, 0], ['gate_plains', 82, 42, 4, 4, 0],
+['gate_gorge', 44, 0, 4, 3, 3], ['gate_jungle', 28, 88, 4, 2, 2], ['gate_plains', 82, 48, 4, 4, 4],
 
 
 ['wall_bastion', 14, 2, 3, 3, 0], ['wall_bastion', 40, 2, 3, 3, 0], ['wall_bastion', 14, 29, 3, 3, 0], ['wall_bastion', 40, 29, 3, 3, 0],
@@ -6099,7 +6099,7 @@ var SOON = ' Coming soon!';
 { key: 'cart_fishball', box: [45, 82, 2, 2], art: 'cart_fishball', text: 'THE FISHBALL CART\nFishballs, kikiam and three sauces.' + SOON },
 { key: 'cart_taho', box: [42, 48, 2, 2], art: 'cart_taho', text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
 { key: 'cart_sorbetes', box: [15, 49, 2, 2], art: 'cart_sorbetes', text: 'THE SORBETES CART\nIce cream with a bell.' + SOON },
-{ key: 'college_gate', box: [47, 80, 7, 4], foot: 0, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
+{ key: 'college_gate', box: [47, 80, 7, 4], foot: 4, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
 { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
 { key: 'barangay_hall', box: [33, 56, 5, 5], art: 'barangay_hall', text: 'THE BARANGAY HALL\nThe tanod keeps watch here.' + SOON },
 { key: 'sari_sari', box: [34, 62, 3, 3], art: 'sari_sari', text: 'THE SARI-SARI STORE\nA little of everything.' + SOON },
@@ -6107,7 +6107,7 @@ var SOON = ' Coming soon!';
 { key: 'hopia', box: [79, 25, 5, 4], art: 'hopia_bakery', text: 'THE HOPIA BAKERY\nWarm hopia, fresh from the oven.' + SOON },
 { key: 'ch_lanterns', box: [66, 23, 2, 2], foot: 1, art: 'china_lanterns' }, { key: 'ch_lions', box: [74, 28, 2, 2], foot: 1, art: 'china_lions' },
 { key: 'ch_fruit', box: [67, 27, 2, 2], foot: 1, art: 'china_fruit_stall', text: 'A FRUIT AND FLOWER STALL\nOranges, pomelos and chrysanthemums.' + SOON },
-{ key: 'ch_gate', box: [70, 28, 2, 2], foot: 1, art: 'china_moon_gate' },
+{ key: 'ch_gate', box: [70, 28, 2, 2], foot: 2, art: 'china_moon_gate' },
 
 { key: 'tricycle', box: [30, 63, 3, 2], art: 'vehicle:tricycle:6', foot: 1, text: 'A TRICYCLE\nRides round the barangay.' + SOON },
 { key: 'calesa', box: [23, 23, 4, 3], art: 'vehicle:calesa:6', foot: 1, text: 'A CALESA\nRides inside the old walls.' + SOON },
@@ -6119,6 +6119,14 @@ M.buildings = M.buildings.filter(function (b) { return !GONE[b.key]; });
 M.buildings.forEach(function (b) { if (b.key === 'house3') { b.box = [37, 62, 4, 4]; b.art = 'house_4'; } });
 M.props = M.props.filter(function (p) { return p[0] !== 'wagon'; });
 M.decor = M.decor.filter(function (d) { return !(d[0] === 'planter' && d[1] === 31 && d[2] === 56); });
+
+
+
+
+
+
+
+M.pass = { wall_gate: [1, 1], chinatown_arch: [3, 4], race_arch: [1, 1] };
 
 
 
@@ -18075,6 +18083,8 @@ tilesets: sets,
 
 
 
+
+L.manilaPass = function (art) { var p = C.MANILA.pass; return (p && art && p[art]) || null; };
 L.manilaGrid = function (map, strict) {
 var W = map.width, Hh = map.height, solid = {}, block = new Uint8Array(W * Hh);
 map.tilesets.forEach(function (ts) { (ts.tiles || []).forEach(function (t) { (t.properties || []).forEach(function (p) { if (p.name === 'collides' && p.value) solid[ts.firstgid + t.id] = 1; if (strict && p.name === 'name' && /^mn_(asphalt|lane_)/.test(p.value)) solid[ts.firstgid + t.id] = 1; }); }); });
@@ -18085,7 +18095,9 @@ if (o.type !== 'mn_prop' && o.type !== 'mn_rails') return;
 var x0 = Math.round(o.x / S), y0 = Math.round(o.y / S), w = Math.round(o.width / S), h = Math.round(o.height / S), foot = h;
 if (o.type === 'mn_prop') (o.properties || []).forEach(function (p) { if (p.name === 'foot') foot = p.value; });
 if (strict && o.type === 'mn_prop' && (o.properties || []).some(function (p) { return p.name === 'box' && p.value; })) foot = h;
-for (var y = y0 + h - foot; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < Hh) block[y * W + x] = 1;
+var art = o.type === 'mn_prop' && (o.properties || []).filter(function (p) { return p.name === 'art'; })[0], pass = art && L.manilaPass(art.value);
+if (pass) { foot = h; }
+for (var y = y0 + h - foot; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) if (x >= 0 && y >= 0 && x < W && y < Hh && !(pass && x - x0 >= pass[0] && x - x0 <= pass[1])) block[y * W + x] = 1;
 });
 return { W: W, H: Hh, block: block, ok: function (x, y) { return x >= 0 && y >= 0 && x < W && y < Hh && !block[y * W + x]; } };
 };
@@ -18942,10 +18954,13 @@ var fs = F.packFiles(pack);
 return fs.length > 0 && fs.every(function (f) { return f.key && F.images && F.images[f.key]; });
 };
 
+
+var loading = {};
 F.loadPack = function (pack) {
 if (F.packReady(pack)) return Promise.resolve(true);
+if (loading[pack]) return loading[pack];
 var fs = F.packFiles(pack).filter(function (f) { return f.key; });
-return Promise.all(fs.map(F.fetchFile)).then(function (r) { F.bus.emit('packs'); return r.every(Boolean); });
+return (loading[pack] = Promise.all(fs.map(F.fetchFile)).then(function (r) { delete loading[pack]; F.bus.emit('packs'); return r.every(Boolean); }));
 };
 
 var running = {};
@@ -35673,11 +35688,13 @@ try { bootCreate.call(this); } finally { delete plugin.start; delete plugin.laun
 var go = function () { calls.forEach(function (c) { self.scene[c[0]](c[1], c[2]); }); };
 var s = F.session && F.session.state;
 var want = s ? packsFor(s.map).filter(function (k) { return !F.packReady(k); }) : [];
-if (!want.length) return go();
+
+var soft = s && F.softPacks ? F.softPacks(s.map).filter(function (k) { return !F.packReady(k) && F.packOnPhone(k); }) : [];
+if (!want.length && !soft.length) return go();
 var back = function () { s.map = 'town'; s.player = { x: null, y: null, dir: 'right' }; F.session.spawn = 'from_pulag'; go(); };
 if (!want.every(F.packOnPhone)) return back();
-var done = false, timer = setTimeout(function () { if (!done) { done = true; back(); } }, 8000);
-Promise.all(want.map(F.loadPack)).then(function (r) { if (done) return; done = true; clearTimeout(timer); if (r.every(Boolean)) go(); else back(); });
+var done = false, timer = setTimeout(function () { if (!done) { done = true; if (want.length) back(); else go(); } }, 8000);
+Promise.all(want.concat(soft).map(F.loadPack)).then(function (r) { if (done) return; done = true; clearTimeout(timer); if (r.slice(0, want.length).every(Boolean)) go(); else back(); });
 };
 
 })(window.Farm = window.Farm || {});
@@ -51974,11 +51991,23 @@ if (!drawnKey) F.ensureTexture(this, key);
 var pw = (o.x1 - o.x0 + 1) * T, ph = (o.y1 - o.y0 + 1) * T, left = o.x0 * T, bottom = (o.y1 + 1) * T;
 var fr = this.textures.getFrame(key, frame), nw = fr.realWidth * 2, nh = fr.realHeight * 2, k = Math.min(pw / nw, ph / nh), dw = nw * k, dh = nh * k;
 var img = this.add.image(left + (pw - dw) / 2, bottom, key, frame).setOrigin(0, 1).setDisplaySize(dw, dh);
-F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + bottom / 1e5);
+var pass = own && L.manilaPass(p.art);
+F.depthTo(img, p.flat ? DEPTH.flat : DEPTH.actor + (pass ? bottom - dh : bottom) / 1e5);
 if (!own && p.tint) img.setTint(p.tint);
 this.props.push(img);
 
 var foot = Math.min(o.y1 - o.y0 + 1, p.foot || 0);
+if (pass) {
+var self = this;
+[[o.x0, o.x0 + pass[0] - 1], [o.x0 + pass[1] + 1, o.x1]].forEach(function (r) {
+if (r[1] < r[0]) return;
+for (var y = o.y0; y <= o.y1; y++) for (var x = r[0]; x <= r[1]; x++) self.blocked[self.idx(x, y)] = true;
+var z = self.add.zone((r[0] + r[1] + 1) / 2 * T, (o.y0 + o.y1 + 1) / 2 * T, (r[1] - r[0] + 1) * T - 16, ph - 16);
+self.physics.add.existing(z, true);
+self.solids.add(z);
+});
+foot = 0;
+}
 if (foot > 0) {
 for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = o.x0; x <= o.x1; x++) this.blocked[this.idx(x, y)] = true;
 var zone = this.add.zone(left + pw / 2, bottom - foot * T / 2 + 8, pw - 16, foot * T - 16);
@@ -51993,6 +52022,7 @@ var setupExtras = P.setupExtras;
 P.setupExtras = function () {
 setupExtras.apply(this, arguments);
 this.mn = null;
+this.mnArt = null;
 if (this.mapKey !== 'manila' && this.mapKey !== 'mall') return;
 var self = this, spots = [], mall = this.mapKey === 'mall';
 this.mn = { labels: [], people: [], cullMs: 0, schedMs: 0, mall: mall,
@@ -52007,8 +52037,11 @@ this.mn.grid = L.manilaGrid(maps[this.mapKey], true);
 if (!mall) this.mnPeople();
 this.mnCrowd();
 if (this.mnLife) this.mnLife();
-var s = this.state;
-if (mall) return;
+var s = this.state, again = F.session.mnRedraw;
+F.session.mnRedraw = false;
+this.mnArt = { tried: false };
+this.mnArtCheck();
+if (mall || again) return;
 if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
 this.save();
 this.time.delayedCall(700, function () {
@@ -52352,6 +52385,34 @@ return F.loadPack('manila').then(function () { self.mnGate = false; if (self.sys
 }
 return travel.apply(this, arguments);
 };
+
+
+
+
+
+
+
+var CITY = { manila: 1, mall: 1 };
+var cityPack = function () { return !!(F.packFiles && F.packFiles('manila').length); };
+var cityArt = function () { return F.packFiles('manila').filter(function (f) { return f.key && F.images && F.images[f.key]; }).length; };
+F.softPacks = function (map) { return CITY[map] && cityPack() ? ['manila'] : []; };
+P.mnArtCheck = function () {
+var a = this.mnArt;
+if (!a || a.tried || !CITY[this.mapKey] || !cityPack() || F.packReady('manila') || !F.canFetch() || !F.packOnPhone('manila')) return;
+a.tried = true;
+var self = this, had = cityArt();
+F.loadPack('manila').then(function () { if (cityArt() > had) self.mnRedraw(a); });
+};
+P.mnRedraw = function (a) {
+var self = this;
+if (this.mnArt !== a || !this.sys || !this.sys.isActive() || !CITY[this.mapKey]) return;
+if (this.busy || (this.mnRide && this.mnRide.stage)) return this.time.delayedCall(1000, function () { self.mnRedraw(a); });
+this.mnArt = null;
+F.session.mnRedraw = true;
+this.save();
+this.scene.restart();
+};
+F.bus.on('packs', function () { var w = F.world; if (w && w.mnArtCheck && w.sys && w.sys.isActive()) w.mnArtCheck(); });
 
 
 
