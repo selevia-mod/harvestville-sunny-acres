@@ -67,7 +67,7 @@ const save = (name, r) => {
 
   // ---------- one picture: trimmed, its width the tiles its prompt gives ----------
   const one = (src, wTiles, hTiles) => p.evaluate(async ([s, w, h, TL]) => {
-    const x = W.cells(W.dehalo(W.cutout(await W.load(s))), 1, 1, 0.02)[0];
+    const x = W.cells(W.dehalo(W.cutout(await W.load(s), { holes: true })), 1, 1, 0.02)[0];
     if (!x) throw new Error('nothing in the picture');
     const k = Math.min(w * TL / x.w, h * TL / x.h), ow = Math.round(x.w * k), oh = Math.round(x.h * k), o = W.canvas(ow, oh);
     W.draw(o.getContext('2d'), x.c, x, k, ow / 2, oh);
@@ -88,7 +88,7 @@ const save = (name, r) => {
     if (!src) continue;
     const [cols, rows, names, wTiles] = A.sheets[sheet];
     const cut = await p.evaluate(async ([s, cols, rows, n, w, TL]) => {
-      const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), cols, rows, 0.02), out = [];
+      const cl = W.cells(W.dehalo(W.cutout(await W.load(s), { holes: true })), cols, rows, 0.02), out = [];
       for (let i = 0; i < n; i++) {
         const x = cl[i];
         if (!x) throw new Error('piece ' + (i + 1) + ' is missing');
@@ -108,7 +108,7 @@ const save = (name, r) => {
     const src = pic(sheet);
     if (!src) continue;
     const r = await p.evaluate(async (s) => {
-      const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 3, 3, 0.02);
+      const cl = W.cells(W.dehalo(W.cutout(await W.load(s), { holes: true })), 3, 3, 0.02);
       if (cl.some((x) => !x)) throw new Error('a pose is missing');
       const k = Math.min(...cl.map((x) => Math.min(118 / x.w, 180 / x.h))), o = W.canvas(8 * 2 + 9 * 128 + 8 * 16, 8 * 2 + 192), g = o.getContext('2d');
       cl.forEach((x, i) => W.draw(g, x.c, x, k, 8 + i * 144 + 64, 8 + 186));
@@ -156,7 +156,7 @@ const save = (name, r) => {
     else if (d.sheet) {
       const [cols, rows, names] = d.sheet;
       const cut = await p.evaluate(async ([s, cols, rows, n, w, TL]) => {
-        const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), cols, rows, 0.02), out = [];
+        const cl = W.cells(W.dehalo(W.cutout(await W.load(s), { holes: true })), cols, rows, 0.02), out = [];
         for (let i = 0; i < n; i++) {
           const x = cl[i];
           if (!x) { out.push(null); continue; }
@@ -169,7 +169,7 @@ const save = (name, r) => {
       names.forEach((n, i) => { if (!n) return; if (!cut[i]) throw new Error(file + ': piece ' + (i + 1) + ' is missing'); save('props/manila_' + n, cut[i]); });
     } else if (d.vehicle) { // a 3 x 3 driving sheet: every frame the same scale, standing on the same line, in a 3 x 3 grid of 512 x 384
       const r = await p.evaluate(async (s) => {
-        const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), 3, 3, 0.02);
+        const cl = W.cells(W.dehalo(W.cutout(await W.load(s), { holes: true })), 3, 3, 0.02);
         if (cl.some((x) => !x)) throw new Error('a frame is missing');
         const FW = 512, FH = 384, k = Math.min(...cl.map((x) => Math.min((FW - 16) / x.w, (FH - 12) / x.h))), o = W.canvas(FW * 3, FH * 3), g = o.getContext('2d');
         cl.forEach((x, i) => W.draw(g, x.c, x, k, (i % 3) * FW + FW / 2, Math.floor(i / 3) * FH + FH - 6));

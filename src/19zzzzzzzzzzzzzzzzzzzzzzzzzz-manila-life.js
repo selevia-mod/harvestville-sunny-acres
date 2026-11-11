@@ -268,7 +268,8 @@
       var f = look.row * 9 + j * 3, ak = 'mnf-' + look.key + '-' + look.row + '-' + d;
       if (!this.anims.exists(ak)) this.anims.create({ key: ak, frames: this.anims.generateFrameNumbers(look.key, { frames: [f + 1, f, f + 2, f] }), frameRate: 6, repeat: -1 });
     }, this);
-    var court = role.court, spot = court ? [court[0] + (i < 2 ? 1.5 : court[2] - 1.5), court[1] + (i % 2 ? 3.3 : 1.8), i < 2 ? 'right' : 'left'] : null;
+    // (owner's redrawn court, 11 Nov 2026: a fence and a bench along its back; the four stand on the green, two each side of the net)
+    var court = role.court, spot = court ? [court[0] + (i < 2 ? 1.5 : court[2] - 1.5), court[1] + (i % 2 ? 4.3 : 3.1), i < 2 ? 'right' : 'left'] : null;
     if (spot) role = Object.assign({}, role, { post: spot });
     var at = role.post || (key === 'office' ? TOWER_DOORS[i % 2] : key === 'shopper' ? MALL_DOOR : [49.5, 50.6]);
     var sp = this.add.sprite(at[0] * T, at[1] * T, look.key, look.row * 9).setOrigin(0.5, 0.83).setScale(2);
