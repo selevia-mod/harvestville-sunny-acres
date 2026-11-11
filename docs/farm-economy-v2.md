@@ -87,6 +87,17 @@ Shots in the five new hunting places cost 3-4 energy (2 in the Wild Lands), so p
 2. Raiders eat crops + raids pay in crops + the Silo.
 3. The Mixer + materials on defense and camp levels.
 4. Crop potions + hunting energy.
+   Parts 2-4 BUILT 12 Nov 2026 (feat/economy-v2): content src/00-zzzzzzzzzzzzzzzzzzzzzz-economy2.js, rules
+   src/01-logicZZZZZZZZZZZZZZZZZ-economy2.js, farm and panels src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-economy2.js (raid panels:
+   their own files), tests test/economy2-*.test.js and test/e2e-economy2.test.js. Owner rules since: raids are just for fun
+   (the farm raided loses nothing); the crops a raider wins are the battle copy's ripe crops (copy.ck says which crop each
+   is), into the Silo, once the game server counts the raid (s.frc until then); practice raids bring theirs home instead
+   of their Gold worth. The Silo comes with every farm (C.SILO.at, or the nearest free spot); the workshops and the Kitchen
+   use it too. The game has no farm honey: Wild Honey stands in (Beeswax, Ginger Tonic). Potions have their own clocks,
+   beside a dish's power. Save keys: 'sl' (the Silo), 'ptn' (potions), 'frc' (raid crops waiting). Pictures: the Mixer
+   and the Silo are drawn in code until the owner's (prompts at the 30-degree camera: ~/Downloads/economy-mixer-silo,
+   then assets/props/mixer.png and silo.png); the 8 new icons are the owner's, in the 'econ' pack
+   (tools/art/economy2-icons.js), drawn in code until it is on the phone (the page had no room for them).
 5. The horse goes out (bond, gear, stamina, shooting while riding, dungeons). BUILT 11 Nov 2026 (feat/horse-out): numbers in
    C.HORSE_OUT (src/00-zzzzzzzzzzzzzzzzzzz-horse.js), rules src/01-logicZZZZZZZZZZZZZZ-horse.js, the world
    src/19zzzzzzzzzzzzzzzzzzzzzzzzz-horse-out.js, tests test/horse-out.test.js and test/e2e-horse-out.test.js; plan
