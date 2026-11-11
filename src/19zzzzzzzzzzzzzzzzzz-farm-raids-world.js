@@ -339,6 +339,7 @@
     var s = F.session.state, b = this.raidB, rd = F.session.raid, used = {};
     b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
     L.frUse(s, used);
+    if (rd.kind === 'bandit') b.cropsWon = L.frCropsOf(this.state, L.frTaken(b)); // (farm economy v2: its crops come home as crops)
     var prize = rd.kind === 'bandit' ? L.banditPrize(s, rd.key, b) : { gold: 0, pts: 0, stars: L.frStars(b), test: true };
     F.Host.save(s);
     sfx(prize.stars ? 'fanfare' : 'nope');

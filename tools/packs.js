@@ -50,4 +50,7 @@ module.exports = {
   lair: ['props/lair_mouth', 'props/lair_gate'],
   // Central Park's Hall of Fame building: a drawn stand-in until it is in (the same file)
   park: ['props/hall_of_fame'],
+  // farm economy v2 (12 Nov 2026): the owner's icons for the Mixer's materials and the crop potions
+  // (tools/art/economy2-icons.js); the game draws stand-ins until they are on the phone (the page had no room for them)
+  econ: fs.existsSync(path.join(ASSETS, 'econ2_icons.png')) ? ['econ2_icons'] : [],
 };

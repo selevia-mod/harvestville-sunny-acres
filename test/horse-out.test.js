@@ -76,7 +76,7 @@ test('Horseshoes outside the farm and town; the Lantern Bridle in caves too', ()
   assert.match(L.horseWhy(s, L.horseMayGo(s, 'pulag')), /needs Horseshoes for the Wild Lands\. Make them at the Stable/);
 });
 
-test('the Stable makes Horseshoes and the Lantern Bridle; Saddlebags wait for the Mixer\'s Rope', () => {
+test('the Stable makes Horseshoes, the Lantern Bridle and (with the Mixer\'s Rope, part 3) the Saddlebags', () => {
   const s = fresh();
   s.gold = 100;
   assert.strictEqual(L.horseMake(s, 'horseshoes'), 'gold');
@@ -93,13 +93,18 @@ test('the Stable makes Horseshoes and the Lantern Bridle; Saddlebags wait for th
   give(s, 'crystal', 1);
   assert.strictEqual(L.horseMake(s, 'lantern_bridle'), 'ok');
   assert.ok(L.horseHas(s, 'lantern_bridle'));
-  // Saddlebags: on the list, not made yet (part 3 deletes `soon`)
+  // Saddlebags: they need Rope from the Mixer (part 3 turned them on): the bag gets 12 more slots
   give(s, 'leather_soft', 5);
-  assert.strictEqual(L.horseMake(s, 'saddlebags'), 'soon');
-  assert.match(H.gear.saddlebags.soon, /Needs Rope from the Mixer, coming soon/);
+  assert.strictEqual(H.gear.saddlebags.soon, undefined);
+  assert.strictEqual(L.horseMake(s, 'saddlebags'), 'needs', 'no Rope yet');
   assert.strictEqual(L.horseBagExtra(s), 0);
-  gear(s, 'saddlebags');
-  assert.strictEqual(L.horseBagExtra(s), 12, 'the hook part 3 uses: bag +12');
+  give(s, 'rope', 3);
+  const slots = s.inv.length, lv = L.bagLevel(s);
+  assert.strictEqual(L.horseMake(s, 'saddlebags'), 'ok');
+  assert.strictEqual(L.horseBagExtra(s), 12, 'bag +12');
+  assert.strictEqual(s.inv.length, slots + 12);
+  assert.strictEqual(L.bagLevel(s), lv, 'the bag keeps its level');
+  assert.strictEqual(L.countItem(s, 'rope'), 0);
   assert.strictEqual(L.horseMake(s, 'nothing'), 'none');
   assert.strictEqual(L.horseMake({ horse: null }, 'horseshoes'), 'none');
 });

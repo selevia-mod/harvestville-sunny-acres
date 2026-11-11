@@ -28,7 +28,7 @@ test('the Moon Bow: reach 7 and hit 3 like the Magma Bow, its arrow goes through
   assert.deepStrictEqual([4, 5, '5', 0].map((lv) => L.moonShot(lv)), [false, true, true, false]);
   assert.strictEqual(L.itemName(moon, 'bow'), "Haliya's Moon Bow");
   assert.strictEqual(L.iconOf(moon, 'bow'), C.ICON.bow_5);
-  assert.strictEqual(C.ICON_ORDER[C.ICON_ORDER.length - 1 - C.ACTION_ICONS.length - C.ADVENTURE_ICONS.length - C.STORY_ICONS.length - C.FRAID_ICONS.length - C.ECON_ICONS.length - C.HORSE_ICONS.length], 'bow_5', 'its icon came last (the action icons, the quest items and the story items after it): nothing moves');
+  assert.strictEqual(C.ICON_ORDER[C.ICON_ORDER.length - 1 - C.ACTION_ICONS.length - C.ADVENTURE_ICONS.length - C.STORY_ICONS.length - C.FRAID_ICONS.length - C.ECON_ICONS.length - C.HORSE_ICONS.length - C.ECON2_ICONS.length], 'bow_5', 'its icon came last (the action icons, the quest items and the story items after it): nothing moves');
   assert.deepStrictEqual([0, 3, 4, 5, 9].map((lv) => L.bowIcon(lv)), [C.ICON.bow, C.ICON.bow_3, C.ICON.bow_4, C.ICON.bow_5, C.ICON.bow_5]);
 });
 

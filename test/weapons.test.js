@@ -15,7 +15,8 @@ const { Config: C, Logic: L } = ctx.window.Farm;
 require('./clock')(ctx);
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(plain(L.serialize(s)));
-const rich = () => { const s = L.newState(); s.gold = 1e7; s.lumber = 500; s.energy = 999; return s; };
+// (with the Mixer's materials in the bag: farm economy v2 part 3 put Rope, Farm Cement and Beeswax in the game)
+const rich = () => { const s = L.newState(); s.gold = 1e7; s.lumber = 500; s.energy = 999; ['rope', 'farm_cement', 'beeswax'].forEach((id) => L.addItem(s, id, 99)); return s; };
 const T = C.TILE;
 
 test("the owner's reach and hit, by level (Basic, Copper, Silver, Gold, Magma, Moon), and the Bow's stay as they were", () => {
@@ -55,8 +56,8 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   assert.ok(L.hasWeapon(s, 'rifle') && L.weaponLevel(s, 'rifle') === 0);
   assert.strictEqual(s.gold, 1e7 - 2500);
   assert.strictEqual(s.lumber, 490);
-  // Copper needs copper ore (Farm Cement and Toro Hide are not in the game yet)
-  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle').needs), [['ore_copper', 8]]);
+  // Copper needs copper ore and the Mixer's Farm Cement (Toro Hide is not in the game yet)
+  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle').needs), [['ore_copper', 8], ['farm_cement', 2]]);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'short');
   L.addItem(s, 'ore_copper', 8);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
@@ -78,9 +79,8 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   const poor = L.newState();
   poor.gold = 100; poor.lumber = 100;
   assert.strictEqual(L.getWeapon(poor, 'javelin'), 'gold');
-  // a material that comes later is asked for once the game has it
-  C.ITEMS.rope = { name: 'Rope', kind: 'material', icon: 0 };
-  try { assert.deepStrictEqual(plain(L.nextWeapon(L.newState(), 'javelin').needs), [['lumber', 12], ['rope', 2]]); } finally { delete C.ITEMS.rope; }
+  // a material that came later (the Mixer's Rope, farm economy v2 part 3) is asked for now the game has it
+  assert.deepStrictEqual(plain(L.nextWeapon(L.newState(), 'javelin').needs), [['lumber', 12], ['rope', 2]]);
 });
 
 test('ammo: bullets 200G for 10, javelins 150G for 5, the boomerang none; a shot takes one and the energy', () => {
@@ -152,7 +152,7 @@ test('the boomerang is fixed at the Forge back to full: lumber and Gold (Rope to
   assert.strictEqual(L.repairCost(s), null, 'nothing to fix yet');
   assert.strictEqual(L.repairBoomerang(s), 'full');
   for (let i = 0; i < 90; i++) L.fireWeapon(s, 'boomerang');
-  assert.deepStrictEqual(plain(L.repairCost(s)), { gold: 100, needs: [['lumber', 2]] });
+  assert.deepStrictEqual(plain(L.repairCost(s)), { gold: 100, needs: [['lumber', 2], ['rope', 1]] });
   const g = s.gold, lu = s.lumber;
   assert.strictEqual(L.repairBoomerang(s), 'ok');
   assert.strictEqual(L.throwsLeft(s), 100);
@@ -165,13 +165,11 @@ test('the boomerang is fixed at the Forge back to full: lumber and Gold (Rope to
   s.lumber = 10; s.gold = 50;
   assert.strictEqual(L.repairBoomerang(s), 'gold');
   assert.strictEqual(L.throwsLeft(s), 95, 'nothing fixed');
-  // with the Mixer's Rope in the game, it is asked for
-  C.ITEMS.rope = { name: 'Rope', kind: 'material', icon: 0 };
-  try {
-    s.gold = 1000;
-    assert.deepStrictEqual(plain(L.repairCost(s).needs), [['lumber', 2], ['rope', 1]]);
-    assert.strictEqual(L.repairBoomerang(s), 'short');
-  } finally { delete C.ITEMS.rope; }
+  // the Mixer's Rope is asked for (farm economy v2 part 3)
+  s.gold = 1000;
+  L.removeItem(s, 'rope', 99);
+  assert.deepStrictEqual(plain(L.repairCost(s).needs), [['lumber', 2], ['rope', 1]]);
+  assert.strictEqual(L.repairBoomerang(s), 'short');
   // each level's price
   assert.deepStrictEqual(plain(C.WEAPONS.boomerang.repair.map((r) => r.gold)), [100, 200, 400, 800, 1500, 3000]);
   assert.strictEqual(L.repairBoomerang(L.newState()), 'none');

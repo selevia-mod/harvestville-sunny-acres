@@ -105,7 +105,7 @@ test('the 8 new crops: on the price ladder, energy like the crops that take as l
     assert.strictEqual(C.ICON_ORDER[sd.icon], 'seed_' + k);
     assert.ok(L.marketable(k), k + ' sells between farms');
   });
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16 - C.HORSE_ICONS.length, -C.HORSE_ICONS.length)), plain(NEW.concat(NEW.map((k) => 'seed_' + k))), 'their icons at the end (then only the horse gear, part 5)');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(-16 - C.HORSE_ICONS.length - C.ECON2_ICONS.length, -C.HORSE_ICONS.length - C.ECON2_ICONS.length)), plain(NEW.concat(NEW.map((k) => 'seed_' + k))), 'their icons at the end (then only the horse gear, part 5, and parts 2-4\'s potions and materials)');
   assert.strictEqual(C.CROP_WITHERED, 2 + C.CROP_KEYS.length * 2);
   // the crops sheet and the game agree on its size, and it holds the withered frame
   const png = fs.readFileSync(path.join(__dirname, '..', 'assets', 'crops.png')), sizes = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'assets', 'sizes.json'), 'utf8'));
