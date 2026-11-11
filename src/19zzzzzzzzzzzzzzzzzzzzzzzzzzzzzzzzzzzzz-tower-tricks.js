@@ -127,7 +127,7 @@
     if (p.list.length < n) { o = make(); p.list.push(o); } else { o = p.list[p.i]; p.i = (p.i + 1) % n; }
     return o;
   };
-  var STYLE = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '64px', fontStyle: 'bold', color: '#ffffff', stroke: '#1a1020', strokeThickness: 12 };
+  var STYLE = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '120px', fontStyle: 'bold', color: '#ffffff', stroke: '#1a1020', strokeThickness: 20 };
   // a word that floats up and fades (one pool for each word: its text is drawn once)
   var word = function (w, text, x, y, color) {
     var k = tk(w), o = pool(k, 'w:' + text, 6, function () { return w.add.text(0, 0, text, Object.assign({}, STYLE, { color: color || '#ffffff' })).setOrigin(0.5, 1).setDepth(WORD); });
@@ -273,7 +273,7 @@
   var stepSong = function (w, k, dt) {
     var c = w.player.body.center, list = w.wild.animals;
     if ((k.songMs -= dt) <= 0) { k.songMs = 200; k.sung = L.towerSung(list, c.x, c.y, T); }
-    if (k.sung && !k.mark) k.mark = w.add.text(0, 0, '♪ slowed', Object.assign({}, STYLE, { fontSize: '52px', color: '#cfe6ff', strokeThickness: 10 })).setOrigin(0.5, 1).setDepth(WORD);
+    if (k.sung && !k.mark) k.mark = w.add.text(0, 0, '♪ slowed', Object.assign({}, STYLE, { fontSize: '96px', color: '#cfe6ff', strokeThickness: 16 })).setOrigin(0.5, 1).setDepth(WORD);
     if (k.mark) k.mark.setVisible(k.sung).setPosition(c.x, c.y - 2.15 * T);
     // a note from a singer near you (one at a time, round the floor's singers)
     if ((k.noteMs -= dt) > 0 || !list.length) return;
@@ -284,7 +284,7 @@
       if (!a.sing || !(a.hp > 0) || a.lying || Math.abs(a.x - c.x) > reach || Math.abs(a.y - c.y) > reach) continue;
       k.noteI = (k.noteI + j + 1) % list.length;
       var y = a.y - a.lift - (0.6 + a.def.w * a.size * 0.8) * T, x = a.x + rand(-0.3, 0.3) * T;
-      var o = pool(k, 'note', 10, function () { return w.add.text(0, 0, '♪', Object.assign({}, STYLE, { fontSize: '72px', color: '#e6f2ff' })).setOrigin(0.5, 1).setDepth(WORD); });
+      var o = pool(k, 'note', 10, function () { return w.add.text(0, 0, '♪', Object.assign({}, STYLE, { fontSize: '150px', color: '#e6f2ff' })).setOrigin(0.5, 1).setDepth(WORD); });
       w.tweens.killTweensOf(o);
       o.setPosition(x, y).setAlpha(0.95).setVisible(true).setAngle(rand(-15, 15));
       w.tweens.add({ targets: o, x: x + rand(-0.4, 0.4) * T, y: y - 0.9 * T, alpha: 0, duration: 1000, onComplete: function (tw, t) { t[0].setVisible(false); } });

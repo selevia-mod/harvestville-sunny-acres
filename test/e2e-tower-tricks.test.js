@@ -54,7 +54,7 @@ async function open(savedState) {
   return { page, problems, context };
 }
 // a save at Manila's lighthouse with the floors open up to `deep`, the Bow, the Rifle and bullets
-const SETUP = "s.tips = -1; s.tq = -1; s.tq2 = -1; s.map = 'manila'; s.energy = 200; s.wild.n = 5; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 99); L.getWeapon(s, 'rifle'); L.addItem(s, 'bullets', 50); " +
+const SETUP = "s.tips = -1; s.tq = -1; s.tq2 = -1; s.map = 'manila'; s.energy = 200; s.wild.n = 900; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 99); L.getWeapon(s, 'rifle'); L.addItem(s, 'bullets', 50); " +
   "s.gold = 0; s.sel = s.inv.findIndex((x) => x && x.id === 'rifle'); const d = L.towerDoor(); s.player = { x: (d.x + 0.5) * 256, y: (d.y + 1.5) * 256, dir: 'up' };";
 async function makeSave(deep) {
   const { page, context } = await open(null);
@@ -145,7 +145,7 @@ test('bursting (floor 250): a beaten one leaves a puddle; in it you walk 40% slo
   const speed = async (tx, ty) => {
     await me(page, tx, ty);
     await page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = -1; });
-    await page.waitForTimeout(160);
+    await frames(page, 20); // (the walk eases up to its top speed: frames, not time, under load)
     const v = await page.evaluate(() => Math.abs(Farm.world.player.body.velocity.y));
     await page.evaluate(() => { Farm.input.jx = 0; Farm.input.jy = 0; });
     await frames(page, 4);
@@ -157,8 +157,7 @@ test('bursting (floor 250): a beaten one leaves a puddle; in it you walk 40% slo
   await shot(page, 'tricks-2-puddle');
   // it dries
   await page.evaluate(() => { Farm.towerTk().puddles[0].until = Farm.world.time.now + 10; });
-  await page.waitForTimeout(150);
-  assert.strictEqual(await page.evaluate(() => Farm.towerTk().puddles[0].img.visible), false);
+  await page.waitForFunction(() => !Farm.towerTk().puddles[0].img.visible, null, SLOW);
   assert.ok(Math.abs((await speed(12, 14.4)) / out - 1) < 0.08, 'dry: full speed again');
   // no more than a few at once (their pictures reused)
   const most = await page.evaluate(() => { const w = Farm.world; w.wild.animals.slice(0, 18).forEach((a) => { a.hp = 0; a.mine = true; a.hits = 1; w.wildDown(a); }); return Farm.towerTk().puddles.length; });
@@ -203,20 +202,20 @@ test('song (floor 350): with a singer alive near you, the Rifle and the Bow wait
   // the Bow, the same: after its shot is done it still waits
   await page.evaluate(() => { const s = Farm.session.state; s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); });
   const bow = await page.evaluate(async () => {
-    const w = Farm.world, until = (t) => new Promise((r) => { const step = () => (w.time.now >= t ? r() : requestAnimationFrame(step)); step(); });
-    await until(w.time.now + 2300);
+    const w = Farm.world, k = Farm.towerTk(), until = (f) => new Promise((r) => { const step = () => (f() ? r() : requestAnimationFrame(step)); step(); });
+    await until(() => !w.wpnShot);
     w.shoot();
-    const gap = Farm.towerTk().bowGap, t0 = w.time.now;
-    await until(t0 + gap + 100);
-    const done = !w.shot;
+    const first = !!w.shot, gap = k.bowGap;
+    await until(() => !w.shot);
+    k.bowAt = w.time.now - gap - 20; // (as if its shot had just ended: the Bow's own time over, the song's not)
     w.shoot();
     const blocked = !w.shot;
-    await until(t0 + gap * 1.5 + 60);
+    k.bowAt = w.time.now - gap * 1.5 - 20; // (and half as long again: it goes)
     w.shoot();
-    return { gap, done, blocked, again: !!w.shot };
+    return { gap, first, blocked, again: !!w.shot };
   });
   assert.ok(bow.gap > 200, 'the Bow\'s own time: ' + bow.gap);
-  assert.deepStrictEqual([bow.done, bow.blocked, bow.again], [true, true, true], 'its shot done, the next waits, then goes');
+  assert.deepStrictEqual([bow.first, bow.blocked, bow.again], [true, true, true], 'a shot; the next waits half as long again; then goes');
   // the singer beaten: no more song
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.filter((a) => a.sing).forEach((a) => { a.hp = 0; a.mine = true; a.hits = 1; w.wildDown(a); }); });
   await page.waitForFunction(() => !Farm.towerTk().sung && !Farm.towerTk().mark.visible, null, SLOW);
@@ -415,9 +414,11 @@ test('floor 951, every trick: 60 enemies run for a few seconds with no errors, b
   console.log('# floor 951, 60 enemies, every trick: ' + ms.frames + ' frames in 4.5 s, median ' + ms.median.toFixed(1) + ' ms, 95% under ' + ms.p95.toFixed(1) + ' ms (headless desktop)');
   const after = await page.evaluate(() => {
     const w = Farm.world, k = Farm.towerTk(), list = w.wild.animals;
-    return { copies: list.filter((a) => a.slot >= 10000).length + Object.keys(w.lair.extra || {}).length, puddles: k.puddles.length, lying: list.filter((a) => a.lying).length, left: Farm.towerLeft(w), active: w.sys.isActive(), map: w.mapKey };
+    return { copies: Object.keys(w.lair.extra || {}).length, puddles: k.puddles.length, lying: list.filter((a) => a.lying).length, left: Farm.towerLeft(w), map: w.mapKey, modals: Farm.ui.modals.length };
   });
+  console.log('# after: ' + JSON.stringify(after));
   assert.strictEqual(after.map, 'tower', 'still on the floor');
+  assert.strictEqual(after.modals, 0, 'nothing in the way: they ran the whole time');
   assert.ok(after.copies > 0 && after.puddles > 0, 'splits and puddles happened');
   assert.ok(after.puddles <= 10, 'the puddles kept to a few');
   await shot(page, 'tricks-9-floor-951');
