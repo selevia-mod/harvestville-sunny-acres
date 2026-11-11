@@ -25,6 +25,10 @@ const objs = map.layers.find((l) => l.type === 'objectgroup').objects;
 const tile = (p) => [Math.floor(p[0]), Math.floor(p[1])];
 const reach = (a, b) => (a[0] === b[0] && a[1] === b[1]) || !!L.manilaPath(grid, a[0], a[1], b[0], b[1], 9000);
 const START = tile(M.spawns.from_train);
+// (owner, 11 Nov 2026: the city is turned round, the bay on the right, the way in on the left: 00-...-manila-flip.js. The
+// places below are named as in the layout and turned the same way: a tile x -> 89 - x, a box's x -> 90 - x - w.)
+const X = (x) => 89 - x;
+const BX = (x, w) => 90 - x - w;
 
 test('the map: 90 x 90, the town\'s own tile and season sheets (same numbers) and Manila\'s ground sheet; the same on every phone', () => {
   assert.strictEqual(map.width, 90);
@@ -47,7 +51,7 @@ test('the map: 90 x 90, the town\'s own tile and season sheets (same numbers) an
 test('the layout: no two buildings or props on the same tile; all inside the map; the bay is water you cannot walk in', () => {
   const seen = new Map();
   const boxes = M.buildings.map((b) => [b.key, b.box]).concat(M.props.map((p, i) => ['prop' + i + ':' + p[0], [p[1], p[2], p[3], p[4]]]))
-    .concat(M.baywalk.lamps.map((y) => ['lamp' + y, [15, y, 1, 2]]), M.baywalk.benches.map((y) => ['bench' + y, [12, y, 2, 1]]));
+    .concat(M.baywalk.lamps.map((y) => ['lamp' + y, [M.baywalk.lampX, y, 1, 2]]), M.baywalk.benches.map((y) => ['bench' + y, [M.baywalk.benchX, y, 2, 1]]));
   boxes.forEach(([k, b]) => {
     assert.ok(b[0] >= 0 && b[1] >= 0 && b[0] + b[2] <= 90 && b[1] + b[3] <= 90, k + ' inside the map');
     for (let y = b[1]; y < b[1] + b[3]; y++) for (let x = b[0]; x < b[0] + b[2]; x++) {
@@ -56,28 +60,30 @@ test('the layout: no two buildings or props on the same tile; all inside the map
       seen.set(i, k);
     }
   });
-  for (let y = 0; y < 90; y++) for (let x = 0; x < 12; x++) {
-    if (y >= 50 && y <= 62 && x >= 2) continue; // (the breakwater and the pier)
-    if (y >= 69 && y <= 82 && x >= 3) continue; // (the Ferris wheel's pier)
+  for (let y = 0; y < 90; y++) for (let x0 = 0; x0 < 12; x0++) {
+    if (y >= 50 && y <= 62 && x0 >= 2) continue; // (the breakwater and the pier)
+    if (y >= 69 && y <= 82 && x0 >= 3) continue; // (the Ferris wheel's pier)
+    const x = X(x0); // (the bay on the right: the east edge)
     assert.ok(!grid.ok(x, y), `the bay at ${x},${y}`);
   }
   // the proposals' places (a few, by their boxes)
   const box = (k) => M.buildings.find((b) => b.key === k).box;
-  assert.deepStrictEqual(plain(box('market').slice(0, 2)), [62, 35]);
-  assert.deepStrictEqual(plain(box('fountain')), [47, 43, 5, 5]);
-  assert.deepStrictEqual(plain(box('church').slice(0, 2)), [22, 7]);
-  assert.deepStrictEqual(plain(box('station').slice(0, 2)), [56, 2]);
+  assert.deepStrictEqual(plain(box('market').slice(0, 2)), [BX(62, 11), 35]);
+  assert.deepStrictEqual(plain(box('fountain')), [BX(47, 5), 43, 5, 5]);
+  assert.deepStrictEqual(plain(box('church').slice(0, 2)), [BX(22, 9), 7]);
+  assert.deepStrictEqual(plain(box('station').slice(0, 2)), [BX(56, 9), 2]);
+  assert.ok(box('station')[0] < 45 && box('mall')[0] > 45 && box('harbor')[0] > 45, 'the station on the left; the Mall and the port on the right, by the bay');
 });
 
 test('on foot from the train: every door, every person\'s spot, the plaza, the three gates, the pier and the berths', () => {
   Object.keys(M.spots).forEach((k) => assert.ok(reach(START, tile(M.spots[k])), 'spot ' + k));
   assert.ok(reach(START, tile(M.spawns.from_valley)), 'the Plains Gate (the valley road)');
-  assert.ok(reach(START, [49, 50]), 'the plaza');
-  assert.ok(reach(START, [46, 3]), 'up to (in front of) the Gorge Gate');
-  assert.ok(reach(START, [29, 87]), 'down to the Jungle Gate');
+  assert.ok(reach(START, [X(49), 50]), 'the plaza');
+  assert.ok(reach(START, [X(46), 3]), 'up to (in front of) the Gorge Gate');
+  assert.ok(reach(START, [X(29), 87]), 'down to the Jungle Gate');
   M.berths.forEach((b) => assert.ok(reach(START, [b[0], b[1] + 1]), 'by berth ' + b));
-  assert.ok(reach(START, [16, 15]) && reach(START, [28, 29]), 'both gates of the walled quarter');
-  assert.ok(reach(START, [26, 18]), 'the church square');
+  assert.ok(reach(START, [X(16), 15]) && reach(START, [X(28), 29]), 'both gates of the walled quarter');
+  assert.ok(reach(START, [X(26), 18]), 'the church square');
   // every person's spot is free (nobody stands in a wall)
   Object.keys(M.spots).forEach((k) => { const t = tile(M.spots[k]); assert.ok(grid.ok(t[0], t[1]), k + ' is free'); });
 });
@@ -87,7 +93,7 @@ test('the gates: the Plains Gate walks home to the town (from_manila); the Gorge
   assert.strictEqual(warp.type, 'warp');
   const pr = Object.fromEntries(warp.properties.map((p) => [p.name, p.value]));
   assert.deepStrictEqual(pr, { to: 'town', spawn: 'from_manila', walk: true });
-  assert.strictEqual(warp.x / 256, 89);
+  assert.strictEqual(warp.x / 256, 0, 'on the left edge');
   ['gorge', 'jungle'].forEach((g) => {
     const o = objs.find((x) => x.name === 'mn_gate_' + g);
     assert.strictEqual(o.type, 'mn_gate');
@@ -329,19 +335,19 @@ test('gates: nobody stands inside a gate\'s picture; a gate walked through is so
   assert.deepStrictEqual(plain(Object.keys(M.pass).sort()), ['chinatown_arch', 'race_arch', 'wall_gate']);
 });
 
-test('the valley road comes in on Manila\'s right side, just inside the Plains Gate, facing in: free ground, off the jeep\'s road', () => {
+test('the valley road comes in on Manila\'s left side (owner: the way in on the left), by the Plains Gate, facing in: free ground, off the jeep\'s road', () => {
   const p = M.spawns.from_valley, t = tile(p), strict = L.manilaGrid(map, true);
-  assert.ok(t[0] >= 75, 'the right side: ' + t);
-  assert.strictEqual(p[2], 'left');
+  assert.ok(t[0] <= 14, 'the left side: ' + t);
+  assert.strictEqual(p[2], 'right');
   assert.ok(strict.ok(t[0], t[1]) && grid.ok(t[0], t[1]), 'free ground (not the road, not a building)');
   // (owner's bug, 11 Nov 2026: she stood inside the gate's picture.) The gate stands beside the avenue's end, solid all
   // over; the arrival and the way out to the valley road are clear of its picture (her sprite is 1.5 tiles tall)
   const gate = M.decor.find((d) => d[0] === 'gate_plains');
   assert.strictEqual(gate[5], gate[4], 'the gate is solid all over');
   for (let y = gate[2]; y < gate[2] + gate[4]; y++) for (let x = gate[1]; x < gate[1] + gate[3]; x++) assert.ok(!grid.ok(x, y), 'gate ' + x + ',' + y);
-  assert.ok(t[1] + 1 < gate[2] || t[0] < gate[1] - 1, 'she arrives clear of it');
-  assert.ok(gate[1] - t[0] <= 3 && gate[2] - t[1] <= 4, 'and right by it');
-  const out = L.manilaPath(grid, t[0], t[1], 88, 44, 9000);
+  assert.ok(t[1] + 1 < gate[2] || t[0] > gate[1] + gate[3], 'she arrives clear of it');
+  assert.ok(t[0] - (gate[1] + gate[3] - 1) <= 3 && gate[2] - t[1] <= 4, 'and right by it');
+  const out = L.manilaPath(grid, t[0], t[1], X(88), 44, 9000);
   assert.ok(out, 'out to the valley road');
   out.forEach((q) => assert.ok(!(q[0] >= gate[1] && q[0] < gate[1] + gate[3] && q[1] + 1 >= gate[2]), 'the way out passes in front of nothing of the gate: ' + q));
 });

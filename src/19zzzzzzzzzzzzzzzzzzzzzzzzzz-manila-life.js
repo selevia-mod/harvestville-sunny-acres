@@ -236,24 +236,28 @@
       return im;
     };
     R.pillars.forEach(function (x) { put('rail_pillar', x * T, 1.6 * T, -2e-6); });
-    for (var x = R.x0; x < R.x1; x += 4) {
+    var flip = !!R.flip; // (the city turned round, 00-...-manila-flip.js: the deck laid from its buffer's end, east)
+    for (var x = flip ? R.x1 - 4 : R.x0; flip ? x > R.x0 - 4 : x < R.x1; x += flip ? -4 : 4) {
       var im = this.add.image(x * T, (R.y - 0.4) * T, deck).setOrigin(0, 1).setDisplaySize(dw, dh);
       F.depthTo(im, depth - 1e-6);
     }
     // (the owner's end piece has its buffer on the right; the track ends at the WEST, so it is turned round)
-    var end = put('rail_end', (R.end + 0.9) * T, 1.8 * T, 0);
-    if (end) { end.y -= 0.2 * T; end.setFlipX(true); }
+    var end = put('rail_end', (R.end + (flip ? -0.9 : 0.9)) * T, 1.8 * T, 0);
+    if (end) { end.y -= 0.2 * T; end.setFlipX(!flip); }
     // a covered platform with benches on the deck, east of the parked train, and stairs down to the avenue's sidewalk
     if (R.platform) { var pf = put('rail_platform', (R.platform + 2) * T, 4 * T, 2e-6); if (pf) pf.y -= 0.3 * T; }
     if (R.stairs) { var st = put('rail_stairs', (R.stairs + 1) * T, 2 * T, 3e-6); if (st) st.y += 0.9 * T; }
-    var tx = R.train * T, head = put('city_train_head', tx + 2 * T, 4 * T, 1e-6);
-    if (head) head.y -= 0.75 * T;
-    for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (6 + 4 * c) * T, 4 * T, 1e-6); if (car) car.y -= 0.75 * T; }
+    // the train at the platform, its head toward the buffer (turned round with the city)
+    var tx = R.train * T, head = put('city_train_head', tx + (flip ? 4 * R.cars + 2 : 2) * T, 4 * T, 1e-6);
+    if (head) { head.y -= 0.75 * T; head.setFlipX(flip); }
+    for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (flip ? 2 + 4 * c : 6 + 4 * c) * T, 4 * T, 1e-6); if (car) { car.y -= 0.75 * T; car.setFlipX(flip); } }
   };
 
   // ---------- roles ----------
   var TITLES = { priest: 'FATHER RAMON', dimsum: 'THE DIMSUM VENDOR', castanas: 'THE CASTANAS VENDOR', pickleball: 'A PICKLEBALL PLAYER', office: 'AN OFFICE WORKER', tower_guard: 'THE TOWER GUARD', mall_guard: 'THE MALL GUARD', shopper: 'A SHOPPER', guard: 'THE GUARD', sales: 'THE SALES LADY' };
-  var TOWER_DOORS = [[52, 28.6], [59, 28.6]], MALL_DOOR = [30, 81.6];
+  // (in front of the towers' doors and the Mall's: from their boxes, wherever the city puts them)
+  var TOWER_DOORS = ['tower1', 'tower2'].map(function (k) { var b = M.buildings.filter(function (x) { return x.key === k; })[0].box; return [b[0] + 3, b[1] + b[3] + 0.6]; });
+  var MALL_DOOR = M.mall.out;
   // the owner's vehicles (3 x 3 driving sheets, frames of 512 x 384: tools/manila/manila-import.js)
   if (F.SHEETS) ['tricycle', 'calesa'].forEach(function (k) { F.SHEETS['manila_' + k] = { frameWidth: 512, frameHeight: 384, margin: 0, spacing: 0 }; });
   P.mnRoleAdd = function (key, role, i) {
@@ -271,7 +275,7 @@
     // (owner's redrawn court, 11 Nov 2026: a fence and a bench along its back; the four stand on the green, two each side of the net)
     var court = role.court, spot = court ? [court[0] + (i < 2 ? 1.5 : court[2] - 1.5), court[1] + (i % 2 ? 4.3 : 3.1), i < 2 ? 'right' : 'left'] : null;
     if (spot) role = Object.assign({}, role, { post: spot });
-    var at = role.post || (key === 'office' ? TOWER_DOORS[i % 2] : key === 'shopper' ? MALL_DOOR : [49.5, 50.6]);
+    var at = role.post || (key === 'office' ? TOWER_DOORS[i % 2] : key === 'shopper' ? MALL_DOOR : M.spots.plaza_s);
     var sp = this.add.sprite(at[0] * T, at[1] * T, look.key, look.row * 9).setOrigin(0.5, 0.83).setScale(2);
     if (look.tint) sp.setTint(look.tint);
     var v = { folk: true, role: key, def: role, look: look, sp: sp, x: at[0] * T, y: at[1] * T, zone: 'plaza', path: [], hold: 300 + Math.random() * 3000, dir: role.post ? role.post[2] : 'down',

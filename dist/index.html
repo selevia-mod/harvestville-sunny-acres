@@ -6288,6 +6288,77 @@ later: ['npc_student_1', 'npc_student_2', 'npc_student_3', 'npc_fishball_vendor'
 M.life.people = Object.keys(M.life.files).filter(function (k) { return M.life.files[k].person; });
 })(window.Farm = window.Farm || {});
 
+// ---- src/00-zzzzzzzzzzzzzzzzzzzzz-manila-flip.js
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var M = C.MANILA;
+if (!M || M.flipped) return;
+var W = M.W;
+var done = typeof WeakSet === 'function' ? new WeakSet() : null;
+var once = function (a) { if (!done) return true; if (done.has(a)) return false; done.add(a); return true; };
+var box = function (a, i) { i = i || 0; if (once(a)) a[i] = W - a[i] - a[i + 2]; return a; };
+var tile = function (a, i) { i = i || 0; if (once(a)) a[i] = W - 1 - a[i]; return a; };
+var point = function (a, i) { i = i || 0; if (once(a)) a[i] = W - a[i]; return a; };
+var DIR = { left: 'right', right: 'left' };
+var face = function (a, i) { if (DIR[a[i]]) a[i] = DIR[a[i]]; };
+var span = function (a, i0, i1) { var x0 = a[i0], x1 = a[i1]; a[i0] = W - 1 - x1; a[i1] = W - 1 - x0; };
+var say = function (s) { return String(s).replace(/\b(east|west)\b/g, function (w) { return w === 'east' ? 'west' : 'east'; }).replace(/\b(East|West)\b/g, function (w) { return w === 'East' ? 'West' : 'East'; }); };
+
+M.ground.forEach(function (g) { box(g, 1); });
+M.trackCorners.forEach(function (c) { tile(c); });
+M.buildings.forEach(function (b) { box(b.box); if (b.text) b.text = say(b.text); });
+M.props.forEach(function (p) { box(p, 1); });
+
+M.baywalk.lampX = W - (M.baywalk.lampX != null ? M.baywalk.lampX : 15) - 1;
+M.baywalk.benchX = W - (M.baywalk.benchX != null ? M.baywalk.benchX : 12) - 2;
+
+M.trees.forEach(function (r) { var last = r[0] + 2 * Math.floor((r[2] - r[0]) / 2); var x0 = W - 2 - last; r[2] = W - 2 - r[0]; r[0] = x0; });
+M.looseTrees.forEach(function (t) { t[0] = W - 2 - t[0]; });
+M.bushes.forEach(function (b) { tile(b); });
+(M.fences || []).forEach(function (f) { span(f, 0, 2); f[4] = W - 1 - f[4]; });
+M.crates.forEach(function (c) { tile(c); });
+M.berths.forEach(function (b) { tile(b); });
+M.gates.forEach(function (g) { box(g.box); tile(g.sign); g.text = say(g.text); });
+M.signs.forEach(function (s) { tile(s); s[2] = say(s[2]); });
+M.decor.forEach(function (d) { box(d, 1); });
+(M.scatter || []).forEach(function (s) { span(s, 1, 3); });
+Object.keys(M.spawns).forEach(function (k) { point(M.spawns[k]); face(M.spawns[k], 2); });
+Object.keys(M.spots).forEach(function (k) { point(M.spots[k]); });
+
+Object.keys(M.crowd.zones).forEach(function (z) { M.crowd.zones[z].at.forEach(function (q) { tile(q); face(q, 2); }); });
+M.crowd.lines = M.crowd.lines.map(say);
+M.people.order.forEach(function (k) { var p = M.people[k]; p.met = say(p.met); p.lines = p.lines.map(say); });
+
+M.jeep.path.forEach(function (p) { point(p); });
+M.jeep.stops.forEach(function (st) { point(st.at); box(st.shed); point(st.wait); });
+M.jeep.cross.forEach(function (c) { box(c); });
+
+var R = M.rail;
+if (R) {
+var x0 = R.x0, x1 = R.x1, long = 4 + 4 * R.cars;
+R.x0 = W - x1; R.x1 = W - x0;
+R.pillars = R.pillars.map(function (x) { return W - x; });
+R.end = W - R.end;
+R.train = W - R.train - long;
+if (R.platform != null) R.platform = W - R.platform - 4;
+if (R.stairs != null) R.stairs = W - R.stairs - 2;
+R.flip = true;
+}
+M.railsBox = box([56, 10, W - 56, 2]);
+
+Object.keys(M.roles).forEach(function (k) { var r = M.roles[k]; if (r.post) { point(r.post); face(r.post, 2); } if (r.court) box(r.court); });
+point(M.mall.out);
+M.flipped = true;
+})(window.Farm = window.Farm || {});
+
 // ---- src/01-logic.js
 
 
@@ -18000,13 +18071,15 @@ drawn(b.key, b.stand, b.box, b.foot, { art: b.art || '', label: b.name || '', te
 v: b.v, shed: b.shed, mall: b.mall ? 1 : 0, ferris: b.ferris ? 1 : 0, flat: b.flat ? 1 : 0 });
 });
 M.props.forEach(function (p, i) { drawn('p' + i, p[0], [p[1], p[2], p[3], p[4]], p[5], { art: p[6] || '' }); });
-M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [15, y, 1, 2], 1, { art: 'street_lamp' }); });
-M.baywalk.benches.forEach(function (y, i) { drawn('bb' + i, 'bench', [12, y, 2, 1], 1, { art: 'park_bench' }); });
+var lx = M.baywalk.lampX != null ? M.baywalk.lampX : 15, bx = M.baywalk.benchX != null ? M.baywalk.benchX : 12;
+M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [lx, y, 1, 2], 1, { art: 'street_lamp' }); });
+M.baywalk.benches.forEach(function (y, i) { drawn('bb' + i, 'bench', [bx, y, 2, 1], 1, { art: 'park_bench' }); });
 
 (M.decor || []).forEach(function (d, i) { drawn('d' + i, '', [d[1], d[2], d[3], d[4]], d[5], { art: d[0] }); });
 
 
-obj('mn_rails', 'mn_rails', 56, 10, W - 56, 2);
+var rb = M.railsBox || [56, 10, W - 56, 2];
+obj('mn_rails', 'mn_rails', rb[0], rb[1], rb[2], rb[3]);
 
 var sign = function (name, x, y, text) {
 put(walls, x, y, tg('sign'));
@@ -52045,9 +52118,27 @@ if (mall || again) return;
 if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
 this.save();
 this.time.delayedCall(700, function () {
-if (F.ui) F.ui.dialog('WELCOME TO MANILA\nThe big city by the bay! The Central Plaza is in the middle, the station up north, the Grand Market east and the port by the bay.\n\nThe shops and the hunting grounds open soon. Say hello to the people!');
+if (F.ui) F.ui.dialog('WELCOME TO MANILA\nThe big city by the bay! The Central Plaza is in the middle, the station up north, the Grand Market ' + (M.flipped ? 'west' : 'east') + ' and the port by the bay.\n\nThe shops and the hunting grounds open soon. Say hello to the people!');
 });
 } else if (F.ui) this.time.delayedCall(500, function () { if (F.ui) F.ui.toast('Manila', 1600); });
+};
+
+
+
+P.mnUnstick = function () {
+var f = this.feet(), g = this.mnWalk || (this.mnWalk = L.manilaGrid(maps.manila, false)), sp = M.spawns.from_valley;
+if (g.ok(Math.floor(f.x / T), Math.floor(f.y / T)) || !sp) return false;
+this.setFeet(sp[0] * T, sp[1] * T);
+this.dir = sp[2] || 'right';
+this.idle();
+return true;
+};
+
+
+var unstick = P.unstick;
+P.unstick = function () {
+if (this.mapKey === 'manila' && this.player) this.mnUnstick();
+return unstick.apply(this, arguments);
 };
 
 
@@ -52435,7 +52526,7 @@ var fare = L.manilaFare(s), there = to === 'manila';
 var head = there ? 'TRAIN TO MANILA\nThe big city by the bay: the Central Plaza, the Grand Market, the old walled quarter and the port.'
 : 'MANILA CENTRAL\nThe train home to Willowbrook Station.';
 var price = fare ? 'A ticket is ' + fmt(fare) + 'G one way. You have ' + fmt(s.gold) + 'G.' : 'Your first ride is free!';
-var road = there ? '\n\n(Or walk the valley road: east out of town, past Market Street.)' : '\n\n(Or walk the valley road home: out the Plains Gate, east.)';
+var road = there ? '\n\n(Or walk the valley road: east out of town, past Market Street.)' : '\n\n(Or walk the valley road home: out the Plains Gate, ' + (M.flipped ? 'west' : 'east') + '.)';
 this.dialog(head + '\n\n' + price + road, [
 { label: 'Not now', color: GREY },
 { label: fare ? 'Ride ' + fmt(fare) + 'G' : 'Ride free', color: GREEN, cb: function () {
@@ -52689,24 +52780,28 @@ F.depthTo(im, depth + (d || 0));
 return im;
 };
 R.pillars.forEach(function (x) { put('rail_pillar', x * T, 1.6 * T, -2e-6); });
-for (var x = R.x0; x < R.x1; x += 4) {
+var flip = !!R.flip;
+for (var x = flip ? R.x1 - 4 : R.x0; flip ? x > R.x0 - 4 : x < R.x1; x += flip ? -4 : 4) {
 var im = this.add.image(x * T, (R.y - 0.4) * T, deck).setOrigin(0, 1).setDisplaySize(dw, dh);
 F.depthTo(im, depth - 1e-6);
 }
 
-var end = put('rail_end', (R.end + 0.9) * T, 1.8 * T, 0);
-if (end) { end.y -= 0.2 * T; end.setFlipX(true); }
+var end = put('rail_end', (R.end + (flip ? -0.9 : 0.9)) * T, 1.8 * T, 0);
+if (end) { end.y -= 0.2 * T; end.setFlipX(!flip); }
 
 if (R.platform) { var pf = put('rail_platform', (R.platform + 2) * T, 4 * T, 2e-6); if (pf) pf.y -= 0.3 * T; }
 if (R.stairs) { var st = put('rail_stairs', (R.stairs + 1) * T, 2 * T, 3e-6); if (st) st.y += 0.9 * T; }
-var tx = R.train * T, head = put('city_train_head', tx + 2 * T, 4 * T, 1e-6);
-if (head) head.y -= 0.75 * T;
-for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (6 + 4 * c) * T, 4 * T, 1e-6); if (car) car.y -= 0.75 * T; }
+
+var tx = R.train * T, head = put('city_train_head', tx + (flip ? 4 * R.cars + 2 : 2) * T, 4 * T, 1e-6);
+if (head) { head.y -= 0.75 * T; head.setFlipX(flip); }
+for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (flip ? 2 + 4 * c : 6 + 4 * c) * T, 4 * T, 1e-6); if (car) { car.y -= 0.75 * T; car.setFlipX(flip); } }
 };
 
 
 var TITLES = { priest: 'FATHER RAMON', dimsum: 'THE DIMSUM VENDOR', castanas: 'THE CASTANAS VENDOR', pickleball: 'A PICKLEBALL PLAYER', office: 'AN OFFICE WORKER', tower_guard: 'THE TOWER GUARD', mall_guard: 'THE MALL GUARD', shopper: 'A SHOPPER', guard: 'THE GUARD', sales: 'THE SALES LADY' };
-var TOWER_DOORS = [[52, 28.6], [59, 28.6]], MALL_DOOR = [30, 81.6];
+
+var TOWER_DOORS = ['tower1', 'tower2'].map(function (k) { var b = M.buildings.filter(function (x) { return x.key === k; })[0].box; return [b[0] + 3, b[1] + b[3] + 0.6]; });
+var MALL_DOOR = M.mall.out;
 
 if (F.SHEETS) ['tricycle', 'calesa'].forEach(function (k) { F.SHEETS['manila_' + k] = { frameWidth: 512, frameHeight: 384, margin: 0, spacing: 0 }; });
 P.mnRoleAdd = function (key, role, i) {
@@ -52724,7 +52819,7 @@ if (!this.anims.exists(ak)) this.anims.create({ key: ak, frames: this.anims.gene
 
 var court = role.court, spot = court ? [court[0] + (i < 2 ? 1.5 : court[2] - 1.5), court[1] + (i % 2 ? 4.3 : 3.1), i < 2 ? 'right' : 'left'] : null;
 if (spot) role = Object.assign({}, role, { post: spot });
-var at = role.post || (key === 'office' ? TOWER_DOORS[i % 2] : key === 'shopper' ? MALL_DOOR : [49.5, 50.6]);
+var at = role.post || (key === 'office' ? TOWER_DOORS[i % 2] : key === 'shopper' ? MALL_DOOR : M.spots.plaza_s);
 var sp = this.add.sprite(at[0] * T, at[1] * T, look.key, look.row * 9).setOrigin(0.5, 0.83).setScale(2);
 if (look.tint) sp.setTint(look.tint);
 var v = { folk: true, role: key, def: role, look: look, sp: sp, x: at[0] * T, y: at[1] * T, zone: 'plaza', path: [], hold: 300 + Math.random() * 3000, dir: role.post ? role.post[2] : 'down',

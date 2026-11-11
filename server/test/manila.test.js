@@ -20,7 +20,7 @@ test('the city\'s map: built from the game\'s layout (90 x 90), no file in maps/
   assert.strictEqual(m.W, 90);
   assert.strictEqual(m.H, 90);
   assert.strictEqual(m.zone, null, 'no wild zone: no animals');
-  assert.ok(m.walkable(49, 50) && !m.walkable(3, 3), 'the plaza is ground, the bay is not');
+  assert.ok(m.walkable(40, 50) && !m.walkable(86, 3), 'the plaza is ground, the bay is not (the bay on the right: owner, 11 Nov 2026)');
   assert.ok(isCity(R, 'manila') && isPubMap(R, w.game.maps, 'manila'));
   assert.ok(!R.L.isWildMap('manila'));
   R.C.MANILA.on = false;

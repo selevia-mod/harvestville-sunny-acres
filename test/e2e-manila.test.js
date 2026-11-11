@@ -15,6 +15,10 @@ const SLOW = { timeout: 90000 };
 const T = 256;
 const at = (w) => new Date(w[0], w[1] - 1, w[2], w[3] || 0, w[4] || 0).getTime();
 const NOON = [2026, 4, 1, 12, 30]; // (Aling Rosa is on the plaza from noon to one)
+// (owner, 11 Nov 2026: the city is turned round, the bay on the right and the way in on the left: 00-...-manila-flip.js.
+// The places below are the layout's, turned the same way: a tile x -> X(x) = 89 - x, a point x -> PX(x) = 90 - x.)
+const X = (x) => 89 - x;
+const PX = (x) => 90 - x;
 
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
@@ -115,21 +119,21 @@ test('the train to Manila and back: the station\'s Manila tab, the first ride fr
   await waitMap(page, 'manila');
   let s = await state(page);
   assert.strictEqual(s.gold, 1000, 'the first ride was free');
-  assert.deepStrictEqual(await feetTile(page), [64, 9], 'off the train on the platform');
+  assert.deepStrictEqual(await feetTile(page), [X(64), 9], 'off the train on the platform');
   await page.waitForTimeout(600);
   await shot(page, 'manila-2-platform');
   // the 7 people are out (at their places by the hour)
   const who = await page.evaluate(() => Farm.world.mn.people.map((v) => v.key));
   assert.deepStrictEqual(who, ['rosa', 'danny', 'lando', 'kardo', 'marisol', 'tibo', 'amparo']);
   // (Mang Tibo stands on the platform: out of the way of this walk)
-  await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'tibo'); v.hold = 1e9; v.path = []; v.x = 70.5 * 256; v.y = 7.4 * 256; Farm.world.mnPlace(v); });
-  // walk: west along the platform to the north road, then down it into the Central Plaza
-  await walk(page, 'ArrowLeft', () => Farm.world.feet().x < 47.9 * 256);
-  await page.evaluate(() => { const f = Farm.world.feet(); Farm.world.setFeet(47.5 * 256, f.y); }); // (the middle of the road: a slow frame can carry you a little past)
+  await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'tibo'); v.hold = 1e9; v.path = []; v.x = 19.5 * 256; v.y = 7.4 * 256; Farm.world.mnPlace(v); });
+  // walk: east along the platform to the north road, then down it into the Central Plaza
+  await walk(page, 'ArrowRight', () => Farm.world.feet().x > 42.1 * 256);
+  await page.evaluate(() => { const f = Farm.world.feet(); Farm.world.setFeet(42.5 * 256, f.y); }); // (the middle of the road: a slow frame can carry you a little past)
   await walk(page, 'ArrowDown', () => Farm.world.feet().y > 41.5 * 256);
   const t = await feetTile(page);
   assert.strictEqual(await page.evaluate(() => Farm.world.mapKey), 'manila');
-  assert.ok(t[0] >= 40 && t[0] <= 58 && t[1] >= 36 && t[1] <= 54, 'on the plaza: ' + t);
+  assert.ok(t[0] >= X(58) && t[0] <= X(40) && t[1] >= 36 && t[1] <= 54, 'on the plaza: ' + t);
   await shot(page, 'manila-3-plaza');
   // Aling Rosa (on the plaza at half past twelve): stand beside her and Talk
   const side = await page.evaluate(() => {
@@ -156,21 +160,21 @@ test('the train to Manila and back: the station\'s Manila tab, the first ride fr
   assert.strictEqual(s.mn.met & 1, 1, 'she remembers you');
   // a shop: "coming soon" (the crowd out of the way of these checks: out in the bay, standing still)
   await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.path = []; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); }));
-  await teleport(page, 67, 43, 'up');
-  if (await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'rosa'); return Math.abs(v.x - 67.5 * 256) < 300 && Math.abs(v.y - 42.6 * 256) < 400; })) await teleport(page, 66, 43, 'up');
+  await teleport(page, X(67), 43, 'up');
+  if (await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'rosa'); return Math.abs(v.x - 22.5 * 256) < 300 && Math.abs(v.y - 42.6 * 256) < 400; })) await teleport(page, X(66), 43, 'up');
   assert.strictEqual(await actionLabel(page), 'Look');
   await tapAction(page);
   assert.match(await modalText(page), /GRAND MARKET.*coming soon/is);
   await page.evaluate(() => Farm.ui.closeAll());
   // the Gorge Gate is shut for now
-  await teleport(page, 45, 2, 'up');
+  await teleport(page, X(45), 2, 'up');
   assert.strictEqual(await actionLabel(page), 'Gate');
   await tapAction(page);
   assert.match(await modalText(page), /Coming soon/);
   await page.evaluate(() => Farm.ui.closeAll());
   // home: Manila Central's door, 250G
-  await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'tibo'); v.hold = 1e9; v.x = 70.5 * 256; v.y = 7.4 * 256; Farm.world.mnPlace(v); });
-  await teleport(page, 60, 8, 'up');
+  await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'tibo'); v.hold = 1e9; v.x = 19.5 * 256; v.y = 7.4 * 256; Farm.world.mnPlace(v); });
+  await teleport(page, X(60), 8, 'up');
   assert.strictEqual(await actionLabel(page), 'Train');
   await tapAction(page);
   assert.match(await modalText(page), /MANILA CENTRAL.*250G one way/s);
@@ -194,12 +198,12 @@ test('the valley road: off the town\'s east end to Manila\'s Plains Gate and bac
   await teleport(page, 51, 11, 'right');
   await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'manila');
   await waitMap(page, 'manila');
-  // (owner, 11 Nov 2026: off the town's right side, you come in on Manila's right side, just inside the Plains Gate, facing in)
-  assert.deepStrictEqual(await feetTile(page), [80, 44], 'in at the Plains Gate, on the city\'s right side');
-  assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'left', 'facing into the city');
+  // (owner, 11 Nov 2026: off the town's right side, you come in on Manila's left side, by the Plains Gate, facing in)
+  assert.deepStrictEqual(await feetTile(page), [X(80), 44], 'in at the Plains Gate, on the city\'s left side');
+  assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'right', 'facing into the city');
   assert.strictEqual((await state(page)).gold, 100, 'walking is free');
   await shot(page, 'manila-5-plains-gate');
-  await walk(page, 'ArrowRight', () => Farm.world.busy || Farm.world.mapKey === 'town'); // (east through the gate, over the jeep's road)
+  await walk(page, 'ArrowLeft', () => Farm.world.busy || Farm.world.mapKey === 'town'); // (west past the gate, over the jeep's road)
   await waitMap(page, 'town');
   assert.deepStrictEqual(await feetTile(page), [51, 11], 'back at the town\'s right (east) end');
   assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'left', 'facing into the town');
@@ -222,16 +226,16 @@ test('a game closed in Manila opens there again, at the same spot; its save says
   await page.evaluate(() => Farm.ui.mnTrain('manila'));
   await tapButton(page, 'Ride free');
   await waitMap(page, 'manila');
-  await teleport(page, 30, 44, 'left');
+  await teleport(page, X(30), 44, 'left');
   const saved = await page.evaluate(() => { Farm.world.save(); return Farm.Logic.serialize(Farm.session.state); });
   const townIndex = await page.evaluate(() => Farm.Logic.serialize(Object.assign({}, Farm.session.state, { map: 'town' })).m);
   assert.strictEqual(saved.m, townIndex);
-  assert.ok(Array.isArray(saved.mp) && saved.mp[0] === 30 * 256 + 128);
+  assert.ok(Array.isArray(saved.mp) && saved.mp[0] === X(30) * 256 + 128);
   assert.deepStrictEqual(problems, []);
   await context.close();
   const again = await open(saved);
   await waitMap(again.page, 'manila');
-  assert.deepStrictEqual(await feetTile(again.page), [30, 44]);
+  assert.deepStrictEqual(await feetTile(again.page), [X(30), 44]);
   await shot(again.page, 'manila-6-calle-real');
   assert.deepStrictEqual(again.problems, []);
   await again.context.close();
@@ -386,8 +390,8 @@ test('the jeepney: "Para po" at the Plaza\'s shed, 15G, on board when it stops, 
   const { page, problems, context } = await toManila(NOON);
   const g0 = (await state(page)).gold;
   await jeepSoon(page, 'plaza', 5000);
-  const w = await page.evaluate(() => Farm.Config.MANILA.jeep.stops.find((s) => s.key === 'plaza').wait);
-  await teleport(page, Math.floor(w[0]), Math.floor(w[1]), 'right');
+  const st0 = await page.evaluate(() => Farm.Config.MANILA.jeep.stops.find((s) => s.key === 'plaza')), w = st0.wait;
+  await teleport(page, Math.floor(w[0]), Math.floor(w[1]), st0.shed[0] + st0.shed[2] / 2 < w[0] ? 'left' : 'right'); // (facing its shed)
   assert.strictEqual(await actionLabel(page), 'Para po');
   await tapAction(page);
   assert.match(await modalText(page), /Jeepney/);
@@ -430,8 +434,8 @@ test('the Mall: in by its door, a guard and a sales lady and people inside, the 
   // (a role is out only once its own sheet is in: owner, 11 Nov 2026; here, as the pack would bring them)
   assert.strictEqual(await page.evaluate(() => Farm.world.mn.roles.length), 0, 'no role wears another\'s look');
   await page.evaluate(async () => { for (const k of ['npc_mall_guard', 'npc_sales_lady']) { const c = document.createElement('canvas'); c.width = 1296; c.height = 208; c.getContext('2d').fillStyle = '#336699'; c.getContext('2d').fillRect(8, 8, 1280, 192); const i = new Image(); await new Promise((ok) => { i.onload = ok; i.src = c.toDataURL(); }); Farm.images[k] = i; } });
-  await teleport(page, 29, 81, 'up');
-  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { if (Math.abs(v.x / 256 - 29.5) < 2 && Math.abs(v.y / 256 - 81.5) < 2) { v.hold = 1e9; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); } }));
+  await teleport(page, X(29), 81, 'up');
+  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { if (Math.abs(v.x / 256 - 60.5) < 2 && Math.abs(v.y / 256 - 81.5) < 2) { v.hold = 1e9; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); } }));
   await page.waitForTimeout(200);
   assert.strictEqual(await actionLabel(page), 'Enter');
   await shot(page, 'manila-10-mall-outside');
@@ -466,7 +470,7 @@ test('the Mall: in by its door, a guard and a sales lady and people inside, the 
   await walk(page, 'ArrowDown', () => Farm.world.busy || Farm.world.mapKey === 'manila');
   await waitMap(page, 'manila');
   const out = await feetTile(page);
-  assert.ok(Math.abs(out[0] - 29) <= 1 && Math.abs(out[1] - 82) <= 1, 'out in front of the Mall: ' + out);
+  assert.ok(Math.abs(out[0] - X(29)) <= 1 && Math.abs(out[1] - 82) <= 1, 'out in front of the Mall: ' + out);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -507,7 +511,7 @@ const cityLook = (page) => page.evaluate(() => {
     rail: keys.filter((k) => k === 'props/manila_rail_deck').length, jeep: w.mn.jeep && w.mn.jeep.img.texture.key };
 });
 test('the city\'s pack from the phone (the app\'s way): a game opened in Manila has its pictures; a pack that reaches the phone while you are there redraws the city where you stand', async () => {
-  const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 40 * 256 + 128, y: 44 * 256 + 128, dir: 'left' };");
+  const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 49 * 256 + 128, y: 44 * 256 + 128, dir: 'left' };");
   const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
   // 1. opened where it was left, the pack on the phone: no travel, the pictures in from the start
   const a = await openApp(save, all);
@@ -518,7 +522,7 @@ test('the city\'s pack from the phone (the app\'s way): a game opened in Manila 
   assert.strictEqual(first.towers, 2, 'both Business Towers');
   assert.ok(first.rail > 0, 'the elevated rail');
   assert.strictEqual(first.jeep, 'manila_jeepney');
-  assert.deepStrictEqual(await feetTile(a.page), [40, 44]);
+  assert.deepStrictEqual(await feetTile(a.page), [49, 44]);
   assert.deepStrictEqual(a.problems, []);
   await a.context.close();
   // 2. nothing on the phone yet: the stand-ins; then the pack comes down while you stand there
@@ -529,7 +533,7 @@ test('the city\'s pack from the phone (the app\'s way): a game opened in Manila 
   await b.page.waitForFunction(() => Farm.packReady('manila') && Farm.world.mn && Farm.world.children.list.some((o) => o.texture && o.texture.key === 'props/manila_station_manila'), null, SLOW);
   const after = await cityLook(b.page);
   assert.ok(after.station && after.towers === 2 && after.rail > 0 && after.jeep === 'manila_jeepney', 'drawn again with the owner\'s pictures');
-  assert.deepStrictEqual(await feetTile(b.page), [40, 44], 'where you stood');
+  assert.deepStrictEqual(await feetTile(b.page), [49, 44], 'where you stood');
   assert.deepStrictEqual(b.problems, []);
   await b.context.close();
 });
@@ -552,16 +556,16 @@ test('no gate is ever drawn over the farmer: in at the Plains Gate, out along th
   await frames(page, 4);
   const keys = await page.evaluate(() => Farm.world.props.map((i) => i.texture.key).filter((k) => /gate|arch/.test(k)).sort());
   assert.ok(['props/manila_gate_plains', 'props/manila_wall_gate', 'props/manila_chinatown_arch', 'props/manila_race_arch'].every((k) => keys.includes(k)), 'the gates are the owner\'s pictures: ' + keys);
-  assert.deepStrictEqual(await feetTile(page), [80, 44], 'in on the city\'s right side');
+  assert.deepStrictEqual(await feetTile(page), [X(80), 44], 'in on the city\'s left side');
   assert.deepStrictEqual(await gateOver(page), [], 'nothing of the gate over her where she comes in');
   await shot(page, 'manila-8-plains-gate-entry');
-  // out east along the avenue to the valley road, looking every few frames
-  await page.keyboard.down('ArrowRight');
+  // out west along the avenue to the valley road, looking every few frames
+  await page.keyboard.down('ArrowLeft');
   for (let i = 0; i < 200 && !(await page.evaluate(() => Farm.world.busy || Farm.world.mapKey !== 'manila')); i++) {
     assert.deepStrictEqual(await gateOver(page), [], 'on the way out at ' + (await feetTile(page)));
     await frames(page, 2);
   }
-  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowLeft');
   await waitMap(page, 'town');
   await page.evaluate(() => Farm.world.travel('manila', 'from_valley'));
   await waitMap(page, 'manila');
@@ -582,6 +586,21 @@ test('no gate is ever drawn over the farmer: in at the Plains Gate, out along th
     assert.ok((await feetTile(page))[1] >= y1, g.art + ': she walked through it (' + (await feetTile(page)) + ')');
     if (g.art === 'wall_gate') await shot(page, 'manila-9-through-the-wall-gate');
   }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 11 Nov 2026: the city turned round. A game saved in Manila before that may stand where the bay is now: it opens by
+// the Plains Gate on the left, facing into the city, never in a wall or the sea.
+test('an older game saved where the bay is now opens by the Plains Gate, facing in', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 85 * 256 + 128, y: 30 * 256 + 128, dir: 'right' };");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'manila');
+  await frames(page, 3);
+  const sp = await page.evaluate(() => Farm.Config.MANILA.spawns.from_valley);
+  assert.deepStrictEqual(await feetTile(page), [Math.floor(sp[0]), Math.floor(sp[1])], 'in by the Plains Gate');
+  assert.strictEqual(await page.evaluate(() => Farm.world.dir), 'right');
+  assert.ok(await page.evaluate(() => { const f = Farm.world.feet(); return Farm.Logic.manilaGrid(Farm.ASSETS.maps.manila, false).ok(Math.floor(f.x / 256), Math.floor(f.y / 256)); }), 'on ground she can walk');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

@@ -268,9 +268,27 @@
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'manila_hello')) {
       this.save();
       this.time.delayedCall(700, function () {
-        if (F.ui) F.ui.dialog('WELCOME TO MANILA\nThe big city by the bay! The Central Plaza is in the middle, the station up north, the Grand Market east and the port by the bay.\n\nThe shops and the hunting grounds open soon. Say hello to the people!');
+        if (F.ui) F.ui.dialog('WELCOME TO MANILA\nThe big city by the bay! The Central Plaza is in the middle, the station up north, the Grand Market ' + (M.flipped ? 'west' : 'east') + ' and the port by the bay.\n\nThe shops and the hunting grounds open soon. Say hello to the people!');
       });
     } else if (F.ui) this.time.delayedCall(500, function () { if (F.ui) F.ui.toast('Manila', 1600); });
+  };
+
+  // A game saved in Manila before the city was turned round (owner, 11 Nov 2026) may put you in a wall or the bay: where
+  // you stand is not walkable, so you come in by the Plains Gate instead.
+  P.mnUnstick = function () {
+    var f = this.feet(), g = this.mnWalk || (this.mnWalk = L.manilaGrid(maps.manila, false)), sp = M.spawns.from_valley;
+    if (g.ok(Math.floor(f.x / T), Math.floor(f.y / T)) || !sp) return false;
+    this.setFeet(sp[0] * T, sp[1] * T);
+    this.dir = sp[2] || 'right';
+    this.idle();
+    return true;
+  };
+
+  // (the world's own unstick, 11-world.js, would only nudge you to the nearest free tile: on the shore, say)
+  var unstick = P.unstick;
+  P.unstick = function () {
+    if (this.mapKey === 'manila' && this.player) this.mnUnstick(); // (only when where you stand is not walkable)
+    return unstick.apply(this, arguments);
   };
 
   // ---------- the city people ----------
@@ -658,7 +676,7 @@
     var head = there ? 'TRAIN TO MANILA\nThe big city by the bay: the Central Plaza, the Grand Market, the old walled quarter and the port.'
       : 'MANILA CENTRAL\nThe train home to Willowbrook Station.';
     var price = fare ? 'A ticket is ' + fmt(fare) + 'G one way. You have ' + fmt(s.gold) + 'G.' : 'Your first ride is free!';
-    var road = there ? '\n\n(Or walk the valley road: east out of town, past Market Street.)' : '\n\n(Or walk the valley road home: out the Plains Gate, east.)';
+    var road = there ? '\n\n(Or walk the valley road: east out of town, past Market Street.)' : '\n\n(Or walk the valley road home: out the Plains Gate, ' + (M.flipped ? 'west' : 'east') + '.)';
     this.dialog(head + '\n\n' + price + road, [
       { label: 'Not now', color: GREY },
       { label: fare ? 'Ride ' + fmt(fare) + 'G' : 'Ride free', color: GREEN, cb: function () {

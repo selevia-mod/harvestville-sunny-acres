@@ -122,13 +122,15 @@
         v: b.v, shed: b.shed, mall: b.mall ? 1 : 0, ferris: b.ferris ? 1 : 0, flat: b.flat ? 1 : 0 });
     });
     M.props.forEach(function (p, i) { drawn('p' + i, p[0], [p[1], p[2], p[3], p[4]], p[5], { art: p[6] || '' }); });
-    M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [15, y, 1, 2], 1, { art: 'street_lamp' }); });
-    M.baywalk.benches.forEach(function (y, i) { drawn('bb' + i, 'bench', [12, y, 2, 1], 1, { art: 'park_bench' }); });
+    var lx = M.baywalk.lampX != null ? M.baywalk.lampX : 15, bx = M.baywalk.benchX != null ? M.baywalk.benchX : 12; // (00-...-manila-flip.js)
+    M.baywalk.lamps.forEach(function (y, i) { drawn('bl' + i, 'lamp', [lx, y, 1, 2], 1, { art: 'street_lamp' }); });
+    M.baywalk.benches.forEach(function (y, i) { drawn('bb' + i, 'bench', [bx, y, 2, 1], 1, { art: 'park_bench' }); });
     // the owner's decorations (drawn only once their pictures are in: no stand-in)
     (M.decor || []).forEach(function (d, i) { drawn('d' + i, '', [d[1], d[2], d[3], d[4]], d[5], { art: d[0] }); });
 
     // the station's rails: solid, drawn by the game
-    obj('mn_rails', 'mn_rails', 56, 10, W - 56, 2);
+    var rb = M.railsBox || [56, 10, W - 56, 2];
+    obj('mn_rails', 'mn_rails', rb[0], rb[1], rb[2], rb[3]);
     // signs (a sign tile, solid, and its words), the berths, the gates
     var sign = function (name, x, y, text) {
       put(walls, x, y, tg('sign'));
