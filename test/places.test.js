@@ -92,7 +92,7 @@ test('the item ids fixed for the five places (docs/places-items.json) are all go
   // calling it again adds nothing
   const first = C.ICON.chocolate_cake + 1, fresh16 = [].concat(...Object.keys(j).map((p) => j[p].items.map((x) => x.id))).filter((id) => C.ICON_ORDER.indexOf(id) >= first);
   assert.strictEqual(fresh16.length, 16 * 5 - 1, 'every new icon of the five, Kaldereta kept');
-  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(first)), fresh16.concat('bow_5', C.ACTION_ICONS, C.ADVENTURE_ICONS, C.STORY_ICONS, C.FRAID_ICONS, C.ECON_ICONS, C.HORSE_ICONS), 'in the places\' order, then only the Moon Bow\'s (8 Nov 2026, 00-zzzzzzzzzzzz-moon.js), the action icons and the quest items');
+  assert.deepStrictEqual(plain(C.ICON_ORDER.slice(first)), fresh16.concat('bow_5', C.ACTION_ICONS, C.ADVENTURE_ICONS, C.STORY_ICONS, C.FRAID_ICONS, C.ECON_ICONS, C.HORSE_ICONS, C.ECON2_ICONS), 'in the places\' order, then only the Moon Bow\'s (8 Nov 2026, 00-zzzzzzzzzzzz-moon.js), the action icons and the quest items');
   assert.ok(C.ICON.kaldereta < first);
   const before = C.ICON_ORDER.length, ctx2 = { window: {}, console };
   vm.createContext(ctx2);

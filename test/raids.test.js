@@ -12,7 +12,14 @@ const { Config: C, Logic: L } = ctx.window.Farm;
 const R = C.FRAID;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const roundTrip = (s) => L.deserialize(JSON.parse(JSON.stringify(L.serialize(s))));
-const rich = () => { const s = L.newState(); s.gold = 1e6; return s; };
+// (farm economy v2: raiders eat crops, from the Silo first; camp and defense levels need the Mixer's materials)
+const rich = () => {
+  const s = L.newState();
+  s.gold = 1e6;
+  R.raiderOrder.forEach((k) => L.siloPut(s, R.raiders[k].crop[0], 30));
+  ['farm_cement', 'rope', 'sili_powder', 'beeswax'].forEach((id) => L.addItem(s, id, 99));
+  return s;
+};
 
 test('8 raiders, 10 defenses, 5 bandit farms; every raider opens at some camp level', () => {
   assert.strictEqual(R.raiderOrder.length, 8);

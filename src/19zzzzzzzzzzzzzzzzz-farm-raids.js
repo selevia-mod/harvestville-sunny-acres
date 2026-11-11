@@ -146,7 +146,10 @@
 
   // ---------- the panel ----------
   var TABS = [['party', 'Party'], ['raiders', 'Raiders'], ['defenses', 'Defenses'], ['practice', 'Raid']]; // (owner, 10 Nov 2026: "why its called practice?": real raids are there too)
-  var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.' };
+  var why = { lumber: 'Not enough lumber: chop branches and stumps.', stone: 'Not enough stone: smash stones and rocks.', busy: 'The camp is already being upgraded.', gold: 'Not enough Gold.', space: 'The camp is full. Upgrade it for a bigger party.', locked: 'A higher camp opens it.', top: 'Already the best.', need: 'You need something from hunting first (see what it needs).', buy: 'Buy a Raid Camp at Mira\'s first.',
+    // (farm economy v2: raiders eat crops; levels need the Mixer's materials)
+    crops: 'Not enough of its food: plant it, or keep it in your Silo.', cement: 'You need Farm Cement from the Mixer.', rope: 'You need Rope from the Mixer.', mats: 'You need materials from the Mixer (see what it needs).' };
+  var food = function (c) { return c ? c[1] + ' ' + C.ITEMS[c[0]].name : ''; };
   U.openRaidCamp = function (tab, page) {
     var self = this, s = F.session.state, r = L.frState(s), now = Date.now();
     if (!(window.gameHost && window.gameHost.quiet) && L.takeTip(s, 'farmraid_tour')) { // (the first time: the tour first)
@@ -181,7 +184,7 @@
         desc: left ? 'Nobody can raid your farm. Raiding someone breaks it.' : have ? 'You have ' + have + ' Farm Shield' + (have > 1 ? 's' : '') + ': use one from your bag (24 hours).' : 'Finish a day\'s story chapter for a Farm Shield.' });
       var next = R.camp.levels[r.camp], building = L.campDone(s, L.clock());
       // (owner, 9 Nov 2026: an upgrade needs lumber, stone, things from hunting and building time)
-      var needs = next ? [next.lumber ? next.lumber + ' lumber' : '', next.stone ? next.stone + ' stone' : '', next.need ? next.need[1] + ' ' + C.ITEMS[next.need[0]].name : '', next.mins ? (next.mins >= 60 ? next.mins / 60 + 'h' : next.mins + ' min') + ' to build' : ''].filter(Boolean).join(', ') : '';
+      var needs = next ? [next.lumber ? next.lumber + ' lumber' : '', next.stone ? next.stone + ' stone' : '', next.need ? next.need[1] + ' ' + C.ITEMS[next.need[0]].name : '', next.cement ? next.cement + ' Farm Cement' : '', next.rope ? next.rope + ' Rope' : '', next.mins ? (next.mins >= 60 ? next.mins / 60 + 'h' : next.mins + ' min') + ' to build' : ''].filter(Boolean).join(', ') : '';
       var hm = function (ms) { var m = Math.ceil(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
       // the party's room in the name, always in sight (owner, 10 Nov 2026: "while building, I cannot see how many raiders")
       var room = ' · Party ' + L.armySpace(s) + '/' + L.campSpace(s);
@@ -191,13 +194,13 @@
         buttons: next && r.camp && !building ? [{ label: next.gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.campUpgrade(s, L.clock()), 'The Raid Camp upgrade has started!'); } }] : [] });
       R.raiderOrder.forEach(function (k) {
         var d = R.raiders[k], open = L.raiderOpen(s, k), have = r.army[k] || 0, wait = r.train.filter(function (t) { return t.k === k; }).length;
-        rows.push({ icon: L.raiderIcon(k), name: d.name + (have ? '  x' + have : ''), desc: open ? (wait ? wait + ' training, next in ' + nextOf(k) + '. ' : '') + d.say : 'Opens with a bigger Raid Camp.',
+        rows.push({ icon: L.raiderIcon(k), name: d.name + (have ? '  x' + have : ''), desc: open ? (wait ? wait + ' training, next in ' + nextOf(k) + '. ' : '') + (d.crop ? 'Eats ' + food(d.crop) + ' (you have ' + L.cropHave(s, d.crop[0]) + '). ' : '') + d.say : 'Opens with a bigger Raid Camp.',
           buttons: open ? [{ label: 'Train ' + d.gold + 'G', color: GREEN, cb: function () { act(L.trainRaider(s, k, Date.now())); } }] : [] });
       });
     } else if (tab === 'raiders') {
       R.raiderOrder.forEach(function (k) {
         var d = R.raiders[k], lv = L.raiderLv(s, k), open = L.raiderOpen(s, k), need = R.level.need[lv], gold = R.level.gold[lv];
-        rows.push({ icon: L.raiderIcon(k), name: d.name + '  Lv ' + lv, desc: !open ? 'Not open yet.' : lv >= 5 ? 'Top level!' : 'Next: stronger and grabs more. ' + (need ? 'Needs ' + need[1] + ' ' + C.ITEMS[need[0]].name + '.' : ''),
+        rows.push({ icon: L.raiderIcon(k), name: d.name + '  Lv ' + lv, desc: !open ? 'Not open yet.' : lv >= 5 ? 'Top level!' : 'Next: stronger and grabs more. ' + (need || L.raiderUpCrops(s, k) ? 'Needs ' + [need ? food(need) : '', food(L.raiderUpCrops(s, k))].filter(Boolean).join(' + ') + '.' : ''),
           buttons: open && lv < 5 ? [{ label: gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.raiderUp(s, k), d.name + ' is level ' + (lv + 1) + '!'); } }] : [] });
       });
     } else if (tab === 'defenses') {
@@ -216,7 +219,8 @@
         var btns = [];
         if (type && (stored || !full || !type.defense)) btns.push({ label: (stored ? 'Place' : 'Buy ' + type.price.toLocaleString('en-US') + 'G'), color: GREEN, cb: function () { self.raidDefensePlace(t); } });
         if (lv < 5) btns.push({ label: 'Lv ' + (lv + 1) + ' ' + gold.toLocaleString('en-US') + 'G', color: BLUE, cb: function () { act(L.defenseUp(s, k), 'Every ' + d.name + ' is level ' + (lv + 1) + '!'); } });
-        rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: where + d.say, buttons: btns });
+        var mats = lv < 5 && L.defenseMats(s, k);
+        rows.push({ icon: sz ? undefined : pic.frame, img: sz || undefined, name: d.name + '  Lv ' + lv, desc: (mats ? 'Next level: ' + food(mats) + '. ' : '') + where + d.say, buttons: btns });
       });
     } else {
       // step 2 (19zzzzzzzzzzzzzzzzzzz-farm-raids-real.js): real farms first, then the board
@@ -629,7 +633,9 @@
     line(y0 + 108, Math.round(L.frShare(b) * 100) + '% of the loot taken', 12, '#7a5a3a');
     line(y0 + 136, prize.line || (prize.test ? (prize.stars >= 2 ? 'Your defenses need work!' : 'Your farm held up well!') : '+' + prize.gold.toLocaleString('en-US') + ' Gold   ·   +' + prize.pts + ' Raid Points'), 14, '#2f5a22');
     // (10 Nov 2026: the star bonus the game pays, part of the Gold; server part 27)
-    if (prize.bonus > 0 && !prize.line) line(y0 + 154, 'incl. a ' + prize.bonus.toLocaleString('en-US') + ' Gold star bonus', 11, '#6a4a2a');
+    // (farm economy v2: the crops your raiders carried home, into your Silo)
+    var extra = [prize.bonus > 0 && !prize.line ? 'incl. a ' + prize.bonus.toLocaleString('en-US') + ' Gold star bonus' : '', prize.crops > 0 ? '+' + prize.crops + ' crops to your Silo' : ''].filter(Boolean);
+    if (extra.length) line(y0 + 154, extra.join('   ·   '), 11, '#6a4a2a');
     var btn = this.add.container(W / 2, y0 + 190), bg = this.add.graphics();
     bg.fillStyle(GREEN, 1).fillRoundedRect(-80, -20, 160, 40, 16);
     btn.add([bg, this.add.text(0, 0, 'Back to the farm', { fontFamily: FONT(), fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setResolution(F.R)]);

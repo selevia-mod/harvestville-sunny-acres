@@ -66,6 +66,7 @@
   P.raidCopy = function () {
     var s = this.state, farm = this.raidFarm({ gold: L.frGoldPot(s), stall: L.frStallLoot(s), produce: L.frProduceLoot(s), levels: L.frState(s).dlv, camp: L.frState(s).camp, name: O.myName() });
     farm.loot = farm.loot.slice(0, 300);
+    farm.ck = L.frCropCode(farm.loot, s.soil, farm.w); // (which crop each is: the raider takes those crops home, economy v2)
     farm.value = L.frCopyValue(farm);
     return farm;
   };
@@ -207,16 +208,19 @@
     var used = {};
     b.moves.forEach(function (m) { used[m[1]] = (used[m[1]] || 0) + 1; });
     L.frUse(s, used);
+    // (farm economy v2: the ripe crops they carried, from this farm's field, wait for the server to count the raid)
+    L.frCropsKeep(s, rd.raid, L.frCropsOf(this.state, L.frTaken(b), rd.copy));
     F.Host.save(s);
     if (ui.raidSay) ui.raidSay('Checking your raid...');
     FR.check(rd.raid, b.moves, rd.kind === 'ghost' ? rd.copy : null).then(function (r) {
       if (!ui.frBox) return;
       if (r && r.ok) {
         L.frWin(s, r.prize, r.points);
+        var home = L.frCropsClaim(s, rd.raid, r.taken);
         F.Host.save(s);
         F.Net.rpc('farm_fraid_claim_v1', { p_raid: rd.raid }).catch(noop);
         sfx(r.stars ? 'fanfare' : 'nope');
-        return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0, bonus: r.bonus || 0 });
+        return ui.raidResult(b, { stars: r.stars, gold: r.prize || 0, pts: r.points || 0, bonus: r.bonus || 0, crops: home ? home.n : 0 });
       }
       sfx('nope');
       ui.raidResult(b, { stars: stars, gold: 0, pts: 0, title: 'Raid over', line: r && r.code === 'slow' || r && r.code === 'closed' ? 'Checking it: the prize comes next time' : 'This raid could not be counted' });
@@ -236,9 +240,10 @@
         F.Net.rpc('farm_fraid_claim_v1', { p_raid: x.raid }).then(function (ok) {
           if (ok !== 'ok') return;
           L.frWin(s, x.prize, x.points);
+          var home = L.frCropsClaim(s, x.raid, x.taken);
           gold += x.prize || 0;
           F.Host.save(s);
-          F.ui.toast('Your raid on ' + (L.cleanText(x.name, 20) || 'a farm') + ' counted: +' + (x.prize || 0).toLocaleString('en-US') + ' Gold', 2800, 0x2f5a22);
+          F.ui.toast('Your raid on ' + (L.cleanText(x.name, 20) || 'a farm') + ' counted: +' + (x.prize || 0).toLocaleString('en-US') + ' Gold' + (home && home.n ? ', +' + home.n + ' crops' : ''), 2800, 0x2f5a22);
         }).catch(noop);
       });
       // last week's Raid Points prize (the top 3), once a session

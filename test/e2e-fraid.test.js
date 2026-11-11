@@ -170,6 +170,11 @@ test('a real raid: find a farm, raid it, the game server counts it, the prize; t
   assert.ok(raid.claimed, 'taken once');
   assert.strictEqual(await A.page.evaluate(() => Farm.session.state.gold), gold0 + raid.prize, 'the prize is in the raider\'s Gold');
   assert.strictEqual(await A.page.evaluate(() => Farm.Logic.frState(Farm.session.state).army.goat || 0), 8 - got.n, 'the raiders sent are used up');
+  // farm economy v2 (owner, 11 Nov 2026: "raiders still eat crops"): the turnips the goats carried came home into the Silo
+  assert.ok(got.taken.crops > 0, 'the goats carried crops');
+  assert.strictEqual(await A.page.evaluate(() => Farm.Logic.siloHas(Farm.session.state, 'turnip')), got.taken.crops, 'the crops won, in the raider\'s Silo');
+  assert.match(await frText(A.page), new RegExp('\\+' + got.taken.crops + ' crops to your Silo'));
+  assert.deepStrictEqual(await A.page.evaluate(() => Farm.session.state.frc), {}, 'nothing left waiting');
 
   // ---- the farm opens its game: the card, the loss, seen once
   // (the farm's game may look on its own first, when its farm opens: the card shows either way, once)
