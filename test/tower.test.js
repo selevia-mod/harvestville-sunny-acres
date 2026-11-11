@@ -236,3 +236,108 @@ test('every floor differs and is the same for every player; every free tile and 
     assert.ok(free >= L.towerCount(f) * 20, `floor ${f}: ${free} free tiles for ${L.towerCount(f)}`);
   }
 });
+
+// ---------- 6. the door: Manila's lighthouse ----------
+const TOWN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'town.json'), 'utf8'));
+test('the lighthouse is the door: a warp to the Tower on its foot, "The Lost Tower" on it, the way out in front of it on the breakwater', () => {
+  const m = plain(L.manilaMap(TOWN)), objs = m.layers.find((l) => l.type === 'objectgroup').objects, d = plain(L.towerDoor());
+  const house = C.MANILA.buildings.find((b) => b.key === 'lighthouse');
+  assert.strictEqual(house.name, 'The Lost Tower');
+  assert.ok(d.x >= house.box[0] && d.x < house.box[0] + house.box[2] && d.y === house.box[1] + house.box[3] - 1, 'on the lighthouse\'s foot');
+  const door = objs.find((o) => o.name === 'tower_door'), pr = Object.fromEntries(door.properties.map((p) => [p.name, p.value]));
+  assert.deepStrictEqual([door.type, door.x / 256, door.y / 256], ['warp', d.x, d.y]);
+  assert.deepStrictEqual(pr, { to: 'tower', spawn: 'entrance', label: 'Go in' }, 'tapped (not walked into): the way out lands right in front of it');
+  const out = objs.find((o) => o.name === 'from_tower');
+  const grid = L.manilaGrid(m);
+  assert.ok(grid.ok(Math.floor(out.x / 256), Math.floor(out.y / 256)), 'the way out is free ground');
+  assert.ok(L.manilaPath(grid, Math.floor(out.x / 256), Math.floor(out.y / 256), Math.floor(C.MANILA.spawns.from_train[0]), Math.floor(C.MANILA.spawns.from_train[1]), 9000), 'and walks to the station');
+  assert.strictEqual(new Set(objs.map((o) => o.id)).size, objs.length, 'object ids stay unique');
+  // the goal arrow: out by the ladder; into the Tower by the lighthouse
+  assert.strictEqual(C.ROUTES.tower.farm, 'exit');
+  assert.strictEqual(C.ROUTES.manila.tower, 'tower_door');
+  assert.strictEqual(C.ROUTES.town.tower, C.ROUTES.town.manila);
+});
+
+// ---------- 7. Pearls, the lift, the save ----------
+test('Pearls: paid once, for a floor newer than the deepest cleared: realm z pays z, 5z (guard), 30z (mini boss), 100z (big boss)', () => {
+  const s = fresh();
+  assert.strictEqual(s.pearls, 0);
+  assert.strictEqual(L.towerPay(s, 1), 1);
+  assert.strictEqual(L.towerPay(s, 1), 0, 'nothing alone on a floor you cleared');
+  assert.strictEqual(s.tower.cl, 1);
+  [[10, 5], [50, 30], [100, 100], [101, 2], [150, 60], [200, 200], [901, 10], [910, 50], [950, 300], [1000, 1000]].forEach(([f, n]) => assert.strictEqual(L.towerPearls(f), n, 'floor ' + f));
+  // a whole realm pays 260 z: 260 for 1-100, 14,300 for all 1,000
+  let z1 = 0, all = 0;
+  for (let f = 1; f <= 1000; f++) { all += L.towerPearls(f); if (f <= 100) z1 += L.towerPearls(f); }
+  assert.deepStrictEqual([z1, all], [260, 14300]);
+  const t = fresh();
+  for (let f = 1; f <= 200; f++) L.towerPay(t, f);
+  assert.strictEqual(t.pearls, 780, 'reached 200: 780 Pearls');
+  for (let f = 1; f <= 200; f++) L.towerPay(t, f);
+  assert.strictEqual(t.pearls, 780, 'climbing them again pays nothing');
+});
+
+test('helper Pearls (the hook for the online step): 1 on a floor you cleared, helping; at most 50 a day; a new floor still pays its own', () => {
+  const s = fresh();
+  for (let f = 1; f <= 20; f++) L.towerPay(s, f);
+  const before = s.pearls;
+  let got = 0;
+  for (let k = 0; k < 60; k++) got += L.towerPay(s, 5, { helper: true });
+  assert.strictEqual(got, 50, 'at most 50 a day');
+  assert.strictEqual(s.pearls, before + 50);
+  assert.strictEqual(L.towerPay(s, 21, { helper: true }), 1, 'a floor new to you pays its first-time Pearls, helper or not');
+  s.day += 1;
+  assert.strictEqual(L.towerPay(s, 5, { helper: true }), 1, 'a new day, 50 more');
+});
+
+test('the lift: 1, 11, 21 ... up to the deepest floor reached; the door takes you to the last of them', () => {
+  const s = fresh();
+  assert.deepStrictEqual(plain(L.towerStops(s)), [1]);
+  assert.strictEqual(L.towerStart(s), 1);
+  assert.strictEqual(L.towerReach(s, 1), true);
+  assert.strictEqual(L.towerReach(s, 1), false, 'not a new deepest');
+  [2, 3, 11].forEach((f) => L.towerReach(s, f));
+  assert.deepStrictEqual(plain(L.towerStops(s)), [1, 11]);
+  L.towerReach(s, 35);
+  assert.deepStrictEqual(plain(L.towerStops(s)), [1, 11, 21, 31]);
+  assert.strictEqual(L.towerStart(s), 31);
+  L.towerReach(s, 5000);
+  assert.strictEqual(s.tower.deep, 1000, 'never past the top');
+});
+
+test('the save: Pearls as prl, the Tower as tw2 (new keys); an older save has none; in the Tower it is saved in Manila at the lighthouse', () => {
+  const s = fresh();
+  let o = plain(L.serialize(s));
+  assert.ok(!('prl' in o) && !('tw2' in o), 'nothing until you climb');
+  const old = roundTrip(s);
+  assert.deepStrictEqual([old.pearls, plain(old.tower)], [0, { deep: 0, cl: 0, hd: -1, hn: 0 }]);
+  for (let f = 1; f <= 12; f++) { L.towerReach(s, f); L.towerPay(s, f); }
+  L.towerPay(s, 3, { helper: true });
+  o = plain(L.serialize(s));
+  assert.strictEqual(o.prl, s.pearls);
+  assert.deepStrictEqual(o.tw2, [12, 12, s.day, 1]);
+  const b = roundTrip(s);
+  assert.deepStrictEqual([b.pearls, plain(b.tower)], [s.pearls, { deep: 12, cl: 12, hd: s.day, hn: 1 }]);
+  // in the Tower: Manila, in front of the lighthouse's door (the floor is not saved)
+  s.map = 'tower';
+  s.player = { x: 5 * 256, y: 6 * 256, dir: 'up' };
+  const d = plain(L.towerDoor()), back = roundTrip(s);
+  assert.strictEqual(back.map, 'manila');
+  assert.deepStrictEqual([back.player.x, back.player.y], [Math.round(d.out[0] * 256), Math.round(d.out[1] * 256)]);
+  assert.strictEqual(back.pearls, s.pearls);
+  // bad numbers are clamped
+  const bad = L.deserialize(Object.assign(plain(L.serialize(fresh())), { prl: -5, tw2: [99999, 'x', null, 1e9] }));
+  assert.deepStrictEqual([bad.pearls, plain(bad.tower)], [0, { deep: 1000, cl: 0, hd: 0, hn: 10000 }]);
+  // the save keys are new: nothing else in the save uses them
+  const keys = Object.keys(plain(L.serialize(fresh())));
+  assert.ok(keys.indexOf('prl') < 0 && keys.indexOf('tw2') < 0);
+});
+
+test('a Tower hunt counts as a hunt but leaves no slot waiting and no line in the Hunter\'s Book', () => {
+  const s = fresh(), n = s.wild.n;
+  L.hunted(s, 'tower', 3, 'talangka', 1);
+  assert.strictEqual(s.wild.n, n + 1);
+  assert.strictEqual(s.wild.gone['tower:3'], undefined);
+  assert.ok(!('talangka' in s.wild.by) && !('talangka' in s.wild.best));
+  assert.ok(!('pk' in plain(L.serialize(s))), 'nothing by name in the save');
+});
