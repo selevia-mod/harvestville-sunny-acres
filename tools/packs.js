@@ -50,4 +50,7 @@ module.exports = {
   lair: ['props/lair_mouth', 'props/lair_gate'],
   // Central Park's Hall of Fame building: a drawn stand-in until it is in (the same file)
   park: ['props/hall_of_fame'],
+  // The Lost Tower (owner, 12 Nov 2026): its creatures, each realm's stairs and cave tiles, each once its picture is in
+  // (tools/tower/tower-art.js; until then the game draws stand-ins, src/19zzz...z-tower.js)
+  tower: require('./tower/tower-art').packed(),
 };
