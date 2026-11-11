@@ -420,7 +420,10 @@
     var top = y0 - 4, bottom = 76 + ph - 12, list = this.add.container(0, 0);
     // the rows in view first, the rest a few a frame after (owner, 11 Nov 2026: "online menu, it feels like a bit heavy":
     // all 30 rows at once took a quarter of a second in one frame on the OPPO); c.slimAll() builds the rest at once
-    var built = Math.min(rows.length, 4); // (the top four at once; the rest, three a frame, are there before a finger can scroll)
+    // (the top four at once; the rest, three a frame, are there before a finger can scroll). Not in the browser tests, which
+    // read a list the moment it opens: there every row is built at once, as before (Farm.listStagger forces either way).
+    var stagger = window.Farm.listStagger !== undefined ? window.Farm.listStagger : !(window.navigator && window.navigator.webdriver);
+    var built = stagger ? Math.min(rows.length, 4) : rows.length;
     rows.slice(0, built).forEach(function (row, i) { self.slimRow(list, y0 + i * SLIM.step, row); });
     c.add(list);
     this.scrollList(c, list, top, bottom, full - 10 - y0 + 4, SLIM.h);
@@ -592,7 +595,8 @@
     };
     c.add(list);
     this.scrollList(c, list, top - 2, bottom, y - top, TILE.h);
-    var first = jobs.filter(function (j) { return j[1] < bottom; }).length;
+    var stagger = window.Farm.listStagger !== undefined ? window.Farm.listStagger : !(window.navigator && window.navigator.webdriver); // (as the rows above)
+    var first = stagger ? jobs.filter(function (j) { return j[1] < bottom; }).length : jobs.length;
     for (; built < first; built++) self.tile(list, jobs[built][0], jobs[built][1], jobs[built][2], jobs[built][3], o);
     if (c.slimScroll) c.slimScroll(c.slimAt || 0);
     c.slimAll = function () { more(jobs.length); };
