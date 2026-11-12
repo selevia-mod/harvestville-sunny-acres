@@ -5,8 +5,8 @@
 //   Blessings from the big bosses and the Tide set);
 // - a big boss beaten: its Blessing and its Tide piece, once (and F.towerFirst, the later "First in Selebox" step);
 // - the Keeper's Boots: faster walking in the Tower;
-// - the farmer in the Keeper's gear (owner, 13 Nov 2026: "one piece at a time"): walking and standing in the sheet of the
-//   most visible piece worn (L.keeperSheet); the tools' poses, the bow, riding stay the farmer's own pictures; a Tailor
+// - the farmer in the Keeper's gear (owner, 13 Nov 2026): walking and standing in the sheet for what is worn (a piece, a
+//   pair, the set: L.keeperSheets); the tools' poses, the bow, riding stay the farmer's own pictures; a Tailor
 //   Shop look, or the birthday's party hat, wins. Only you see it: friends see your farmer as before (presence and the
 //   game server carry your look, not the gear; adding it would need the server and a second sheet on their phones);
 // - the horse's looks: the whole horse wearing one, drawn instead of its own when it stands or goes alone (not ridden:
@@ -323,16 +323,21 @@
     try { return move.apply(this, arguments); } finally { C.SPEED = sp; }
   };
 
-  // ---------- the farmer in the Keeper's gear: one piece at a time ----------
-  // The piece's sheet (frames 0-8, the walking ones, in the player sheet's layout) painted over the farmer's own sheet:
+  // ---------- the farmer in the Keeper's gear: a piece, a pair or the set ----------
+  // The sheet (frames 0-8, the walking ones, in the player sheet's layout) painted over the farmer's own sheet:
   // one texture, 'kgear_<art>', with the farmer's own tools' poses (9-14), so every frame the farmer is shown in is there.
   // Only over the farmer's own clothes ('player', 'player_girl'): a Tailor Shop look or the party hat wins.
   var GEAR_H = 1200; // (frames 0-8 end here: 8 + 3 rows of 384 and their gaps; tools/tower/shop-import.js GEAR_H, less its last gap)
+  // (the best sheet for what is worn that is in the pack is asked for; meanwhile, and for one not made yet, the best one
+  // on the phone already: a pair's more visible piece, the set's best pair or piece)
   var gearKey = function (base) {
-    var s = F.session && F.session.state, art = s && !F.session.visit && L.keeperSheet ? L.keeperSheet(s) : '';
-    if (!art || (base !== 'player' && base !== 'player_girl')) return '';
-    if (!have(art)) { want(art); return ''; }
-    return 'kgear_' + art;
+    var s = F.session && F.session.state, all = s && !F.session.visit && L.keeperSheets ? L.keeperSheets(s) : [];
+    if (!all.length || (base !== 'player' && base !== 'player_girl')) return '';
+    for (var i = 0, asking = false; i < all.length; i++) {
+      if (have(all[i])) return 'kgear_' + all[i];
+      if (!asking && packed(all[i])) { want(all[i]); asking = true; } // (only the best of them)
+    }
+    return '';
   };
   var gearTexture = function (sc, key, base) {
     var tex = sc.textures;

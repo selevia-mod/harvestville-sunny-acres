@@ -197,37 +197,62 @@ test("the mini bosses' chest has a horse gear dye (and food); the guards still g
   assert.ok(dye.painted && dye.icon === C.towerIcon('horse_dye'));
 });
 
-test("the farmer in the Keeper's gear, one piece at a time: the most visible piece worn (coat, hat, lantern, boots); a Tailor Shop look wins; none, none", () => {
+test("the farmer in the Keeper's gear: one piece, a pair, the set; three pieces: the two most visible; a Tailor Shop look wins", () => {
   const s = fresh();
   s.kpr = 15; // (all four owned)
-  assert.strictEqual(L.keeperSheet(s), '', 'nothing worn');
-  L.wear(s, 'k:boots');
-  assert.strictEqual(L.keeperSheet(s), 'keeper_boots_boy');
-  L.wear(s, 'k:lantern');
-  assert.strictEqual(L.keeperSheet(s), 'keeper_lantern_boy', 'the lantern beats the boots');
-  L.wear(s, 'k:hat');
-  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_boy', 'the hat beats the lantern');
-  L.wear(s, 'k:coat');
-  assert.strictEqual(L.keeperSheet(s), 'keeper_coat_boy', 'the coat beats them all');
+  const wear = (...ids) => { ['head', 'feet', 'body', 'charm'].forEach((sl) => L.takeOff(s, sl)); ids.forEach((id) => L.wear(s, 'k:' + id)); };
+  const best = () => plain(L.keeperSheets(s));
+  wear();
+  assert.deepStrictEqual(best(), [], 'nothing worn');
+  assert.strictEqual(L.keeperSheet(s), '');
+  // one piece: that piece
+  [['boots', 'keeper_boots_boy'], ['lantern', 'keeper_lantern_boy'], ['hat', 'keeper_hat_boy'], ['coat', 'keeper_coat_boy']].forEach(([id, k]) => {
+    wear(id);
+    assert.deepStrictEqual(best(), [k], id);
+  });
+  // two: their pair (the more visible first), then the more visible piece; every pair, whichever order they went on
+  const pairs = { coat_hat: ['coat', 'hat'], coat_boots: ['boots', 'coat'], coat_lantern: ['lantern', 'coat'], hat_boots: ['boots', 'hat'], hat_lantern: ['lantern', 'hat'], lantern_boots: ['boots', 'lantern'] };
+  Object.keys(pairs).forEach((p) => {
+    wear(...pairs[p]);
+    assert.deepStrictEqual(best(), ['keeper_' + p + '_boy', 'keeper_' + p.split('_')[0] + '_boy'], p);
+  });
+  // three: the pair of the two most visible (the least visible dropped)
+  wear('hat', 'lantern', 'boots');
+  assert.deepStrictEqual(best(), ['keeper_hat_lantern_boy', 'keeper_hat_boy'], 'hat, lantern, boots: hat + lantern');
+  wear('coat', 'lantern', 'boots');
+  assert.deepStrictEqual(best(), ['keeper_coat_lantern_boy', 'keeper_coat_boy'], 'coat, lantern, boots: coat + lantern');
+  wear('boots', 'hat', 'coat');
+  assert.deepStrictEqual(best(), ['keeper_coat_hat_boy', 'keeper_coat_boy']);
+  // four: the set, then the best pair, then the best piece
+  wear('boots', 'lantern', 'hat', 'coat');
+  assert.deepStrictEqual(best(), ['keeper_set_boy', 'keeper_coat_hat_boy', 'keeper_coat_boy']);
+  // a sheet not in: the next best, step by step
+  const only = (...keys) => (k) => keys.includes(k);
+  assert.strictEqual(L.keeperSheet(s), 'keeper_set_boy', 'all in');
+  assert.strictEqual(L.keeperSheet(s, only('keeper_coat_hat_boy', 'keeper_coat_boy')), 'keeper_coat_hat_boy', 'no set: the best pair');
+  assert.strictEqual(L.keeperSheet(s, only('keeper_coat_boy', 'keeper_hat_boy')), 'keeper_coat_boy', 'no set, no pair: the best piece');
+  assert.strictEqual(L.keeperSheet(s, only()), '', 'none: the farmer\'s own');
+  wear('hat', 'lantern');
+  assert.strictEqual(L.keeperSheet(s, only('keeper_hat_boy', 'keeper_lantern_boy')), 'keeper_hat_boy', 'no pair: its more visible piece');
+  // the girl's own
   s.look = 'girl';
-  assert.strictEqual(L.keeperSheet(s), 'keeper_coat_girl', "the girl's own");
-  L.takeOff(s, 'body');
-  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_girl', 'the coat off: the hat');
-  // a Tailor Shop look worn at the same time wins (no sheet of ours)
+  wear('coat', 'hat', 'lantern', 'boots');
+  assert.deepStrictEqual(best(), ['keeper_set_girl', 'keeper_coat_hat_girl', 'keeper_coat_girl']);
+  // a Tailor Shop look worn at the same time wins
   const look = C.LOOKS.find((l) => l.free) || C.LOOKS[0];
   s.lk = 1 << C.LOOK_INDEX[look.key];
   s.cw = look.key;
   assert.strictEqual(L.wornLook(s), look.key);
-  assert.strictEqual(L.keeperSheet(s), '', 'the costume wins');
+  assert.deepStrictEqual(best(), [], 'the costume wins');
   s.cw = '';
-  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_girl');
-  // other gear in the slots, or a piece owned and not worn: none
-  ['head', 'feet', 'charm', 'body'].forEach((slot) => L.takeOff(s, slot));
-  assert.strictEqual(L.keeperSheet(s), '');
-  // every sheet it names is one the tower pack holds (tools/tower/tower-art.js)
-  const keys = require('../tools/tower/tower-art').all();
-  K.gear.forEach((g) => ['boy', 'girl'].forEach((w) => assert.ok(keys.includes(g.art + '_' + w), g.art + '_' + w)));
+  assert.strictEqual(L.keeperSheet(s), 'keeper_set_girl');
+  // every sheet it can name is one the tower pack can hold: 4 pieces, 6 pairs, the set, boy and girl (22)
+  const keys = require('../tools/tower/tower-art').all().filter((k) => /^keeper_/.test(k));
+  assert.strictEqual(keys.length, 22);
+  plain(K.wornArt).forEach((a) => ['boy', 'girl'].forEach((w) => assert.ok(keys.includes(a + '_' + w), a + '_' + w)));
   assert.deepStrictEqual(plain(K.wornOrder).sort(), plain(K.gear.map((g) => g.id)).sort(), 'each piece has its place in the order');
+  // each pair: the more visible piece first
+  K.pairs.forEach((p) => assert.ok(K.wornOrder.indexOf(p[0]) < K.wornOrder.indexOf(p[1]), p.join('_')));
 });
 
 test("the horse's looks, one at a time: the saddle, then the lantern, then the bridle; none worn, none", () => {

@@ -27,9 +27,14 @@
       { id: 'coat', slot: 'body', name: "Keeper's Coat", price: 500, less: 0.2, art: 'keeper_coat' },
       { id: 'lantern', slot: 'charm', name: "Keeper's Lantern", price: 800, less: 0.2, sight: true, art: 'keeper_lantern' },
     ],
-    // (owner, 13 Nov 2026: "one piece at a time") the farmer's picture in the gear: each piece's art is the farmer (boy,
-    // girl) wearing only that piece, walking; with several on, the most visible one's, in this order (L.keeperSheet)
+    // (owner, 13 Nov 2026) the farmer's picture in the gear: a sheet of the farmer (boy, girl) walking in one piece (each
+    // piece's art), in a pair of pieces (pairs below: keeper_<a>_<b>, the more visible first) or in the whole set
+    // (keeper_set). wornOrder: the most visible first. All four on: the set; three: the pair of the two most visible;
+    // two: that pair; one: that piece. A sheet not in yet: the next best (a pair: its more visible piece; the set: the
+    // best pair, then the best piece). L.keeperSheets lists them, best first; a Tailor Shop look wins over all of them.
     wornOrder: ['coat', 'hat', 'lantern', 'boots'],
+    pairs: [['coat', 'hat'], ['coat', 'boots'], ['coat', 'lantern'], ['hat', 'boots'], ['hat', 'lantern'], ['lantern', 'boots']],
+    set: 'keeper_set',
     // horse gear looks (cosmetic): the save's 'hlk' [owned bits, worn bits], this order. Each picture is the whole horse
     // wearing it (laid out like ride2_horse: its frames, size and ground), drawn instead of the horse's own when it stands
     // or goes alone; with several on, the first of horseOrder (L.horseLookSheet). Until the picture is on the phone, and
@@ -42,6 +47,10 @@
     ],
     weapon: 'A new weapon: coming soon',
   };
+
+  // every worn sheet's art (without _boy / _girl): the 4 pieces, the 6 pairs, the set (tools/tower/tower-art.js packs them)
+  C.KEEPER.wornArt = C.KEEPER.gear.map(function (g) { return g.art; })
+    .concat(C.KEEPER.pairs.map(function (p) { return 'keeper_' + p[0] + '_' + p[1]; }), C.KEEPER.set);
 
   // ---------- the big bosses (floors 100, 200 ... 1000), paid once each: the save's 'twb' (bits, boss 1 to 10) ----------
   // A Tower Blessing, forever: the odd ones (100, 300, 500, 700, 900) +5% damage in the Tower; the even ones (200 ... 1000)

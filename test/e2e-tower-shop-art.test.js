@@ -1,6 +1,6 @@
 // Mang Ilaw's shop pictures (owner, 13 Nov 2026; tools/tower/shop-import.js), end to end in the built page
 // (dist/index.html) with the tower pack's files as the app gives them: the shop's icons, Mang Ilaw in his own sheet facing
-// you, the farmer walking in the Keeper's gear one piece at a time (the coat beats the hat, a Tailor Shop look wins, the
+// you, the farmer walking in the Keeper's gear (one piece, the set; the coat beats the hat, a Tailor Shop look wins, the
 // tools' poses stay the farmer's own), and the horse in its look's sheet standing and going alone (the stand-ins until
 // the picture is in, and while ridden).
 // Run alone, after `node build.js`: node --test --test-concurrency=1 test/e2e-tower-shop-art.test.js
@@ -170,10 +170,10 @@ test("Mang Ilaw in his own sheet at the lighthouse, facing you; the shop's icons
 
 // the farmer (frames 0-8) in each piece, each way, standing and a step: a picture to look at
 async function farmerSheet(page, who, out) {
-  const pieces = ['', 'coat', 'hat', 'lantern', 'boots'];
+  const pieces = ['', 'coat', 'hat', 'lantern', 'boots', 'set'];
   const cells = [];
   for (const p of pieces) {
-    await page.evaluate((p) => { const s = Farm.session.state; ['head', 'feet', 'body', 'charm'].forEach((sl) => Farm.Logic.takeOff(s, sl)); if (p) Farm.Logic.wear(s, 'k:' + p); }, p);
+    await page.evaluate((p) => { const s = Farm.session.state; ['head', 'feet', 'body', 'charm'].forEach((sl) => Farm.Logic.takeOff(s, sl)); (p === 'set' ? ['coat', 'hat', 'lantern', 'boots'] : p ? [p] : []).forEach((id) => Farm.Logic.wear(s, 'k:' + id)); }, p);
     await waitTex(page, p ? 'kgear_keeper_' + p + '_' + who : who === 'girl' ? 'player_girl' : 'player');
     for (const f of [0, 1, 3, 4, 6, 7]) {
       cells.push(await page.evaluate((f) => {
@@ -187,7 +187,7 @@ async function farmerSheet(page, who, out) {
   if (!out) return;
   const png = await page.evaluate(async (cells) => {
     const c = document.createElement('canvas'), g = c.getContext('2d');
-    c.width = 6 * 140; c.height = 5 * 210;
+    c.width = 6 * 140; c.height = 6 * 210;
     g.fillStyle = '#8fc46a'; g.fillRect(0, 0, c.width, c.height);
     for (let i = 0; i < cells.length; i++) {
       const im = await new Promise((r) => { const m = new Image(); m.onload = () => r(m); m.src = cells[i]; });
@@ -201,7 +201,7 @@ async function farmerSheet(page, who, out) {
 }
 
 for (const who of ['boy', 'girl']) {
-  test(`the ${who} in the Keeper's gear, one piece at a time: the coat beats the hat, a Tailor Shop look wins, the tools' poses stay the farmer's own`, async () => {
+  test(`the ${who} in the Keeper's gear: the coat beats the hat (no pair sheet yet), the set, three pieces, a Tailor Shop look wins, the tools' poses stay the farmer's own`, async () => {
     const own = who === 'girl' ? 'player_girl' : 'player';
     const save = await makeSave("s.look = '" + who + "'; s.map = 'farm'; s.pearls = 5000; s.energy = 200;");
     const { page, problems, context } = await open(save);
@@ -256,13 +256,21 @@ for (const who of ['boy', 'girl']) {
     // the save: nothing new in it (the gear's own keys)
     const keys = await page.evaluate(() => Object.keys(Farm.Logic.serialize(Farm.session.state)).sort().join());
     assert.ok(!/kgear|keeper_/.test(keys));
-    // each piece, each way (a picture to look at), and on screen walking in the coat
+    // the whole set: its own sheet; three pieces (coat, lantern, boots): their pair (coat + lantern) when it comes, the
+    // coat until then (the pairs are not drawn yet)
+    await page.evaluate(() => { const s = Farm.session.state; s.kpr = 15; ['coat', 'hat', 'lantern', 'boots'].forEach((id) => Farm.Logic.wear(s, 'k:' + id)); });
+    await waitTex(page, 'kgear_keeper_set_' + who);
+    await page.evaluate(() => Farm.Logic.takeOff(Farm.session.state, 'head'));
+    const three = await page.evaluate(() => Farm.Logic.keeperSheets(Farm.session.state));
+    assert.deepStrictEqual(three, ['keeper_coat_lantern_' + who, 'keeper_coat_' + who]);
+    await waitTex(page, (await page.evaluate((k) => !!(Farm.packedFile && Farm.packedFile(k)), three[0])) ? 'kgear_' + three[0] : 'kgear_keeper_coat_' + who);
+    // each piece and the set, each way (a picture to look at), and on screen walking in each
     await page.evaluate(() => { const s = Farm.session.state; s.kpr = 15; });
     await farmerSheet(page, who, SHOTS ? path.join(SHOTS, 'farmer-' + who + '-pieces.png') : null);
     // on screen: walking each way in each piece, next to a farmer in their own clothes standing still (a friend's
     // look-alike: the same sheet), for size and ground
-    for (const piece of ['coat', 'hat', 'lantern', 'boots']) {
-      await page.evaluate((p) => { const s = Farm.session.state; ['head', 'feet', 'body', 'charm'].forEach((sl) => Farm.Logic.takeOff(s, sl)); Farm.Logic.wear(s, 'k:' + p); }, piece);
+    for (const piece of ['coat', 'hat', 'lantern', 'boots', 'set']) {
+      await page.evaluate((p) => { const s = Farm.session.state; ['head', 'feet', 'body', 'charm'].forEach((sl) => Farm.Logic.takeOff(s, sl)); (p === 'set' ? ['coat', 'hat', 'lantern', 'boots'] : [p]).forEach((id) => Farm.Logic.wear(s, 'k:' + id)); }, piece);
       await waitTex(page, 'kgear_keeper_' + piece + '_' + who);
       for (const [dir, k] of [['down', 'down'], ['up', 'up'], ['left', 'side']]) {
         await teleport(page, 30, 20, dir);

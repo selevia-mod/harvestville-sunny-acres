@@ -9,8 +9,10 @@
 //   npc_keeper.png (3 x 3: rows toward you, away, left; standing, step, step)
 //     -> assets/npc_keeper: one row of 9 frames of 128 x 192 (a villager's, as tools/manila/manila-import.js makes the
 //        npc_* sheets): frame row * 3 + column, so 0 faces you, 3 away, 6 left (19zzz...z-tower-shop.js keeperLookRow).
-//   keeper_<hat|boots|coat|lantern>_<boy|girl>.png (3 x 3, the same rows and columns: the farmer wearing ONE piece)
-//     -> assets/keeper_<piece>_<who>: the farmer's walking frames 0-8, in the player sheet's own layout (frames of
+//   keeper_<hat|boots|coat|lantern>_<boy|girl>.png (3 x 3, the same rows and columns: the farmer wearing ONE piece),
+//   keeper_<a>_<b>_<boy|girl>.png (a pair: C.KEEPER.pairs, the more visible first) and keeper_set_<boy|girl>.png (all
+//   four): any of them that is there
+//     -> assets/keeper_<...>_<who>: the farmer's walking frames 0-8, in the player sheet's own layout (frames of
 //        256 x 384, 8 px margin, 16 px gaps: 816 x 1208, its first three rows). The game puts them over frames 0-8 of
 //        the farmer's own sheet (the tools' poses, 9-14, stay the farmer's own). Each row (toward you, away, left) at
 //        one scale, its tallest pose as tall as the farmer's own row (assets/player, assets/player_girl: the generator
@@ -107,9 +109,11 @@ if (require.main === module) {
     if (ONLY.includes('gear')) {
       const own = {};
       for (const who of WHO) own[who] = data(path.join(OUT, who === 'girl' ? 'player_girl.png' : 'player.png'));
-      for (const g of C.KEEPER.gear) for (const who of WHO) {
-        const name = g.art + '_' + who, src = pic(name);
-        if (!src) continue;
+      // (every keeper_<...>_<boy|girl>.png there: a piece, a pair, the set; C.KEEPER.wornArt names the ones the game asks for)
+      const names = fs.readdirSync(SRC).filter((f) => /^keeper_[a-z_]+_(boy|girl)\.png$/.test(f)).map((f) => f.slice(0, -4)).sort();
+      for (const name of names) {
+        const who = /_girl$/.test(name) ? 'girl' : 'boy', src = pic(name);
+        if (!C.KEEPER.wornArt.includes(name.replace(/_(boy|girl)$/, ''))) { console.log('art-src/tower-shop/' + name + '.png: not a sheet the game asks for (C.KEEPER.wornArt), left out'); continue; }
         const r = await p.evaluate(async ([src, ownSrc, PL, GW, GH]) => {
           // the farmer's own frames: where the middle of each pose's feet is (its lowest tenth), and its height
           const im0 = await W.load(ownSrc), c0 = W.canvas(im0.width, im0.height), g0 = c0.getContext('2d');
@@ -136,7 +140,9 @@ if (require.main === module) {
           const o = W.canvas(GW, GH), g = o.getContext('2d'), rep = [];
           cl.forEach((x, f) => {
             const q = x.c.getContext('2d').getImageData(0, 0, x.w, x.h).data, mid = feetOf(q, x.w, x.h)[0];
-            const kr = kRow[Math.floor(f / 3)], k = Math.max(kr * 0.94, Math.min(kr * 1.06, (PL.base - ownFeet[f][1]) / x.h, PL.fw * 0.94 / x.w)), [fx, fy] = at(f), left = fx + ownFeet[f][0] - mid * k, dw = x.w * k, dh = x.h * k;
+            const kr = kRow[Math.floor(f / 3)], k = Math.min(Math.max(kr * 0.94, Math.min(kr * 1.06, (PL.base - ownFeet[f][1]) / x.h)), PL.fw * 0.97 / x.w), [fx, fy] = at(f), dw = x.w * k, dh = x.h * k;
+            // (a wide pose, the whole set's lantern and coat, moved in just enough to stay inside its frame)
+            const left = Math.max(fx + 2, Math.min(fx + PL.fw - 2 - dw, fx + ownFeet[f][0] - mid * k));
             g.save(); g.beginPath(); g.rect(fx, fy, PL.fw, PL.fh); g.clip();
             g.imageSmoothingQuality = 'high';
             g.drawImage(x.c, 0, 0, x.w, x.h, left, fy + PL.base - dh, dw, dh);

@@ -88,15 +88,24 @@
   L.keeperWorn = function (s) { return K.gear.filter(function (g) { return L.worn(s, g.slot) === 'k:' + g.id; }); };
   // the share of a Tower hit the worn pieces take off: 0.1 + 0.1 + 0.2 + 0.2 = 0.6 for the set
   L.keeperLess = function (s) { return Math.round(L.keeperWorn(s).reduce(function (a, g) { return a + g.less; }, 0) * 100) / 100; };
-  // (owner, 13 Nov 2026: "one piece at a time") the sheet the farmer walks in while wearing the Keeper's gear: the most
-  // visible piece worn (K.wornOrder: coat, hat, lantern, boots), as '<art>_<boy|girl>'; '' when none is worn, or a Tailor
-  // Shop look is (the look wins)
-  L.keeperSheet = function (s) {
-    if (!s || (L.wornLook && L.wornLook(s))) return '';
-    var on = L.keeperWorn(s).map(function (g) { return g.id; });
-    for (var i = 0; i < K.wornOrder.length; i++) {
-      if (on.indexOf(K.wornOrder[i]) >= 0) return K.gear[L.keeperIndex(K.wornOrder[i])].art + '_' + (s.look === 'girl' ? 'girl' : 'boy');
-    }
+  // (owner, 13 Nov 2026) the sheets the farmer may walk in while wearing the Keeper's gear, best first, as
+  // '<art>_<boy|girl>': all four on, the set, then the best pair, then the best piece; three, the pair of the two most
+  // visible (K.wornOrder), then the more visible piece; two, their pair, then the more visible; one, that piece. [] when
+  // none is worn, or a Tailor Shop look is (the look wins).
+  L.keeperSheets = function (s) {
+    if (!s || (L.wornLook && L.wornLook(s))) return [];
+    var worn = L.keeperWorn(s).map(function (g) { return g.id; }), who = s.look === 'girl' ? '_girl' : '_boy', out = [];
+    var on = K.wornOrder.filter(function (id) { return worn.indexOf(id) >= 0; }); // (the most visible first)
+    var piece = function (id) { return K.gear[L.keeperIndex(id)].art; };
+    if (on.length >= 4) out.push(K.set);
+    if (on.length >= 2) out.push('keeper_' + on[0] + '_' + on[1]);
+    if (on.length) out.push(piece(on[0]));
+    return out.map(function (a) { return a + who; });
+  };
+  // the one shown: the best of them that has(key) says is here (no has: the best)
+  L.keeperSheet = function (s, has) {
+    var all = L.keeperSheets(s);
+    for (var i = 0; i < all.length; i++) if (!has || has(all[i])) return all[i];
     return '';
   };
   L.keeperSpeed = function (s) { return 1 + L.keeperWorn(s).reduce(function (a, g) { return a + (g.speed || 0); }, 0); };
