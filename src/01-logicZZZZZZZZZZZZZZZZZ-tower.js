@@ -179,10 +179,12 @@
       }
       return null;
     };
-    // the stairs up: in the lower half, away from the way in
-    var g = spot(2, 2, Math.floor(H / 2)) || [Math.floor(W / 2) - 1, H - 4];
-    keep(g[0] - 1, g[1] - 1, g[0] + 2, g[1] + 2);
-    objects.push({ id: id++, name: 'dungeon_gate', type: 'dungeon_gate', x: g[0] * S, y: g[1] * S, width: 2 * S, height: 2 * S, rotation: 0, visible: true });
+    // the stairs up: a door in the back wall (owner, 12 Nov 2026: "that door should be around the wall", going up, not a
+    // hatch in the floor like the caves' gate down), right of the way in. Its 2 x 1 tiles are the floor in front of it:
+    // walk up to it to go through (19zzz...z-tower.js draws the door standing in the wall above them).
+    var g = [K.x1 + 2 + Math.floor(r() * Math.max(1, W - K.x1 - 5)), 2];
+    keep(g[0] - 1, 2, g[0] + 2, 4);
+    objects.push({ id: id++, name: 'dungeon_gate', type: 'dungeon_gate', x: g[0] * S, y: g[1] * S, width: 2 * S, height: S, rotation: 0, visible: true });
     // pillars (the rock's top, its face below) and pools
     var area = W * H, k, p;
     for (k = Math.round(area / 170); k > 0; k--) {

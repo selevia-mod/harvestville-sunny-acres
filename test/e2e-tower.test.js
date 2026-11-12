@@ -146,11 +146,11 @@ test('The Lost Tower: in at the lighthouse, floor 1 has 20 enemies, cleared the 
   // the stairs up: sealed, and they say so
   const gate = await page.evaluate(() => Farm.world.lair.gateRect);
   await page.evaluate(() => { const w = Farm.world; w.wild.animals.forEach((a) => { a.def = Object.assign({}, a.def, { angry: 0 }); }); }); // (no charges while we look)
-  await teleport(page, gate.x0, gate.y0 - 1, 'down');
+  await teleport(page, gate.x0, gate.y0 + 1, 'up');
   assert.strictEqual(await actionLabel(page), 'Sealed');
-  await teleport(page, gate.x0, gate.y0, 'down');
+  await teleport(page, gate.x0, gate.y0, 'up');
   await page.waitForFunction(() => Farm.ui.toastText.visible && /stairs up are sealed\. 20 enemies/.test(Farm.ui.toastText.text), null, SLOW);
-  await teleport(page, gate.x0, gate.y0 - 2, 'down');
+  await teleport(page, gate.x0, gate.y0 + 2, 'up');
   // one shot with the Bow at one of them, then the rest with the test helper
   const one = await page.evaluate(() => { const w = Farm.world, a = w.wild.animals[0]; a.hp = 1; w.wildStruck(a); return w.wild.animals.length; });
   assert.strictEqual(one, 19);
@@ -159,20 +159,20 @@ test('The Lost Tower: in at the lighthouse, floor 1 has 20 enemies, cleared the 
   assert.ok(await page.evaluate(() => Farm.towerClearFloor()));
   await page.waitForFunction(() => Farm.world.lair.open && Farm.world.lair.gate.glow.visible, null, SLOW);
   await page.waitForFunction(() => Farm.ui.toastText.visible && /Floor 1 cleared! \+1 Pearl/.test(Farm.ui.toastText.text), null, SLOW);
-  await page.waitForFunction(() => Farm.ui.toastText.visible && /stairs up are open! Walk onto them for floor 2/.test(Farm.ui.toastText.text), null, SLOW);
+  await page.waitForFunction(() => Farm.ui.toastText.visible && /stairs up are open! Walk through the door for floor 2/.test(Farm.ui.toastText.text), null, SLOW);
   await frames(page, 10);
   let s = await state(page);
   assert.strictEqual(s.pearls, 1, 'floor 1 pays 1 Pearl');
   assert.strictEqual(s.tower.cl, 1);
-  await teleport(page, gate.x0, gate.y0 - 1, 'down');
+  await teleport(page, gate.x0, gate.y0 + 1, 'up');
   await shot(page, 'tower-3-cleared');
   assert.strictEqual(await actionLabel(page), 'Go up');
   // the bag shows them
   await page.evaluate(() => Farm.ui.openInventory());
   assert.match(await modalText(page), /Pearls 1/);
   await page.evaluate(() => Farm.ui.closeAll());
-  // up: walk onto the stairs
-  await teleport(page, gate.x0, gate.y0, 'down');
+  // up: through the door in the back wall
+  await teleport(page, gate.x0, gate.y0, 'up');
   await waitFloor(page, 2);
   s = await state(page);
   assert.deepStrictEqual([s.tower.deep, s.pearls], [2, 1]);
