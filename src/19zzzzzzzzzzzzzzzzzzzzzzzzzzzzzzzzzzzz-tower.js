@@ -33,7 +33,7 @@
   // ---------- the cave each realm is (19zt-lair.js F.dungeonOf) ----------
   var WORDS = {
     note: /^The stairs up are open/,
-    open: function (next) { return 'The stairs up are open! Walk onto them for floor ' + next + '.'; },
+    open: function (next) { return 'The stairs up are open! Walk through the door for floor ' + next + '.'; },
     sealed: function (w) {
       var n = towerLeft(w);
       return 'The stairs up are sealed. ' + (n ? n + (n > 1 ? ' enemies are' : ' enemy is') + ' still on this floor.' : 'Beat every enemy on this floor to open them.');
@@ -47,7 +47,7 @@
     if (cfgs[zn]) return cfgs[zn];
     var z = TW.zones[zn - 1];
     return (cfgs[zn] = {
-      key: 'tower', tower: true, zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
+      key: 'tower', tower: true, door: 'wall', zone: z, floors: TW.floors, liftEvery: TW.liftEvery, from: 'manila', mouth: null, sheet: 'indoor-tower-' + zn,
       look: z.look, lava: z.lava, art: { gate: z.art.gate, cave: z.art.cave }, bg: z.bg, propTint: z.propTint, embers: false,
       lift: 'Tower Lift', icon: 'sparkle', name: 'The Lost Tower', d: {}, words: WORDS,
       line: function (f) {
@@ -63,6 +63,18 @@
   var dungeonOf = F.dungeonOf;
   F.dungeonOf = function (map) { return map === 'tower' ? towerCfg(floorNow()) : dungeonOf(map); };
   var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
+  // The stairs up are a door in the back wall (L.towerMap): the camera may go 4 tiles above a floor's top (2 elsewhere),
+  // so walking up to it the door shows below the top bar and the quest strip, not under them.
+  var updateCamera = P.updateCamera;
+  P.updateCamera = function (lerp) {
+    if (!inTower(this) || !this.map) return updateCamera.call(this, lerp);
+    var cam = this.cameras.main, f = this.feet(), vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
+    var mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+    var cx = mw <= vw ? mw / 2 : Phaser.Math.Clamp(f.x, vw / 2, mw - vw / 2);
+    var cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(f.y - T, vh / 2 - 4 * T, mh - vh / 2 + 3 * T);
+    var cur = cam.midPoint;
+    cam.centerOn(cur.x + (cx - cur.x) * lerp, cur.y + (cy - cur.y) * lerp);
+  };
   // enemies of this floor still to beat (on the floor, and the waves still to come; and a splitter's copies, lr.extra:
   // 19zzz...zz-tower-tricks.js)
   var towerLeft = function (w) {

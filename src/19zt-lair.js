@@ -421,7 +421,7 @@
   // The gate down: the owner's picture, its two halves (shut, open) as two frames of one texture; without it, a round
   // stone seal in the floor with the moon the Bakunawa eats, and open, a glowing stair going down. Gives [key, frame].
   var gateFrame = function (w, open, cfg) {
-    if (!real(cfg.art.gate)) return [gateTexture(w, open), undefined];
+    if (!real(cfg.art.gate)) return cfg.door === 'wall' ? [wallDoorTexture(w, open, cfg), '__BASE'] : [gateTexture(w, open), undefined];
     var key = F.ensureTexture(w, cfg.art.gate), t = w.textures.get(key);
     if (!t.has('open')) { // (again after it was let go elsewhere and came back: 19zzzz-perf.js)
       var src = t.source[0], fw = Math.floor((src.width - 4) / 2); // (side by side, 4 px apart: the importer)
@@ -511,6 +511,85 @@
       g.stroke();
     });
   };
+  // A door in the back wall (a cave whose cfg.door is 'wall': The Lost Tower's stairs UP, owner 12 Nov 2026): until its
+  // picture comes, an arched doorway of the realm's stone (cfg.look.wall), shut with a plank door, open on steps climbing
+  // up into the light (cfg.lava.hot). 192 x 256: the picture's own shape (3 : 4), standing on its bottom edge.
+  var wallDoorTexture = function (w, open, cfg) {
+    var wall = (cfg.look && cfg.look.wall) || ['#1a1410', '#4a3a30', '#7a6a5a'], hot = (cfg.lava && cfg.lava.hot) || ['#fff0c0', '#ffc860', '#a06a20'];
+    return canvasTex(w, 'fx-walldoor' + (open ? 1 : 0) + '-' + (cfg.sheet || cfg.key), 192, 256, function (g) {
+      var arch = function (x0, y0, x1, y1) { // a doorway: straight sides, a round top
+        var r = (x1 - x0) / 2;
+        g.beginPath();
+        g.moveTo(x0, y1);
+        g.lineTo(x0, y0 + r);
+        g.arc(x0 + r, y0 + r, r, Math.PI, 0);
+        g.lineTo(x1, y1);
+        g.closePath();
+      };
+      // the frame of the wall's stone
+      var st = g.createLinearGradient(0, 0, 0, 256);
+      st.addColorStop(0, wall[2]);
+      st.addColorStop(1, wall[1]);
+      g.fillStyle = st;
+      arch(8, 6, 184, 252);
+      g.fill();
+      g.lineWidth = 6;
+      g.strokeStyle = '#120c0a';
+      g.stroke();
+      g.strokeStyle = 'rgba(18,12,10,0.55)'; // its blocks
+      g.lineWidth = 3;
+      [[0.95, 0.75], [1.3, 0.45], [1.75, 0.2], [2.2, 0.0]].forEach(function (a) {
+        [Math.PI + a[0] - 0.95, -a[0] + 0.95].forEach(function (t) {
+          g.beginPath();
+          g.moveTo(96 + Math.cos(t) * 64, 94 + Math.sin(t) * 64);
+          g.lineTo(96 + Math.cos(t) * 86, 94 + Math.sin(t) * 86);
+          g.stroke();
+        });
+      });
+      [130, 170, 210].forEach(function (y) { [[8, 32], [160, 184]].forEach(function (s) { g.beginPath(); g.moveTo(s[0], y); g.lineTo(s[1], y); g.stroke(); }); });
+      g.save();
+      arch(32, 30, 160, 252);
+      g.clip();
+      if (open) { // steps climbing up and away, the light pouring down from above
+        var sky = g.createLinearGradient(0, 30, 0, 252);
+        sky.addColorStop(0, hot[0]);
+        sky.addColorStop(0.35, hot[1]);
+        sky.addColorStop(1, '#0a0606');
+        g.fillStyle = sky;
+        g.fillRect(0, 0, 192, 256);
+        for (var k = 0; k < 6; k++) {
+          var y0 = 236 - k * 26, half = 60 - k * 6;
+          g.fillStyle = 'rgba(' + (40 + k * 22) + ',' + (34 + k * 20) + ',' + (30 + k * 18) + ',0.95)';
+          g.fillRect(96 - half, y0, half * 2, 16);
+          g.fillStyle = 'rgba(255,240,200,' + (0.12 + k * 0.08) + ')'; // each step's lit edge
+          g.fillRect(96 - half, y0, half * 2, 4);
+        }
+      } else { // shut: a heavy plank door with iron bands and a ring
+        var wood = g.createLinearGradient(32, 0, 160, 0);
+        wood.addColorStop(0, '#3a2414');
+        wood.addColorStop(0.5, '#6a4426');
+        wood.addColorStop(1, '#3a2414');
+        g.fillStyle = wood;
+        g.fillRect(0, 0, 192, 256);
+        g.strokeStyle = 'rgba(20,10,4,0.7)';
+        g.lineWidth = 3;
+        [64, 96, 128].forEach(function (x) { g.beginPath(); g.moveTo(x, 30); g.lineTo(x, 252); g.stroke(); });
+        g.fillStyle = '#2a2a30';
+        [100, 200].forEach(function (y) { g.fillRect(32, y, 128, 12); });
+        g.strokeStyle = '#c8a040';
+        g.lineWidth = 5;
+        g.beginPath();
+        g.arc(120, 160, 12, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+      g.lineWidth = 5;
+      g.strokeStyle = '#120c0a';
+      arch(32, 30, 160, 252);
+      g.stroke();
+    });
+  };
+  var DOOR = { w: 2.3, foot: 0.25 }; // a wall door's picture: its width in tiles, and how far its foot stands into its tiles
   // The lift: the Mine's picture (owner, 8 Nov 2026: "lift also need an art"; 19y-mine.js), or this drawing of an iron
   // cage in a frame of dark stone, with its wheel on top, when the picture is not there.
   var liftTexture = function (w) {
@@ -698,13 +777,18 @@
     askArt(lr.cfg.art.gate);
     var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false, lr.cfg);
     var img = this.add.image(x, y, tf[0], tf[1]).setDisplaySize(size, size).setDepth(DEPTH.flat);
-    if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
+    if (lr.cfg.door === 'wall') { // a door standing in the back wall, its foot on the floor in front of it (its tiles)
+      img.setOrigin(0.5, 1).setPosition(x, (g.y0 + DOOR.foot) * T).setDisplaySize(DOOR.w * T, DOOR.w * T * img.height / img.width);
+      img.setDepth(this.cursor ? this.cursor.depth - 0.01 : DEPTH.actor); // (against the back wall, like the lift)
+      y = img.y - img.displayHeight * 0.42;
+      size = DOOR.w * T * 0.75;
+    } else if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
       img.setOrigin(0.5, 1).setPosition(x, (g.y1 + 1 + GATE.drop) * T).setDisplaySize(size, size * img.height / img.width * GATE.squash);
       y = img.y - img.displayHeight * 0.48;
     }
     lr.gate = {
       img: img,
-      glow: this.add.image(x, y, glowTexture(this)).setDisplaySize(size * 1.5, size * 1.5).setBlendMode(ADD).setDepth(DEPTH.flat + 0.01).setVisible(false),
+      glow: this.add.image(x, y, glowTexture(this)).setDisplaySize(size * 1.5, size * 1.5).setBlendMode(ADD).setDepth(img.depth + 0.001).setVisible(false),
       x: x, y: y,
     };
   };

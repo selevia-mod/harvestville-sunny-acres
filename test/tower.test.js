@@ -207,7 +207,11 @@ test('L.towerMap: a floor\'s room in the caves\' layout, sized by its band, the 
     assert.deepStrictEqual([out.type, out.x / 256, out.y / 256], ['warp', 5, 2]);
     assert.deepStrictEqual(pr, { to: 'manila', spawn: 'from_tower', label: 'Go out' });
     assert.strictEqual(by('dungeon_gate').type, 'dungeon_gate');
-    assert.deepStrictEqual([by('dungeon_gate').width, by('dungeon_gate').height], [512, 512], 'the stairs up: 2 x 2');
+    // the stairs up: a door in the back wall (owner, 12 Nov 2026: "that door should be around the wall", going up, not a
+    // hatch in the floor); its 2 x 1 tiles are the floor in front of it, right of the way in
+    const gt = by('dungeon_gate');
+    assert.deepStrictEqual([gt.width, gt.height, gt.y / 256], [512, 256, 2], 'the stairs up: the 2 tiles in front of the back wall');
+    assert.ok(gt.x / 256 >= L.TOWER_KEEP.x1 + 2 && gt.x / 256 + 1 <= sz[0] - 3, 'the door: away from the way in, inside the walls');
     const wild = by('wild');
     assert.deepStrictEqual([wild.x, wild.y, wild.width, wild.height].map((v) => v / 256), [1, 4, sz[0] - 2, sz[1] - 5]);
     // the walls round it, the ladder, and the lift's tiles left free
@@ -227,8 +231,10 @@ test('every floor differs and is the same for every player; every free tile and 
     const m = plain(L.towerMap(f, LAIR)), w = walkOf(m), g = w.objs.find((o) => o.name === 'dungeon_gate');
     for (let i = 0; i < w.W * w.H; i++) if (!w.block[i]) assert.ok(w.seen[i], `floor ${f}: tile ${i % w.W},${Math.floor(i / w.W)} cannot be reached`);
     const gx = g.x / 256, gy = g.y / 256;
-    [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([dx, dy]) => assert.ok(w.seen[(gy + dy) * w.W + gx + dx], `floor ${f}: the stairs up are reached`));
-    assert.ok(gy >= Math.floor(w.H / 2) - 1, 'the stairs up are in the lower half');
+    [[0, 0], [1, 0]].forEach(([dx, dy]) => assert.ok(w.seen[(gy + dy) * w.W + gx + dx], `floor ${f}: the stairs up are reached`));
+    assert.strictEqual(gy, 2, 'the stairs up: in the back wall');
+    const wl = m.layers[1].data, lw = LAIR.tilesets[0].firstgid;
+    [0, 1].forEach((dx) => assert.strictEqual(wl[1 * w.W + gx + dx], lw + 8, `floor ${f}: the door stands in the wall's face`));
     // pillars and pools are there, and room for the enemies (at least 20 free tiles each)
     const walls = m.layers[1].data, lg = LAIR.tilesets[0].firstgid;
     assert.ok(walls.some((v) => v === lg + 5), `floor ${f}: pools`);
