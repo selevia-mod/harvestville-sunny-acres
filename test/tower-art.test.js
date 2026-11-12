@@ -20,16 +20,15 @@ const webpSize = (f) => { // (as build.js)
   return [(b & 0x3fff) + 1, ((b >>> 14) & 0x3fff) + 1];
 };
 
-test('every creature sheet, shadow, cave tile sheet and prop the Tower asks for is in the tower pack (all but the stairs)', () => {
+test('every creature sheet, shadow, cave tile sheet and prop the Tower asks for is in the tower pack, and the ten doors up', () => {
   const pack = PACKS.tower, want = [];
   TW.zones.forEach((z) => {
     kinds(z).forEach((k) => { const d = C.WILD.animals[k]; want.push(d.sheet, d.sheet + 'shade'); });
-    want.push(z.art.cave);
+    want.push(z.art.cave, z.art.gate);
     z.art.props.forEach((k) => want.push(k));
   });
-  assert.strictEqual(want.length, 10 * (12 + 1 + 6));
+  assert.strictEqual(want.length, 10 * (12 + 2 + 6));
   want.forEach((k) => assert.ok(pack.includes(k), k + ' is in the tower pack'));
-  TW.zones.forEach((z) => assert.ok(!pack.includes(z.art.gate), z.art.gate + ': the stairs wait for new art'));
   // and in no other pack (one copy on the phone)
   Object.keys(PACKS).filter((p) => p !== 'tower').forEach((p) => want.forEach((k) => assert.ok(!PACKS[p].includes(k), k + ' is not also in ' + p)));
 });
