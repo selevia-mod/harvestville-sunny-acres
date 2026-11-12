@@ -454,7 +454,7 @@
     a.lift = lift;
     // breathing while it stands (it grows from its feet, so they stay put)
     var b = moving || dt == null ? 0 : Math.sin((a.breath += dt / 520)), squash = 0;
-    if (a.hitT > 0) { a.hitT -= dt; squash = Math.max(0, a.hitT / HIT_MS) * 0.16; } // struck: it flinches
+    if (a.hitT > 0) { a.hitT -= dt; squash = Math.max(0, a.hitT / HIT_MS) * 0.22; } // struck: it flinches
     a.img.setScale(a.scale * (1 - b * 0.006 + squash), a.scale * (1 + b * 0.018 - squash));
     // something rare glitters
     if (def.rare && (a.glow -= dt) <= 0) {
@@ -698,7 +698,7 @@
     // the hit flashes white; a big one only lights up a little (all white, it was a blob for a frame); its colour comes back
     if (a.def.boss || a.def.great || a.def.w >= 2) a.img.setTint(0xffc8b8);
     else a.img.setTintFill(0xffffff);
-    this.time.delayedCall(90, function () { if (a.img.active) untint(a); });
+    this.time.delayedCall(150, function () { if (a.img.active) untint(a); }); // (owner, 12 Nov 2026: 90 ms read as nothing)
     a.hitT = HIT_MS;
     if (this.bits) this.bits.dust.explode(3, a.x, a.y - 0.3 * a.def.w * T);
     this.wildBar(a);

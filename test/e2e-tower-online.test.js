@@ -215,7 +215,7 @@ test('REAL server: three friends on one Tower floor share its 20 enemies and its
   assert.deepStrictEqual([after[1].pearls, after[1].hn], [1, 1], 'Ben, helping: 1 Pearl');
   assert.deepStrictEqual([after[2].pearls, after[2].hn], [0, 50], 'Cy, 50 helps today already: nothing');
   after.forEach((t, i) => assert.ok(t.open, team[i].name + ': the stairs are open'));
-  for (const who of team) await who.page.waitForFunction(() => /^Floor 1 +clear! +Pearls/.test(Farm.ui.towerText.text), null, SLOW); // (the chip redraws on its own clock)
+  for (const who of team) await who.page.waitForFunction(() => /^Floor 1 +· +Clear! +· +/.test(Farm.ui.towerText.text), null, SLOW); // (the chip redraws on its own clock)
 
   // ---- Ben alone on floor 2, which he cleared long ago: nothing ----
   await toFloor(ben, 2);

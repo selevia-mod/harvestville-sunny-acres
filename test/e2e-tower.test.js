@@ -125,7 +125,7 @@ test('The Lost Tower: in at the lighthouse, floor 1 has 20 enemies, cleared the 
     const w = Farm.world, Z = Farm.Config.TOWER.zones[0];
     return { size: [w.map.width, w.map.height], n: w.wild.animals.length, realm: w.wild.animals.every((a) => Z.normal.indexOf(a.kind) >= 0),
       tinted: w.wild.animals.every((a) => (a.img.texture.key === a.def.sheet ? a.img.tintTopLeft === 0xffffff : a.img.texture.key === 'wild' && a.img.tintTopLeft !== 0xffffff)), hp: w.wild.animals.map((a) => a.hp), open: w.lair.open, deep: Farm.session.state.tower.deep,
-      sheet: w.map.getTileset('indoor').image.key, chip: Farm.ui.towerChipBox && Farm.ui.towerChipBox.visible && Farm.ui.towerText.text };
+      sheet: w.map.getTileset('indoor').image.key, chip: Farm.ui.towerChipBox && (Farm.ui.towerChipBox.visible || (Farm.ui.goalPill && !Farm.ui.goalSmall)) && Farm.ui.towerText.text };
   });
   assert.deepStrictEqual(here.size, [28, 24]);
   assert.strictEqual(here.n, 20, 'floor 1 has 20 enemies');
@@ -137,7 +137,7 @@ test('The Lost Tower: in at the lighthouse, floor 1 has 20 enemies, cleared the 
   assert.strictEqual(here.open, false);
   assert.strictEqual(here.deep, 1);
   assert.strictEqual(here.sheet, 'indoor-tower-1', 'the cave tiles in the realm\'s colours');
-  assert.match(here.chip, /^Floor 1 +20 left +Pearls 0$/);
+  assert.match(here.chip, /^Floor 1 +· +20 left +· +0 Pearls$/);
   await page.waitForTimeout(700);
   await shot(page, 'tower-2-floor-1');
   // nobody walks in from the edges
@@ -282,6 +282,40 @@ test('in Manila the Tower\'s first realm is fetched ahead: its tiles, its door u
   await waitMap(page, 'manila');
   const want = await page.evaluate(() => { const z = Farm.Config.TOWER.zones[0]; return [z.art.cave, z.art.gate].concat(z.art.props); });
   await page.waitForFunction((want) => want.every((k) => Farm.images && Farm.images[k]), want, SLOW);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('a hit you can see; the floor banner under the top bar; people stand on shadows (owner, 12 Nov 2026)', async () => {
+  const save = await makeSave("s.map = 'manila'; s.energy = 200; L.addItem(s, 'bow', 1); L.addItem(s, 'arrows', 40); s.sel = s.inv.findIndex((x) => x && x.id === 'bow'); const d = L.towerDoor(); s.player = { x: (d.x + 0.5) * 256, y: (d.y + 1.5) * 256, dir: 'up' };");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'manila');
+  // Manila's people each have a shadow at their feet
+  await page.waitForFunction(() => Farm.world.peopleShadows && Farm.world.peopleShadows.length >= 20, null, SLOW);
+  const sh = await page.evaluate(() => { const o = Farm.world.peopleShadows[0], s = o.peopleShadow; return { near: Math.abs(s.x - o.x) < 64 && s.y > o.y - 8, depth: s.depth < o.depth }; });
+  assert.deepStrictEqual(sh, { near: true, depth: true });
+  await tapAction(page);
+  await waitFloor(page, 1);
+  // the banner: in the middle, under the top bar
+  await page.waitForFunction(() => Farm.ui.towerChipBox && Farm.ui.towerChipBox.visible, null, SLOW);
+  const chip = await page.evaluate(() => ({ x: Farm.ui.towerChipBox.x, y: Farm.ui.towerChipBox.y, W: Farm.Config.WIDTH, text: Farm.ui.towerText.text }));
+  assert.strictEqual(chip.x, chip.W / 2);
+  assert.ok(chip.y >= 70 && chip.y < 200, 'under the top bar: ' + chip.y);
+  assert.match(chip.text, /^Floor 1 {2}· {2}20 left {2}· {2}0 Pearls$/);
+  // a hit: its damage pops up over it, from a pool (no new picture per hit)
+  const pops = await page.evaluate(() => {
+    const w = Farm.world, A = w.wild.animals;
+    for (let i = 0; i < 30; i++) { const a = A[i % 5]; a.hp = 9; a.hpMax = 9; w.wildStruck(a); }
+    return { nums: w.hitPops.nums.length, sparks: w.hitPops.sparks.length, shown: w.hitPops.nums.filter((o) => o.visible).length, tex: Object.keys(w.textures.list).filter((k) => /^fx-dmg/.test(k)) };
+  });
+  assert.deepStrictEqual([pops.nums, pops.sparks], [12, 12], 'a pool of 12, reused');
+  assert.ok(pops.shown >= 1);
+  assert.deepStrictEqual(pops.tex, ['fx-dmg1'], 'each number drawn once');
+  // up a floor (the scene starts again): hits still pop, from a new pool
+  await page.evaluate(() => Farm.world.travel('tower', 'entrance', 1));
+  await waitFloor(page, 1);
+  const again = await page.evaluate(() => { const w = Farm.world, a = w.wild.animals[0]; a.hp = 9; w.wildStruck(a); return w.hitPops.nums.filter((o) => o.visible && o.active).length; });
+  assert.strictEqual(again, 1);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

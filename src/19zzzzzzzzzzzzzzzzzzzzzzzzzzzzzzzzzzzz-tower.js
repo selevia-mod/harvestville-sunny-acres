@@ -63,15 +63,15 @@
   var dungeonOf = F.dungeonOf;
   F.dungeonOf = function (map) { return map === 'tower' ? towerCfg(floorNow()) : dungeonOf(map); };
   var inTower = function (w) { return !!(w && w.lair && w.lair.cfg.tower); };
-  // The stairs up are a door in the back wall (L.towerMap): the camera may go 4 tiles above a floor's top (2 elsewhere),
-  // so walking up to it the door shows below the top bar and the quest strip, not under them.
+  // The stairs up are a door in the back wall (L.towerMap): the camera may go 5 tiles above a floor's top (2 elsewhere),
+  // so walking up to it the door shows below the top bar, the quest strip and the floor's banner, not under them.
   var updateCamera = P.updateCamera;
   P.updateCamera = function (lerp) {
     if (!inTower(this) || !this.map) return updateCamera.call(this, lerp);
     var cam = this.cameras.main, f = this.feet(), vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
     var mw = this.map.widthInPixels, mh = this.map.heightInPixels;
     var cx = mw <= vw ? mw / 2 : Phaser.Math.Clamp(f.x, vw / 2, mw - vw / 2);
-    var cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(f.y - T, vh / 2 - 4 * T, mh - vh / 2 + 3 * T);
+    var cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(f.y - T, vh / 2 - 5 * T, mh - vh / 2 + 3 * T);
     var cur = cam.midPoint;
     cam.centerOn(cur.x + (cx - cur.x) * lerp, cur.y + (cy - cur.y) * lerp);
   };
@@ -242,19 +242,35 @@
     var ui = F.ui;
     if (!ui || !ui.add || !ui.sys || !ui.sys.isActive()) return;
     var on = inTower(this) && !this.busy;
+    // (owner, 12 Nov 2026: "needs a better location", then: lighter, and in the task bar's place) a light pill in the task
+    // bar's row ("Clear 3 weeds..."): behind it while the bar is open, beside its small pill once it shrinks (19zzzzc-goal-pill.js)
     if (!ui.towerChipBox) {
       if (!on) return;
-      ui.towerBg = ui.add.rectangle(0, 0, 10, 26, 0x14202c, 0.82).setOrigin(0, 0.5).setStrokeStyle(1.5, 0xbfe4f0, 0.6);
-      ui.towerText = ui.add.text(10, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#eaf6ff' }).setOrigin(0, 0.5);
-      ui.towerChipBox = ui.add.container(8, 178, [ui.towerBg, ui.towerText]).setDepth(45);
+      ui.towerBg = ui.add.graphics();
+      ui.towerText = ui.add.text(0, 0, '', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '13px', fontStyle: 'bold', color: '#6b4a2e' }).setOrigin(0.5, 0.5);
+      ui.towerChipBox = ui.add.container(C.WIDTH / 2, CHIP.y, [ui.towerBg, ui.towerText]).setDepth(45);
+      ui.towerChipW = 0;
       ui.events.once('shutdown', function () { ui.towerChipBox = null; });
     }
-    ui.towerChipBox.setVisible(on);
+    var full = !!(ui.goalPill && ui.goalPill.visible && !ui.goalSmall); // the task bar open in full: the pill waits behind it
+    ui.towerChipBox.setVisible(on && !full);
     if (!on) return;
     var left = towerLeft(this), s = this.state;
-    ui.towerText.setText('Floor ' + this.lair.floor + '   ' + (left ? left + ' left' : 'clear!') + '   Pearls ' + fmt(s.pearls || 0));
-    ui.towerBg.setSize(ui.towerText.width + 20, 26);
+    ui.towerText.setText('Floor ' + this.lair.floor + '  ·  ' + (left ? left + ' left' : 'Clear!') + '  ·  ' + fmt(s.pearls || 0) + ' Pearls');
+    var w = Math.ceil(ui.towerText.width + 24);
+    if (w !== ui.towerChipW) {
+      ui.towerChipW = w;
+      ui.towerBg.clear().fillStyle(0xfffaf0, 0.78).fillRoundedRect(-w / 2, -CHIP.h / 2, w, CHIP.h, CHIP.h / 2)
+        .lineStyle(1.5, 0xc8a27c, 0.9).strokeRoundedRect(-w / 2, -CHIP.h / 2, w, CHIP.h, CHIP.h / 2);
+    }
+    // in the middle, or right of the task bar's small pill when the two would touch
+    var pt = ui.goalPillText, pill = ui.goalPill && ui.goalPill.visible && ui.goalSmall && pt ? (pt.text ? pt.x + pt.width + 10 : pt.x) : 0; // (its right edge: 19zzzzc-goal-pill.js)
+    ui.towerChipBox.setPosition(Math.max(C.WIDTH / 2, pill + 8 + w / 2), CHIP.y);
   };
+  var CHIP = { y: 83, h: 24 }; // (the task bar's row: its small pill is 68 to 98)
+  // the task bar opening or shrinking: the pill follows at once (not on its next 400 ms)
+  var goalShape = U.goalShape;
+  if (goalShape) U.goalShape = function () { var r = goalShape.apply(this, arguments); if (F.world && F.world.lair && F.world.towerChip) F.world.towerChip(); return r; };
 
   // ---------- your Pearls in the bag (with the Lumber and the Stone) ----------
   var openInventory = U.openInventory;
