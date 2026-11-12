@@ -480,7 +480,7 @@
     if (!r) return;
     if (r.stage === 'wait' && r.from === i) {
       var f = this.feet();
-      if (Math.hypot(f.x - w[0], f.y - w[1]) < 3.5 * T) this.mnBoard();
+      if (Math.hypot(f.x - w[0], f.y - w[1]) < JEEP_NEAR * T) this.mnBoard(); // (anywhere still waiting by its shed: owner, 12 Nov 2026)
     } else if (r.stage === 'on' && r.to === i) this.mnAlight(i);
   };
 
@@ -503,13 +503,14 @@
     sfx('door');
     this.save();
   };
+  var JEEP_NEAR = 8; // (tiles from a stop's wait spot: within, the jeep picks you up; further, you walked off and get the fare back)
   var JEEP_BACK = 1.45; // (tiles from its middle to its back step, side on: it is drawn 3.6 tiles long)
   P.mnRideUpdate = function (st) {
     var r = this.mnRide;
     if (!r) return;
     if (r.stage === 'wait') {
       var w = J.stops[r.from].wait, f = this.feet();
-      if (Math.hypot(f.x - w[0] * T, f.y - w[1] * T) > 8 * T) { // walked off: the fare back
+      if (Math.hypot(f.x - w[0] * T, f.y - w[1] * T) > JEEP_NEAR * T) { // walked off: the fare back
         this.mnRide = null;
         this.state.gold += J.fare;
         this.changed();

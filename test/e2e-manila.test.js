@@ -414,6 +414,19 @@ test('the jeepney: "Para po" at the Plaza\'s shed, 15G, on board when it stops, 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+test('the jeepney picks you up from either side of its shed (owner, 12 Nov 2026: paid at the Plaza from the shed\'s far side, it drove past)', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  await jeepSoon(page, 'plaza', 6000);
+  const st = await page.evaluate(() => Farm.Config.MANILA.jeep.stops.find((s) => s.key === 'plaza'));
+  // the shed's far side from its wait spot: facing it from the left, about 4 tiles from where the jeep stops
+  await teleport(page, st.shed[0] - 1, st.shed[1] + 1, 'right');
+  assert.strictEqual(await actionLabel(page), 'Para po');
+  await tapAction(page);
+  await tapButton(page, '15G', 0);
+  await page.waitForFunction(() => Farm.world.mnRide && Farm.world.mnRide.stage === 'on', null, { timeout: 20000 });
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
 test('the jeepney stops and honks for someone in front of it, never through them, and goes on after', async () => {
   const { page, problems, context } = await toManila(NOON);
   await jeepSoon(page, 'talipapa', 9000); // (on the north road and down the east one before that)
