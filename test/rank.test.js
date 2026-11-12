@@ -23,6 +23,7 @@ const manila = (y, mo, d, h = 10, mi = 0) => Date.UTC(y, mo - 1, d, h - 8, mi);
 const fresh = () => { clock.ms = manila(2026, 11, 6, 10); const s = L.newState(); s.seed = 7; if (L.takeNotes) L.takeNotes(); return s; };
 const SQL = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_22.sql'), 'utf8');
 const SQL23 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_23.sql'), 'utf8'); // (the new places' bosses)
+const SQLTW = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_tower_board.sql'), 'utf8'); // (the Tower's big bosses)
 
 // ---------- points ----------
 test('points: each kind capped per day; the caps are the same as the server\'s', () => {
@@ -203,7 +204,7 @@ test('firsts: the Bakunawa, each Lair guard on its own floor, the Great Mammoth;
   assert.deepStrictEqual(plain(s.tr.fq), []);
   assert.strictEqual(L.hallWant(s, 'lair_10'), false, 'answered: never again');
   assert.deepStrictEqual(plain(roundTrip(s).tr.fd), ['lair_10']);
-  const keys = [SQL, SQL23].flatMap((q) => [...q.match(/insert into farm\.hall_first_keys \(key, what\) values([^;]+?)on conflict/)[1].matchAll(/\('([a-z0-9_]+)'/g)].map((m) => m[1]));
+  const keys = [SQL, SQL23, SQLTW].flatMap((q) => [...q.match(/insert into farm\.hall_first_keys \(key, what\) values([^;]+?)on conflict/)[1].matchAll(/\('([a-z0-9_]+)'/g)].map((m) => m[1]));
   assert.deepStrictEqual(keys.sort(), plain(C.HALL.FIRSTS.map((f) => f.key).sort()), 'the server\'s allow-list');
   assert.deepStrictEqual(MOCK.FIRSTS.slice().sort(), keys.sort());
   // every guard floor of the Lair has its first
