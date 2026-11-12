@@ -4,9 +4,18 @@
 //   for his shop (Pearls only): the Keeper's gear, horse gear looks, "a new weapon: coming soon", and the Tower page (the
 //   Blessings from the big bosses and the Tide set);
 // - a big boss beaten: its Blessing and its Tide piece, once (and F.towerFirst, the later "First in Selebox" step);
-// - the Keeper's Boots: faster walking in the Tower; the horse's looks: a tint and a lantern's glow, until their art comes;
+// - the Keeper's Boots: faster walking in the Tower;
+// - the farmer in the Keeper's gear (owner, 13 Nov 2026: "one piece at a time"): walking and standing in the sheet of the
+//   most visible piece worn (L.keeperSheet); the tools' poses, the bow, riding stay the farmer's own pictures; a Tailor
+//   Shop look, or the birthday's party hat, wins. Only you see it: friends see your farmer as before (presence and the
+//   game server carry your look, not the gear; adding it would need the server and a second sheet on their phones);
+// - the horse's looks: the whole horse wearing one, drawn instead of its own when it stands or goes alone (not ridden:
+//   the riding pictures are horse and farmer as one); a tint and a lantern's glow until its picture is in, and ridden;
 // - the icons: drawn here into frames of the items texture (C.TOWER_ICON_BASE), the owner's tower_icons when it is in.
-// Its pictures are the 'tower' pack's (tools/tower/tower-art.js): npc_keeper (a 3 x 3 villager sheet), tower_icons.
+// Its pictures are the 'tower' pack's (tools/tower/tower-art.js, made by tools/tower/shop-import.js): npc_keeper (a
+// villager's row of 9), tower_icons, keeper_<piece>_<boy|girl> (the farmer's frames 0-8), horse_look_<id> (ride2_horse's
+// frames). Each is asked for when it is wanted: the keeper's and the icons near the lighthouse or in the Tower (and the
+// icons when the shop opens), a piece's when it is worn, a horse look's when it is on.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -25,6 +34,13 @@
   if (F.SHEETS && F.SHEETS.people) F.SHEETS[PERSON.sheet] = F.SHEETS.people;
   var packed = function (k) { return !!(F.packedFile && F.packedFile(k)); };
   var have = function (k) { return !!(F.images && F.images[k]); };
+  // a pack picture wanted: asked for (again 10 s later if it did not come, never every frame)
+  var asked = {};
+  var want = function (k) {
+    if (have(k) || !packed(k) || !F.needImage || (F.canFetch && !F.canFetch()) || Date.now() - (asked[k] || 0) < 10000) return;
+    asked[k] = Date.now();
+    F.needImage(k);
+  };
 
   // ---------- the icons (128 cells) ----------
   var OUT = '#2b1a10';
@@ -144,11 +160,12 @@
     if (key === 'items' && !had) F.paintTowerIcons(scene);
     return out;
   };
-  // the owner's icons, once their pack picture is here (asked for when the shop opens)
+  // the owner's icons, once their pack picture is here (asked for when the shop opens, and near the keeper)
   var iconsArt = function (scene) {
     if (have('tower_icons')) { var tex = scene.textures.exists('items') && scene.textures.get('items'); if (tex && !tex.towerArt) F.paintTowerIcons(scene); }
-    else if (packed('tower_icons') && F.needImage) F.needImage('tower_icons');
+    else want('tower_icons');
   };
+  F.bus.on('packart', function (k) { if (k === 'tower_icons' && F.world && F.world.sys && F.world.sys.isActive()) iconsArt(F.world); });
 
   // ---------- the keeper: by the lighthouse door (Manila), and by the Tower's way in ----------
   var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
@@ -168,7 +185,6 @@
     var p = this.keeperSpot();
     if (!p || F.session.visit) return;
     var own = have(PERSON.sheet), key = own ? PERSON.sheet : 'tw_people', row = own ? 0 : PERSON.look[0];
-    if (!own && packed(PERSON.sheet) && F.needImage) F.needImage(PERSON.sheet);
     F.ensureTexture(this, key);
     var sp = this.add.sprite(p.x, p.y, key, row * 9).setOrigin(0.5, 0.83).setScale(2);
     if (!own) sp.setTint(PERSON.look[1]);
@@ -178,7 +194,22 @@
     this.physics.add.collider(this.player, sp);
     F.depthTo(sp, DEPTH.actor + p.y / 1e5);
     var tag = this.add.text(p.x, p.y - 1.75 * T, PERSON.name, LABEL).setOrigin(0.5, 1).setDepth(DEPTH.fx).setScale(0.7);
-    this.keeper = { sp: sp, tag: tag, x: p.x, y: p.y };
+    this.keeper = { sp: sp, tag: tag, x: p.x, y: p.y, own: own };
+    this.keeperArt();
+  };
+  // his own sheet (and the shop's icons): asked for in the Tower, or within NEAR tiles of him by the lighthouse; when it
+  // comes, he wears it (frames 0, 3, 6: facing you, away, left)
+  var NEAR = 14;
+  P.keeperArt = function () {
+    var k = this.keeper;
+    if (!k || k.own || !k.sp.active) return;
+    if (have(PERSON.sheet)) {
+      k.sp.setTexture(F.ensureTexture(this, PERSON.sheet), 0).clearTint();
+      k.own = true;
+      return;
+    }
+    var f = this.feet();
+    if (this.mapKey === 'tower' || Math.hypot(f.x - k.x, f.y - k.y) < NEAR * T) { want(PERSON.sheet); iconsArt(this); }
   };
   var create = P.create;
   P.create = function () {
@@ -292,15 +323,86 @@
     try { return move.apply(this, arguments); } finally { C.SPEED = sp; }
   };
 
-  // ---------- the horse's looks: stand-ins (a tint while it stands alone, a lantern's glow) until their art comes ----------
-  // (the art: an overlay sheet for each look, laid out like ride2_horse, drawn over the horse; see the prompts)
+  // ---------- the farmer in the Keeper's gear: one piece at a time ----------
+  // The piece's sheet (frames 0-8, the walking ones, in the player sheet's layout) painted over the farmer's own sheet:
+  // one texture, 'kgear_<art>', with the farmer's own tools' poses (9-14), so every frame the farmer is shown in is there.
+  // Only over the farmer's own clothes ('player', 'player_girl'): a Tailor Shop look or the party hat wins.
+  var GEAR_H = 1200; // (frames 0-8 end here: 8 + 3 rows of 384 and their gaps; tools/tower/shop-import.js GEAR_H, less its last gap)
+  var gearKey = function (base) {
+    var s = F.session && F.session.state, art = s && !F.session.visit && L.keeperSheet ? L.keeperSheet(s) : '';
+    if (!art || (base !== 'player' && base !== 'player_girl')) return '';
+    if (!have(art)) { want(art); return ''; }
+    return 'kgear_' + art;
+  };
+  var gearTexture = function (sc, key, base) {
+    var tex = sc.textures;
+    if (tex.exists(key)) return key;
+    var own = F.images[base], art = F.images[key.slice(6)], full = (F.sizes && F.sizes[base]) || [own && own.width, own && own.height];
+    if (!own || !art || !full[0]) return '';
+    var cv = document.createElement('canvas'), g = cv.getContext('2d');
+    cv.width = full[0];
+    cv.height = full[1];
+    g.drawImage(own, 0, 0, full[0], full[1]);
+    g.clearRect(0, 0, full[0], GEAR_H);
+    g.drawImage(art, 0, 0);
+    tex.addSpriteSheet(key, cv, F.SHEETS[base]);
+    F.makeWalkAnims(sc, key);
+    return key;
+  };
+  var playerKey = F.playerKey;
+  F.playerKey = function (sc) {
+    var base = playerKey(), key = gearKey(base);
+    if (!key) return sc ? playerKey(sc) : base;
+    if (sc) return gearTexture(sc, key, base) || playerKey(sc);
+    return F.game && F.game.textures.exists(key) ? key : base; // (its walk cycles are made with its texture)
+  };
+  var walkSuffix = F.walkSuffix;
+  F.walkSuffix = function (key) { return key && key.indexOf('kgear_') === 0 ? '-' + key : walkSuffix(key); };
+  // the farmer's picture follows what is worn (a piece on or off, from the shop or the Gear page; its picture coming in),
+  // looked at a few times a second, never in the middle of a swing, a cast or a shot
+  P.keeperGearLook = function (time) {
+    if (time - (this.kgAt || 0) < 300 || !this.player || !this.player.active || !this.applyLook) return;
+    this.kgAt = time;
+    if (this.acting > 0 || this.fishing || this.charge || this.shot || this.sleeping) return;
+    var key = F.playerKey(this);
+    if (this.player.texture.key === key) return;
+    var old = this.player.texture.key;
+    this.applyLook();
+    if (/^kgear_/.test(old) && F.freeTexture) F.freeTexture(old); // (the piece taken off: its sheet goes from the GPU)
+  };
+
+  // ---------- the horse's looks: the whole horse wearing one (laid out like ride2_horse) ----------
+  // standing or going alone, its look's sheet instead of ride2_horse (the same frames, size, ground and shadow); ridden,
+  // the riding picture (horse and farmer as one) as before. Until the look's picture is in (and while ridden): stand-ins,
+  // a tint while it stands alone and a lantern's glow.
+  var R2 = C.RIDE2;
+  var lookArt = function (w) {
+    var art = !F.session.visit && w.state ? L.horseLookSheet(w.state) : '';
+    if (!art) return '';
+    if (!have(art)) { want(art); return ''; }
+    return art;
+  };
+  var rideTexture = P.rideTexture;
+  P.rideTexture = function (h, key) {
+    var art = !key && h && h === this.horse ? lookArt(this) : '';
+    if (!art || !(have('ride2_horse') && have('ride2_horseshade'))) return rideTexture.apply(this, arguments);
+    if (h.sprite.texture.key === art) return;
+    if (F.SHEETS) F.SHEETS[art] = F.SHEETS.ride2_horseshade = { frameWidth: R2.fw, frameHeight: R2.fh };
+    var fr = h.v2 ? h.sprite.frame.name : 12, sc = R2.w * T / R2.px;
+    h.sprite.setTexture(F.ensureTexture(this, art), fr).setScale(sc);
+    h.sh.setTexture(F.ensureTexture(this, 'ride2_horseshade'), fr).setScale(sc);
+    h.ridden = false;
+    h.v2 = true;
+  };
   var updateExtras = P.updateExtras;
-  P.updateExtras = function () {
+  P.updateExtras = function (dt, time) {
     updateExtras.apply(this, arguments);
+    this.keeperArt();
+    this.keeperGearLook(time || 0);
     var h = this.horse;
     if (!h || !h.sprite || !h.sprite.active) return;
-    var looks = F.session.visit ? [] : L.horseLooks(this.state), tint = 0, glow = 0;
-    looks.forEach(function (l) { if (l.tint) tint = l.tint; if (l.glow) glow = l.glow; });
+    var looks = F.session.visit ? [] : L.horseLooks(this.state), tint = 0, glow = 0, drawn = /^horse_look_/.test(h.sprite.texture.key);
+    if (!drawn) looks.forEach(function (l) { if (l.tint) tint = l.tint; if (l.glow) glow = l.glow; });
     if (tint && !h.ridden) { if (h.hlTint !== tint) { h.sprite.setTint(tint); h.hlTint = tint; } } else if (h.hlTint) { h.sprite.clearTint(); h.hlTint = 0; }
     if (glow && h.sprite.visible) {
       if (!h.hlGlow) h.hlGlow = this.add.circle(0, 0, 0.45 * T, glow, 0.35).setBlendMode(Phaser.BlendModes.ADD);
