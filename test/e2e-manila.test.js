@@ -427,6 +427,30 @@ test('the jeepney picks you up from either side of its shed (owner, 12 Nov 2026:
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+test('at night the jeepney never leaves you on board: a ride started at the end of its night loop goes on to your stop (owner, 12 Nov 2026)', async () => {
+  const NIGHT = [2026, 11, 12, 21, 10];
+  const { page, problems, context } = await toManila(NOON);
+  // a night clock where the jeep waits at the Plaza on the last stop of a running loop, the next loop resting
+  const ok = await page.evaluate(() => {
+    const L = Farm.Logic, M = Farm.Config.MANILA, i = M.jeep.stops.findIndex((s) => s.key === 'plaza'), r = L.jeepRoute();
+    const night = Date.UTC(2026, 10, 12, 13, 0); // (21:00 Manila)
+    for (let t = night; t < night + 6 * r.loopMs; t += 250) {
+      const a = L.jeepAt(t), b = L.jeepAt(t + r.loopMs - (t % r.loopMs) + 1000);
+      if (a.on && a.stop === i && !b.on) { const p0 = performance.now(); M.jeepNow = () => t + (performance.now() - p0); Farm.world.mn.jeep.lag = 0; return true; }
+    }
+    return false;
+  });
+  assert.ok(ok, 'such a moment exists tonight');
+  // on board, to the Talipapa (the second stop of the next loop: the resting one)
+  await page.evaluate(() => { const M = Farm.Config.MANILA, J = M.jeep; Farm.world.mnRide = { stage: 'wait', from: J.stops.findIndex((s) => s.key === 'plaza'), to: J.stops.findIndex((s) => s.key === 'talipapa') }; Farm.world.mnBoard(); });
+  await page.waitForFunction(() => !Farm.world.mnRide || (Farm.world.mn.jeep.at && !Farm.world.mn.jeep.img.visible), null, { timeout: 90000 });
+  const seen = await page.evaluate(() => ({ riding: !!Farm.world.mnRide, shown: Farm.world.mn.jeep.img.visible }));
+  assert.deepStrictEqual(seen, { riding: false, shown: seen.shown }, 'off at the Talipapa, never riding an empty road');
+  const st = await page.evaluate(() => Farm.Config.MANILA.jeep.stops.find((s) => s.key === 'talipapa').wait);
+  assert.deepStrictEqual(await feetTile(page), [Math.floor(st[0]), Math.floor(st[1])]);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
 test('the jeepney stops and honks for someone in front of it, never through them, and goes on after', async () => {
   const { page, problems, context } = await toManila(NOON);
   await jeepSoon(page, 'talipapa', 9000); // (on the north road and down the east one before that)

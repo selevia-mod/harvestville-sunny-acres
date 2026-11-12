@@ -454,6 +454,8 @@
         } else if (J0.lag > 0) J0.lag = Math.max(0, J0.lag - dt * 0.5); // (it catches up, a little faster)
       }
     }
+    // (owner, 12 Nov 2026: at night it rests every other loop; with you on board it keeps driving and stopping until you are off)
+    if (!st.on && this.mnRide && this.mnRide.stage === 'on') st.on = true;
     J0.at = st;
     var x = st.x * T, y = st.y * T;
     J0.img.setVisible(st.on).setPosition(x, y).setFlipX(st.dir === 'right');

@@ -56846,6 +56846,8 @@ if (J0.honkMs <= 0) { J0.honkMs = 2500; sfx('nope'); if (this.floatTextAt) this.
 } else if (J0.lag > 0) J0.lag = Math.max(0, J0.lag - dt * 0.5);
 }
 }
+
+if (!st.on && this.mnRide && this.mnRide.stage === 'on') st.on = true;
 J0.at = st;
 var x = st.x * T, y = st.y * T;
 J0.img.setVisible(st.on).setPosition(x, y).setFlipX(st.dir === 'right');
