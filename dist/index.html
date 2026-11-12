@@ -6934,9 +6934,11 @@ C.towerIcon = function (name) { var i = C.TOWER_ICONS.indexOf(name); return i < 
 
 
 
+
+var POTS = [['ginger_tonic', 2, 1], ['pineapple_juice', 1, 1], ['ampalaya_brew', 1, 0.5], ['hunters_coffee', 1, 0.5]].filter(function (d) { return C.ITEMS[d[0]]; });
 C.ITEMS.horse_dye = { name: 'Horse Gear Dye', kind: 'hunt', sell: 250, painted: true, icon: C.towerIcon('horse_dye'),
 desc: 'From a Tower mini boss. One day it colours your horse gear looks; keep it for now.' };
-TW.zones.forEach(function (z) { WI.animals[z.mini].drops = WI.animals[z.mini].drops.concat([['horse_dye', 1, 1]]); });
+TW.zones.forEach(function (z) { WI.animals[z.mini].drops = WI.animals[z.mini].drops.concat([['horse_dye', 1, 1]], POTS); });
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logic.js

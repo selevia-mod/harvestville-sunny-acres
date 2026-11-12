@@ -50,8 +50,10 @@
   C.towerIcon = function (name) { var i = C.TOWER_ICONS.indexOf(name); return i < 0 ? -1 : C.TOWER_ICON_BASE + i; };
 
   // ---------- the mini boss's chest: food (as before) and a horse gear dye ----------
-  // (crop potions come with farm economy v2, built elsewhere: add them to the mini bosses' drops when it is here)
+  // and crop potions (farm economy v2, 00-zzz...-economy2.js, loaded before this): two Ginger Tonics, a Pineapple Juice, and
+  // maybe an Ampalaya Brew and a Hunter's Coffee (spec: "Drops a chest: crop potions and a horse gear dye")
+  var POTS = [['ginger_tonic', 2, 1], ['pineapple_juice', 1, 1], ['ampalaya_brew', 1, 0.5], ['hunters_coffee', 1, 0.5]].filter(function (d) { return C.ITEMS[d[0]]; });
   C.ITEMS.horse_dye = { name: 'Horse Gear Dye', kind: 'hunt', sell: 250, painted: true, icon: C.towerIcon('horse_dye'),
     desc: 'From a Tower mini boss. One day it colours your horse gear looks; keep it for now.' };
-  TW.zones.forEach(function (z) { WI.animals[z.mini].drops = WI.animals[z.mini].drops.concat([['horse_dye', 1, 1]]); });
+  TW.zones.forEach(function (z) { WI.animals[z.mini].drops = WI.animals[z.mini].drops.concat([['horse_dye', 1, 1]], POTS); });
 })(window.Farm = window.Farm || {});

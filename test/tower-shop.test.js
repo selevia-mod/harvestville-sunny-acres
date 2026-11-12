@@ -188,6 +188,8 @@ test("the mini bosses' chest has a horse gear dye (and food); the guards still g
     const drops = plain(C.WILD.animals[z.mini].drops).map((d) => d[0]);
     assert.ok(drops.includes('horse_dye'), z.name);
     assert.ok(drops.some((id) => C.ITEMS[id].kind === 'dish'), z.name + ': food');
+    // (and crop potions, farm economy v2: always two Ginger Tonics and a Pineapple Juice)
+    if (C.POTIONS) assert.deepStrictEqual(plain(C.WILD.animals[z.mini].drops).filter((d) => C.DRINKS.includes(d[0])).filter((d) => d[2] >= 1).map((d) => d[0]), ['ginger_tonic', 'pineapple_juice'], z.name + ': potions');
     assert.ok(C.WILD.animals[z.guard].drops.some((d) => C.ITEMS[d[0]].energy > 0), z.name + ': the guard\'s energy food');
   });
   assert.ok(!plain(C.WILD.animals[TW.zones[0].normal[0]].drops).some((d) => d[0] === 'horse_dye'), 'not on normal enemies');
