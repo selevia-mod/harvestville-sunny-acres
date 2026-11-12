@@ -10957,8 +10957,7 @@ return true;
 L.applyHelp = function (s, tiles) {
 var n = 0;
 (Array.isArray(tiles) ? tiles : []).forEach(function (idx) {
-idx = int(idx, -1, 1e5, -1);
-var t = s.soil[idx];
+var t = s.soil[L.tileIn(idx)];
 if (t && t.c && !t.w && L.cropStage(t) < 3) { L.wet(t); n++; }
 });
 return n;
@@ -11276,7 +11275,7 @@ s.basket[st.tree.fruit] = Math.min(999, (s.basket[st.tree.fruit] || 0) + st.tree
 n += st.tree.n;
 return;
 }
-var t = s.soil[tile], crop = String(e[1] || ''), item = cropItem(crop);
+var t = s.soil[L.tileIn(tile)], crop = String(e[1] || ''), item = cropItem(crop);
 if (!item || !t || t.c !== crop || L.cropStage(t) < 3) return;
 clearPicked(t);
 s.basket[item] = Math.min(999, (s.basket[item] || 0) + 1);
@@ -20002,8 +20001,9 @@ return i >= 0 && i < ABC.length ? ABC.charAt(i) : '.';
 
 
 
+
 L.frCropsOf = function (st, taken, copy) {
-var got = {}, unknown = 0, w = (taken && taken.w) || C.FARM_W, at = {}, k = 0, ck = copy && typeof copy.ck === 'string' ? copy.ck : '';
+var got = {}, unknown = 0, w = C.FARM_W, at = {}, k = 0, ck = copy && typeof copy.ck === 'string' ? copy.ck : '';
 ((copy && copy.loot) || []).forEach(function (p) { if (p.kind === 'crops') { var i = ABC.indexOf(ck.charAt(k++)); if (i >= 0 && C.CROP_KEYS[i]) at[p.x + ',' + p.y] = C.CROP_KEYS[i]; } });
 ((taken && taken.items) || []).forEach(function (it) {
 if (it[0] !== 'crops') return;
@@ -20794,6 +20794,95 @@ if (s.kpr && Array.isArray(o.gw)) C.GEAR_SLOTS.forEach(function (k, j) { var id 
 
 if (L.towerEnergy(s)) s.energy = Math.max(s.energy, int(o.e, 0, L.maxEnergy(s), 0));
 return s;
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZ-farm-tiles.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var OLD = 64, FAR = 20000, ROW = 200, TREE0 = 50000;
+L.TILE_OLD_W = OLD;
+L.tileOut = function (i) {
+i = Number(i);
+if (!Number.isInteger(i) || i < 0) return -1;
+var x = i % C.FARM_W, y = Math.floor(i / C.FARM_W), n = x < OLD ? y * OLD + x : FAR + y * ROW + x;
+return n < (x < OLD ? FAR : TREE0) ? n : -1;
+};
+L.tileIn = function (n) {
+if (typeof n !== 'number' && !(typeof n === 'string' && n)) return -1;
+n = Number(n);
+if (!Number.isInteger(n) || n < 0 || n >= TREE0) return -1;
+var far = n >= FAR, x = far ? (n - FAR) % ROW : n % OLD, y = far ? Math.floor((n - FAR) / ROW) : Math.floor(n / OLD);
+return x < C.FARM_W ? y * C.FARM_W + x : -1;
+};
+
+
+var farOut = function (i) { return Number(i) % C.FARM_W >= OLD; };
+var snapshot = L.snapshot;
+L.snapshot = function (s) {
+var snap = snapshot.apply(this, arguments);
+if (!snap || C.FARM_W === OLD || snap.fw !== C.FARM_W) return snap;
+var fx = { s: [], d: [], sp: [], dco: [] }, sp = [], n = 0;
+var rows = function (list, far) {
+return (list || []).filter(function (e) {
+var keep = !farOut(e[0]);
+e[0] = L.tileOut(e[0]);
+if (!keep && e[0] >= 0) far.push(e);
+return keep && e[0] >= 0;
+});
+};
+snap.soil = rows(snap.soil, fx.s);
+snap.debris = rows(snap.debris, fx.d);
+if (Array.isArray(snap.sp)) {
+for (var k = 0; k + 1 < snap.sp.length; k += 2) (farOut(snap.sp[k]) ? fx.sp : sp).push(L.tileOut(snap.sp[k]), snap.sp[k + 1]);
+snap.sp = sp;
+}
+if (Array.isArray(snap.dco)) snap.dco = snap.dco.filter(function (i) { if (farOut(i)) fx.dco.push(L.tileOut(i)); return !farOut(i); }).map(L.tileOut);
+Object.keys(fx).forEach(function (k) { if (fx[k].length) n++; else delete fx[k]; });
+if (n) snap.fx = fx;
+snap.fw = OLD;
+return snap;
+};
+var visitState = L.visitState;
+L.visitState = function (snap, mine) {
+var fw = snap && typeof snap === 'object' ? Math.floor(Number(snap.fw)) || 38 : C.FARM_W;
+if (fw === C.FARM_W) return visitState.apply(this, arguments);
+var o = Object.assign({}, snap), fx = fw === OLD && snap.fx && typeof snap.fx === 'object' ? snap.fx : null;
+var list = function (v, most) { return Array.isArray(v) ? v.slice(0, most) : []; };
+var move = function (i) { i = Math.floor(Number(i)); return i >= 0 ? Math.floor(i / fw) * C.FARM_W + i % fw : -1; };
+if (fx) {
+var rows = function (main, far, most) {
+return list(main, most).concat(list(far, most)).filter(Array.isArray).map(function (e) { return [L.tileIn(e[0])].concat(e.slice(1)); });
+};
+o.soil = rows(snap.soil, fx.s, C.SNAP_SOIL);
+o.debris = rows(snap.debris, fx.d, 800);
+o.dco = list(snap.dco, 2000).concat(list(fx.dco, 2000)).map(L.tileIn);
+o.fw = C.FARM_W;
+}
+
+if (Array.isArray(snap.sp)) {
+var sp = [], from = list(snap.sp, 240).concat(fx ? list(fx.sp, 240) : []);
+for (var k = 0; k + 1 < from.length; k += 2) sp.push(fx ? L.tileIn(from[k]) : move(from[k]), from[k + 1]);
+o.sp = sp;
+} else if (fx && Array.isArray(fx.sp)) {
+o.sp = list(fx.sp, 240).map(function (v, k) { return k % 2 ? v : L.tileIn(v); });
+}
+return visitState.call(this, o, mine);
 };
 })(window.Farm = window.Farm || {});
 
@@ -33106,7 +33195,7 @@ sfx('water');
 this.refreshTile(idx);
 this.wiggle(idx);
 var undo = function () { var tl = self.state.soil[idx]; if (tl) tl.w = 0; if (self.sys.isActive()) self.refreshTile(idx); };
-F.Net.rpc('farm_help_v1', { p_host: v.host, p_tile: idx }).then(function (r) {
+F.Net.rpc('farm_help_v1', { p_host: v.host, p_tile: L.tileOut(idx) }).then(function (r) {
 self.helping = false;
 if (F.session.visit !== v) return;
 if (r && r.ok) {
@@ -34229,7 +34318,7 @@ if (this.picking) return;
 var keep = L.pickOff(st, idx);
 if (!keep) return;
 this.refreshTile(idx);
-this.sendPick(t, idx, crop, cropItem(crop).name, 1, function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); });
+this.sendPick(t, L.tileOut(idx), crop, cropItem(crop).name, 1, function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); });
 };
 
 P.pickTreeFor = function (t, i, fruit) {
@@ -37773,6 +37862,7 @@ w.remoteUse(r, p.d, frame, p.k === 'pour' ? 'pour' : 'swing');
 
 
 
+
 (function (F) {
 'use strict';
 var C = F.Config;
@@ -37805,13 +37895,13 @@ var fresh = here.some(function (id) { return !known[id]; });
 known = {};
 here.forEach(function (id) { known[id] = 1; });
 if (fresh || !sentSoil) {
-O.send('farm', { full: 1, s: Object.keys(soil).map(function (k) { return [Number(k)].concat(soil[k]); }), d: Object.keys(debris).map(function (k) { return [Number(k), debris[k]]; }) });
+O.send('farm', { full: 1, s: Object.keys(soil).map(function (k) { return [L.tileOut(k)].concat(soil[k]); }), d: Object.keys(debris).map(function (k) { return [L.tileOut(k), debris[k]]; }) });
 } else {
 var ds = [], dd = [];
-Object.keys(soil).forEach(function (k) { if (!same(soil[k], sentSoil[k])) ds.push([Number(k)].concat(soil[k])); });
-Object.keys(sentSoil).forEach(function (k) { if (!(k in soil)) ds.push([Number(k), 0]); });
-Object.keys(debris).forEach(function (k) { if (debris[k] !== sentDebris[k]) dd.push([Number(k), debris[k]]); });
-Object.keys(sentDebris).forEach(function (k) { if (!(k in debris)) dd.push([Number(k), 0]); });
+Object.keys(soil).forEach(function (k) { if (!same(soil[k], sentSoil[k])) ds.push([L.tileOut(k)].concat(soil[k])); });
+Object.keys(sentSoil).forEach(function (k) { if (!(k in soil)) ds.push([L.tileOut(k), 0]); });
+Object.keys(debris).forEach(function (k) { if (debris[k] !== sentDebris[k]) dd.push([L.tileOut(k), debris[k]]); });
+Object.keys(sentDebris).forEach(function (k) { if (!(k in debris)) dd.push([L.tileOut(k), 0]); });
 if (ds.length || dd.length) O.send('farm', { s: ds, d: dd });
 }
 sentSoil = soil;
@@ -37853,8 +37943,8 @@ s.debris = s.debris || {};
 var soil = Array.isArray(p.s) ? p.s.slice(0, MAX_TILES) : [], debris = Array.isArray(p.d) ? p.d.slice(0, MAX_TILES) : [];
 if (full) {
 var wantSoil = {}, wantDebris = {};
-soil.forEach(function (row) { var i = Math.floor(Number(row && row[0])), t = readSoil(row); if (okIdx(self, i) && t) wantSoil[i] = t; });
-debris.forEach(function (row) { var i = Math.floor(Number(row && row[0])); if (okIdx(self, i) && C.DEBRIS[row[1]]) wantDebris[i] = row[1]; });
+soil.forEach(function (row) { var i = L.tileIn(row && row[0]), t = readSoil(row); if (okIdx(self, i) && t) wantSoil[i] = t; });
+debris.forEach(function (row) { var i = L.tileIn(row && row[0]); if (okIdx(self, i) && C.DEBRIS[row[1]]) wantDebris[i] = row[1]; });
 Object.keys(s.debris || {}).forEach(function (k) { if (!wantDebris[k]) self.removeDebrisTile(Number(k)); });
 Object.keys(wantDebris).forEach(function (k) { var t = tileOf(self, Number(k)); self.putTile('Debris', self.gids['debris_' + wantDebris[k]], t.x, t.y); });
 s.soil = wantSoil;
@@ -37864,7 +37954,7 @@ if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: tr
 return;
 }
 debris.forEach(function (row) {
-var i = Math.floor(Number(row && row[0])), kind = row && row[1];
+var i = L.tileIn(row && row[0]), kind = row && row[1];
 if (!okIdx(self, i)) return;
 var t = tileOf(self, i), was = s.debris[i];
 if (kind && C.DEBRIS[kind]) {
@@ -37878,7 +37968,7 @@ self.impact('hammer', { kind: 'debris', debris: was }, t, true);
 }
 });
 soil.forEach(function (row) {
-var i = Math.floor(Number(row && row[0]));
+var i = L.tileIn(row && row[0]);
 if (!okIdx(self, i)) return;
 var t = tileOf(self, i), was = s.soil[i] || null, now = readSoil(row), spr = self.crops[i];
 if (now && !was) self.impact('hoe', { kind: 'till' }, t, false);
