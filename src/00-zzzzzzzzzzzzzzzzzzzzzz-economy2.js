@@ -70,6 +70,9 @@
   // potion: the power it gives for C.POTION_MINS minutes (the same powers as the dishes': 'charge' a charge hurts half,
   // 'walk' 20% faster; 'shots' is new: shots cost no energy). They last beside a dish's power, each its own clock.
   C.POTION_MINS = 10;
+  // (owner, 13 Nov 2026: Hunter's Coffee 5 minutes; another one resets them, never adds: the Tower's food spec)
+  C.POTION_MINS_OF = { shots: 5 };
+  var mins = function (p) { return (p.potion && C.POTION_MINS_OF[p.potion]) || C.POTION_MINS; };
   var POTIONS = {
     ginger_tonic: { name: 'Ginger Tonic', energy: 50, sell: 190, needs: ['ginger', 'wild_honey'], desc: 'Ginger and honey: +50 energy.' },
     ampalaya_brew: { name: 'Ampalaya Brew', energy: 8, sell: 60, needs: ['bitter_gourd', 'bitter_gourd', 'ginger'], potion: 'charge', text: 'a charge hurts half' },
@@ -82,7 +85,7 @@
   Object.keys(POTIONS).forEach(function (id) {
     var p = POTIONS[id];
     C.ITEMS[id] = { name: p.name, kind: 'dish', energy: p.energy, sell: p.sell, icon: addIcon(id),
-      desc: p.desc || 'Drink it: for ' + C.POTION_MINS + ' minutes, ' + p.text + '.' };
+      desc: p.desc || 'Drink it: for ' + mins(p) + ' minutes, ' + p.text + '.' };
     C.RECIPES.push({ dish: id, needs: p.needs });
     if (p.potion) C.POTIONS[id] = { key: p.potion, text: p.text };
   });

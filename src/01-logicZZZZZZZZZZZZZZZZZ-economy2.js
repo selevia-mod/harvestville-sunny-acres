@@ -252,10 +252,13 @@
   };
 
   // ---------- potions ----------
+  // a potion's minutes (Hunter's Coffee: 5)
+  L.potionMins = function (key) { return (C.POTION_MINS_OF && C.POTION_MINS_OF[key]) || C.POTION_MINS; };
   L.potionLeft = function (s, key) { var p = s && s.ptn; return p && p[key] ? Math.max(0, p[key] - L.nowMin()) : 0; };
   var power = L.power;
   L.power = function (s, key) { return power(s, key) || L.potionLeft(s, key) > 0; };
-  // drinking one: its energy (as eating) and its power for C.POTION_MINS; with full energy it is drunk for the power alone (-2)
+  // drinking one: its energy (as eating) and its power for its minutes (L.potionMins: a new one resets them, it does not
+  // add); with full energy it is drunk for the power alone (-2)
   var eat = L.eat;
   L.eat = function (s, slotIndex) {
     var slot = s.inv[slotIndex], p = slot && C.POTIONS[slot.id];
@@ -263,7 +266,7 @@
     var full = s.energy >= L.maxEnergy(s), r = full ? -2 : eat(s, slotIndex);
     if (full) L.removeAt(s, slotIndex, 1);
     s.ptn = s.ptn || {};
-    s.ptn[p.key] = L.nowMin() + C.POTION_MINS;
+    s.ptn[p.key] = L.nowMin() + L.potionMins(p.key);
     return r;
   };
 
