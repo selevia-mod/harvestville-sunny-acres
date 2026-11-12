@@ -117,7 +117,7 @@ test('a friend\'s old snapshot keeps its crops on the right tiles; a new one say
   s.soil[29 * W + 45] = { w: 0 };
   const snap = JSON.parse(JSON.stringify(L.snapshot(s)));
   assert.strictEqual(snap.land, 1);
-  assert.strictEqual(snap.fw, W);
+  assert.strictEqual(snap.fw, 64, 'written as a 64-wide app reads it, while some have one (01-logic...-farm-tiles.js)');
   const v = L.visitState(snap, s);
   assert.strictEqual(v.land, 1);
   assert.ok(v.soil[29 * W + 45]);

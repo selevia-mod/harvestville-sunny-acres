@@ -174,9 +174,10 @@
   };
   // The crops a battle took, by item: { id: n }. taken: L.frTaken(b) (or the server's own); copy: the battle copy (its
   // ck), else st: the farm it was fought on (its soil). A tile whose crop is not known counts as the crop seen most; a
-  // crop that is not a farm crop (grass) is not counted.
+  // crop that is not a farm crop (grass) is not counted. (st's soil is this app's width, as every state here: taken.w is the
+  // width of the phone that made the copy, 64 on an older app; its x and y are tiles, the same on both)
   L.frCropsOf = function (st, taken, copy) {
-    var got = {}, unknown = 0, w = (taken && taken.w) || C.FARM_W, at = {}, k = 0, ck = copy && typeof copy.ck === 'string' ? copy.ck : '';
+    var got = {}, unknown = 0, w = C.FARM_W, at = {}, k = 0, ck = copy && typeof copy.ck === 'string' ? copy.ck : '';
     ((copy && copy.loot) || []).forEach(function (p) { if (p.kind === 'crops') { var i = ABC.indexOf(ck.charAt(k++)); if (i >= 0 && C.CROP_KEYS[i]) at[p.x + ',' + p.y] = C.CROP_KEYS[i]; } });
     ((taken && taken.items) || []).forEach(function (it) {
       if (it[0] !== 'crops') return;

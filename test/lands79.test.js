@@ -145,13 +145,12 @@ test("a friend's 64-wide snapshot shows right: crops, debris and cleared decorat
   const i = s.yard.items.findIndex((it) => it.t === ff && it.x === 20 && it.y === 15);
   assert.strictEqual(L.moveYard(s, FARM, i, 22, 15), 'ok', 'its farmer moved a piece of the fence');
   const snap = plain(L.snapshot(s));
-  assert.strictEqual(snap.fw, W);
-  // as a 64-wide app sent it
+  // written as a 64-wide app sends it (and reads it), every tile here at x 0-63 (01-logic...-farm-tiles.js)
   const remap = (k) => Math.floor(k / W) * OLD + k % W;
-  snap.fw = OLD;
-  snap.soil = snap.soil.map((e) => [remap(e[0])].concat(e.slice(1)));
-  snap.debris = snap.debris.map((e) => [remap(e[0])].concat(e.slice(1)));
-  snap.dco = snap.dco.map(remap);
+  assert.strictEqual(snap.fw, OLD);
+  assert.strictEqual(snap.fx, undefined);
+  assert.deepStrictEqual(snap.soil.map((e) => e[0]).sort(), [remap(29 * W + 45), remap(34 * W + 60)].sort());
+  assert.deepStrictEqual(snap.dco, [remap(5 * W + 63)]);
   const v = L.visitState(snap, fresh());
   assert.ok(v.soil[29 * W + 45] && v.soil[29 * W + 45].c === 'turnip');
   assert.ok(v.soil[34 * W + 60]);

@@ -120,7 +120,7 @@
         n += st.tree.n;
         return;
       }
-      var t = s.soil[tile], crop = String(e[1] || ''), item = cropItem(crop);
+      var t = s.soil[L.tileIn(tile)], crop = String(e[1] || ''), item = cropItem(crop); // (a 64-wide farm's number: 01-logic...-farm-tiles.js)
       if (!item || !t || t.c !== crop || L.cropStage(t) < 3) return;
       clearPicked(t);
       s.basket[item] = Math.min(999, (s.basket[item] || 0) + 1);

@@ -207,7 +207,7 @@ test('helping a friend: water their growing crops on a visit; at home, the water
   const home = fresh();
   home.soil[100] = { w: 0, c: 'turnip', p: L.nowMin(), r: 0 };
   home.soil[104] = { w: 0, c: null, p: 0, r: 0 };
-  assert.strictEqual(L.applyHelp(home, [100, 104, 'x', 99999]), 1);
+  assert.strictEqual(L.applyHelp(home, [L.tileOut(100), L.tileOut(104), 'x', 99999]), 1, '(sent as a 64-wide farm\'s numbers)');
   assert.strictEqual(home.soil[100].w, 1);
 });
 

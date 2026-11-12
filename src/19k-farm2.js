@@ -209,7 +209,7 @@
     this.refreshTile(idx);
     this.wiggle(idx);
     var undo = function () { var tl = self.state.soil[idx]; if (tl) tl.w = 0; if (self.sys.isActive()) self.refreshTile(idx); };
-    F.Net.rpc('farm_help_v1', { p_host: v.host, p_tile: idx }).then(function (r) {
+    F.Net.rpc('farm_help_v1', { p_host: v.host, p_tile: L.tileOut(idx) }).then(function (r) {
       self.helping = false;
       if (F.session.visit !== v) return;
       if (r && r.ok) {

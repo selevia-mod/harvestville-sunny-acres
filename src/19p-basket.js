@@ -100,7 +100,7 @@
     var keep = L.pickOff(st, idx);
     if (!keep) return;
     this.refreshTile(idx);
-    this.sendPick(t, idx, crop, cropItem(crop).name, 1, function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); });
+    this.sendPick(t, L.tileOut(idx), crop, cropItem(crop).name, 1, function () { st.soil[idx] = keep; if (self.sys.isActive()) self.refreshTile(idx); });
   };
 
   P.pickTreeFor = function (t, i, fruit) {
