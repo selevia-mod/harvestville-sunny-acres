@@ -57,6 +57,11 @@
   };
   // the looks worn, in order: [{ id, tint, glow ... }]
   L.horseLooks = function (s) { return K.horse.filter(function (h) { return L.horseLookOn(s, h.id); }); };
+  // the picture the horse wears (one at a time: the first worn in K.horseOrder): its art key, or ''
+  L.horseLookSheet = function (s) {
+    for (var i = 0; i < K.horseOrder.length; i++) if (L.horseLookOn(s, K.horseOrder[i])) return K.horse[hIndex(K.horseOrder[i])].art;
+    return '';
+  };
 
   // ---------- the Keeper's gear, worn in the gear slots ----------
   var piece = function (i) {
@@ -83,6 +88,17 @@
   L.keeperWorn = function (s) { return K.gear.filter(function (g) { return L.worn(s, g.slot) === 'k:' + g.id; }); };
   // the share of a Tower hit the worn pieces take off: 0.1 + 0.1 + 0.2 + 0.2 = 0.6 for the set
   L.keeperLess = function (s) { return Math.round(L.keeperWorn(s).reduce(function (a, g) { return a + g.less; }, 0) * 100) / 100; };
+  // (owner, 13 Nov 2026: "one piece at a time") the sheet the farmer walks in while wearing the Keeper's gear: the most
+  // visible piece worn (K.wornOrder: coat, hat, lantern, boots), as '<art>_<boy|girl>'; '' when none is worn, or a Tailor
+  // Shop look is (the look wins)
+  L.keeperSheet = function (s) {
+    if (!s || (L.wornLook && L.wornLook(s))) return '';
+    var on = L.keeperWorn(s).map(function (g) { return g.id; });
+    for (var i = 0; i < K.wornOrder.length; i++) {
+      if (on.indexOf(K.wornOrder[i]) >= 0) return K.gear[L.keeperIndex(K.wornOrder[i])].art + '_' + (s.look === 'girl' ? 'girl' : 'boy');
+    }
+    return '';
+  };
   L.keeperSpeed = function (s) { return 1 + L.keeperWorn(s).reduce(function (a, g) { return a + (g.speed || 0); }, 0); };
   var towerLess = L.towerLess;
   L.towerLess = function (s, lost) {

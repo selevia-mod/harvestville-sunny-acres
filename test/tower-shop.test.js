@@ -196,3 +196,62 @@ test("the mini bosses' chest has a horse gear dye (and food); the guards still g
   const dye = C.ITEMS.horse_dye;
   assert.ok(dye.painted && dye.icon === C.towerIcon('horse_dye'));
 });
+
+test("the farmer in the Keeper's gear, one piece at a time: the most visible piece worn (coat, hat, lantern, boots); a Tailor Shop look wins; none, none", () => {
+  const s = fresh();
+  s.kpr = 15; // (all four owned)
+  assert.strictEqual(L.keeperSheet(s), '', 'nothing worn');
+  L.wear(s, 'k:boots');
+  assert.strictEqual(L.keeperSheet(s), 'keeper_boots_boy');
+  L.wear(s, 'k:lantern');
+  assert.strictEqual(L.keeperSheet(s), 'keeper_lantern_boy', 'the lantern beats the boots');
+  L.wear(s, 'k:hat');
+  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_boy', 'the hat beats the lantern');
+  L.wear(s, 'k:coat');
+  assert.strictEqual(L.keeperSheet(s), 'keeper_coat_boy', 'the coat beats them all');
+  s.look = 'girl';
+  assert.strictEqual(L.keeperSheet(s), 'keeper_coat_girl', "the girl's own");
+  L.takeOff(s, 'body');
+  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_girl', 'the coat off: the hat');
+  // a Tailor Shop look worn at the same time wins (no sheet of ours)
+  const look = C.LOOKS.find((l) => l.free) || C.LOOKS[0];
+  s.lk = 1 << C.LOOK_INDEX[look.key];
+  s.cw = look.key;
+  assert.strictEqual(L.wornLook(s), look.key);
+  assert.strictEqual(L.keeperSheet(s), '', 'the costume wins');
+  s.cw = '';
+  assert.strictEqual(L.keeperSheet(s), 'keeper_hat_girl');
+  // other gear in the slots, or a piece owned and not worn: none
+  ['head', 'feet', 'charm', 'body'].forEach((slot) => L.takeOff(s, slot));
+  assert.strictEqual(L.keeperSheet(s), '');
+  // every sheet it names is one the tower pack holds (tools/tower/tower-art.js)
+  const keys = require('../tools/tower/tower-art').all();
+  K.gear.forEach((g) => ['boy', 'girl'].forEach((w) => assert.ok(keys.includes(g.art + '_' + w), g.art + '_' + w)));
+  assert.deepStrictEqual(plain(K.wornOrder).sort(), plain(K.gear.map((g) => g.id)).sort(), 'each piece has its place in the order');
+});
+
+test("the horse's looks, one at a time: the saddle, then the lantern, then the bridle; none worn, none", () => {
+  const s = fresh();
+  s.pearls = 5000;
+  assert.strictEqual(L.horseLookSheet(s), '');
+  L.horseLookBuy(s, 'bridle');
+  assert.strictEqual(L.horseLookSheet(s), 'horse_look_bridle');
+  L.horseLookBuy(s, 'lantern');
+  assert.strictEqual(L.horseLookSheet(s), 'horse_look_lantern', 'the lantern beats the bridle');
+  L.horseLookBuy(s, 'saddle');
+  assert.strictEqual(L.horseLookSheet(s), 'horse_look_saddle', 'the saddle beats both');
+  L.horseLookWear(s, 'saddle', false);
+  assert.strictEqual(L.horseLookSheet(s), 'horse_look_lantern', 'taken off: the next one');
+  L.horseLookWear(s, 'lantern', false);
+  L.horseLookWear(s, 'bridle', false);
+  assert.strictEqual(L.horseLookSheet(s), '', 'owned, none worn');
+  const keys = require('../tools/tower/tower-art').all();
+  K.horse.forEach((h) => assert.ok(keys.includes(h.art), h.art + ' is in the tower pack'));
+});
+
+test("the owner's icon picture's cells to the game's icons: cells 1-9 are the first nine, cell 10 the pearl, the '?' none", () => {
+  const { iconFrom, SRC_ICONS } = require('../tools/tower/shop-import');
+  assert.deepStrictEqual(plain(C.TOWER_ICONS), ['k_hat', 'k_boots', 'k_coat', 'k_lantern', 'h_saddle', 'h_bridle', 'h_lantern', 'horse_dye', 'tide', 'weapon_soon', 'pearl']);
+  assert.deepStrictEqual(plain(iconFrom(C.TOWER_ICONS)), [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10]);
+  assert.strictEqual(SRC_ICONS.length, 10, "ten icons in the owner's picture");
+});
