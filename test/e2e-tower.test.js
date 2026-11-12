@@ -275,3 +275,13 @@ test('The Lost Tower in waves (C.TOWER.wave): the next wave comes when the last 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('in Manila the Tower\'s first realm is fetched ahead: its tiles, its door up and its props (owner\'s walkthrough, 12 Nov 2026)', async () => {
+  const save = await makeSave("s.map = 'manila'; s.energy = 200; const d = L.towerDoor(); s.player = { x: (d.x + 0.5) * 256, y: (d.y + 2.5) * 256, dir: 'up' };");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'manila');
+  const want = await page.evaluate(() => { const z = Farm.Config.TOWER.zones[0]; return [z.art.cave, z.art.gate].concat(z.art.props); });
+  await page.waitForFunction((want) => want.every((k) => Farm.images && Farm.images[k]), want, SLOW);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

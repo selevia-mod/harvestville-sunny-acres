@@ -344,6 +344,12 @@
     var s = F.session && F.session.state, cfg = s && s.map === 'tower' ? towerCfg(floorNow()) : null;
     if (cfg && painted[cfg.sheet] === false && real(cfg.art.cave) && this.textures.exists(cfg.sheet)) { this.textures.remove(cfg.sheet); delete painted[cfg.sheet]; }
     create2.apply(this, arguments);
+    // in Manila, the realm you would go into is fetched ahead (its tiles, its door up, its props), so its first floor is
+    // already in its own look (owner's walkthrough, 12 Nov 2026: the first visit's floor 1 was in the stand-in tiles)
+    if (this.mapKey === 'manila' && s && !F.session.visit) {
+      var z = TW.zones[L.towerZone(L.towerStart(s)) - 1];
+      if (z) [z.art.cave, z.art.gate].concat(z.art.props || []).forEach(ask);
+    }
     if (!inTower(this)) return;
     var c = this.lair.cfg;
     if (this.textures.exists(c.sheet) && painted[c.sheet] == null) painted[c.sheet] = real(c.art.cave);

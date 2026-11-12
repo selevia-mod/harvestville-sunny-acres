@@ -58939,6 +58939,12 @@ P.create = function () {
 var s = F.session && F.session.state, cfg = s && s.map === 'tower' ? towerCfg(floorNow()) : null;
 if (cfg && painted[cfg.sheet] === false && real(cfg.art.cave) && this.textures.exists(cfg.sheet)) { this.textures.remove(cfg.sheet); delete painted[cfg.sheet]; }
 create2.apply(this, arguments);
+
+
+if (this.mapKey === 'manila' && s && !F.session.visit) {
+var z = TW.zones[L.towerZone(L.towerStart(s)) - 1];
+if (z) [z.art.cave, z.art.gate].concat(z.art.props || []).forEach(ask);
+}
 if (!inTower(this)) return;
 var c = this.lair.cfg;
 if (this.textures.exists(c.sheet) && painted[c.sheet] == null) painted[c.sheet] = real(c.art.cave);
