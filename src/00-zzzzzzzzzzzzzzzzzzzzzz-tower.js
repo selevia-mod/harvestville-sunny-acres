@@ -109,8 +109,9 @@
     z.to = n * C.TOWER.zoneSize;
     z.look.crust = z.look.wall; // (cooled rock round the pools)
     z.lava.embers = false;
-    // the owner's pictures when they come (tools/tower/tower-art.js): the stairs up (shut and open) and the cave's tiles
-    z.art = { gate: 'props/tower_stairs_' + n, cave: 'tower_cave_' + n };
+    // the owner's pictures when they come (tools/tower/tower-art.js): the stairs up (shut and open), the cave's tiles and the
+    // realm's 6 props (shown in place of the stand-in props, z.props, on their tiles: 19zzz...z-tower.js)
+    z.art = { gate: 'props/tower_stairs_' + n, cave: 'tower_cave_' + n, props: [1, 2, 3, 4, 5, 6].map(function (k) { return 'props/tower_' + n + '_' + k; }) };
     z.normal = [];
     z.kinds.forEach(function (k, j) {
       var role = ROLES[j], r = ROLE[role], base = WI.animals[k[2]], fly = !!k[4];

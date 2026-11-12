@@ -22,7 +22,7 @@ const keys = () => {
     const art = (p.dungeon && p.dungeon.art) || {};
     ['mouth', 'gate', 'cave'].forEach((k) => { if (art[k]) out.push(art[k]); });
   });
-  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.sheet) out.push(d.sheet, d.sheet + 'shade'); });
+  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.sheet && !d.tower) out.push(d.sheet, d.sheet + 'shade'); }); // (The Lost Tower's: its own pack, tools/tower/tower-art.js)
   // Banaue's own props (its map's 'place_prop' objects: tools/places/banaue-map.js), the others' (tools/art/places-import.js)
   ['wall', 'hut', 'fern', 'rack', 'boulder', 'grass'].forEach((n) => out.push('props/banaue_' + n));
   Object.keys(C.PLACE_PROP_KINDS || {}).forEach((id) => C.PLACE_PROP_KINDS[id].forEach((k) => out.push('props/' + id + '_' + k)));

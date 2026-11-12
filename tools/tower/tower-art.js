@@ -5,7 +5,8 @@
 // the caves' drawn gate for the stairs), so nothing here is needed to play. The names come from the game's own data
 // (C.TOWER): each creature's sheet and its shadow (wild_<id>, wild_<id>shade: tower/zone<n>/wild_<art>.png, art = the
 // prompt's file name when the id differs), each realm's stairs (props/tower_stairs_<n>: shut and open side by side, like
-// props/lair_gate) and cave tiles (tower_cave_<n>: laid out like assets/lair_cave).
+// props/lair_gate), cave tiles (tower_cave_<n>: laid out like assets/lair_cave) and 6 props (props/tower_<n>_<k>, k 1..6).
+// The importer: tools/tower/tower-import.js.
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -25,6 +26,7 @@ const keys = () => {
   C.TOWER.zones.forEach((z) => {
     z.normal.concat([z.guard, z.mini, z.boss]).forEach((k) => { const d = C.WILD.animals[k]; out.push(d.sheet, d.sheet + 'shade'); });
     out.push(z.art.gate, z.art.cave);
+    z.art.props.forEach((k) => out.push(k));
   });
   // the Keeper's shop (00-zzzzzzzzzzzzzzzzzzzzzzz-tower-shop.js; prompts ~/Downloads/lost-tower-shop-art/PROMPTS.md): the
   // keeper's 3 x 3 sheet, the shop's icons (C.TOWER_ICONS' order, 8 cells of 128 a row), the Keeper's gear worn (the
