@@ -56,3 +56,7 @@ $P -d t -f "$ROOT/test/sql/places-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE: 
 $P -d t -1 -f "$ROOT/supabase/farm_online_24.sql"
 $P -d t -1 -f "$ROOT/supabase/farm_online_24.sql"
 $P -d t -f "$ROOT/test/sql/bulk-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+# The Lost Tower's weekly board and First in Selebox (needs parts 1 and 22)
+$P -d t -1 -f "$ROOT/supabase/farm_tower_board.sql"
+$P -d t -1 -f "$ROOT/supabase/farm_tower_board.sql"
+$P -d t -f "$ROOT/test/sql/tower-board-checks.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'

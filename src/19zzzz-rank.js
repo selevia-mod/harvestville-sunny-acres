@@ -133,7 +133,7 @@
           if (!F.ui) return;
           if ((F.ui.modals.length || (F.world && F.world.busy)) && tries < 30) return setTimeout(function () { show(tries + 1); }, 1500);
           sfx('found');
-          F.ui.dialog('A FIRST FOR HARVEST VILLE!\nYou are the first player ever to beat ' + f.name + '! Your name is in the Hall of Fame in Central Park for everyone to see.');
+          F.ui.dialog(f.words || 'A FIRST FOR HARVEST VILLE!\nYou are the first player ever to beat ' + f.name + '! Your name is in the Hall of Fame in Central Park for everyone to see.'); // (words: the Tower's "First in Selebox")
         };
         setTimeout(function () { show(0); }, 2600);
       }

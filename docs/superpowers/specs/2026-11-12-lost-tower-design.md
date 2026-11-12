@@ -228,6 +228,34 @@ tower floor and the phone plays it alone, as today. The friends' Tower needs the
    and the same enemies, one clear, the first-timer +1 Pearl and the helper +1.
 5. Undo: the same release from the commit before it (the phones then play the Tower alone again).
 
+## The weekly board and First in Selebox (build step 5, 12 Nov 2026)
+- **First in Selebox**: the ten big bosses are Hall of Fame firsts `tower_100` ... `tower_1000` (C.HALL.FIRSTS, from
+  src/00-zzz...z-tower-board.js). Beating one the first time (F.towerFirst) claims it through the Hall's own path
+  (L.hallWant, O.claimFirsts, `farm_hall_first_v1`; offline it waits in the save's `tr`); the winner sees "FIRST IN
+  SELEBOX!". The names are on **the lighthouse wall** in Manila: face the lighthouse beside its door, **Read** (a little
+  gold plaque is drawn there). The wall also shows last week's Lighthouse Champion and opens the board.
+- **The weekly board**: each floor cleared for the first time (L.towerPay: the deepest cleared goes up) waits in the save
+  (`twr`, a new key) and goes to the server (`farm_tower_floor_v1`: a request id, the same until answered; up to 50 a
+  send) once a minute, after each clear and when changing place. The server counts each floor 1-1000 once per player
+  ever, at most 100 a Manila day (the rest wait for another day). The **Lighthouse Board** page (Mang Ilaw's shop, Tower
+  tab: "The weekly board"; or the wall): your new floors this week and your place, last week's Champion, the top 10 and
+  your own line, Prizes. Weeks start Monday 00:00, Manila time.
+- **Prizes** (`farm_tower_week_prize_v1`, asked once a week): the server makes one claim a player from last week's final
+  board and keeps it; asked again it gives the same claim (same id) and the game pays each id once (`twr.p`).
+  1st 300 Pearls, 2nd 200, 3rd 150, 4th-10th 50, everyone else with 10+ new floors 10. 1st is the week's "Lighthouse
+  Champion": the name on a banner over the lighthouse door (everyone sees it) and on the board.
+- **Not built (needs a "frame" system first)**: the frames ("a frame no one else can have" for each First, gold/silver/
+  bronze for the week) and showing the Champion's title by their name to others. There is no player frame in the game
+  today (medal frames are the medals' own pictures; the rank badge by a name is a coloured dot sent in the player's own
+  presence state, which a changed game could fake). It would take: a server list of each player's frames (filled by
+  `farm_hall_first_v1` and the weekly claim: the claim already keeps `frame` and `title` for the week), read by the
+  others from the server (not from presence); a frame drawn round the name over the head, on the farmer card and in the
+  online lists; and the pictures (10 boss frames + gold, silver, bronze).
+- **Offline / a server without the board**: the floors and the firsts wait in the save; the board says "Join online
+  play" or "opens very soon"; the wall says "Join online play to see the names". Nothing else changes.
+- **SQL**: supabase/farm_tower_board.sql (= ~/Downloads/tower-board-SQL/APPLY-tower-board.sql; VERIFY.sql beside it),
+  after part 22; played on a local Postgres by test/sql/tower-board-checks.sql (test/sql/run.sh). No game-server change.
+
 ## Tests
 - Unit: enemies per floor, hits and energy by floor, the trick of each zone, guard/mini/big boss floors, Pearls first
   time only, helper Pearls stop at 50 a day, nothing alone on a cleared floor, Blessings add up, Keeper's gear numbers,

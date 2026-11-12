@@ -226,6 +226,7 @@
       });
     } else {
       var dmg = Math.round((L.towerDamage(s) - 1) * 100);
+      if (self.openTowerBoard) rows.push({ icon: C.ICON.ribbon, name: 'The weekly board', desc: 'New floors this week, the top 10 and the prizes.', buttons: [{ label: 'Open', color: BLUE, cb: function () { self.closeAll(); self.openTowerBoard(function () { self.openKeeper('tower', 0); }); } }] });
       rows.push({ icon: C.towerIcon('pearl'), name: 'Tower Blessings', desc: '+' + dmg + '% damage in The Lost Tower, +' + L.towerEnergy(s) + ' most energy. Each big boss gives one, forever.' });
       rows.push({ icon: C.towerIcon('tide'), name: 'The Tide set: ' + L.tidePieces(s).length + ' of 10', desc: L.tidePieces(s).length ? L.tidePieces(s).join(', ') + '.' : 'A costume no one else sells: a piece from each big boss.' });
       TW.zones.forEach(function (z, i) {
