@@ -329,8 +329,7 @@
   L.applyHelp = function (s, tiles) {
     var n = 0;
     (Array.isArray(tiles) ? tiles : []).forEach(function (idx) {
-      idx = int(idx, -1, 1e5, -1);
-      var t = s.soil[idx];
+      var t = s.soil[L.tileIn(idx)]; // (a 64-wide farm's number, or one past it: 01-logic...-farm-tiles.js)
       if (t && t.c && !t.w && L.cropStage(t) < 3) { L.wet(t); n++; }
     });
     return n;

@@ -543,6 +543,56 @@ test('online: helping a friend: water their growing crops on a visit (5 a day, 2
   for (const p of [host, friend, stranger]) await p.context.close();
 });
 
+test('online: the farm 75 wide among 64-wide apps (12 Nov 2026): a watering and the live field land on their own tiles, lands 7-9 too', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  const W = 75, at = (x, y) => y * W + x, at64 = (x, y) => y * 64 + x;
+  const tiles = [at(10, 15), at(12, 15), at(66, 26), at(67, 26)]; // (66 and 67: land 7)
+  await host.page.evaluate((tiles) => {
+    const s = Farm.session.state, now = Farm.Logic.nowMin();
+    s.land = 9;
+    tiles.forEach((i) => { delete s.debris[i]; delete s.debris[i + 75]; s.soil[i] = { w: 0, c: 'turnip', p: now, r: 0 }; });
+    Farm.world.refreshAllSoil();
+    return Farm.Online.publish(true);
+  }, tiles);
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await waitWorld(friend.page, true);
+  await waitRemotes(friend.page, ['Moon Meadow (owner)']);
+  assert.deepStrictEqual(await friend.page.evaluate((t) => t.map((i) => !!(Farm.world.state.soil[i] && Farm.world.state.soil[i].c)), tiles), [true, true, true, true], 'the visit shows each crop on its tile');
+  // the friend waters a crop on land 7: sent past any 64-wide tile, it is that tile at the owner's
+  await friend.page.evaluate(([x, y]) => {
+    const T = Farm.Config.TILE;
+    Farm.world.setFeet(x * T + T / 2, (y + 1) * T + T / 2);
+    Farm.world.dir = 'up';
+    Farm.world.idle();
+    Farm.world.hintKey = null;
+  }, [66, 26]);
+  await friend.page.waitForTimeout(120);
+  assert.strictEqual(await friend.page.evaluate(() => Farm.ui.actionLabel.text), 'Water');
+  await friend.page.touchscreen.tap(294, 512);
+  await friend.page.waitForFunction(() => Object.keys(Farm.Online.helped).length > 0, null, SLOW);
+  assert.strictEqual(server.db.helps[0].tile, 20000 + 26 * 200 + 66, 'an old app finds no soil at that number');
+  await waitToast(host.page, /Ana Acres watered 1 of your crops!/);
+  assert.strictEqual(await host.page.evaluate((i) => Farm.session.state.soil[i].w, at(66, 26)), 1);
+  // as a 64-wide app waters (y * 64 + x): the same tile at the owner's
+  assert.strictEqual(await friend.page.evaluate(([h, n]) => Farm.Net.rpc('farm_help_v1', { p_host: h, p_tile: n }).then((r) => r.ok), [host.uid, at64(10, 15)]), true);
+  assert.strictEqual(await host.page.evaluate(() => Farm.Online.claimHelps()), 1);
+  assert.deepStrictEqual(await host.page.evaluate((t) => t.map((i) => Farm.session.state.soil[i].w), tiles), [1, 0, 1, 0], 'that tile, no other');
+  // the live field from a 64-wide owner's app: its row's tile is y * 64 + x
+  await host.page.evaluate((n) => { const t = Farm.session.state.soil[n.i]; Farm.Online.send('farm', { s: [[n.o, 1, 'turnip', Math.round(t.p), 0]], d: [] }); }, { i: at(12, 15), o: at64(12, 15) });
+  await friend.page.waitForFunction((i) => Farm.world.state.soil[i].w === 1, at(12, 15), SLOW);
+  // and from this app, a tile on land 7 (and 12,15 at the owner's too, so the next whole field sent says the same)
+  await host.page.evaluate((t) => { t.forEach((i) => { Farm.session.state.soil[i].w = 1; }); Farm.world.changed(); }, [at(67, 26), at(12, 15)]);
+  await friend.page.waitForFunction((i) => Farm.world.state.soil[i].w === 1, at(67, 26), SLOW);
+  // (the owner's own watered 10,15, from the help: its next quiet look tells it too)
+  await friend.page.waitForFunction((t) => t.every((i) => Farm.world.state.soil[i].w === 1), tiles, SLOW);
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: a visitor sees the owner\'s sprinklers, each its own kind (owner, 8 Nov 2026: "i cannot see them")', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);

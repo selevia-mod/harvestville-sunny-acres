@@ -146,11 +146,12 @@ test('the week\'s story (owner, 9 Nov 2026): Hana\'s Fiesta Bread, a chapter a d
 
 test('a farm copy (visits, raids) keeps its planted tiles first, up to 700 (9 Nov 2026: six land blocks of crops)', () => {
   const s = L.newState();
-  for (let i = 0; i < 300; i++) s.soil[100000 - i - 5] = { w: 0, c: null, p: 0, r: 0 };
+  for (let i = 0; i < 300; i++) s.soil[75 * 38 - 1 - i] = { w: 0, c: null, p: 0, r: 0 }; // (on the farm: 12 Nov 2026, a tile is sent as a 64-wide farm's)
   for (let i = 0; i < 650; i++) s.soil[i + 10] = { w: 1, c: 'turnip', p: 0, r: 0 };
   const snap = L.snapshot(s);
-  assert.strictEqual(snap.soil.length, 700);
-  assert.strictEqual(snap.soil.filter((e) => e[1] > 0).length, 650, 'every planted tile');
+  const rows = snap.soil.concat((snap.fx && snap.fx.s) || []); // (a tile at x 64+ beside the rest: 01-logic...-farm-tiles.js)
+  assert.strictEqual(rows.length, 700);
+  assert.strictEqual(rows.filter((e) => e[1] > 0).length, 650, 'every planted tile');
   const v = L.visitState(JSON.parse(JSON.stringify(snap)), s);
   assert.strictEqual(Object.values(v.soil).filter((t) => t.c).length, 650);
   assert.ok(JSON.stringify(snap).length < 32768);
