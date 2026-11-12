@@ -57929,8 +57929,14 @@ var key = C.ICON[id];
 if (tex.has(key)) tex.remove(key);
 tex.add(key, at, (i % 4) * 128, Math.floor(i / 4) * 128, 128, 128);
 });
+};
+
+
+
+var fetchIcons = function () {
 if (F.needImage && F.packedFile && !(F.images && F.images.econ2_icons) && F.packedFile('econ2_icons')) F.needImage('econ2_icons');
 };
+
 var ensureTexture = F.ensureTexture;
 F.ensureTexture = function (scene, key) {
 if (DRAW[key] && F.images && !F.images[key]) F.images[key] = DRAW[key]();
@@ -58032,6 +58038,13 @@ c.box.setVisible(left > 0);
 if (left > 0) { c.box.setY(y); c.text.setText(Math.ceil(left) + ' min'); y += 30; }
 });
 };
+
+
+['openInventory', 'openWorkshop', 'openSilo', 'openKitchen', 'openShop'].forEach(function (name) {
+var open = U[name];
+if (typeof open !== 'function') return;
+U[name] = function () { fetchIcons(); return open.apply(this, arguments); };
+});
 })(window.Farm = window.Farm || {});
 
 // ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-soft-packs.js

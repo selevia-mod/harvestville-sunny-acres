@@ -231,7 +231,7 @@ test('online: an owner and two visitors see each other, like, gift, befriend, ch
     map: Farm.world.mapKey, own: Farm.session.state === Farm.world.state, bench: Farm.world.state.yard.items.length,
     ownMap: Farm.session.state.map, host: Farm.session.visit.name,
   }));
-  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 108, ownMap: 'farm', host: 'Moon Meadow' }); // the bench, the field's fence, (Edit Farm, 10 Nov 2026) the farm's 7 buildings and 16 field plots, and (round 2, 11 Nov 2026) the 24 pen and dog fences
+  assert.deepStrictEqual(anaVisit, { map: 'farm', own: false, bench: 109, ownMap: 'farm', host: 'Moon Meadow' }); // the bench, the field's fence, (Edit Farm, 10 Nov 2026) the farm's 7 buildings and 16 field plots, (round 2, 11 Nov 2026) the 24 pen and dog fences, and (Farm Economy v2) the Silo
   await waitRemotes(ana.page, ['Moon Meadow (owner)']);
   await waitToast(owner.page, /Ana Acres is visiting your farm!/);
   await waitRemotes(owner.page, ['Ana Acres']);

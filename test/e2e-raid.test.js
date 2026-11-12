@@ -253,9 +253,11 @@ test('Town Raid tools: the Bow shoots crows from 4 tiles, empty hands shoo them;
   await waitModal(page, /RAID RESULTS/); // (Thursday's, alone: 2 hits, too few for a chest)
   assert.match(await modalText(page), /You landed 2 of the 40 hits/);
   await tapButton(page, 'OK');
+  // (four days went by: the farm's own "welcome back" report may come too, before or after the raid's call: OK on it first)
+  await page.waitForFunction(() => Farm.ui.modals.some((m) => { const out = []; const walk = (l) => l.forEach((o) => { if (o.type === 'Text') out.push(o.text); if (o.list) walk(o.list); }); walk(m.c.list); return /TOWN RAID: LAVA BAKUNAWA'S SPARKS/.test(out.join(' | ')); }), null, SLOW);
+  if (/WELCOME BACK/.test(await modalText(page))) await tapButton(page, 'OK');
   await waitModal(page, /TOWN RAID: LAVA BAKUNAWA'S SPARKS/);
   await tapButton(page, 'Defend!');
-  // (four days went by: the farm's own "welcome back" report may come too)
   await page.waitForFunction(() => { if (Farm.ui.modals.length) Farm.ui.closeAll(); return Farm.world.raiders.some((a) => a.kind === 'spark' && a.mode !== 'flee' && a.fade >= 1); }, null, SLOW);
   await hold(page, 'hoe');
   act = await nextTo(page, 0.7);

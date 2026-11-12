@@ -234,3 +234,31 @@ test("a potion's effect: Pineapple Juice (Drink, its chip, the walk power) and H
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// The owner's pictures of the goods: never fetched as the game opens (the farm comes first), fetched once the bag opens.
+test("the goods' pictures come when the bag first opens, not as the game opens", async () => {
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const page = await context.newPage(), problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  await page.route('**/*', (route) => (/^(file|data):/.test(route.request().url()) ? route.continue() : route.abort()));
+  const fs = require('fs'), dir = path.join(__dirname, '..', 'dist', 'packs');
+  await context.exposeBinding('__testAsset', (src, file) => {
+    const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file), p = m && path.join(dir, m[1] + '.webp');
+    return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+  });
+  await page.addInitScript((now) => {
+    window.__now = now; window.__asked = [];
+    window.gameHost = { state: null, quiet: true, here: [], saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
+    window.gameHost.asset = function (f, save) { window.__asked.push(f); window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };
+  }, at(START));
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
+  await page.waitForTimeout(1500);
+  const econ = (await page.evaluate(() => window.__asked)).filter((f) => /econ2_icons/.test(f));
+  assert.deepStrictEqual(econ, [], 'not as the game opens');
+  await page.evaluate(() => Farm.ui.openInventory());
+  await page.waitForFunction(() => !!(Farm.images && Farm.images.econ2_icons), null, SLOW);
+  assert.ok((await page.evaluate(() => window.__asked)).some((f) => /econ2_icons/.test(f)), 'asked for once the bag opened');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

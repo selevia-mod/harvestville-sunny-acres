@@ -99,8 +99,14 @@
       if (tex.has(key)) tex.remove(key);
       tex.add(key, at, (i % 4) * 128, Math.floor(i / 4) * 128, 128, 128);
     });
+  };
+  // The owner's pictures are fetched when a page that shows these goods first opens (the bag, a workshop such as the
+  // Mixer, the Silo, the Kitchen, a shop), never as the game opens: the farm comes first (19zl-packs-ui.js). Until then,
+  // and offline, the drawn ones above.
+  var fetchIcons = function () {
     if (F.needImage && F.packedFile && !(F.images && F.images.econ2_icons) && F.packedFile('econ2_icons')) F.needImage('econ2_icons');
   };
+  // (wrapped at the end of this file, once the Silo's page is here too)
   var ensureTexture = F.ensureTexture;
   F.ensureTexture = function (scene, key) {
     if (DRAW[key] && F.images && !F.images[key]) F.images[key] = DRAW[key]();
@@ -202,4 +208,11 @@
       if (left > 0) { c.box.setY(y); c.text.setText(Math.ceil(left) + ' min'); y += 30; }
     });
   };
+
+  // ---------- the goods' pictures, fetched as their pages first open (fetchIcons, above) ----------
+  ['openInventory', 'openWorkshop', 'openSilo', 'openKitchen', 'openShop'].forEach(function (name) {
+    var open = U[name];
+    if (typeof open !== 'function') return;
+    U[name] = function () { fetchIcons(); return open.apply(this, arguments); };
+  });
 })(window.Farm = window.Farm || {});
