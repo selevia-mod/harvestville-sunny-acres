@@ -175,10 +175,13 @@ Frames and the title last one week.
 - Zone 1 can open on drawn stand-ins and existing animal art, so the building does not wait for every picture.
 
 ### The shop's pictures (owner, 13 Nov 2026; tools/tower/shop-import.js, all in the 'tower' pack)
-- The icons, Mang Ilaw's own sheet, the farmer wearing each Keeper's piece (boy and girl), the horse's three looks.
-- The farmer in the gear, "one piece at a time": walking and standing in the sheet of the most visible piece worn (coat,
-  then hat, then lantern, then boots). The tools' poses, the bow and riding stay the farmer's own pictures. A Tailor
-  Shop look (or the birthday's party hat) wins over the gear.
+- The icons, Mang Ilaw's own sheet, the farmer wearing the Keeper's gear (boy and girl: each piece, each of the 6 pairs,
+  the full set: 22 sheets), the horse's three looks.
+- The farmer in the gear (owner, 13 Nov 2026): walking and standing in the sheet for what is worn. Visibility: coat,
+  hat, lantern, boots. All four: the set; three: the pair of the two most visible; two: their pair; one: that piece. A
+  sheet not on the phone yet: the next best (the set: the best pair, then the best piece; a pair: its more visible
+  piece). The tools' poses, the bow and riding stay the farmer's own pictures. A Tailor Shop look (or the birthday's
+  party hat) wins over the gear.
 - Only you see your farmer in the gear: friends see you as before. Presence and the game server carry your look (the
   costume), not the gear; showing it to them would need the game server changed and deployed, and each friend's phone
   holding another sheet per farmer. Left for later, if wanted.
