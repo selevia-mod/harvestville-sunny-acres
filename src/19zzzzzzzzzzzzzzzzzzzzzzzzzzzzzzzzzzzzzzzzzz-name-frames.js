@@ -193,6 +193,7 @@
     };
     if (who.id && !UUID.test(String(who.id))) return out;
     if (who.id && !FR.get(who.id)) {
+      if (!online() || FR.off) return out; // (no answer will come)
       FR.wait(who.id, go, function () { return !!(t && t.active); });
       FR.want([who.id]);
     } else go();
@@ -210,6 +211,7 @@
     if (!mark || typeof mark !== 'object') return;
     if (mark.id && !UUID.test(String(mark.id))) return;
     if (mark.id && !FR.get(mark.id)) {
+      if (!online() || FR.off) return;
       FR.wait(mark.id, go, function () { return !!c.active; });
       FR.want([mark.id]);
     } else go();
