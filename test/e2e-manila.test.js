@@ -604,3 +604,30 @@ test('an older game saved where the bay is now opens by the Plains Gate, facing 
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('no invisible walls (owner, 12 Nov 2026): a picture narrower than its box is solid only where it stands; the talipapa stalls leave their side tiles free', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'town';");
+  const { page, problems, context } = await open(save);
+  await waitMap(page, 'town');
+  // a stall's picture taller than wide, as the owner's are: in its 4 x 3 box it stands about 1.8 tiles wide, centred
+  await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 300; c.height = 512;
+    c.getContext('2d').fillRect(0, 0, 300, 512);
+    const i = new Image();
+    await new Promise((ok) => { i.onload = ok; i.src = c.toDataURL(); });
+    Farm.images['props/manila_talipapa_meat'] = i;
+  });
+  await page.evaluate(() => Farm.ui.mnTrain('manila'));
+  await tapButton(page, 'Ride free');
+  await waitMap(page, 'manila');
+  const at = await page.evaluate(([x0, x1]) => {
+    const w = Farm.world, b = (x, y) => !!w.blocked[w.idx(x, y)], spot = w.objects.find((o) => o.type === 'mn_spot' && o.props.art === 'talipapa_meat');
+    return { row: [x0, x0 + 1, x0 + 2, x1].map((x) => [b(x, 31), b(x, 32)]), above: b(x0 + 1, 30), spot: spot && [spot.x0, spot.x1] };
+  }, [X(84), X(81)]);
+  assert.deepStrictEqual(at.row, [[false, false], [true, true], [true, true], [false, false]], 'the stall: its 2 middle tiles solid, the side tiles free');
+  assert.strictEqual(at.above, false, 'its top row (the awning) is walked behind');
+  assert.deepStrictEqual(at.spot, [X(84) + 1, X(84) + 2], 'facing it: where it stands');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

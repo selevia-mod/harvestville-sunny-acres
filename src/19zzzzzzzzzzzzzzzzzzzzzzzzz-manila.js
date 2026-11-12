@@ -198,6 +198,16 @@
 
   // ---------- buildings and props ----------
   var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
+  // The tiles a building's picture stands on (all in tiles): its box o, the picture's left offset in the box, its width
+  // and height, and the foot rows asked for. Columns the picture covers at least half of (the middle one at least), and
+  // no more foot rows than the picture is tall (rounded, at least 1).
+  var mnSolidSpan = function (o, off, w, h, foot) {
+    var x0 = o.x1 + 1, x1 = o.x0 - 1, pl = o.x0 + off, pr = pl + w;
+    for (var x = o.x0; x <= o.x1; x++) if (Math.min(x + 1, pr) - Math.max(x, pl) >= 0.5) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+    if (x1 < x0) x0 = x1 = Math.max(o.x0, Math.min(o.x1, Math.floor((pl + pr) / 2)));
+    return { x0: x0, x1: x1, foot: Math.max(1, Math.min(foot, Math.round(h))) };
+  };
+  F.mnSolidSpan = mnSolidSpan;
   P.mnDrawProp = function (o) {
     var p = o.props, own = p.art && F.images && F.images['props/manila_' + p.art] ? 'props/manila_' + p.art : null;
     if (p.ferris) { // the Ferris wheel: its stand when the turning wheel is in too, else the whole picture (still), else drawn
@@ -232,13 +242,18 @@
       foot = 0;
     }
     if (foot > 0) {
-      for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = o.x0; x <= o.x1; x++) this.blocked[this.idx(x, y)] = true;
-      var zone = this.add.zone(left + pw / 2, bottom - foot * T / 2 + 8, pw - 16, foot * T - 16);
+      // (owner, 12 Nov 2026: "invisible-space bug" by the talipapa stalls) solid only where the picture stands: a
+      // picture narrower than its box (it keeps its own shape, centred) leaves the box's side tiles free, and one shorter
+      // than its foot frees the rows above it. A tile is solid when the picture covers at least half of it.
+      var span = mnSolidSpan(o, (pw - dw) / 2 / T, dw / T, dh / T, foot);
+      foot = span.foot;
+      for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = span.x0; x <= span.x1; x++) this.blocked[this.idx(x, y)] = true;
+      var zone = this.add.zone((span.x0 + span.x1 + 1) / 2 * T, bottom - foot * T / 2 + 8, (span.x1 - span.x0 + 1) * T - 16, foot * T - 16);
       this.physics.add.existing(zone, true);
       this.solids.add(zone);
     }
     if (!own && p.label) this.mn.labels.push(this.add.text(left + pw / 2, bottom - dh - 0.05 * T, p.label, LABEL).setOrigin(0.5, 1).setDepth(DEPTH.fx));
-    return { type: 'mn_spot', name: o.name, x0: o.x0, y0: o.y1 - Math.max(1, foot) + 1, x1: o.x1, y1: o.y1, props: p };
+    return { type: 'mn_spot', name: o.name, x0: span ? span.x0 : o.x0, y0: o.y1 - Math.max(1, foot) + 1, x1: span ? span.x1 : o.x1, y1: o.y1, props: p };
   };
 
   var setupExtras = P.setupExtras;

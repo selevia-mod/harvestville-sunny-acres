@@ -6347,7 +6347,8 @@ var SOON = ' Coming soon!';
 { key: 'tp_fish', box: [81, 33, 4, 3], art: 'talipapa_fish', text: 'TALIPAPA: THE FISH STALL\nBangus and galunggong on ice.' + SOON },
 { key: 'tp_veg', box: [81, 36, 4, 3], art: 'talipapa_veg', text: 'TALIPAPA: THE VEGETABLE STALL\nKangkong, tomatoes and onions.' + SOON },
 { key: 'cart_fishball', box: [45, 82, 2, 2], art: 'cart_fishball', text: 'THE FISHBALL CART\nFishballs, kikiam and three sauces.' + SOON },
-{ key: 'cart_taho', box: [42, 48, 2, 2], art: 'cart_taho', text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
+{ key: 'cart_taho', box: [42, 49, 1, 1], foot: 1, art: 'cart_taho',
+text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
 { key: 'cart_sorbetes', box: [15, 49, 2, 2], art: 'cart_sorbetes', text: 'THE SORBETES CART\nIce cream with a bell.' + SOON },
 { key: 'college_gate', box: [47, 80, 7, 4], foot: 4, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
 { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
@@ -55880,6 +55881,16 @@ return this.mapKey === 'manila' && m !== 'night' && m !== 'festival' ? 'town' : 
 
 
 var LABEL = { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '104px', fontStyle: 'bold', color: '#fff6e0', stroke: '#3d2614', strokeThickness: 16 };
+
+
+
+var mnSolidSpan = function (o, off, w, h, foot) {
+var x0 = o.x1 + 1, x1 = o.x0 - 1, pl = o.x0 + off, pr = pl + w;
+for (var x = o.x0; x <= o.x1; x++) if (Math.min(x + 1, pr) - Math.max(x, pl) >= 0.5) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+if (x1 < x0) x0 = x1 = Math.max(o.x0, Math.min(o.x1, Math.floor((pl + pr) / 2)));
+return { x0: x0, x1: x1, foot: Math.max(1, Math.min(foot, Math.round(h))) };
+};
+F.mnSolidSpan = mnSolidSpan;
 P.mnDrawProp = function (o) {
 var p = o.props, own = p.art && F.images && F.images['props/manila_' + p.art] ? 'props/manila_' + p.art : null;
 if (p.ferris) {
@@ -55914,13 +55925,18 @@ self.solids.add(z);
 foot = 0;
 }
 if (foot > 0) {
-for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = o.x0; x <= o.x1; x++) this.blocked[this.idx(x, y)] = true;
-var zone = this.add.zone(left + pw / 2, bottom - foot * T / 2 + 8, pw - 16, foot * T - 16);
+
+
+
+var span = mnSolidSpan(o, (pw - dw) / 2 / T, dw / T, dh / T, foot);
+foot = span.foot;
+for (var y = o.y1 - foot + 1; y <= o.y1; y++) for (var x = span.x0; x <= span.x1; x++) this.blocked[this.idx(x, y)] = true;
+var zone = this.add.zone((span.x0 + span.x1 + 1) / 2 * T, bottom - foot * T / 2 + 8, (span.x1 - span.x0 + 1) * T - 16, foot * T - 16);
 this.physics.add.existing(zone, true);
 this.solids.add(zone);
 }
 if (!own && p.label) this.mn.labels.push(this.add.text(left + pw / 2, bottom - dh - 0.05 * T, p.label, LABEL).setOrigin(0.5, 1).setDepth(DEPTH.fx));
-return { type: 'mn_spot', name: o.name, x0: o.x0, y0: o.y1 - Math.max(1, foot) + 1, x1: o.x1, y1: o.y1, props: p };
+return { type: 'mn_spot', name: o.name, x0: span ? span.x0 : o.x0, y0: o.y1 - Math.max(1, foot) + 1, x1: span ? span.x1 : o.x1, y1: o.y1, props: p };
 };
 
 var setupExtras = P.setupExtras;

@@ -79,7 +79,8 @@
     { key: 'tp_fish', box: [81, 33, 4, 3], art: 'talipapa_fish', text: 'TALIPAPA: THE FISH STALL\nBangus and galunggong on ice.' + SOON },
     { key: 'tp_veg', box: [81, 36, 4, 3], art: 'talipapa_veg', text: 'TALIPAPA: THE VEGETABLE STALL\nKangkong, tomatoes and onions.' + SOON },
     { key: 'cart_fishball', box: [45, 82, 2, 2], art: 'cart_fishball', text: 'THE FISHBALL CART\nFishballs, kikiam and three sauces.' + SOON },
-    { key: 'cart_taho', box: [42, 48, 2, 2], art: 'cart_taho', text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
+    { key: 'cart_taho', box: [42, 49, 1, 1], foot: 1, art: 'cart_taho', // (owner, 12 Nov 2026: "is taho what? Monument? Its bigger than people": a vendor's two buckets on a yoke, 1 tile)
+      text: 'THE TAHO BUCKETS\nWarm taho with syrup and sago, every morning.' + SOON },
     { key: 'cart_sorbetes', box: [15, 49, 2, 2], art: 'cart_sorbetes', text: 'THE SORBETES CART\nIce cream with a bell.' + SOON },
     { key: 'college_gate', box: [47, 80, 7, 4], foot: 4, art: 'college_gate', text: 'THE COLLEGE GATE\nIts students and its guard.' + SOON },
     { key: 'court', box: [23, 56, 10, 6], foot: 0, flat: 1, art: 'basketball_court', text: 'THE BARANGAY COURT\nPick-up games every evening.' + SOON },
