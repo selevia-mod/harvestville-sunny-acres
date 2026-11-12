@@ -401,3 +401,15 @@ test('a Tower hunt counts as a hunt but leaves no slot waiting and no line in th
   assert.ok(!('talangka' in s.wild.by) && !('talangka' in s.wild.best));
   assert.ok(!('pk' in plain(L.serialize(s))), 'nothing by name in the save');
 });
+
+test('the ten doors up are the owner\'s pictures, in the tower pack, never the page: shut and open side by side', () => {
+  const PACKS = require('../tools/packs');
+  C.TOWER.zones.forEach((z) => {
+    const f = path.join(__dirname, '..', 'assets', z.art.gate + '.webp');
+    assert.ok(fs.existsSync(f), z.name + ': its door ' + z.art.gate);
+    const b = fs.readFileSync(f), w = b.readUIntLE(24, 3) + 1; // (a VP8X webp: its width)
+    assert.strictEqual(b.toString('ascii', 12, 16), 'VP8X', z.art.gate + ': a webp with its see-through');
+    assert.strictEqual((w - 4) % 2, 0, z.art.gate + ': two halves 4 px apart');
+    assert.ok(PACKS.tower.indexOf(z.art.gate) >= 0, z.art.gate + ': in the tower pack');
+  });
+});

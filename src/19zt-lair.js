@@ -589,7 +589,7 @@
       g.stroke();
     });
   };
-  var DOOR = { w: 2.3, foot: 0.25 }; // a wall door's picture: its width in tiles, and how far its foot stands into its tiles
+  var DOOR = { w: 2.3, art: 3.2, foot: 0.25 }; // a wall door's picture: its width in tiles (drawn, the owner's: its arch and its bits of wall), and how far its foot stands into its tiles
   // The lift: the Mine's picture (owner, 8 Nov 2026: "lift also need an art"; 19y-mine.js), or this drawing of an iron
   // cage in a frame of dark stone, with its wheel on top, when the picture is not there.
   var liftTexture = function (w) {
@@ -778,10 +778,11 @@
     var x = (g.x0 + g.x1 + 1) / 2 * T, y = (g.y0 + g.y1 + 1) / 2 * T, size = (g.x1 - g.x0 + 1) * T, tf = gateFrame(this, false, lr.cfg);
     var img = this.add.image(x, y, tf[0], tf[1]).setDisplaySize(size, size).setDepth(DEPTH.flat);
     if (lr.cfg.door === 'wall') { // a door standing in the back wall, its foot on the floor in front of it (its tiles)
-      img.setOrigin(0.5, 1).setPosition(x, (g.y0 + DOOR.foot) * T).setDisplaySize(DOOR.w * T, DOOR.w * T * img.height / img.width);
+      var dw = (tf[1] === '__BASE' ? DOOR.w : DOOR.art) * T;
+      img.setOrigin(0.5, 1).setPosition(x, (g.y0 + DOOR.foot) * T).setDisplaySize(dw, dw * img.height / img.width);
       img.setDepth(this.cursor ? this.cursor.depth - 0.01 : DEPTH.actor); // (against the back wall, like the lift)
       y = img.y - img.displayHeight * 0.42;
-      size = DOOR.w * T * 0.75;
+      size = DOOR.w * T * 0.75; // (the glow: the doorway, not its wall)
     } else if (tf[1]) { // the picture: on its tiles' bottom edge, the glow over the way down in it
       img.setOrigin(0.5, 1).setPosition(x, (g.y1 + 1 + GATE.drop) * T).setDisplaySize(size, size * img.height / img.width * GATE.squash);
       y = img.y - img.displayHeight * 0.48;
