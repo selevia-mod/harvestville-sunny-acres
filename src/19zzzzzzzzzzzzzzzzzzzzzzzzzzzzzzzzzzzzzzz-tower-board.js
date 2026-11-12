@@ -149,7 +149,9 @@
       var line = function (r, yy) {
         if (r.you) c.add(self.add.rectangle(W / 2, yy + 11, R0 - L0, 22, 0xffe680, 0.55));
         c.add(self.txt(L0 + 4, yy + 2, '#' + fmt(r.rank), 13, INK, { fontStyle: 'bold' }));
-        c.add(fit(self.txt(L0 + 50, yy + 2, r.name + (r.you ? ' (you)' : ''), 13, INK, r.you ? { fontStyle: 'bold' } : {}), 170));
+        var nt = fit(self.txt(L0 + 50, yy + 2, r.name + (r.you ? ' (you)' : ''), 13, INK, r.you ? { fontStyle: 'bold' } : {}), 170);
+        c.add(nt);
+        if (F.frameName && r.id) F.frameName(self, nt, { id: r.id }, { title: false }); // (their name frame: 19zzz...z-name-frames.js)
         c.add(self.txt(R0 - 4, yy + 2, fmt(r.floors), 13, '#5a3a1e', { fontStyle: 'bold' }).setOrigin(1, 0));
       };
       if (!b) c.add(self.txt(W / 2, ly + 70, note, 14, INK, { align: 'center', wordWrap: { width: 260 }, lineSpacing: 3 }).setOrigin(0.5, 0));
@@ -158,7 +160,7 @@
         b.top.forEach(function (r, i) { line(r, ly + i * 24); });
         if (me && me.rank && !b.top.some(function (r) { return r.you; })) {
           c.add(self.txt(W / 2, ly + 10 * 24 - 4, '· · ·', 12, '#8a6a4a').setOrigin(0.5, 0));
-          line({ rank: me.rank, name: (O.me && L.cleanText(O.me.name, 24)) || 'You', floors: me.floors, you: true }, ly + 10 * 24 + 10);
+          line({ rank: me.rank, id: meId(), name: (O.me && L.cleanText(O.me.name, 24)) || 'You', floors: me.floors, you: true }, ly + 10 * 24 + 10);
         }
       }
       self.button(c, W / 2 - 70, top + PH - 44, 124, 40, 'Prizes', function () { self.closeModal(); self.towerPrizes(function () { self.openTowerBoard(back); }); }, BLUE);
@@ -196,7 +198,8 @@
       var rows = L.towerWallRows(hall, meId(), s), ch = board && board.champ;
       if (hall && typeof hall === 'object') rows.unshift([C.ICON.ribbon, ch ? BD.title + ' (last week): ' + ch.name + (ch.you ? '  ' + HALL.you : '') + ', ' + fmt(ch.floors) + ' new floors.' : BD.title + ': the top climber of each week. Their name goes on the banner.']);
       sfx('talk');
-      return self.dialog(BD.wall, [{ label: 'Close', color: GREY }, { label: 'Weekly board', color: BLUE, cb: function () { self.openTowerBoard(); } }], { rows: rows });
+      return self.dialog(BD.wall, [{ label: 'Close', color: GREY }, { label: 'Weekly board', color: BLUE, cb: function () { self.openTowerBoard(); } }]
+        .concat(hall && typeof hall === 'object' && F.myFrameButton ? F.myFrameButton() : []), { rows: rows }); // (My frame: 19zzz...z-name-frames.js)
     };
     if (!online()) return show(null, null);
     var c = show(false, null), done = false; // ("Reading the names...", then the names)

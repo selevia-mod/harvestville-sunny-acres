@@ -204,7 +204,7 @@
     if (!sp) return null;
     var out = { title: sp.title, rows: [], kind: sp.kind };
     var you = function (id) { return me && id === me ? '  ' + HALL.you : ''; };
-    var row = function (ic, text) { out.rows.push([ic, text]); };
+    var row = function (ic, text, id) { out.rows.push(id != null ? [ic, text, { id: String(id) }] : [ic, text]); }; // (id: their name frame under the icon)
     var best = function (kind) { var b = s && s.wild && s.wild.best && s.wild.best[kind]; return b ? ' (yours: ' + kgText(b) + ')' : ''; };
     if (sp.kind === 'soon') { row(icon(sp.icon), HALL.soon); return out; }
     if (!data || typeof data !== 'object') {
@@ -217,13 +217,13 @@
     var catchRow = function (kind) {
       var a = WI.animals[kind], c = catchOf(kind), n = a ? a.name : String(kind);
       if (!c) return row(animalIcon(kind), n + ': nobody yet. Be the first!' + best(kind));
-      row(animalIcon(kind), n + ': ' + nm(c.name) + ', ' + kgText(c.kg10) + you(String(c.id)) + (String(c.id) === me ? '' : best(kind)));
+      row(animalIcon(kind), n + ': ' + nm(c.name) + ', ' + kgText(c.kg10) + you(String(c.id)) + (String(c.id) === me ? '' : best(kind)), c.id);
     };
     var firstRow = function (key) {
       var f = L.hallFirst(key), c = list(data.firsts).filter(function (x) { return x.key === key; })[0];
       var what = f ? f.name : key;
       if (!c) return row(C.ICON.star, 'First to beat ' + what + ': nobody yet. It could be you!');
-      row(C.ICON.star, 'First to beat ' + what + ': ' + nm(c.name) + you(String(c.id)));
+      row(C.ICON.star, 'First to beat ' + what + ': ' + nm(c.name) + you(String(c.id)), c.id);
     };
     if (sp.kind === 'catch') L.hallAreaAnimals(sp.area).forEach(catchRow);
     else if (sp.kind === 'animal') catchRow(sp.animal);
@@ -236,7 +236,7 @@
       kinds.forEach(function (k) {
         var f = list(data.fish).filter(function (x) { return x.kind === k; })[0], n = C.ITEMS[k] ? C.ITEMS[k].name : k;
         if (!f) return row(icon(k), n + ': nobody yet. Fish on a Monday!');
-        row(icon(k), n + ': ' + nm(f.name) + ', ' + gText(f.g) + you(String(f.id)));
+        row(icon(k), n + ': ' + nm(f.name) + ', ' + gText(f.g) + you(String(f.id)), f.id);
       });
     } else if (sp.kind === 'firsts') sp.keys.forEach(firstRow);
     else if (sp.kind === 'first') firstRow(sp.key);
@@ -244,17 +244,17 @@
       var ch = data.champs && typeof data.champs === 'object' ? data.champs : {}, last = list(ch.last), most = list(ch.most);
       var month = typeof ch.month === 'string' && /^\d{4}-\d{2}$/.test(ch.month) ? C.MONTHS[Number(ch.month.slice(5)) - 1] : 'Last month';
       if (!last.length) row(C.ICON.ribbon, month + ': no Champion yet. ' + RK.tiers[3].at.toLocaleString('en-US') + ' points in a month makes one.');
-      last.slice(0, 3).forEach(function (c) { row(C.ICON.ribbon, month + "'s Champion: " + nm(c.name) + ', ' + int(c.points, 0, 1e9, 0).toLocaleString('en-US') + ' points' + you(String(c.id))); });
+      last.slice(0, 3).forEach(function (c) { row(C.ICON.ribbon, month + "'s Champion: " + nm(c.name) + ', ' + int(c.points, 0, 1e9, 0).toLocaleString('en-US') + ' points' + you(String(c.id)), c.id); });
       if (!sp.last) {
         if (!most.length) row(C.ICON.star, 'Most Champion months: nobody yet.');
-        most.slice(0, 3).forEach(function (c) { var n = int(c.months, 0, 9999, 0); row(C.ICON.star, 'Most Champion months: ' + nm(c.name) + ', ' + n + ' month' + (n === 1 ? '' : 's') + you(String(c.id))); });
+        most.slice(0, 3).forEach(function (c) { var n = int(c.months, 0, 9999, 0); row(C.ICON.star, 'Most Champion months: ' + nm(c.name) + ', ' + n + ' month' + (n === 1 ? '' : 's') + you(String(c.id)), c.id); });
       }
     } else if (sp.kind === 'top') {
       var top = list(data.top).slice(0, 10);
       if (!top.length) row(C.ICON.star, 'Nobody has points this month yet. Be the first!');
       top.forEach(function (r, i) {
         var tier = L.rankTierDef(int(r.tier, 0, 4, 0));
-        row(C.ICON.star, '#' + (int(r.rank, 1, 999, i + 1)) + ' ' + nm(r.name) + ', ' + int(r.points, 0, 1e9, 0).toLocaleString('en-US') + (tier ? ' (' + tier.name + ')' : '') + you(String(r.id)));
+        row(C.ICON.star, '#' + (int(r.rank, 1, 999, i + 1)) + ' ' + nm(r.name) + ', ' + int(r.points, 0, 1e9, 0).toLocaleString('en-US') + (tier ? ' (' + tier.name + ')' : '') + you(String(r.id)), r.id);
       });
     } else if (sp.kind === 'bayanihan') {
       var b = list(data.more).filter(function (x) { return x.key === 'bayanihan'; })[0];

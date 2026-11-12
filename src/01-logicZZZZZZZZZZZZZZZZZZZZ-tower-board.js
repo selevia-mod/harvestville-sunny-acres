@@ -107,7 +107,8 @@
     TW.zones.forEach(function (z) {
       var key = 'tower_' + z.to, c = firsts.filter(function (x) { return x.key === key; })[0];
       var boss = c || deep >= z.to ? C.WILD.animals[z.boss].name : '???';
-      rows.push([star, 'Floor ' + z.to + ', ' + boss + ': ' + (c ? nm(c.name) + (me && String(c.id) === me ? '  ' + HALL.you : '') : 'nobody yet.')]);
+      var text = 'Floor ' + z.to + ', ' + boss + ': ' + (c ? nm(c.name) + (me && String(c.id) === me ? '  ' + HALL.you : '') : 'nobody yet.');
+      rows.push(c ? [star, text, { frame: key }] : [star, text]); // (beaten: the boss's name frame under the star, 19zzz...z-name-frames.js)
     });
     return rows;
   };

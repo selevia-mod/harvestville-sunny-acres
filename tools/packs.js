@@ -56,4 +56,7 @@ module.exports = {
   // The Lost Tower (owner, 12 Nov 2026): its creatures, each realm's stairs and cave tiles, each once its picture is in
   // (tools/tower/tower-art.js; until then the game draws stand-ins, src/19zzz...z-tower.js)
   tower: require('./tower/tower-art').packed(),
+  // name frames (owner, 13 Nov 2026): the owner's 4 x 4 sheet of the 13 frames (tools/art/name-frames-import.js); until it
+  // is in, the game draws stand-ins (src/19zzz...z-name-frames.js), so the pack is empty
+  frames: fs.existsSync(path.join(ASSETS, 'name_frames.png')) ? ['name_frames'] : [],
 };
