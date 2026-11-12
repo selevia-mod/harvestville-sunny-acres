@@ -56895,6 +56895,7 @@ if (F.ui) F.ui.toast('Salamat po! ' + J.stops[i].name + '.', 2000);
 sfx('door');
 this.save();
 };
+var JEEP_BACK = 1.45;
 P.mnRideUpdate = function (st) {
 var r = this.mnRide;
 if (!r) return;
@@ -56909,8 +56910,12 @@ if (F.ui) F.ui.toast('You left the shed. Here are your ' + J.fare + 'G back.', 2
 return;
 }
 
+
 this.player.body.setVelocity(0, 0);
-this.setFeet(st.x * T + (st.dir === 'left' ? 0.4 : st.dir === 'right' ? -0.4 : 0) * T, st.y * T - 0.25 * T);
+var side = st.dir === 'left' || st.dir === 'right', back = st.dir === 'left' ? JEEP_BACK : st.dir === 'right' ? -JEEP_BACK : 0;
+this.setFeet(st.x * T + back * T, st.y * T + (side ? -0.85 : -0.25) * T);
+var face = side ? st.dir : 'down';
+if (this.dir !== face) { this.dir = face; this.idle(); }
 F.depthTo(this.player, DEPTH.actor + st.y * T / 1e5 + 1e-6);
 };
 var update = P.update;

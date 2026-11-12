@@ -503,6 +503,7 @@
     sfx('door');
     this.save();
   };
+  var JEEP_BACK = 1.45; // (tiles from its middle to its back step, side on: it is drawn 3.6 tiles long)
   P.mnRideUpdate = function (st) {
     var r = this.mnRide;
     if (!r) return;
@@ -516,9 +517,13 @@
       }
       return;
     }
-    // on board: in the jeep's seat, the camera following
+    // on board: standing at the back, the camera following. Driving up or down, as before (owner: "standing at the back
+    // is iconic"); driving sideways, on its back step and seen from the side, facing the way it goes (owner, 12 Nov 2026)
     this.player.body.setVelocity(0, 0);
-    this.setFeet(st.x * T + (st.dir === 'left' ? 0.4 : st.dir === 'right' ? -0.4 : 0) * T, st.y * T - 0.25 * T);
+    var side = st.dir === 'left' || st.dir === 'right', back = st.dir === 'left' ? JEEP_BACK : st.dir === 'right' ? -JEEP_BACK : 0;
+    this.setFeet(st.x * T + back * T, st.y * T + (side ? -0.85 : -0.25) * T);
+    var face = side ? st.dir : 'down';
+    if (this.dir !== face) { this.dir = face; this.idle(); }
     F.depthTo(this.player, DEPTH.actor + st.y * T / 1e5 + 1e-6);
   };
   var update = P.update;

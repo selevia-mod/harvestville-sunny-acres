@@ -399,8 +399,12 @@ test('the jeepney: "Para po" at the Plaza\'s shed, 15G, on board when it stops, 
   assert.strictEqual((await state(page)).gold, g0 - 15, 'the fare');
   await page.waitForFunction(() => Farm.world.mnRide && Farm.world.mnRide.stage === 'on', null, SLOW);
   await page.waitForTimeout(2500);
-  const ride = await page.evaluate(() => { const w = Farm.world, j = w.mn.jeep.at, f = w.feet(); return { j: [j.x * 256, j.y * 256], f: [f.x, f.y], cam: w.cameras.main.midPoint.x, label: Farm.ui.actionLabel.text }; });
-  assert.ok(Math.abs(ride.f[0] - ride.j[0]) < 0.6 * 256 && Math.abs(ride.f[1] - ride.j[1]) < 0.6 * 256, 'in the jeep');
+  const ride = await page.evaluate(() => { const w = Farm.world, j = w.mn.jeep.at, f = w.feet(); return { j: [j.x * 256, j.y * 256], d: j.dir, f: [f.x, f.y], face: w.dir, cam: w.cameras.main.midPoint.x, label: Farm.ui.actionLabel.text }; });
+  if (ride.d === 'left' || ride.d === 'right') { // side on: on its back step, seen from the side, facing its way (owner, 12 Nov 2026)
+    const back = (ride.d === 'left' ? 1 : -1) * (ride.f[0] - ride.j[0]) / 256;
+    assert.ok(back > 1.2 && back < 1.7 && Math.abs(ride.f[1] - ride.j[1]) < 1.0 * 256, 'on the back step of the jeep: ' + back);
+    assert.strictEqual(ride.face, ride.d, 'facing the way it drives');
+  } else assert.ok(Math.abs(ride.f[0] - ride.j[0]) < 0.6 * 256 && Math.abs(ride.f[1] - ride.j[1]) < 0.6 * 256 && ride.face === 'down', 'in the jeep, facing you');
   assert.ok(Math.abs(ride.cam - ride.f[0]) < 6 * 256, 'the camera with it');
   await shot(page, 'manila-9-riding');
   await page.waitForFunction(() => !Farm.world.mnRide, null, { timeout: 60000 });
