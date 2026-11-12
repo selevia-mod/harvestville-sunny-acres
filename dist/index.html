@@ -21127,6 +21127,29 @@ return s;
 };
 })(window.Farm = window.Farm || {});
 
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZZZZZ-save-gen.js
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+C.SAVE_GEN = 2;
+
+L.saveGen = function (o) {
+if (!o || typeof o !== 'object') return 0;
+var g = Math.floor(Number(o.gg));
+return isFinite(g) && g > 0 ? g : o.ef ? 1 : 0;
+};
+var serialize = L.serialize;
+L.serialize = function (s) { var o = serialize(s); o.gg = C.SAVE_GEN; return o; };
+})(window.Farm = window.Farm || {});
+
 // ---- src/02-host.js
 
 (function (F) {
