@@ -138,7 +138,11 @@
   // A frame round a name w x h big: a container (put it at the name's middle) of the frame's three pieces. Its plate is
   // the name's height; its ends hold the ornaments, outside the name.
   var fit = function (box, w, h) {
-    var s = h / (CELL * (NF.band[1] - NF.band[0])), ch = CELL * s, cap = CELL * NF.ends * s, full = Math.max(w + 0.9 * h, 2 * cap + 2);
+    // (the owner's frames, 13 Nov 2026: their plate is about 40% of the cell's height, the ornaments big at the ends: the
+    // frame is drawn bigger round the name, about 1.5 times its height, its ends clear of the name)
+    var art = !!(F.images && F.images[NF.sheet]), k = art ? 1.9 : 1;
+    var s = h * k / (CELL * (NF.band[1] - NF.band[0])), ch = CELL * s, cap = CELL * NF.ends * s;
+    var full = art ? Math.max(w + 1.5 * cap, 2 * cap + 2) : Math.max(w + 0.9 * h, 2 * cap + 2);
     var p = box.list;
     p[0].setPosition(-full / 2, 0).setDisplaySize(cap, ch);
     p[1].setPosition(-full / 2 + cap - 0.5, 0).setDisplaySize(full - 2 * cap + 1, ch);
