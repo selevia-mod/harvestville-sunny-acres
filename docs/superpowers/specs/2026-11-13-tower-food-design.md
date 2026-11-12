@@ -52,3 +52,33 @@ Unit: each ingredient drops only in its zone (1 in 4; guard 2), never sellable; 
 one Tower dish at a time; each power halves (never cancels) its trick; powers only inside the Tower; coffee 5 min and
 reset; the Baon eats under 15 only in the Tower. Browser: a Tower floor drops an ingredient, a dish cooked in the
 Kitchen and eaten, its chip, its power on the next zone's trick; the Baon eating by itself.
+
+## Built (13 Nov 2026, feat/tower-food): notes
+- Files: content `src/00-zzzzzzzzzzzzzzzzzzzzzzzzz-tower-food.js` (C.TOWER_FOOD), rules `src/01-logicZZZZZZZZZZZZZZZZZZZZZ-tower-food.js`,
+  world `src/19zzz...z-tower-food.js`. Save: new keys only, `tfd` = [Tower dish id, until minute], `tfb` = [packed food ids].
+- A Tower dish has its own slot (s.tfd): one at a time, a new one replaces it; the farm dish (s.dp) and the potions keep theirs.
+  Eaten outside the Tower its 15 minutes still run (the chip shows dim there); the power works only inside.
+- The 10 Tower dishes sell for 0 too (decided by me: a sellable dish would turn the drops into Gold). Lugaw sells for 80G.
+- Two powers of the same kind never stack: Sopas ng Tala with an Ampalaya Brew (or a farm charge dish) still halves a charge once.
+- The Baon is a bag item (kind 'gear', sells for 0): one can be bought while none is in the bag. Packed food lives in s.tfb; any
+  food packs (dishes, potions, crops with energy). It eats in the Tower when energy < 15, and also just before you would faint.
+- Mang Ilaw's Gear page has a Baon row (5,000G) before "A new weapon"; held, the Baon's action button opens its page; in the
+  bag a Baon button stands where Eat is.
+- Icons: 22 drawn stand-ins painted into frames 2200-2221 of the items texture (C.FOOD_ICONS); the owner's sheet, when it comes:
+  `tower_food_icons`, 128 x 128 cells, 8 a row, in C.FOOD_ICONS' order.
+
+## Friends on a floor (the game server): what works now, what needs a server change (NOT deployed)
+The server runs the shield, the healers, the splitters and the revivers for a shared floor (server/lib/tower.js); the phone
+runs the puddles, the song and the dark itself.
+- Works with no server change: the puddle, the song, the sight, the charges, the refills, the feast (all on the phone); the
+  shield crack (the 3rd Bow or Javelin hit is sent as a Rifle's `k: 'rifle'`, the only thing the server reads `k` for, so it
+  breaks the shield for everyone); the pierce (the phone sends a second hit for the one behind).
+- Pierce on a shared floor: the server floors a hit's damage to a whole number, at least 1 (room.js `hit`), so a half hit of
+  1 counts as 1 there. A fix: accept `d` with one decimal for tower rooms.
+- Needs the server (each would read a power flag the phone sends with its hit, e.g. `pw: 'noheal' | 'split' | 'revive'`):
+  - Nido Soup: the server's healers mend whom L.towerHealPick picks; it should pass `now` and skip one with `tfNoHeal`
+    (set by a hit with `pw: 'noheal'`). Today on a shared floor the healers still mend it (the phone shows no change).
+  - Bicol Express: a copy's hits come from the server's `split` (L.towerSplitHp(max)); with the beater's `pw: 'split'` it
+    should be L.towerHalf(max, 0.25). Today: half, as without the dish.
+  - Halo-halo ng Biringan: the server's reviver lies TR.revive.ms (3 s); with the beater's `pw: 'revive'` it should lie 6 s.
+    Today: 3 s.
