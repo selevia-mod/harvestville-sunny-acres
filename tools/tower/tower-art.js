@@ -32,7 +32,7 @@ const keys = () => {
   // keeper's 3 x 3 sheet, the shop's icons (C.TOWER_ICONS' order, 8 cells of 128 a row), the Keeper's gear worn (the
   // farmer's poses, boy and girl) and the horse's three looks (overlays laid out like ride2_horse)
   const K = C.KEEPER;
-  out.push(K.person.sheet, 'tower_icons');
+  out.push(K.person.sheet, 'tower_icons', 'tower_food_icons'); // (the Tower's food: tools/tower/food-icons-import.js)
   K.gear.forEach((g) => out.push(g.art + '_boy', g.art + '_girl'));
   K.horse.forEach((h) => out.push(h.art));
   return [...new Set(out)];
