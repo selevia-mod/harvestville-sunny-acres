@@ -73,6 +73,8 @@
     return n;
   };
   F.towerLeft = towerLeft;
+  var real = function (key) { return !!(F.images && F.images[key]); };
+  var askTiles = function (floor) { var k = TW.zones[L.towerZone(floor) - 1].art.cave; if (!real(k) && F.needImage && F.packedFile && F.packedFile(k)) F.needImage(k); };
 
   // ---------- each floor's room, put where the scene reads it ----------
   var built = 0;
@@ -108,6 +110,7 @@
       if (F.session.visit) { if (F.ui) F.ui.toast('The Lost Tower is for your own game.', 2400); return; }
       if (floor == null) floor = L.towerStart(this.state);
       floor = Math.max(1, Math.min(TW.floors, Math.floor(floor) || 1));
+      askTiles(floor); // (the realm's tiles, on the way: 19zt-lair.js paints them as the floor opens)
     }
     return travel.call(this, to, spawn, floor);
   };
@@ -257,19 +260,86 @@
     return r;
   };
 
-  // ---------- the tower's own pictures, when they come (the 'tower' pack: tools/tower/tower-art.js) ----------
-  // Its creatures' sheets are asked for as a floor opens and take over from the stand-ins on the next floor; the realm's
-  // stairs and tiles the same way, through the caves' own code (19zt-lair.js askArt).
+  // ---------- the tower's own pictures (the 'tower' pack: tools/tower/tower-art.js, tools/tower/tower-import.js) ----------
+  // What is not in yet is asked for as each floor opens: the realm's tiles and props, and each creature's sheet and shadow
+  // (the stairs: the caves' own code, 19zt-lair.js askArt). A creature's sheet that comes while it is on the floor takes over
+  // where it stands (its picture, its shadow, its size: C.TOWER.artPx, its own frames' width); the realm's props when they
+  // come (each in place of a stand-in prop, on its tile); its tiles from its next floor.
   if (F.PACK_INFO && F.packFiles && F.packFiles('tower').length) {
     F.PACK_INFO.tower = { name: 'The Lost Tower', icon: 'sparkle', desc: "The Lost Tower's creatures and its realms' looks." };
     var soft = F.softPacks;
     F.softPacks = function (map) { var out = soft ? soft(map) : []; return map === 'tower' && out.indexOf('tower') < 0 ? out.concat(['tower']) : out; };
   }
+  var ask = function (key) { if (key && !real(key) && F.needImage && F.packedFile && F.packedFile(key)) F.needImage(key); };
+  // an enemy in its own picture once its sheet is in (until then its stand-in row, tinted), at the size its picture needs
+  var dress = function (w, a) {
+    var def = a.def;
+    if (!def || !def.tower || !a.img || !a.img.active) return;
+    var own = real(def.sheet), key = own ? def.sheet : 'wild', shade = own && real(def.sheet + 'shade') ? def.sheet + 'shade' : 'wildshade';
+    if (a.img.texture.key !== key) {
+      a.img.setTexture(F.ensureTexture(w, key));
+      if (own) a.img.clearTint(); else if (def.tint) a.img.setTint(def.tint);
+    }
+    if (a.sh && a.sh.texture.key !== shade) a.sh.setTexture(F.ensureTexture(w, shade));
+    var px = own && TW.artPx && TW.artPx[a.kind];
+    if (px && !a.dressed) { a.dressed = true; a.scale = def.w * T / px * a.size; a.img.setScale(a.scale); }
+  };
   var addWildAnimal = P.addWildAnimal;
   P.addWildAnimal = function (kind) {
     var def = C.WILD.animals[kind];
-    if (def && def.tower && def.sheet && !(F.images && F.images[def.sheet]) && F.needImage && F.packedFile && F.packedFile(def.sheet)) F.needImage(def.sheet);
-    return addWildAnimal.apply(this, arguments);
+    if (def && def.tower && def.sheet) { ask(def.sheet); ask(def.sheet + 'shade'); }
+    var a = addWildAnimal.apply(this, arguments);
+    if (a && def && def.tower) dress(this, a);
+    return a;
+  };
+  var wildShow = P.wildShow;
+  P.wildShow = function (a) {
+    var def = a.def;
+    if (def && def.tower && real(def.sheet) && (!a.dressed || (a.sh && a.sh.texture.key === 'wildshade' && real(def.sheet + 'shade')))) dress(this, a); // (it came while out)
+    return wildShow.apply(this, arguments);
+  };
+  // the realm's props: a stand-in prop (z.props) shows one of the realm's six, picked by where it stands, on the same tile
+  // with the same solid foot (so the room is the one every phone and the game server build), without the caves' lava light
+  var dressProp = function (w, img, o) {
+    F.ensureTexture(w, o.key);
+    var wd = Math.max(1.3 * T, Math.min(o.width, 2.1 * T));
+    img.setTexture(o.key).setOrigin(0.5, 1).setPosition(o.x + o.width / 2, o.y).clearTint();
+    img.setDisplaySize(wd, wd * img.height / img.width);
+    img.towerProp = true;
+  };
+  var addProp = P.addProp;
+  P.addProp = function (name, o) {
+    var r = addProp.apply(this, arguments), s = F.session && F.session.state;
+    if (!s || s.map !== 'tower' || this.mapKey !== 'tower') return r;
+    var z = TW.zones[L.towerZone(floorNow()) - 1], img = this.props[this.props.length - 1];
+    if (!z || !img || img.texture.key !== 'props/' + name || z.props.indexOf(name) < 0) return r;
+    var list = z.art.props, key = list[Math.abs(Math.round(o.x / T) * 7 + Math.round(o.y / T) * 3) % list.length];
+    img.towerSpot = { x: o.x, y: o.y, width: o.width, key: key };
+    if (real(key)) dressProp(this, img, img.towerSpot);
+    else ask(key);
+    return r;
+  };
+  F.bus.on('packart', function (key) {
+    var w = F.world;
+    if (!w || !w.sys || !w.sys.isActive() || !inTower(w) || !real(key)) return;
+    (w.props || []).forEach(function (img) { var o = img.towerSpot; if (o && o.key === key && img.active && !img.towerProp) dressProp(w, img, o); });
+  });
+  // the realm's tiles: its cave sheet is painted once a session (19zt-lair.js lairSheet); painted before its tiles came, it
+  // is painted again on the next floor
+  var painted = {};
+  var create2 = P.create;
+  P.create = function () {
+    var s = F.session && F.session.state, cfg = s && s.map === 'tower' ? towerCfg(floorNow()) : null;
+    if (cfg && painted[cfg.sheet] === false && real(cfg.art.cave) && this.textures.exists(cfg.sheet)) { this.textures.remove(cfg.sheet); delete painted[cfg.sheet]; }
+    create2.apply(this, arguments);
+    if (!inTower(this)) return;
+    var c = this.lair.cfg;
+    if (this.textures.exists(c.sheet) && painted[c.sheet] == null) painted[c.sheet] = real(c.art.cave);
+    ask(c.art.cave);
+    (this.props || []).forEach(function (img) { if (img.towerProp) img.clearTint(); }); // (the caves tint every prop)
+    // the realm's own water does not glow like the Lair's lava (the warm light over each pool, 19zt-lair.js setupLava)
+    var D = F.WorldScene.DEPTH.Walls + 0.1;
+    if (real(c.art.cave)) this.children.list.forEach(function (o) { if (o.type === 'Image' && o.depth === D && o.texture && o.texture.key === 'fx-lairglow') o.setVisible(false); });
   };
 
   // ---------- for the tests: every enemy of this floor beaten at once (yours) ----------

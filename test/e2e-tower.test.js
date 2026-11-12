@@ -124,12 +124,15 @@ test('The Lost Tower: in at the lighthouse, floor 1 has 20 enemies, cleared the 
   const here = await page.evaluate(() => {
     const w = Farm.world, Z = Farm.Config.TOWER.zones[0];
     return { size: [w.map.width, w.map.height], n: w.wild.animals.length, realm: w.wild.animals.every((a) => Z.normal.indexOf(a.kind) >= 0),
-      tinted: w.wild.animals.every((a) => a.img.tintTopLeft !== 0xffffff), hp: w.wild.animals.map((a) => a.hp), open: w.lair.open, deep: Farm.session.state.tower.deep,
+      tinted: w.wild.animals.every((a) => (a.img.texture.key === a.def.sheet ? a.img.tintTopLeft === 0xffffff : a.img.texture.key === 'wild' && a.img.tintTopLeft !== 0xffffff)), hp: w.wild.animals.map((a) => a.hp), open: w.lair.open, deep: Farm.session.state.tower.deep,
       sheet: w.map.getTileset('indoor').image.key, chip: Farm.ui.towerChipBox && Farm.ui.towerChipBox.visible && Farm.ui.towerText.text };
   });
   assert.deepStrictEqual(here.size, [28, 24]);
   assert.strictEqual(here.n, 20, 'floor 1 has 20 enemies');
-  assert.ok(here.realm && here.tinted, 'Tambanakua\'s enemies, tinted stand-ins');
+  assert.ok(here.realm && here.tinted, 'Tambanakua\'s enemies: tinted stand-ins until their own pictures are in');
+  // (the owner's pictures, 12 Nov 2026: the 'tower' pack, here on the phone) each takes over where it stands, its shadow too
+  await page.waitForFunction(() => Farm.world.wild.animals.every((a) => a.img.texture.key === a.def.sheet && a.sh.texture.key === a.def.sheet + 'shade' && a.img.tintTopLeft === 0xffffff
+    && Math.abs(a.scale - a.def.w * 256 / Farm.Config.TOWER.artPx[a.kind] * a.size) < 1e-9), null, SLOW);
   assert.ok(here.hp.every((h) => h === 2), 'two hits each at damage 1');
   assert.strictEqual(here.open, false);
   assert.strictEqual(here.deep, 1);
