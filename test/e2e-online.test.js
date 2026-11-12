@@ -2724,7 +2724,11 @@ test('online: something dropped on a farm, a friend there walks onto it and it r
   // the owner sees it on their farm
   await host.page.waitForFunction(() => Object.keys(Farm.ground.theirs).length === 1, null, { timeout: 60000 });
   await host.page.waitForFunction(() => Object.keys(Farm.world.groundImgs || {}).length === 1, null, { timeout: 60000 });
-  const walkOnto = () => host.page.evaluate(() => { const d = Object.values(Farm.ground.theirs)[0]; Farm.world.player.body.reset(d.x, d.y); });
+  // (the pile has to reach the owner's phone first: it comes over the network)
+  const walkOnto = async () => {
+    await host.page.waitForFunction(() => Object.keys(Farm.ground.theirs).length > 0, null, SLOW);
+    await host.page.evaluate(() => { const d = Object.values(Farm.ground.theirs)[0]; Farm.world.player.body.reset(d.x, d.y); });
+  };
   // not friends: the server says no, it stays on the ground
   await walkOnto();
   await host.page.waitForTimeout(3000);

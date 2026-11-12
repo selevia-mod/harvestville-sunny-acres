@@ -408,6 +408,8 @@ test('farming loop: clear debris, till, plant a seed bag, water, wait in real ti
     assert.strictEqual(await actionLabel(page), 'Harvest');
     await tapAction(page);
   }
+  // (a harvest lands in the bag a moment after the tap: wait for the third)
+  await page.waitForFunction(() => Farm.Logic.countItem(Farm.session.state, 'turnip') >= 3, null, { timeout: 5000 }).catch(() => {});
   s = await state(page);
   const turnipSlot = s.inv.findIndex((x) => x && x.id === 'turnip');
   assert.strictEqual(s.inv[turnipSlot].n, 3, 'harvested 3 turnips');
