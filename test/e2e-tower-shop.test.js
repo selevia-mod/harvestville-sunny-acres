@@ -300,12 +300,14 @@ test('lands 7-9: walk to the new column, the For Sale sign wants Gold and Pearls
   await again.context.close();
 });
 
-test("horse gear looks: bought at the Keeper's, the horse wears them (stand-ins: a tint and a lantern's glow), taken off again", async () => {
+test("horse gear looks: bought at the Keeper's, the horse wears them (their pictures not in yet: the stand-ins, a tint and a lantern's glow), taken off again", async () => {
   const save = await makeSave("s.pearls = 2000; s.builds.stable = 1; s.horse = { name: 'Kidlat', love: 50, pet: 0 }; s.energy = 200;");
   const { page, problems, context } = await open(save);
   await waitMap(page, 'farm');
   const has = await page.evaluate(() => !!Farm.world.horse);
   assert.ok(has, "the horse is on the farm");
+  // (the looks' pictures not on the phone: the stand-ins; their sheets: test/e2e-tower-shop-art.test.js)
+  await page.evaluate(() => { const pf = Farm.packedFile; Farm.packedFile = (k) => (/^horse_look_/.test(k) ? null : pf(k)); });
   await page.evaluate(() => Farm.ui.openKeeper('horse'));
   await tapButton(page, '400 Pearls');
   await page.waitForFunction(() => Farm.Logic.horseLookOn(Farm.session.state, 'saddle'), null, SLOW);
