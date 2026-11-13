@@ -30,10 +30,11 @@ const keys = () => {
   });
   // the Keeper's shop (00-zzzzzzzzzzzzzzzzzzzzzzz-tower-shop.js; prompts ~/Downloads/lost-tower-shop-art/PROMPTS.md): the
   // keeper's 3 x 3 sheet, the shop's icons (C.TOWER_ICONS' order, 8 cells of 128 a row), the Keeper's gear worn (the
-  // farmer's poses, boy and girl) and the horse's three looks (overlays laid out like ride2_horse)
+  // farmer's walking frames, boy and girl: each piece, each pair, the set) and the horse's three looks (whole horses laid
+  // out like ride2_horse)
   const K = C.KEEPER;
-  out.push(K.person.sheet, 'tower_icons');
-  K.gear.forEach((g) => out.push(g.art + '_boy', g.art + '_girl'));
+  out.push(K.person.sheet, 'tower_icons', 'tower_food_icons'); // (the Tower's food: tools/tower/food-icons-import.js)
+  K.wornArt.forEach((a) => out.push(a + '_boy', a + '_girl')); // (the worn sheets: 4 pieces, 6 pairs, the set; C.KEEPER)
   K.horse.forEach((h) => out.push(h.art));
   return [...new Set(out)];
 };

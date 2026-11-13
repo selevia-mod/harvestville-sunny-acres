@@ -265,7 +265,7 @@
     if (!slow) { k.inPud = false; return move.apply(this, arguments); }
     if (!k.inPud) { k.inPud = true; word(this, 'Sticky!', c.x, c.y - 1.9 * T, '#d8f0a0'); }
     var sp = C.SPEED;
-    C.SPEED = sp * L.towerWalk(true);
+    C.SPEED = sp * L.towerWalk(true, this.state);
     try { return move.apply(this, arguments); } finally { C.SPEED = sp; }
   };
 
@@ -300,7 +300,7 @@
     var k = inTower(this) && tk(this);
     if (!k || !k.on.song) return shoot.apply(this, arguments);
     var now = this.time.now, was = this.shot;
-    if (k.sung && now < k.bowAt + L.towerGap(k.bowGap, true)) return songWait(this, k);
+    if (k.sung && now < k.bowAt + L.towerGap(k.bowGap, true, this.state)) return songWait(this, k);
     var r = shoot.apply(this, arguments);
     if (this.shot && this.shot !== was) { k.bowAt = now; k.bowGap = this.acting || 0; }
     return r;
@@ -309,7 +309,7 @@
   P.fireWeapon = function () {
     var k = inTower(this) && tk(this), wk = k && L.heldWeapon(this.state);
     if (!k || !k.on.song || !wk) return fireWeapon.apply(this, arguments);
-    var now = this.time.now, gap = L.towerGap(L.weaponGap(wk), true);
+    var now = this.time.now, gap = L.towerGap(L.weaponGap(wk), true, this.state);
     if (k.sung && now < k.wpnAt + gap) return songWait(this, k);
     var before = this.wpnNext, r = fireWeapon.apply(this, arguments);
     if (this.wpnNext !== before) { k.wpnAt = now; if (k.sung) this.wpnNext = now + gap; }
@@ -402,7 +402,7 @@
 
   // ---------- 5. healers ----------
   var heal = function (w, a) {
-    var b = L.towerHealPick(a, w.wild.animals, T);
+    var b = L.towerHealPick(a, w.wild.animals, T, w.time.now); // (now: one you hit with Nido Soup on is not mended for a while)
     if (!b) return;
     b.hp += L.towerHealOf(b);
     healFx(w, a, b);
@@ -418,7 +418,7 @@
   // ---------- 7. splitters, 8. revivers ----------
   var lieDown = function (w, a) {
     a.revived = true;
-    a.lying = TR.revive.ms;
+    a.lying = L.towerReviveMs(w.state);
     a.hp = 1e-6; // (still there: the stairs wait for it, and a shot can find it; a hit now finishes it)
     a.vx = a.vy = 0;
     a.mode = 'idle';
@@ -451,7 +451,7 @@
       if (!w.wildFree(Math.floor(x / T), Math.floor(y / T))) { x = a.x; y = a.y; }
       extra[slot] = true;
       var c = w.addWildAnimal(a.kind, slot, x, y, TR.split.size * a.size);
-      c.copyHp = L.towerSplitHp(a.max);
+      c.copyHp = L.towerSplitHp(a.max, w.state);
       c.tf = Object.assign({}, a.tf, { shield: false, flock: false, split: false, revive: false }); // (once: the copies do not split)
       c.left = !a.left;
       w.lairStrength(c);

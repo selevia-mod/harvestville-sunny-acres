@@ -153,6 +153,8 @@
   L.towerHalf = function (max, part) { return Math.max(1, Math.ceil(max * part)); };
   L.towerSplitHp = function (max) { return L.towerHalf(max, TR.split.part); };
   L.towerReviveHp = function (max) { return L.towerHalf(max, TR.revive.part); };
+  // how long a beaten reviver lies (ms; s: the player, whose Tower dish may make it longer: 01-logic...-tower-food.js)
+  L.towerReviveMs = function (s) { return TR.revive.ms; }; // eslint-disable-line no-unused-vars
   L.towerCopySlot = function (slot, i) { return COPY + slot * 2 + i; };
   L.towerIsCopy = function (slot) { return slot >= COPY; };
 })(window.Farm = window.Farm || {});

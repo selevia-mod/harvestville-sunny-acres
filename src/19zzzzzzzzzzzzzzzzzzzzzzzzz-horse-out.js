@@ -147,7 +147,9 @@
     updateExtras.call(this, dt, time);
     if (moved) { // walking (or running to the cave's way in): its steps, the way it goes
       var side = moved.side, k = FACING[moved.d] + STEPS[Math.floor(time / (h.run ? 90 : 150)) % 4];
-      F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + k, side && moved.flip);
+      // (the v2 horse, 13 Nov 2026: its sheet is 4 x 4, C.RIDE2: it goes in its own gallop's frames, not the old 3 x 3's)
+      if (h.v2) F.ride2Show(h, moved.d, side, moved.flip, true, time, h.run ? C.RIDE2.fast : C.RIDE2.slow, false);
+      else F.Anim.show(h, (h.ride ? 0 : C.HORSE.frame0) + k, side && moved.flip);
     }
     if (mine) this.horseBar(h); else if (this.hbar) this.hbar.setVisible(false);
   };

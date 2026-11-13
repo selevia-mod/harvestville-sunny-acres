@@ -174,6 +174,22 @@ Frames and the title last one week.
 - The Keeper's gear (icons and worn, boy and girl), the Tide set pieces, the horse gear looks.
 - Zone 1 can open on drawn stand-ins and existing animal art, so the building does not wait for every picture.
 
+### The shop's pictures (owner, 13 Nov 2026; tools/tower/shop-import.js, all in the 'tower' pack)
+- The icons, Mang Ilaw's own sheet, the farmer wearing the Keeper's gear (boy and girl: each piece, each of the 6 pairs,
+  the full set: 22 sheets), the horse's three looks.
+- The farmer in the gear (owner, 13 Nov 2026): walking and standing in the sheet for what is worn. Visibility: coat,
+  hat, lantern, boots. All four: the set; three: the pair of the two most visible; two: their pair; one: that piece. A
+  sheet not on the phone yet: the next best (the set: the best pair, then the best piece; a pair: its more visible
+  piece). The tools' poses, the bow and riding stay the farmer's own pictures. A Tailor Shop look (or the birthday's
+  party hat) wins over the gear.
+- Only you see your farmer in the gear: friends see you as before. Presence and the game server carry your look (the
+  costume), not the gear; showing it to them would need the game server changed and deployed, and each friend's phone
+  holding another sheet per farmer. Left for later, if wanted.
+- The horse's look: the whole horse wearing it, drawn instead of its own when it stands or goes alone (one look at a
+  time: saddle, then lantern, then bridle). While ridden, the riding picture is the horse and farmer as one, so the look
+  does not show (the lantern's glow does); showing it ridden needs a riding picture per look (3 looks x 15 outfits x boy
+  and girl) or a rider-only picture.
+
 ## Build order (each its own update, shown on the phones before any publish)
 1. The 60-enemy test floor (46 x 38, the biggest) on the OPPO: all at once, or waves.
 2. The Tower itself: floors, enemies and their rules, lifts, Pearls, solo; zone 1 and its big boss.

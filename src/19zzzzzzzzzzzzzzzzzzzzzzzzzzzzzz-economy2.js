@@ -181,7 +181,7 @@
     var nm = C.ITEMS[held.id].name, gain = L.eat(s, s.sel), f = this.feet();
     sfx('eat');
     if (gain > 0) this.floatTextAt(f.x, f.y - 2 * T, '+' + gain + ' energy');
-    F.ui.toast(nm + ': for ' + C.POTION_MINS + ' minutes, ' + p.text + '.', 3000);
+    F.ui.toast(nm + ': for ' + L.potionMins(p.key) + ' minutes, ' + p.text + '.', 3000);
     this.powerChip();
     this.changed();
   };

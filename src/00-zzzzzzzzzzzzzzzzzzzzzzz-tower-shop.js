@@ -3,8 +3,8 @@
 // its way in; the Keeper's gear (works only in the Tower: L.towerLess, L.towerSight); horse gear looks; the big bosses'
 // Tower Blessings and the Tide set; the mini boss's horse gear dye. Content only: the rules are
 // 01-logicZZZZZZZZZZZZZZZZZZZ-tower-shop.js, the shop and the keeper 19zzz...z-tower-shop.js.
-// Pictures: drawn stand-ins until the owner's art is in the 'tower' pack (tools/tower/tower-art.js; the prompts:
-// ~/Downloads/lost-tower-shop-art/PROMPTS.md). Their keys are the `art` names below.
+// Pictures: the owner's (13 Nov 2026, tools/tower/shop-import.js) in the 'tower' pack (tools/tower/tower-art.js), fetched
+// when wanted; drawn stand-ins until they are on the phone. Their keys are the `art` names below.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -12,7 +12,8 @@
   var TW = C.TOWER;
 
   C.KEEPER = {
-    // the keeper: a villager's look (a row of the train visitors' sheet, tinted) until his own 3 x 3 sheet comes
+    // the keeper: his own sheet (a villager's row of 9: npc_keeper), a villager's look (a row of the train visitors'
+    // sheet, tinted) until it is on the phone
     person: { name: 'Mang Ilaw', role: 'Keeper of the lighthouse', look: [3, 0xd8e8ff], sheet: 'npc_keeper',
       hello: 'I am Mang Ilaw. I have kept this lighthouse for fifty years, and the Tower under it. I take Pearls, nothing else.' },
     // where he stands inside the Tower, by the way in (L.TOWER_KEEP keeps it free), in tiles
@@ -26,8 +27,19 @@
       { id: 'coat', slot: 'body', name: "Keeper's Coat", price: 500, less: 0.2, art: 'keeper_coat' },
       { id: 'lantern', slot: 'charm', name: "Keeper's Lantern", price: 800, less: 0.2, sight: true, art: 'keeper_lantern' },
     ],
-    // horse gear looks (cosmetic): the save's 'hlk' [owned bits, worn bits], this order. Until their pictures come (an
-    // overlay sheet each, laid out like ride2_horse), the horse wears a tint and the lantern a glow (tint, glow below).
+    // (owner, 13 Nov 2026) the farmer's picture in the gear: a sheet of the farmer (boy, girl) walking in one piece (each
+    // piece's art), in a pair of pieces (pairs below: keeper_<a>_<b>, the more visible first) or in the whole set
+    // (keeper_set). wornOrder: the most visible first. All four on: the set; three: the pair of the two most visible;
+    // two: that pair; one: that piece. A sheet not in yet: the next best (a pair: its more visible piece; the set: the
+    // best pair, then the best piece). L.keeperSheets lists them, best first; a Tailor Shop look wins over all of them.
+    wornOrder: ['coat', 'hat', 'lantern', 'boots'],
+    pairs: [['coat', 'hat'], ['coat', 'boots'], ['coat', 'lantern'], ['hat', 'boots'], ['hat', 'lantern'], ['lantern', 'boots']],
+    set: 'keeper_set',
+    // horse gear looks (cosmetic): the save's 'hlk' [owned bits, worn bits], this order. Each picture is the whole horse
+    // wearing it (laid out like ride2_horse: its frames, size and ground), drawn instead of the horse's own when it stands
+    // or goes alone; with several on, the first of horseOrder (L.horseLookSheet). Until the picture is on the phone, and
+    // while ridden (the riding pictures are the horse and farmer as one), the stand-ins: a tint, the lantern a glow.
+    horseOrder: ['saddle', 'lantern', 'bridle'],
     horse: [
       { id: 'saddle', name: "Keeper's Saddle", price: 400, tint: 0xffd8b0, art: 'horse_look_saddle' },
       { id: 'bridle', name: "Keeper's Bridle", price: 500, tint: 0xd8e4ff, art: 'horse_look_bridle' },
@@ -35,6 +47,10 @@
     ],
     weapon: 'A new weapon: coming soon',
   };
+
+  // every worn sheet's art (without _boy / _girl): the 4 pieces, the 6 pairs, the set (tools/tower/tower-art.js packs them)
+  C.KEEPER.wornArt = C.KEEPER.gear.map(function (g) { return g.art; })
+    .concat(C.KEEPER.pairs.map(function (p) { return 'keeper_' + p[0] + '_' + p[1]; }), C.KEEPER.set);
 
   // ---------- the big bosses (floors 100, 200 ... 1000), paid once each: the save's 'twb' (bits, boss 1 to 10) ----------
   // A Tower Blessing, forever: the odd ones (100, 300, 500, 700, 900) +5% damage in the Tower; the even ones (200 ... 1000)
