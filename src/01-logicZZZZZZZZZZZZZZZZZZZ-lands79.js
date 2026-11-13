@@ -13,8 +13,21 @@
     return list.map(function (i) { return Math.floor(i / fw) * C.FARM_W + i % fw; });
   };
   L.farmMoveIdx = move;
+  // The sprinklers and fertilizer (01-logicZ-farmtech.js 'ft': [tile, value, ...]) are put on the soil after
+  // 01-logic6.js has moved it, by their own tile numbers: those must be moved first (owner, 13 Nov 2026: "users lost
+  // item update Manila update ... some is sprinkler" - e60 put a 64-wide farm's sprinklers on the wrong tiles, or none).
+  var movePairs = function (list, fw) {
+    if (fw === C.FARM_W || !Array.isArray(list)) return list;
+    var out = list.slice();
+    for (var k = 0; k + 1 < out.length; k += 2) { var i = Math.floor(Number(out[k])); if (i >= 0) out[k] = Math.floor(i / fw) * C.FARM_W + i % fw; }
+    return out;
+  };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
+    var fw = o && typeof o === 'object' ? widthOf(o.fw, 24) : C.FARM_W;
+    if (fw !== C.FARM_W && o.ft && typeof o.ft === 'object' && (Array.isArray(o.ft.s) || Array.isArray(o.ft.f))) {
+      o = Object.assign({}, o, { ft: Object.assign({}, o.ft, { s: movePairs(o.ft.s, fw), f: movePairs(o.ft.f, fw) }) });
+    }
     var s = deserialize(o);
     if (s && s.decoGone) s.decoGone = move(s.decoGone, widthOf(o.fw, 24));
     return s;

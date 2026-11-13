@@ -178,3 +178,29 @@ test('a full farm of nine blocks and the field, every tile planted, fits a save 
   assert.ok(snap < 32768, 'snapshot is ' + snap);
   console.log('a full nine-block farm: save', size, 'bytes, snapshot', snap);
 });
+
+// Owner, 13 Nov 2026 ("users lost item update Manila update ... some is sprinkler"): a 64-wide save's sprinklers and
+// fertilizer ('ft', by tile number) were put on the soil after it had moved to the 75-wide numbers, by their old numbers:
+// some went onto other tiles, the rest were lost. They move with their soil now.
+test('a 64-wide save keeps its sprinklers and fertilizer on the same tiles (x, y) on the 75-wide farm', () => {
+  const s = L.newState({ fieldTiles: L.defaultFieldTiles() });
+  const spots = [[7, 8, 1], [21, 9, 1], [44, 8, 2], [58, 9, 2], [12, 11, 3], [54, 14, 3]], fert = [[9, 8], [31, 9], [56, 12]];
+  const W = C.FARM_W, now = (x, y) => y * W + x, was = (i) => Math.floor(i / W) * 64 + (i % W);
+  s.soil = {};
+  spots.forEach(([x, y, v]) => { s.soil[now(x, y)] = { w: 0, sp: v }; });
+  fert.forEach(([x, y]) => { s.soil[now(x, y)] = { w: 0, f: 1 }; });
+  const o = JSON.parse(JSON.stringify(L.serialize(s)));
+  assert.strictEqual(o.fw, W);
+  // the same farm as the old (64-wide) game wrote it: every tile number in the 64-wide count
+  o.fw = 64;
+  o.f = o.f.map((g) => g.slice(0, 3).concat(g.slice(3).map(was))); // (the soil: [crop, minutes, flags, tile, tile, ...])
+  for (let k = 0; k + 1 < (o.db || []).length; k += 2) o.db[k] = was(o.db[k]); // (the debris: [tile, kind, ...])
+  o.ft.s = o.ft.s.map((v, k) => (k % 2 ? v : was(v)));
+  o.ft.f = o.ft.f.map((v, k) => (k % 2 ? v : was(v)));
+  const back = L.deserialize(o);
+  const where = (pred) => Object.keys(back.soil).map(Number).filter((i) => pred(back.soil[i])).map((i) => (i % W) + ',' + Math.floor(i / W)).sort();
+  assert.deepStrictEqual(where(() => true), spots.concat(fert).map(([x, y]) => x + ',' + y).sort(), 'the soil where it was');
+  assert.deepStrictEqual(where((t) => t.sp), spots.map(([x, y]) => x + ',' + y).sort(), 'every sprinkler on its own tile');
+  assert.deepStrictEqual(spots.map(([x, y]) => back.soil[now(x, y)].sp), spots.map(([, , v]) => v), 'each the same kind');
+  assert.deepStrictEqual(where((t) => t.f), fert.map(([x, y]) => x + ',' + y).sort(), 'every fertilizer on its own tile');
+});
