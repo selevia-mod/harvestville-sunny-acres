@@ -15,6 +15,10 @@ const PIECES = [
   { src: 'ranch', key: 'ranch', w: 9, h: 4, q: 0.66 },
   { src: 'doghouse', key: 'dog_yard', w: 2, h: 2, q: 0.7 },
   { src: 'pond', key: 'farm_pond', w: 5, h: 4, q: 0.66 },
+  // (owner, 13 Nov 2026: "What happen to this silo?" - the owner's Silo and Mixer, made 11 Nov, were never imported:
+  // the game drew its stand-ins; C.FARM_OBJECTS silo 3 x 4, mixer 3 x 3)
+  { src: 'silo', key: 'silo', w: 3, h: 4, q: 0.7 },
+  { src: 'mixer', key: 'mixer', w: 3, h: 3, q: 0.7 },
 ];
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 (async () => {
