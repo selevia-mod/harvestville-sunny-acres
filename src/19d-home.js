@@ -70,12 +70,23 @@
   };
 
   // The farmhouse on the farm: from the Cottage up, its picture replaces the cabin's tiles (which stay solid).
+  // Owner, 14 Nov 2026 ("it looks castle but the size is the same size with Lv 1 house?"): a bigger house is drawn bigger.
+  // Only the picture grows (upward and out to the sides, its bottom where it was): the house keeps its 6 x 4 tiles on the
+  // farm at every level, so nothing anyone has built around it moves. It is drawn in the actors' band from its back
+  // three rows, so what stands behind it is behind its roof and you, at its door, are in front.
+  F.HOUSE_SIZE = [1, 1, 1, 1, 1.2, 1.2, 1.2, 1.4, 1.4, 1.4, 1.4]; // by level (0, 1, ...: the picture 5 x 5 tiles times this)
+  F.houseRect = function (lv, b) {
+    var k = F.HOUSE_SIZE[Math.max(0, Math.min(F.HOUSE_SIZE.length - 1, lv | 0))] || 1, w = 5 * T * k;
+    return { x: b.x * T - (w - 5 * T) / 2, y: (b.y + b.h) * T, w: w, h: w, depth: DEPTH.actor + (b.y + 3) * T / 1e5 };
+  };
   P.showHouse = function () {
     var lv = this.state.home.level, b = houseBlock(this.state);
     if (!b) return;
     var key = 'props/house_' + Math.max(1, lv); // (level 1: the owner's picture, 10 Nov 2026; it was drawn in the map)
     F.ensureTexture(this, key);
-    this.houseImg = this.add.image(b.x * T, (b.y + b.h) * T, key).setOrigin(0, 1).setDisplaySize(5 * T, 5 * T).setDepth(DEPTH.Walls + 0.05);
+    var r = F.houseRect(lv, b);
+    this.houseImg = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(r.depth);
+    this.houseLv = lv;
   };
 
 

@@ -50,7 +50,7 @@
     this.recollide();
     // the house's picture and its mailbox where the house stands now
     var hb = F.houseBlock && F.houseBlock(s);
-    if (hb && this.houseImg) this.houseImg.setPosition(hb.x * T, (hb.y + hb.h) * T);
+    if (hb && this.houseImg) { var hr = F.houseRect ? F.houseRect(this.state.home.level, hb) : { x: hb.x * T, y: (hb.y + hb.h) * T }; this.houseImg.setPosition(hr.x, hr.y); if (hr.depth) this.houseImg.setDepth(hr.depth); }
     var m = L.buildingsOf(s, 'house')[0], mt = m && L.maskTiles(m.t, m.x, m.y, 'M')[0];
     if (mt) {
       if (!this.mailboxImg) { F.ensureTexture(this, 'props/mailbox'); this.mailboxImg = this.add.image(0, 0, 'props/mailbox').setOrigin(0, 1).setDisplaySize(T, 2 * T); }
