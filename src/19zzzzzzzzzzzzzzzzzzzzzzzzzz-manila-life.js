@@ -424,9 +424,31 @@
     var fr = this.textures.getFrame(key, 0), k = Math.min(3.6 * T / fr.realWidth, 2.7 * T / fr.realHeight);
     var img = (sheet ? this.add.sprite(0, 0, key, 0) : this.add.image(0, 0, key)).setOrigin(0.5, 0.78).setDisplaySize(fr.realWidth * k, fr.realHeight * k);
     var glow = this.add.ellipse(0, 0, 1.6 * T, 0.9 * T, 0xfff3a0, 0.35).setVisible(false);
-    this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null, sheet: sheet, ms: 0 };
+    this.mn.jeep = { img: img, glow: glow, lag: 0, last: -2, honkMs: 0, at: null, sheet: sheet, ms: 0, bob: sheet ? jeepBob(this, key) : null };
     this.mnJeepUpdate(0);
   };
+  // How the jeep bounces as it drives (owner, 13 Nov 2026: "when it was moving, its kinda shaking, can the character
+  // shake similar to jeep"): in each frame of its sheet, how far its roof is from where it is in that way's first driving
+  // frame (frame pixels, up is less). The rider rises and drops with it. Read once from the picture (the middle half of
+  // each frame, so a mirror or the sign's edge does not count); any trouble: no bounce.
+  var BOB = {};
+  function jeepBob(scene, key) {
+    if (BOB[key]) return BOB[key];
+    var out = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    try {
+      var src = scene.textures.get(key).getSourceImage(), FW = Math.floor(src.width / 3), FH = Math.floor(src.height / 3);
+      var c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      var g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      var tops = [];
+      for (var f = 0; f < 9; f++) {
+        var x0 = (f % 3) * FW + Math.floor(FW / 4), y0 = Math.floor(f / 3) * FH, w = Math.floor(FW / 2), d = g.getImageData(x0, y0, w, FH).data, top = -1;
+        for (var y = 0; y < FH && top < 0; y++) for (var x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) { top = y; break; }
+        tops.push(top);
+      }
+      for (var i = 0; i < 9; i++) { var ref = tops[Math.floor(i / 3) * 3 + 1]; out[i] = tops[i] >= 0 && ref >= 0 ? Math.max(-24, Math.min(24, tops[i] - ref)) : 0; }
+    } catch (e) { /* (no bounce) */ }
+    return (BOB[key] = out);
+  }
   // someone the jeep must not run over: in front of it on its way (you, friends online, a city folk on a crosswalk)
   var near = function (x, y, a, b) { return Math.abs(x - a) < 1.1 * T && Math.abs(y - b) < 1.1 * T; };
   P.mnJeepBlocked = function (st, ahead) {
@@ -527,12 +549,22 @@
     this.player.body.setVelocity(0, 0);
     var side = st.dir === 'left' || st.dir === 'right', at = JEEP_RIDE[side ? 'side' : st.dir] || JEEP_RIDE.up;
     var dx = side ? (st.dir === 'left' ? at[0] : -at[0]) : at[0];
-    this.setFeet(st.x * T + dx * T, st.y * T + at[1] * T);
+    var J0 = this.mn.jeep, fi = J0 && J0.bob ? +J0.img.frame.name : -1, bob = fi >= 0 && fi < 9 ? J0.bob[fi] * J0.img.scaleY : 0; // (with its bounce)
+    this.setFeet(st.x * T + dx * T, st.y * T + at[1] * T + bob);
+    this.mnBob = bob; // (the camera keeps to where you would be without it: only you and the jeep shake, not the screen)
     var face = st.dir;
     if (this.dir !== face) { this.dir = face; this.idle(); }
     F.depthTo(this.player, DEPTH.actor + st.y * T / 1e5 + (at[2] ? -1e-6 : 1e-6));
   };
   var JEEP_RIDE = F.JEEP_RIDE = { up: [0, 0.02, false], down: [0, -1.42, true], side: [JEEP_BACK + 0.05, -0.15, false] };
+  var updateCamera = P.updateCamera;
+  P.updateCamera = function (lerp) {
+    var b = this.mnRide && this.mnRide.stage === 'on' && this.mnBob ? this.mnBob : 0;
+    if (!b) return updateCamera.call(this, lerp);
+    var feet = this.feet;
+    this.feet = function () { var f = feet.call(this); f.y -= b; return f; }; // (for the camera only, this once)
+    try { updateCamera.call(this, lerp); } finally { delete this.feet; }
+  };
   var update = P.update;
   P.update = function (time, delta) {
     var riding = this.mnRide && this.mnRide.stage === 'on';

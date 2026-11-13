@@ -576,6 +576,36 @@ const cityLook = (page) => page.evaluate(() => {
   return { map: w.mapKey, ready: Farm.packReady('manila'), station: keys.includes('props/manila_station_manila'), towers: keys.filter((k) => /^props\/manila_office_tower/.test(k)).length,
     rail: keys.filter((k) => k === 'props/manila_rail_deck').length, jeep: w.mn.jeep && w.mn.jeep.img.texture.key };
 });
+// Owner, 13 Nov 2026: "when it was moving, its kinda shaking, can the character shake similar to jeep". With the owner's
+// own jeep sheet: its roof is higher in some driving frames; the rider rises and drops with it; the camera does not shake.
+test('riding the owner\'s jeepney: you bounce with it as it drives, the screen does not', async () => {
+  const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 49 * 256 + 128, y: 44 * 256 + 128, dir: 'down' };");
+  const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+  const { page, problems, context } = await openApp(save, all);
+  await page.waitForFunction(() => Farm.world.mn.jeep && Farm.world.mn.jeep.sheet && Farm.world.mn.jeep.img.texture.key === 'manila_jeepney', null, SLOW);
+  const r = await page.evaluate(() => {
+    const w = Farm.world, J = w.mn.jeep, f = w.feet(), jx = Math.floor(f.x / 256) + 0.5, jy = Math.floor(f.y / 256) + 0.5, out = { bob: J.bob };
+    w.mnJeepBlocked = () => false;
+    w.mnRide = { stage: 'on', from: 0, to: 1 }; w.player.body.enable = false;
+    for (const dir of ['down', 'left']) {
+      Farm.Logic.jeepAt = () => ({ x: jx, y: jy, dir, on: true, stop: -1, d: 0, lights: false });
+      const at = (ms) => { J.ms = ms; J.held = false; w.mnJeepUpdate(0); w.updateCamera(1); return { frame: +J.img.frame.name, y: w.feet().y, cam: w.cameras.main.midPoint.y }; };
+      const a = at(0), b = at(160);
+      out[dir] = { a, b, want: (J.bob[b.frame] - J.bob[a.frame]) * J.img.scaleY };
+    }
+    return out;
+  });
+  assert.ok(r.bob && r.bob[2] < -5 && r.bob[8] < -3, 'the sheet\'s roof is higher in the 2nd driving frame: ' + JSON.stringify(r.bob));
+  for (const dir of ['down', 'left']) {
+    const d = r[dir], moved = d.b.y - d.a.y;
+    assert.ok(d.a.frame !== d.b.frame && d.want < -1, dir + ': two driving frames, a bounce: ' + JSON.stringify(d));
+    assert.ok(Math.abs(moved - d.want) < 1, dir + ': the rider bounces with the roof: ' + moved + ' vs ' + d.want);
+    assert.ok(Math.abs(d.b.cam - d.a.cam) < 1, dir + ': the camera stays still: ' + JSON.stringify(d));
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('the city\'s pack from the phone (the app\'s way): a game opened in Manila has its pictures; a pack that reaches the phone while you are there redraws the city where you stand', async () => {
   const save = await makeSave("s.gold = 500; s.map = 'manila'; s.player = { x: 49 * 256 + 128, y: 44 * 256 + 128, dir: 'left' };");
   const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
