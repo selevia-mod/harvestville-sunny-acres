@@ -18922,6 +18922,26 @@ if (spot) put(s, st[0], spot.x, spot.y); else s.yard.bag[t] = (s.yard.bag[t] || 
 }
 };
 
+
+
+
+L.returnKeepers = function (s, farm) {
+var back = [];
+if (!s || !s.yard || s.isVisit || !farm) return back;
+C.FARM_BUILDINGS.home.forEach(function (b) {
+var t = O.index[b[0]];
+if (t == null || !O.types[t].keep || !(s.yard.bag[t] > 0)) return;
+if (s.yard.items.some(function (it) { return it.t === t; })) return;
+var spot = { x: b[1], y: b[2] };
+if (L.yardCantPlace(s, farm, t, spot.x, spot.y, null)) spot = L.yardFindSpot(s, farm, t, spot.x, spot.y);
+if (!spot) return;
+s.yard.items.push({ t: t, x: spot.x, y: spot.y });
+if (--s.yard.bag[t] <= 0) delete s.yard.bag[t];
+back.push(b[0]);
+});
+return back;
+};
+
 L.defaultFieldTiles = function () {
 var f = C.FARM_BUILDINGS.field, out = [];
 for (var y = f.y0; y <= f.y1; y++) for (var x = f.x0; x <= f.x1; x++) out.push(y * C.FARM_W + x);
@@ -58971,7 +58991,16 @@ if (F.PACK_INFO) F.PACK_INFO.econ = { name: 'Farm goods', icon: 'gift', desc: 'T
 
 var buildObjects = P.buildObjects;
 P.buildObjects = function () {
-if (own(this)) L.giveSilo(this.state, F.farm());
+if (own(this)) {
+
+var back = L.returnKeepers ? L.returnKeepers(this.state, F.farm()) : [];
+if (back.length) {
+var names = back.map(function (k) { return O.types[O.index[k]].name; }).join(' and ');
+this.changed();
+this.time.delayedCall(1200, function () { if (F.ui) F.ui.toast('Your ' + names + ' was in storage. It is back on your farm!', 3600, 0x2f5a22); });
+}
+L.giveSilo(this.state, F.farm());
+}
 return buildObjects.apply(this, arguments);
 };
 var siloAt = function (s, x, y) {
