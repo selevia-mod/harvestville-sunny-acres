@@ -107,6 +107,26 @@
       if (spot) put(s, st[0], spot.x, spot.y); else s.yard.bag[t] = (s.yard.bag[t] || 0) + 1;
     }
   };
+  // A building that can never be put away (the farmhouse, the ranch: keep) but is in storage all the same (a piece that
+  // no longer fitted where it stood goes into storage when the farm opens: L.yardRepair) comes back by itself: at its
+  // map spot if that is free, else the nearest free spot (owner, 14 Nov 2026: MsBeariel's farmhouse was in storage,
+  // "Game puts it back"). One with no room anywhere stays in storage. Returns the keys put back.
+  L.returnKeepers = function (s, farm) {
+    var back = [];
+    if (!s || !s.yard || s.isVisit || !farm) return back;
+    C.FARM_BUILDINGS.home.forEach(function (b) {
+      var t = O.index[b[0]];
+      if (t == null || !O.types[t].keep || !(s.yard.bag[t] > 0)) return;
+      if (s.yard.items.some(function (it) { return it.t === t; })) return; // (one already stands: the stored one is a spare)
+      var spot = { x: b[1], y: b[2] };
+      if (L.yardCantPlace(s, farm, t, spot.x, spot.y, null)) spot = L.yardFindSpot(s, farm, t, spot.x, spot.y);
+      if (!spot) return;
+      s.yard.items.push({ t: t, x: spot.x, y: spot.y });
+      if (--s.yard.bag[t] <= 0) delete s.yard.bag[t];
+      back.push(b[0]);
+    });
+    return back;
+  };
   // the old field's tiles (a new farm's first debris), and the field plots' tiles (where weeds come up)
   L.defaultFieldTiles = function () {
     var f = C.FARM_BUILDINGS.field, out = [];

@@ -173,3 +173,39 @@ test('a visit sees the farm as its owner laid it out; an older snapshot (or a ma
   const bare = L.visitState({ v: 1, home: { level: 3 }, soil: [], yard: [], animals: [] }, fresh());
   assert.strictEqual(bare.yard.items.filter((it) => O.types[it.t].fieldPlot).length, 16, 'a made-up farm has its field');
 });
+
+// Owner, 14 Nov 2026 ("Game puts it back"): a farmhouse or ranch found in storage (they can never be put away, but a
+// piece that no longer fits goes into storage when the farm opens) comes back by itself: at its map spot if free, else
+// the nearest free spot; a spare one in storage stays; no room anywhere: it stays in storage.
+test('a farmhouse or ranch in storage comes back: its own spot, else the nearest free one; never a second one', () => {
+  const FARM = L.farmInfo(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8')));
+  const FH = O.index.farmhouse, RA = O.index.ranch, BB = O.index.def_beebox;
+  // 1. its spot free: back there
+  const a = L.newState({});
+  a.yard.items = a.yard.items.filter((it) => it.t !== FH);
+  a.yard.bag[FH] = 1;
+  assert.deepStrictEqual([...L.returnKeepers(a, FARM)], ['farmhouse']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(a.yard.items.filter((it) => it.t === FH).map((it) => [it.x, it.y]))), [[4, 3]]);
+  assert.strictEqual(a.yard.bag[FH], undefined, 'out of storage');
+  // 2. something stands on its spot (as on MsBeariel's farm: a bee box there): the nearest free spot
+  const b = L.newState({});
+  b.yard.items = b.yard.items.filter((it) => it.t !== FH);
+  b.yard.items.push({ t: BB, x: 9, y: 4 });
+  b.yard.bag[FH] = 1;
+  assert.deepStrictEqual([...L.returnKeepers(b, FARM)], ['farmhouse']);
+  const fh = b.yard.items.find((it) => it.t === FH);
+  assert.ok(fh && !(fh.x === 4 && fh.y === 3), 'somewhere else: ' + JSON.stringify(fh));
+  b.yard.items.splice(b.yard.items.indexOf(fh), 1);
+  assert.ok(!L.yardCantPlace(b, FARM, FH, fh.x, fh.y, null), 'a spot it fits');
+  // 3. one already stands: the stored one stays a spare
+  const c = L.newState({});
+  c.yard.bag[RA] = 1;
+  assert.deepStrictEqual([...L.returnKeepers(c, FARM)], []);
+  assert.strictEqual(c.yard.bag[RA], 1);
+  // 4. a visit never moves anything
+  const d = L.newState({});
+  d.yard.items = d.yard.items.filter((it) => it.t !== FH);
+  d.yard.bag[FH] = 1;
+  d.isVisit = true;
+  assert.deepStrictEqual([...L.returnKeepers(d, FARM)], []);
+});

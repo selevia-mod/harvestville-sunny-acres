@@ -120,7 +120,16 @@
   // ---------- the Silo on the farm ----------
   var buildObjects = P.buildObjects;
   P.buildObjects = function () {
-    if (own(this)) L.giveSilo(this.state, F.farm()); // (saved with the farm's next save)
+    if (own(this)) {
+      // a farmhouse or ranch found in storage comes back first (01-logicZZZZZZZZZZZZZ-buildings.js L.returnKeepers)
+      var back = L.returnKeepers ? L.returnKeepers(this.state, F.farm()) : [];
+      if (back.length) {
+        var names = back.map(function (k) { return O.types[O.index[k]].name; }).join(' and ');
+        this.changed();
+        this.time.delayedCall(1200, function () { if (F.ui) F.ui.toast('Your ' + names + ' was in storage. It is back on your farm!', 3600, 0x2f5a22); });
+      }
+      L.giveSilo(this.state, F.farm()); // (saved with the farm's next save)
+    }
     return buildObjects.apply(this, arguments);
   };
   var siloAt = function (s, x, y) {
