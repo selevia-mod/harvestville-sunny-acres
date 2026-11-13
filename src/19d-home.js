@@ -91,6 +91,16 @@
     var r = F.houseRect(lv, b);
     this.houseImg = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(r.depth);
     this.houseLv = lv;
+    // The part of the picture above the house's back row is also drawn over the map's top layer (the border trees'
+    // leaves: owner, 14 Nov 2026, "Check the trees, its overlaying the house"): whatever is up there stands behind it.
+    this.houseTop = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(DEPTH.Above + 0.5);
+    F.houseTopCrop(this.houseTop, r, b.y * T);
+  };
+  // crop a house picture to what is above world y line (nothing when none is)
+  F.houseTopCrop = function (img, r, line) {
+    var f = (line - (r.y - r.h)) / r.h, fr = img.frame;
+    if (!(f > 0)) { img.setVisible(false); return; }
+    img.setVisible(true).setCrop(0, 0, fr.realWidth, Math.min(1, f) * fr.realHeight);
   };
 
 
