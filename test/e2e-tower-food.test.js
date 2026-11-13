@@ -249,3 +249,30 @@ test('Mang Ilaw sells the Baon for 5,000 Gold; packed from its page, it feeds yo
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// Owner, 13 Nov 2026 ("Check the drops in towers and the lunch box, why those arts did not change?"): the owner's food
+// picture was fetched only when the bag or the Kitchen opened, so a drop on a floor (and the Baon) showed the drawn
+// stand-in. Walking into the Tower now asks for it: the floor's drops are painted from the owner's sheet, bag never opened.
+test('into the Tower, the bag never opened: the owner\'s food picture comes, and the drops on the floor are painted from it', async () => {
+  const { page, problems, context } = await toFloor(1, 1);
+  await page.waitForFunction(() => !!(Farm.images && Farm.images.tower_food_icons), null, SLOW);
+  const r = await page.evaluate(() => {
+    const w = Farm.world, f = w.feet(), C = Farm.Config;
+    w.dropWild('tw_talangka_meat', f.x + 200, f.y);
+    const tex = w.textures.get('items'), fr = tex.get(C.ITEMS.tw_talangka_meat.icon), art = Farm.images.tower_food_icons;
+    // the frame's pixels are the owner's cell (not the drawn one): compare a few pixels of each
+    const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+    g.drawImage(fr.source.image, fr.cutX, fr.cutY, 128, 128, 0, 0, 128, 128);
+    const o = document.createElement('canvas'); o.width = 128; o.height = 128; const h = o.getContext('2d');
+    const i = C.FOOD_ICONS.indexOf('tw_talangka_meat');
+    h.drawImage(art, (i % 8) * 128, Math.floor(i / 8) * 128, 128, 128, 0, 0, 128, 128);
+    const a = g.getImageData(0, 0, 128, 128).data, b = h.getImageData(0, 0, 128, 128).data;
+    let same = 0, n = 0;
+    for (let y = 8; y < 120; y += 8) for (let x = 8; x < 120; x += 8) { const k = (y * 128 + x) * 4; n++; if (Math.abs(a[k] - b[k]) < 12 && Math.abs(a[k + 1] - b[k + 1]) < 12 && Math.abs(a[k + 3] - b[k + 3]) < 12) same++; }
+    return { same, n };
+  });
+  assert.ok(r.same / r.n > 0.9, 'the drop is the owner\'s picture: ' + JSON.stringify(r));
+  await shot(page, 'tower-food-drop-art');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});

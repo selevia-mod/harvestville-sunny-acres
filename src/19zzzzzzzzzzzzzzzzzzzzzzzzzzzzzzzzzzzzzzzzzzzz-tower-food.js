@@ -245,6 +245,10 @@
   };
   if (F.bus) F.bus.on('packart', function (key) { if (key === 'tower_food_icons' && F.world) F.paintFoodIcons(F.world); });
   var askIcons = function () { if (!have('tower_food_icons') && F.needImage && F.packedFile && F.packedFile('tower_food_icons')) F.needImage('tower_food_icons'); };
+  // (owner, 13 Nov 2026: "Check the drops in towers and the lunch box, why those arts did not change?" - the picture was
+  // asked for only by the bag and the Kitchen, so in the Tower the drops and the Baon showed the drawn stand-ins. Ask on
+  // the way in, and in Manila too, so it is there before the first drop.)
+  if (F.bus) F.bus.on('map', function (key) { if (key === 'tower' || key === 'manila') askIcons(); });
 
   // ---------- eating a Tower dish ----------
   var eat = P.eat;
