@@ -21424,6 +21424,20 @@ var reviveMs = L.towerReviveMs;
 L.towerReviveMs = function (s) { return reviveMs(s) * (L.towerPower(s, 'revive') ? TF.revive : 1); };
 
 
+
+TF.server = ['noheal', 'split', 'revive'];
+L.towerHitPower = function (s) {
+for (var i = 0; i < TF.server.length; i++) if (L.towerPower(s, TF.server[i])) return TF.server[i];
+return undefined;
+};
+
+L.towerPowerState = function (key) {
+if (TF.server.indexOf(key) < 0) return null;
+for (var id in TF.dishes) if (TF.dishes[id].key === key) return { map: 'tower', tfd: { id: id, until: L.nowMin() + TF.mins } };
+return null;
+};
+
+
 var power = L.power;
 L.power = function (s, key) { return power(s, key) || (key === 'charge' && L.towerPower(s, 'stars')); };
 var regenEvery = L.regenEvery;
@@ -51821,7 +51835,8 @@ wildStruck.apply(this, arguments);
 var d = before - a.hp;
 if (!(d > 0)) return;
 var n = ++g.n, k = this.state.wpnHit ? this.state.wpnHit.k : undefined;
-if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k })) {
+
+if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k, pw: L.towerHitPower ? L.towerHitPower(this.state) : undefined })) {
 if (a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a));
 return;
 }
@@ -52183,7 +52198,7 @@ pubHere: function () { var w = F.world; return !!(w && pubHolding(w)); },
 floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
 isFriend: isFriend,
 
-hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k }); },
+hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k, pw: L.towerHitPower && F.session ? L.towerHitPower(F.session.state) : undefined }); },
 ask: function (m) { var g = live(); return !!g && g.w === F.world && send(g, m); },
 friends: function () { return caveFriends(); },
 friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); },
