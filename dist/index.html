@@ -28718,6 +28718,16 @@ F.ensureTexture(this, key);
 var r = F.houseRect(lv, b);
 this.houseImg = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(r.depth);
 this.houseLv = lv;
+
+
+this.houseTop = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(DEPTH.Above + 0.5);
+F.houseTopCrop(this.houseTop, r, b.y * T);
+};
+
+F.houseTopCrop = function (img, r, line) {
+var f = (line - (r.y - r.h)) / r.h, fr = img.frame;
+if (!(f > 0)) { img.setVisible(false); return; }
+img.setVisible(true).setCrop(0, 0, fr.realWidth, Math.min(1, f) * fr.realHeight);
 };
 
 
@@ -30250,7 +30260,7 @@ this.buildingTiles = now;
 this.recollide();
 
 var hb = F.houseBlock && F.houseBlock(s);
-if (hb && this.houseImg) { var hr = F.houseRect ? F.houseRect(this.state.home.level, hb) : { x: hb.x * T, y: (hb.y + hb.h) * T }; this.houseImg.setPosition(hr.x, hr.y); if (hr.depth) this.houseImg.setDepth(hr.depth); }
+if (hb && this.houseImg) { var hr = F.houseRect ? F.houseRect(this.state.home.level, hb) : { x: hb.x * T, y: (hb.y + hb.h) * T }; this.houseImg.setPosition(hr.x, hr.y); if (hr.depth) this.houseImg.setDepth(hr.depth); if (this.houseTop && F.houseTopCrop) { this.houseTop.setPosition(hr.x, hr.y); F.houseTopCrop(this.houseTop, hr, hb.y * T); } }
 var m = L.buildingsOf(s, 'house')[0], mt = m && L.maskTiles(m.t, m.x, m.y, 'M')[0];
 if (mt) {
 if (!this.mailboxImg) { F.ensureTexture(this, 'props/mailbox'); this.mailboxImg = this.add.image(0, 0, 'props/mailbox').setOrigin(0, 1).setDisplaySize(T, 2 * T); }
