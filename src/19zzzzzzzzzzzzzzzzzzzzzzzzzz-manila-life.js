@@ -520,15 +520,19 @@
       }
       return;
     }
-    // on board: standing at the back, the camera following. Driving up or down, as before (owner: "standing at the back
-    // is iconic"); driving sideways, on its back step and seen from the side, facing the way it goes (owner, 12 Nov 2026)
+    // on board: always on its back step ("standing at the back is iconic"), facing the way it goes, the camera following
+    // (owner, 13 Nov 2026: "Riding jeep is wrong"). JEEP_RIDE[its way]: [tiles along x (side on: towards its back), tiles
+    // along y from its middle, behind it]. Going up, its back is to you: so is yours, on the step, in front of it. Coming
+    // down, its back is the far end: you stand behind it, your head over its roof. Side on: on the step, down by its bumper.
     this.player.body.setVelocity(0, 0);
-    var side = st.dir === 'left' || st.dir === 'right', back = st.dir === 'left' ? JEEP_BACK : st.dir === 'right' ? -JEEP_BACK : 0;
-    this.setFeet(st.x * T + back * T, st.y * T + (side ? -0.85 : -0.25) * T);
-    var face = side ? st.dir : 'down';
+    var side = st.dir === 'left' || st.dir === 'right', at = JEEP_RIDE[side ? 'side' : st.dir] || JEEP_RIDE.up;
+    var dx = side ? (st.dir === 'left' ? at[0] : -at[0]) : at[0];
+    this.setFeet(st.x * T + dx * T, st.y * T + at[1] * T);
+    var face = st.dir;
     if (this.dir !== face) { this.dir = face; this.idle(); }
-    F.depthTo(this.player, DEPTH.actor + st.y * T / 1e5 + 1e-6);
+    F.depthTo(this.player, DEPTH.actor + st.y * T / 1e5 + (at[2] ? -1e-6 : 1e-6));
   };
+  var JEEP_RIDE = F.JEEP_RIDE = { up: [0, 0.02, false], down: [0, -1.42, true], side: [JEEP_BACK + 0.05, -0.15, false] };
   var update = P.update;
   P.update = function (time, delta) {
     var riding = this.mnRide && this.mnRide.stage === 'on';

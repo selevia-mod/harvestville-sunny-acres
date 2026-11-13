@@ -404,7 +404,7 @@ test('the jeepney: "Para po" at the Plaza\'s shed, 15G, on board when it stops, 
     const back = (ride.d === 'left' ? 1 : -1) * (ride.f[0] - ride.j[0]) / 256;
     assert.ok(back > 1.2 && back < 1.7 && Math.abs(ride.f[1] - ride.j[1]) < 1.0 * 256, 'on the back step of the jeep: ' + back);
     assert.strictEqual(ride.face, ride.d, 'facing the way it drives');
-  } else assert.ok(Math.abs(ride.f[0] - ride.j[0]) < 0.6 * 256 && Math.abs(ride.f[1] - ride.j[1]) < 0.6 * 256 && ride.face === 'down', 'in the jeep, facing you');
+  } else assert.ok(Math.abs(ride.f[0] - ride.j[0]) < 0.6 * 256 && ride.face === ride.d, 'on its back step, facing its way: ' + JSON.stringify(ride));
   assert.ok(Math.abs(ride.cam - ride.f[0]) < 6 * 256, 'the camera with it');
   await shot(page, 'manila-9-riding');
   await page.waitForFunction(() => !Farm.world.mnRide, null, { timeout: 60000 });
@@ -427,6 +427,31 @@ test('the jeepney picks you up from either side of its shed (owner, 12 Nov 2026:
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+// Owner, 13 Nov 2026 ("Riding jeep is wrong"): going up you show your back like the jeep, on its step in front of it;
+// coming down you stand behind it at its far end, your head over its roof; side on, on the step down by its bumper.
+test('riding the jeepney: on its back step whichever way it goes, facing that way; behind it only when it comes towards you', async () => {
+  const { page, problems, context } = await toManila(NOON);
+  const seen = {};
+  for (const dir of ['up', 'down', 'left', 'right']) {
+    seen[dir] = await page.evaluate(async (dir) => {
+      const w = Farm.world, f = w.feet(), jx = Math.floor(f.x / 256) + 0.5, jy = Math.floor(f.y / 256) + 0.5;
+      Farm.Logic.jeepAt = () => ({ x: jx, y: jy, dir, on: true, stop: -1, d: 0, lights: false });
+      w.mn.jeep.lag = 0; w.mnJeepBlocked = () => false;
+      w.mnRide = { stage: 'on', from: 0, to: 1 }; w.player.body.enable = false;
+      await new Promise((r) => setTimeout(r, 300));
+      const p = w.feet(), j = w.mn.jeep.img;
+      return { dx: (p.x - jx * 256) / 256, dy: (p.y - jy * 256) / 256, face: w.dir, behind: w.player.depth < j.depth, top: (j.getBounds().y - jy * 256) / 256, head: (w.player.getBounds().y - jy * 256) / 256 };
+    }, dir);
+  }
+  const s = seen;
+  assert.ok(s.up.face === 'up' && !s.up.behind && Math.abs(s.up.dx) < 0.1 && Math.abs(s.up.dy) < 0.2, 'up: your back to us, on its step: ' + JSON.stringify(s.up));
+  assert.ok(s.down.face === 'down' && s.down.behind && s.down.dy < -1 && s.down.head < s.down.top + 0.3, 'down: behind it, the head over its roof: ' + JSON.stringify(s.down));
+  assert.ok(s.left.face === 'left' && !s.left.behind && s.left.dx > 1.3 && s.left.dy > -0.4 && s.left.dy < 0.2, 'left: on its back step, down by the bumper: ' + JSON.stringify(s.left));
+  assert.ok(s.right.face === 'right' && !s.right.behind && s.right.dx < -1.3 && s.right.dy > -0.4 && s.right.dy < 0.2, 'right: on its back step: ' + JSON.stringify(s.right));
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('at night the jeepney never leaves you on board: a ride started at the end of its night loop goes on to your stop (owner, 12 Nov 2026)', async () => {
   const NIGHT = [2026, 11, 12, 21, 10];
   const { page, problems, context } = await toManila(NOON);
