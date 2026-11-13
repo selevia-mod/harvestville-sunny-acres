@@ -133,17 +133,22 @@ const save = (name, r) => {
     else if (d.swatch) { // squares on a plain white page: each cell's square, trimmed of the white round it
       const [cols, rows, names] = d.swatch;
       const out = await p.evaluate(async ([s, cols, rows, n]) => {
-        const img = await W.load(s), cw = img.width / cols, ch = img.height / rows, res = [];
+        // (whole pixels: 1536 / 5 is 307.2, and a fractional cell width misread every row after the first; owner's Mall,
+        // 13 Nov 2026: white lines between the tiles)
+        const img = await W.load(s), cw = Math.floor(img.width / cols), ch = Math.floor(img.height / rows), res = [];
         const c0 = W.canvas(img.width, img.height), g0 = c0.getContext('2d');
         g0.drawImage(img, 0, 0);
         for (let i = 0; i < n; i++) {
           const x0 = (i % cols) * cw, y0 = Math.floor(i / cols) * ch, px = g0.getImageData(x0, y0, cw, ch).data;
-          let a = cw, b = ch, e = 0, f = 0;
+          // the square: from the first to the last column (row) with picture in it (a stray speck or two does not count)
+          const colN = new Array(cw).fill(0), rowN = new Array(ch).fill(0);
           for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
             const k = (y * cw + x) * 4, white = px[k] > 235 && px[k + 1] > 235 && px[k + 2] > 235;
-            if (px[k + 3] > 40 && !white) { if (x < a) a = x; if (x > e) e = x; if (y < b) b = y; if (y > f) f = y; }
+            if (px[k + 3] > 40 && !white) { colN[x]++; rowN[y]++; }
           }
-          if (e <= a || f <= b) throw new Error('swatch ' + (i + 1) + ' is empty');
+          const cs = colN.map((v, j) => (v > 8 ? j : -1)).filter((j) => j >= 0), rs = rowN.map((v, j) => (v > 8 ? j : -1)).filter((j) => j >= 0);
+          const a = cs[0], e = cs[cs.length - 1], b = rs[0], f = rs[rs.length - 1];
+          if (!cs.length || !rs.length || e <= a || f <= b) throw new Error('swatch ' + (i + 1) + ' is empty');
           const m = Math.round(Math.min(e - a, f - b) * 0.04), o = W.canvas(256, 256), g = o.getContext('2d');
           g.imageSmoothingQuality = 'high';
           g.drawImage(c0, x0 + a + m, y0 + b + m, e - a - 2 * m, f - b - 2 * m, 0, 0, 256, 256);
