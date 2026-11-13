@@ -28705,7 +28705,7 @@ if (this.mapKey === 'farm') this.showHouse();
 
 
 
-F.HOUSE_SIZE = [1, 1, 1, 1, 1.2, 1.28, 1.44, 1.5, 1.62, 1.64, 1.68];
+F.HOUSE_SIZE = [1, 1, 1, 1, 1.23, 1.24, 1.38, 1.38, 1.52, 1.44, 1.54];
 F.houseRect = function (lv, b) {
 var k = F.HOUSE_SIZE[Math.max(0, Math.min(F.HOUSE_SIZE.length - 1, lv | 0))] || 1, w = 5 * T * k;
 return { x: b.x * T - (w - 5 * T) / 2, y: (b.y + b.h) * T, w: w, h: w, depth: DEPTH.actor + (b.y + 3) * T / 1e5 };
