@@ -74,7 +74,11 @@
   // Only the picture grows (upward and out to the sides, its bottom where it was): the house keeps its 6 x 4 tiles on the
   // farm at every level, so nothing anyone has built around it moves. It is drawn in the actors' band from its back
   // three rows, so what stands behind it is behind its roof and you, at its door, are in front.
-  F.HOUSE_SIZE = [1, 1, 1, 1, 1.2, 1.2, 1.2, 1.4, 1.4, 1.4, 1.4]; // by level (0, 1, ...: the picture 5 x 5 tiles times this)
+  // By level (0, 1, ...: the picture 5 x 5 tiles times this). Each owner's picture fills its square differently (the Manor
+  // at level 6 is low and wide, the Big House at 4 tall): measured, so each level stands taller and wider than the one
+  // before it (owner, 14 Nov 2026: "Lv 4 is bigger than lv 6"). Seen heights 1, 1, 1, 1.16, 1.22, 1.30, 1.37, 1.41,
+  // 1.57, 1.65 of level 1's.
+  F.HOUSE_SIZE = [1, 1, 1, 1, 1.2, 1.28, 1.44, 1.5, 1.62, 1.64, 1.68];
   F.houseRect = function (lv, b) {
     var k = F.HOUSE_SIZE[Math.max(0, Math.min(F.HOUSE_SIZE.length - 1, lv | 0))] || 1, w = 5 * T * k;
     return { x: b.x * T - (w - 5 * T) / 2, y: (b.y + b.h) * T, w: w, h: w, depth: DEPTH.actor + (b.y + 3) * T / 1e5 };
