@@ -485,7 +485,7 @@ desc: 'Spend the starry evening with someone dear.' },
 ],
 
 SAVE_VERSION: 1,
-MAX_SAVE_BYTES: 24000,
+MAX_SAVE_BYTES: 48000,
 
 ICON_ORDER: ICON_ORDER,
 ICON: {},
@@ -10059,6 +10059,9 @@ L.serialize = function (s) {
 var o = serialize(s), flat = [], bag = [];
 s.yard.items.forEach(function (it) { if (!L.isYardTile(it.t)) flat.push(it.t, it.x, it.y); });
 Object.keys(s.yard.bag).forEach(function (t) { bag.push(Number(t), s.yard.bag[t]); });
+
+var raw = s.yard.raw;
+if (raw) { if (raw.flat.length) flat.push.apply(flat, raw.flat); if (raw.bag.length) bag.push.apply(bag, raw.bag); }
 o.yd = [flat, bag, L.yardRuns(s.yard.items)];
 o.fw = C.FARM_W;
 return o;
@@ -10090,20 +10093,29 @@ if (s.forage) delete s.forage.farm;
 }
 var yd = Array.isArray(o.yd) ? o.yd : null;
 if (!yd) { s.yard = L.newYard(); return s; }
+
+
+
+
 s.yard = { items: [], bag: {} };
+var raw = { flat: [], bag: [] };
 var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [], nd = 0, nt = 0;
+var store = function (t) { s.yard.bag[t] = (s.yard.bag[t] || 0) + 1; };
 
 for (var i = 0; i + 2 < flat.length; i += 3) {
 var t = int(flat[i], -1, 999, -1);
-if (!O.types[t]) continue;
-if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) continue;
+if (!O.types[t]) { if (t >= 0) raw.flat.push(t, int(flat[i + 1], 0, 999, 0), int(flat[i + 2], 0, 999, 0)); continue; }
+if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) { store(t); continue; }
 s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
 }
-L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); });
+L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); else store(it.t); });
 for (var k = 0; k + 1 < bag.length; k += 2) {
-var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 9999, 0);
-if (O.types[bt] && n > 0) s.yard.bag[bt] = n;
+var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 1e7, 0);
+if (!(n > 0)) continue;
+if (O.types[bt]) s.yard.bag[bt] = (s.yard.bag[bt] || 0) + n;
+else if (bt >= 0) raw.bag.push(bt, n);
 }
+if (raw.flat.length || raw.bag.length) s.yard.raw = raw;
 return s;
 };
 })(window.Farm = window.Farm || {});
