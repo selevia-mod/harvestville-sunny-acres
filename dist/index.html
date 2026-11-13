@@ -61752,6 +61752,10 @@ if (F.bus) F.bus.on('packart', function (key) { if (key === 'tower_food_icons' &
 var askIcons = function () { if (!have('tower_food_icons') && F.needImage && F.packedFile && F.packedFile('tower_food_icons')) F.needImage('tower_food_icons'); };
 
 
+
+if (F.bus) F.bus.on('map', function (key) { if (key === 'tower' || key === 'manila') askIcons(); });
+
+
 var eat = P.eat;
 P.eat = function () {
 var s = this.state, held = L.held(s), p = held && TF.dishes[held.id];
