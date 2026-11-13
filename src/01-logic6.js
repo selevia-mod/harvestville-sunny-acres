@@ -285,6 +285,9 @@
     var o = serialize(s), flat = [], bag = [];
     s.yard.items.forEach(function (it) { if (!L.isYardTile(it.t)) flat.push(it.t, it.x, it.y); });
     Object.keys(s.yard.bag).forEach(function (t) { bag.push(Number(t), s.yard.bag[t]); });
+    // (pieces and stored kinds this game does not know, from a newer game: written back as they came, never lost)
+    var raw = s.yard.raw;
+    if (raw) { if (raw.flat.length) flat.push.apply(flat, raw.flat); if (raw.bag.length) bag.push.apply(bag, raw.bag); }
     o.yd = [flat, bag, L.yardRuns(s.yard.items)];
     o.fw = C.FARM_W;
     return o;
@@ -316,20 +319,29 @@
     }
     var yd = Array.isArray(o.yd) ? o.yd : null;
     if (!yd) { s.yard = L.newYard(); return s; }
+    // Owner, 14 Nov 2026 ("why users keep and keep losing items? ... should never happen again"): loading NEVER loses a
+    // piece. Over a farm's limit (500 decorations, 1500 path and fence tiles: the game itself adds some, the Silo, the
+    // buildings, fences) a piece goes into storage, not away; a kind this game does not know (a newer game's) is kept as
+    // it came and written back with the next save; a stored count is no longer cut at 9,999.
     s.yard = { items: [], bag: {} };
+    var raw = { flat: [], bag: [] };
     var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [], nd = 0, nt = 0;
+    var store = function (t) { s.yard.bag[t] = (s.yard.bag[t] || 0) + 1; };
     // (an older save has every piece in flat, tiles too: each counts against its own limit)
     for (var i = 0; i + 2 < flat.length; i += 3) {
       var t = int(flat[i], -1, 999, -1);
-      if (!O.types[t]) continue;
-      if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) continue;
+      if (!O.types[t]) { if (t >= 0) raw.flat.push(t, int(flat[i + 1], 0, 999, 0), int(flat[i + 2], 0, 999, 0)); continue; }
+      if (L.isYardTile(t) ? nt++ >= C.YARD_TILES_MAX : nd++ >= MAX()) { store(t); continue; }
       s.yard.items.push({ t: t, x: int(flat[i + 1], 0, 999, 0), y: int(flat[i + 2], 0, 999, 0) });
     }
-    L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); });
+    L.yardUnrun(yd[2], function (it) { if (nt++ < C.YARD_TILES_MAX) s.yard.items.push(it); else store(it.t); });
     for (var k = 0; k + 1 < bag.length; k += 2) {
-      var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 9999, 0);
-      if (O.types[bt] && n > 0) s.yard.bag[bt] = n;
+      var bt = int(bag[k], -1, 999, -1), n = int(bag[k + 1], 0, 1e7, 0);
+      if (!(n > 0)) continue;
+      if (O.types[bt]) s.yard.bag[bt] = (s.yard.bag[bt] || 0) + n;
+      else if (bt >= 0) raw.bag.push(bt, n);
     }
+    if (raw.flat.length || raw.bag.length) s.yard.raw = raw;
     return s;
   };
 })(window.Farm = window.Farm || {});

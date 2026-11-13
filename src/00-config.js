@@ -464,7 +464,7 @@
     ],
 
     SAVE_VERSION: 1,
-    MAX_SAVE_BYTES: 24000, // keep in step with the app's SUNNY_ACRES_SAVE_LIMIT; the server allows this much (farm_online_11.sql)
+    MAX_SAVE_BYTES: 48000, // keep in step with the app's SUNNY_ACRES_SAVE_LIMIT; the server allows 65536 (farm.save_rules). (24000 before 14 Nov 2026: the biggest farms were within 2,000 of it, owner: "should never happen again")
 
     ICON_ORDER: ICON_ORDER,
     ICON: {},
