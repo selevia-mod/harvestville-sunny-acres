@@ -241,6 +241,10 @@ test('offline: a new floor waits in the save; the board and the wall say "Join o
   await waitFloor(off.page, 5);
   await off.page.evaluate(() => Farm.towerClearFloor());
   await off.page.waitForFunction(() => Farm.world.lair.paid, null, SLOW);
+  // (the floor's kills are hunts: from 5 they pass 10, and Kanor's "Makiling Forest is open" letter comes 2.4 s after the
+  // last one; let it come and close it, so it is not read for the board or the wall)
+  await off.page.waitForTimeout(2800);
+  await off.page.evaluate(() => Farm.ui.closeAll());
   assert.deepStrictEqual((await state(off.page)).twr.q, [5]);
   await off.page.evaluate(() => Farm.ui.openTowerBoard());
   const b = await modalText(off.page);
