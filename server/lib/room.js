@@ -229,7 +229,7 @@ class Room {
     }
     this.game.stats.hitsOk = (this.game.stats.hitsOk || 0) + 1;
     p.lastHit[slot] = now;
-    if (this.tw) return this.game.tower.hit(this, a, p, d, typeof msg.k === 'string' ? msg.k.slice(0, 16) : '', n); // (its shields, revivers, splitters)
+    if (this.tw) return this.game.tower.hit(this, a, p, d, typeof msg.k === 'string' ? msg.k.slice(0, 16) : '', n, typeof msg.pw === 'string' ? msg.pw.slice(0, 16) : ''); // (its shields, revivers, splitters; pw: the hitter's Tower dish)
     const down = this.game.wild.wildStruck(this.fl, a, p, d);
     this.broadcast({ t: 'hp', s: a.slot, hp: Math.max(0, a.hp), by: p.id, n });
     if (down) this.down(a, p.id);

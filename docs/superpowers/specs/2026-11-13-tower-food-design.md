@@ -67,7 +67,16 @@ Kitchen and eaten, its chip, its power on the next zone's trick; the Baon eating
 - Icons: 22 drawn stand-ins painted into frames 2200-2221 of the items texture (C.FOOD_ICONS); the owner's sheet, when it comes:
   `tower_food_icons`, 128 x 128 cells, 8 a row, in C.FOOD_ICONS' order.
 
-## Friends on a floor (the game server): what works now, what needs a server change (NOT deployed)
+## Friends on a floor (the game server)
+
+**Built 13 Nov 2026 (owner: "Build the server change now"):** every hit on a shared floor carries `pw`, the power of the
+hitter's Tower dish (L.towerHitPower: 'noheal' | 'split' | 'revive'); the server (server/lib/tower.js `hit`) runs it with
+the game's own rules (L.towerPowerState): Nido Soup (the healers skip that one 5 s), Bicol Express (copies at a quarter),
+Halo-halo ng Biringan (lies 6 s). An older phone sends no `pw` (as before); an older server ignores it. Tests:
+server/test/tower.test.js (3), test/tower-food.test.js, test/e2e-tower-online.test.js (REAL server, two pages). Ships with
+the server deploy. Below: the notes from before it was built.
+
+### (before 13 Nov) what works now, what needs a server change
 The server runs the shield, the healers, the splitters and the revivers for a shared floor (server/lib/tower.js); the phone
 runs the puddles, the song and the dark itself.
 - Works with no server change: the puddle, the song, the sight, the charges, the refills, the feast (all on the phone); the

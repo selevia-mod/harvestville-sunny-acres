@@ -761,7 +761,8 @@
     var d = before - a.hp; // (the bow's damage, a Strong shot's too: 19zz-skills.js; none for one that wants feeding)
     if (!(d > 0)) return;
     var n = ++g.n, k = this.state.wpnHit ? this.state.wpnHit.k : undefined; // (k: the weapon; The Lost Tower's shields want a Rifle's)
-    if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k })) { // (the line is down: it never counted)
+    // (pw: the Tower dish's power the server runs for a shared floor, L.towerHitPower)
+    if (!send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k, pw: L.towerHitPower ? L.towerHitPower(this.state) : undefined })) { // (the line is down: it never counted)
       if (a.gsHp != null) a.hp = Math.max(0, a.gsHp - pend(a));
       return;
     }
@@ -1123,7 +1124,7 @@
     floorOthers: function () { var g = live(); return g && g.pp && !g.pub && F.world && g.w === F.world && g.gen === F.world.gsGen ? Object.keys(g.ppl || {}).length : 0; },
     isFriend: isFriend, // (tests)
     // (The Lost Tower, 19zzz...z-tower-friends.js: a hit the phone shows itself, a question for the server, your friends)
-    hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k }); },
+    hit: function (a, d, k) { var g = live(); if (!g || g.w !== F.world) return false; var n = ++g.n; return send(g, { t: 'hit', s: a.slot, d: d, n: n, k: k, pw: L.towerHitPower && F.session ? L.towerHitPower(F.session.state) : undefined }); },
     ask: function (m) { var g = live(); return !!g && g.w === F.world && send(g, m); },
     friends: function () { return caveFriends(); },
     friendsNow: function (ids) { friends.ids = ids || {}; friends.at = Date.now(); }, // (tests)

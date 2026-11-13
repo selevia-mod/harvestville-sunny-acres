@@ -326,7 +326,7 @@ test('REAL server, the realms\' tricks on a shared floor (851): a shield bounces
   const rv = await ana.page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.revive && !x.shield && !x.fs && x.def.role === 'normal'); return a && a.slot; });
   assert.ok(rv != null, 'a reviver');
   const max = (await mon(ana.page, rv)).max;
-  for (let i = 0; i < 60; i++) { const m = await mon(ben.page, rv); if (!m || m.lying) break; await shootAt(ana.page, rv, 'javelin'); }
+  for (let i = 0; i < 60; i++) { const m = await mon(ben.page, rv); if (!m || m.lying) break; await shootAt(ana.page, rv, 'javelin'); } // (one shot at a time, each answered: a shot while it lies would finish it)
   await until(async () => { const b = await mon(ben.page, rv); return b && b.lying; }, 'Ben sees it lie down');
   await until(async () => { const a = await mon(ana.page, rv), b = await mon(ben.page, rv); return a && b && !a.lying && !b.lying && b.hp > 0; }, 'it stands again on both', 15000);
   assert.strictEqual((await mon(ben.page, rv)).hp, Math.ceil(max / 2));
@@ -337,6 +337,41 @@ test('REAL server, the realms\' tricks on a shared floor (851): a shield bounces
     await until(async () => { const got = await Promise.all(copies.map((s) => mon(who.page, s))); return got.every((c) => c && c.max === Math.ceil(max / 2) && !c.shield); }, who.name + ' sees its two copies');
   }
   assert.strictEqual(await mon(ben.page, rv), null, 'the reviver itself is gone');
+  for (const who of [ana, ben]) assert.deepStrictEqual(who.problems, [], who.name);
+  await Promise.all([ana, ben].map((who) => who.context.close()));
+});
+
+// Owner, 13 Nov 2026 ("Build the server change now"): the Tower's food on a shared floor. The phone's hit tells the server
+// the power of the dish its player ate (pw); the server runs it for both phones.
+test('REAL server, the Tower\'s food on a shared floor (851): Halo-halo keeps a reviver down 6 s on both; then Bicol Express makes its copies a quarter on both', async () => {
+  const real = await realServer(), server = createServer();
+  const climb = 'for (let f = 1; f <= 900; f++) { L.towerReach(s, f); L.towerPay(s, f); } s.pearls = 0; s.energy = 99999;';
+  const ana = await open(server, real.url, 'Ana Acres', climb), ben = await open(server, real.url, 'Ben Barn', climb);
+  await befriend([ana, ben]);
+  await toFloor(ana, 851);
+  await toFloor(ben, 851);
+  await until(async () => JSON.stringify(await remoteNames(ana.page)) === JSON.stringify(['Ben Barn']), 'together on 851');
+  await until(async () => (await list(ben.page)) === (await list(ana.page)), 'one list of 60');
+  const dish = (id) => ana.page.evaluate((id) => { const s = Farm.session.state; s.tfd = { id, until: Farm.Logic.nowMin() + 15 }; s.energy = 99999; return Farm.Logic.towerHitPower(s); }, id);
+  assert.strictEqual(await dish('halo_halo_biringan'), 'revive');
+  const onServer = (slot) => { for (const r of real.game.rooms.values()) { const a = r.tw && r.mons.find((x) => x.slot === slot); if (a) return a; } return null; };
+  const rv = await ana.page.evaluate(() => { const a = Farm.world.wild.animals.find((x) => x.revive && !x.shield && !x.fs && x.def.role === 'normal'); return a && a.slot; });
+  assert.ok(rv != null, 'a reviver');
+  const max = (await mon(ana.page, rv)).max;
+  for (let i = 0; i < 120; i++) { const a = onServer(rv); if (!a || a.lying) break; await shootAt(ana.page, rv, 'javelin'); await until(async () => !onServer(rv) || onServer(rv).lying || (await mon(ana.page, rv) || {}).hp > 0, 'answered'); }
+  const lyingMs = (onServer(rv) || {}).lying;
+  assert.ok(lyingMs > 5000, 'the server lays it down for 6 s, not 3: ' + lyingMs); // (one shot at a time, each answered: a shot while it lies would finish it)
+  await until(async () => { const b = await mon(ben.page, rv); return b && b.lying; }, 'Ben sees it lie down');
+  const lay = Date.now();
+  await until(async () => { const b = await mon(ben.page, rv); return b && !b.lying && b.hp > 0; }, 'it stands again', 20000);
+  const ms = Date.now() - lay;
+  assert.ok(ms > 5000 && ms < 9000, 'it lay about 6 s, not 3: ' + ms + ' ms');
+  assert.strictEqual(await dish('bicol_express'), 'split');
+  for (let i = 0; i < 60; i++) { if (!(await mon(ben.page, rv))) break; const a = await mon(ana.page, rv); if (a && !a.lying) await shootAt(ana.page, rv, 'javelin'); else await sleep(200); }
+  const copies = [10000 + rv * 2, 10001 + rv * 2];
+  for (const who of [ana, ben]) {
+    await until(async () => { const got = await Promise.all(copies.map((s) => mon(who.page, s))); return got.every((c) => c && c.max === Math.ceil(max / 4)); }, who.name + ' sees its two copies at a quarter');
+  }
   for (const who of [ana, ben]) assert.deepStrictEqual(who.problems, [], who.name);
   await Promise.all([ana, ben].map((who) => who.context.close()));
 });

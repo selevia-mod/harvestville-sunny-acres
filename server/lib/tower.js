@@ -9,6 +9,7 @@
 //   flock   its fliers circle a player and dive together (the nearest player to the flock); a dive that reaches one: 'bp'
 //   split   a beaten splitter becomes two copies, slots L.towerCopySlot (10000 up), with half its hits
 //   revive  a beaten reviver lies 3 s ('ly', its hp a sliver above 0), then stands with half its hits ('up'), unless hit again
+//   food    a hit's `pw` (the hitter's Tower dish): Nido Soup, Bicol Express, Halo-halo ng Biringan soften the three above
 //   waves   C.TOWER.wave > 0: the next wave comes when the last is mostly down ('wv')
 // The phone does the rest itself (the song, the dark, the puddles: they only change what that phone sees or does).
 // The last enemy down: 'cl' with `pay: 1` and `nw` (how many on the floor had never cleared it, from each phone's `tn`) to
@@ -24,6 +25,8 @@ module.exports = function makeTower(R, W) {
   const span = (fl, a, b) => a + fl.rand() * (b - a);
   const LYING = 0.001; // a lying reviver's hits
   const has = (r, id) => !!(L.towerHas && L.towerHas(r.floor, id));
+  const TF = C.TOWER_FOOD;
+  const as = (pw) => (L.towerPowerState ? L.towerPowerState(pw) : null) || undefined; // (a hitter's dish, for the game's own rules)
 
   // a tower room's own state
   const state = (r) => ({
@@ -160,7 +163,7 @@ module.exports = function makeTower(R, W) {
 
   // ---------- healers, revivers, splitters ----------
   const heal = (r, a) => {
-    const b = L.towerHealPick(a, r.mons, T);
+    const b = L.towerHealPick(a, r.mons, T, r.game.now()); // (one hit with Nido Soup on is not mended a while: a.tfNoHeal)
     if (!b) return;
     b.hp += L.towerHealOf(b);
     r.broadcast({ t: 'hl', s: a.slot, to: b.slot });
@@ -173,15 +176,15 @@ module.exports = function makeTower(R, W) {
     if (a.def.angry) W.wildCharge(r.fl, a);
     r.broadcast({ t: 'up', s: a.slot, hp: a.hp });
   };
-  const split = (r, a) => {
-    const fl = r.fl;
+  const split = (r, a, pw) => {
+    const fl = r.fl, hp = L.towerSplitHp(a.max, pw === 'split' ? as(pw) : undefined); // (Bicol Express: a quarter, not half)
     for (let i = 0; i < TR.split.n; i++) {
       const slot = L.towerCopySlot(a.slot, i);
       if (r.mons.some((x) => x.slot === slot)) continue;
       let x = a.x + (i ? 1 : -1) * 0.45 * T, y = a.y + (i ? 0.15 : -0.15) * T;
       if (!W.wildFree(fl, Math.floor(x / T), Math.floor(y / T))) { x = a.x; y = a.y; }
       const c = W.make(fl, a.kind, slot, x, y, TR.split.size * a.size);
-      strengthen(r, c, L.towerSplitHp(a.max));
+      strengthen(r, c, hp);
       c.left = !a.left;
       c.t = 250;
       r.mons.push(c);
@@ -203,8 +206,12 @@ module.exports = function makeTower(R, W) {
   };
 
   // A counted hit (lib/room.js has checked it: not too soon, not too far). k: the weapon ('rifle', ...; none: the Bow).
-  const hit = (r, a, p, d, k, n) => {
+  // pw: the power of the Tower dish the hitter ate (L.towerHitPower on the phone; owner, 13 Nov 2026): 'noheal' (Nido
+  // Soup: the healers leave this one alone a while), 'split' (Bicol Express: its copies at a quarter of its hits), 'revive'
+  // (Halo-halo ng Biringan: it lies twice as long). Any other word, or none (an older phone): as before.
+  const hit = (r, a, p, d, k, n, pw) => {
     const fl = r.fl;
+    if (pw === 'noheal' && TF) a.tfNoHeal = r.game.now() + TF.noHeal;
     if (a.lying) { // a hit while it lies finishes it
       a.lying = 0;
       a.hits[p.id] = (a.hits[p.id] || 0) + 1;
@@ -223,14 +230,14 @@ module.exports = function makeTower(R, W) {
     if (!down) return;
     if (a.revive && !a.revived) { // beaten once: it lies a moment
       a.revived = true;
-      a.lying = TR.revive.ms;
+      a.lying = pw === 'revive' ? L.towerReviveMs(as(pw)) : TR.revive.ms;
       a.hp = LYING; // (still up: the phones' arrows find only what has hits left, and a hit now finishes it)
       a.vx = a.vy = 0;
       a.mode = 'idle';
       r.broadcast({ t: 'ly', s: a.slot });
       return;
     }
-    if (a.split) split(r, a); // (its copies are on the floor before it goes: the stairs wait for them)
+    if (a.split) split(r, a, pw); // (its copies are on the floor before it goes: the stairs wait for them)
     r.down(a, p.id);
   };
   // one gone (lib/room.js down)

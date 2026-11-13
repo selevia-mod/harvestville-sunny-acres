@@ -286,3 +286,19 @@ test('the save: new keys tfd and tfb only; an older save loads unchanged; nonsen
   assert.strictEqual(b.tfd, null, 'not a Tower dish');
   assert.deepStrictEqual(plain(b.tfb), ['tinola', 'kaldereta', 'tinola']);
 });
+
+// owner, 13 Nov 2026 ("Build the server change now"): a hit on a shared floor tells the game server the power of the dish
+test('the power a hit carries to the game server (pw): only Nido Soup, Bicol Express, Halo-halo; in the Tower only', () => {
+  assert.strictEqual(L.towerHitPower(fed('nido_soup')), 'noheal');
+  const keys = Object.keys(TF.dishes).filter((id) => ['split', 'revive'].includes(TF.dishes[id].key));
+  assert.deepStrictEqual(keys.map((id) => L.towerHitPower(fed(id))).sort(), ['revive', 'split']);
+  assert.strictEqual(L.towerHitPower(fed('adobong_pusit')), undefined, 'a power the phone runs itself: none');
+  assert.strictEqual(L.towerHitPower(fed('nido_soup', 'manila')), undefined, 'outside the Tower: none');
+  assert.strictEqual(L.towerHitPower(L.newState()), undefined, 'no dish: none');
+  // the server's side: a state as if that dish had just been eaten
+  ['noheal', 'split', 'revive'].forEach((k) => assert.ok(L.towerPower(L.towerPowerState(k), k), k));
+  assert.strictEqual(L.towerPowerState('crack'), null, 'a power the server does not run');
+  assert.strictEqual(L.towerPowerState('anything'), null);
+  assert.strictEqual(L.towerReviveMs(L.towerPowerState('revive')), 2 * TR.revive.ms);
+  assert.strictEqual(L.towerSplitHp(100, L.towerPowerState('split')), 25);
+});

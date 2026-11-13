@@ -286,3 +286,63 @@ test('an old cave floor is as before: 8 a room, no tw in its welcome, a plain cl
   assert.strictEqual(p.last('wl').tw, undefined);
   assert.strictEqual(p.c.room.tw, null);
 });
+
+// ---------- the Tower's food on a shared floor (owner, 13 Nov 2026: "Build the server change now") ----------
+// A hit carries `pw`, the power of the Tower dish the hitter ate (L.towerHitPower on the phone).
+test('Halo-halo ng Biringan (pw revive): a reviver beaten by its eater lies twice as long (6 s), then stands', async () => {
+  const w = world();
+  const ann = await up(w, 'ann', 801, { with: [] }), room = ann.c.room;
+  const a = find(room, (x) => x.revive && !x.shield && x.def.role === 'normal');
+  assert.ok(a);
+  for (let k = 0; k < 40 && !a.lying; k++) { ann.say({ t: 'mv', x: Math.round(a.x), y: Math.round(a.y), dir: 'down', m: 0 }); ann.say({ t: 'hit', s: a.slot, d: 5, n: ++hitN, pw: 'revive' }); w.run(200); }
+  assert.ok(a.lying > 3200, 'twice 3 s: ' + a.lying);
+  assert.strictEqual(L.towerReviveMs(L.towerPowerState('revive')), 2 * R.F.towerTricks.revive.ms);
+  w.run(3500);
+  assert.ok(a.lying > 0 && !ann.all('up').some((m) => m.s === a.slot), 'still down after 3.5 s');
+  w.run(3000);
+  assert.strictEqual(a.lying, 0);
+  assert.strictEqual(ann.last('up').s, a.slot, 'up after 6 s');
+});
+
+test('Bicol Express (pw split): a splitter beaten by its eater becomes two at a quarter of its hits; without it, half', async () => {
+  const w = world();
+  const ann = await up(w, 'ann', 701, { with: [] }), room = ann.c.room;
+  const [a, b] = room.mons.filter((x) => x.split && !x.shield && x.def.role === 'normal');
+  assert.ok(a && b);
+  const beat = (x, pw) => { for (let k = 0; k < 60 && room.mons.indexOf(x) >= 0; k++) { ann.say({ t: 'mv', x: Math.round(x.x), y: Math.round(x.y), dir: 'down', m: 0 }); ann.say(Object.assign({ t: 'hit', s: x.slot, d: 5, n: ++hitN }, pw ? { pw } : {})); w.run(200); } };
+  const max = a.max;
+  beat(a, 'split');
+  const ca = room.mons.filter((x) => L.towerIsCopy(x.slot) && Math.floor((x.slot - L.towerCopySlot(0, 0)) / 2) === a.slot);
+  assert.strictEqual(ca.length, 2);
+  ca.forEach((c) => assert.strictEqual(c.max, Math.max(1, Math.ceil(max * 0.25)), 'a quarter'));
+  beat(b, null);
+  const cb = room.mons.filter((x) => L.towerIsCopy(x.slot) && Math.floor((x.slot - L.towerCopySlot(0, 0)) / 2) === b.slot);
+  cb.forEach((c) => assert.strictEqual(c.max, L.towerSplitHp(b.max), 'half, as before'));
+});
+
+test('Nido Soup (pw noheal): a healer leaves one its eater hit alone for 5 s, and mends it after; a word it does not know changes nothing', async () => {
+  const w = world();
+  const ann = await up(w, 'ann', 501, { with: [] }), room = ann.c.room;
+  const h = find(room, (x) => x.heal);
+  const b = find(room, (x) => x !== h && !x.heal && !x.shield && x.def.role === 'normal');
+  assert.ok(h && b);
+  room.mons.forEach((x) => { x.def = Object.assign({}, x.def, { angry: 0 }); x.vx = x.vy = 0; x.t = 1e9; });
+  b.x = h.x + T; b.y = h.y;
+  ann.say({ t: 'mv', x: Math.round(b.x), y: Math.round(b.y), dir: 'down', m: 0 });
+  ann.say({ t: 'hit', s: b.slot, d: 1, n: ++hitN, pw: 'noheal' });
+  b.hp = 1;
+  h.healT = 100;
+  w.run(150);
+  assert.ok(!ann.all('hl').some((m) => m.to === b.slot), 'not mended while the soup holds');
+  assert.strictEqual(b.hp, 1);
+  w.run(5200);
+  h.healT = 100;
+  w.run(150);
+  assert.ok(ann.all('hl').some((m) => m.to === b.slot), 'mended once it wears off');
+  // a made-up word: as a plain hit
+  const was = b.tfNoHeal;
+  ann.say({ t: 'hit', s: b.slot, d: 1, n: ++hitN, pw: 'godmode' });
+  w.run(200);
+  assert.strictEqual(b.tfNoHeal, was, 'a word it does not know: no Nido Soup');
+  assert.strictEqual(L.towerPowerState('godmode'), null);
+});

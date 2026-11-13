@@ -82,6 +82,20 @@
   // the revivers: they lie twice as long with Halo-halo ng Biringan
   var reviveMs = L.towerReviveMs;
   L.towerReviveMs = function (s) { return reviveMs(s) * (L.towerPower(s, 'revive') ? TF.revive : 1); };
+  // On a floor shared with friends the game server runs the healers, the splitters and the revivers (server/lib/tower.js),
+  // so a hit tells it the power of the dish you ate (owner, 13 Nov 2026: "Build the server change now"): `pw` in the 'hit'.
+  // The other powers change only what your own phone does, and need nothing from the server.
+  TF.server = ['noheal', 'split', 'revive'];
+  L.towerHitPower = function (s) {
+    for (var i = 0; i < TF.server.length; i++) if (L.towerPower(s, TF.server[i])) return TF.server[i];
+    return undefined;
+  };
+  // (the server's side: a state as if its dish had just been eaten, in the Tower; null for any other word)
+  L.towerPowerState = function (key) {
+    if (TF.server.indexOf(key) < 0) return null;
+    for (var id in TF.dishes) if (TF.dishes[id].key === key) return { map: 'tower', tfd: { id: id, until: L.nowMin() + TF.mins } };
+    return null;
+  };
   // the energy dishes: Sopas ng Tala halves a charge (as the farm's charge dishes do: once, never twice) and refills 3x
   // faster; Lugaw ng Parola refills 3x faster; Balut ng Bakunawa gives back energy for each enemy you beat
   var power = L.power;
