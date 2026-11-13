@@ -252,13 +252,13 @@
     if (C.NEWS_LATEST) c.add(this.txt(R0 - 4, fy, 'Harvest Ville v' + C.NEWS_LATEST, 12, '#8a6a4a').setOrigin(1, 0.5));
   };
 
-  // The farmer card's links (Medals, the rank, Skills: 19zzzzz-places.js, 19zzzz-rank.js, 19zz-skills.js) on their own
-  // row at the bottom of the card, in that order, spread evenly across it. Each link is a container named '<k>-link',
-  // drawn from x 0 (its .w wide) at y 0; this places them.
+  // The farmer card's links (Medals, the rank, Skills, your name's Frame: 19zzzzz-places.js, 19zzzz-rank.js, 19zz-skills.js,
+  // 19zzz...z-name-frames.js) on their own row at the bottom of the card, in that order, spread evenly across it. Each link
+  // is a container named '<k>-link', drawn from x 0 (its .w wide) at y 0; this places them.
   M.pauseLinks = function (c) {
     var row = c && c.pauseLinks;
     if (!row) return;
-    var order = ['medals-link', 'rank-link', 'skills-link'];
+    var order = ['medals-link', 'rank-link', 'skills-link', 'frame-link'];
     var links = order.map(function (n) { return c.list.filter(function (o) { return o.name === n; })[0]; }).filter(Boolean);
     if (!links.length) return;
     var total = links.reduce(function (a, l) { return a + l.w; }, 0), span = row.x1 - row.x0;

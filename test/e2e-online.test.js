@@ -3082,7 +3082,7 @@ test('online: Town Rank and the Hall of Fame: two earn points, the board orders 
   await ana.page.waitForFunction(() => Farm.world.hallNames && typeof Farm.world.hallNames === 'object', null, SLOW);
   const read = async (spot) => { await ana.page.evaluate((k) => Farm.world.readPlaque(k), spot); await frames(ana.page); const t = await modalText(ana.page); await ana.page.evaluate(() => Farm.ui.closeAll()); return t; };
   assert.strictEqual(await read('d1'), 'THE BIGGEST WILD BOAR | Wild Boar: Ana Acres, 110.0 kg  That\'s you! | OK');
-  assert.strictEqual(await read('d2'), 'FIRST TO BEAT THE BAKUNAWA | First to beat the Bakunawa: Ben Barn | OK');
+  assert.strictEqual(await read('d2'), 'FIRST TO BEAT THE BAKUNAWA | First to beat the Bakunawa: Ben Barn | Close | My frame'); // (a firsts plaque: My frame, 19zzz...z-name-frames.js)
   assert.strictEqual(await read('board'), 'TOWN RANK: THIS MONTH | #1 Ben Barn, 390 (Bronze) | #2 Ana Acres, 310 (Bronze)  That\'s you! | Close | Town Rank');
   assert.match(await read('w2'), /^BIGGEST CATCHES: MAKILING \| Deer: nobody yet\. Be the first! \| Wild Boar: Ana Acres, 110\.0 kg {2}That's you! \| /);
   await ana.page.evaluate((T) => { Farm.world.setFeet(4.5 * T, 6.5 * T); }, PT);

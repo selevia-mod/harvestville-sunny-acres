@@ -271,7 +271,8 @@
     var sp = HALL.spots[spot], self = this;
     if (!sp || !F.ui) return;
     var shape = L.hallShape(spot, this.hallNames, O.me && O.me.id, mine());
-    var buttons = sp.kind === 'top' ? [{ label: 'Close', color: GREY }, { label: 'Town Rank', color: BLUE, cb: function () { F.ui.openTownRank(); } }] : null;
+    var buttons = sp.kind === 'top' ? [{ label: 'Close', color: GREY }, { label: 'Town Rank', color: BLUE, cb: function () { F.ui.openTownRank(); } }]
+      : (sp.kind === 'firsts' || sp.kind === 'first') && F.myFrameButton && F.myFrameButton().length ? [{ label: 'Close', color: GREY }].concat(F.myFrameButton()) : null; // (name frames: 19zzz...z-name-frames.js)
     sfx('talk');
     var c = F.ui.dialog(shape.title, buttons, { rows: shape.rows });
     this.plaqueOpen = this.hallNames === false ? { spot: spot, c: c } : null;

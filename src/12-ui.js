@@ -890,7 +890,8 @@
 
     // buttons: [{ label, cb, color }]; Back acts like the first button when there are two.
     // opts.portrait = villager key: their picture, name and hearts head the panel.
-    // opts.rows = [[icon frame, text], ...]: the body as a list, each line with its own icon.
+    // opts.rows = [[icon frame, text], ...]: the body as a list, each line with its own icon (and a third part, { id } or
+    // { frame }: the name frame of the row's player, under its icon: 19zzz...z-name-frames.js).
     dialog(text, buttons, opts) {
       var self = this;
       opts = opts || {};
@@ -918,7 +919,7 @@
           opts.rows.forEach(function (r, k) {
             var t = self.txt(84, 0, r[1], size, INK, { wordWrap: { width: 222 }, lineSpacing: small ? 1 : 2 }).setOrigin(0, 0);
             var rh = Math.max(small ? 30 : 34, t.height + (small ? 6 : 10));
-            body.push({ t: t, icon: r[0], y: bodyH, h: rh, line: k > 0 });
+            body.push({ t: t, icon: r[0], mark: r[2], y: bodyH, h: rh, line: k > 0 });
             bodyH += rh + gap;
           });
           bodyH -= gap;
@@ -980,6 +981,7 @@
             g.stroke();
           });
           c.add(self.add.image(57, by + b.y + b.h / 2, 'items', b.icon).setScale(0.2));
+          if (b.mark && F.frameRow) F.frameRow(self, c, 57, by + b.y + b.h / 2, b.mark); // (a name frame: row [icon, text, { id | frame }])
           b.t.y = by + b.y + (b.h - b.t.height) / 2;
         } else {
           b.t.y = by;
