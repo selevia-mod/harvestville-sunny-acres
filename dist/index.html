@@ -28697,12 +28697,23 @@ if (this.mapKey === 'farm') this.showHouse();
 };
 
 
+
+
+
+
+F.HOUSE_SIZE = [1, 1, 1, 1, 1.2, 1.2, 1.2, 1.4, 1.4, 1.4, 1.4];
+F.houseRect = function (lv, b) {
+var k = F.HOUSE_SIZE[Math.max(0, Math.min(F.HOUSE_SIZE.length - 1, lv | 0))] || 1, w = 5 * T * k;
+return { x: b.x * T - (w - 5 * T) / 2, y: (b.y + b.h) * T, w: w, h: w, depth: DEPTH.actor + (b.y + 3) * T / 1e5 };
+};
 P.showHouse = function () {
 var lv = this.state.home.level, b = houseBlock(this.state);
 if (!b) return;
 var key = 'props/house_' + Math.max(1, lv);
 F.ensureTexture(this, key);
-this.houseImg = this.add.image(b.x * T, (b.y + b.h) * T, key).setOrigin(0, 1).setDisplaySize(5 * T, 5 * T).setDepth(DEPTH.Walls + 0.05);
+var r = F.houseRect(lv, b);
+this.houseImg = this.add.image(r.x, r.y, key).setOrigin(0, 1).setDisplaySize(r.w, r.h).setDepth(r.depth);
+this.houseLv = lv;
 };
 
 
@@ -30235,7 +30246,7 @@ this.buildingTiles = now;
 this.recollide();
 
 var hb = F.houseBlock && F.houseBlock(s);
-if (hb && this.houseImg) this.houseImg.setPosition(hb.x * T, (hb.y + hb.h) * T);
+if (hb && this.houseImg) { var hr = F.houseRect ? F.houseRect(this.state.home.level, hb) : { x: hb.x * T, y: (hb.y + hb.h) * T }; this.houseImg.setPosition(hr.x, hr.y); if (hr.depth) this.houseImg.setDepth(hr.depth); }
 var m = L.buildingsOf(s, 'house')[0], mt = m && L.maskTiles(m.t, m.x, m.y, 'M')[0];
 if (mt) {
 if (!this.mailboxImg) { F.ensureTexture(this, 'props/mailbox'); this.mailboxImg = this.add.image(0, 0, 'props/mailbox').setOrigin(0, 1).setDisplaySize(T, 2 * T); }
