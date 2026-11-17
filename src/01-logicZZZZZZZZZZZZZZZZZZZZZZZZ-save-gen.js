@@ -5,11 +5,13 @@
 // game (lib/sunny-acres/cloud.js). Raise C.SAVE_GEN when an update adds what an older game would throw away.
 //   0: before Edit Farm (no 'ef', no 'gg')   1: Edit Farm, e54/e55 ('ef', no 'gg')
 //   2: lands 7-9 and the 75-wide farm, The Lost Tower, Farm Economy v2, the Tower's food, name frames (e58)
+//   3: a fence or a hedge on a path saved as its own layer (17 Nov 2026, the 2.7.0 store build): an older game read both
+//      but its next save dropped one again, so its saves must not go up over this game's
 (function (F) {
   'use strict';
   var C = F.Config;
   var L = F.Logic;
-  C.SAVE_GEN = 2;
+  C.SAVE_GEN = 3;
   // the generation of a save (an older one has no 'gg': Edit Farm's 'ef' says 1)
   L.saveGen = function (o) {
     if (!o || typeof o !== 'object') return 0;

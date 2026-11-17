@@ -15,11 +15,11 @@ const plain = (o) => JSON.parse(JSON.stringify(o));
 test('every save says which game wrote it (gg = C.SAVE_GEN); a reload keeps the farm and writes it again', () => {
   const s = L.newState();
   const o = plain(L.serialize(s));
-  assert.strictEqual(C.SAVE_GEN, 2);
-  assert.strictEqual(o.gg, 2);
+  assert.strictEqual(C.SAVE_GEN, 3, 'gen 3: fences and hedges on paths (17 Nov 2026)');
+  assert.strictEqual(o.gg, 3);
   assert.strictEqual(o.ef, 1, 'Edit Farm\'s flag is still written');
   const again = plain(L.serialize(L.deserialize(o)));
-  assert.strictEqual(again.gg, 2);
+  assert.strictEqual(again.gg, 3);
   assert.deepStrictEqual(again.yd, o.yd, 'the buildings where they were');
 });
 
