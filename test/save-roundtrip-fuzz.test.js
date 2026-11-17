@@ -147,10 +147,29 @@ const play = (seed, steps, every) => {
     else if (c === 3) { const d = tpick(L.txItems('danny')); if (trnd() < 0.5) L.addItem(s, d, 1 + tint(9)); L.txSell(s, d, 1 + tint(12)); }
     else L.txTourTake(s, tpick(C.MNTRADE.tours));
   };
+  // the Manila Cup's tries and Race Day's bets (18 Nov 2026), on a random stream of their own too: a try (with a horse that
+  // may race, lent for the try only), a ride finished, its best sent, a bet, bets paid by the clock, a week's prize, the
+  // 3-runs reward, a tour seen; at times up to three weeks on (the cup's week and the day's bet limit roll over)
+  let r5 = seed ^ 0x2c1b3c6d;
+  const qrnd = () => { r5 = (r5 * 1103515245 + 12345) & 0x7fffffff; return r5 / 0x7fffffff; };
+  const qint = (n) => Math.floor(qrnd() * n);
+  const hex = (n) => { let h = ''; for (let i = 0; i < n; i++) h += '0123456789abcdef'[qint(16)]; return h; };
+  const cup = () => {
+    const c = qint(8), at = clock.ms + qint(21) * 864e5 + qint(1440) * 6e4;
+    if (c === 0) { const h = s.horse; s.horse = { name: 'Cup', love: 60, pet: 0, g: 1 }; L.mcBeginTry(s, at); s.horse = h; }
+    else if (c === 1) L.mcFinish(s, { done: true, laps: [9000 + qint(4000), 9000 + qint(4000), 9000 + qint(4000)], knocks: qint(6) }, at);
+    else if (c === 2) { const q = L.mcToSend(s); if (q) L.mcSent(s, q.id, qrnd() < 0.7); }
+    else if (c === 3) { const n = L.rdNext(at); L.rdBet(s, n, qint(6), 100 * (1 + qint(500)), at); }
+    else if (c === 4) L.rdSettle(s, at + qint(90) * 6e4);
+    else if (c === 5) L.mcPrizePay(s, { ok: true, id: hex(8) + '-' + hex(4) + '-4' + hex(3) + '-8' + hex(3) + '-' + hex(12), rank: 1 + qint(12), ms: 30000 + qint(9000) });
+    else if (c === 6) L.mcWeekly(s, at);
+    else L.mcTourTake(s, qrnd() < 0.5 ? 'cup' : 'race');
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
     if (MF && mrnd() < 0.1) manila();
     if (shops.length && trnd() < 0.1) trade();
+    if (L.mcBeginTry && qrnd() < 0.1) cup();
     const k = rnd();
     if (k < 0.12) { // a line of fences, paths or hedges, as players lay them (lines cross: a fence over a path)
       const t = pick(tiles), n = 3 + int(13), down = rnd() < 0.5, x0 = 1 + int(73), y0 = 1 + int(62);
