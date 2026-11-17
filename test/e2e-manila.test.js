@@ -727,3 +727,170 @@ test('no invisible walls (owner, 12 Nov 2026): a picture narrower than its box i
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+// ---------- city life, steps 2 and 4 (owner, 18 Nov 2026: "Make the Manila fully build now"), with the city's pack in ----------
+// (the app's way, as openApp, with the hour, a cheap phone and a game saved in Manila at a tile)
+async function openCity(when, tx, ty, opts = {}) {
+  const save = await makeSave("s.gold = 500; s.energy = 20; s.map = 'manila'; s.player = { x: " + tx + ' * 256 + 128, y: ' + ty + " * 256 + 128, dir: 'down' };", when);
+  const all = fs.readdirSync(PACKS).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  await context.exposeBinding('__appAsset', (src, file) => {
+    const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file), p = m && path.join(PACKS, m[1] + '.webp');
+    return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+  });
+  const page = await context.newPage();
+  const problems = [];
+  page.on('pageerror', (e) => problems.push('pageerror: ' + e.message));
+  page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
+  await page.route('**/*', (route) => { const u = route.request().url(); if (u.startsWith('file:') || u.startsWith('data:')) return route.continue(); problems.push('network: ' + u); return route.abort(); });
+  await page.addInitScript(([state, now, here, lite]) => {
+    window.__now = now;
+    const p0 = performance.now();
+    window.__clock = () => now + (performance.now() - p0) * (window.__fast || 1); // (the jeep's, the calesa's and the train's clock)
+    window.gameHost = { state, quiet: true, lite, save(s) { this.state = s; }, now: () => window.__now, here,
+      asset(f, save) { setTimeout(() => window.__appAsset(f).then((u) => (save ? window.__gameAssetSaved(f, !!u) : window.__gameAsset(f, u))), 20 + Math.random() * 60); } };
+  }, [save, at(when), all, !!opts.lite]);
+  await page.goto(PAGE, { timeout: 90000 });
+  await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.mn && Farm.packReady('manila') && Farm.ui && Farm.ui.refresh, null, SLOW);
+  await page.evaluate(() => { Farm.Config.MANILA.jeepNow = window.__clock; Farm.Logic.weather = () => 'sunny'; });
+  await frames(page, 4);
+  return { page, problems, context };
+}
+const rolesOut = (page) => page.evaluate(() => Farm.world.mn.roles.filter((v) => !v.inside).map((v) => v.role).sort());
+
+test('street food: the fishball vendor at the College at lunch with the three students at his cart; Buy, the tour the first time (the owner\'s pictures), then 10G for energy', async () => {
+  const { page, problems, context } = await openCity([2026, 4, 1, 12, 20], 44, 84);
+  const r = await page.evaluate(() => {
+    const w = Farm.world, fb = w.mn.roles.find((v) => v.role === 'fishball'), st = w.mn.roles.filter((v) => v.role === 'students');
+    return { fb: [fb.x / 256, fb.y / 256], cart: fb.cart && fb.cart.texture.key, sheet: fb.sp.texture.key, students: st.map((v) => [v.x / 256, v.y / 256, v.inside, v.sp.texture.key]) };
+  });
+  assert.deepStrictEqual(r.fb.map(Math.floor), [43, 82], 'the cart at the College');
+  assert.strictEqual(r.cart, 'props/manila_cart_fishball', 'the owner\'s cart, pushed by him');
+  assert.strictEqual(r.sheet, 'npc_fishball_vendor');
+  assert.deepStrictEqual(r.students.map((v) => v[3]).sort(), ['npc_student_1', 'npc_student_2', 'npc_student_3']);
+  r.students.forEach((v) => { assert.ok(!v[2], 'out at lunch'); assert.ok(Math.hypot(v[0] - 43.5, v[1] - 84.6) < 2.2, 'at his cart: ' + v); });
+  await page.evaluate(() => { const v = Farm.world.mn.roles.find((x) => x.role === 'fishball'); v.hold = 1e9; v.path = []; });
+  await teleport(page, 44, 82, 'left');
+  assert.strictEqual(await actionLabel(page), 'Buy');
+  await shot(page, 'manila-12-fishball-college');
+  await tapAction(page);
+  assert.match(await modalText(page), /STREET FOOD/, 'the first time: the tour');
+  const pics = await page.evaluate(() => { const out = [], walk = (l) => l.forEach((o) => { if (o.texture) out.push(o.texture.key); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
+  assert.ok(pics.includes('props/manila_cart_fishball') && pics.includes('props/manila_cart_sorbetes'), 'the owner\'s carts in the tour: ' + pics);
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Got it');
+  await frames(page, 4);
+  assert.match(await modalText(page), /Fishballs/, 'then what he sells');
+  await tapButton(page, 'Buy');
+  const s = await state(page);
+  assert.strictEqual(s.gold, 490, '10G');
+  assert.strictEqual(s.energy, 24, '+4 energy');
+  // the second time: straight to the food
+  await page.evaluate(() => Farm.ui.closeAll());
+  await tapAction(page);
+  assert.match(await modalText(page), /Fishballs/);
+  assert.doesNotMatch(await modalText(page), /STREET FOOD/);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the College\'s three students walk together: the leader ahead, the other two close behind, and round the leader when they stop', async () => {
+  const { page, problems, context } = await openCity([2026, 4, 1, 12, 30], 41, 85);
+  await page.evaluate(() => { window.__now = new Date(2026, 3, 1, 12, 42).getTime(); Farm.world.mn.roles.filter((v) => v.role === 'students').forEach((v) => { v.hold = 0; }); });
+  const r = await page.evaluate(() => new Promise((ok) => {
+    const far = [], moved = [], t0 = Date.now();
+    const tick = () => {
+      const st = Farm.world.mn.roles.filter((v) => v.role === 'students'), lead = st.find((v) => !v.follow);
+      st.forEach((v) => { const d = Math.hypot(v.x - lead.x, v.y - lead.y) / 256; if (d > 2.6) far.push(d.toFixed(2)); });
+      if (lead.path.length) moved.push(1);
+      if (Date.now() - t0 < 9000) setTimeout(tick, 150); else ok({ far, moved: moved.length, lead: [lead.x / 256, lead.y / 256], others: st.filter((v) => v.follow).map((v) => [v.x / 256, v.y / 256]) });
+    };
+    tick();
+  }));
+  assert.ok(r.moved > 5, 'they walked (lunch over: to the lawn)');
+  assert.deepStrictEqual(r.far, [], 'never apart');
+  await shot(page, 'manila-13-students');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the calesa: pay 20G at its stand (the tour the first time), climb in when it stops, twice round the old walls, off at the stand', async () => {
+  const { page, problems, context } = await openCity([2026, 4, 1, 10, 0], 63, 28);
+  // its clock to a moment it is about to come to its stand, and four times as fast
+  await page.evaluate(() => {
+    const L = Farm.Logic, r = L.calesaRoute(), base = Date.UTC(2026, 3, 1, 2, 0), start = base - (base % r.loopMs) + r.loopMs - 3000, p0 = performance.now();
+    window.__fast = 4;
+    Farm.Config.MANILA.jeepNow = () => start + (performance.now() - p0) * 4;
+    Farm.world.mn.cal.lag = 0;
+  });
+  await teleport(page, 63, 28, 'up');
+  assert.strictEqual(await actionLabel(page), 'Calesa');
+  await tapAction(page);
+  assert.match(await modalText(page), /THE CALESA/);
+  const pics = await page.evaluate(() => { const out = [], walk = (l) => l.forEach((o) => { if (o.texture) out.push(o.texture.key); if (o.list) walk(o.list); }); walk(Farm.ui.modals[Farm.ui.modals.length - 1].c.list); return out; });
+  assert.ok(pics.includes('manila_calesa'), 'the tour: the owner\'s calesa');
+  await tapButton(page, 'Next');
+  await tapButton(page, 'Got it');
+  await frames(page, 4);
+  await tapButton(page, 'Ride 20G');
+  assert.strictEqual((await state(page)).gold, 480);
+  await page.waitForFunction(() => Farm.world.mnCal && Farm.world.mnCal.stage === 'on', null, SLOW);
+  await page.waitForFunction(() => Farm.world.mn.cal.at && !Farm.world.mn.cal.at.stop && /left|right/.test(Farm.world.mn.cal.at.dir), null, SLOW);
+  const ride = await page.evaluate(() => { const w = Farm.world, c = w.mn.cal.at, f = w.feet(); return { c: [c.x, c.y], f: [f.x / 256, f.y / 256], label: Farm.ui.actionLabel.text, body: w.player.body.enable }; });
+  assert.ok(Math.abs(ride.f[0] - ride.c[0]) < 1.2 && Math.abs(ride.f[1] - ride.c[1]) < 1.2, 'sitting in it: ' + JSON.stringify(ride));
+  assert.strictEqual(ride.label, 'Riding');
+  assert.strictEqual(ride.body, false);
+  await shot(page, 'manila-14-calesa-ride');
+  await page.waitForFunction(() => !Farm.world.mnCal, null, { timeout: 60000 });
+  const off = await feetTile(page);
+  assert.deepStrictEqual(off, [63, 28], 'off at its stand');
+  assert.strictEqual(await page.evaluate(() => Farm.world.player.body.enable), true);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the elevated train comes in high from the west, its platform\'s crowd gets on, and it goes out again', async () => {
+  const { page, problems, context } = await openCity([2026, 4, 1, 10, 0], 8, 14);
+  await page.evaluate(() => { const Z = Farm.Config.MANILA.lrt, base = Date.UTC(2026, 3, 1, 2, 0), start = base - (base % Z.cycle) + Z.cycle - 3000, p0 = performance.now(); Farm.Config.MANILA.jeepNow = () => start + (performance.now() - p0); Farm.world.mn.lrt.here = Farm.world.mn.lrt.folk.length; });
+  const away = await page.evaluate(() => ({ here: Farm.world.mn.lrt.here, seen: Farm.world.mn.train.parts.filter((p) => p.im.visible).length, crowd: Farm.world.mn.lrt.folk.filter((s) => s.visible).length }));
+  assert.strictEqual(away.seen, 0, 'away: not seen');
+  assert.ok(away.crowd >= 3, 'people waiting on the platform: ' + away.crowd);
+  await page.waitForFunction(() => Farm.Logic.lrtAt(Farm.Config.MANILA.jeepNow()).phase === 'stop', null, SLOW);
+  await page.waitForTimeout(300);
+  const stop = await page.evaluate(() => ({ parts: Farm.world.mn.train.parts.map((p) => [p.im.texture.key, Math.round(p.im.x / 256)]), crowd: Farm.world.mn.lrt.folk.filter((s) => s.visible).length }));
+  assert.strictEqual(stop.parts.filter((p) => p[0] === 'props/manila_city_train_head').length, 2, 'a head at each end');
+  assert.ok(stop.parts.every((p) => p[1] >= 0 && p[1] <= 20), 'along the platform: ' + JSON.stringify(stop.parts));
+  assert.strictEqual(stop.crowd, 0, 'all aboard');
+  await shot(page, 'manila-15-lrt');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the same people on a cheap phone (owner, 18 Nov 2026: never fewer for gameplay); the evening court, the families, the night\'s balut vendor; the pickleball pair in other shirts', async () => {
+  const eve = await openCity([2026, 4, 1, 17, 30], 61, 63);
+  const full = await rolesOut(eve.page);
+  ['ballers', 'families', 'couple', 'fishermen', 'students'].forEach((k) => assert.ok(full.includes(k), k + ' out at 5:30 PM'));
+  assert.strictEqual(full.filter((k) => k === 'ballers').length, 4);
+  assert.ok(!full.includes('balut') && !full.includes('taho'));
+  const shirts = await eve.page.evaluate(() => Farm.world.mn.roles.filter((v) => v.role === 'pickleball').map((v) => v.sp.texture.key));
+  assert.strictEqual(new Set(shirts).size, 4, 'four looks: ' + shirts);
+  assert.ok(shirts.filter((k) => /^mnrc-/.test(k)).length === 2, 'two in another shirt colour');
+  const onCourt = await eve.page.evaluate(() => { const c = Farm.Config.MANILA.roles.ballers.court; return Farm.world.mn.roles.filter((v) => v.role === 'ballers').every((v) => v.x / 256 >= c[0] && v.x / 256 <= c[0] + c[2] && v.y / 256 >= c[1] && v.y / 256 <= c[1] + c[3]); });
+  assert.ok(onCourt, 'the players on the court');
+  await shot(eve.page, 'manila-16-court-evening');
+  assert.deepStrictEqual(eve.problems, []);
+  await eve.context.close();
+  const cheap = await openCity([2026, 4, 1, 17, 30], 61, 63, { lite: true });
+  assert.strictEqual(await cheap.page.evaluate(() => Farm.cheapPhone()), true);
+  assert.deepStrictEqual(await rolesOut(cheap.page), full, 'the same roles out on a cheap phone');
+  await cheap.context.close();
+  const night = await openCity([2026, 4, 1, 22, 0], 74, 44);
+  const n = await rolesOut(night.page);
+  assert.ok(n.includes('balut') && !n.includes('ballers') && !n.includes('families'), 'the night: ' + n);
+  await night.page.evaluate(() => { const v = Farm.world.mn.roles.find((x) => x.role === 'balut'); v.hold = 1e9; v.path = []; });
+  await teleport(night.page, 75, 44, 'right');
+  assert.strictEqual(await actionLabel(night.page), 'Buy');
+  await shot(night.page, 'manila-17-balut-night');
+  assert.deepStrictEqual(night.problems, []);
+  await night.context.close();
+});
