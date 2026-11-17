@@ -135,9 +135,22 @@ const play = (seed, steps, every) => {
     else if (c === 7) { if (mrnd() < 0.5) L.mnStudy(s, mpick(C.SKILLS.order)); else { const o = L.mnTradeOffer(s); L.addItem(s, o.give, o.n); L.mnTrade(s); } }
     else if (mrnd() < 0.5) L.manilaRide(s); else L.buyAmmo(s, mpick(['bullets', 'javelins']), 1 + mint(3));
   };
+  // Mang Danny's Trading Post and the Talipapa (18 Nov 2026), on a random stream of their own too: buying (a full bag
+  // fills the basket), selling to Mang Danny, a tour seen (a new day's full shelves: manila-trade.test.js)
+  let r4 = seed ^ 0x1b873593;
+  const trnd = () => { r4 = (r4 * 1103515245 + 12345) & 0x7fffffff; return r4 / 0x7fffffff; };
+  const tint = (n) => Math.floor(trnd() * n), tpick = (xs) => xs[tint(xs.length)];
+  const shops = C.MNTRADE ? Object.keys(C.MNTRADE.shops) : [];
+  const trade = () => {
+    const shop = tpick(shops), id = tpick(L.txItems(shop)), c = tint(5);
+    if (c < 3) L.txBuy(s, shop, id, 1 + tint(12));
+    else if (c === 3) { const d = tpick(L.txItems('danny')); if (trnd() < 0.5) L.addItem(s, d, 1 + tint(9)); L.txSell(s, d, 1 + tint(12)); }
+    else L.txTourTake(s, tpick(C.MNTRADE.tours));
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
     if (MF && mrnd() < 0.1) manila();
+    if (shops.length && trnd() < 0.1) trade();
     const k = rnd();
     if (k < 0.12) { // a line of fences, paths or hedges, as players lay them (lines cross: a fence over a path)
       const t = pick(tiles), n = 3 + int(13), down = rnd() < 0.5, x0 = 1 + int(73), y0 = 1 + int(62);

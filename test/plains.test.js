@@ -272,7 +272,7 @@ test('the Armory opens in Manila: buy, upgrade, ammo, repairs; only its "coming 
   const M = C.MANILA, arm = M.buildings.filter((b) => b.key === 'armory')[0];
   assert.ok(M.armory && M.armory.on);
   assert.ok(!/soon/i.test(arm.text), 'the Armory says what it sells');
-  assert.ok(M.buildings.filter((b) => b.key === 'hall' || b.key === 'trading' || b.key === 'stables').every((b) => /soon/i.test(b.text)), 'the others still say coming soon');
+  assert.ok(M.buildings.filter((b) => b.key === 'hall' || b.key === 'stables').every((b) => /soon/i.test(b.text)), 'the others still say coming soon'); // (the Trading Post opened: manila-trade.test.js)
   assert.ok(!M.people.lando.lines.some((l) => /not ready/i.test(l)), 'Panday Lando: open now');
   const s = fresh();
   s.gold = 1e7; s.lumber = 100;
