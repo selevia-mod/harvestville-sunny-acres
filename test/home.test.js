@@ -28,7 +28,8 @@ test('the home data: 10 levels that only grow, 27 kinds of furniture in 10 style
     assert.ok(b.map[0] >= a.map[0] && b.map[1] >= a.map[1] && b.gold > a.gold, b.name);
   }
   assert.strictEqual(H.types.filter((t) => !t.trophy).length, 27);
-  assert.strictEqual(H.types.filter((t) => t.trophy && !t.lair).length, 10, 'the hunting trophies');
+  assert.strictEqual(H.types.filter((t) => t.trophy && !t.lair && !t.mc).length, 10, 'the hunting trophies');
+  assert.deepStrictEqual(H.types.filter((t) => t.mc).map((t) => t.key).join(), ['mc_cup_gold', 'mc_cup_silver', 'mc_cup_bronze', 'mc_ribbon'].join(), 'the Manila Cup\'s cups and ribbon (appended)');
   assert.deepStrictEqual(H.types.filter((t) => t.lair).map((t) => t.key).join(), ['volcano_lamp', 'volcano_model', 'volcano_armchair', 'volcano_fireplace', 'bakunawa_rug'].join(), 'the Lair\'s Volcano set (made by Kanor too)');
   assert.strictEqual(H.styles.length, 10);
   assert.strictEqual(H.styles.filter((st) => st.festival).length, 5);
