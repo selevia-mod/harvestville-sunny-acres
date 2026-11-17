@@ -7426,6 +7426,38 @@ M.crowd.lines = M.crowd.lines.map(function (l) { return l === 'The Grand Market 
 }
 })(window.Farm = window.Farm || {});
 
+// ---- src/00-zzzzzzzzzzzzzzzzzzzzzzzzzzz-manila-trade.js
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var M = C.MANILA;
+if (!M || !M.on || !C.WORKSHOPS.mixer) return;
+C.MNTRADE = {
+on: true,
+mult: 2,
+
+
+shops: {
+danny: { stock: 20, buys: 1, items: 'mixer' },
+
+meat_vendor: { stock: 30, items: ['meat_labuyo', 'meat_rabbit', 'venison', 'meat_boar'] },
+fish_vendor: { stock: 30, items: ['fish_s', 'fish_m', 'fish_l'] },
+veg_vendor: { stock: 30, items: ['garlic', 'ginger', 'potato', 'carrot', 'onion', 'tomato', 'chili', 'bitter_gourd'] },
+},
+tours: ['post', 'tp'],
+};
+
+M.buildings.forEach(function (b) {
+if (b.key === 'trading') b.text = "Mang Danny's Trading Post. He buys and sells the Mixer's Farm Cement, Rope, Sili Powder and Beeswax.";
+});
+var d = M.people.danny;
+if (d) d.lines[0] = 'My shelves are full now: cement, rope, wax, sili. Come in, come in!';
+})(window.Farm = window.Farm || {});
+
 // ---- src/00-zzzzzzzzzzzzzzzzzzzzzzzzzzzz-manila-friends.js
 
 
@@ -23846,6 +23878,103 @@ if (g.trip && Array.isArray(b[2]) && b[2][4] != null) {
 var fee = int(b[2][4], 0, 1000, -1);
 if (fee >= 0) g.trip.fee = fee / 1000;
 }
+}
+return s;
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZZZZZZZ-manila-trade.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var X = C.MNTRADE;
+if (!X) return;
+var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+var sell = function (id) { return (C.ITEMS[id] && C.ITEMS[id].sell) || 0; };
+L.txItems = function (shop) {
+var sh = X.shops[shop];
+return !sh ? [] : sh.items === 'mixer' ? C.WORKSHOPS.mixer.recipes.map(function (r) { return r.out; }) : sh.items;
+};
+L.txShopOf = function (id) { for (var k in X.shops) if (L.txItems(k).indexOf(id) >= 0) return k; return null; };
+L.txPrice = function (id) { return Math.max(1, Math.round(sell(id) * X.mult)); };
+L.txPays = sell;
+L.txNew = function () { return { d: 0, n: {}, t: 0 }; };
+var tx = function (s) { if (!s.tx) s.tx = L.txNew(); if (s.tx.d !== s.day) { s.tx.d = s.day; s.tx.n = {}; } return s.tx; };
+L.txLeft = function (s, id) {
+var sh = X.shops[L.txShopOf(id)], t = s.tx;
+return sh ? Math.max(0, sh.stock - (t && t.d === s.day ? t.n[id] || 0 : 0)) : 0;
+};
+
+var room = function (s, id, n) {
+var k = 0;
+while (k < n && L.canAdd(s, id, k + 1)) k++;
+return k + Math.max(0, 999 - ((s.basket || {})[id] || 0));
+};
+
+L.txBuy = function (s, shop, id, n) {
+if (L.txShopOf(id) !== shop) return { why: 'shop' };
+n = Math.min(int(n, 1, 999, 1), L.txLeft(s, id));
+if (n <= 0) return { why: 'stock' };
+var cost = n * L.txPrice(id);
+if (s.gold < cost) return { why: 'gold', cost: cost };
+if (room(s, id, n) < n) return { why: 'full' };
+s.gold -= cost;
+var left = L.addItem(s, id, n);
+if (left > 0) { s.basket = s.basket || {}; s.basket[id] = (s.basket[id] || 0) + left; }
+var t = tx(s);
+t.n[id] = (t.n[id] || 0) + n;
+return { ok: true, n: n, gold: cost, basket: left };
+};
+
+L.txSell = function (s, id, n) {
+var sh = X.shops[L.txShopOf(id)];
+if (!sh || !sh.buys) return { why: 'item' };
+var k = Math.min(int(n, 1, 1e6, 1), L.countItem(s, id));
+if (!(k > 0)) return { why: 'none' };
+k = L.removeItem(s, id, k);
+var gold = k * L.txPays(id);
+s.gold += gold;
+if (s.stats) s.stats.earned = (s.stats.earned || 0) + gold;
+return { ok: true, n: k, gold: gold };
+};
+L.txTourSeen = function (s, key) { var i = X.tours.indexOf(key); return i < 0 || !!(((s.tx && s.tx.t) >> i) & 1); };
+L.txTourTake = function (s, key) {
+if (L.txTourSeen(s, key)) return false;
+if (!s.tx) s.tx = L.txNew();
+s.tx.t |= 1 << X.tours.indexOf(key);
+return true;
+};
+
+var newState = L.newState;
+L.newState = function (info) { var s = newState(info); s.tx = L.txNew(); return s; };
+var endDay = L.endDay;
+L.endDay = function (s, passedOut, info) { var r = endDay(s, passedOut, info); if (s.tx && s.tx.d !== s.day) { s.tx.d = 0; s.tx.n = {}; } return r; };
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s), t = s.tx, n = [];
+if (!t) return o;
+if (t.d === s.day) Object.keys(t.n).sort().forEach(function (id) { if (t.n[id] > 0) n.push(id, t.n[id]); });
+if (n.length || t.t) o.tx = [n.length ? t.d : 0, n, t.t || 0];
+return o;
+};
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (!s) return s;
+var t = s.tx = L.txNew(), a = o && Array.isArray(o.tx) ? o.tx : null;
+if (!a) return s;
+t.t = int(a[2], 0, 0xffff, 0);
+var b = Array.isArray(a[1]) ? a[1] : [], d = int(a[0], 0, 1e7, 0);
+if (d && d === s.day) {
+for (var i = 0; i + 1 < b.length; i += 2) { var n = int(b[i + 1], 0, 1e6, 0); if (n && L.txShopOf(b[i])) t.n[b[i]] = n; }
+if (Object.keys(t.n).length) t.d = d;
 }
 return s;
 };
@@ -65888,6 +66017,196 @@ words(ui, sc, 228, y, ['NEW', '6 \u2665', '2/4'][i], 10, '#a8343a');
 ],
 };
 }
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-manila-trade.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var X = C.MNTRADE;
+var M = C.MANILA;
+if (!X || !X.on || !M || !M.on) return;
+var P = F.WorldScene.prototype;
+var U = F.UIScene.prototype;
+var INK = F.UI_CONST.INK;
+var GREEN = 0x5fa84a, BLUE = 0x4a90c9, DARK_GREEN = 0x2f5a22;
+var sfx = function (n) { if (F.Audio) F.Audio.sfx(n); };
+var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+var name = function (id) { return C.ITEMS[id] ? C.ITEMS[id].name : id; };
+var icon = function (id) { return C.ITEMS[id] ? C.ITEMS[id].icon : C.ICON.coin; };
+var mine = function () { var s = F.session && F.session.state; return s && !s.isVisit && !F.session.visit && !F.session.raid ? s : null; };
+var STALL = { meat_vendor: ['The Meat Stall', 'props/manila_talipapa_meat'], fish_vendor: ['The Fish Stall', 'props/manila_talipapa_fish'], veg_vendor: ['The Vegetable Stall', 'props/manila_talipapa_veg'] };
+var hr = function (m) { var h = Math.floor(m / 60) % 24; return (h % 12 || 12) + (h < 12 ? ' AM' : ' PM'); };
+var tpHours = (M.roles && M.roles.meat_vendor && M.roles.meat_vendor.hours && M.roles.meat_vendor.hours[0]) || [300, 1020];
+
+
+var ART = { post: ['props/manila_trading_post', 'npc_mang_danny'], tp: ['props/manila_talipapa_meat', 'props/manila_talipapa_fish', 'props/manila_talipapa_veg'] };
+var artReady = function (keys) {
+var want = keys.filter(function (k) { var f = F.packedFile && F.packedFile(k); return !(F.images && F.images[k]) && f && F.onPhone && F.onPhone(f.file) && F.canFetch(); });
+if (!want.length || !F.needImage) return Promise.resolve();
+return Promise.race([Promise.all(want.map(F.needImage)), new Promise(function (r) { setTimeout(r, 1500); })]);
+};
+var touring = false;
+var tourFirst = function (ui, key, then) {
+var s = mine();
+if (touring) return true;
+if (!s || (window.gameHost && window.gameHost.quiet) || !ui.tour || L.txTourSeen(s, key)) return false;
+L.txTourTake(s, key);
+if (F.world) F.world.save();
+touring = true;
+var go = function () { touring = false; ui.tour('tx_' + key, then); };
+artReady(ART[key]).then(go, go);
+return true;
+};
+
+var fit = function (ui, sc, key, cx, bottom, w, h, alt) {
+if (!(F.images && F.images[key])) { var i = ui.add.image(cx, bottom - h / 2, 'items', alt).setScale(0.34); sc.add(i); return i; }
+F.ensureTexture(ui, key);
+var fr = ui.textures.getFrame(key, 0), k = Math.min(w / fr.realWidth, h / fr.realHeight), im = ui.add.image(cx, bottom, key, 0).setOrigin(0.5, 1).setScale(k);
+sc.add(im);
+return im;
+};
+var ic = function (ui, sc, x, y, id, k) { var i = ui.add.image(x, y, 'items', typeof id === 'number' ? id : icon(id)).setScale(k || 0.3); sc.add(i); return i; };
+var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 13, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+var bob = function (ui, move, t) { if (move && t) ui.tweens.add({ targets: t, y: t.y - 6, duration: 430, yoyo: true, repeat: -1, ease: 'Sine.inOut' }); };
+var D = X.shops.danny, TP = X.shops.meat_vendor;
+F.TOURS.tx_post = {
+title: "MANG DANNY'S TRADING POST",
+steps: [
+{ text: "The Trading Post is open! Mang Danny buys and sells the Mixer's goods: Farm Cement, Rope, Sili Powder and Beeswax.",
+draw: function (ui, sc, move) { fit(ui, sc, 'props/manila_trading_post', 96, 126, 160, 116, C.ICON.crate); bob(ui, move, fit(ui, sc, 'npc_mang_danny', 214, 124, 96, 96, C.ICON.heart)); } },
+{ text: 'He pays what they sell for, any amount. He sells at ' + X.mult + ' times that, up to ' + D.stock + ' of each a day. Making your own still pays!',
+draw: function (ui, sc, move) {
+ic(ui, sc, 136, 52, 'rope', 0.36);
+words(ui, sc, 60, 52, 'Sell ' + L.txPays('rope') + 'G', 14, '#2f5a22');
+words(ui, sc, 214, 52, 'Buy ' + L.txPrice('rope') + 'G', 14, '#a8740c');
+bob(ui, move, words(ui, sc, 136, 108, D.stock + ' a day', 14));
+} },
+{ text: 'At 8 hearts with him, his rare trade of the week is in the shop too, at the top.',
+draw: function (ui, sc, move) {
+ic(ui, sc, 80, 64, 'rope', 0.34);
+words(ui, sc, 136, 64, '->', 18);
+bob(ui, move, ic(ui, sc, 192, 64, 'obsidian', 0.34));
+ic(ui, sc, 136, 112, C.ICON.heart, 0.18);
+} },
+],
+};
+F.TOURS.tx_tp = {
+title: 'THE TALIPAPA',
+steps: [
+{ text: "The Talipapa's vendors sell what the Kitchen's recipes need: meat, fish and vegetables, from " + hr(tpHours[0]) + ' to ' + hr(tpHours[1]) + '.',
+draw: function (ui, sc, move) {
+['meat_vendor', 'fish_vendor', 'veg_vendor'].forEach(function (k, i) { var t = fit(ui, sc, STALL[k][1], 50 + i * 86, 112, 80, 84, icon(X.shops[k].items[0])); if (i === 1) bob(ui, move, t); });
+} },
+{ text: 'They ask ' + X.mult + ' times the sell price, ' + TP.stock + ' of each a day. Growing, fishing and hunting your own still pays.',
+draw: function (ui, sc, move) {
+['meat_boar', 'fish_m', 'garlic'].forEach(function (id, i) { var x = 60 + i * 76; bob(ui, move && i === 1, ic(ui, sc, x, 52, id, 0.3)); words(ui, sc, x, 96, L.txPrice(id) + 'G', 13, '#a8740c'); });
+} },
+{ text: 'What you buy goes in your bag. With no room there, it waits in the basket by your farmhouse.',
+draw: function (ui, sc, move) { ic(ui, sc, 80, 64, C.ICON.bag, 0.4); words(ui, sc, 136, 64, '->', 18); bob(ui, move, fit(ui, sc, 'props/basket_full', 194, 100, 72, 72, C.ICON.crate)); } },
+],
+};
+
+
+var BUY_WHY = { stock: 'Sold out for today. More tomorrow!', full: 'No room in your bag or your basket.', shop: 'Not sold here.' };
+var buy = function (ui, s, shop, id, n, again) {
+var r = L.txBuy(s, shop, id, n);
+if (!r.ok) { sfx('nope'); return ui.toast(r.why === 'gold' ? 'That is ' + fmt(r.cost) + 'G. You have ' + fmt(s.gold) + 'G.' : BUY_WHY[r.why], 2400); }
+sfx('coin');
+again('Bought ' + r.n + ' ' + name(id) + ' for ' + fmt(r.gold) + 'G.' + (r.basket ? ' Your bag is full: ' + r.basket + ' wait in your basket by the farmhouse.' : ''));
+};
+var buyRow = function (ui, s, shop, id, again) {
+var left = L.txLeft(s, id), have = L.countItem(s, id);
+return { icon: icon(id), name: name(id) + '  \u00b7  ' + fmt(L.txPrice(id)) + 'G',
+desc: (left ? 'Left today: ' + left + ' of ' + X.shops[shop].stock + '.' : 'Sold out today. More tomorrow!') + ' You have ' + have + '.',
+buttons: [1, Math.min(5, left)].filter(function (n, i) { return left && (!i || n > 1); }).map(function (n, i) {
+return { label: 'Buy ' + n, color: i ? BLUE : GREEN, cb: function () { buy(ui, s, shop, id, n, again); } };
+}) };
+};
+var saved = function () { var w = F.world; if (w) { w.changed(); w.save(); } F.bus.emit('hud'); };
+
+
+U.txOpenPost = function (tab, page) {
+var self = this, s = mine();
+if (!s) return;
+if (tourFirst(this, 'post', function () { self.txOpenPost(tab, page); })) return;
+tab = tab || 'buy';
+var again = function (msg) { saved(); self.swapTo(function () { self.txOpenPost(tab, page); }); if (msg) self.toast(msg, 2600, DARK_GREEN); };
+var rows = [];
+if (tab === 'buy') {
+var o = L.mnTradeOffer && L.mnTradeOffer(s);
+if (o && o.on) {
+rows.push({ icon: icon(o.get), name: 'Rare trade: ' + o.m + ' ' + name(o.get),
+desc: o.done ? "This week's is done. A new one on Monday!" : 'For your ' + o.n + ' ' + name(o.give) + ' (you have ' + o.have + '). One a week.',
+buttons: o.done ? [] : [{ label: 'Trade', color: o.have >= o.n ? GREEN : 0xa08a68, cb: function () {
+var r = L.mnTrade(s);
+if (r !== 'ok') { sfx('nope'); return self.toast(r === 'missing' ? 'You need ' + o.n + ' ' + name(o.give) + '.' : r === 'full' ? 'Your bag is full.' : 'Not now.', 2400); }
+sfx('coin');
+again('A fair trade! ' + o.m + ' ' + name(o.get) + '.');
+} }] });
+}
+L.txItems('danny').forEach(function (id) { rows.push(buyRow(self, s, 'danny', id, again)); });
+} else {
+L.txItems('danny').forEach(function (id) {
+var have = L.countItem(s, id), sell = function (n) {
+var r = L.txSell(s, id, n);
+if (!r.ok) { sfx('nope'); return self.toast('You have no ' + name(id) + '.', 2000); }
+sfx('coin');
+again('Sold ' + r.n + ' ' + name(id) + ' for ' + fmt(r.gold) + 'G.');
+};
+rows.push({ icon: icon(id), name: name(id) + '  \u00b7  ' + fmt(L.txPays(id)) + 'G each', desc: 'You have ' + have + '. He buys any amount.',
+buttons: have ? [{ label: 'Sell 1', color: GREEN, cb: function () { sell(1); } }, { label: 'Sell all', color: BLUE, cb: function () { sell(have); } }] : [] });
+});
+}
+this.listPanel({ title: "Mang Danny's Trading Post", rows: rows, tab: tab, page: page || 0, tabs: [['buy', 'Buy'], ['sell', 'Sell']],
+reopen: function (t, p) { self.txOpenPost(t, p); },
+sub: function () { return 'Your gold: ' + fmt(s.gold) + 'G.  ' + (tab === 'buy' ? D.stock + ' of each a day.' : 'He pays the sell price.'); } });
+};
+
+
+U.txOpenStall = function (role, line, page) {
+var self = this, s = mine(), st = STALL[role];
+if (!s || !st) return;
+if (tourFirst(this, 'tp', function () { self.txOpenStall(role, line, page); })) return;
+var again = function (msg) { saved(); self.swapTo(function () { self.txOpenStall(role, line, page); }); if (msg) self.toast(msg, 2600, DARK_GREEN); };
+this.listPanel({ title: st[0], rows: L.txItems(role).map(function (id) { return buyRow(self, s, role, id, again); }), page: page || 0,
+reopen: function (t, p) { self.txOpenStall(role, line, p); },
+sub: function () { return (line ? '"' + line + '"  ' : '') + 'Your gold: ' + fmt(s.gold) + 'G.'; } });
+};
+
+
+var extraObjectAction = P.extraObjectAction;
+P.extraObjectAction = function (o) {
+if (o && o.type === 'mn_spot' && o.name === 'trading' && this.mapKey === 'manila' && mine()) return { label: 'Shop', icon: C.ICON.coin, run: function () { F.ui.txOpenPost(); } };
+return extraObjectAction.apply(this, arguments);
+};
+
+var posts = Object.keys(STALL).map(function (k) { return (M.roles && M.roles[k] && M.roles[k].post) || [-99, -99]; });
+var box = [Math.min.apply(null, posts.map(function (p) { return p[0]; })) - 3, Math.max.apply(null, posts.map(function (p) { return p[0]; })) + 3,
+Math.min.apply(null, posts.map(function (p) { return p[1]; })) - 3, Math.max.apply(null, posts.map(function (p) { return p[1]; })) + 3];
+var resolve = P.resolve;
+P.resolve = function () {
+var f = this.mn && this.feet(), tx = f && f.x / C.TILE, ty = f && f.y / C.TILE;
+if (f && tx > box[0] && tx < box[1] && ty > box[2] && ty < box[3] && !this.mn.mall && mine() && !(this.mnCal && this.mnCal.stage === 'on')) {
+var self = this, pt = this.front(0.7), v = this.mnPersonAt(pt.x, pt.y) ? null : this.mnFolkAt(pt.x, pt.y);
+if (v && STALL[v.role]) {
+return { label: 'Buy', icon: icon(X.shops[v.role].items[0]), run: function () {
+f = self.feet();
+self.mnFolkFace(v, Math.abs(f.x - v.x) > Math.abs(f.y - v.y) ? (f.x > v.x ? 'right' : 'left') : f.y < v.y ? 'up' : 'down');
+v.hold = Math.max(v.hold, 6000);
+F.ui.txOpenStall(v.role, v.lines[Math.floor(Math.random() * v.lines.length)]);
+} };
+}
+}
+return resolve.apply(this, arguments);
+};
 })(window.Farm = window.Farm || {});
 
 // ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-plains.js
