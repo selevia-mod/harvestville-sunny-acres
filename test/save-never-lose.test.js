@@ -83,3 +83,34 @@ test('a fence or a hedge on a path: both come back after a save', () => {
   const again = L.deserialize(plain(L.serialize(back)));
   assert.deepStrictEqual(kinds.map((t) => count(again, t)), placed, 'and after a second save');
 });
+
+// The save guard (owner, 17 Nov 2026: "why they keep losing pieces?"): whatever a future bug leaves out of the save, the
+// save puts into storage and says how many ('yk').
+test('the save guard: a piece the save would leave out goes into storage, and the save says so', () => {
+  const s = L.newState(); s.gold = 1e6;
+  const lamp = O.index.lamp, path_ = O.index.stone_path;
+  s.yard.items.push({ t: lamp, x: 30, y: 30 }, { t: path_, x: 31, y: 30 }, { t: path_, x: 32, y: 30 });
+  s.yard.bag[lamp] = 2;
+  const total = (st, t) => count(st, t) + (st.yard.bag[t] || 0);
+  const ok = L.serialize(s);
+  assert.strictEqual(ok.yk, undefined, 'a good save is left as it is');
+  // a bug: the lines of paths lose a tile
+  const runs = L.yardRuns;
+  L.yardRuns = (items) => runs(items.filter((it) => !(it.t === path_ && it.x === 32)));
+  const o = L.serialize(s);
+  L.yardRuns = runs;
+  assert.strictEqual(o.yk, 1, 'the path left out of the lines was kept');
+  const back = L.deserialize(plain(o));
+  assert.strictEqual(total(back, path_), 2, 'both paths still there (one in storage)');
+  assert.strictEqual(total(back, lamp), 3, 'the rest as it was');
+});
+
+test('the save guard counts what a big farm holds the same as the farm in play', () => {
+  const s = L.newState();
+  const kinds = [O.index.lamp, O.index.stone_path, O.index.wood_fence, O.index.hedge, O.index.bench];
+  for (let i = 0; i < 400; i++) s.yard.items.push({ t: kinds[i % kinds.length], x: 2 + (i % 70), y: 10 + Math.floor(i / 70) });
+  kinds.forEach((t) => { s.yard.bag[t] = 25; });
+  const o = L.serialize(s);
+  assert.strictEqual(o.yk, undefined);
+  assert.deepStrictEqual(Array.from(L.savedYardCounts(plain(o))), Array.from(L.playYardCounts(s)));
+});
