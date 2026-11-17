@@ -106,8 +106,27 @@ const play = (seed, steps, every) => {
     else if (c === 6) { const cs = L.gmContracts(s), ct = cs.length && cpick(cs); if (ct) { L.siloPut(s, ct.crop, 100); L.gmLoadSilo(s, ct.crop, 100); L.gmDeliver(s, ct.k); } }
     else if (s.horse && L.horseHit) { if (crnd() < 0.5) L.horseHit(s); else L.horseRegen(s, L.nowMin() + cint(300)); } // (the horse: hit while riding, its stamina coming back)
   };
+  // the Manila Cup's tries and Race Day's bets (18 Nov 2026), on a random stream of their own too: a try (with a horse that
+  // may race, lent for the try only), a ride finished, its best sent, a bet, bets paid by the clock, a week's prize, the
+  // 3-runs reward, a tour seen; at times up to three weeks on (the cup's week and the day's bet limit roll over)
+  let r3 = seed ^ 0x2c1b3c6d;
+  const mrnd = () => { r3 = (r3 * 1103515245 + 12345) & 0x7fffffff; return r3 / 0x7fffffff; };
+  const mint = (n) => Math.floor(mrnd() * n);
+  const hex = (n) => { let h = ''; for (let i = 0; i < n; i++) h += '0123456789abcdef'[mint(16)]; return h; };
+  const cup = () => {
+    const c = mint(8), at = clock.ms + mint(21) * 864e5 + mint(1440) * 6e4;
+    if (c === 0) { const h = s.horse; s.horse = { name: 'Cup', love: 60, pet: 0, g: 1 }; L.mcBeginTry(s, at); s.horse = h; }
+    else if (c === 1) L.mcFinish(s, { done: true, laps: [9000 + mint(4000), 9000 + mint(4000), 9000 + mint(4000)], knocks: mint(6) }, at);
+    else if (c === 2) { const q = L.mcToSend(s); if (q) L.mcSent(s, q.id, mrnd() < 0.7); }
+    else if (c === 3) { const n = L.rdNext(at); L.rdBet(s, n, mint(6), 100 * (1 + mint(500)), at); }
+    else if (c === 4) L.rdSettle(s, at + mint(90) * 6e4);
+    else if (c === 5) L.mcPrizePay(s, { ok: true, id: hex(8) + '-' + hex(4) + '-4' + hex(3) + '-8' + hex(3) + '-' + hex(12), rank: 1 + mint(12), ms: 30000 + mint(9000) });
+    else if (c === 6) L.mcWeekly(s, at);
+    else L.mcTourTake(s, mrnd() < 0.5 ? 'cup' : 'race');
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
+    if (L.mcBeginTry && mrnd() < 0.1) cup();
     const k = rnd();
     if (k < 0.12) { // a line of fences, paths or hedges, as players lay them (lines cross: a fence over a path)
       const t = pick(tiles), n = 3 + int(13), down = rnd() < 0.5, x0 = 1 + int(73), y0 = 1 + int(62);
