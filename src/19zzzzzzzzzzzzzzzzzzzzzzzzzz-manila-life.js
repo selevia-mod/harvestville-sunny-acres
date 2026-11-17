@@ -247,10 +247,12 @@
     // a covered platform with benches on the deck, east of the parked train, and stairs down to the avenue's sidewalk
     if (R.platform) { var pf = put('rail_platform', (R.platform + 2) * T, 4 * T, 2e-6); if (pf) pf.y -= 0.3 * T; }
     if (R.stairs) { var st = put('rail_stairs', (R.stairs + 1) * T, 2 * T, 3e-6); if (st) st.y += 0.9 * T; }
-    // the train at the platform, its head toward the buffer (turned round with the city)
-    var tx = R.train * T, head = put('city_train_head', tx + (flip ? 4 * R.cars + 2 : 2) * T, 4 * T, 1e-6);
-    if (head) { head.y -= 0.75 * T; head.setFlipX(flip); }
-    for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (flip ? 2 + 4 * c : 6 + 4 * c) * T, 4 * T, 1e-6); if (car) { car.y -= 0.75 * T; car.setFlipX(flip); } }
+    // the train at the platform, its head toward the buffer (turned round with the city); its pieces kept, so city life's
+    // step 4 can bring it in and take it out again (this.mn.train: each piece and where it stands from the train's x)
+    var tx = R.train * T, head = put('city_train_head', tx + (flip ? 4 * R.cars + 2 : 2) * T, 4 * T, 1e-6), parts = [];
+    if (head) { head.y -= 0.75 * T; head.setFlipX(flip); parts.push(head); }
+    for (var c = 0; c < R.cars; c++) { var car = put('city_train_car', tx + (flip ? 2 + 4 * c : 6 + 4 * c) * T, 4 * T, 1e-6); if (car) { car.y -= 0.75 * T; car.setFlipX(flip); parts.push(car); } }
+    this.mn.train = { parts: parts.map(function (im) { return { im: im, dx: im.x - tx }; }), put: put, depth: depth };
   };
 
   // ---------- roles ----------

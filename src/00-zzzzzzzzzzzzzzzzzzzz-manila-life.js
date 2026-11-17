@@ -263,10 +263,15 @@
       npc_office_worker_1: { person: 1 }, npc_office_worker_2: { person: 1 }, npc_office_worker_3: { person: 1 },
       npc_shopper_1: { person: 1 }, npc_shopper_2: { person: 1 }, npc_mall_guard: { person: 1 }, npc_sales_lady: { person: 1 }, npc_street_guard: { person: 1 },
       npc_priest: { person: 1 }, npc_dimsum_vendor: { person: 1 }, npc_castanas_vendor: { person: 1 }, npc_pickleball_1: { person: 1 }, npc_pickleball_2: { person: 1 },
+      // steps 2 and 4 (street life; Chinatown, the calesa, the night vendors)
+      npc_student_1: { person: 1 }, npc_student_2: { person: 1 }, npc_student_3: { person: 1 }, npc_fishball_vendor: { person: 1 }, npc_taho_vendor: { person: 1 },
+      npc_jeepney_driver: { person: 1 }, npc_meat_vendor: { person: 1 }, npc_fish_vendor: { person: 1 }, npc_vegetable_vendor: { person: 1 }, npc_sorbetero: { person: 1 },
+      npc_sampaguita_seller: { person: 1 }, npc_calesa_driver: { person: 1 }, npc_tricycle_driver: { person: 1 }, npc_tanod: { person: 1 }, npc_baller_1: { person: 1 },
+      npc_baller_2: { person: 1 }, npc_jogger: { person: 1 }, npc_fisherman: { person: 1 }, npc_balut_vendor: { person: 1 }, npc_traffic_enforcer: { person: 1 },
+      npc_hopia_baker: { person: 1 }, npc_carinderia_cook: { person: 1 }, npc_couple_her: { person: 1 }, npc_couple_him: { person: 1 },
     },
-    later: ['npc_student_1', 'npc_student_2', 'npc_student_3', 'npc_fishball_vendor', 'npc_taho_vendor', 'npc_jeepney_driver', 'npc_meat_vendor', 'npc_fish_vendor',
-      'npc_vegetable_vendor', 'npc_sorbetero', 'npc_sampaguita_seller', 'npc_calesa_driver', 'npc_tricycle_driver', 'npc_tanod', 'npc_baller_1', 'npc_baller_2',
-      'npc_jogger', 'npc_fisherman', 'npc_balut_vendor', 'npc_traffic_enforcer', 'npc_hopia_baker', 'npc_carinderia_cook', 'npc_couple_her', 'npc_couple_him'],
+    // (city life steps 2 and 4, 18 Nov 2026: the 24 people kept for later are in now, every one of them)
+    later: [],
   };
   M.life.people = Object.keys(M.life.files).filter(function (k) { return M.life.files[k].person; });
 })(window.Farm = window.Farm || {});

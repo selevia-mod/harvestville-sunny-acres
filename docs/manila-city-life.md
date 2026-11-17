@@ -57,3 +57,32 @@ Art: art-src/MANILA-CITY-LIFE-PROMPTS.md.
 
 ## Owner's review of the final list (11 Nov 2026)
 All approved, with these additions: a priest at the Old Stone Church (Father Ramon); 2 more Chinatown vendors, like a real Philippine Chinatown (a dimsum vendor at the dimsum stall, a castañas vendor at the chestnut cart); a pickleball court by the Stables with 4 players (2 sheets, each shown twice in another shirt colour). Daytime people: 47 + 5 = 52 place people + passers-by, 55+ in all. Art: Batch F in art-src/MANILA-CITY-LIFE-PROMPTS.md (#69-74).
+
+## Built: steps 2 and 4 (18 Nov 2026, branch manila/city-life-2-4, not released)
+Owner: "Make the Manila fully build now". Code: src/00-zzzzzzzzzzzzzzzzzzzzzz-manila-life2.js (content, in the city as it
+stands, turned round), src/01-logicZZZZZZZZZZZZZZZ-manila-life2.js (rules), src/19zzzzzzzzzzzzzzzzzzzzzzzzzzz-manila-life2.js
+(the world). The 24 people sheets kept for later are in the 'manila' pack; every new person wears their own.
+- **Street life:** the Talipapa's meat, fish and vegetable vendors at their stalls (5 AM-5 PM) and 3 shoppers with bayong
+  bags (6 AM-noon); the fishball vendor pushing his cart (the Plaza; the College at lunch and after class); the taho
+  vendor round the barangay and the Plaza in the morning ("Tahooo!"); the sorbetero and his cart with its bell (10-6);
+  the College's gate guard and its 3 students, always together (off the jeep at 7:25, in class, fishballs at lunch and
+  after class, the Plaza, the jeep home at 6); 4 players on the barangay court (4-8 PM) and city folk watching.
+- **Step 4:** the hopia baker at his bakery's door; the dimsum and castanas vendors sell; the calesa goes round the little
+  square inside the old walls by the clock (the same on every phone) and you ride it from its stand; the elevated train
+  comes in high from the west every 75 s, waits along its platform (its crowd gets on) and goes back out; the balut
+  vendor on the Bay Walk at night ("Baluuut!").
+- **The rest of the table:** the sampaguita seller at the church door, joggers in the morning and 2 families of 3 in the
+  evening on the Plaza, the couple and 2 fishermen at the Bay Walk rail, the carinderia cook, the tanod at the barangay
+  hall, the tricycle driver by his parked tricycle, the traffic enforcer at the Plaza corner (he turns, waves and
+  whistles as the jeep goes by), the jeepney driver when the jeep rests at night, the calesa driver when it rests.
+- **Owner's additions:** Father Ramon (already out), the dimsum and castanas vendors (sell now), the pickleball four: the
+  second pair in other shirt colours.
+- First-time tours with the owner's pictures: street food (the carts, the taho and balut vendors) and the calesa.
+- No "Coming soon" where it works; still "Coming soon": the sari-sari store, the fruit stall in Chinatown, the Ferris wheel's rides.
+
+**Decided by me (owner can change):** street food, eaten on the spot for energy: fishballs 10G (+4), taho 15G (+6),
+sorbetes 15G (+5), castanas 15G (+6), hopia 15G (+6), siomai 20G (+8), balut 20G (+9), a carinderia meal 35G (+15)
+(about the food court's Gold for energy); the calesa 20G for twice round, 6 AM-8 PM; the families wear the city folk's
+looks (no family sheet was asked for), the third one a child; the street-food carts and the parked calesa are no longer
+still pictures (the carts go with their vendors; the taho vendor carries his own buckets); the court's 4 players are two
+teams (the owner's two sheets twice each); the traffic enforcer stands at the Plaza's corner of the loop road.

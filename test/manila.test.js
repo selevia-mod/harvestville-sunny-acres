@@ -217,7 +217,9 @@ test('the crowd: about 55 by day with the roles, about a third at night, fewer o
   const CR = M.crowd, roles = Object.keys(M.roles).reduce((a, k) => a + M.roles[k].n, 0);
   assert.ok(CR.day + M.people.order.length + roles >= 50, 'at least 50 by day: ' + (CR.day + 7 + roles));
   assert.ok((CR.night + 7 + 2) <= Math.ceil((CR.day + 7 + roles) / 3), 'a third at night (the two guards stay)');
-  assert.ok(CR.cheap + 7 + roles <= (CR.day + 7 + roles) * 0.6, 'fewer on a cheap phone');
+  // (owner, 18 Nov 2026: the same game on every phone: a cheap phone has fewer passers-by, drawn only near the screen;
+  // every role, the city's own people at their places, is the same)
+  assert.ok(CR.cheap < CR.day && CR.cheapNight <= CR.night, 'fewer passers-by on a cheap phone');
   assert.ok(CR.lines.length >= 20 && CR.lines.every((t) => t.length <= 80 && !/[^\x20-\x7e]/.test(t)), 'short plain lines');
   assert.ok(!CR.looks.some((l) => l[0] === 'people'), 'never Willowbrook\'s villagers');
   const strict = L.manilaGrid(map, true);
@@ -350,4 +352,170 @@ test('the valley road comes in on Manila\'s left side (owner: the way in on the 
   const out = L.manilaPath(grid, t[0], t[1], X(88), 44, 9000);
   assert.ok(out, 'out to the valley road');
   out.forEach((q) => assert.ok(!(q[0] >= gate[1] && q[0] < gate[1] + gate[3] && q[1] + 1 >= gate[2]), 'the way out passes in front of nothing of the gate: ' + q));
+});
+
+// ---------- city life, steps 2 and 4 (src/00-zzzzzzzzzzzzzzzzzzzzzz-manila-life2.js, src/01-logicZZZZZZZZZZZZZZZ-manila-life2.js) ----------
+const H = 60;
+const STEP24 = ['meat_vendor', 'fish_vendor', 'veg_vendor', 'tp_shopper', 'fishball', 'taho', 'sorbetes', 'college_guard', 'students', 'ballers', 'hopia_baker', 'balut',
+  'sampaguita', 'carinderia_cook', 'tanod', 'tricycle_driver', 'enforcer', 'joggers', 'families', 'couple', 'fishermen', 'jeep_driver', 'calesa_driver'];
+test('steps 2 and 4: "Coming soon" is gone where the thing works now; the street-food carts and the calesa are no longer still scenery', () => {
+  const b = (k) => M.buildings.find((x) => x.key === k);
+  ['tp_meat', 'tp_fish', 'tp_veg', 'college_gate', 'college', 'court', 'barangay_hall', 'carinderia', 'hopia', 'tricycle', 'chinatown', 'dimsum_cart', 'castanas_cart'].forEach((k) => {
+    assert.ok(b(k), k + ' is still there');
+    assert.ok(!/coming soon|soon!/i.test(b(k).text), k + ': ' + b(k).text);
+  });
+  ['cart_fishball', 'cart_taho', 'cart_sorbetes', 'calesa'].forEach((k) => assert.strictEqual(b(k), undefined, k + ' moves now (drawn with its vendor or driving)'));
+  // (and honest about what is not built: the sari-sari store, the fruit stall, the Ferris wheel's rides)
+  ['sari_sari', 'ch_fruit', 'ferris'].forEach((k) => assert.match(b(k).text, /soon/i, k));
+  // nothing about the people in the old "Chinatown is coming soon"
+  assert.ok(!M.roles.dimsum.lines.some((l) => /soon/i.test(l)));
+});
+
+test('steps 2 and 4: every new person wears their own sheet (a city-life file); their posts and stops are free, reachable, and off the road and the calesa\'s lanes', () => {
+  STEP24.forEach((k) => assert.ok(M.roles[k], k));
+  assert.deepStrictEqual(plain(M.life.later), [], 'every person the prompts make is in now');
+  const { lifeKeys } = require('../tools/manila/manila-art');
+  const made = new Set(Object.keys(M.life.files).flatMap((n) => lifeKeys(n, M.life.files[n])));
+  STEP24.forEach((k) => { const r = M.roles[k]; if (r.crowdLooks) return; r.sheets.forEach((sh) => assert.ok(made.has(sh), k + ': ' + sh)); });
+  assert.ok(M.roles.families.crowdLooks, 'families: the city folk\'s own looks (no family sheet was asked for)');
+  const strict = L.manilaGrid(map, true);
+  const reachS = (a, b) => (a[0] === b[0] && a[1] === b[1]) || !!L.manilaPath(strict, a[0], a[1], b[0], b[1], 9000);
+  const at = (name, p) => {
+    const t = tile(p);
+    assert.ok(strict.ok(t[0], t[1]), name + ' free: ' + t);
+    assert.ok(reachS(START, t), name + ' reachable: ' + t);
+    assert.ok(!L.onCalesaLane(t[0], t[1]), name + ' not on the calesa\'s lanes');
+  };
+  STEP24.forEach((k) => {
+    const r = M.roles[k];
+    if (r.post) at(k, r.post);
+    (r.posts || []).forEach((p, i) => at(k + i, p));
+    if (r.walk) { Object.keys(r.walk.stops).forEach((s) => at(k + '.' + s, r.walk.stops[s])); if (r.walk.home) at(k + '.home', r.walk.home); }
+  });
+  // the court players on the court, its watchers in front of it facing it, in the evening
+  const c = M.roles.ballers.court, court = M.buildings.find((b) => b.key === 'court').box;
+  assert.deepStrictEqual(plain(c), plain(court));
+  assert.deepStrictEqual(plain(M.crowd.zones.court.w), [0, 0, 4, 0]);
+  M.crowd.zones.court.at.forEach((q) => assert.ok(q[1] >= court[1] + court[3] - 1 || q[0] >= court[0] + court[2], 'a watcher outside the court: ' + q));
+  // the Talipapa's vendors stand at their own stalls, facing their customers
+  [['meat_vendor', 'tp_meat'], ['fish_vendor', 'tp_fish'], ['veg_vendor', 'tp_veg']].forEach(([r, b]) => {
+    const p = M.roles[r].post, bx = M.buildings.find((x) => x.key === b).box;
+    assert.ok(p[1] >= bx[1] && p[1] < bx[1] + bx[3] + 1 && Math.abs(p[0] - (bx[0] + bx[2])) <= 1, r + ' by its stall');
+  });
+});
+
+test('steps 2 and 4: who is out by the hour (the Talipapa early, taho in the morning, the court and families in the evening, balut at night); the students always together, at school by day', () => {
+  const out = (k, h, m = 0) => L.mnRoleOut(M.roles[k], h * H + m);
+  assert.ok(out('meat_vendor', 5, 30) && out('fish_vendor', 9) && !out('veg_vendor', 18), 'the Talipapa from five');
+  assert.ok(out('tp_shopper', 8) && !out('tp_shopper', 14));
+  assert.ok(out('taho', 6, 30) && out('taho', 9) && !out('taho', 11), 'taho in the morning');
+  assert.ok(out('sorbetes', 14) && !out('sorbetes', 20));
+  assert.ok(out('ballers', 17) && !out('ballers', 12) && !out('ballers', 21), 'the court in the evening');
+  assert.ok(out('families', 17) && !out('families', 10));
+  assert.ok(out('joggers', 6) && !out('joggers', 12), 'joggers in the morning');
+  assert.ok(out('couple', 18) && out('fishermen', 7) && out('fishermen', 16) && !out('fishermen', 12));
+  assert.ok(out('balut', 21) && out('balut', 1) && !out('balut', 12), 'balut at night');
+  assert.ok(out('tanod', 3) && out('tanod', 15), 'the tanod: always');
+  const plan = M.roles.students.walk.plan, at = (h, m = 0) => L.mnPlanAt(plan, h * H + m);
+  assert.strictEqual(at(3), 'in:shed', 'home at night');
+  assert.strictEqual(at(7, 30), 'shed', 'off the jeep at the College\'s shed');
+  assert.strictEqual(at(10), 'in:gate', 'in class');
+  assert.strictEqual(at(12, 15), 'snack', 'fishballs at lunch');
+  assert.strictEqual(at(16, 20), 'snack', 'and after class');
+  assert.strictEqual(at(18, 10), 'shed', 'the jeep home');
+  assert.strictEqual(M.roles.students.group, 3, 'the three always together');
+  assert.strictEqual(M.roles.students.n, 3);
+  // the fishball cart is at the College when the students come out to eat
+  const fb = M.roles.fishball.walk;
+  [[12, 15], [16, 20]].forEach(([h, m]) => assert.strictEqual(L.mnPlanAt(fb.plan, h * H + m), 'college', 'fishballs at the College at ' + h + ':' + m));
+  assert.strictEqual(L.mnPlanAt(fb.plan, 8 * H), 'plaza');
+  assert.strictEqual(L.mnPlanAt(fb.plan, 22 * H), 'in:plaza');
+  const snack = M.roles.students.walk.stops.snack, cart = fb.stops.college;
+  assert.ok(Math.abs(snack[0] - cart[0]) <= 1 && snack[1] - cart[1] === 2, 'the students eat at the cart');
+  // calls and sales
+  assert.strictEqual(M.roles.taho.call, 'Tahooo!');
+  assert.strictEqual(M.roles.balut.call, 'Baluuut!');
+  ['fishball', 'taho', 'sorbetes', 'dimsum', 'castanas', 'hopia_baker', 'balut', 'carinderia_cook'].forEach((k) => assert.ok(M.food[M.roles[k].sells], k + ' sells'));
+});
+
+test('street food: small prices (decided by me), Gold for energy eaten on the spot, never past full; not enough Gold or full: nothing taken; nothing new saved', () => {
+  Object.keys(M.food).forEach((k) => {
+    const f = M.food[k];
+    assert.ok(f.price > 0 && f.price <= 35 && f.energy > 0, k + ': ' + f.price + 'G');
+    assert.ok(f.price / f.energy >= 2 && f.price / f.energy <= 3, k + ': about the food court\'s Gold an energy');
+    assert.ok(C.ITEMS[f.icon], k + ': its icon');
+  });
+  assert.strictEqual(M.food.fishball.price, 10);
+  assert.ok(M.food.taho.price <= M.jeep.fare, 'taho no more than a jeep ride');
+  const s = fresh();
+  s.gold = 100;
+  s.energy = 50;
+  const before = Object.keys(JSON.parse(JSON.stringify(L.serialize(s)))).sort();
+  const r = L.mnBuyFood(s, 'fishball');
+  assert.deepStrictEqual(plain(r), { ok: true, gain: M.food.fishball.energy });
+  assert.strictEqual(s.gold, 90);
+  assert.strictEqual(s.energy, 50 + M.food.fishball.energy);
+  assert.deepStrictEqual(Object.keys(JSON.parse(JSON.stringify(L.serialize(s)))).sort(), before, 'no new save key');
+  s.energy = L.maxEnergy(s) - 2;
+  assert.strictEqual(L.mnBuyFood(s, 'meal').gain, 2, 'never past full');
+  const g = s.gold;
+  assert.deepStrictEqual(plain(L.mnBuyFood(s, 'taho')), { ok: false, why: 'full' });
+  assert.strictEqual(s.gold, g);
+  s.energy = 10; s.gold = 5;
+  assert.deepStrictEqual(plain(L.mnBuyFood(s, 'balut')), { ok: false, why: 'gold' });
+  assert.strictEqual(s.gold, 5);
+  assert.strictEqual(L.mnBuyFood(s, 'nothing').ok, false);
+});
+
+test('the calesa: its loop inside the old walls on free cobbles, its stand on the loop; it waits there, goes round, the same on every phone; a ride is twice round for 20G; it rests at night', () => {
+  const K = M.calesa, r = L.calesaRoute(), strict = L.manilaGrid(map, true);
+  assert.strictEqual(K.fare, 20);
+  assert.strictEqual(K.laps, 2);
+  L.calesaLaneTiles().forEach((t) => {
+    assert.ok(strict.ok(t[0], t[1]), 'lane free: ' + t);
+    assert.ok(t[0] >= X(38) && t[0] <= X(18) && t[1] >= 6 && t[1] <= 28, 'inside the old walls: ' + t);
+  });
+  const w = tile(K.stop.wait);
+  assert.ok(strict.ok(w[0], w[1]) && reach(START, w), 'its stand on free ground you can walk to');
+  assert.ok(Math.hypot(K.stop.wait[0] - K.stop.at[0], K.stop.wait[1] - K.stop.at[1]) < 2.5, 'beside where it stops');
+  const DAY = Date.UTC(2026, 3, 1, 2, 0); // (10 AM in Manila)
+  const start = DAY - (DAY % r.loopMs) + r.loopMs; // (a loop's start: at its stand)
+  const a = L.calesaAt(start + 100);
+  assert.ok(a.on && a.stop, 'waits at its stand');
+  assert.deepStrictEqual([a.x, a.y], plain(K.stop.at));
+  assert.strictEqual(L.calesaWait(start + 100), 0);
+  let last = a;
+  for (let t = K.stopMs + 50; t < r.loopMs; t += 250) {
+    const b = L.calesaAt(start + t);
+    assert.ok(!b.stop, 'goes round');
+    assert.ok(Math.abs(b.x - last.x) + Math.abs(b.y - last.y) <= K.speed * 0.25 + 0.01 || last.stop, 'never jumps');
+    assert.ok(L.calesaLaneTiles().some((q) => Math.abs(q[0] + 0.5 - b.x) <= 1 && Math.abs(q[1] + 0.5 - b.y) <= 1), 'on its lanes');
+    last = b;
+  }
+  assert.ok(L.calesaWait(start + K.stopMs + 1000) > 0, 'next time round');
+  assert.deepStrictEqual(plain(L.calesaAt(start + 7777)), plain(L.calesaAt(start + 7777)), 'the clock alone');
+  // a ride: on in loop n at the stand, off at the stand two loops on
+  const on = L.calesaAt(start + 100);
+  assert.ok(!L.calesaRideDone(on.loop, L.calesaAt(start + r.loopMs + 100)), 'not after one time round');
+  assert.ok(L.calesaRideDone(on.loop, L.calesaAt(start + 2 * r.loopMs + 100)), 'off after twice round');
+  // at night it rests at its stand
+  const night = L.calesaAt(Date.UTC(2026, 3, 1, 15, 0) + 30000);
+  assert.ok(!night.on && night.stop && night.x === K.stop.at[0] && night.y === K.stop.at[1]);
+  assert.strictEqual(L.calesaWait(Date.UTC(2026, 3, 1, 15, 0)), -1);
+  // no city folk's place on its lanes
+  Object.keys(M.crowd.zones).forEach((z) => M.crowd.zones[z].at.forEach((q) => assert.ok(!L.onCalesaLane(q[0], q[1]), z + ' ' + q)));
+});
+
+test('the elevated train: in from the west, waits along its platform, back out; off the map when away; the clock alone', () => {
+  const Z = M.lrt, R = M.rail;
+  const phases = new Set(), stops = [];
+  for (let t = 0; t < Z.cycle; t += 500) { const a = L.lrtAt(t); phases.add(a.phase); if (a.phase === 'stop') stops.push(a.x); }
+  assert.deepStrictEqual([...phases].sort(), ['away', 'in', 'out', 'stop']);
+  assert.ok(stops.every((x) => x === Z.stopX));
+  const len = 4 + 4 * R.cars + 4; // (a head at each end)
+  assert.ok(Z.stopX <= R.platform && Z.stopX + len >= R.platform + 4, 'the whole platform alongside it');
+  assert.ok(Z.stopX + len <= R.end, 'short of the buffer');
+  assert.ok(Z.fromX + len <= 0, 'away: off the map');
+  assert.strictEqual(L.lrtAt(Z.arrive / 2).moving, true);
+  assert.ok(L.lrtAt(Z.arrive / 2).x > Z.fromX && L.lrtAt(Z.arrive / 2).x < Z.stopX);
 });
