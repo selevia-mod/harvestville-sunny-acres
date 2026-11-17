@@ -32,6 +32,8 @@ const fresh = () => {
 const withCart = () => { const s = fresh(); s.gm.cart = 1; return s; };
 const give = (s, id, n = 1, q = 0) => { if (q) L.addItemQ(s, id, n, q); else L.addItem(s, id, n); return s.inv.findIndex((x) => x && x.id === id && (x.q || 0) === q); };
 const crops = () => L.gmCrops();
+// (a new farm starts with a few seeds in the bag: gone, for the tests of what it can grow)
+const noSeeds = (s) => { s.inv = s.inv.map((x) => (x && C.ITEMS[x.id].kind === 'seed' ? null : x)); s.store = (s.store || []).map((x) => (x && C.ITEMS[x.id].kind === 'seed' ? null : x)); return s; };
 
 // ---------- the price board ----------
 test('the board: every farm crop, a multiplier of 1.1 to 1.6 (hot crops 1.6 to 1.8), two decimals', () => {
@@ -200,6 +202,72 @@ test('the deadline: a contract runs until the end of the next day, then it simpl
   assert.strictEqual(L.gmDeliver(s, c.k).why, 'none');
   assert.ok(s.gold >= gold, 'nothing taken back');
   assert.strictEqual(L.gmStars(s), 0);
+});
+
+test('contracts ask only for crops this farm can grow now: seeds Lily sells today or it owns, in season, from an open place', () => {
+  const s = fresh();
+  assert.deepStrictEqual(plain(L.gmGrowable(s)), plain(crops()), 'today Lily sells every farm crop\'s seeds, all year');
+  const sells = L.seedsInSeason, inSeason = L.cropInSeason;
+  try {
+    L.seedsInSeason = () => ['seed_corn', 'seed_tomato', 'seed_grass']; // (a shorter list, as seasons would make it)
+    noSeeds(s);
+    assert.deepStrictEqual(plain(L.gmGrowable(s)), ['tomato', 'corn'].sort((a, b) => crops().indexOf(a) - crops().indexOf(b)), 'grass is no crop to sell');
+    give(s, 'seed_pumpkin', 3);
+    assert.ok(L.gmGrowable(s).includes('pumpkin'), 'seeds in the bag count');
+    s.store[0] = { id: 'seed_melon', n: 1 };
+    assert.ok(L.gmGrowable(s).includes('melon'), 'and in the storage chest');
+    L.cropInSeason = (crop) => crop !== 'pumpkin';
+    assert.ok(!L.gmGrowable(s).includes('pumpkin'), 'out of season: not even with its seeds');
+    L.cropInSeason = inSeason;
+    // a seed that belongs to a place counts once that place is open
+    C.ITEMS.seed_melon.place = 'makiling';
+    try {
+      s.wild.n = 0;
+      assert.ok(!L.gmGrowable(s).includes('melon'), 'its place is shut');
+      s.wild.n = 9999;
+      assert.ok(L.gmGrowable(s).includes('melon'), 'its place is open');
+    } finally { delete C.ITEMS.seed_melon.place; }
+    // the contracts come only from that list, for days not yet looked at
+    const t = noSeeds(fresh());
+    for (let d = t.day + 1; d < t.day + 60; d++) L.gmContractsOf(t, d).forEach((c) => assert.ok(['corn', 'tomato'].includes(c.crop), c.crop));
+  } finally { L.seedsInSeason = sells; L.cropInSeason = inSeason; }
+});
+
+test('a list shorter than 3: the same crop again with another amount; and the same answer for the same day, seed and list', () => {
+  for (let d = 20000; d < 20200; d++) {
+    const one = L.gmPick(['corn'], 11, d);
+    assert.strictEqual(one.length, 3);
+    assert.ok(one.every((c) => c.crop === 'corn'));
+    assert.strictEqual(new Set(one.map((c) => c.need)).size, 3, 'three different amounts');
+    one.forEach((c) => assert.ok(c.need >= 100 && c.need <= 200 && c.need % 10 === 0));
+    const two = L.gmPick(['corn', 'tomato'], 11, d);
+    assert.deepStrictEqual(new Set(two.map((c) => c.crop)).size, 2, 'both crops');
+    const pairs = two.map((c) => c.crop + c.need);
+    assert.strictEqual(new Set(pairs).size, 3, 'no two the same');
+    assert.deepStrictEqual(plain(L.gmPick(['corn', 'tomato'], 11, d)), plain(two));
+    assert.deepStrictEqual(plain(L.gmPick(crops(), 11, d).map((c) => c.crop)).length, 3);
+    assert.strictEqual(new Set(L.gmPick(crops(), 11, d).map((c) => c.crop)).size, 3, 'a long list: three different crops');
+  }
+  assert.deepStrictEqual(plain(L.gmPick([], 11, 20000)), [], 'nothing to grow: no contracts');
+});
+
+test('a day\'s contracts are kept while they run: buying seeds later that day changes none of them; the save keeps them', () => {
+  const sells = L.seedsInSeason;
+  try {
+    L.seedsInSeason = () => ['seed_corn'];
+    const s = noSeeds(fresh()), today = plain(L.gmContracts(s));
+    assert.ok(today.every((c) => c.crop === 'corn'));
+    L.seedsInSeason = () => ['seed_tomato', 'seed_pumpkin', 'seed_melon'];
+    give(s, 'seed_onion', 5);
+    assert.deepStrictEqual(plain(L.gmContracts(s)), today, 'the same contracts');
+    assert.deepStrictEqual(plain(L.gmContracts(roundTrip(s))), today, 'after a save too');
+    clock.nextDay(L, s);
+    const next = L.gmContracts(s);
+    assert.ok(next.slice(0, 3).every((c) => ['tomato', 'pumpkin', 'melon', 'onion'].includes(c.crop)), 'the new day: the new list');
+    assert.deepStrictEqual(plain(next.slice(3).map((c) => c.crop)), ['corn', 'corn', 'corn'], 'yesterday\'s as they were');
+    clock.nextDay(L, s);
+    assert.deepStrictEqual(Object.keys(s.gm.cs).map(Number).sort(), [s.day - 1], 'a day past its contracts is let go');
+  } finally { L.seedsInSeason = sells; }
 });
 
 // ---------- the cart ----------
@@ -412,15 +480,17 @@ test('the save: one new key, gm, only when there is something in it; everything 
   s.gm.con = { [s.day * 3]: 70, [s.day * 3 + 2]: 120 };
   s.gm.ms = 4;
   s.gm.tour = 3;
+  L.gmContracts(s); // (today's and yesterday's contracts, kept while they run)
+  assert.deepStrictEqual(Object.keys(s.gm.cs).map(Number).sort(), [s.day - 1, s.day]);
   const o = plain(L.serialize(s));
-  assert.ok(Array.isArray(o.gm) && o.gm.length === 6);
+  assert.ok(Array.isArray(o.gm) && o.gm.length === 7);
   const b = L.deserialize(o);
   assert.deepStrictEqual(plain(b.gm), plain(s.gm));
   assert.deepStrictEqual(plain(L.deserialize(plain(L.serialize(b))).gm), plain(s.gm), 'and again');
   // a contract trip, with its star
   s.gm.trip = { at: now, cargo: { corn: 100 }, pay: { corn: 31 }, k: s.day * 3 + 1, st: 1 };
   assert.deepStrictEqual(plain(roundTrip(s).gm.trip), plain(s.gm.trip));
-  assert.ok(JSON.stringify(o.gm).length < 300, 'small: ' + JSON.stringify(o.gm).length + ' bytes');
+  assert.ok(JSON.stringify(o.gm).length < 400, 'small: ' + JSON.stringify(o.gm).length + ' bytes');
 });
 
 test('old saves load unchanged: no gm (no cart), and their next save writes none', () => {

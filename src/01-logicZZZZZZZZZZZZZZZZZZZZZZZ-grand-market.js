@@ -4,8 +4,9 @@
 //    hash: the same board on every phone, no server), 3 hot crops a day on top. Silver and Gold: L.qualityPrice x the same.
 //  - Bulk and by cart only: at least 50 of one crop (all its qualities together), from the cart's cargo. The bag keeps the
 //    town stall, orders, requests and station crates, all as they were.
-//  - 3 contracts a day per farm (the day and the farm's seed): 100-200 of one crop at 1.7x, delivered from the cart in one
-//    or more loads until the end of the next day; a finished one is a Market Star. An unfinished one just ends.
+//  - 3 contracts a day per farm (the day and the farm's seed choose, from the crops it can grow now: L.gmGrowable):
+//    100-200 of one crop at 1.7x, delivered from the cart in one or more loads until the end of the next day; a finished
+//    one is a Market Star. An unfinished one just ends.
 //  - The horse cart (Bram's Forge, one a farm, needs the horse): 100 crops, loaded from the Silo or the bag (farm crops
 //    only), unloaded back (the Silo first, then the bag; what fits nowhere stays in the cart).
 //  - Mang Kardo drives it for you: the load sells at the board of the moment he left (or fills the chosen contract), the
@@ -13,8 +14,8 @@
 //  - The valley road on horseback (the owner's rule): 6 hearts and Horseshoes (L.horseRoadOk); the horse may go into
 //    Manila ('city': stamina, the Horseshoes, it follows you on foot there, as out in the Wild Lands).
 // The save: 'gm' = [cart 0/1, cargo [id, quality, n, ...], the trip or 0 [minute left, [id, quality, n, each, ...],
-// contract or -1, star 0/1], contracts [contract, delivered, ...], Market Stars, tours seen (bits)]. Only when there is
-// anything in it: an old save has none (no cart).
+// contract or -1, star 0/1], contracts [contract, delivered, ...], Market Stars, tours seen (bits), the running days'
+// contracts [day, crop, need, crop, need, crop, need, ...]]. Only when there is anything in it: an old save has none.
 (function (F) {
   'use strict';
   var C = F.Config;
@@ -76,7 +77,7 @@
   };
 
   // ---------- the state ----------
-  L.gmNew = function () { return { cart: 0, cargo: {}, trip: null, con: {}, ms: 0, tour: 0 }; };
+  L.gmNew = function () { return { cart: 0, cargo: {}, trip: null, con: {}, ms: 0, tour: 0, cs: {} }; };
   L.gm = function (s) { if (!s.gm) s.gm = L.gmNew(); return s.gm; };
   // a cargo key: the crop, and its quality after a '~' (Silver 1, Gold 2)
   L.gmKey = function (id, q) { return q ? id + '~' + q : id; };
@@ -167,17 +168,48 @@
   };
 
   // ---------- contracts ----------
-  // a day's 3 for this farm: { k (its number: day x 3 + i), day, crop, need, each }
-  L.gmContractsOf = function (s, day) {
-    var crops = L.gmCrops(), out = [], used = {}, seed = (s && s.seed) | 0, steps = Math.floor((CON.max - CON.min) / CON.step) + 1;
+  // What this farm can grow now (owner, 18 Nov 2026: contracts ask only for these): the farm crops whose seeds Lily sells
+  // today or are in the bag or the storage chest, in season, and from a place that is open (a seed that belongs to a
+  // place: its item's `place`; none does yet). In the board's crop order.
+  L.gmGrowable = function (s) {
+    var seeds = {};
+    (L.seedsInSeason ? L.seedsInSeason(s.day) : []).forEach(function (id) { seeds[id] = 1; });
+    (s.inv || []).concat(s.store || []).forEach(function (x) { if (x && C.ITEMS[x.id] && C.ITEMS[x.id].kind === 'seed') seeds[x.id] = 1; });
+    var ok = {};
+    Object.keys(seeds).forEach(function (id) {
+      var it = C.ITEMS[id], crop = it && it.crop, item = crop && C.CROPS[crop] && C.CROPS[crop].item;
+      if (!item || !L.isFarmCrop(item)) return;
+      if (L.cropInSeason && !L.cropInSeason(crop, s.day)) return;
+      if (it.place && !(L.placeOpen && L.placeOpen(s, it.place))) return;
+      ok[item] = 1;
+    });
+    return L.gmCrops().filter(function (id) { return ok[id]; });
+  };
+  // A day's 3 from a list of crops (deterministic: the day and the farm's seed choose): different crops while the list has
+  // them, else a crop again with another amount. [{ crop, need }]
+  L.gmPick = function (crops, seed, day) {
+    var out = [], used = {}, steps = Math.floor((CON.max - CON.min) / CON.step) + 1;
+    if (!crops.length) return out;
     for (var i = 0; i < CON.n; i++) {
-      var j = Math.floor(L.gmUnit('con', seed, day, i) * crops.length);
-      while (used[crops[j]]) j = (j + 1) % crops.length; // (three different crops)
-      used[crops[j]] = 1;
-      var need = CON.min + CON.step * Math.min(steps - 1, Math.floor(L.gmUnit('need', seed, day, i) * steps));
-      out.push({ k: day * CON.n + i, day: day, crop: crops[j], need: need, each: Math.max(1, Math.round(sell(crops[j]) * CON.pay)) });
+      var j = Math.floor(L.gmUnit('con', seed, day, i) * crops.length), fresh = Object.keys(used).length < crops.length;
+      if (fresh) while (used[crops[j]]) j = (j + 1) % crops.length;
+      var crop = crops[j], n = Math.min(steps - 1, Math.floor(L.gmUnit('need', seed, day, i) * steps));
+      while ((used[crop] || []).indexOf(n) >= 0) n = (n + 1) % steps; // (the same crop again: another amount)
+      (used[crop] = used[crop] || []).push(n);
+      out.push({ crop: crop, need: CON.min + CON.step * n });
     }
     return out;
+  };
+  // a day's 3 for this farm: { k (its number: day x 3 + i), day, crop, need, each }. Chosen from what it can grow on the
+  // first look that day, and kept (in the save) while they run, so buying seeds or opening a place later that day never
+  // changes a contract under way.
+  L.gmContractsOf = function (s, day) {
+    var g = s && s.gm, keep = g && day <= s.day && day > s.day - CON.days, list = keep && g.cs && g.cs[day];
+    if (!list) {
+      list = L.gmPick(L.gmGrowable(s), (s && s.seed) | 0, day).map(function (c) { return [c.crop, c.need]; });
+      if (keep) (g.cs = g.cs || {})[day] = list;
+    }
+    return list.map(function (c, i) { return { k: day * CON.n + i, day: day, crop: c[0], need: c[1], each: Math.max(1, Math.round(sell(c[0]) * CON.pay)) }; });
   };
   // the ones on the board now (today's and those from the days before still running), with how far each has come:
   // got, left, done, and the minutes until it ends
@@ -332,6 +364,8 @@
   L.endDay = function (s, passedOut, info) {
     var r = endDay(s, passedOut, info), con = s.gm && s.gm.con;
     if (con) Object.keys(con).forEach(function (k) { if (Math.floor(Number(k) / CON.n) <= s.day - CON.days) delete con[k]; });
+    var cs = s.gm && s.gm.cs;
+    if (cs) Object.keys(cs).forEach(function (d) { if (Number(d) <= s.day - CON.days) delete cs[d]; });
     return r;
   };
   var flat = function (c, pay) {
@@ -358,7 +392,9 @@
     var cargo = flat(g.cargo || {}), con = [];
     Object.keys(g.con || {}).sort(function (a, b) { return a - b; }).forEach(function (k) { if (g.con[k] > 0) con.push(Number(k), g.con[k]); });
     var t = g.trip ? [g.trip.at, flat(g.trip.cargo || {}, g.trip.pay || {}), g.trip.k == null ? -1 : g.trip.k, g.trip.st ? 1 : 0] : 0;
-    if (g.cart || cargo.length || t || con.length || g.ms || g.tour) o.gm = [g.cart ? 1 : 0, cargo, t, con, g.ms || 0, g.tour || 0];
+    var cs = [];
+    Object.keys(g.cs || {}).sort(function (a, b) { return a - b; }).forEach(function (d) { cs.push(Number(d)); g.cs[d].forEach(function (c) { cs.push(c[0], c[1]); }); });
+    if (g.cart || cargo.length || t || con.length || g.ms || g.tour || cs.length) o.gm = [g.cart ? 1 : 0, cargo, t, con, g.ms || 0, g.tour || 0, cs];
     return o;
   };
   var deserialize = L.deserialize;
@@ -377,6 +413,13 @@
     if (Array.isArray(a[3])) for (var i = 0; i + 1 < a[3].length; i += 2) { var k = int(a[3][i], 0, 1e9, -1), n = int(a[3][i + 1], 0, 1e6, 0); if (k >= 0 && n) g.con[k] = n; }
     g.ms = int(a[4], 0, 1e6, 0);
     g.tour = int(a[5], 0, 0xffff, 0);
+    // the running contracts: [day, crop, need, crop, need, crop, need, ...]
+    var b = Array.isArray(a[6]) ? a[6] : [], w = 1 + 2 * CON.n;
+    for (var j = 0; j + w - 1 < b.length; j += w) {
+      var d = int(b[j], 0, 1e7, -1), list = [];
+      for (var q = 0; q < CON.n; q++) { var cr = b[j + 1 + 2 * q], nd = int(b[j + 2 + 2 * q], 1, 1e5, 0); if (typeof cr === 'string' && cr.length <= 40 && nd) list.push([cr, nd]); }
+      if (d >= 0 && list.length === CON.n) g.cs[d] = list;
+    }
     return s;
   };
 })(window.Farm = window.Farm || {});
