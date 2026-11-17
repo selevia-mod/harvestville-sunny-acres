@@ -114,3 +114,47 @@ test('the save guard counts what a big farm holds the same as the farm in play',
   assert.strictEqual(o.yk, undefined);
   assert.deepStrictEqual(Array.from(L.savedYardCounts(plain(o))), Array.from(L.playYardCounts(s)));
 });
+
+// Loading never drops what a player owns (owner, 17 Nov 2026: "fix the root cause"): every loader that could not put a
+// piece back put it nowhere. Now it goes back to the player.
+test('a sprinkler whose soil is gone or planted comes back to the bag on load', () => {
+  const s = L.newState();
+  const id = C.SPRINKLERS[0].id;
+  const idx = 20 * C.FARM_W + 20;
+  s.soil[idx] = { c: null, p: 0, r: 0, w: 0, sp: 1 };
+  const o = plain(L.serialize(s));
+  assert.ok(o.ft && o.ft.s && o.ft.s.length === 2, 'the sprinkler is in the save');
+  const has = (st) => st.inv.filter((x) => x && x.id === id).reduce((a, x) => a + x.n, 0) + ((st.basket || {})[id] || 0);
+  delete o.f; o.f = []; // (the soil under it is gone, as when the farm got wider)
+  const back = L.deserialize(o);
+  assert.strictEqual(Object.values(back.soil).filter((t) => t.sp).length, 0, 'not on the farm');
+  assert.strictEqual(has(back), has(s) + 1, 'back in the bag');
+});
+
+test('furniture over 200 pieces or 999 stored of a kind is kept on load', () => {
+  const H = C.HOME;
+  const s = L.newState();
+  const lamp = H.types.findIndex((t) => t.place === 'wall') >= 0 ? H.types.findIndex((t) => t.place === 'wall') : 0;
+  const o = plain(L.serialize(s));
+  const placed = o.hm[5].length / 5;
+  for (let i = 0; i < 240; i++) o.hm[5].push(lamp, 0, 1 + (i % 15), 0, 0); // (more than fit: the rest go to storage)
+  o.hm[6] = Object.assign({}, o.hm[6], { [L.furnKey(lamp, 0)]: 5000 });
+  const back = L.deserialize(o);
+  const total = back.home.items.length + Object.values(back.home.bag).reduce((a, n) => a + n, 0);
+  assert.strictEqual(total, placed + 240 + 5000 + ((back.home.items.some((x) => H.types[x.t].use === 'sleep') && !s.home.items.some((x) => H.types[x.t].use === 'sleep')) ? 1 : 0));
+});
+
+test('the save guard keeps furniture a save would leave out, too', () => {
+  const s = L.newState();
+  const total = (c) => Object.values(c).reduce((a, n) => a + n, 0);
+  const before = total(L.playHomeCounts(s));
+  assert.strictEqual(L.serialize(s).yk, undefined, 'a good save is left as it is');
+  // a bug in the house's writer: it leaves out the first piece (the writer maps the list; the guard counts it one by one)
+  const items = s.home.items;
+  items.map = function (fn) { return Array.prototype.map.call(this.slice(1), fn); };
+  const o = plain(L.serialize(s));
+  delete items.map;
+  assert.strictEqual(o.yk, 1, 'one piece kept');
+  const back = L.deserialize(o);
+  assert.strictEqual(total(L.playHomeCounts(back)), before, 'the house holds as much as before (the piece in storage)');
+});

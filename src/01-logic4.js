@@ -311,16 +311,18 @@
       var lv = int(o.hm[0], 1, H.levels.length, 1);
       var hm = s.home = { level: lv, wall: int(o.hm[1], 0, ns - 1, 0), floor: int(o.hm[2], 0, ns - 1, 0), walls: int(o.hm[3], 0, (1 << ns) - 1, 1) | 1, floors: int(o.hm[4], 0, (1 << ns) - 1, 1) | 1, bag: {}, items: [] };
       var flat = Array.isArray(o.hm[5]) ? o.hm[5] : [];
-      for (var i = 0; i + 4 < flat.length && hm.items.length < 200; i += 5) {
+      // (past 200 pieces in the house, or a piece that no longer fits: into storage, never away. Before 17 Nov 2026 the
+      // ones past 200 were not read at all, and a stored count was cut at 999)
+      for (var i = 0; i + 4 < flat.length; i += 5) {
         var it = { t: int(flat[i], 0, nt - 1, 0), v: int(flat[i + 1], 0, ns - 1, 0), x: int(flat[i + 2], 0, 40, 1), y: int(flat[i + 3], 0, 40, 2) };
         it.f = L.furnF(it.t, flat[i + 4]);
-        if (!L.cantPlace(s, it.t, it.x, it.y, null)) hm.items.push(it);
+        if (hm.items.length < 200 && !L.cantPlace(s, it.t, it.x, it.y, null)) hm.items.push(it);
         else hm.bag[L.furnKey(it.t, it.v)] = (hm.bag[L.furnKey(it.t, it.v)] || 0) + 1; // doesn't fit: into storage
       }
       var bag = o.hm[6] && typeof o.hm[6] === 'object' ? o.hm[6] : {};
       Object.keys(bag).forEach(function (k) {
         var p = k.split('.'), t = int(p[0], -1, nt - 1, -1), v = int(p[1], -1, ns - 1, -1);
-        if (t >= 0 && v >= 0) hm.bag[L.furnKey(t, v)] = (hm.bag[L.furnKey(t, v)] || 0) + int(bag[k], 0, 999, 0);
+        if (t >= 0 && v >= 0) hm.bag[L.furnKey(t, v)] = (hm.bag[L.furnKey(t, v)] || 0) + int(bag[k], 0, 1e7, 0);
         if (!hm.bag[L.furnKey(t, v)]) delete hm.bag[L.furnKey(t, v)];
       });
       if (!hm.items.some(function (x) { return H.types[x.t].use === 'sleep'; })) { // never without a bed

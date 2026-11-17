@@ -31,21 +31,46 @@
     return n;
   };
 
+  // The house's furniture the same way: each piece ('type.variant') placed in the save ('hm' 5) and stored ('hm' 6).
+  L.savedHomeCounts = function (o) {
+    var n = {}, hm = o && Array.isArray(o.hm) ? o.hm : [], flat = Array.isArray(hm[5]) ? hm[5] : [], bag = hm[6] && typeof hm[6] === 'object' ? hm[6] : {};
+    for (var i = 0; i + 4 < flat.length; i += 5) { var k = L.furnKey(flat[i], flat[i + 1]); n[k] = (n[k] || 0) + 1; }
+    for (var b in bag) if (bag[b] > 0) n[b] = (n[b] || 0) + Math.floor(Number(bag[b]));
+    return n;
+  };
+  L.playHomeCounts = function (s) {
+    var n = {}, items = (s.home && s.home.items) || [], bag = (s.home && s.home.bag) || {};
+    for (var i = 0; i < items.length; i++) { var k = L.furnKey(items[i].t, items[i].v); n[k] = (n[k] || 0) + 1; }
+    for (var b in bag) if (bag[b] > 0) n[b] = (n[b] || 0) + bag[b];
+    return n;
+  };
+
   var serialize = L.serialize;
   L.serialize = function (s) {
-    var o = serialize(s);
+    var o = serialize(s), kept = 0;
     try {
-      if (!s || !s.yard || !o || !Array.isArray(o.yd)) return o;
-      var want = L.playYardCounts(s), got = L.savedYardCounts(o), bag = Array.isArray(o.yd[1]) ? o.yd[1] : (o.yd[1] = []), kept = 0;
-      for (var t = 0; t < want.length; t++) {
-        var miss = want[t] - got[t];
-        if (!(miss > 0) || !O.types[t]) continue;
-        kept += miss;
-        for (var j = 0; j + 1 < bag.length && Number(bag[j]) !== t; j += 2);
-        if (j + 1 < bag.length) bag[j + 1] = Number(bag[j + 1]) + miss; else bag.push(t, miss);
+      if (s && s.yard && o && Array.isArray(o.yd)) {
+        var want = L.playYardCounts(s), got = L.savedYardCounts(o), bag = Array.isArray(o.yd[1]) ? o.yd[1] : (o.yd[1] = []);
+        for (var t = 0; t < want.length; t++) {
+          var miss = want[t] - got[t];
+          if (!(miss > 0) || !O.types[t]) continue;
+          kept += miss;
+          for (var j = 0; j + 1 < bag.length && Number(bag[j]) !== t; j += 2);
+          if (j + 1 < bag.length) bag[j + 1] = Number(bag[j + 1]) + miss; else bag.push(t, miss);
+        }
       }
-      if (kept) { o.yk = kept; if (typeof console !== 'undefined') console.warn('save guard: ' + kept + ' farm pieces kept in storage'); }
     } catch (e) { /* the guard never stops a save */ }
+    try {
+      if (s && s.home && o && Array.isArray(o.hm) && L.furnKey) {
+        var hw = L.playHomeCounts(s), hg = L.savedHomeCounts(o);
+        if (!o.hm[6] || typeof o.hm[6] !== 'object') o.hm[6] = {};
+        Object.keys(hw).forEach(function (k) {
+          var m = hw[k] - (hg[k] || 0);
+          if (m > 0) { kept += m; o.hm[6][k] = (Number(o.hm[6][k]) || 0) + m; }
+        });
+      }
+    } catch (e) { /* the guard never stops a save */ }
+    if (kept) { o.yk = kept; if (typeof console !== 'undefined') console.warn('save guard: ' + kept + ' pieces kept in storage'); }
     return o;
   };
 })(window.Farm = window.Farm || {});

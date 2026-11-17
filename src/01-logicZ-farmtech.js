@@ -486,7 +486,14 @@
     var s = deserialize(o);
     if (!s) return s;
     var ft = o.ft && typeof o.ft === 'object' ? o.ft : {};
-    each(ft.s, function (k, v) { if (s.soil[k] && v >= 1 && v <= C.SPRINKLERS.length && !s.soil[k].c) { s.soil[k].sp = v; s.soil[k].w = 0; } });
+    // a sprinkler whose soil is gone or planted comes back to the bag (or the basket when the bag is full), never away:
+    // before 17 Nov 2026 it was dropped (the wider farm, e60 to e63, lost sprinklers this way)
+    each(ft.s, function (k, v) {
+      if (!(v >= 1 && v <= C.SPRINKLERS.length)) return;
+      if (s.soil[k] && !s.soil[k].c) { s.soil[k].sp = v; s.soil[k].w = 0; return; }
+      var id = C.SPRINKLERS[v - 1].id;
+      if (L.addItem(s, id, 1) > 0) { s.basket = s.basket || {}; s.basket[id] = (s.basket[id] || 0) + 1; }
+    });
     each(ft.f, function (k, v) { if (s.soil[k] && !s.soil[k].sp && v >= 1 && v <= C.FERTS.length) s.soil[k].f = v; });
     var mark = function (list, k, v) { if (list && list[k] && v >= 1 && v < Q.names.length && C.ITEMS[list[k].id] && C.ITEMS[list[k].id].sell) list[k].q = v; };
     each(ft.q, function (k, v) { mark(s.inv, k, v); });
