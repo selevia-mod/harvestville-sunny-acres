@@ -690,7 +690,9 @@
     var fare = L.manilaFare(s), there = to === 'manila';
     var head = there ? 'TRAIN TO MANILA\nThe big city by the bay: the Central Plaza, the Grand Market, the old walled quarter and the port.'
       : 'MANILA CENTRAL\nThe train home to Willowbrook Station.';
-    var price = fare ? 'A ticket is ' + fmt(fare) + 'G one way. You have ' + fmt(s.gold) + 'G.' : 'Your first ride is free!';
+    var friend = L.mnFareWhy ? L.mnFareWhy(s) : null; // (Mang Tibo's friend price: Manila Friends)
+    var price = fare ? 'A ticket is ' + fmt(fare) + 'G one way' + (friend === 'half' ? ' (half price: Mang Tibo is your friend)' : '') + '. You have ' + fmt(s.gold) + 'G.'
+      : friend === 'free' ? 'Mang Tibo says: friends ride free!' : 'Your first ride is free!';
     var road = there ? '\n\n(Or walk the valley road: east out of town, past Market Street.)' : '\n\n(Or walk the valley road home: out the Plains Gate, ' + (M.flipped ? 'west' : 'east') + '.)';
     this.dialog(head + '\n\n' + price + road, [
       { label: 'Not now', color: GREY },

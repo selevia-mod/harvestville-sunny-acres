@@ -683,13 +683,13 @@
     } else if (tab === 'ammo') {
       ['bullets', 'javelins'].forEach(function (id) {
         var it = C.ITEMS[id], unit = C.AMMO[id].pack;
-        rows.push({ icon: it.icon, name: it.name + ' x' + unit, desc: 'You have ' + L.countItem(s, id) + '. One a ' + (id === 'bullets' ? 'shot' : 'throw') + '.',
+        rows.push({ icon: it.icon, name: it.name + ' x' + unit, desc: 'You have ' + L.countItem(s, id) + '. One a ' + (id === 'bullets' ? 'shot' : 'throw') + '.' + (L.ammoOff && L.ammoOff(s) ? ' Panday Lando\'s friend price: ' + Math.round(L.ammoOff(s) * 100) + '% off.' : ''),
           buttons: [1, 10].map(function (n, i) {
-            var price = it.price * n;
+            var price = L.ammoPrice ? L.ammoPrice(s, id, n) : it.price * n; // (a friend's price: Panday Lando, Manila Friends)
             return { label: (n > 1 ? 'x' + n + ' ' : 'Buy ') + commas(price) + 'G', color: s.gold >= price ? (i ? BLUE_BTN : GREEN_BTN) : GREY_BTN,
               cb: function () { done(L.buyAmmo(s, id, n), commas(unit * n) + ' ' + it.name.toLowerCase() + '.'); } };
           }),
-          amount: { start: 1, max: 999, price: function (n) { return it.price * n; }, word: function (n) { return commas(unit * n) + ' ' + it.name.toLowerCase(); },
+          amount: { start: 1, max: 999, price: function (n) { return L.ammoPrice ? L.ammoPrice(s, id, n) : it.price * n; }, word: function (n) { return commas(unit * n) + ' ' + it.name.toLowerCase(); },
             buy: function (n) { done(L.buyAmmo(s, id, n), commas(unit * n) + ' ' + it.name.toLowerCase() + '.'); } } });
       });
     } else {
