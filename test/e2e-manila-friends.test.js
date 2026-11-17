@@ -397,3 +397,47 @@ test('the frame: the friends add almost nothing (the action button\'s look-up, m
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+
+test('name tags: all 10 have one, just over their own head, following them; two standing close never share or swap tags', async () => {
+  const { page, problems, context } = await open(await makeSave(''));
+  await toManila(page);
+  await meet(page, 'mn_bea');
+  // Aling Nena right beside Bea, Father Ramon just behind her (the case of Panday Lando's tag over Father Ramon)
+  await page.evaluate(() => {
+    const w = Farm.world, R = w.mn.roles, T = 256, bea = R.find((r) => r.role === 'students' && r.n === 0);
+    const put = (v, dx, dy) => { v.hold = 1e9; v.path = []; v.inside = false; v.near = true; v.sp.setVisible(true); v.x = bea.x + dx * T; v.y = bea.y + dy * T; w.mnFolkPlace(v); };
+    put(R.find((r) => r.role === 'carinderia_cook'), 1, 0);
+    put(R.find((r) => r.role === 'priest'), 0, -1);
+    const f = w.feet(); w.setFeet(f.x + 2.5 * T, f.y + T); w.dir = 'left'; w.idle();
+  });
+  await frames(page, 6);
+  await page.waitForTimeout(400);
+  await shot(page, 'tags-two-friends-close');
+  const r = await page.evaluate(() => {
+    const w = Farm.world, mn = w.mn, list = mn.ft.map((v) => ({ name: v.tag.text, x: v.x / 256, y: v.y / 256, tx: v.tag.x / 256, ty: v.tag.y / 256, h: v.tag.displayHeight / 256,
+      wd: v.tag.displayWidth / 256, vis: v.tag.visible, depth: v.tag.depth, sd: v.sp.depth, near: Math.abs(v.x - w.feet().x) < 4 * 256 && Math.abs(v.y - w.feet().y) < 4 * 256 }));
+    return list;
+  });
+  assert.deepStrictEqual(r.map((t) => t.name).sort(), ['Aling Nena', 'Aling Rosa', 'Bea', 'Father Ramon', 'Kapitana Marisol', 'Lola Amparo', 'Mang Danny', 'Mang Kardo', 'Mang Tibo', 'Panday Lando']);
+  const close = r.filter((t) => t.near && t.vis);
+  assert.ok(close.length >= 3, 'the three near: ' + JSON.stringify(close));
+  close.forEach((t) => {
+    assert.ok(Math.abs(t.tx - t.x) < 0.01, t.name + ': over its own person');
+    assert.ok(t.ty <= t.y - 1.29 && t.ty > t.y - 3, t.name + ': just over the head ' + JSON.stringify(t));
+    assert.ok(t.depth > t.sd && t.depth < t.sd + 1e-6, t.name + ': in its person\'s depth');
+  });
+  for (let i = 0; i < close.length; i++) for (let j = i + 1; j < close.length; j++) {
+    const a = close[i], b = close[j], overlap = Math.abs(a.tx - b.tx) < (a.wd + b.wd) / 2 + 0.19 && a.ty > b.ty - b.h && a.ty - a.h < b.ty;
+    assert.ok(!overlap, a.name + ' and ' + b.name + ' tags apart');
+  }
+  // they follow: Bea walks a tile right, her tag with her
+  await page.evaluate(() => { const w = Farm.world, v = w.mn.roles.find((r) => r.role === 'students' && r.n === 0); v.x += 256; w.mnFolkPlace(v); });
+  await frames(page, 3);
+  const bea = await page.evaluate(() => { const v = Farm.world.mn.roles.find((r) => r.role === 'students' && r.n === 0); return [v.tag.x - v.x, v.tag.visible]; });
+  assert.deepStrictEqual(bea, [0, true]);
+  // far from the camera: not shown
+  const far = await page.evaluate(() => Farm.world.mn.ft.filter((v) => Math.abs(v.x - Farm.world.feet().x) > 30 * 256).every((v) => !v.tag.visible));
+  assert.ok(far, 'tags far off are culled');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
