@@ -17,7 +17,7 @@
     knockMs: 1500, // a knocked hurdle (owner)
     tryGold: 2000, // the first try of a Manila day is free (owner)
     sprint: { mult: 1.4, ms: 3000 }, // the sprint bar: 1.4x for 3 s of riding a lap, full again each lap (decided by me)
-    jump: { ms: 600, gap: 250 }, // in the air 0.6 s, then a moment before the next (decided by me)
+    jump: { ms: 450, gap: 100 }, // in the air 0.45 s, then a moment before the next: hurdles 7 tiles apart can be taken at a sprint (decided by me)
     off: 0.5, // off the track (the grass inside the oval, or outside it): half speed (decided by me)
     floor: 0.95, // a lap under 95% of a perfect ride is refused, here and on the server (decided by me)
     radius: 1, // the centre line's corners (tiles)
@@ -56,7 +56,7 @@
   var TB = M.ground.filter(function (g) { return g[0] === 'track'; })[0]; // [x, y, w, h]: the oval, 2 tiles wide
   var x0 = TB[1], x1 = TB[1] + TB[3] - 2; // (the west and east straights' left tiles)
   C.MANILA_CUP.arch = [x0 - 1, TB[2] + 3, 4, 3]; // its posts on either side of the track, the opening the track itself
-  var hurdles = [[x0, TB[2] + 9], [x0, TB[2] + 15], [x0, TB[2] + 21], [x1, TB[2] + 6], [x1, TB[2] + 12], [x1, TB[2] + 18]];
+  var hurdles = [[x0, TB[2] + 8], [x0, TB[2] + 15], [x0, TB[2] + 22], [x1, TB[2] + 5], [x1, TB[2] + 12], [x1, TB[2] + 19]]; // (7 tiles apart)
   var hi = 0;
   M.decor.forEach(function (d) {
     if (d[0] === 'race_arch') { d[1] = C.MANILA_CUP.arch[0]; d[2] = C.MANILA_CUP.arch[1]; d[3] = 4; d[4] = 3; }

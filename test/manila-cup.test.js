@@ -126,9 +126,13 @@ test('jumps, knocked hurdles (1.5 s each) and lap times', () => {
   L.mcTrialStep(t, 16, 4, 67.7, false, false);
   assert.deepStrictEqual(plain(L.mcTrialStep(t, 16, 4, 67.6, false, true).ev), ['jump']);
   assert.deepStrictEqual(plain(L.mcTrialStep(t, 300, 4, 67.5, false, true).ev), [], 'no jump in the air');
-  assert.deepStrictEqual(plain(L.mcTrialStep(t, 300, 4, 67.4, false, true).ev), ['land']);
-  assert.deepStrictEqual(plain(L.mcTrialStep(t, 100, 4, 67.3, false, true).ev), [], 'a moment after landing');
-  assert.deepStrictEqual(plain(L.mcTrialStep(t, 200, 4, 67.2, false, true).ev), ['jump']);
+  assert.deepStrictEqual(plain(L.mcTrialStep(t, 200, 4, 67.4, false, true).ev), ['land'], 'down after 0.45 s');
+  assert.deepStrictEqual(plain(L.mcTrialStep(t, 50, 4, 67.3, false, true).ev), [], 'a moment after landing');
+  assert.deepStrictEqual(plain(L.mcTrialStep(t, 60, 4, 67.2, false, true).ev), ['jump']);
+  assert.deepStrictEqual([MC.jump.ms, MC.jump.gap], [450, 100]);
+  const gaps = L.mcHurdles().map((h) => h.s).map((x, i, a) => (i ? x - a[i - 1] : x));
+  assert.ok(gaps.slice(1).every((g) => g >= 6.9), 'hurdles at least 7 tiles apart: one can be taken after another at a sprint ' + gaps);
+  assert.ok((MC.jump.ms + MC.jump.gap) / 1000 * V * MC.sprint.mult < 6.9);
   // cutting across the grass inside counts for nothing
   const cut = L.mcTrialNew();
   L.mcTrialStep(cut, 16, 4, 75, false, false);
