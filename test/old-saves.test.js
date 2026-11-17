@@ -35,6 +35,8 @@ const own = (s) => {
   // the horse cart's load and a load on the road with Mang Kardo (18 Nov 2026; older games have none)
   const cargo = (c) => Object.keys(c || {}).forEach((k) => add('item:' + k.split('~')[0], c[k]));
   if (s.gm) { cargo(s.gm.cargo); if (s.gm.trip) cargo(s.gm.trip.cargo); }
+  // the trucks' parked loads and a City Order delivery waiting for its answer (18 Nov 2026)
+  if (s.gm) { Object.keys(s.gm.park || {}).forEach((v) => cargo(s.gm.park[v])); if (s.gm.co && s.gm.co.q) cargo(s.gm.co.q.lots); }
   ['gold', 'lumber', 'stone', 'pearls'].forEach((k) => add(k, s[k] || 0));
   return n;
 };
