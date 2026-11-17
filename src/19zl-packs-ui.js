@@ -17,13 +17,13 @@
   var BADGE = { x: 22, y: 160, r: 13 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var mb = function (bytes) { var m = bytes / 1048576; return m >= 0.95 ? m.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB'; };
-  var ORDER = ['wild', 'looks', 'party', 'styles', 'places', 'manila']; // (manila: shown once it has pictures, 19zzzzzzzzzzzzzzzzzzzzzzzzz-manila.js)
+  var ORDER = ['wild', 'looks', 'party', 'styles', 'places', 'manila', 'plains']; // (manila, plains: shown once they have pictures, their own 19 files)
 
   // ---------- the Wild Lands (and the new hunting places), before you go ----------
   var wildMap = function (to) { return L.isWildMap && L.isWildMap(to); };
   // (owner, 6 Nov 2026) the five new places and their dungeons need their own pack as well as the Wild Lands'
   var placeMap = function (to) {
-    return (C.PLACE_ORDER || []).some(function (id) { var p = C.PLACES[id]; return p.n > 10 && !p.dev && (p.map === to || !!p.dungeon && p.dungeon.key === to); });
+    return (C.PLACE_ORDER || []).some(function (id) { var p = C.PLACES[id]; return p.n > 10 && !p.dev && !p.pack && (p.map === to || !!p.dungeon && p.dungeon.key === to); }); // (a place with a pack of its own: 'plains', soft)
   };
   var packsFor = function (to) { return (wildMap(to) ? ['wild'] : []).concat(placeMap(to) ? ['places'] : []); };
   var OPENING = { wild: 'Opening the Wild Lands...', places: 'Opening the hunting places...' };

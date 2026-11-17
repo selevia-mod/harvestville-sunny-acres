@@ -669,7 +669,11 @@
         var what = 'Reach ' + d.range[nl] + (have ? ' (now ' + d.range[lv] + ')' : '') + ', hits ' + d.damage[nl] + (have ? ' (now ' + d.damage[lv] + ')' : '') + '.';
         var more = (have ? '' : ' One ' + (d.verb === 'Shoot' ? 'shot' : 'throw') + ' every ' + secs(d.gap) + '. ' + (d.ammo ? 'Needs ' + C.ITEMS[d.ammo].name.toLowerCase() + '.' : 'No ammo; it wears out.')) +
           (L.weaponMoon(k, nl) ? (d.moon === 'pierce' ? ' Goes through the first animal and hits the one behind.' : ' Hits 2 animals side by side.') : '');
-        rows.push({ icon: L.weaponIcon(k, nl), name: have ? 'Upgrade to ' + L.weaponName(k, nl) : d.name, desc: what + more + (next.needs.length ? ' Takes ' + needText(s, next.needs) + '.' : ''),
+        // (the Armory open, 18 Nov 2026: each material it takes as a chip with its picture, never cut off; the Gold on the
+        // button; the farm's lumber, not an item, in the words)
+        var wood = next.needs.filter(function (n) { return n[0] === 'lumber'; })[0], mats = next.needs.filter(function (n) { return n[0] !== 'lumber'; });
+        rows.push({ icon: L.weaponIcon(k, nl), name: have ? 'Upgrade to ' + L.weaponName(k, nl) : d.name, desc: (wood ? 'Also ' + wood[1] + ' lumber (you have ' + (s.lumber || 0) + '). ' : '') + what + more,
+          reward: mats.length ? { more: mats } : null,
           buttons: [{ label: (have ? '' : 'Buy ') + commas(next.gold) + 'G', color: ok ? GREEN_BTN : GREY_BTN, cb: function () {
             var r = L.getWeapon(s, k);
             if (r === 'ok' && !have) s.inv.forEach(function (x, i) { if (x && x.id === k) s.sel = i; }); // in your hands right away
