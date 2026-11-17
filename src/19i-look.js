@@ -656,8 +656,10 @@
   U.tilePicture = function (row, x, y, size) {
     var im = null;
     if (row.people) { // a villager's face: the top of their first frame (Post Office, Friendship Book...)
-      F.ensureTexture(this, 'people');
-      im = this.add.image(x, y - size / 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 0).setCrop(0, 0, 128, 150);
+      var pf = F.portraitOf ? F.portraitOf(this, row.people) : null; // (a Manila friend: their own picture)
+      if (!pf) F.ensureTexture(this, 'people');
+      im = this.add.image(x, y - size / 2, pf ? pf.tex : 'people', pf ? pf.frame : C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 0).setCrop(0, 0, 128, 150);
+      if (pf && pf.tint) im.setTint(pf.tint);
       im.setScale(size / 150);
       return im;
     }
@@ -990,8 +992,11 @@
       g.fill();
     });
     if (row.people) {
-      F.ensureTexture(this, 'people');
-      c.add(this.add.image(cx, cy + SLOT / 2 - 2, 'people', C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150));
+      var pf = F.portraitOf ? F.portraitOf(this, row.people) : null; // (a Manila friend: their own picture)
+      if (!pf) F.ensureTexture(this, 'people');
+      var face = this.add.image(cx, cy + SLOT / 2 - 2, pf ? pf.tex : 'people', pf ? pf.frame : C.VILLAGER_ORDER.indexOf(row.people) * 9).setOrigin(0.5, 1).setScale(0.3).setCrop(0, 0, 128, 150);
+      if (pf && pf.tint) face.setTint(pf.tint);
+      c.add(face);
     } else if (row.sheet) { // a picture from a sheet: { key, frame, scale } (the Tailor Shop's looks)
       F.ensureTexture(this, row.sheet.key);
       c.add(this.add.image(cx, cy + SLOT / 2 + 2, row.sheet.key, row.sheet.frame || 0).setOrigin(0.5, 1).setScale(row.sheet.scale || 0.3));

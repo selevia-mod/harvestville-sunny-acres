@@ -274,7 +274,7 @@
     var crops = {};
     r.lots.forEach(function (l) { var id = L.gmSplit(l.key).id; crops[id] = (crops[id] || 0) + l.n; });
     Object.keys(crops).forEach(function (id) { rows.push([iconOf(id), (c ? 'Delivered ' : 'Sold ') + crops[id] + ' ' + name(id) + (c ? ' for the contract.' : ' at the Grand Market.')]); });
-    rows.push([C.ICON.coin, 'Aling Rosa paid ' + fmt(r.gold) + 'G. Mang Kardo kept his 10%: ' + fmt(r.fee) + 'G.']);
+    rows.push([C.ICON.coin, 'Aling Rosa paid ' + fmt(r.gold) + 'G. Mang Kardo kept his ' + Math.round((r.rate != null ? r.rate : G.driver.fee) * 100) + '%: ' + fmt(r.fee) + 'G.']);
     rows.push([C.ICON.coin, 'You got ' + fmt(r.net) + 'G!']);
     if (r.star) rows.push([C.ICON.star, 'Contract done: +1 Market Star!']);
     rows.push([C.ICON.crate, 'Your cart is back by the Stable.']);
@@ -485,6 +485,8 @@
       var board = L.gmBoard(day), inCart = here ? L.gmCargoCrops(s) : [];
       // the hot crops on top; with your cart here, its crops next (their Sell buttons), then the rest
       var top = board.filter(function (b) { return b.hot; }), mid = board.filter(function (b) { return !b.hot && inCart.indexOf(b.id) >= 0; }), rest = board.filter(function (b) { return !b.hot && inCart.indexOf(b.id) < 0; });
+      var soon = L.mnHotTomorrow ? L.mnHotTomorrow(s) : null; // (Aling Rosa's tip, at 10 hearts: Manila Friends)
+      if (soon && soon.length) rows.push({ icon: C.ICON.heart, name: "Tomorrow's hot crops", desc: "Aling Rosa's tip: " + soon.map(name).join(', ') + '.', buttons: [] });
       top.concat(mid, rest).forEach(function (b) {
         var n = here ? L.gmCropLoad(s, b.id) : 0;
         rows.push({ icon: iconOf(b.id), name: name(b.id) + '  x' + b.mult.toFixed(2) + (b.hot ? '  HOT' : ''),
@@ -500,7 +502,7 @@
     } else {
       L.gmContracts(s).forEach(function (c) {
         var n = here && !c.done ? L.gmCropLoad(s, c.crop) : 0;
-        rows.push({ icon: iconOf(c.crop), name: c.need + ' ' + name(c.crop) + (c.done ? '  DONE' : ''), progress: c.done ? null : [c.got, c.need],
+        rows.push({ icon: iconOf(c.crop), name: c.need + ' ' + name(c.crop) + (c.done ? '  DONE' : c.rosa ? '  (a friend\'s)' : ''), progress: c.done ? null : [c.got, c.need],
           desc: c.done ? 'Finished! +1 Market Star.' : 'Pays ' + c.each + 'G each. Ends in ' + hours(c.mins) + '.' + (n ? ' Cart: ' + n + '.' : ''),
           buttons: n ? [{ label: 'Deliver', color: L.gmCanDeliver(s, c) ? GREEN : GREY, cb: function () {
             var r = L.gmDeliver(s, c.k);
@@ -521,6 +523,8 @@
 
   // ---------- the cart: load, unload, hitch, send ----------
   var WHY = { cart: 'You have no cart.', full: 'The cart is full: ' + G.cart.cap + ' crops.' };
+  // Mang Kardo's fee for this farm (a friend's price: 01-logicZ...Z-manila-friends.js)
+  var feeRate = function (s) { return L.gmFeeRate ? L.gmFeeRate(s) : G.driver.fee; };
   var awayText = function (s) { return 'Mang Kardo has the cart on the road: back in ' + L.gmLeft(s, L.nowMin()) + ' min.'; };
   U.gmOpenCart = function (tab, page) {
     var self = this, s = mine(), w = F.world, S = F.session;
@@ -533,7 +537,7 @@
     var why = function () { var y = L.gmWhyNot(s); sfx('nope'); self.toast(y === 'away' ? awayText(s) : WHY[y] || 'Not now.', 2400); };
     if (tab === 'cargo') {
       if (farm) {
-        rows.push({ icon: C.ICON.horse, name: 'Send to the Grand Market', desc: away ? awayText(s) : 'He sells it in Manila. Gold in ' + G.driver.mins + ' min, less ' + Math.round(G.driver.fee * 100) + '%.',
+        rows.push({ icon: C.ICON.horse, name: 'Send to the Grand Market', desc: away ? awayText(s) : 'He sells it in Manila. Gold in ' + G.driver.mins + ' min, less ' + Math.round(feeRate(s) * 100) + '%.',
           buttons: away ? [] : [{ label: 'Send', color: BLUE, cb: function () { self.closeModal(); self.gmOpenSend(); } }] });
         rows.push({ icon: C.ICON.horseshoes != null ? C.ICON.horseshoes : C.ICON.horse, name: S.gmHitch ? 'Hitched to ' + horseName(s) : 'Drive it yourself',
           desc: S.gmHitch ? 'It follows ' + horseName(s) + '. Ride east out of town.' : 'Ride it to Manila: ' + M.horseHearts + ' hearts and Horseshoes.',
@@ -603,7 +607,7 @@
       self.closeModal();
       self.toast('Mang Kardo drives off to Manila with ' + r.n + ' crops. Back in ' + G.driver.mins + ' minutes!', 3200, DARK_GREEN);
     };
-    var line = function (q) { return q.why ? WHY_SEND[q.why] || 'Not now.' : q.n + ' crops: ' + fmt(q.gold) + 'G, you get ' + fmt(q.net) + 'G after his ' + Math.round(G.driver.fee * 100) + '%.'; };
+    var line = function (q) { return q.why ? WHY_SEND[q.why] || 'Not now.' : q.n + ' crops: ' + fmt(q.gold) + 'G, you get ' + fmt(q.net) + 'G after his ' + Math.round((q.rate != null ? q.rate : G.driver.fee) * 100) + '%.'; };
     var q0 = L.gmSendQuote(s, 'sell');
     var rows = [{ icon: C.ICON.coin, name: "Sell at today's prices", desc: line(q0), buttons: q0.why ? [] : [{ label: 'Send', color: BLUE, cb: function () { go('sell'); } }] }];
     L.gmContracts(s).filter(function (c) { return !c.done; }).forEach(function (c) {

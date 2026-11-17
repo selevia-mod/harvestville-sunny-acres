@@ -598,7 +598,9 @@
           self.toast('Masarap! +' + r.gain + ' energy.', 2000);
           self.swapTo(function () { open(); });
         } }] }];
-      self.listPanel({ title: fd.name, rows: rows, page: 0, reopen: open,
+      var more = self.mnFoodMore ? self.mnFoodMore(v, open) : null; // (a friend at the stall: Aling Nena, Manila Friends)
+      if (more) rows = rows.concat(more.rows || []);
+      self.listPanel({ title: fd.name, rows: rows, page: 0, reopen: open, corner: more ? more.corner : null,
         sub: function () { return full ? 'You are full of energy. Come back when you are hungry!' : '"' + line + '"  Energy ' + s.energy + ' / ' + L.maxEnergy(s) + '.'; } });
     };
     tourFirst(this, 'mn_food_tour', 'mn_food', open);

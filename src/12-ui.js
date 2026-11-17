@@ -947,17 +947,21 @@
       if (y0 + h > H + C.EXTRA / 2 - 10) y0 = Math.round(Math.max(84 - C.EXTRA / 2, H + C.EXTRA / 2 - 10 - h)); // (a tall list on a tall screen)
       this.panelImg(c, 24, y0, W - 48, h);
       if (opts.portrait) {
-        F.ensureTexture(this, 'people');
+        // (someone who is not a villager, a Manila friend: their own picture, name and role, F.portraitOf)
+        var pf = F.portraitOf ? F.portraitOf(this, opts.portrait) : null;
+        if (!pf) F.ensureTexture(this, 'people');
         var vi = C.VILLAGER_ORDER.indexOf(opts.portrait);
         this.baked(c, 44, y0 + 18, 'ui-portrait-bg', 70, 80, function (g) {
           g.fillStyle(COL.slotEdge, 1).fillRoundedRect(0, 0, 70, 80, 10);
           g.fillStyle(0xbfe0f0, 1).fillRoundedRect(3, 3, 64, 74, 8);
         });
-        c.add(this.add.image(79, y0 + 98, 'people', vi * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150));
-        var who = this.txt(126, y0 + 22, opts.name || C.VILLAGERS[opts.portrait].name, 19, INK, { fontStyle: 'bold' });
+        var face = this.add.image(79, y0 + 98, pf ? pf.tex : 'people', pf ? pf.frame : vi * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150);
+        if (pf && pf.tint) face.setTint(pf.tint);
+        c.add(face);
+        var who = this.txt(126, y0 + 22, opts.name || (pf ? pf.name : C.VILLAGERS[opts.portrait].name), 19, INK, { fontStyle: 'bold' });
         if (who.width > W - 126 - 40) who.setScale((W - 126 - 40) / who.width);
         c.add(who);
-        c.add(this.txt(126, y0 + 46, C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
+        c.add(this.txt(126, y0 + 46, pf ? pf.role : C.VILLAGERS[opts.portrait].role, 12, '#7a5a3a'));
         this.heartRow(c, 126, y0 + 66, L.friend(F.session.state, opts.portrait).pts);
       } else if (titleText) { // a ribbon across the top edge
         var rw = Math.min(W - 40, Math.max(170, titleText.width + 44));

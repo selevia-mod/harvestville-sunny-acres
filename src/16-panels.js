@@ -859,6 +859,7 @@
     for (var i = 0; i < n; i++) {
       var day = first + i, cell = lead + i, x = x0 + (cell % 7) * cw, y = y0 + 18 + Math.floor(cell / 7) * ch;
       var fest = L.festivalOn(day), bdays = L.birthdaysOn(day), today = day === s.day, mine = L.myBirthdayOn && L.myBirthdayOn(s, day);
+      var mbdays = L.mnBirthdaysOn ? L.mnBirthdaysOn(day) : []; // (Manila Friends' birthdays: 01-logicZ...Z-manila-friends.js)
       var kind = today ? 'today' : day < s.day ? 'past' : 'day';
       this.baked(c, x + 2, y, 'ui-cal2-' + kind, cw - 4, ch - 4, (function (kind) {
         return function (g) {
@@ -870,11 +871,12 @@
       var soon = day >= s.day && day <= s.day + 1;
       if (mine) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.cake).setScale(0.15)); // your birthday (01-logicB.js)
       else if (fest) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.ribbon).setScale(0.15));
-      else if (bdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.gift).setScale(0.15));
+      else if (bdays.length || mbdays.length) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.ICON.gift).setScale(0.15));
       else if (soon) c.add(this.add.image(x + cw / 2 + 4, y + 27, 'items', C.WEATHER[L.weather(s, day)].icon).setScale(0.11).setAlpha(0.9));
       if (mine) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  Your birthday!');
       if (fest) events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + fest.name + (L.ctOf && L.ctOf(fest) ? ': ' + L.ctOf(fest).name : '')); // (its contest: 01-logicZ-contests.js)
       bdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + C.VILLAGERS[k].name + "'s birthday"); });
+      mbdays.forEach(function (k) { events.push(C.MONTHS[m].slice(0, 3) + ' ' + (i + 1) + '  ' + L.mnName(k) + "'s birthday (Manila)"); });
     }
     var rows = Math.ceil((lead + n) / 7);
     events.push('Every Sat & Sun  Weekend Market');

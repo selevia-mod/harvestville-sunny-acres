@@ -18,6 +18,10 @@
   var world = function () { return F.world; };
   var visiting = function () { return !!(F.session && F.session.visit); };
   var quiet = function () { return !!(window.gameHost && window.gameHost.quiet); };
+  // (Manila Friends: their stories play here too; who(key) is a villager or a Manila friend, and story(key) their steps)
+  var who = function (key) { return C.VILLAGERS[key] || (L.mnDef && L.mnDef(key)); };
+  var story = function (key) { return L.vsStory(key); };
+  var tourOf = function (key) { return L.mnIs && L.mnIs(key) ? ['mn_friends_tour', 'mn_friends'] : ['friends_tour', 'friends']; };
   var has = function (key) { return !!VS.stories[key] && !visiting() && !!F.session && !!F.session.state && !!L.friend(F.session.state, key).met; };
 
   // Marks a tour shown and saves; false when it was shown already, on a visit, or in the tests' quiet mode.
@@ -50,7 +54,7 @@
   // ---------- playing a step ----------
   // go: L.vsReady's answer. done: after the last card.
   U.vsPlay = function (key, go, done) {
-    var self = this, s = F.session.state, st = go.step, v = C.VILLAGERS[key];
+    var self = this, s = F.session.state, st = go.step, v = who(key);
     var after = function () { saved(); if (done) done(); };
     if (go.phase === 'thanks') {
       var r = L.vsHandOver(s, key);
@@ -89,21 +93,21 @@
 
   // The reward card: what the step gave, and where the story goes next.
   U.vsCard = function (key, r, then) {
-    var self = this, s = F.session.state, v = C.VILLAGERS[key], n = L.vsDone(s, key), total = VS.stories[key].length;
+    var self = this, s = F.session.state, v = who(key), n = L.vsDone(s, key), total = story(key).length, tour = tourOf(key);
     var rows = r.got.filter(function (g) { return g.text; }).map(function (g) { return [g.icon, g.text]; });
     rows.push([C.ICON.book, 'Friendship Book: ' + v.name + "'s story, " + n + ' of ' + total + '. ' +
       (n < total ? 'Next: ' + L.vsHint(s, key) : 'You have heard the whole story!')]);
     sfx('fanfare');
     this.dialog(r.step.t.toUpperCase().replace(/[^A-Z0-9 !?.,:'-]/g, '') + '\n', [{
       label: 'OK', cb: function () {
-        if (take('friends_tour')) return self.tour('friends', then);
+        if (take(tour[0])) return self.tour(tour[1], then);
         if (then) then();
       },
     }], { rows: rows });
   };
 
   U.vsTrouble = function (key, r) {
-    var v = C.VILLAGERS[key];
+    var v = who(key);
     var why = r.error === 'full' ? '(Your bag is full. Make room for ' + (C.ITEMS[r.item] ? C.ITEMS[r.item].name : 'it') + ', then talk to ' + v.name + ' again.)'
       : r.error === 'energy' ? '(You are too tired to help right now.)'
         : r.error === 'missing' ? '(You do not have everything yet.)' : '(Maybe another time.)';
@@ -215,7 +219,9 @@
     });
     this.listPanel({
       title: 'Friendship Book', rows: rows, page: page || 0,
-      reopen: function (t, p) { self.closeModal(); self.vsBook(p); },
+      // (Manila Friends, 18 Nov 2026: a Manila page beside Willowbrook's, 19zzz...z-manila-friends.js)
+      tabs: this.mnfBook ? [['town', 'Willowbrook'], ['manila', 'Manila']] : null, tab: 'town',
+      reopen: function (t, p) { self.closeModal(); if (t === 'manila' && self.mnfBook) return self.mnfBook(p); self.vsBook(p); },
       corner: { label: 'Photos', color: BLUE, cb: function () { self.closeModal(); self.vsPhotoWall(0, function () { self.vsBook(page); }); } },
       sub: function () {
         return C.VILLAGER_ORDER.filter(function (k) { return L.friend(s, k).met; }).length + ' of ' + C.VILLAGER_ORDER.length + ' met.  ' +
@@ -226,7 +232,7 @@
 
   // One villager's page: a card for each step (done, next, locked).
   U.vsPage = function (key, back) {
-    var self = this, s = F.session.state, v = C.VILLAGERS[key], f = L.friend(s, key), list = VS.stories[key];
+    var self = this, s = F.session.state, v = who(key), f = L.friend(s, key), list = story(key);
     var done = L.vsDone(s, key), n = L.vsNext(s, key);
     var again = function () { self.vsPage(key, back); };
     var rows = list.map(function (st, i) {
@@ -245,6 +251,7 @@
       }
       return { icon: C.ICON.heart, tag: h + ' HEARTS', name: '???', desc: 'At ' + h + ' hearts: ' + st.hint };
     });
+    if (this.vsPageMore) rows = rows.concat(this.vsPageMore(key) || []); // (a Manila friend: their unlock and birthday)
     this.listPanel({
       title: v.name, rows: rows, rowH: 86,
       corner: back ? { label: 'Back', cb: function () { self.closeModal(); back(); } } : null,
@@ -257,11 +264,11 @@
 
   // Reads a step you have seen again: the scene, what you said, their answer (and the thanks), then its secret.
   U.vsRead = function (key, i, then) {
-    var self = this, s = F.session.state, st = VS.stories[key][i], a = st.choice.a[L.vsChoice(s, key, i)] || st.choice.a[0];
+    var self = this, s = F.session.state, st = story(key)[i], a = st.choice.a[L.vsChoice(s, key, i)] || st.choice.a[0];
     var lines = st.lines.concat([['me', '"' + a[0].replace(/^\(|\)$/g, '') + '"'], [key, a[1]]]).concat(st.thanks || []);
     this.playLines(lines, function () {
       var sec = L.vsRewards(key, i, L.vsChoice(s, key, i)).filter(function (rw) { return rw.secret; })[0];
-      if (sec) return self.dialog(C.VILLAGERS[key].name.toUpperCase().replace(/[^A-Z0-9 .'-]/g, '') + "'S SECRET\n" + sec.secret, [{ label: 'OK', cb: then }]);
+      if (sec) return self.dialog(who(key).name.toUpperCase().replace(/[^A-Z0-9 .'-]/g, '') + "'S SECRET\n" + sec.secret, [{ label: 'OK', cb: then }]);
       if (then) then();
     });
   };
@@ -271,19 +278,20 @@
   // (in the house, each one is a Painting in that frame's style).
   var FRAME = { classic: [0x9a6a3a, 0xf3e2b8], rustic: [0x6b4424, 0xe9d6b0], cottage: [0xe8e0d0, 0xf7d9e3], modern: [0x8a96a3, 0xe6eef5],
     flower: [0xe6a0b8, 0xfff0f4], fireworks: [0x24345e, 0xdfe6ff], starry: [0x2a3d6e, 0xe2e9ff] };
-  U.vsPhotoWall = function (page, back) {
-    var self = this, s = F.session.state, photos = L.vsPhotos(s), per = 4, pages = Math.max(1, Math.ceil(photos.length / per));
+  // o (Manila Friends' Photo wall): { photos, total, title, none }
+  U.vsPhotoWall = function (page, back, o) {
+    var self = this, s = F.session.state, photos = o ? o.photos : L.vsPhotos(s), per = 4, pages = Math.max(1, Math.ceil(photos.length / per));
     page = Math.max(0, Math.min(page || 0, pages - 1));
     var close = function () { self.closeModal(); if (back) back(); };
     var c = this.openModal(close);
     var PH = 476, y0 = Math.round((H - PH) / 2);
     this.panelImg(c, 12, y0, W - 24, PH);
-    var title = this.txt(W / 2, y0 + 4, 'PHOTO WALL', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
+    var title = this.txt(W / 2, y0 + 4, o ? o.title : 'PHOTO WALL', 16, '#ffe9a8', { fontStyle: 'bold', stroke: '#3d2614', strokeThickness: 3 }).setOrigin(0.5);
     this.ribbon(c, W / 2, y0 + 4, 190);
     c.add(title);
     this.closeButton(c, W - 26, y0 + 10, close);
     if (!photos.length) {
-      c.add(this.txt(W / 2, y0 + 150, 'No photos yet.\n\nSome friends give you a framed photo as their story grows. Each one also hangs in your house as a Painting.',
+      c.add(this.txt(W / 2, y0 + 150, o ? o.none : 'No photos yet.\n\nSome friends give you a framed photo as their story grows. Each one also hangs in your house as a Painting.',
         15, INK, { align: 'center', wordWrap: { width: 260 }, lineSpacing: 4 }).setOrigin(0.5, 0));
     }
     F.ensureTexture(this, 'people');
@@ -306,11 +314,11 @@
       });
       var cap = self.txt(fx + fw / 2, fy + fh + 6, p.photo, 11, INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: fw }, lineSpacing: 1 }).setOrigin(0.5, 0);
       c.add(cap);
-      c.add(self.txt(fx + fw / 2, cap.y + cap.height + 2, 'from ' + C.VILLAGERS[p.key].name, 10, '#7a5a3a', { align: 'center' }).setOrigin(0.5, 0));
+      c.add(self.txt(fx + fw / 2, cap.y + cap.height + 2, 'from ' + (C.VILLAGERS[p.key] ? C.VILLAGERS[p.key].name : L.mnName(p.key)), 10, '#7a5a3a', { align: 'center' }).setOrigin(0.5, 0));
     });
-    c.add(this.txt(W / 2, y0 + PH - 64, photos.length + ' of ' + countPhotos() + ' photos. In your house, each one hangs as a Painting (Decorate).', 11, '#7a5a3a',
+    c.add(this.txt(W / 2, y0 + PH - 64, photos.length + ' of ' + (o ? o.total : countPhotos()) + ' photos. In your house, each one hangs as a Painting (Decorate).', 11, '#7a5a3a',
       { align: 'center', wordWrap: { width: 280 } }).setOrigin(0.5, 0));
-    if (pages > 1) this.pager(c, y0 + PH - 22, page, pages, function (pg) { self.closeModal(); self.vsPhotoWall(pg, back); });
+    if (pages > 1) this.pager(c, y0 + PH - 22, page, pages, function (pg) { self.closeModal(); self.vsPhotoWall(pg, back, o); });
     return c;
   };
   var countPhotos = function () {

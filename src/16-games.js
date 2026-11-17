@@ -107,9 +107,12 @@
     var h = 150 + options.length * 56, y0 = Math.round((H - h) / 2 - 30);
     this.panelImg(c, 24, y0, W - 48, h);
     if (key) {
-      F.ensureTexture(this, 'people');
-      c.add(this.add.image(70, y0 + 98, 'people', C.VILLAGER_ORDER.indexOf(key) * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150));
-      c.add(this.txt(116, y0 + 30, C.VILLAGERS[key].name, 17, INK, { fontStyle: 'bold' }));
+      var pf = F.portraitOf ? F.portraitOf(this, key) : null; // (a Manila friend: their own picture)
+      if (!pf) F.ensureTexture(this, 'people');
+      var face = this.add.image(70, y0 + 98, pf ? pf.tex : 'people', pf ? pf.frame : C.VILLAGER_ORDER.indexOf(key) * 9).setOrigin(0.5, 0.83).setScale(0.42).setCrop(0, 0, 128, 150);
+      if (pf && pf.tint) face.setTint(pf.tint);
+      c.add(face);
+      c.add(this.txt(116, y0 + 30, pf ? pf.name : C.VILLAGERS[key].name, 17, INK, { fontStyle: 'bold' }));
     }
     c.add(this.txt(116, y0 + 56, question, 14, INK, { wordWrap: { width: 190 } }));
     options.forEach(function (o, i) {
