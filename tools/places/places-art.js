@@ -17,17 +17,17 @@ const keys = () => {
   vm.createContext(ctx);
   fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx));
   const C = ctx.window.Farm.Config, out = [];
-  C.PLACE_ORDER.map((id) => C.PLACES[id]).filter((p) => p.n > 10 && !p.dev).forEach((p) => {
+  C.PLACE_ORDER.map((id) => C.PLACES[id]).filter((p) => p.n > 10 && !p.dev && !p.pack).forEach((p) => { // (a place with a pack of its own: not here)
     if (p.npc && p.npc.sheet) out.push(p.npc.sheet);
     const art = (p.dungeon && p.dungeon.art) || {};
     ['mouth', 'gate', 'cave'].forEach((k) => { if (art[k]) out.push(art[k]); });
   });
-  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.sheet && !d.tower) out.push(d.sheet, d.sheet + 'shade'); }); // (The Lost Tower's: its own pack, tools/tower/tower-art.js)
+  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.sheet && !d.tower && !(C.PLACES[d.place] || {}).pack) out.push(d.sheet, d.sheet + 'shade'); }); // (The Lost Tower's: its own pack, tools/tower/tower-art.js)
   // Banaue's own props (its map's 'place_prop' objects: tools/places/banaue-map.js), the others' (tools/art/places-import.js)
   ['wall', 'hut', 'fern', 'rack', 'boulder', 'grass'].forEach((n) => out.push('props/banaue_' + n));
-  Object.keys(C.PLACE_PROP_KINDS || {}).forEach((id) => C.PLACE_PROP_KINDS[id].forEach((k) => out.push('props/' + id + '_' + k)));
+  Object.keys(C.PLACE_PROP_KINDS || {}).filter((id) => !C.PLACES[id].pack).forEach((id) => C.PLACE_PROP_KINDS[id].forEach((k) => out.push('props/' + id + '_' + k)));
   // their ground (Chocolate Hills' and the three of C.PLACE_GROUND: painted into their maps' tiles when you arrive)
-  ['bohol'].concat(C.PLACE_GROUND || []).forEach((id) => out.push('ground_' + id, 'ground_' + id + '_water'));
+  ['bohol'].concat(C.PLACE_GROUND || []).filter((id) => !C.PLACES[id].pack).forEach((id) => out.push('ground_' + id, 'ground_' + id + '_water'));
   return [...new Set(out)];
 };
 

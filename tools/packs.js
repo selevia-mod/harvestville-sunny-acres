@@ -59,4 +59,7 @@ module.exports = {
   // name frames (owner, 13 Nov 2026): the owner's 4 x 4 sheet of the 13 frames (tools/art/name-frames-import.js); until it
   // is in, the game draws stand-ins (src/19zzz...z-name-frames.js), so the pack is empty
   frames: fs.existsSync(path.join(ASSETS, 'name_frames.png')) ? ['name_frames'] : [],
+  // The Open Plains (owner, 18 Nov 2026): its creatures, props, ground, cave and icons, each once its picture is in
+  // (tools/manila/plains-import.js, tools/art/animals3q-import.js plains); until then the game draws stand-ins
+  plains: require('./manila/plains-art').packed(),
 };
