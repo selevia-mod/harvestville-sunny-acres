@@ -198,7 +198,7 @@ test('the save: only when there is anything, one key ("tx"); a fresh game and an
 test('the Trading Post opens: its "Coming soon" goes, the other buildings keep theirs; Mang Danny\'s shelves are full', () => {
   const M = C.MANILA, b = (k) => M.buildings.filter((x) => x.key === k)[0];
   assert.ok(!/soon/i.test(b('trading').text), b('trading').text);
-  ['hall', 'stables'].forEach((k) => assert.match(b(k).text, /soon/i, k));
+  ['harbor', 'stage'].forEach((k) => assert.match(b(k).text, /soon/i, k));
   assert.ok(!M.people.danny.lines.some((l) => /empty|soon/i.test(l)));
   assert.strictEqual(C.DIALOGUE.mn_danny.tiers[0][0], M.people.danny.lines[0], 'his friendship talk says the same');
 });
