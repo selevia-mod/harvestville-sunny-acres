@@ -65075,6 +65075,28 @@ if (hit.key !== 'mn_nena') return { label: 'Talk', icon: C.ICON.bubble, run: fun
 }
 return resolve.apply(this, arguments);
 };
+
+
+var update = P.update;
+P.update = function () {
+update.apply(this, arguments);
+var mn = this.mn, DEPTH = F.WorldScene.DEPTH;
+if (!mn || mn.mall || !mn.people || !mn.people[0]) return;
+if (!mn.ft) {
+mn.ft = mn.people.slice();
+(mn.roles || []).forEach(function (v) { var k = L.mnKeyOfRole(v.role, v.n); if (k) { v.tag = this.add.text(0, 0, L.mnName(k), mn.people[0].tag.style.toJSON()).setOrigin(0.5, 1).setScale(0.7); mn.ft.push(v); } }, this);
+}
+var on = mn.ft.filter(function (v) {
+var tg = v.tag;
+if (v.folk) tg.setVisible(v.sp.visible);
+tg.setPosition(v.x, v.y - 1.3 * T);
+F.depthTo(tg, DEPTH.actor + v.y / 1e5 + 1e-7);
+return tg.visible;
+}).map(function (v) { return v.tag; }).sort(function (a, b) { return b.y - a.y; });
+on.forEach(function (tg, i) {
+for (var j = 0; j < i; j++) { var u = on[j]; if (Math.abs(tg.x - u.x) < (tg.displayWidth + u.displayWidth) / 2 + T / 5 && tg.y > u.y - u.displayHeight && tg.y - tg.displayHeight < u.y) tg.y = u.y - u.displayHeight; }
+});
+};
 P.mnfTalkTo = function (hit) {
 var s = this.state, d = MF.friends[hit.key];
 faceMe(this, hit);
