@@ -175,3 +175,26 @@ test('saved in town with place hunts: back where you stood, not at the park gate
   const old = plain(o); old.pk = 1; delete old.pz;
   assert.strictEqual(L.deserialize(old).player.spawn, 'from_park');
 });
+
+// Found by the save stress test (18 Nov 2026): with 7 or more cabinets, putting away one of the first six took its 60
+// (empty) slots away, and the 7th cabinet only got its box at the next load: storage shrank by 60 until then.
+test('putting away one of 7 cabinets: the 7th takes its box at once, storage stays 360', () => {
+  const H = C.HOME;
+  const s = L.newState(); s.home.level = H.levels.length;
+  const dresser = H.typeIndex.dresser;
+  for (let i = 0; i < 9 && L.cabinets(s).length < 7; i++) {
+    const key = L.furnKey(dresser, 0); s.home.bag[key] = (s.home.bag[key] || 0) + 1;
+    const at = L.findSpot(s, dresser, i * 3, 2, null);
+    if (at) L.placeFurn(s, dresser, 0, at.x, at.y, 0);
+  }
+  assert.strictEqual(L.cabinets(s).length, 7, 'seven cabinets');
+  L.fitBoxes(s);
+  assert.strictEqual(s.store.length, C.STORE_BOXES * C.STORE_SIZE);
+  s.store[C.STORE_SIZE * 5] = { id: 'turnip', n: 4 }; // (something in the 6th box: it must stay with the 6th cabinet's box)
+  const first = L.cabinets(s)[0];
+  assert.strictEqual(L.storeFurn(s, first), 'ok');
+  assert.strictEqual(s.store.length, C.STORE_BOXES * C.STORE_SIZE, 'still 6 boxes: the 7th cabinet has one now');
+  assert.strictEqual(s.store.filter(Boolean).length, 1, 'nothing lost');
+  const back = L.deserialize(plain(L.serialize(s)));
+  assert.strictEqual(back.store.length, s.store.length, 'the same after a reload');
+});

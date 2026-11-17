@@ -70,7 +70,10 @@
     var b = s.store ? L.boxOf(s, i) : -1;
     if (b >= 0 && L.boxUsed(s, b)) return 'notempty';
     var r = storeFurn(s, i);
-    if (r === 'ok' && b >= 0 && L.boxCount(s) > 1) s.store.splice(b * SIZE, SIZE);
+    if (r === 'ok' && b >= 0 && L.boxCount(s) > 1) {
+      s.store.splice(b * SIZE, SIZE);
+      L.fitBoxes(s); // (a 7th cabinet takes the box now, not at the next load: 18 Nov 2026)
+    }
     return r;
   };
 
