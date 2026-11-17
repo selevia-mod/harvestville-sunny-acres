@@ -222,10 +222,10 @@
       { text: 'Tall bamboo stops a shot longer than 4 tiles, and the animals hide until you are 2 or 3 tiles off. The Javelin is fast and hits hard: best here. A throw costs what an arrow does.',
         draw: function (ui, sc, move) {
           ground(ui, sc);
-          bamboo(ui, sc, 150, 110);
-          var j = K.icon(ui, sc, 58, 70, C.wpnIcon('javelin_0'), 0.44);
-          K.tw(ui, move, { targets: j, x: 118, duration: 700, yoyo: true, repeat: -1, ease: 'Quad.in' });
-          K.words(ui, sc, 222, 40, 'Stops past 4 tiles', 12);
+          bamboo(ui, sc, 118, 110);
+          var j = K.icon(ui, sc, 40, 70, C.wpnIcon('javelin_0'), 0.44);
+          K.tw(ui, move, { targets: j, x: 92, duration: 700, yoyo: true, repeat: -1, ease: 'Quad.in' });
+          K.words(ui, sc, 208, 40, 'Stops past 4 tiles', 12);
         } },
       { text: 'The Baboy-damo go about in pairs and charge together. The rare Pilandok zigzags as it runs: wait for it to come straight.',
         draw: function (ui, sc, move) {
