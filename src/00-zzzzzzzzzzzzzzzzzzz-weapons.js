@@ -1,8 +1,10 @@
 // The Rifle, the Javelin and the Boomerang (owner, 11 Nov 2026; docs/big-city-and-weapons.md): three new weapons for
 // Manila's hunting grounds, each with six levels like the Bow (Basic, Copper, Silver, Gold, Magma, Moon). The owner set
-// each level's reach and hit, the time between shots (the same at every level), the ammo (bullets 200G for 10, javelins
-// 150G for 5, the boomerang none: it wears out), the boomerang's throws by level, and the Moon specials. The prices are
-// still proposals (docs/manila-proposals.md section 4). Rules 01-logicZZZZZZZZZZZZZZ-weapons.js, the world and the
+// each level's reach and hit, the time between shots (the same at every level), the ammo (bullets 600G for 10, javelins
+// 500G for 5, the boomerang none: it wears out), the boomerang's throws by level, and the Moon specials. The prices: the
+// owner, 18 Nov 2026 ("Gold is easy to farm... increase the prices so they got challenges"; "Your pricing now is good"):
+// about 10x the first proposal, from the real gold data (active players earn 60,000-500,000 a day): Basic in about half a
+// day of active play, Gold in about a week, Moon in about a month. The materials stay: they are what challenges the rich. Rules 01-logicZZZZZZZZZZZZZZ-weapons.js, the world and the
 // panels 19zzzzzzzzzzzzzzzzzzzzzzzzzzz-weapons.js. Everything here is appended (items, counters): old saves load as before.
 // Icons: drawn at load into the items texture (no new rows in the page's items picture), until their pack is in.
 (function (F) {
@@ -27,24 +29,24 @@
       name: 'Rifle', verb: 'Shoot', ammo: 'bullets', moon: 'pierce',
       range: [4, 5, 6, 7, 8, 8], damage: [1, 2, 3, 3, 4, 4], gap: 1400, still: 640, // (still: the kick settles before he moves)
       buy: [
-        { gold: 2500, needs: [['lumber', 10], ['iron', 5]] },
-        { gold: 5000, needs: [['ore_copper', 8], ['farm_cement', 2], ['toro_hide', 4]] },
-        { gold: 12000, needs: [['ore_silver', 8], ['farm_cement', 4], ['toro_horn', 4]] },
-        { gold: 30000, needs: [['ore_gold', 8], ['farm_cement', 6], ['sarangay_jewel', 3]] },
-        { gold: 60000, needs: [['ember_shard', 40], ['obsidian', 5], ['arimaonga_mane', 3]] },
-        { gold: 600000, needs: [['arimaonga_mane', 6], ['bamboo_heart', 3], ['galura_feather', 3], ['bakunawa_scale', 5]] },
+        { gold: 25000, needs: [['lumber', 10], ['iron', 5]] },
+        { gold: 60000, needs: [['ore_copper', 8], ['farm_cement', 2], ['toro_hide', 4]] },
+        { gold: 150000, needs: [['ore_silver', 8], ['farm_cement', 4], ['toro_horn', 4]] },
+        { gold: 400000, needs: [['ore_gold', 8], ['farm_cement', 6], ['sarangay_jewel', 3]] },
+        { gold: 900000, needs: [['ember_shard', 40], ['obsidian', 5], ['arimaonga_mane', 3]] },
+        { gold: 2500000, needs: [['arimaonga_mane', 6], ['bamboo_heart', 3], ['galura_feather', 3], ['bakunawa_scale', 5]] },
       ],
     },
     javelin: {
       name: 'Javelin', verb: 'Throw', ammo: 'javelins', moon: 'pair',
       range: [1, 2, 2, 3, 4, 5], damage: [1, 2, 3, 4, 4, 4], gap: 350, still: 350,
       buy: [
-        { gold: 2000, needs: [['lumber', 12], ['rope', 2]] },
-        { gold: 4000, needs: [['ore_copper', 8], ['rope', 3], ['warty_tusk', 4]] },
-        { gold: 10000, needs: [['ore_silver', 8], ['rope', 5], ['maral_pelt', 4]] },
-        { gold: 25000, needs: [['ore_gold', 8], ['rope', 6], ['tigmamanukan_feather', 3]] },
-        { gold: 50000, needs: [['ember_shard', 40], ['obsidian', 5], ['bamboo_heart', 3]] },
-        { gold: 600000, needs: [['bamboo_heart', 6], ['arimaonga_mane', 3], ['galura_feather', 3], ['bakunawa_scale', 5]] },
+        { gold: 20000, needs: [['lumber', 12], ['rope', 2]] },
+        { gold: 50000, needs: [['ore_copper', 8], ['rope', 3], ['warty_tusk', 4]] },
+        { gold: 120000, needs: [['ore_silver', 8], ['rope', 5], ['maral_pelt', 4]] },
+        { gold: 320000, needs: [['ore_gold', 8], ['rope', 6], ['tigmamanukan_feather', 3]] },
+        { gold: 750000, needs: [['ember_shard', 40], ['obsidian', 5], ['bamboo_heart', 3]] },
+        { gold: 2500000, needs: [['bamboo_heart', 6], ['arimaonga_mane', 3], ['galura_feather', 3], ['bakunawa_scale', 5]] },
       ],
     },
     boomerang: {
@@ -56,20 +58,20 @@
       // (the owner's recipe is lumber + Rope + a little Gold; Rope comes from the Mixer, farm economy v2 part 3: it is
       // asked for as soon as the game has it, C.ITEMS.rope. Until then lumber + Gold, so a boomerang can always be fixed.)
       repair: [
-        { gold: 100, needs: [['lumber', 2], ['rope', 1]] },
-        { gold: 200, needs: [['lumber', 3], ['rope', 1]] },
-        { gold: 400, needs: [['lumber', 4], ['rope', 2]] },
-        { gold: 800, needs: [['lumber', 5], ['rope', 2]] },
-        { gold: 1500, needs: [['lumber', 6], ['rope', 3]] },
-        { gold: 3000, needs: [['lumber', 8], ['rope', 4]] },
+        { gold: 300, needs: [['lumber', 2], ['rope', 1]] },
+        { gold: 600, needs: [['lumber', 3], ['rope', 1]] },
+        { gold: 1200, needs: [['lumber', 4], ['rope', 2]] },
+        { gold: 2400, needs: [['lumber', 5], ['rope', 2]] },
+        { gold: 4500, needs: [['lumber', 6], ['rope', 3]] },
+        { gold: 9000, needs: [['lumber', 8], ['rope', 4]] },
       ],
       buy: [
-        { gold: 1500, needs: [['lumber', 8], ['beeswax', 2]] },
-        { gold: 3500, needs: [['ore_copper', 8], ['beeswax', 3], ['kalapati_feather', 6]] },
-        { gold: 8000, needs: [['ore_silver', 8], ['beeswax', 4], ['banog_feather', 4]] },
-        { gold: 20000, needs: [['ore_gold', 8], ['beeswax', 5], ['bato_crown', 3]] },
-        { gold: 40000, needs: [['ember_shard', 40], ['obsidian', 5], ['galura_feather', 3]] },
-        { gold: 600000, needs: [['galura_feather', 6], ['arimaonga_mane', 3], ['bamboo_heart', 3], ['bakunawa_scale', 5]] },
+        { gold: 15000, needs: [['lumber', 8], ['beeswax', 2]] },
+        { gold: 40000, needs: [['ore_copper', 8], ['beeswax', 3], ['kalapati_feather', 6]] },
+        { gold: 100000, needs: [['ore_silver', 8], ['beeswax', 4], ['banog_feather', 4]] },
+        { gold: 260000, needs: [['ore_gold', 8], ['beeswax', 5], ['bato_crown', 3]] },
+        { gold: 600000, needs: [['ember_shard', 40], ['obsidian', 5], ['galura_feather', 3]] },
+        { gold: 2500000, needs: [['galura_feather', 6], ['arimaonga_mane', 3], ['bamboo_heart', 3], ['bakunawa_scale', 5]] },
       ],
     },
   };
@@ -89,8 +91,8 @@
     rifle: { name: 'Rifle', kind: 'tool', tool: 'rifle', painted: true, desc: 'Long reach and a hard hit, but slow to load. Needs bullets.' },
     javelin: { name: 'Javelin', kind: 'tool', tool: 'javelin', painted: true, desc: 'Hits hard and fast, up close. Needs javelins to throw.' },
     boomerang: { name: 'Boomerang', kind: 'tool', tool: 'boomerang', painted: true, desc: 'Flies out and comes back. No ammo, but it wears out: fix it at the Forge.' },
-    bullets: { name: 'Bullets', kind: 'gear', price: 200, painted: true, desc: 'For the Rifle. Sold 10 at a time.' },
-    javelins: { name: 'Javelins', kind: 'gear', price: 150, painted: true, desc: 'For the Javelin. Sold 5 at a time.' },
+    bullets: { name: 'Bullets', kind: 'gear', price: 600, painted: true, desc: 'For the Rifle. Sold 10 at a time.' },
+    javelins: { name: 'Javelins', kind: 'gear', price: 500, painted: true, desc: 'For the Javelin. Sold 5 at a time.' },
   };
   Object.keys(ITEMS).forEach(function (id) {
     ITEMS[id].icon = C.wpnIcon(id === 'bullets' || id === 'javelins' ? id : id + '_0');

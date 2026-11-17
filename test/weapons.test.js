@@ -51,10 +51,10 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   const s = rich();
   assert.strictEqual(L.hasWeapon(s, 'rifle'), false);
   const first = L.nextWeapon(s, 'rifle');
-  assert.deepStrictEqual(plain(first), { level: 0, gold: 2500, needs: [['lumber', 10]] }, 'iron is not in the game: not asked for');
+  assert.deepStrictEqual(plain(first), { level: 0, gold: 25000, needs: [['lumber', 10]] }, 'iron is not in the game: not asked for');
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.ok(L.hasWeapon(s, 'rifle') && L.weaponLevel(s, 'rifle') === 0);
-  assert.strictEqual(s.gold, 1e7 - 2500);
+  assert.strictEqual(s.gold, 1e7 - 25000);
   assert.strictEqual(s.lumber, 490);
   // Copper needs copper ore and the Mixer's Farm Cement (Toro Hide is not in the game yet)
   assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle').needs), [['ore_copper', 8], ['farm_cement', 2]]);
@@ -68,7 +68,7 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   L.addItem(s, 'ore_gold', 8); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   L.addItem(s, 'ember_shard', 40); L.addItem(s, 'obsidian', 5); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.itemName(s, 'rifle'), 'Magma Rifle');
-  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 600000, needs: [['bakunawa_scale', 5]] }, "(the Lair's scales; Manila's boss parts later)");
+  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 2500000, needs: [['bakunawa_scale', 5]] }, "(the Lair's scales; Manila's boss parts later)");
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'short');
   L.addItem(s, 'bakunawa_scale', 5);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
@@ -83,17 +83,17 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   assert.deepStrictEqual(plain(L.nextWeapon(L.newState(), 'javelin').needs), [['lumber', 12], ['rope', 2]]);
 });
 
-test('ammo: bullets 200G for 10, javelins 150G for 5, the boomerang none; a shot takes one and the energy', () => {
+test('ammo: bullets 600G for 10, javelins 500G for 5 (owner, 18 Nov 2026: dearer), the boomerang none; a shot takes one and the energy', () => {
   const s = rich();
   L.getWeapon(s, 'rifle');
   L.getWeapon(s, 'javelin');
   const g = s.gold;
   assert.strictEqual(L.buyAmmo(s, 'bullets', 1), 'ok');
   assert.strictEqual(L.countItem(s, 'bullets'), 10);
-  assert.strictEqual(s.gold, g - 200);
+  assert.strictEqual(s.gold, g - 600);
   assert.strictEqual(L.buyAmmo(s, 'javelins', 2), 'ok');
   assert.strictEqual(L.countItem(s, 'javelins'), 10);
-  assert.strictEqual(s.gold, g - 200 - 300);
+  assert.strictEqual(s.gold, g - 600 - 1000);
   const broke = L.newState();
   broke.gold = 199;
   assert.strictEqual(L.buyAmmo(broke, 'bullets', 1), 'gold');
@@ -152,11 +152,11 @@ test('the boomerang is fixed at the Forge back to full: lumber and Gold (Rope to
   assert.strictEqual(L.repairCost(s), null, 'nothing to fix yet');
   assert.strictEqual(L.repairBoomerang(s), 'full');
   for (let i = 0; i < 90; i++) L.fireWeapon(s, 'boomerang');
-  assert.deepStrictEqual(plain(L.repairCost(s)), { gold: 100, needs: [['lumber', 2], ['rope', 1]] });
+  assert.deepStrictEqual(plain(L.repairCost(s)), { gold: 300, needs: [['lumber', 2], ['rope', 1]] });
   const g = s.gold, lu = s.lumber;
   assert.strictEqual(L.repairBoomerang(s), 'ok');
   assert.strictEqual(L.throwsLeft(s), 100);
-  assert.strictEqual(s.gold, g - 100);
+  assert.strictEqual(s.gold, g - 300);
   assert.strictEqual(s.lumber, lu - 2);
   // short of lumber, or gold
   for (let i = 0; i < 5; i++) L.fireWeapon(s, 'boomerang');
@@ -171,7 +171,7 @@ test('the boomerang is fixed at the Forge back to full: lumber and Gold (Rope to
   assert.deepStrictEqual(plain(L.repairCost(s).needs), [['lumber', 2], ['rope', 1]]);
   assert.strictEqual(L.repairBoomerang(s), 'short');
   // each level's price
-  assert.deepStrictEqual(plain(C.WEAPONS.boomerang.repair.map((r) => r.gold)), [100, 200, 400, 800, 1500, 3000]);
+  assert.deepStrictEqual(plain(C.WEAPONS.boomerang.repair.map((r) => r.gold)), [300, 600, 1200, 2400, 4500, 9000]);
   assert.strictEqual(L.repairBoomerang(L.newState()), 'none');
 });
 
