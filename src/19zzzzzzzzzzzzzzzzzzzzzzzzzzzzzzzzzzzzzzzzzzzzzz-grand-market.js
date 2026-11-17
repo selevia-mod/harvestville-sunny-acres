@@ -204,8 +204,6 @@
     this.gmHorseOff = false;
     this.gmCullMs = 0;
     if (visiting(this)) return;
-    // the valley road, ridden: its stamina (never all of it: the horse makes it to the gate)
-    if (S.gmRoad) { if (S.gmRoad === this.mapKey && S.riding) { L.gmRoadRide(s); S.dirty = true; } S.gmRoad = null; }
     // home again with the horse at its Stable (not ridden, not with you): the cart is parked. (Elsewhere it stays with the
     // horse, wherever that waits: in town while you are in a shop, say.)
     if (S.gmHitch && (!L.gmHasCart(s) || L.gmAway(s) || (this.mapKey === 'farm' && (!h || (!S.riding && !S.horseFollow && !(S.horseAt && S.horseAt.map === 'farm')))))) S.gmHitch = false;
@@ -305,9 +303,8 @@
       this.horseWait();
     }
     // riding the valley road: the owner's rule (6 hearts and Horseshoes); without it you get off and walk on, and the
-    // horse waits at the road's end (as it always did); with it, the road takes its stamina
-    var road = (to === 'manila' && spawn === 'from_valley') || (this.mapKey === 'manila' && to === 'town' && spawn === 'from_manila');
-    if (road && S.riding && to === 'manila') {
+    // horse waits at the road's end (as it always did). Riding it costs no stamina (owner, 18 Nov 2026)
+    if (to === 'manila' && spawn === 'from_valley' && S.riding) {
       var ok = L.horseRoadOk(s, true);
       if (!ok.ok) {
         this.dismount();
@@ -315,7 +312,6 @@
         if (F.ui) F.ui.toast(ok.why + '\nIt waits here; you walk on.', 3600);
       }
     }
-    S.gmRoad = road && S.riding ? to : null; // (its stamina is taken as you come out at the other end: setupExtras)
     var out = travel.apply(this, arguments);
     return out;
   };

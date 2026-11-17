@@ -1,7 +1,7 @@
 // Browser playthroughs of the horse going out (farm economy v2, part 5; docs/farm-economy-v2.md section 6;
 // src/19zzzzzzzzzzzzzzzzzzzzzzzzz-horse-out.js): blocked without hearts or Horseshoes, the Stable, riding into the
-// Wild Lands, stamina running out and the horse following, feeding it, shooting from the saddle, and being knocked off
-// in a cave. Run alone (node --test --test-concurrency=1 test/e2e-horse-out.test.js) after node build.js.
+// Wild Lands (riding costs no stamina; an enemy's hit while riding does), stamina running out and the horse following,
+// feeding it, shooting from the saddle, and being knocked off in a cave. Run alone (node --test --test-concurrency=1 test/e2e-horse-out.test.js) after node build.js.
 // Set SHOTS=/some/dir to save screenshots.
 const test = require('node:test');
 const assert = require('node:assert');
@@ -186,24 +186,54 @@ test('bond and gear open places: blocked without 6 hearts, then without Horsesho
   await go(page, 'pulag', 'from_town');
   assert.ok(await riding(page), 'riding in the Wild Lands');
   assert.ok(await page.evaluate(() => Farm.world.horse && Farm.world.hbar && Farm.world.hbar.visible), 'the stamina bar shows');
-  // a gallop drains stamina; town did not
+  // a gallop costs no stamina (owner, 18 Nov 2026: "If riding horse for pleasure or transferring plants, there's should
+  // be no energy cost")
   assert.strictEqual(await stamina(page), 100);
   await holdKey(page, 'ArrowLeft', 700); // (west: into Pulag; east is the road back to town)
-  const st = await stamina(page);
-  assert.ok(st < 100 && st > 80, 'a little stamina gone: ' + st);
+  assert.strictEqual(await stamina(page), 100, 'nothing gone');
   await shot(page, 'horse-pulag-riding');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
 
-test('stamina runs out: you walk and it follows you, through a road too; feeding it lets you ride again', async () => {
-  const save = await makeSave("s.horse.love = 100; s.horse.g = 3; s.horse.st = 3; L.addItem(s, 'oats', 2); L.addItem(s, 'hoe', 1);");
+// (owner, 18 Nov 2026: "it will lost stamina when hitted by enemies, so when you got hit, the horse lost the energy even the
+// character": an enemy's hit while riding takes C.HORSE_OUT.hitDrain, 5, from the horse, and the farmer's energy as before)
+const hitMe = (page) => page.evaluate(() => {
+  const w = Farm.world, s = Farm.session.state, f = w.feet(), a = { x: f.x + 200, y: f.y, kind: 'boar', def: { hit: 6, walk: 1 }, mode: 'charge' };
+  const e = s.energy, want = Farm.Logic.chargeLoss(s, 6, 'boar');
+  w.wildHit(a);
+  return { lost: e - s.energy, want };
+});
+test('an enemy\'s hit while riding: the horse loses 5 and you your energy as before; on foot the horse loses nothing', async () => {
+  const save = await makeSave("s.horse.love = 100; s.horse.g = 3; s.energy = 200;");
+  const { page, problems, context } = await open(save);
+  await ride(page);
+  await go(page, 'town', 'from_farm');
+  await go(page, 'pulag', 'from_town');
+  let h = await hitMe(page);
+  assert.strictEqual(h.lost, h.want, 'the farmer\'s energy as before');
+  assert.strictEqual(await stamina(page), 95, 'the horse: 5');
+  assert.ok(await riding(page));
+  await page.evaluate(() => { Farm.world.dismount(); });
+  await frames(page, 2);
+  h = await hitMe(page);
+  assert.strictEqual(h.lost, h.want);
+  assert.strictEqual(await stamina(page), 95, 'on foot: the horse loses nothing');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the 20th hit while riding wears it out: you walk and it follows you, through a road too; feeding it lets you ride again', async () => {
+  const save = await makeSave("s.horse.love = 100; s.horse.g = 3; s.energy = 300; L.addItem(s, 'oats', 2); L.addItem(s, 'hoe', 1);");
   const { page, problems, context } = await open(save);
   await ride(page);
   await go(page, 'town', 'from_farm');
   await go(page, 'pulag', 'from_town');
   assert.ok(await riding(page));
-  await holdKey(page, 'ArrowUp', 900);
+  for (let k = 1; k < 20; k++) { await hitMe(page); await page.evaluate(() => { Farm.session.state.energy = 300; }); }
+  assert.strictEqual(await stamina(page), 5);
+  assert.ok(await riding(page), 'still on after 19 hits');
+  await hitMe(page);
   await page.waitForFunction(() => !Farm.session.riding, null, SLOW);
   assert.strictEqual(await stamina(page), 0);
   assert.match(await toast(page), /Chestnut is worn out and stops\. You walk on, and it follows you\./);
@@ -256,6 +286,7 @@ test('shooting from the saddle: an arrow flies, you stay on and keep moving', as
   assert.ok(await riding(page), 'still on the horse');
   assert.strictEqual(await count(page, 'arrows'), 9);
   assert.strictEqual(await page.evaluate(() => Farm.session.state.energy), e0 - 2, 'a shot costs its energy');
+  assert.strictEqual(await stamina(page), 100, 'and the horse nothing (owner, 18 Nov 2026)');
   assert.ok(await page.evaluate(() => !Farm.world.shot && Farm.world.horse.sprite.visible), 'no archer stance: the rider stays drawn');
   // one arrow at a time: a second tap at once does nothing, a moment later it shoots
   await page.evaluate(() => { const w = Farm.world; w.rideShotAt = 0; w.shoot(); w.shoot(); });

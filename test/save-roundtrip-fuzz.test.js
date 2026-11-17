@@ -75,13 +75,14 @@ const play = (seed, steps, every) => {
   s.gold = 5e6;
   const slotOf = (id) => s.inv.findIndex((x) => x && x.id === id);
   // the horse cart and the Grand Market (18 Nov 2026), on a random stream of their own (so the actions above play as
-  // they always did): make it, load it (the Silo, the bag), unload, send Mang Kardo (and he comes back), sell, deliver
+  // they always did): make it, load it (the Silo, the bag), unload, send Mang Kardo (and he comes back), sell, deliver;
+  // and the horse's stamina (a hit while riding, coming back over time: its last count saved in 'hs')
   let r2 = seed ^ 0x5bd1e995;
   const crnd = () => { r2 = (r2 * 1103515245 + 12345) & 0x7fffffff; return r2 / 0x7fffffff; };
   const cint = (n) => Math.floor(crnd() * n), cpick = (xs) => xs[cint(xs.length)];
   const farmCrops = L.gmCrops ? L.gmCrops() : [];
   const cart = () => {
-    const c = cint(7), crop = cpick(farmCrops);
+    const c = cint(8), crop = cpick(farmCrops);
     if (c === 0) {
       if (!s.horse) s.horse = { name: 'Chestnut', love: 0, pet: 0 };
       s.gold += 20000; s.lumber = (s.lumber || 0) + 60; L.addItem(s, 'ore_copper', 10); L.addItem(s, 'farm_cement', 3);
@@ -102,7 +103,8 @@ const play = (seed, steps, every) => {
     }
     else if (c === 4) L.gmFinish(s, L.nowMin());
     else if (c === 5) { const ks = L.gmCargoCrops(s); if (ks.length) L.gmSell(s, cpick(ks), s.day); }
-    else { const cs = L.gmContracts(s), ct = cs.length && cpick(cs); if (ct) { L.siloPut(s, ct.crop, 100); L.gmLoadSilo(s, ct.crop, 100); L.gmDeliver(s, ct.k); } }
+    else if (c === 6) { const cs = L.gmContracts(s), ct = cs.length && cpick(cs); if (ct) { L.siloPut(s, ct.crop, 100); L.gmLoadSilo(s, ct.crop, 100); L.gmDeliver(s, ct.k); } }
+    else if (s.horse && L.horseHit) { if (crnd() < 0.5) L.horseHit(s); else L.horseRegen(s, L.nowMin() + cint(300)); } // (the horse: hit while riding, its stamina coming back)
   };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();

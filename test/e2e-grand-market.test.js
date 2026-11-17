@@ -260,7 +260,7 @@ test('riding to Manila with the cart by the valley road (6 hearts, Horseshoes), 
   await go(page, 'manila', 'from_valley');
   assert.ok(await page.evaluate(() => Farm.session.riding), 'still riding in Manila');
   assert.ok(await page.evaluate(() => !!Farm.world.horse && !!Farm.world.gmCart), 'the horse and the cart in Manila');
-  assert.strictEqual(await page.evaluate(() => Farm.Logic.horseStamina(Farm.session.state)), st0 - 10, 'the road took 10 stamina');
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.horseStamina(Farm.session.state)), st0, 'the road costs the horse nothing (owner, 18 Nov 2026)');
   await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.path = []; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); }));
   await teleport(page, 25, 45, 'up');
   await frames(page, 6);

@@ -13,7 +13,17 @@
     loveHeart: 10, // love a heart: love runs 0-100, so 10 hearts (decided by me, owner can change)
     oldHearts: 3, // a horse from before this update starts with at least this many, so town riding stays open (decided by me)
     stamina: 100, // a full horse (decided by me, owner can change)
-    drain: 1, // stamina a tile ridden outside the farm and town: about 100 tiles, 3 or 4 maps (decided by me, owner can change)
+    // Riding costs no stamina (owner, 18 Nov 2026: "If riding horse for pleasure or transferring plants, there's should be
+    // no energy cost"), anywhere: not the Wild Lands, the hunting places, caves, Manila, the valley road or the cart. Nor
+    // does shooting from the saddle. Kept at 0 so nothing reads a number that is gone.
+    drain: 0,
+    // An enemy's hit while you ride takes this much from the horse too (owner, 18 Nov 2026: "it will lost stamina when
+    // hitted by enemies, so when you got hit, the horse lost the energy even the character"): 5, so a full horse takes 20
+    // hits (decided by me, owner can change). You lose your own energy for the hit exactly as before.
+    hitDrain: 5,
+    // Stamina comes back by itself like the farmer's energy (owner, 18 Nov 2026: "It also restore energy per min similar to
+    // characters but I can restore immediately by eating"): a point every C.ENERGY_EVERY real minutes, also while the game
+    // is closed, up to full (L.horseRegen); food still gives it at once.
     // what each food gives back (owner: oats, carrots and apples; the amounts decided by me, owner can change)
     food: { oats: 40, apple: 25, carrot: 15 },
     feedLove: 2, // the first feed of a day is also a little love (decided by me, owner can change)

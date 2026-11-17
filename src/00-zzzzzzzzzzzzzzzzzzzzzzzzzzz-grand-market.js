@@ -25,7 +25,6 @@
     cart: { cap: 100, gold: 20000, lumber: 60, needs: [['ore_copper', 10], ['farm_cement', 3]] },
     // Mang Kardo drives the cart to Manila for you: back 30 real minutes later with the gold, less his fee
     driver: { fee: 0.1, mins: 30 },
-    road: 10, // the valley road's stamina, ridden each way (as about 10 tiles of riding out there; decided by me)
     near: 9, // tiles from the Grand Market's door where a cart can sell (decided by me)
     tours: ['board', 'cart'], // the first-time tours, a bit each in the save (append only)
   };

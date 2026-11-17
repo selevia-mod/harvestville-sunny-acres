@@ -1,8 +1,9 @@
 // The horse goes out, the rules (farm economy v2, part 5; owner, 11 Nov 2026: docs/farm-economy-v2.md section 6; the
 // numbers in C.HORSE_OUT, 00-zzzzzzzzzzzzzzzzzzz-horse.js). Bond opens places: the horse's hearts (its love / 10, on 10
 // hearts) say where it can be ridden, and outside the farm and town it needs Horseshoes (caves: the Lantern Bridle too).
-// Stamina drains a little each tile ridden out there; oats, apples and carrots fill it, and it is full again each new
-// day. The save: 'hs' = [love, pet, gear bits, stamina, the day it was last fed]; an older save's 'hs' had only the
+// Riding costs no stamina; an enemy's hit while you ride does (C.HORSE_OUT.hitDrain). It comes back by itself like the
+// farmer's energy; oats, apples and carrots fill it at once, and it is full again each new day. The save: 'hs' = [love,
+// pet, gear bits, stamina, the day it was last fed, its last regen minute]; an older save's 'hs' had only the
 // first two (its horse gets at least C.HORSE_OUT.oldHearts hearts once: it could already ride in town).
 (function (F) {
   'use strict';
@@ -79,13 +80,34 @@
   // ---------- stamina ----------
   L.horseStamina = function (s) { return s.horse ? (s.horse.st == null ? H.stamina : s.horse.st) : 0; };
   L.horseTired = function (s) { return !!s.horse && L.horseStamina(s) <= 0; };
-  // Ridden `tiles` tiles on `map`: out there it tires (in whole and part points). Returns 'tired' the moment it runs out.
-  L.horseRide = function (s, map, tiles) {
-    if (!s.horse || !L.horseOut(map) || !(tiles > 0)) return 'ok';
+  // Ridden `tiles` tiles on `map`: riding costs nothing (owner, 18 Nov 2026), so it never tires. Kept for its callers.
+  L.horseRide = function () { return 'ok'; };
+  // An enemy hit you while you rode: the horse loses C.HORSE_OUT.hitDrain too. Returns 'tired' the moment it runs out.
+  L.horseHit = function (s) {
+    if (!s.horse) return 'ok';
     var before = L.horseStamina(s);
-    s.horse.st = Math.max(0, before - tiles * H.drain);
+    if (before >= H.stamina) s.horse.rg = L.nowMin(); // (its regen counts from the hit, as the farmer's energy does)
+    s.horse.st = Math.max(0, before - H.hitDrain);
     return before > 0 && s.horse.st <= 0 ? 'tired' : 'ok';
   };
+  // Stamina comes back by itself like the farmer's energy (L.regen): a point every C.ENERGY_EVERY real minutes, also while
+  // the game is closed, up to full. s.horse.rg: when it last counted (none yet: from now on).
+  L.horseRegen = function (s, now) {
+    var h = s && s.horse;
+    if (!h) return 0;
+    if (now == null) now = L.nowMin();
+    var st = L.horseStamina(s), every = C.ENERGY_EVERY;
+    if (!h.rg || h.rg > now || st >= H.stamina) { h.rg = now; return 0; }
+    var n = Math.floor((now - h.rg) / every);
+    if (n <= 0) return 0;
+    var add = Math.min(n, H.stamina - st);
+    h.st = st + add;
+    if (h.st >= H.stamina) delete h.st;
+    h.rg = L.horseStamina(s) >= H.stamina ? now : h.rg + n * every;
+    return add;
+  };
+  var regen = L.regen;
+  L.regen = function (s, now) { var r = regen.apply(this, arguments); L.horseRegen(s, now); return r; };
   L.horseFood = function (id) { return H.food[id] || 0; };
   // Feeds it what is in bag slot `slot`: 'ok', 'none', 'food' (not horse food) or 'full'. +stamina; the first feed of a
   // day is also a little love.
@@ -121,7 +143,7 @@
   var serialize = L.serialize;
   L.serialize = function (s) {
     var o = serialize(s);
-    if (s.horse && Array.isArray(o.hs)) o.hs = [o.hs[0], o.hs[1], s.horse.g || 0, Math.round(L.horseStamina(s) * 10) / 10, s.horse.fd || 0];
+    if (s.horse && Array.isArray(o.hs)) o.hs = [o.hs[0], o.hs[1], s.horse.g || 0, Math.round(L.horseStamina(s) * 10) / 10, s.horse.fd || 0, s.horse.rg || 0];
     return o;
   };
   var deserialize = L.deserialize;
@@ -133,10 +155,11 @@
       return s;
     }
     // (only what differs from a new horse is kept on it: full stamina, no gear, never fed are left out)
-    var g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0), st = Number(o.hs[3]), fd = int(o.hs[4], 0, 1e7, 0);
+    var g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0), st = Number(o.hs[3]), fd = int(o.hs[4], 0, 1e7, 0), rg = int(o.hs[5], 0, 1e9, 0);
     if (g) s.horse.g = g;
     if (isFinite(st) && st < H.stamina) s.horse.st = Math.max(0, st);
     if (fd) s.horse.fd = fd;
+    if (rg) s.horse.rg = rg; // (a save from before: its stamina comes back from the first count after loading)
     return s;
   };
 })(window.Farm = window.Farm || {});

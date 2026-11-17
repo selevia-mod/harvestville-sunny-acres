@@ -433,18 +433,11 @@ test('L.horseRoadOk: walking the valley road is free as ever; riding it takes 6 
   assert.strictEqual(L.manilaRoad(s, true).ok, true);
   s.horse.st = 0;
   assert.match(L.horseRoadOk(s, true).why, /too tired/);
-  // the road's own stamina: 10, never the last point
-  s.horse.st = 50;
-  assert.strictEqual(L.gmRoadRide(s), 10);
-  assert.strictEqual(L.horseStamina(s), 40);
-  s.horse.st = 4;
-  L.gmRoadRide(s);
-  assert.strictEqual(L.horseStamina(s), 1);
-  L.gmRoadRide(s);
-  assert.strictEqual(L.horseStamina(s), 1);
+  // the road itself costs the horse nothing (owner, 18 Nov 2026: riding is free)
+  assert.strictEqual(L.gmRoadRide, undefined);
 });
 
-test('the horse may go into Manila (6 hearts, Horseshoes; it tires there as out in the Wild Lands); everywhere else as before', () => {
+test('the horse may go into Manila (6 hearts, Horseshoes, as out in the Wild Lands); everywhere else as before', () => {
   assert.strictEqual(L.horseZone('manila'), 'city');
   assert.ok(L.horseOut('manila'));
   assert.strictEqual(L.horseZoneName('city'), 'Manila');
@@ -461,8 +454,8 @@ test('the horse may go into Manila (6 hearts, Horseshoes; it tires there as out 
   assert.strictEqual(L.horseMayGo(s, 'manila').why, 'hearts');
   s.horse.love = 6 * H.loveHeart;
   assert.ok(L.horseMayGo(s, 'pulag').ok && !L.horseMayGo(s, 'banaue').ok, 'the Wild Lands and hunting places as before');
-  assert.strictEqual(L.horseRide(s, 'manila', 5), 'ok');
-  assert.strictEqual(L.horseStamina(s), H.stamina - 5, 'riding in Manila uses stamina');
+  assert.strictEqual(L.horseRide(s, 'manila', 500), 'ok');
+  assert.strictEqual(L.horseStamina(s), H.stamina, 'riding in Manila costs nothing (owner, 18 Nov 2026)');
   // the city switched off: the horse waits outside it, as before
   M.horseRoad = false;
   try { assert.strictEqual(L.horseZone('manila'), null); assert.ok(L.manilaRoad(s, true).ok); } finally { M.horseRoad = true; }

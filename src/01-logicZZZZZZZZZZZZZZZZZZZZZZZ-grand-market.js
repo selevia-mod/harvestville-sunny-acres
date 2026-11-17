@@ -336,14 +336,6 @@
     var r = L.horseCanRide(s, 'manila');
     return r.ok ? { ok: true } : { ok: false, why: L.horseWhy(s, r) };
   };
-  // the road itself, ridden: its stamina, as any ride out there (never the last point: the horse makes it to the gate)
-  L.gmRoadRide = function (s) {
-    if (!s.horse) return 0;
-    var st = L.horseStamina(s), k = Math.max(0, Math.min(G.road, st - 1));
-    if (k > 0) s.horse.st = st - k;
-    return k;
-  };
-
   // ---------- the tours (a bit each) ----------
   L.gmTourSeen = function (s, key) { var i = G.tours.indexOf(key); return i < 0 || !!((L.gm(s).tour >> i) & 1); };
   L.gmTourTake = function (s, key) {

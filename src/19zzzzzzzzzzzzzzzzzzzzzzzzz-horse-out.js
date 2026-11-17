@@ -1,10 +1,11 @@
 // The horse goes out (farm economy v2, part 5; owner, 11 Nov 2026: docs/farm-economy-v2.md section 6; rules
 // 01-logicZZZZZZZZZZZZZZ-horse.js, numbers C.HORSE_OUT). Ride past town when the bond and the gear allow it: the Wild
 // Lands, the hunting places (Kanor's Jeep takes you both), their caves and the Lair. Out there a bar over the horse
-// shows its stamina; at 0 you get off and walk, and it follows you until you feed it (hold oats, an apple or a carrot
-// and face it). Get off out there and it follows you too, so it is never lost far from home; where it may not go (a
-// house, the mine, a place its hearts or gear do not open) it waits at the door. Shoot from the saddle on the move. In
-// a cave a big monster's hit can knock you off: the horse runs back to the entrance and waits (it comes out with you).
+// shows its stamina: riding costs none, an enemy's hit while you ride does (owner, 18 Nov 2026); it comes back by itself
+// like your energy. At 0 you get off and walk, and it follows you until it can carry you again (feed it: hold oats, an
+// apple or a carrot and face it). Get off out there and it follows you too, so it is never lost far from home; where it
+// may not go (a house, the mine, a place its hearts or gear do not open) it waits at the door. Shoot from the saddle on
+// the move (it costs the horse nothing). In a cave a big monster's hit can knock you off: the horse runs back to the entrance and waits (it comes out with you).
 // The Stable (face it on the farm): hearts, stamina, and its gear. Visiting a friend's farm: riding as before.
 (function (F) {
   'use strict';
@@ -95,8 +96,9 @@
     var s = this.state;
     if (!F.session.riding || !L.horseOut(this.mapKey) || quiet() || !L.takeTip(s, 'horse_out')) return;
     this.changed();
-    F.ui.dialog('OUT ON YOUR HORSE\n' + name(s) + ' tires as you ride out here: the bar over its head shows how much. Feed it oats, an apple ' +
-      'or a carrot. Hold the Bow to shoot from the saddle, and gallop away from a charge. In caves, a big monster can knock you off.');
+    F.ui.dialog('OUT ON YOUR HORSE\nRiding costs ' + name(s) + ' nothing, but a hit from an animal tires it too: the bar over its head shows ' +
+      'how much. It rests as you go, or feed it oats, an apple or a carrot. Hold the Bow to shoot from the saddle, and gallop away from a charge. ' +
+      'In caves, a big monster can knock you off.');
   };
   var create = P.create;
   P.create = function () {
@@ -142,7 +144,6 @@
   var updateExtras = P.updateExtras;
   P.updateExtras = function (dt, time) {
     var h = this.horse, S = F.session, mine = h && !visiting(this);
-    if (mine && S.riding) this.horseDrain();
     var moved = mine && !S.riding ? (h.run ? this.horseRun(h, dt) : S.horseFollow ? this.horseFollowStep(h, dt) : null) : null;
     updateExtras.call(this, dt, time);
     if (moved) { // walking (or running to the cave's way in): its steps, the way it goes
@@ -158,22 +159,14 @@
     var side = Math.abs(dx) > Math.abs(dy) * 1.2;
     return { side: side, d: side ? 'side' : dy > 0 ? 'down' : 'up', flip: dx > 0 };
   };
-  // ridden out there: a tile's stamina for each tile gone (a jump of more than 2 tiles is a move, not a ride)
-  P.horseDrain = function () {
-    var f = this.feet(), last = this.horseLast;
-    this.horseLast = { x: f.x, y: f.y };
-    if (!last || !L.horseOut(this.mapKey)) return;
-    var d = Math.hypot(f.x - last.x, f.y - last.y);
-    if (!d || d > 2 * T) return;
-    F.session.dirty = true; // (saved with the next autosave; no HUD redraw each frame)
-    if (L.horseRide(this.state, this.mapKey, d / T) === 'tired') this.horseTiredOut();
-  };
+  // (riding costs no stamina: owner, 18 Nov 2026. Kept for anything that still calls it.)
+  P.horseDrain = function () {};
   P.horseTiredOut = function () {
     var s = this.state;
     sfx('neigh');
     this.dismount(); // (out there: it follows you)
     this.player.body.setVelocity(0, 0);
-    F.ui.toast(name(s) + ' is worn out and stops. You walk on, and it follows you.\nFeed it oats, an apple or a carrot.', 4200);
+    F.ui.toast(name(s) + ' is worn out and stops. You walk on, and it follows you.\nFeed it oats, an apple or a carrot, or let it rest.', 4200);
     this.changed();
   };
   // following you: a little behind, at your walking pace (it catches up if you went far, say through a road)
@@ -243,7 +236,12 @@
   P.wildHit = function (a) {
     var rode = F.session.riding && !visiting(this), e = this.state.energy;
     var out = wildHit.apply(this, arguments);
-    if (rode && F.session.riding && !this.busy && this.state.energy < e && a && L.horseKnocks(this.mapKey, a.def, Math.random())) this.horseKnockOff();
+    if (!rode || !F.session.riding || this.state.energy >= e) return out; // (no hit landed: nothing for the horse either)
+    // hit while riding: the horse loses stamina too (owner, 18 Nov 2026), and at 0 you get off as when it is worn out
+    var tired = L.horseHit(this.state) === 'tired';
+    this.changed();
+    if (tired && !this.busy) { this.horseTiredOut(); return out; }
+    if (!this.busy && a && L.horseKnocks(this.mapKey, a.def, Math.random())) this.horseKnockOff();
     return out;
   };
   P.horseKnockOff = function () {
