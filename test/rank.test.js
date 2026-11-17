@@ -307,7 +307,7 @@ test('the hall in the save and the routes: a game closed in the hall opens on th
   s.map = 'hall';
   s.player = { x: 9 * S, y: 10 * S, dir: 'up' };
   const o = JSON.parse(JSON.stringify(L.serialize(s)));
-  assert.strictEqual(o.pk, 1, 'saved as the park (which is saved as town, on the park road)');
+  assert.strictEqual(o.pz, 1, 'saved as the park (which is saved as town, on the park road)');
   assert.strictEqual(o.p, undefined);
   const back = L.deserialize(o);
   assert.strictEqual(back.map, 'town');

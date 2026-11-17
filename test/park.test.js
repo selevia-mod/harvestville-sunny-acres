@@ -153,7 +153,7 @@ test('a game closed in the park opens again in town on the park road, and a town
   const town = JSON.parse(JSON.stringify(L.serialize(Object.assign({}, s, { map: 'town' }))));
   assert.strictEqual(o.m, town.m, 'saved as town (an older game knows that number)');
   assert.strictEqual(o.p, undefined);
-  assert.strictEqual(o.pk, 1);
+  assert.strictEqual(o.pz, 1); // (the park flag is pz since 17 Nov 2026: pk is the places' hunts)
   const back = L.deserialize(o);
   assert.strictEqual(back.map, 'town');
   assert.strictEqual(back.player.spawn, 'from_park');
@@ -166,7 +166,7 @@ test('a game closed in the park opens again in town on the park road, and a town
   assert.strictEqual(tb.player.x, 7168);
   assert.strictEqual(tb.player.y, 2970);
   assert.strictEqual(tb.player.spawn, undefined);
-  assert.strictEqual(JSON.parse(JSON.stringify(L.serialize(t))).pk, undefined);
+  assert.strictEqual(JSON.parse(JSON.stringify(L.serialize(t))).pz, undefined);
 });
 
 test("the Hall of Fame's door says what will hang there", () => {

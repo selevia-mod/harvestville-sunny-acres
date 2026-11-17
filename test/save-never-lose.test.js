@@ -158,3 +158,20 @@ test('the save guard keeps furniture a save would leave out, too', () => {
   const back = L.deserialize(o);
   assert.strictEqual(total(L.playHomeCounts(back)), before, 'the house holds as much as before (the piece in storage)');
 });
+
+// Two features wrote the save key 'pk' (the park's "saved in the park" flag, and the places' hunt records), so a player
+// who saved in town with any place hunts came back at the park gate. The park's flag is 'pz' now; an old save's pk = 1
+// still means the park.
+test('saved in town with place hunts: back where you stood, not at the park gate', () => {
+  const s = L.newState();
+  s.map = 'town'; s.player = { x: 21 * 256, y: 30 * 256, dir: 'left' };
+  const k = C.WILD.more && C.WILD.more[0];
+  if (k) { s.wild.by[k] = 3; s.wild.best[k] = 7; }
+  const o = plain(L.serialize(s));
+  const back = L.deserialize(o);
+  assert.notStrictEqual(back.player.spawn, 'from_park', 'not sent to the park gate');
+  if (k) assert.deepStrictEqual([back.wild.by[k], back.wild.best[k]], [3, 7], 'the hunts kept');
+  // an old save made in the park (pk = 1) still comes back at the park gate
+  const old = plain(o); old.pk = 1; delete old.pz;
+  assert.strictEqual(L.deserialize(old).player.spawn, 'from_park');
+});

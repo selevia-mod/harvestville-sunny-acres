@@ -5330,7 +5330,7 @@ test('Central Park: from the dead end by the Station up the park road, walk abou
   // a game closed here opens again in town on the park road
   await page.evaluate(() => Farm.world.save());
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
-  assert.strictEqual(saved.pk, 1);
+  assert.strictEqual(saved.pz, 1);
   assert.strictEqual(saved.p, undefined);
   // out of the south gate, back to town just inside the park road
   await teleport(page, 20, 31, 'down');
@@ -5422,7 +5422,7 @@ test('the Hall of Fame: in through Central Park\'s door, plaques and pedestals o
   // a game closed in the hall opens on the park road
   await page.evaluate(() => Farm.world.save());
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
-  assert.strictEqual(saved.pk, 1);
+  assert.strictEqual(saved.pz, 1);
   assert.strictEqual(saved.tr.p, 325, 'the points are saved');
   // out of the door: in the park, in front of the hall
   await teleport(page, 9, 12, 'down');

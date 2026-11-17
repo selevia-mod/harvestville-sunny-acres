@@ -17,14 +17,16 @@
       if (TOWN == null) TOWN = serialize(Object.assign({}, s, { map: 'town' })).m;
       o.m = TOWN;
       delete o.p;
-      o.pk = 1;
+      // 'pz': saved in the park (17 Nov 2026: it was 'pk', which the places' hunt records also write, so a player saved
+      // in town with any place hunts came back at the park gate). An older save's pk = 1 still means the park.
+      o.pz = 1;
     }
     return o;
   };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
     var s = deserialize(o);
-    if (s && o && o.pk && s.map === 'town') s.player = { x: null, y: null, dir: 'down', spawn: 'from_park' };
+    if (s && o && (o.pz === 1 || o.pk === 1) && s.map === 'town') s.player = { x: null, y: null, dir: 'down', spawn: 'from_park' };
     return s;
   };
 })(window.Farm = window.Farm || {});
