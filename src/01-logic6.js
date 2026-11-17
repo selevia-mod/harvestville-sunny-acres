@@ -253,9 +253,21 @@
   L.homeBeauty = function (s) { return homeBeauty(s) + (s.yard ? L.yardBeauty(s) : 0); };
 
   // ---------- tiles as runs: [t, x, y, n, ...]: n > 0 is n tiles along the row from x, n < 0 is -n down the column ----------
+  // A fence or a hedge may stand on a path: two tiles on one square. Each square's tiles go in turn into layers of one
+  // tile a square, and each layer is written as its own runs (before 17 Nov 2026 one tile a square was kept, so the
+  // piece underneath was gone after the next load: Zoeley and saint eliska lost hundreds).
   L.yardRuns = function (items) {
-    var at = {}, out = [];
-    items.forEach(function (it) { if (L.isYardTile(it.t)) at[it.x + ',' + it.y] = it.t; });
+    var layers = [];
+    items.forEach(function (it) {
+      if (!L.isYardTile(it.t)) return;
+      var k = it.x + ',' + it.y, i = 0;
+      while (layers[i] && layers[i][k] != null) i++;
+      (layers[i] = layers[i] || {})[k] = it.t;
+    });
+    return layers.reduce(function (out, at) { return out.concat(runsOf(at)); }, []);
+  };
+  var runsOf = function (at) {
+    var out = [];
     var keys = Object.keys(at).map(function (k) { var p = k.split(','); return [Number(p[0]), Number(p[1])]; })
       .sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
     var used = {};

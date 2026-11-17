@@ -53,3 +53,33 @@ test('a stored count over 9,999 is kept', () => {
 test('the save limit is 48,000 (the biggest farms were within 2,000 of the old 24,000)', () => {
   assert.strictEqual(C.MAX_SAVE_BYTES, 48000);
 });
+
+// Zoeley and saint eliska (17 Nov 2026 farm check): a fence or a hedge may stand on a path, but the save wrote one tile a
+// square, so the piece underneath was gone after the next load (Zoeley 98 pieces, saint eliska 189 in two days).
+test('a fence or a hedge on a path: both come back after a save', () => {
+  const MAP = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'maps', 'farm.json'), 'utf8'));
+  const FARM = L.farmInfo(MAP), ix = O.index;
+  const s = L.newState(); s.gold = 1e6;
+  [ix.stone_path, ix.brick_path, ix.wood_fence, ix.hedge].forEach((t) => { s.yard.bag[t] = 10; });
+  const total = (st, t) => count(st, t) + (st.yard.bag[t] || 0);
+  // paths with fences on them, paths with hedges on them, and fences put down first with a path under them
+  const pair = (under, over, want) => {
+    let n = 0;
+    for (let y = 26; y < 44 && n < want; y++) for (let x = 26; x < 60 && n < want; x++) {
+      if (L.yardCantPlace(s, FARM, under, x, y, null)) continue;
+      const i = L.placeYard(s, FARM, under, x, y);
+      if (L.placeYard(s, FARM, over, x, y) >= 0) n++; else { s.yard.items.splice(i, 1); s.yard.bag[under] = (s.yard.bag[under] || 0) + 1; }
+    }
+    assert.strictEqual(n, want, 'placed ' + want);
+  };
+  pair(ix.stone_path, ix.wood_fence, 4);
+  pair(ix.brick_path, ix.hedge, 3);
+  pair(ix.wood_fence, ix.stone_path, 2);
+  const kinds = [ix.stone_path, ix.brick_path, ix.wood_fence, ix.hedge];
+  const before = kinds.map((t) => total(s, t)), placed = kinds.map((t) => count(s, t));
+  const back = L.deserialize(plain(L.serialize(s)));
+  assert.deepStrictEqual(kinds.map((t) => total(back, t)), before, 'nothing lost');
+  assert.deepStrictEqual(kinds.map((t) => count(back, t)), placed, 'all still out on the farm');
+  const again = L.deserialize(plain(L.serialize(back)));
+  assert.deepStrictEqual(kinds.map((t) => count(again, t)), placed, 'and after a second save');
+});
