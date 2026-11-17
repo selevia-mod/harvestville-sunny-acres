@@ -311,7 +311,7 @@ test('out of ammo; the Armory (dev only) sells more; with the old places off the
   await frames(page, 3);
   assert.match(await modalText(page), /Bullets x10/);
   await shot(page, 'wpn-armory-ammo');
-  await tapButton(page, 'Buy 200G');
+  await tapButton(page, 'Buy 600G');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'bullets')), 10);
   await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openArmory({ tab: 'arms' }); });
   await frames(page, 3);
@@ -355,9 +355,9 @@ test('a boomerang breaks on its last throw and is gone; a worn one is fixed at B
   assert.match(await modalText(page), /40 of 100 throws left/);
   await shot(page, 'wpn-forge');
   const before = await page.evaluate(() => [Farm.session.state.gold, Farm.session.state.lumber]);
-  await tapButton(page, '100G');
+  await tapButton(page, '300G');
   const after = await page.evaluate(() => [Farm.session.state.gold, Farm.session.state.lumber, Farm.Logic.throwsLeft(Farm.session.state)]);
-  assert.deepStrictEqual(after, [before[0] - 100, before[1] - 2, 100]);
+  assert.deepStrictEqual(after, [before[0] - 300, before[1] - 2, 100]);
   // the save keeps it
   const saved = JSON.parse(await page.evaluate(() => gameHost.saves[gameHost.saves.length - 1]));
   assert.deepStrictEqual(saved.wp, [0, 0, 0, 100]);
