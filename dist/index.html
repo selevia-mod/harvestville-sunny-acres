@@ -5813,7 +5813,17 @@ hearts: { farm: 0, town: 3, wild: 6, hunt: 8, cave: 10 },
 loveHeart: 10,
 oldHearts: 3,
 stamina: 100,
-drain: 1,
+
+
+
+drain: 0,
+
+
+
+hitDrain: 5,
+
+
+
 
 food: { oats: 40, apple: 25, carrot: 15 },
 feedLove: 2,
@@ -7361,6 +7371,57 @@ pickedAuto: 'Your frame is picked for you now.',
 pickedNone: 'No frame round your name now.',
 },
 };
+})(window.Farm = window.Farm || {});
+
+// ---- src/00-zzzzzzzzzzzzzzzzzzzzzzzzzzz-grand-market.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var M = C.MANILA;
+
+C.GRAND_MARKET = {
+on: true,
+
+
+mult: [1.1, 1.6],
+hot: [1.6, 1.8],
+hotN: 3,
+minLoad: 50,
+
+
+
+contract: { n: 3, min: 100, max: 200, step: 10, pay: 1.7, days: 2 },
+
+cart: { cap: 100, gold: 20000, lumber: 60, needs: [['ore_copper', 10], ['farm_cement', 3]] },
+
+driver: { fee: 0.1, mins: 30 },
+near: 9,
+tours: ['board', 'cart'],
+};
+
+
+
+if (M) {
+M.horseRoad = true;
+M.buildings.forEach(function (b) {
+if (b.key === 'market') b.text = "Aling Rosa's Grand Market. She buys big loads, 50 or more of one crop, brought in a cart. Her price board is out front.";
+});
+var rosa = M.people.rosa;
+if (rosa) {
+rosa.lines = ['My board has big orders: 100 to 200 of one crop, and good Gold for them!',
+'Bring your harvest in a cart, 50 or more of a kind. The city is always hungry!',
+'Ay, my feet! The market is busy from six in the morning.'];
+}
+var kardo = M.people.kardo;
+if (kardo) kardo.lines = kardo.lines.concat(['No time to drive your cart to the city? Send it with me. Thirty minutes, and I only keep ten percent!']);
+M.crowd.lines = M.crowd.lines.map(function (l) { return l === 'The Grand Market opens soon. My basket is ready!' ? 'The Grand Market is open! Aling Rosa pays well for big loads.' : l; });
+}
 })(window.Farm = window.Farm || {});
 
 // ---- src/01-logic.js
@@ -15924,14 +15985,16 @@ if (s.map === 'park') {
 if (TOWN == null) TOWN = serialize(Object.assign({}, s, { map: 'town' })).m;
 o.m = TOWN;
 delete o.p;
-o.pk = 1;
+
+
+o.pz = 1;
 }
 return o;
 };
 var deserialize = L.deserialize;
 L.deserialize = function (o) {
 var s = deserialize(o);
-if (s && o && o.pk && s.map === 'town') s.player = { x: null, y: null, dir: 'down', spawn: 'from_park' };
+if (s && o && (o.pz === 1 || o.pk === 1) && s.map === 'town') s.player = { x: null, y: null, dir: 'down', spawn: 'from_park' };
 return s;
 };
 })(window.Farm = window.Farm || {});
@@ -19357,6 +19420,7 @@ return s;
 
 
 
+
 (function (F) {
 'use strict';
 var C = F.Config;
@@ -19433,12 +19497,33 @@ return n + ' waits outside.';
 L.horseStamina = function (s) { return s.horse ? (s.horse.st == null ? H.stamina : s.horse.st) : 0; };
 L.horseTired = function (s) { return !!s.horse && L.horseStamina(s) <= 0; };
 
-L.horseRide = function (s, map, tiles) {
-if (!s.horse || !L.horseOut(map) || !(tiles > 0)) return 'ok';
+L.horseRide = function () { return 'ok'; };
+
+L.horseHit = function (s) {
+if (!s.horse) return 'ok';
 var before = L.horseStamina(s);
-s.horse.st = Math.max(0, before - tiles * H.drain);
+if (before >= H.stamina) s.horse.rg = L.nowMin();
+s.horse.st = Math.max(0, before - H.hitDrain);
 return before > 0 && s.horse.st <= 0 ? 'tired' : 'ok';
 };
+
+
+L.horseRegen = function (s, now) {
+var h = s && s.horse;
+if (!h) return 0;
+if (now == null) now = L.nowMin();
+var st = L.horseStamina(s), every = C.ENERGY_EVERY;
+if (!h.rg || h.rg > now || st >= H.stamina) { h.rg = now; return 0; }
+var n = Math.floor((now - h.rg) / every);
+if (n <= 0) return 0;
+var add = Math.min(n, H.stamina - st);
+h.st = st + add;
+if (h.st >= H.stamina) delete h.st;
+h.rg = L.horseStamina(s) >= H.stamina ? now : h.rg + n * every;
+return add;
+};
+var regen = L.regen;
+L.regen = function (s, now) { var r = regen.apply(this, arguments); L.horseRegen(s, now); return r; };
 L.horseFood = function (id) { return H.food[id] || 0; };
 
 
@@ -19474,7 +19559,7 @@ return r;
 var serialize = L.serialize;
 L.serialize = function (s) {
 var o = serialize(s);
-if (s.horse && Array.isArray(o.hs)) o.hs = [o.hs[0], o.hs[1], s.horse.g || 0, Math.round(L.horseStamina(s) * 10) / 10, s.horse.fd || 0];
+if (s.horse && Array.isArray(o.hs)) o.hs = [o.hs[0], o.hs[1], s.horse.g || 0, Math.round(L.horseStamina(s) * 10) / 10, s.horse.fd || 0, s.horse.rg || 0];
 return o;
 };
 var deserialize = L.deserialize;
@@ -19486,10 +19571,11 @@ s.horse.love = Math.max(s.horse.love, H.oldHearts * H.loveHeart);
 return s;
 }
 
-var g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0), st = Number(o.hs[3]), fd = int(o.hs[4], 0, 1e7, 0);
+var g = int(o.hs[2], 0, (1 << H.gearOrder.length) - 1, 0), st = Number(o.hs[3]), fd = int(o.hs[4], 0, 1e7, 0), rg = int(o.hs[5], 0, 1e9, 0);
 if (g) s.horse.g = g;
 if (isFinite(st) && st < H.stamina) s.horse.st = Math.max(0, st);
 if (fd) s.horse.fd = fd;
+if (rg) s.horse.rg = rg;
 return s;
 };
 })(window.Farm = window.Farm || {});
@@ -21994,6 +22080,425 @@ id = uid(id);
 if (!id || !e) return;
 c.m[id] = { f: known(e.f) ? e.f : null, t: title(e.t), at: now };
 delete c.p[id];
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZZZZ-grand-market.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var G = C.GRAND_MARKET;
+var M = C.MANILA;
+if (!G) return;
+var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+var CON = G.contract;
+
+
+var hash = function (str) {
+var h = 2166136261;
+for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+return h >>> 0;
+};
+
+L.gmUnit = function () { return hash(Array.prototype.join.call(arguments, ':')) / 4294967296; };
+var round2 = function (x) { return Math.round(x * 100) / 100; };
+
+
+var CROPS = null;
+L.gmCrops = function () {
+if (!CROPS) {
+CROPS = [];
+C.CROP_KEYS.forEach(function (k) { var id = C.CROPS[k] && C.CROPS[k].item; if (id && L.isFarmCrop(id) && CROPS.indexOf(id) < 0) CROPS.push(id); });
+}
+return CROPS;
+};
+var sell = function (id) { return (C.ITEMS[id] && C.ITEMS[id].sell) || 0; };
+
+
+var hotDay = null, hotList = null;
+
+L.gmHot = function (day) {
+if (hotDay === day && hotList) return hotList;
+hotList = L.gmCrops().map(function (id) { return [L.gmUnit('hot', day, id), id]; }).sort(function (a, b) { return a[0] - b[0] || (a[1] < b[1] ? -1 : 1); })
+.slice(0, G.hotN).map(function (p) { return p[1]; });
+hotDay = day;
+return hotList;
+};
+L.gmIsHot = function (day, id) { return L.gmHot(day).indexOf(id) >= 0; };
+
+L.gmMult = function (day, id) {
+if (!L.isFarmCrop(id)) return 0;
+var r = L.gmIsHot(day, id) ? G.hot : G.mult;
+return round2(r[0] + (r[1] - r[0]) * L.gmUnit('mult', day, id));
+};
+
+L.gmPrice = function (day, id, q) {
+var m = L.gmMult(day, id);
+return m ? Math.max(1, Math.round(L.qualityPrice(id, q || 0) * m)) : 0;
+};
+
+L.gmBoard = function (day) {
+return L.gmCrops().map(function (id) { return { id: id, mult: L.gmMult(day, id), hot: L.gmIsHot(day, id), price: L.gmPrice(day, id, 0), sell: sell(id) }; })
+.sort(function (a, b) { return (b.hot - a.hot) || (b.mult - a.mult) || (a.id < b.id ? -1 : 1); });
+};
+
+
+L.gmNew = function () { return { cart: 0, cargo: {}, trip: null, con: {}, ms: 0, tour: 0, cs: {} }; };
+L.gm = function (s) { if (!s.gm) s.gm = L.gmNew(); return s.gm; };
+
+L.gmKey = function (id, q) { return q ? id + '~' + q : id; };
+L.gmSplit = function (key) { var i = key.indexOf('~'); return i < 0 ? { id: key, q: 0 } : { id: key.slice(0, i), q: int(key.slice(i + 1), 0, 2, 0) }; };
+L.gmHasCart = function (s) { return !!(s && s.gm && s.gm.cart); };
+L.gmAway = function (s) { return !!(s && s.gm && s.gm.trip); };
+var total = function (c) { var n = 0; for (var k in c) n += c[k]; return n; };
+L.gmLoad = function (s) { return s && s.gm ? total(s.gm.cargo) : 0; };
+L.gmRoom = function (s) { return Math.max(0, G.cart.cap - L.gmLoad(s)); };
+
+var keysOf = function (cargo, id) { return [0, 1, 2].map(function (q) { return L.gmKey(id, q); }).filter(function (k) { return cargo[k] > 0; }); };
+L.gmCropLoad = function (s, id) { var c = (s && s.gm && s.gm.cargo) || {}; return keysOf(c, id).reduce(function (n, k) { return n + c[k]; }, 0); };
+
+L.gmCargoCrops = function (s) {
+var c = (s && s.gm && s.gm.cargo) || {}, out = [];
+Object.keys(c).forEach(function (k) { var id = L.gmSplit(k).id; if (out.indexOf(id) < 0) out.push(id); });
+var order = L.gmCrops();
+return out.sort(function (a, b) { var i = order.indexOf(a), j = order.indexOf(b); return (i < 0 ? 1e4 : i) - (j < 0 ? 1e4 : j) || (a < b ? -1 : 1); });
+};
+var put = function (s, key, n) { var c = L.gm(s).cargo; c[key] = (c[key] || 0) + n; };
+var take = function (s, key, n) { var c = L.gm(s).cargo, k = Math.min(n, c[key] || 0); if (k > 0) { c[key] -= k; if (!c[key]) delete c[key]; } return Math.max(0, k); };
+
+
+
+L.gmMakeCart = function (s) {
+var R = G.cart;
+if (L.gmHasCart(s)) return 'have';
+if (!s.horse) return 'horse';
+if (s.gold < R.gold) return 'gold';
+if ((s.lumber || 0) < R.lumber) return 'lumber';
+if (!L.hasNeeds(s, R.needs)) return 'needs';
+s.gold -= R.gold;
+s.lumber -= R.lumber;
+L.takeNeeds(s, R.needs);
+L.gm(s).cart = 1;
+return 'ok';
+};
+
+L.gmWhyNot = function (s) { return !L.gmHasCart(s) ? 'cart' : L.gmAway(s) ? 'away' : L.gmRoom(s) <= 0 ? 'full' : null; };
+
+L.gmLoadSilo = function (s, id, n) {
+if (L.gmWhyNot(s) || !L.isFarmCrop(id)) return 0;
+var k = Math.min(n, L.gmRoom(s), L.siloHas(s, id));
+if (!(k > 0)) return 0;
+k = L.siloTake(s, id, k);
+put(s, id, k);
+return k;
+};
+
+L.gmLoadBag = function (s, slot, n) {
+var it = s.inv[slot];
+if (L.gmWhyNot(s) || !it || !L.isFarmCrop(it.id)) return 0;
+var k = Math.min(n, L.gmRoom(s), it.n), id = it.id, q = it.q || 0;
+if (!(k > 0)) return 0;
+k = L.removeAt(s, slot, k);
+put(s, L.gmKey(id, q), k);
+return k;
+};
+
+
+L.gmUnload = function (s, key, n) {
+if (!L.gmHasCart(s) || L.gmAway(s)) return 0;
+var c = L.gm(s).cargo, k = Math.min(n == null ? Infinity : n, c[key] || 0), p = L.gmSplit(key), left = k;
+if (!(k > 0)) return 0;
+if (!p.q) left = L.siloPut(s, p.id, left);
+if (left > 0 && C.ITEMS[p.id]) left = p.q ? L.addItemQ(s, p.id, left, p.q) : L.addItem(s, p.id, left);
+return take(s, key, k - left);
+};
+L.gmUnloadAll = function (s) { return Object.keys((s.gm && s.gm.cargo) || {}).reduce(function (n, k) { return n + L.gmUnload(s, k); }, 0); };
+
+
+
+L.gmQuote = function (s, day, id) {
+var c = (s.gm && s.gm.cargo) || {}, lots = keysOf(c, id).map(function (k) { return { key: k, n: c[k], each: L.gmPrice(day, id, L.gmSplit(k).q) }; });
+return { lots: lots, n: lots.reduce(function (a, l) { return a + l.n; }, 0), gold: lots.reduce(function (a, l) { return a + l.n * l.each; }, 0) };
+};
+
+L.gmSell = function (s, id, day) {
+if (!L.gmHasCart(s) || L.gmAway(s)) return { why: 'none' };
+if (!L.isFarmCrop(id)) return { why: 'crop' };
+var qt = L.gmQuote(s, day, id);
+if (!qt.n) return { why: 'none' };
+if (qt.n < G.minLoad) return { why: 'min', n: qt.n };
+qt.lots.forEach(function (l) { take(s, l.key, l.n); });
+s.gold += qt.gold;
+if (s.stats) s.stats.earned = (s.stats.earned || 0) + qt.gold;
+return { ok: true, n: qt.n, gold: qt.gold };
+};
+
+
+
+
+
+L.gmGrowable = function (s) {
+var seeds = {};
+(L.seedsInSeason ? L.seedsInSeason(s.day) : []).forEach(function (id) { seeds[id] = 1; });
+(s.inv || []).concat(s.store || []).forEach(function (x) { if (x && C.ITEMS[x.id] && C.ITEMS[x.id].kind === 'seed') seeds[x.id] = 1; });
+var ok = {};
+Object.keys(seeds).forEach(function (id) {
+var it = C.ITEMS[id], crop = it && it.crop, item = crop && C.CROPS[crop] && C.CROPS[crop].item;
+if (!item || !L.isFarmCrop(item)) return;
+if (L.cropInSeason && !L.cropInSeason(crop, s.day)) return;
+if (it.place && !(L.placeOpen && L.placeOpen(s, it.place))) return;
+ok[item] = 1;
+});
+return L.gmCrops().filter(function (id) { return ok[id]; });
+};
+
+
+L.gmPick = function (crops, seed, day) {
+var out = [], used = {}, steps = Math.floor((CON.max - CON.min) / CON.step) + 1;
+if (!crops.length) return out;
+for (var i = 0; i < CON.n; i++) {
+var j = Math.floor(L.gmUnit('con', seed, day, i) * crops.length), fresh = Object.keys(used).length < crops.length;
+if (fresh) while (used[crops[j]]) j = (j + 1) % crops.length;
+var crop = crops[j], n = Math.min(steps - 1, Math.floor(L.gmUnit('need', seed, day, i) * steps));
+while ((used[crop] || []).indexOf(n) >= 0) n = (n + 1) % steps;
+(used[crop] = used[crop] || []).push(n);
+out.push({ crop: crop, need: CON.min + CON.step * n });
+}
+return out;
+};
+
+
+
+L.gmContractsOf = function (s, day) {
+var g = s && s.gm, keep = g && day <= s.day && day > s.day - CON.days, list = keep && g.cs && g.cs[day];
+if (!list) {
+list = L.gmPick(L.gmGrowable(s), (s && s.seed) | 0, day).map(function (c) { return [c.crop, c.need]; });
+if (keep) (g.cs = g.cs || {})[day] = list;
+}
+return list.map(function (c, i) { return { k: day * CON.n + i, day: day, crop: c[0], need: c[1], each: Math.max(1, Math.round(sell(c[0]) * CON.pay)) }; });
+};
+
+
+L.gmContracts = function (s) {
+var out = [], con = (s.gm && s.gm.con) || {};
+for (var d = s.day; d > s.day - CON.days; d--) {
+L.gmContractsOf(s, d).forEach(function (c) {
+c.got = Math.min(c.need, con[c.k] || 0);
+c.left = c.need - c.got;
+c.done = c.left <= 0;
+c.mins = Math.max(0, Math.round((c.day + CON.days - s.day) * 1440 - (s.time || 0)));
+out.push(c);
+});
+}
+return out;
+};
+L.gmContract = function (s, k) { return L.gmContracts(s).filter(function (c) { return c.k === k; })[0] || null; };
+
+L.gmCanDeliver = function (s, c) {
+if (!c || c.done || !L.gmHasCart(s) || L.gmAway(s)) return 0;
+var n = Math.min(L.gmCropLoad(s, c.crop), c.left);
+return n >= Math.min(G.minLoad, c.left) ? n : 0;
+};
+
+var deliveryLots = function (s, c, n) {
+var cg = s.gm.cargo, lots = [];
+keysOf(cg, c.crop).forEach(function (k) { var m = Math.min(n, cg[k]); if (m > 0) { lots.push({ key: k, n: m, each: c.each }); n -= m; } });
+return lots;
+};
+
+L.gmDeliver = function (s, k) {
+var c = L.gmContract(s, k);
+if (!c) return { why: 'none' };
+if (c.done) return { why: 'done' };
+var n = L.gmCanDeliver(s, c);
+if (!n) return { why: L.gmCropLoad(s, c.crop) ? 'min' : 'none', need: Math.min(G.minLoad, c.left) };
+deliveryLots(s, c, n).forEach(function (l) { take(s, l.key, l.n); });
+var gold = n * c.each, g = L.gm(s);
+g.con[k] = c.got + n;
+s.gold += gold;
+if (s.stats) s.stats.earned = (s.stats.earned || 0) + gold;
+var done = g.con[k] >= c.need;
+if (done) g.ms++;
+return { ok: true, n: n, gold: gold, done: done };
+};
+L.gmStars = function (s) { return (s.gm && s.gm.ms) || 0; };
+
+
+
+
+L.gmSendQuote = function (s, how) {
+if (!L.gmHasCart(s)) return { why: 'cart' };
+if (L.gmAway(s)) return { why: 'away' };
+if (!L.gmLoad(s)) return { why: 'empty' };
+var lots = [], k = -1, star = 0;
+if (how === 'sell') {
+L.gmCargoCrops(s).forEach(function (id) { if (L.isFarmCrop(id) && L.gmCropLoad(s, id) >= G.minLoad) lots = lots.concat(L.gmQuote(s, s.day, id).lots); });
+if (!lots.length) return { why: 'min' };
+} else {
+var c = L.gmContract(s, how);
+if (!c) return { why: 'none' };
+if (c.done) return { why: 'done' };
+var n = L.gmCanDeliver(s, c);
+if (!n) return { why: L.gmCropLoad(s, c.crop) ? 'min' : 'none' };
+lots = deliveryLots(s, c, n);
+k = c.k;
+star = n >= c.left ? 1 : 0;
+}
+var gold = lots.reduce(function (a, l) { return a + l.n * l.each; }, 0), fee = Math.round(gold * G.driver.fee);
+return { lots: lots, n: lots.reduce(function (a, l) { return a + l.n; }, 0), gold: gold, fee: fee, net: gold - fee, k: k, star: star };
+};
+
+
+L.gmSend = function (s, how, now) {
+var q = L.gmSendQuote(s, how);
+if (q.why) return q;
+var g = L.gm(s), trip = { at: Math.floor(now), cargo: {}, pay: {}, k: q.k, st: q.star };
+q.lots.forEach(function (l) { take(s, l.key, l.n); trip.cargo[l.key] = (trip.cargo[l.key] || 0) + l.n; trip.pay[l.key] = l.each; });
+if (q.k >= 0) g.con[q.k] = (g.con[q.k] || 0) + q.n;
+g.trip = trip;
+q.ok = true;
+return q;
+};
+L.gmDue = function (s) { return s.gm && s.gm.trip ? s.gm.trip.at + G.driver.mins : null; };
+L.gmLeft = function (s, now) { var d = L.gmDue(s); return d == null ? 0 : Math.max(0, d - Math.floor(now)); };
+
+L.gmTripPay = function (trip) {
+var lots = Object.keys(trip.cargo).map(function (k) { return { key: k, n: trip.cargo[k], each: trip.pay[k] || 0 }; });
+var gold = lots.reduce(function (a, l) { return a + l.n * l.each; }, 0), fee = Math.round(gold * G.driver.fee);
+return { gold: gold, fee: fee, net: gold - fee, lots: lots, star: trip.st ? 1 : 0, k: trip.k };
+};
+
+L.gmFinish = function (s, now) {
+var g = s.gm, trip = g && g.trip;
+if (!trip || Math.floor(now) < trip.at + G.driver.mins) return null;
+var r = L.gmTripPay(trip);
+s.gold += r.net;
+if (s.stats) s.stats.earned = (s.stats.earned || 0) + r.net;
+if (r.star) g.ms++;
+g.trip = null;
+return r;
+};
+
+
+var city = function () { return !!(M && M.on && M.horseRoad); };
+var zone = L.horseZone;
+L.horseZone = function (map) { return map === 'manila' && city() ? 'city' : zone(map); };
+var out = L.horseOut;
+L.horseOut = function (map) { return L.horseZone(map) === 'city' || out(map); };
+var zoneName = L.horseZoneName;
+L.horseZoneName = function (z) { return z === 'city' ? 'Manila' : zoneName(z); };
+var mayGo = L.horseMayGo;
+L.horseMayGo = function (s, map) {
+if (L.horseZone(map) !== 'city') return mayGo(s, map);
+if (!s.horse) return { why: 'none', zone: 'city' };
+if (L.horseHearts(s) < M.horseHearts) return { why: 'hearts', need: M.horseHearts, zone: 'city' };
+if (!L.horseHas(s, 'horseshoes')) return { why: 'shoes', zone: 'city' };
+return { ok: true, zone: 'city' };
+};
+
+
+L.horseRoadOk = function (s, riding) {
+if (!riding) return { ok: true };
+var r = L.horseCanRide(s, 'manila');
+return r.ok ? { ok: true } : { ok: false, why: L.horseWhy(s, r) };
+};
+
+L.gmTourSeen = function (s, key) { var i = G.tours.indexOf(key); return i < 0 || !!((L.gm(s).tour >> i) & 1); };
+L.gmTourTake = function (s, key) {
+if (L.gmTourSeen(s, key)) return false;
+L.gm(s).tour |= 1 << G.tours.indexOf(key);
+return true;
+};
+
+
+var newState = L.newState;
+L.newState = function (info) {
+var s = newState(info);
+s.gm = L.gmNew();
+return s;
+};
+
+var endDay = L.endDay;
+L.endDay = function (s, passedOut, info) {
+var r = endDay(s, passedOut, info), con = s.gm && s.gm.con;
+if (con) Object.keys(con).forEach(function (k) { if (Math.floor(Number(k) / CON.n) <= s.day - CON.days) delete con[k]; });
+var cs = s.gm && s.gm.cs;
+if (cs) Object.keys(cs).forEach(function (d) { if (Number(d) <= s.day - CON.days) delete cs[d]; });
+return r;
+};
+var flat = function (c, pay) {
+var a = [];
+Object.keys(c).sort().forEach(function (k) { if (!(c[k] > 0)) return; var p = L.gmSplit(k); a.push(p.id, p.q, c[k]); if (pay) a.push(pay[k] || 0); });
+return a;
+};
+var unflat = function (a, each, pay) {
+var c = {}, w = each ? 4 : 3;
+if (!Array.isArray(a)) return c;
+for (var i = 0; i + w - 1 < a.length; i += w) {
+var id = typeof a[i] === 'string' && a[i].length && a[i].length <= 40 ? a[i] : null, n = int(a[i + 2], 0, 1e7, 0);
+if (!id || !n) continue;
+var key = L.gmKey(id, int(a[i + 1], 0, 2, 0));
+c[key] = (c[key] || 0) + n;
+if (pay) pay[key] = int(a[i + 3], 0, 1e7, 0);
+}
+return c;
+};
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s), g = s.gm;
+if (!g) return o;
+var cargo = flat(g.cargo || {}), con = [];
+Object.keys(g.con || {}).sort(function (a, b) { return a - b; }).forEach(function (k) { if (g.con[k] > 0) con.push(Number(k), g.con[k]); });
+var t = g.trip ? [g.trip.at, flat(g.trip.cargo || {}, g.trip.pay || {}), g.trip.k == null ? -1 : g.trip.k, g.trip.st ? 1 : 0] : 0;
+var cs = [];
+Object.keys(g.cs || {}).sort(function (a, b) { return a - b; }).forEach(function (d) { cs.push(Number(d)); g.cs[d].forEach(function (c) { cs.push(c[0], c[1]); }); });
+if (g.cart || cargo.length || t || con.length || g.ms || g.tour || cs.length) o.gm = [g.cart ? 1 : 0, cargo, t, con, g.ms || 0, g.tour || 0, cs];
+return o;
+};
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (!s) return s;
+var g = s.gm = L.gmNew(), a = o && Array.isArray(o.gm) ? o.gm : null;
+if (!a) return s;
+g.cart = a[0] ? 1 : 0;
+g.cargo = unflat(a[1], false);
+if (Array.isArray(a[2])) {
+var pay = {}, tc = unflat(a[2][1], true, pay);
+
+if (Object.keys(tc).length) g.trip = { at: int(a[2][0], 0, 1e9, 0), cargo: tc, pay: pay, k: int(a[2][2], -1, 1e9, -1), st: a[2][3] ? 1 : 0 };
+}
+if (Array.isArray(a[3])) for (var i = 0; i + 1 < a[3].length; i += 2) { var k = int(a[3][i], 0, 1e9, -1), n = int(a[3][i + 1], 0, 1e6, 0); if (k >= 0 && n) g.con[k] = n; }
+g.ms = int(a[4], 0, 1e6, 0);
+g.tour = int(a[5], 0, 0xffff, 0);
+
+var b = Array.isArray(a[6]) ? a[6] : [], w = 1 + 2 * CON.n;
+for (var j = 0; j + w - 1 < b.length; j += w) {
+var d = int(b[j], 0, 1e7, -1), list = [];
+for (var q = 0; q < CON.n; q++) { var cr = b[j + 1 + 2 * q], nd = int(b[j + 2 + 2 * q], 1, 1e5, 0); if (typeof cr === 'string' && cr.length <= 40 && nd) list.push([cr, nd]); }
+if (d >= 0 && list.length === CON.n) g.cs[d] = list;
+}
+return s;
 };
 })(window.Farm = window.Farm || {});
 
@@ -56375,6 +56880,7 @@ return update.apply(this, arguments);
 
 
 
+
 (function (F) {
 'use strict';
 var C = F.Config;
@@ -56464,8 +56970,9 @@ P.horseTip = function () {
 var s = this.state;
 if (!F.session.riding || !L.horseOut(this.mapKey) || quiet() || !L.takeTip(s, 'horse_out')) return;
 this.changed();
-F.ui.dialog('OUT ON YOUR HORSE\n' + name(s) + ' tires as you ride out here: the bar over its head shows how much. Feed it oats, an apple ' +
-'or a carrot. Hold the Bow to shoot from the saddle, and gallop away from a charge. In caves, a big monster can knock you off.');
+F.ui.dialog('OUT ON YOUR HORSE\nRiding costs ' + name(s) + ' nothing, but a hit from an animal tires it too: the bar over its head shows ' +
+'how much. It rests as you go, or feed it oats, an apple or a carrot. Hold the Bow to shoot from the saddle, and gallop away from a charge. ' +
+'In caves, a big monster can knock you off.');
 };
 var create = P.create;
 P.create = function () {
@@ -56511,7 +57018,6 @@ var STEPS = [1, 0, 2, 0], FACING = { down: 0, up: 3, side: 6 };
 var updateExtras = P.updateExtras;
 P.updateExtras = function (dt, time) {
 var h = this.horse, S = F.session, mine = h && !visiting(this);
-if (mine && S.riding) this.horseDrain();
 var moved = mine && !S.riding ? (h.run ? this.horseRun(h, dt) : S.horseFollow ? this.horseFollowStep(h, dt) : null) : null;
 updateExtras.call(this, dt, time);
 if (moved) {
@@ -56528,21 +57034,13 @@ var side = Math.abs(dx) > Math.abs(dy) * 1.2;
 return { side: side, d: side ? 'side' : dy > 0 ? 'down' : 'up', flip: dx > 0 };
 };
 
-P.horseDrain = function () {
-var f = this.feet(), last = this.horseLast;
-this.horseLast = { x: f.x, y: f.y };
-if (!last || !L.horseOut(this.mapKey)) return;
-var d = Math.hypot(f.x - last.x, f.y - last.y);
-if (!d || d > 2 * T) return;
-F.session.dirty = true;
-if (L.horseRide(this.state, this.mapKey, d / T) === 'tired') this.horseTiredOut();
-};
+P.horseDrain = function () {};
 P.horseTiredOut = function () {
 var s = this.state;
 sfx('neigh');
 this.dismount();
 this.player.body.setVelocity(0, 0);
-F.ui.toast(name(s) + ' is worn out and stops. You walk on, and it follows you.\nFeed it oats, an apple or a carrot.', 4200);
+F.ui.toast(name(s) + ' is worn out and stops. You walk on, and it follows you.\nFeed it oats, an apple or a carrot, or let it rest.', 4200);
 this.changed();
 };
 
@@ -56612,7 +57110,12 @@ var wildHit = P.wildHit;
 P.wildHit = function (a) {
 var rode = F.session.riding && !visiting(this), e = this.state.energy;
 var out = wildHit.apply(this, arguments);
-if (rode && F.session.riding && !this.busy && this.state.energy < e && a && L.horseKnocks(this.mapKey, a.def, Math.random())) this.horseKnockOff();
+if (!rode || !F.session.riding || this.state.energy >= e) return out;
+
+var tired = L.horseHit(this.state) === 'tired';
+this.changed();
+if (tired && !this.busy) { this.horseTiredOut(); return out; }
+if (!this.busy && a && L.horseKnocks(this.mapKey, a.def, Math.random())) this.horseKnockOff();
 return out;
 };
 P.horseKnockOff = function () {
@@ -63037,6 +63540,626 @@ rows.splice(Math.max(0, rows.length - 1), 0, row);
 o = Object.assign({}, o, { rows: rows });
 }
 return listPanel.apply(this, [o].concat([].slice.call(arguments, 1)));
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-grand-market.js
+
+
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var G = C.GRAND_MARKET;
+var M = C.MANILA;
+if (!G || !G.on || !M) return;
+var T = C.TILE;
+var P = F.WorldScene.prototype;
+var U = F.UIScene.prototype;
+var DEPTH = F.WorldScene.DEPTH;
+var K = F.UI_CONST, INK = K.INK;
+var GREEN = 0x5fa84a, GREY = 0xa08a68, BLUE = 0x4a90c9, DARK_GREEN = 0x2f5a22;
+var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
+var fmt = function (n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+var quiet = function () { return !!(window.gameHost && window.gameHost.quiet); };
+
+var visiting = function (w) { var v = F.session.visit; return !!((w.state && w.state.isVisit) || (v && !v.inTown) || F.session.raid); };
+var mine = function () { var s = F.session && F.session.state; return s && !s.isVisit && !F.session.visit ? s : null; };
+var name = function (id) { return C.ITEMS[id] ? C.ITEMS[id].name : id; };
+var keyName = function (key) { var p = L.gmSplit(key); return (p.q ? L.qualityName(p.q) + ' ' : '') + name(p.id); };
+var iconOf = function (id) { return C.ITEMS[id] ? C.ITEMS[id].icon : C.ICON.crate; };
+var horseName = function (s) { return s.horse ? s.horse.name : 'your horse'; };
+var hours = function (mins) { return mins >= 120 ? Math.floor(mins / 60) + ' hours' : mins >= 60 ? '1 hour ' + (mins - 60) + ' min' : mins + ' min'; };
+var CART_MAPS = { farm: 1, town: 1, park: 1, manila: 1 };
+
+
+
+
+
+var CW = 2.3, CH = 1.7;
+var VIEW = { side: { w: CW, h: CH, foot: 1 }, front: { w: 1.5, h: 1.35, foot: 1 }, back: { w: 1.5, h: 1.6, foot: 1 } };
+var heapOf = function (g, w, cx, top, span) {
+[['#e8d8a8', -0.28, 0.02, 0.17], ['#e8d8a8', 0.02, -0.02, 0.18], ['#d9c590', 0.3, 0.03, 0.16], ['#f0a030', -0.12, -0.1, 0.11],
+['#7cbc4a', 0.16, -0.13, 0.1], ['#f2d34a', -0.36, -0.08, 0.08], ['#c8402a', 0.38, -0.08, 0.08]].forEach(function (p) {
+g.fillStyle = p[0]; g.beginPath(); g.ellipse(cx + p[1] * span, top + p[2] * span, p[3] * span, p[3] * span * 0.7, 0, 0, 7); g.fill();
+});
+};
+var planks = function (g, x, y, w, h) {
+g.fillStyle = '#9a6a3c'; g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, 6); else g.rect(x, y, w, h); g.fill();
+g.strokeStyle = '#5a3a1e'; g.lineWidth = 3; g.stroke();
+g.fillStyle = '#b07a46'; g.fillRect(x + 2, y + 2, w - 4, h * 0.2);
+g.strokeStyle = 'rgba(60,35,15,0.45)'; g.lineWidth = 2;
+for (var k = 1; k < 3; k++) { g.beginPath(); g.moveTo(x + 1, y + h * k / 3); g.lineTo(x + w - 1, y + h * k / 3); g.stroke(); }
+};
+var DRAW = {
+side: function (g, w, h, loaded) {
+g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.6, h * 0.93, w * 0.36, h * 0.06, 0, 0, 7); g.fill();
+g.strokeStyle = '#6b4424'; g.lineWidth = h * 0.045; g.lineCap = 'round';
+g.beginPath(); g.moveTo(w * 0.3, h * 0.5); g.lineTo(w * 0.03, h * 0.62); g.stroke();
+g.strokeStyle = '#7d522c'; g.beginPath(); g.moveTo(w * 0.3, h * 0.56); g.lineTo(w * 0.05, h * 0.7); g.stroke();
+if (loaded) heapOf(g, w, w * 0.62, h * 0.34, w * 0.62);
+planks(g, w * 0.26, h * 0.34, w * 0.72, h * 0.3);
+var cx = w * 0.62, cy = h * 0.7, r = h * 0.25;
+g.fillStyle = '#4a2e18'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+g.fillStyle = '#a8794a'; g.beginPath(); g.arc(cx, cy, r * 0.78, 0, 7); g.fill();
+g.strokeStyle = '#5a3a1e'; g.lineWidth = 3;
+for (var s = 0; s < 8; s++) { var a = s * Math.PI / 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); g.stroke(); }
+g.fillStyle = '#3a2412'; g.beginPath(); g.arc(cx, cy, r * 0.18, 0, 7); g.fill();
+},
+
+front: function (g, w, h, loaded) {
+var fh = h;
+g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.5, fh - 3, w * 0.46, fh * 0.07, 0, 0, 7); g.fill();
+if (loaded) heapOf(g, w, w * 0.5, fh * 0.4, w * 0.55);
+planks(g, w * 0.14, fh * 0.36, w * 0.72, fh * 0.42);
+g.strokeStyle = '#6b4424'; g.lineWidth = w * 0.05; g.lineCap = 'round';
+[0.36, 0.64].forEach(function (x) { g.beginPath(); g.moveTo(w * x, fh * 0.7); g.lineTo(w * (x + (x < 0.5 ? -0.04 : 0.04)), h - 4); g.stroke(); });
+[0.07, 0.93].forEach(function (x) { g.fillStyle = '#4a2e18'; g.fillRect(w * x - w * 0.055, fh * 0.42, w * 0.11, fh * 0.58); g.fillStyle = '#a8794a'; g.fillRect(w * x - w * 0.025, fh * 0.46, w * 0.05, fh * 0.5); });
+},
+back: function (g, w, h, loaded) {
+g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.5, h - 3, w * 0.46, h * 0.06, 0, 0, 7); g.fill();
+g.strokeStyle = '#6b4424'; g.lineWidth = w * 0.05; g.lineCap = 'round';
+[0.36, 0.64].forEach(function (x) { g.beginPath(); g.moveTo(w * x, h * 0.45); g.lineTo(w * (x + (x < 0.5 ? 0.03 : -0.03)), 4); g.stroke(); });
+if (loaded) heapOf(g, w, w * 0.5, h * 0.42, w * 0.55);
+planks(g, w * 0.14, h * 0.42, w * 0.72, h * 0.36);
+[0.07, 0.93].forEach(function (x) { g.fillStyle = '#4a2e18'; g.fillRect(w * x - w * 0.055, h * 0.46, w * 0.11, h * 0.52); g.fillStyle = '#a8794a'; g.fillRect(w * x - w * 0.025, h * 0.5, w * 0.05, h * 0.44); });
+},
+};
+F.gmCartTex = function (scene, loaded, view) {
+view = VIEW[view] ? view : 'side';
+var key = 'gm-cart-' + view + '-' + (loaded ? 1 : 0);
+if (scene.textures.exists(key)) return key;
+var PX = 64, V = VIEW[view], w = Math.round(V.w * PX), h = Math.round(V.h * PX), tex = scene.textures.createCanvas(key, w, h);
+DRAW[view](tex.getContext(), w, h, loaded);
+tex.refresh();
+return key;
+};
+
+
+
+
+
+
+var RX = 2.15, UP = 2.05, DOWN = 1.5, BEHIND = { down: -Math.PI / 2, up: Math.PI / 2, left: 0, right: Math.PI };
+var offsetOf = function (a) { var sn = Math.sin(a); return { x: Math.cos(a) * RX * T, y: sn * (sn < 0 ? UP : DOWN) * T }; };
+var viewOf = function (a) { var sn = Math.sin(a); return sn < -0.72 ? 'front' : sn > 0.72 ? 'back' : 'side'; };
+
+P.gmParkSpot = function () {
+var st = this.objects.filter(function (o) { return o.type === 'stable'; })[0], W = this.map ? this.map.width : C.FARM_W;
+if (st) {
+var x0 = st.x1 + 1 + CW <= W - 1 ? st.x1 + 1 : st.x0 - CW;
+return { x: (x0 + CW / 2) * T, y: (st.y1 + 1) * T - 8 };
+}
+var hp = this.points && this.points.horse;
+return hp ? { x: hp.x + 2 * T, y: hp.y } : null;
+};
+
+P.gmHorseDir = function (h) {
+if (F.session.riding) return this.dir;
+var c = this.gmCart;
+if (c && c.hx != null && (Math.abs(h.x - c.hx) > 2 || Math.abs(h.y - c.hy) > 2)) {
+var dx = h.x - c.hx, dy = h.y - c.hy;
+return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+}
+if (c && c.dir) return c.dir;
+return h.face === 'up' ? 'up' : h.face === 'side' ? (h.faceFlip ? 'right' : 'left') : 'down';
+};
+P.gmCartSetup = function () {
+var S = F.session, s = this.state, c = this.gmCart;
+if (c) { c.img.destroy(); this.objects = this.objects.filter(function (o) { return o !== c.obj; }); }
+this.gmCart = null;
+if (visiting(this) || !L.gmHasCart(s)) return;
+var h = this.horse, at = null, hitched = !!(S.gmHitch && h), ang = 0;
+if (hitched) { ang = BEHIND[this.gmHorseDir(h)] || 0; var o0 = offsetOf(ang); at = { x: h.x + o0.x, y: h.y + o0.y }; }
+else if (this.mapKey === 'farm' && !L.gmAway(s)) at = this.gmParkSpot();
+if (!at) return;
+var loaded = L.gmLoad(s) > 0, view = hitched ? viewOf(ang) : 'side';
+var img = this.add.image(at.x, at.y, F.gmCartTex(this, loaded, view));
+c = this.gmCart = { img: img, x: at.x, y: at.y, ang: ang, view: null, flip: false, hx: h ? h.x : null, hy: h ? h.y : null, dir: null, loaded: loaded,
+obj: { type: 'gm_cart', name: 'gm_cart', x0: 0, y0: 0, x1: 0, y1: 0, props: {} } };
+this.objects.push(c.obj);
+this.gmCartView(view, hitched && Math.cos(ang) < -0.3);
+this.gmCartPlace(at.x, at.y);
+};
+
+P.gmCartView = function (view, flip) {
+var c = this.gmCart, V = VIEW[view];
+if (c.view === view && c.flip === flip) return;
+c.view = view;
+c.flip = flip;
+c.img.setTexture(F.gmCartTex(this, c.loaded, view)).setOrigin(0.5, V.foot).setDisplaySize(V.w * T, V.h * T).setFlipX(flip);
+};
+P.gmCartPlace = function (x, y) {
+var c = this.gmCart, o = c.obj, hw = VIEW[c.view].w * T / 2;
+c.x = x; c.y = y;
+c.img.setPosition(x, y);
+F.depthTo(c.img, DEPTH.actor + y / 1e5 - 0.00005);
+o.x0 = Math.floor((x - hw + 0.3 * T) / T); o.x1 = Math.floor((x + hw - 0.3 * T) / T);
+o.y0 = o.y1 = Math.floor((y - 1) / T);
+};
+
+P.gmCartLook = function () {
+var c = this.gmCart, s = this.state;
+if (!c) return;
+var loaded = L.gmLoad(s) > 0, view = c.view;
+if (loaded === c.loaded) return;
+c.loaded = loaded;
+c.view = null;
+this.gmCartView(view, c.flip);
+};
+
+P.gmTrail = function (h, dt) {
+var c = this.gmCart, dir = this.gmHorseDir(h), want = BEHIND[dir];
+c.dir = dir;
+var moved = c.hx !== h.x || c.hy !== h.y;
+c.hx = h.x;
+c.hy = h.y;
+if (want == null) want = c.ang;
+
+var d = want - c.ang;
+if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+if (!moved && Math.abs(d) < 0.001) return;
+var far = Math.hypot(c.x - h.x, c.y - h.y) > 6 * T;
+c.ang = far || Math.abs(d) < 0.01 ? want : c.ang + d * (1 - Math.exp(-(dt || 16) / 110));
+if (c.ang > Math.PI) c.ang -= 2 * Math.PI; else if (c.ang <= -Math.PI) c.ang += 2 * Math.PI;
+var o = offsetOf(c.ang);
+this.gmCartView(viewOf(c.ang), Math.cos(c.ang) < -0.3);
+this.gmCartPlace(h.x + o.x, h.y + o.y);
+};
+
+P.gmAtMarket = function () {
+var c = this.gmCart, d = M.spots && M.spots.door_market;
+return !!(c && d && this.mapKey === 'manila' && F.session.gmHitch && !visiting(this) && Math.hypot(c.x - d[0] * T, c.y - d[1] * T) <= G.near * T);
+};
+
+var setupExtras = P.setupExtras;
+P.setupExtras = function () {
+setupExtras.apply(this, arguments);
+var S = F.session, s = this.state, h = this.horse;
+this.gmCart = null;
+this.gmHorseOff = false;
+this.gmCullMs = 0;
+if (visiting(this)) return;
+
+
+if (S.gmHitch && (!L.gmHasCart(s) || L.gmAway(s) || (this.mapKey === 'farm' && (!h || (!S.riding && !S.horseFollow && !(S.horseAt && S.horseAt.map === 'farm')))))) S.gmHitch = false;
+
+if (S.gmHitch && h && !CART_MAPS[this.mapKey]) {
+S.gmHitch = false;
+this.time.delayedCall(600, function () { if (F.ui) F.ui.toast('Your cart rolled home to the farm. Its load is safe.', 2600); });
+}
+this.gmCartSetup();
+
+if (this.mapKey === 'manila') {
+var b = M.props.filter(function (p) { return p[0] === 'order_board'; })[0];
+if (b) this.objects.push({ type: 'gm_board', name: 'gm_board', x0: b[1], y0: b[2], x1: b[1] + b[3] - 1, y1: b[2] + b[4] - 1, props: {} });
+}
+};
+
+
+var onScreen = function (scene, x, y) {
+var v = scene.cameras.main.worldView, m = 3 * T;
+return x > v.x - m && x < v.right + m && y > v.y - m && y < v.bottom + m;
+};
+var updateExtras = P.updateExtras;
+P.updateExtras = function (dt, time) {
+var h = this.horse, S = F.session;
+
+if (h && this.mapKey === 'manila' && !S.riding && !S.horseFollow && !h.run) {
+this.gmCullMs -= dt;
+if (this.gmCullMs <= 0) {
+this.gmCullMs = 300;
+var off = !onScreen(this, h.x, h.y);
+if (off !== this.gmHorseOff) { this.gmHorseOff = off; h.sprite.setVisible(!off); h.sh.setVisible(!off); if (this.gmCart) this.gmCart.img.setVisible(!off); }
+}
+if (this.gmHorseOff) {
+this.horse = null;
+try { return updateExtras.apply(this, arguments); } finally { this.horse = h; }
+}
+} else if (this.gmHorseOff && h) {
+this.gmHorseOff = false;
+h.sprite.setVisible(true);
+h.sh.setVisible(true);
+if (this.gmCart) this.gmCart.img.setVisible(true);
+}
+var r = updateExtras.apply(this, arguments);
+if (this.gmCart && S.gmHitch && this.horse) this.gmTrail(this.horse, dt);
+return r;
+};
+
+
+var tickClock = P.tickClock;
+P.tickClock = function (dt) {
+var r = tickClock.apply(this, arguments);
+if (!r && this.clockMs === 0) this.gmCheckTrip();
+return r;
+};
+P.gmCheckTrip = function () {
+var s = this.state;
+if (visiting(this) || this.busy || !s.gm || !s.gm.trip || !F.ui || F.ui.modals.length) return;
+var r = L.gmFinish(s, L.nowMin());
+if (!r) return;
+sfx('coin');
+this.changed();
+this.save();
+if (this.mapKey === 'farm') this.gmCartSetup();
+F.ui.gmTripReport(r);
+};
+U.gmTripReport = function (r) {
+var rows = [], c = r.k >= 0;
+var crops = {};
+r.lots.forEach(function (l) { var id = L.gmSplit(l.key).id; crops[id] = (crops[id] || 0) + l.n; });
+Object.keys(crops).forEach(function (id) { rows.push([iconOf(id), (c ? 'Delivered ' : 'Sold ') + crops[id] + ' ' + name(id) + (c ? ' for the contract.' : ' at the Grand Market.')]); });
+rows.push([C.ICON.coin, 'Aling Rosa paid ' + fmt(r.gold) + 'G. Mang Kardo kept his 10%: ' + fmt(r.fee) + 'G.']);
+rows.push([C.ICON.coin, 'You got ' + fmt(r.net) + 'G!']);
+if (r.star) rows.push([C.ICON.star, 'Contract done: +1 Market Star!']);
+rows.push([C.ICON.crate, 'Your cart is back by the Stable.']);
+this.dialog('MANG KARDO IS BACK!\n' + rows.map(function (x) { return x[1]; }).join('\n'), null, { rows: rows });
+};
+
+
+var extraObjectAction = P.extraObjectAction;
+P.extraObjectAction = function (o, held, def) {
+if (o && o.type === 'gm_cart') return { label: 'Cart', icon: C.ICON.crate, run: function () { F.ui.gmOpenCart(); } };
+if (o && this.mapKey === 'manila' && !visiting(this) && (o.type === 'gm_board' || (o.type === 'mn_spot' && o.name === 'market'))) {
+return { label: o.type === 'gm_board' ? 'Board' : 'Market', icon: C.ICON.coin, run: function () { F.ui.gmOpenMarket(); } };
+}
+return extraObjectAction.apply(this, arguments);
+};
+
+
+var travel = P.travel;
+P.travel = function (to, spawn) {
+if (this.busy || visiting(this) || to === this.mapKey || !this.state.horse) return travel.apply(this, arguments);
+var S = F.session, s = this.state;
+
+var train = (to === 'manila' && spawn === 'from_train') || (this.mapKey === 'manila' && spawn === 'platform_w');
+if (train && (S.riding || S.horseFollow) && this.horse) {
+if (S.riding) this.dismount();
+this.horseWait();
+}
+
+
+if (to === 'manila' && spawn === 'from_valley' && S.riding) {
+var ok = L.horseRoadOk(s, true);
+if (!ok.ok) {
+this.dismount();
+this.horseWait();
+if (F.ui) F.ui.toast(ok.why + '\nIt waits here; you walk on.', 3600);
+}
+}
+var out = travel.apply(this, arguments);
+return out;
+};
+
+
+var withRows = function (ui, extra, fn) {
+var lp = ui.listPanel;
+ui.listPanel = function (o) { o.rows = o.rows.concat(extra(o)); return lp.call(this, o); };
+try { return fn(); } finally { if (ui.hasOwnProperty('listPanel')) delete ui.listPanel; }
+};
+U.gmCartRow = function (s, page) {
+var self = this, R = G.cart, have = L.gmHasCart(s);
+return {
+icon: C.ICON.crate, name: have ? 'Horse Cart (made)' : 'Horse Cart',
+desc: have ? 'By your Stable. It carries ' + R.cap + ' crops.' : 'Also ' + R.lumber + ' lumber. It carries ' + R.cap + ' crops.',
+reward: have ? null : { gold: R.gold, more: R.needs }, rewardPrefix: 'Cost', buttonsBelow: true,
+buttons: have ? [] : [{ label: 'Make', color: BLUE, cb: function () {
+var r = L.gmMakeCart(s);
+if (r === 'horse') { sfx('nope'); return self.toast('The cart needs a horse to pull it. Mira builds the Stable.', 2800); }
+if (r === 'gold') { sfx('nope'); return self.toast('Not enough gold: ' + fmt(R.gold) + 'G.'); }
+if (r === 'lumber') { sfx('nope'); return self.toast('You need ' + R.lumber + ' lumber.'); }
+if (r === 'needs') { sfx('nope'); return self.toast('You need ' + L.needsText(R.needs) + '.', 2800); }
+if (r !== 'ok') return;
+sfx('anvil');
+if (F.world) { F.world.changed(); F.world.save(); }
+self.closeModal();
+self.openForge(page);
+self.toast('Clang! Bram made you a Horse Cart. It is waiting by your Stable.', 3200, DARK_GREEN);
+} }],
+};
+};
+var openForge = U.openForge;
+U.openForge = function (page) {
+var self = this, s = F.session.state;
+if (!s || s.isVisit || F.session.visit) return openForge.call(this, page);
+return withRows(this, function (o) {
+var at = o.rows.length, per = at + 1 > 5 ? 4 : 5;
+return [self.gmCartRow(s, Math.floor(at / per))];
+}, function () { return openForge.call(self, page); });
+};
+
+
+
+var ART = ['props/manila_grand_market', 'npc_aling_rosa', 'npc_mang_kardo'];
+var artReady = function () {
+var want = ART.filter(function (k) { var f = F.packedFile && F.packedFile(k); return !(F.images && F.images[k]) && f && F.onPhone && F.onPhone(f.file) && F.canFetch(); });
+if (!want.length || !F.needImage) return Promise.resolve();
+return Promise.race([Promise.all(want.map(F.needImage)), new Promise(function (r) { setTimeout(r, 1500); })]);
+};
+var touring = false;
+var tourFirst = function (ui, key, then) {
+var s = mine();
+if (touring) return true;
+if (!s || quiet() || L.gmTourSeen(s, key)) return false;
+L.gmTourTake(s, key);
+F.Host.save(s);
+touring = true;
+artReady().then(function () { touring = false; ui.tour('gm_' + key, then); }, function () { touring = false; ui.tour('gm_' + key, then); });
+return true;
+};
+F.gmTourFirst = tourFirst;
+var icon = function (ui, sc, x, y, frame, scale) { var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
+var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
+var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
+
+var fit = function (ui, sc, key, stand, cx, bottom, w, h, frame) {
+var k = F.images && F.images[key] ? key : stand && F.images && F.images[stand] ? stand : null;
+if (!k) return null;
+F.ensureTexture(ui, k);
+var fr = ui.textures.getFrame(k, frame), s = Math.min(w / fr.realWidth, h / fr.realHeight);
+var img = ui.add.image(cx, bottom, k, frame).setOrigin(0.5, 1).setScale(s);
+sc.add(img);
+return img;
+};
+var person = function (ui, sc, who, cx, bottom, h) {
+var def = M.people[who], own = F.images && F.images[def.sheet];
+var img = fit(ui, sc, own ? def.sheet : 'tw_people', null, cx, bottom, h, h, own ? 0 : def.look[0] * 9);
+if (img && !own) img.setTint(def.look[1]);
+return img;
+};
+var cart = function (ui, sc, cx, bottom, w, loaded, flip) {
+var img = ui.add.image(cx, bottom, F.gmCartTex(ui, loaded)).setOrigin(0.5, 1).setDisplaySize(w, w * CH / CW).setFlipX(!!flip);
+sc.add(img);
+return img;
+};
+var board = function (ui, sc, x, y, rows) {
+ui.canvasImg(sc, x, y, 'gm-tour-board', 128, 104, function (g) {
+g.fillStyle = '#6b4424'; g.fillRect(14, 84, 8, 20); g.fillRect(106, 84, 8, 20);
+g.fillStyle = '#8a5a32'; g.fillRect(0, 0, 128, 88);
+g.fillStyle = '#f4e4bc'; g.fillRect(6, 6, 116, 76);
+});
+rows.forEach(function (r, i) {
+icon(ui, sc, x + 22, y + 20 + i * 24, C.ITEMS[r[0]].icon, 0.17);
+words(ui, sc, x + 76, y + 20 + i * 24, r[1], 12, r[2] ? '#c0392b' : INK);
+});
+};
+F.TOURS.gm_board = {
+title: "ALING ROSA'S GRAND MARKET",
+steps: [
+{
+text: 'Aling Rosa buys big loads at the Grand Market in Manila: ' + G.minLoad + ' or more of one crop, brought in your Horse Cart.',
+draw: function (ui, sc, move) {
+fit(ui, sc, 'props/manila_grand_market', 'props/inn', 96, 126, 170, 118);
+var r = person(ui, sc, 'rosa', 216, 124, 96);
+if (r) tw(ui, move, { targets: r, y: 118, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+},
+},
+{
+text: 'Her board has new prices every day, the same for everyone: ' + G.mult[0] + ' to ' + G.mult[1] + ' times the sell price. ' + G.hotN + ' hot crops pay up to ' + G.hot[1] + '!',
+draw: function (ui, sc, move) {
+board(ui, sc, 30, 14, [['corn', 'x1.78 HOT', true], ['tomato', 'x1.45'], ['potato', 'x1.12']]);
+var c = icon(ui, sc, 212, 66, C.ICON.coin, 0.4);
+tw(ui, move, { targets: c, scale: 0.46, duration: 400, yoyo: true, repeat: -1 });
+},
+},
+{
+text: 'Every day, ' + G.contract.n + ' contracts: ' + G.contract.min + ' to ' + G.contract.max + ' of one crop at ' + G.contract.pay + ' times, in 48 hours. Finish one for a Market Star.',
+draw: function (ui, sc, move) {
+icon(ui, sc, 70, 58, C.ITEMS.pumpkin.icon, 0.34);
+words(ui, sc, 70, 104, '200 in 48 h', 13);
+var st = icon(ui, sc, 206, 60, C.ICON.star, 0.38);
+words(ui, sc, 206, 104, '+1 Market Star', 13, '#a8740c');
+tw(ui, move, { targets: st, angle: { from: -12, to: 12 }, duration: 500, yoyo: true, repeat: -1 });
+},
+},
+],
+};
+F.TOURS.gm_cart = {
+title: 'THE HORSE CART',
+steps: [
+{
+text: 'Bram makes the Horse Cart at his Forge. It carries ' + G.cart.cap + ' crops and stands by your Stable.',
+draw: function (ui, sc, move) {
+var c = cart(ui, sc, 136, 112, 150, false);
+tw(ui, move, { targets: c, x: 146, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+icon(ui, sc, 40, 70, C.ICON.horse, 0.34);
+},
+},
+{
+text: 'Tap it to load crops from the Silo or your bag. Unload them back any time.',
+draw: function (ui, sc, move) {
+cart(ui, sc, 186, 116, 140, true);
+['corn', 'tomato', 'pumpkin'].forEach(function (id, n) {
+var i = icon(ui, sc, 46, 40 + n * 30, C.ITEMS[id].icon, 0.24);
+tw(ui, move, { targets: i, x: 176, y: 56, alpha: 0, duration: 900, delay: n * 300, repeat: -1, repeatDelay: 300 });
+});
+},
+},
+{
+text: 'Ride it to Manila by the valley road (' + M.horseHearts + ' hearts and Horseshoes), or send Mang Kardo: he is back in ' + G.driver.mins + ' minutes and keeps ' + Math.round(G.driver.fee * 100) + '%.',
+draw: function (ui, sc, move) {
+var k = person(ui, sc, 'kardo', 70, 124, 100);
+if (k) tw(ui, move, { targets: k, y: 118, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+var c = cart(ui, sc, 188, 112, 130, true, true);
+tw(ui, move, { targets: c, x: 204, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+words(ui, sc, 188, 20, G.driver.mins + ' min', 13);
+},
+},
+],
+};
+
+
+U.gmOpenMarket = function (tab, page) {
+var self = this, s = mine(), w = F.world;
+if (!s || !w) return;
+if (tourFirst(this, 'board', function () { self.gmOpenMarket(tab, page); })) return;
+tab = tab || 'prices';
+var here = w.gmAtMarket(), rows = [], day = s.day;
+var again = function (msg, color) { if (F.world) { F.world.changed(); F.world.save(); F.world.gmCartLook(); } self.closeModal(); self.gmOpenMarket(tab, page); if (msg) self.toast(msg, 2800, color || DARK_GREEN); };
+if (tab === 'prices') {
+var board = L.gmBoard(day), inCart = here ? L.gmCargoCrops(s) : [];
+
+var top = board.filter(function (b) { return b.hot; }), mid = board.filter(function (b) { return !b.hot && inCart.indexOf(b.id) >= 0; }), rest = board.filter(function (b) { return !b.hot && inCart.indexOf(b.id) < 0; });
+top.concat(mid, rest).forEach(function (b) {
+var n = here ? L.gmCropLoad(s, b.id) : 0;
+rows.push({ icon: iconOf(b.id), name: name(b.id) + '  x' + b.mult.toFixed(2) + (b.hot ? '  HOT' : ''),
+desc: b.sell + 'G -> ' + b.price + 'G each.' + (n ? ' In your cart: ' + n + '.' : ''),
+buttons: n ? [{ label: 'Sell', color: n >= G.minLoad ? GREEN : GREY, cb: function () {
+var r = L.gmSell(s, b.id, day);
+if (r.why === 'min') { sfx('nope'); return self.toast('Aling Rosa buys ' + G.minLoad + ' or more at a time. You have ' + r.n + ' ' + name(b.id) + '.', 2800); }
+if (!r.ok) { sfx('nope'); return; }
+sfx('coin');
+again('Sold ' + r.n + ' ' + name(b.id) + ' for ' + fmt(r.gold) + 'G!');
+} }] : [] });
+});
+} else {
+L.gmContracts(s).forEach(function (c) {
+var n = here && !c.done ? L.gmCropLoad(s, c.crop) : 0;
+rows.push({ icon: iconOf(c.crop), name: c.need + ' ' + name(c.crop) + (c.done ? '  DONE' : ''), progress: c.done ? null : [c.got, c.need],
+desc: c.done ? 'Finished! +1 Market Star.' : 'Pays ' + c.each + 'G each. Ends in ' + hours(c.mins) + '.' + (n ? ' Cart: ' + n + '.' : ''),
+buttons: n ? [{ label: 'Deliver', color: L.gmCanDeliver(s, c) ? GREEN : GREY, cb: function () {
+var r = L.gmDeliver(s, c.k);
+if (r.why === 'min') { sfx('nope'); return self.toast('Bring at least ' + r.need + ' ' + name(c.crop) + ' at a time.', 2800); }
+if (!r.ok) { sfx('nope'); return; }
+sfx('coin');
+again(r.done ? 'Contract done! ' + fmt(r.gold) + 'G and a Market Star!' : 'Delivered ' + r.n + ' ' + name(c.crop) + ': ' + fmt(r.gold) + 'G.');
+} }] : [] });
+});
+}
+this.listPanel({ title: "Aling Rosa's Grand Market", rows: rows, tab: tab, page: page || 0,
+tabs: [['prices', 'Prices'], ['contracts', 'Contracts']], reopen: function (t, p) { self.gmOpenMarket(t, p); },
+sub: function () {
+var stars = L.gmStars(s) ? '   \u00b7   Market Stars: ' + L.gmStars(s) : '';
+return (here ? 'Your cart is here: ' + L.gmLoad(s) + ' crops.' : 'New prices every day. She buys ' + G.minLoad + '+ of a crop, from a Horse Cart.') + stars;
+} });
+};
+
+
+var WHY = { cart: 'You have no cart.', full: 'The cart is full: ' + G.cart.cap + ' crops.' };
+var awayText = function (s) { return 'Mang Kardo has the cart on the road: back in ' + L.gmLeft(s, L.nowMin()) + ' min.'; };
+U.gmOpenCart = function (tab, page) {
+var self = this, s = mine(), w = F.world, S = F.session;
+if (!s || !w || !L.gmHasCart(s)) return;
+if (w.gmAtMarket()) return this.gmOpenMarket();
+if (tourFirst(this, 'cart', function () { self.gmOpenCart(tab, page); })) return;
+var farm = w.mapKey === 'farm', away = L.gmAway(s), rows = [];
+tab = farm ? tab || 'cargo' : 'cargo';
+var again = function (msg) { sfx('pick'); w.changed(); w.save(); w.gmCartLook(); self.closeModal(); self.gmOpenCart(tab, page); if (msg) self.toast(msg, 2200, DARK_GREEN); };
+var why = function () { var y = L.gmWhyNot(s); sfx('nope'); self.toast(y === 'away' ? awayText(s) : WHY[y] || 'Not now.', 2400); };
+if (tab === 'cargo') {
+if (farm) {
+rows.push({ icon: C.ICON.horse, name: 'Send to the Grand Market', desc: away ? awayText(s) : 'He sells it in Manila. Gold in ' + G.driver.mins + ' min, less ' + Math.round(G.driver.fee * 100) + '%.',
+buttons: away ? [] : [{ label: 'Send', color: BLUE, cb: function () { self.closeModal(); self.gmOpenSend(); } }] });
+rows.push({ icon: C.ICON.horseshoes != null ? C.ICON.horseshoes : C.ICON.horse, name: S.gmHitch ? 'Hitched to ' + horseName(s) : 'Drive it yourself',
+desc: S.gmHitch ? 'It follows ' + horseName(s) + '. Ride east out of town.' : 'Ride it to Manila: ' + M.horseHearts + ' hearts and Horseshoes.',
+buttons: away ? [] : [{ label: S.gmHitch ? 'Unhitch' : 'Hitch', color: S.gmHitch ? GREY : GREEN, cb: function () {
+if (!S.gmHitch && !w.horse) { sfx('nope'); return self.toast(horseName(s) + ' is not here.'); }
+S.gmHitch = !S.gmHitch;
+w.gmCartSetup();
+again(S.gmHitch ? 'The cart is hitched to ' + horseName(s) + '.' : 'The cart is parked by the Stable.');
+} }] });
+} else rows.push({ icon: C.ICON.coin, name: 'To the Grand Market', desc: "Aling Rosa's market in Manila buys " + G.minLoad + ' or more of a crop from the cart.', buttons: [] });
+L.gmCargoCrops(s).forEach(function (id) {
+[0, 1, 2].forEach(function (q) {
+var key = L.gmKey(id, q), n = s.gm.cargo[key];
+if (!n) return;
+var price = L.gmPrice(s.day, id, q);
+rows.push({ icon: iconOf(id), name: keyName(key) + '  x' + n, desc: price ? 'At the Grand Market today: ' + price + 'G each.' : 'The Grand Market does not buy it.',
+buttons: farm && !away ? [{ label: 'Unload', color: GREY, cb: function () {
+var k = L.gmUnload(s, key);
+if (!k) { sfx('nope'); return self.toast('No room in the Silo or your bag.'); }
+again(k + ' ' + keyName(key) + ' unloaded' + (k < n ? ' (the rest has no room)' : '') + '.');
+} }] : [] });
+});
+});
+} else if (tab === 'silo') {
+var c = L.silo(s).c;
+Object.keys(c).filter(function (id) { return c[id] > 0; }).sort(function (a, b) { return name(a) < name(b) ? -1 : 1; }).forEach(function (id) {
+rows.push({ icon: iconOf(id), name: name(id) + '  x' + c[id], desc: 'In the Silo.', buttons: [10, 0].map(function (n) {
+return { label: n ? 'Load ' + n : 'Load all', color: GREEN, cb: function () {
+var k = L.gmLoadSilo(s, id, n || c[id]);
+if (!k) return why();
+again(k + ' ' + name(id) + ' loaded.');
+} };
+}) });
+});
+} else {
+s.inv.forEach(function (it, i) {
+if (!it || !L.isFarmCrop(it.id)) return;
+var key = L.gmKey(it.id, it.q || 0);
+rows.push({ icon: iconOf(it.id), name: keyName(key) + '  x' + it.n, desc: 'In your bag.', buttons: [10, 0].map(function (n) {
+return { label: n ? 'Load ' + n : 'Load all', color: GREEN, cb: function () {
+var k = L.gmLoadBag(s, i, n || it.n);
+if (!k) return why();
+again(k + ' ' + keyName(key) + ' loaded.');
+} };
+}) });
+});
+}
+this.listPanel({ title: 'Horse Cart', rows: rows, tab: tab, page: page || 0,
+tabs: farm ? [['cargo', 'Cargo'], ['silo', 'From Silo'], ['bag', 'From bag']] : null,
+reopen: function (t, p) { self.gmOpenCart(t, p); },
+empty: tab === 'silo' ? 'No crops in the Silo.' : tab === 'bag' ? 'No farm crops in your bag.' : '',
+sub: function () { return 'Cargo ' + L.gmLoad(s) + ' / ' + G.cart.cap + ' crops' + (away ? '   \u00b7   ' + awayText(s) : ''); } });
+};
+
+U.gmOpenSend = function () {
+var self = this, s = mine(), w = F.world;
+if (!s || !w) return;
+var WHY_SEND = { empty: 'The cart is empty.', min: 'Load ' + G.minLoad + ' or more of a crop first.', none: 'Load its crop first.', done: 'Already finished.', away: 'He is on the road.' };
+var go = function (how) {
+var r = L.gmSend(s, how, L.nowMin());
+if (!r.ok) { sfx('nope'); return self.toast(WHY_SEND[r.why] || 'Not now.', 2400); }
+F.session.gmHitch = false;
+sfx('neigh');
+w.changed();
+w.save();
+w.gmCartSetup();
+self.closeModal();
+self.toast('Mang Kardo drives off to Manila with ' + r.n + ' crops. Back in ' + G.driver.mins + ' minutes!', 3200, DARK_GREEN);
+};
+var line = function (q) { return q.why ? WHY_SEND[q.why] || 'Not now.' : q.n + ' crops: ' + fmt(q.gold) + 'G, you get ' + fmt(q.net) + 'G after his ' + Math.round(G.driver.fee * 100) + '%.'; };
+var q0 = L.gmSendQuote(s, 'sell');
+var rows = [{ icon: C.ICON.coin, name: "Sell at today's prices", desc: line(q0), buttons: q0.why ? [] : [{ label: 'Send', color: BLUE, cb: function () { go('sell'); } }] }];
+L.gmContracts(s).filter(function (c) { return !c.done; }).forEach(function (c) {
+var q = L.gmSendQuote(s, c.k);
+var why = q.why === 'none' ? 'Load ' + name(c.crop) + ' first.' : q.why === 'min' ? 'Load ' + Math.min(G.minLoad, c.left) + ' or more ' + name(c.crop) + ' first.' : line(q);
+rows.push({ icon: iconOf(c.crop), name: 'Contract: ' + c.need + ' ' + name(c.crop), progress: [c.got, c.need], desc: why,
+buttons: q.why ? [] : [{ label: 'Send', color: BLUE, cb: function () { go(c.k); } }] });
+});
+this.listPanel({ title: 'Send Mang Kardo', rows: rows, reopen: function () { self.gmOpenSend(); },
+sub: function () { return 'He takes the load, sells it at the Grand Market, and brings the gold in ' + G.driver.mins + ' minutes.'; } });
 };
 })(window.Farm = window.Farm || {});
 

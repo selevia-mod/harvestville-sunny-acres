@@ -158,13 +158,14 @@ test('the train to Manila and back: the station\'s Manila tab, the first ride fr
   await page.evaluate(() => Farm.ui.closeAll());
   s = await state(page);
   assert.strictEqual(s.mn.met & 1, 1, 'she remembers you');
-  // a shop: "coming soon" (the crowd out of the way of these checks: out in the bay, standing still)
+  // the market (the crowd out of the way of these checks: out in the bay, standing still)
   await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.hold = 1e9; v.path = []; v.x = 256; v.y = 256; Farm.world.mnFolkPlace(v); }));
   await teleport(page, X(67), 43, 'up');
   if (await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'rosa'); return Math.abs(v.x - 22.5 * 256) < 300 && Math.abs(v.y - 42.6 * 256) < 400; })) await teleport(page, X(66), 43, 'up');
-  assert.strictEqual(await actionLabel(page), 'Look');
+  // (18 Nov 2026: the Grand Market is open: its price board, src/19zzzz...-grand-market.js)
+  assert.strictEqual(await actionLabel(page), 'Market');
   await tapAction(page);
-  assert.match(await modalText(page), /GRAND MARKET.*coming soon/is);
+  assert.match(await modalText(page), /Aling Rosa's Grand Market.*Prices.*Contracts/s);
   await page.evaluate(() => Farm.ui.closeAll());
   // the Gorge Gate is shut for now
   await teleport(page, X(45), 2, 'up');

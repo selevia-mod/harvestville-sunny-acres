@@ -32,6 +32,9 @@ const own = (s) => {
   Object.keys(s.basket || {}).forEach((id) => add('item:' + id, s.basket[id]));
   Object.keys(s.soil || {}).forEach((k) => { const t = s.soil[k]; if (t.sp && C.SPRINKLERS[t.sp - 1]) add('item:' + C.SPRINKLERS[t.sp - 1].id, 1); if (t.c) add('crop:' + t.c, 1); });
   (s.animals || []).forEach((a) => add('animal:' + a.kind, 1));
+  // the horse cart's load and a load on the road with Mang Kardo (18 Nov 2026; older games have none)
+  const cargo = (c) => Object.keys(c || {}).forEach((k) => add('item:' + k.split('~')[0], c[k]));
+  if (s.gm) { cargo(s.gm.cargo); if (s.gm.trip) cargo(s.gm.trip.cargo); }
   ['gold', 'lumber', 'stone', 'pearls'].forEach((k) => add(k, s[k] || 0));
   return n;
 };
