@@ -142,7 +142,13 @@ list('assets', '.webp').forEach((f) => {
 });
 // Android's WebView shows a blank screen, with no error, for a page of 20 MiB or more (the app adds the save to it).
 // Over this limit: node tools/art/squeeze.js, or smaller art.
-const PAGE_LIMIT = 19.5 * 1024 * 1024;
+const ANDROID_LIMIT = 19.5 * 1024 * 1024;
+// HV_PAGE_LIMIT (18 Nov 2026): a bigger page for local tests only, while the owner decides how to make room (squeeze the
+// art, test a bigger page on the OPPO, or move pictures into packs). A release build never sets it.
+const PAGE_LIMIT = Number(process.env.HV_PAGE_LIMIT) || ANDROID_LIMIT;
+if (Buffer.byteLength(html) > ANDROID_LIMIT && Buffer.byteLength(html) <= PAGE_LIMIT) {
+  console.warn('WARNING: dist/index.html is ' + (Buffer.byteLength(html) / 1048576).toFixed(2) + ' MiB, over the Android limit of 19.5 MiB: dev build only, NOT for release');
+}
 if (Buffer.byteLength(html) > PAGE_LIMIT) throw new Error(`dist/index.html is ${(Buffer.byteLength(html) / 1048576).toFixed(1)} MiB: Android cannot open that. Keep it under ${PAGE_LIMIT / 1048576} MiB.`);
 fs.writeFileSync(path.join(ROOT, 'dist', 'index.html'), html);
 console.log(`dist/index.html written (${(html.length / 1024).toFixed(0)} KB)`);
