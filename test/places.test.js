@@ -382,7 +382,7 @@ test('part 23: its rows are the game\'s own (tools/places/server-rows.js): every
   const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'farm_online_23.sql'), 'utf8');
   const made = require('child_process').execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'places', 'server-rows.js')], { encoding: 'utf8' });
   assert.ok(sql.includes(made.trim()), 'the SQL carries exactly what the tool prints (rerun it when a place changes)');
-  const news = C.PLACE_ORDER.filter((id) => !C.PLACES[id].legacy && !C.PLACES[id].dev);
+  const news = C.PLACE_ORDER.filter((id) => !C.PLACES[id].legacy && !C.PLACES[id].dev && !C.PLACES[id].serverLater); // (serverLater: its rows wait for the owner's SQL)
   news.forEach((id) => {
     assert.ok(sql.includes("('" + C.PLACES[id].map + "')"), id + ': Hunting now');
     C.PLACES[id].kinds.forEach((k) => assert.ok(sql.includes("('" + k + "', " + C.WILD.animals[k].kg + ')'), id + ': ' + k));

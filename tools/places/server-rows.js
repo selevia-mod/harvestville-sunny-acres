@@ -13,7 +13,8 @@ vm.createContext(ctx);
 fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx));
 const C = ctx.window.Farm.Config, A = C.WILD.animals;
 const want = process.argv.slice(2);
-const ids = C.PLACE_ORDER.filter((id) => !C.PLACES[id].legacy && !C.PLACES[id].dev && (!want.length || want.includes(id)));
+// (a place marked serverLater, the Open Plains: only when named, node tools/places/server-rows.js plains: its rows wait for the owner)
+const ids = C.PLACE_ORDER.filter((id) => !C.PLACES[id].legacy && !C.PLACES[id].dev && (want.length ? want.includes(id) : !C.PLACES[id].serverLater));
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 const kinds = [], firsts = [], maps = [];
 ids.forEach((id) => {

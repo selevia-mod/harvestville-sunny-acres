@@ -270,7 +270,7 @@ test('Magayon Peaks: open after 40 hunts, its big animals, its drops and dishes'
   assert.strictEqual(L.wildNext(s), 'makiling');
   s.wild.n = 9;
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'makiling');
-  assert.strictEqual(L.wildNext(s), 'magayon');
+  assert.strictEqual(L.wildNext(s), C.PLACES.plains ? 'plains' : 'magayon', '(the Open Plains open at 30 hunts, before Magayon: 18 Nov 2026)');
   assert.strictEqual(L.wildOpen(s, 'magayon'), false);
   s.wild.n = 39;
   assert.strictEqual(L.hunted(s, 'pulag', 0, 'deer').opened, 'magayon');

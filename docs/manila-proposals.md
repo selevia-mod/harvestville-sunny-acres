@@ -53,6 +53,18 @@ ground guides and the places' guides, tinted (one list, C.MANILA.crowd.looks, fo
 **Not built yet:** the contracts, the Trading Post, the Armory and the weapons, the grounds and their caves, the race,
 Lola Amparo's story chapters, hearts and gifts for the city people, boats.
 
+**Built: step 2, the Open Plains and the Armory (18 Nov 2026, branch manila/plains, not released).** Owner's decisions
+over 3a: a shot costs the Bow's energy (2), the animals are harder instead (about 1.5 times the hits below, so a hunt
+costs the same energy); opens at 30 hunts; the horse rides free (8 hearts and Horseshoes in the Plains, 10 and the
+Lantern Bridle in the cave; a hit tires it); the Plainsrunner set 30,000 / 50,000 / 35,000 / 60,000 Gold plus Plains
+drops; the calf's `carry` (+6 bag slots while it is the companion out). The Plains lie between Willowbrook and Manila's
+Plains Gate (the city is flipped: the gate is on its west side), the valley road across them once they are open (before,
+straight as ever). Ids follow the weapons file (toro_hide, toro_horn, sarangay_jewel, arimaonga_mane). Code:
+src/00-...-plains.js, src/01-logic...-plains.js, src/19...-plains.js; maps built in code (L.plainsMap, L.plainsCaveMap);
+art: the 'plains' pack (tools/manila/plains-import.js, tools/art/animals3q-import.js plains). The Armory opens at Panday
+Lando's door (buy, upgrade, ammo, repairs). Server rows (Hunting now, Biggest catch): node tools/places/server-rows.js
+plains prints them, for the owner.
+
 ---
 
 ## 1. Manila's layout (Proposed)
