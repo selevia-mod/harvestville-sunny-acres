@@ -106,8 +106,38 @@ const play = (seed, steps, every) => {
     else if (c === 6) { const cs = L.gmContracts(s), ct = cs.length && cpick(cs); if (ct) { L.siloPut(s, ct.crop, 100); L.gmLoadSilo(s, ct.crop, 100); L.gmDeliver(s, ct.k); } }
     else if (s.horse && L.horseHit) { if (crnd() < 0.5) L.horseHit(s); else L.horseRegen(s, L.nowMin() + cint(300)); } // (the horse: hit while riding, its stamina coming back)
   };
+  // Manila Friends (18 Nov 2026), on a random stream of their own as well: a chat, a gift (a dislike too, so the hearts
+  // fall below an unlock reached), their story steps (a scene, a favour asked and handed over), a new day, and each
+  // unlock used (the blessing, studying with Bea, the free meal, the weekly trade, the train, ammo). Aling Rosa's 4th
+  // contract and Mang Kardo's lower fee come in through the cart's actions above once their hearts are there.
+  let r3 = seed ^ 0x2545f491;
+  const mrnd = () => { r3 = (r3 * 1103515245 + 12345) & 0x7fffffff; return r3 / 0x7fffffff; };
+  const mint = (n) => Math.floor(mrnd() * n), mpick = (xs) => xs[mint(xs.length)];
+  const MF = C.MNF, mnKeys = MF ? MF.order : [];
+  const manila = () => {
+    const k = mpick(mnKeys), d = MF.friends[k], c = mint(9);
+    if (c === 0) L.talk(s, k);
+    else if (c === 1 || c === 2) {
+      const id = c === 2 ? mpick(d.dislikes) : mpick(d.loves.concat(d.likes, ['turnip', 'egg']));
+      L.addItem(s, id, 1);
+      const i = s.inv.findIndex((x) => x && x.id === id && !x.q);
+      if (i >= 0) L.giveGift(s, k, i);
+    } else if (c === 3) { // a story step: the hearts for it, then the scene (or the favour handed over)
+      const n = L.mnsNext(s, k);
+      if (!n) return;
+      L.friend(s, k).met = 1;
+      if (L.mnHearts(s, k) < n.hearts) L.addFriend(s, k, n.hearts * 10 - L.friend(s, k).pts);
+      s.energy = Math.max(s.energy, 30);
+      if (n.state === 'asked') { L.addItem(s, n.step.bring[0], n.step.bring[1]); L.mnsHandOver(s, k); } else L.mnsStart(s, k, n.i, mint(2));
+    } else if (c === 4) L.mnNewDay(s);
+    else if (c === 5) { L.friend(s, k).met = 1; L.addFriend(s, k, 10 + mint(40)); } // (hearts from chats and gifts over many days)
+    else if (c === 6) { s.energy = mint(30); if (mrnd() < 0.5) L.mnBless(s); else L.mnFreeMeal(s); }
+    else if (c === 7) { if (mrnd() < 0.5) L.mnStudy(s, mpick(C.SKILLS.order)); else { const o = L.mnTradeOffer(s); L.addItem(s, o.give, o.n); L.mnTrade(s); } }
+    else if (mrnd() < 0.5) L.manilaRide(s); else L.buyAmmo(s, mpick(['bullets', 'javelins']), 1 + mint(3));
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
+    if (MF && mrnd() < 0.1) manila();
     const k = rnd();
     if (k < 0.12) { // a line of fences, paths or hedges, as players lay them (lines cross: a fence over a path)
       const t = pick(tiles), n = 3 + int(13), down = rnd() < 0.5, x0 = 1 + int(73), y0 = 1 + int(62);

@@ -13,9 +13,17 @@
   C.TIPS.push({ key: 'friends_tour', text: 'FRIENDSHIP BOOK' });
 
   var DONE = 7, ASKED = 8;
-  var code = function (s, key) { return (s.vf && s.vf[key]) || 0; };
-  var setCode = function (s, key, n) { if (!s.vf) s.vf = {}; if (n) s.vf[key] = n; else delete s.vf[key]; };
-  var name = function (key) { return C.VILLAGERS[key] ? C.VILLAGERS[key].name : key; };
+  // (Manila Friends, 18 Nov 2026: their stories play by these same rules, from C.MNF.stories, each friend's number in their
+  // own record, s.friends[key].vs, with their highest hearts: 01-logicZ...Z-manila-friends.js. The town's are as they were.)
+  var MN = function (key) { return !!(L.mnIs && L.mnIs(key)); };
+  var ST = function (key) { return VS.stories[key] || (MN(key) ? C.MNF.stories[key] : null); };
+  var code = function (s, key) { if (MN(key)) { var f = s.friends && s.friends[key]; return (f && f.vs) || 0; } return (s.vf && s.vf[key]) || 0; };
+  var setCode = function (s, key, n) {
+    if (MN(key)) { var f = L.friend(s, key); if (n) f.vs = n; else delete f.vs; return; }
+    if (!s.vf) s.vf = {}; if (n) s.vf[key] = n; else delete s.vf[key];
+  };
+  var name = function (key) { return C.VILLAGERS[key] ? C.VILLAGERS[key].name : MN(key) ? L.mnName(key) : key; };
+  var heartsOf = function (s, key) { return MN(key) ? L.mnHearts(s, key) : L.friendHearts(s, key); };
   // Lumber and Stone are not bag items: the farm keeps them as two counts (s.lumber, s.stone), like Mira's materials.
   var MAT = { lumber: 'Lumber', stone: 'Stone' };
   var itemName = function (id) { return MAT[id] || (C.ITEMS[id] ? C.ITEMS[id].name : id); };
@@ -24,7 +32,7 @@
   var addTo = function (s, id, n) { if (MAT[id]) s[id] = (s[id] || 0) + n; else L.addItem(s, id, n); };
   L.vsItemIcon = function (id) { return MAT[id] ? C.ICON[id] : C.ITEMS[id].icon; };
 
-  L.vsStory = function (key) { return VS.stories[key] || null; };
+  L.vsStory = function (key) { return ST(key); };
   L.vsDone = function (s, key) { return code(s, key) & DONE; };
   L.vsAsked = function (s, key) { return !!(code(s, key) & ASKED); };
   L.vsChoice = function (s, key, i) { return (code(s, key) >> (4 + i)) & 1; };
@@ -33,7 +41,7 @@
 
   // What a step gives for the answer picked (an answer with its own reward takes the place of the step's).
   L.vsRewards = function (key, i, choice) {
-    var st = VS.stories[key][i], a = st.choice && st.choice.a[choice];
+    var st = ST(key)[i], a = st.choice && st.choice.a[choice];
     return (a && a[2] && a[2].reward) || st.reward || [];
   };
 
@@ -79,13 +87,13 @@
   // { i, step, hearts, state }: state 'locked' (not enough hearts, or not met), 'after' (waits on a friend's story),
   // 'open' (it can play) or 'asked' (the favour is asked; bring the things). null when the story is over.
   L.vsNext = function (s, key) {
-    var list = VS.stories[key];
+    var list = ST(key);
     if (!list) return null;
     var i = L.vsDone(s, key);
     if (i >= list.length) return null;
     var st = list[i], r = { i: i, step: st, hearts: VS.hearts[i] };
     if (L.vsAsked(s, key) && st.bring) r.state = 'asked';
-    else if (!L.friend(s, key).met || L.friendHearts(s, key) < VS.hearts[i]) r.state = 'locked';
+    else if (!L.friend(s, key).met || heartsOf(s, key) < VS.hearts[i]) r.state = 'locked';
     else if (st.after && L.vsDone(s, st.after[0]) < st.after[1]) r.state = 'after';
     else r.state = 'open';
     return r;
@@ -105,7 +113,7 @@
   // What to do next, in words (the Friendship Book, and the line added when you talk to them).
   L.vsHint = function (s, key) {
     var n = L.vsNext(s, key), who = name(key);
-    if (!n) return VS.stories[key] ? 'Story complete!' : '';
+    if (!n) return ST(key) ? 'Story complete!' : '';
     var st = n.step;
     if (n.state === 'locked') return 'At ' + n.hearts + ' hearts: ' + st.hint;
     if (n.state === 'after') {
@@ -115,7 +123,7 @@
     if (n.state === 'asked') return 'Bring ' + who + ' ' + st.bring[1] + ' ' + itemName(st.bring[0]) + ' (you have ' + L.vsHave(s, st.bring[0]) + ').';
     var where = L.vsWhere(key, st);
     if (st.help) return 'Help ' + who + where + '. It takes ' + st.help + ' energy.';
-    return (st.at ? 'Meet ' + who + where : 'Talk to ' + who) + '.';
+    return (st.at ? 'Meet ' + who + where : 'Talk to ' + who + (MN(key) ? ' at ' + C.MNF.friends[key].where : '')) + '.';
   };
   // Added to a chat when the step is open but this is not the place, the time or the energy for it, or the favour waits.
   L.vsNudge = function (s, key) {
@@ -185,7 +193,7 @@
 
   // Finishes step i with answer `choice`: the rewards, the friendship, the save. { got: [{ icon, text }] } or { error }.
   var finish = function (s, key, i, choice) {
-    var st = VS.stories[key][i], list = L.vsRewards(key, i, choice), a = st.choice.a[choice] || [];
+    var st = ST(key)[i], list = L.vsRewards(key, i, choice), a = st.choice.a[choice] || [];
     var full = room(s, key, list);
     if (full) return { error: 'full', item: full };
     if (st.help) {
@@ -276,7 +284,7 @@
   var talk = L.talk;
   L.talk = function (s, key) {
     var r = talk(s, key);
-    if (r && !r.first && VS.stories[key]) {
+    if (r && !r.first && ST(key)) {
       var n = L.vsNudge(s, key);
       if (n) r.line = r.line + '\n\n(' + n + ')';
     }
