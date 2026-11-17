@@ -17,18 +17,19 @@ const config = () => {
   fs.readdirSync(path.join(ROOT, 'src')).filter((f) => /^00-/.test(f)).sort().forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx));
   return ctx.window.Farm.Config;
 };
-const keys = () => {
-  const C = config(), P = C.PLACES.plains, out = [];
+// (and the Bamboo Jungle's, the same way: keys('jungle'), its pack 'jungle'; Diday's sheet is in the 'manila' pack too)
+const keys = (id = 'plains') => {
+  const C = config(), P = C.PLACES[id], out = [];
   if (!P) return out;
   ['mouth', 'gate', 'cave'].forEach((k) => { if (P.dungeon.art[k]) out.push(P.dungeon.art[k]); });
-  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.place === 'plains' && d.sheet) out.push(d.sheet, d.sheet + 'shade'); });
-  C.PLAINS.kinds.forEach((k) => out.push('props/plains_' + k));
-  out.push('ground_plains', 'ground_plains_water', 'plains_icons');
+  (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.place === id && d.sheet) out.push(d.sheet, d.sheet + 'shade'); });
+  C[id.toUpperCase()].kinds.forEach((k) => out.push('props/' + id + '_' + k));
+  out.push('ground_' + id, 'ground_' + id + '_water', id + '_icons');
   return [...new Set(out)];
 };
 
 module.exports = {
   config,
   all: keys,
-  packed: () => keys().filter((k) => fs.existsSync(path.join(ASSETS, k + '.webp'))),
+  packed: (id) => keys(id).filter((k) => fs.existsSync(path.join(ASSETS, k + '.webp'))),
 };

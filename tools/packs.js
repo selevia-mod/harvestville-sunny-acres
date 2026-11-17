@@ -61,5 +61,8 @@ module.exports = {
   frames: fs.existsSync(path.join(ASSETS, 'name_frames.png')) ? ['name_frames'] : [],
   // The Open Plains (owner, 18 Nov 2026): its creatures, props, ground, cave and icons, each once its picture is in
   // (tools/manila/plains-import.js, tools/art/animals3q-import.js plains); until then the game draws stand-ins
-  plains: require('./manila/plains-art').packed(),
+  plains: require('./manila/plains-art').packed('plains'),
+  // The Bamboo Jungle (owner, 18 Nov 2026): the same, its own pack (node tools/manila/plains-import.js jungle,
+  // node tools/art/animals3q-import.js jungle)
+  jungle: require('./manila/plains-art').packed('jungle'),
 };

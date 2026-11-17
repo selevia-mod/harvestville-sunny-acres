@@ -75,6 +75,7 @@
   var copySets = function (template, names) {
     return template.tilesets.filter(function (ts) { return names.indexOf(ts.name) >= 0; }).map(function (ts) { return JSON.parse(JSON.stringify(ts)); });
   };
+  L.mapKit = { build: build, propsOf: propsOf, copySets: copySets, rng: rng, TT: TT, prop: prop }; // (the Jungle builds its maps the same way)
 
   // The Plains, 52 x 52: golden grass, the valley road across the middle (west: Willowbrook, east: Manila), few props in
   // the middle so you see far, the Plains Halt by the road, Ka Pedring's hut and his fenced Tamaraw meadow, a pond, the

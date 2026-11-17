@@ -70,9 +70,9 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   L.addItem(s, 'ore_gold', 8); L.addItem(s, 'sarangay_jewel', 3); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   L.addItem(s, 'ember_shard', 40); L.addItem(s, 'obsidian', 5); L.addItem(s, 'arimaonga_mane', 3); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.itemName(s, 'rifle'), 'Magma Rifle');
-  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 2500000, needs: [['arimaonga_mane', 6], ['bakunawa_scale', 5]] }, "(the Arimaonga's mane and the Lair's scales; the Jungle's and the Gorge's boss parts later)");
+  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 2500000, needs: [['arimaonga_mane', 6], ['bamboo_heart', 3], ['bakunawa_scale', 5]] }, "(the Arimaonga's mane, the Bamboo Giant's heart and the Lair's scales; the Gorge's boss part later)");
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'short');
-  L.addItem(s, 'bakunawa_scale', 5); L.addItem(s, 'arimaonga_mane', 6);
+  L.addItem(s, 'bakunawa_scale', 5); L.addItem(s, 'arimaonga_mane', 6); L.addItem(s, 'bamboo_heart', 3);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.itemName(s, 'rifle'), 'Moon Rifle');
   assert.strictEqual(L.nextWeapon(s, 'rifle'), null);
@@ -215,6 +215,7 @@ test('the save: levels and the throws left come back; an old save has none; nons
   L.getWeapon(s, 'boomerang');
   L.getWeapon(s, 'javelin');
   L.addItem(s, 'ore_copper', 8);
+  L.addItem(s, 'warty_tusk', 4); // (the Copper Javelin asks for the Bamboo Jungle's Warty Tusk now it is in the game)
   L.getWeapon(s, 'javelin');
   for (let i = 0; i < 7; i++) L.fireWeapon(s, 'boomerang');
   const o = plain(L.serialize(s));

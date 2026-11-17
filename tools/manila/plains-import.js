@@ -9,15 +9,18 @@
 //   assets/plains_icons.*                                              the 20 icons (C.PLAINS_ICONS), 8 a row of 128
 // Then: node build.js (the pack's files come out in dist/packs/, for the CDN's app-assets/packs/). The page does not grow.
 // node tools/manila/plains-import.js
+// The Bamboo Jungle's the same way (owner, 18 Nov 2026; art-src/manila/jungle/, its set row 2 of the gear icons, all
+// named jungle_* / ground_jungle*): node tools/manila/plains-import.js jungle
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const { config } = require('./plains-art');
 
 const ROOT = path.join(__dirname, '..', '..');
-const SRC = path.join(ROOT, 'art-src', 'manila', 'plains');
+const G = process.argv[2] || 'plains', GEAR_ROW = { plains: 0, jungle: 1 }[G];
+const SRC = path.join(ROOT, 'art-src', 'manila', G);
 const OUT = path.join(ROOT, 'assets');
-const C = config(), P = C.PLACES.plains;
+const C = config(), P = C.PLACES[G], ICONS = C[G.toUpperCase() + '_ICONS'];
 const PPT = 160, TILE = 128, POOL = 192, MOUTH_W = 3.7, GATE_W = 2;
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
@@ -30,13 +33,13 @@ const save = (name, r) => {
 };
 
 (async () => {
-  if (!fs.existsSync(SRC)) { console.log('No art-src/manila/plains/ yet: nothing to do (the game keeps its stand-ins).'); return; }
+  if (!fs.existsSync(SRC) || !P) { console.log('No art-src/manila/' + G + '/ yet: nothing to do (the game keeps its stand-ins).'); return; }
   const b = await chromium.launch(), p = await b.newPage();
   await p.addScriptTag({ content: require('../art/wild-lib') });
   const done = [], art = P.dungeon.art;
 
   // ---------- the cave: mouth, gate (closed | open), tiles ----------
-  const mouth = pic('plains_mouth.png');
+  const mouth = pic(G + '_mouth.png');
   if (mouth) {
     save(art.mouth, await p.evaluate(async ([src, w]) => {
       const x = W.cells(W.dehalo(W.cutout(await W.load(src))), 1, 1, 0.02)[0], h = Math.round(w * x.h / x.w), o = W.canvas(w, h);
@@ -45,7 +48,7 @@ const save = (name, r) => {
     }, [mouth, Math.round(MOUTH_W * PPT)]));
     done.push('mouth');
   }
-  const gate = pic('plains_gate.png');
+  const gate = pic(G + '_gate.png');
   if (gate) {
     save(art.gate, await p.evaluate(async ([src, fw]) => {
       const cl = W.cells(W.dehalo(W.cutout(await W.load(src))), 2, 1, 0.02);
@@ -56,7 +59,7 @@ const save = (name, r) => {
     }, [gate, GATE_W * PPT]));
     done.push('gate');
   }
-  const caveParts = ['plains_cave_floor.png', 'plains_cave_water.png', 'plains_cave_rock_top.png', 'plains_cave_rock_face.png'].map(pic);
+  const caveParts = ['_cave_floor.png', '_cave_water.png', '_cave_rock_top.png', '_cave_rock_face.png'].map((f) => pic(G + f));
   if (caveParts.every(Boolean)) {
     save(art.cave, await p.evaluate(async ([floor, water, top, face, S, LV]) => {
       // a picture scaled down whole to one tile, its edges evened out across the wrap (as places-import.js)
@@ -92,7 +95,7 @@ const save = (name, r) => {
   }
 
   // ---------- the ground: two seamless textures ----------
-  for (const [file, key] of [['ground_plains.png', 'ground_plains'], ['ground_plains_water.png', 'ground_plains_water']]) {
+  for (const [file, key] of [['ground_' + G + '.png', 'ground_' + G], ['ground_' + G + '_water.png', 'ground_' + G + '_water']]) {
     const src = pic(file);
     if (!src) continue;
     save(key, await p.evaluate(async ([s, S]) => {
@@ -119,9 +122,9 @@ const save = (name, r) => {
     done.push(key);
   }
 
-  // ---------- the 12 props: two 3 x 2 sheets, in C.PLAINS.kinds' order ----------
-  const kinds = C.PLAINS.kinds;
-  for (const [file, from] of [['props_plains.png', 0], ['props_plains_2.png', 6]]) {
+  // ---------- the 12 props: two 3 x 2 sheets, in C.PLAINS.kinds' (C.JUNGLE.kinds') order ----------
+  const kinds = C[G.toUpperCase()].kinds;
+  for (const [file, from] of [['props_' + G + '.png', 0], ['props_' + G + '_2.png', 6]]) {
     const src = pic(file);
     if (!src) continue;
     const cut = await p.evaluate(async ([s, ow]) => {
@@ -135,17 +138,18 @@ const save = (name, r) => {
       }
       return out;
     }, [src, 2.5 * PPT]);
-    cut.forEach((r, i) => save('props/plains_' + kinds[from + i], r));
+    cut.forEach((r, i) => save('props/' + G + '_' + kinds[from + i], r));
     done.push(file);
   }
 
-  // ---------- the icons: icons_plains.png (4 x 4) then the Plainsrunner row of icons_manila_gear.png (4 x 3) ----------
-  const icons = pic('icons_plains.png'), gearSrc = fs.existsSync(path.join(ROOT, 'art-src', 'manila', 'icons_manila_gear.png')) ? data(path.join(ROOT, 'art-src', 'manila', 'icons_manila_gear.png')) : null;
+  // ---------- the icons: icons_plains.png (4 x 4) then the Plainsrunner row of icons_manila_gear.png (4 x 3; the Jungle's
+  // the Bamboo row, the second) ----------
+  const icons = pic('icons_' + G + '.png'), gearSrc = fs.existsSync(path.join(ROOT, 'art-src', 'manila', 'icons_manila_gear.png')) ? data(path.join(ROOT, 'art-src', 'manila', 'icons_manila_gear.png')) : null;
   if (icons) {
-    const r = await p.evaluate(async ([src, gear, n]) => {
-      const cut = async (s, cols, rows, take) => {
+    const r = await p.evaluate(async ([src, gear, n, row]) => {
+      const cut = async (s, cols, rows, take, from = 0) => {
         const cl = W.cells(W.dehalo(W.cutout(await W.load(s))), cols, rows, 0.02), out = [];
-        for (let i = 0; i < take; i++) {
+        for (let i = from; i < from + take; i++) {
           if (!cl[i]) throw new Error('icon ' + (i + 1) + ' is missing');
           const o = W.canvas(128, 128);
           W.draw(o.getContext('2d'), cl[i].c, cl[i], Math.min(128 * 0.88 / cl[i].w, 128 * 0.88 / cl[i].h), 64, null, 64);
@@ -153,15 +157,15 @@ const save = (name, r) => {
         }
         return out;
       };
-      const list = (await cut(src, 4, 4, 16)).concat(gear ? await cut(gear, 4, 3, 4) : []);
+      const list = (await cut(src, 4, 4, 16)).concat(gear ? await cut(gear, 4, 3, 4, row * 4) : []);
       const sheet = W.canvas(8 * 128, Math.ceil(n / 8) * 128), g = sheet.getContext('2d');
       list.forEach((c, i) => g.drawImage(c, (i % 8) * 128, Math.floor(i / 8) * 128));
       return Object.assign(W.out(sheet, 0.85), { w: sheet.width, h: sheet.height, n: list.length });
-    }, [icons, gearSrc, C.PLAINS_ICONS.length]);
-    save('plains_icons', r);
+    }, [icons, gearSrc, ICONS.length, GEAR_ROW]);
+    save(G + '_icons', r);
     done.push(r.n + ' icons');
   }
 
   await b.close();
-  console.log(done.length ? 'Made: ' + done.join(', ') + '. Creatures: node tools/art/animals3q-import.js plains. Then: node build.js' : 'No Plains pictures yet.');
+  console.log(done.length ? 'Made: ' + done.join(', ') + '. Creatures: node tools/art/animals3q-import.js ' + G + '. Then: node build.js' : 'No ' + G + ' pictures yet.');
 })().catch((e) => { console.error(e); process.exit(1); });

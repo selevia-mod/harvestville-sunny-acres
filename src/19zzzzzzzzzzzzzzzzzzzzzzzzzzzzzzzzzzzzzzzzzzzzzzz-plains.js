@@ -231,7 +231,7 @@
   var placeIn = function (a, lead) { // a's place behind the one leading now
     var i = a.flk.slots.indexOf(a.slot) - lead.flk.slots.indexOf(lead.slot);
     var ang = lead.vx || lead.vy ? Math.atan2(lead.vy, lead.vx) : (lead.left ? Math.PI : 0);
-    return L.flockSpot(lead.x, lead.y, ang, Math.max(1, i), T, a.def.w);
+    return L.flockSpot(lead.x, lead.y, ang, Math.max(1, i), T, a.def.w, a.def.flock); // (a pair stands side by side: the Jungle's rules)
   };
   // set up: a flock together, round its leader
   var setupWild = P.setupWild;
@@ -399,6 +399,7 @@
   var icon = function (ui, sc, x, y, frame, scale) { F.ensureTexture(ui, 'items'); var i = ui.add.image(x, y, 'items', frame).setScale(scale || 0.3); sc.add(i); return i; };
   var words = function (ui, sc, x, y, str, size, color) { var t = ui.txt(x, y, str, size || 12, color || INK, { fontStyle: 'bold' }).setOrigin(0.5); sc.add(t); return t; };
   var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
+  F.tourKit = { fit: fit, creature: creature, person: person, icon: icon, words: words, tw: tw, artReady: artReady }; // (the Jungle's tour draws the same way)
   var ground = function (ui, sc) { // the plains' grass behind a step (the owner's texture, else a drawn gold-green)
     var g = ui.add.graphics();
     g.fillStyle(0xc9d46a, 1).fillRoundedRect(4, 70, 264, 58, 10);

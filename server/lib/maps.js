@@ -5,8 +5,8 @@
 //   - the `wild` zone object, in tiles (buildObjects' rect);
 //   - the gate down (lair_gate / dungeon_gate), which is not ground for a monster (19zt-lair.js wildFree).
 // A city (Manila: C.MANILA) has no file in maps/: the game builds its map from its layout at run time (L.manilaMap, from
-// the town's sheets), and so does this; and so are The Lost Tower's floors (L.towerMap, from the Lair's), and the Open
-// Plains and its cave (L.plainsMap, L.plainsCaveMap).
+// the town's sheets), and so does this; and so are The Lost Tower's floors (L.towerMap, from the Lair's), the Open
+// Plains and its cave (L.plainsMap, L.plainsCaveMap), and the Bamboo Jungle and its cave (L.jungleMap, L.jungleCaveMap).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -30,7 +30,10 @@ const fileOf = (R, key) => JSON.parse(fs.readFileSync(path.join(R.root, 'maps', 
 const cityMap = (R, key) => (R.C.MANILA && key === R.C.MANILA.key && R.L.manilaMap ? R.L.manilaMap(fileOf(R, 'town'))
   // the Open Plains and Sarangay's Halls: built from Pulag's and Palawan's cave's sheets, as the game does (L.plainsMap)
   : key === 'plains' && R.L.plainsMap ? R.L.plainsMap(fileOf(R, 'pulag'))
-    : key === 'plains_cave' && R.L.plainsCaveMap ? R.L.plainsCaveMap(fileOf(R, 'palawan_cave')) : null);
+    : key === 'plains_cave' && R.L.plainsCaveMap ? R.L.plainsCaveMap(fileOf(R, 'palawan_cave'))
+      // and the Bamboo Jungle and the Bamboo Hollows (L.jungleMap, L.jungleCaveMap)
+      : key === 'jungle' && R.L.jungleMap ? R.L.jungleMap(fileOf(R, 'pulag'))
+        : key === 'jungle_cave' && R.L.jungleCaveMap ? R.L.jungleCaveMap(fileOf(R, 'palawan_cave')) : null);
 
 function readMap(R, key, built) {
   const T = R.T, raw = built || cityMap(R, key) || fileOf(R, key);

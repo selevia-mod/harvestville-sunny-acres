@@ -25,6 +25,7 @@
 // node tools/art/animals3q-import.js breeds     (only the breeds)
 // node tools/art/animals3q-import.js places     (only the hunting places' creatures)
 // node tools/art/animals3q-import.js plains     (only the Open Plains' creatures: art-src/manila/plains/)
+// node tools/art/animals3q-import.js jungle     (only the Bamboo Jungle's creatures: art-src/manila/jungle/)
 // ONLY=winter node tools/art/animals3q-import.js battle2   (only Cozy Winter's riding sheets)
 const fs = require('fs');
 const path = require('path');
@@ -73,9 +74,10 @@ const placeSheets = {};
 (C.WILD.more || []).forEach((k) => {
   const d = C.WILD.animals[k];
   const dir = (C.PLACES[d.place] && C.PLACES[d.place].artDir) || 'places/' + d.place; // (Manila's grounds: art-src/manila/<ground>/)
-  if (!d.sheet || placeSheets[d.sheet] || !fs.existsSync(path.join(ROOT, 'art-src', dir, d.sheet + '.png'))) return;
+  // (src: the picture's own name when the sheet's differs: the Jungle's Tigmamanukan, not the Lost Tower's)
+  if (!d.sheet || placeSheets[d.sheet] || !fs.existsSync(path.join(ROOT, 'art-src', dir, (d.src || d.sheet) + '.png'))) return;
   placeSheets[d.sheet] = true;
-  SETS.push({ name: d.sheet, shade: d.sheet + 'shade', dir, ground: 358, store: 0.75, place: true, pack: (C.PLACES[d.place] || {}).pack, rows: [[d.sheet, { front: 9, ground: !!d.ground, fit: true }]] });
+  SETS.push({ name: d.sheet, shade: d.sheet + 'shade', dir, ground: 358, store: 0.75, place: true, pack: (C.PLACES[d.place] || {}).pack, rows: [[d.src || d.sheet, { front: 9, ground: !!d.ground, fit: true }]] });
 });
 // Farm Raids (owner, 9 Nov 2026; art-src/RAID-PROMPTS.md): the crows (a raider) and the guard goose (a defense), each a
 // one-row sheet of its own like a place's creature. node tools/art/animals3q-import.js raids
@@ -95,7 +97,7 @@ if (fs.existsSync(RIDE_PAD)) fs.readdirSync(RIDE_PAD).filter((f) => /^[a-z]+-(bo
   SETS.push({ name: n, shade: n + 'shade', dir: 'riding/_3x4', ground: 352, store: 0.75, battle2: true, rows: [[f.slice(0, -4), { front: 9, ground: true, fit: true, clean: true, k }]] });
 });
 const ONLY = process.env.ONLY ? 'ride_' + process.env.ONLY + '_' : ''; // (ONLY=<outfit> ... battle2: only that outfit's riding sheets)
-const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2 && (!ONLY || s.name.startsWith(ONLY))) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place && !s.pack) : process.argv[2] === 'plains' ? SETS.filter((s) => s.pack === 'plains') : SETS;
+const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2 && (!ONLY || s.name.startsWith(ONLY))) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place && !s.pack) : ['plains', 'jungle'].includes(process.argv[2]) ? SETS.filter((s) => s.pack === process.argv[2]) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {
