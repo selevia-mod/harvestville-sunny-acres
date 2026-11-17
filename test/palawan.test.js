@@ -65,7 +65,8 @@ test('Palawan: its numbers are the hardest of the five places, still below the L
   [D.guard, D.boss].concat(Object.keys(D.creatures)).forEach((k) => assert.ok(A[k].hp < deepGuard && A[k].hit < A.bakunawa.hit, k));
   assert.ok(A.minokawa.hp < A.bakunawa.hp && A.minokawa.hpEach < A.bakunawa.hpEach);
   // and above the other new places (whichever are in this game)
-  C.PLACE_ORDER.filter((id) => id !== ID && !C.PLACES[id].legacy && !C.PLACES[id].dev).forEach((id) => {
+  // (the Jeep's five places: Manila's grounds are a ladder of their own, priced by the owner on 18 Nov 2026)
+  C.PLACE_ORDER.filter((id) => id !== ID && !C.PLACES[id].legacy && !C.PLACES[id].dev && C.PLACES[id].n < 20).forEach((id) => {
     const o = C.PLACES[id];
     assert.ok(P.unlock > o.unlock, id + ' opens first');
     if (o.dungeon && o.dungeon.boss) assert.ok(A.minokawa.hp >= A[o.dungeon.boss].hp, id + ': its boss is no tougher');

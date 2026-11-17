@@ -56,21 +56,23 @@ test('buying and upgrading at the Armory: Basic to Moon, each level with its gol
   assert.ok(L.hasWeapon(s, 'rifle') && L.weaponLevel(s, 'rifle') === 0);
   assert.strictEqual(s.gold, 1e7 - 25000);
   assert.strictEqual(s.lumber, 490);
-  // Copper needs copper ore and the Mixer's Farm Cement (Toro Hide is not in the game yet)
-  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle').needs), [['ore_copper', 8], ['farm_cement', 2]]);
+  // Copper needs copper ore, the Mixer's Farm Cement and the Open Plains' Toro Hide (in the game since the Plains, 18 Nov 2026)
+  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle').needs), [['ore_copper', 8], ['farm_cement', 2], ['toro_hide', 4]]);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'short');
   L.addItem(s, 'ore_copper', 8);
+  assert.strictEqual(L.getWeapon(s, 'rifle'), 'short', 'the Toro Hide too');
+  L.addItem(s, 'toro_hide', 4);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.weaponLevel(s, 'rifle'), 1);
   assert.strictEqual(L.itemName(s, 'rifle'), 'Copper Rifle');
   assert.strictEqual(L.iconOf(s, 'rifle'), C.wpnIcon('rifle_1'));
-  L.addItem(s, 'ore_silver', 8); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
-  L.addItem(s, 'ore_gold', 8); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
-  L.addItem(s, 'ember_shard', 40); L.addItem(s, 'obsidian', 5); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
+  L.addItem(s, 'ore_silver', 8); L.addItem(s, 'toro_horn', 4); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
+  L.addItem(s, 'ore_gold', 8); L.addItem(s, 'sarangay_jewel', 3); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
+  L.addItem(s, 'ember_shard', 40); L.addItem(s, 'obsidian', 5); L.addItem(s, 'arimaonga_mane', 3); assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.itemName(s, 'rifle'), 'Magma Rifle');
-  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 2500000, needs: [['bakunawa_scale', 5]] }, "(the Lair's scales; Manila's boss parts later)");
+  assert.deepStrictEqual(plain(L.nextWeapon(s, 'rifle')), { level: 5, gold: 2500000, needs: [['arimaonga_mane', 6], ['bakunawa_scale', 5]] }, "(the Arimaonga's mane and the Lair's scales; the Jungle's and the Gorge's boss parts later)");
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'short');
-  L.addItem(s, 'bakunawa_scale', 5);
+  L.addItem(s, 'bakunawa_scale', 5); L.addItem(s, 'arimaonga_mane', 6);
   assert.strictEqual(L.getWeapon(s, 'rifle'), 'ok');
   assert.strictEqual(L.itemName(s, 'rifle'), 'Moon Rifle');
   assert.strictEqual(L.nextWeapon(s, 'rifle'), null);
