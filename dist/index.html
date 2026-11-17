@@ -9592,16 +9592,18 @@ if (Array.isArray(o.hm)) {
 var lv = int(o.hm[0], 1, H.levels.length, 1);
 var hm = s.home = { level: lv, wall: int(o.hm[1], 0, ns - 1, 0), floor: int(o.hm[2], 0, ns - 1, 0), walls: int(o.hm[3], 0, (1 << ns) - 1, 1) | 1, floors: int(o.hm[4], 0, (1 << ns) - 1, 1) | 1, bag: {}, items: [] };
 var flat = Array.isArray(o.hm[5]) ? o.hm[5] : [];
-for (var i = 0; i + 4 < flat.length && hm.items.length < 200; i += 5) {
+
+
+for (var i = 0; i + 4 < flat.length; i += 5) {
 var it = { t: int(flat[i], 0, nt - 1, 0), v: int(flat[i + 1], 0, ns - 1, 0), x: int(flat[i + 2], 0, 40, 1), y: int(flat[i + 3], 0, 40, 2) };
 it.f = L.furnF(it.t, flat[i + 4]);
-if (!L.cantPlace(s, it.t, it.x, it.y, null)) hm.items.push(it);
+if (hm.items.length < 200 && !L.cantPlace(s, it.t, it.x, it.y, null)) hm.items.push(it);
 else hm.bag[L.furnKey(it.t, it.v)] = (hm.bag[L.furnKey(it.t, it.v)] || 0) + 1;
 }
 var bag = o.hm[6] && typeof o.hm[6] === 'object' ? o.hm[6] : {};
 Object.keys(bag).forEach(function (k) {
 var p = k.split('.'), t = int(p[0], -1, nt - 1, -1), v = int(p[1], -1, ns - 1, -1);
-if (t >= 0 && v >= 0) hm.bag[L.furnKey(t, v)] = (hm.bag[L.furnKey(t, v)] || 0) + int(bag[k], 0, 999, 0);
+if (t >= 0 && v >= 0) hm.bag[L.furnKey(t, v)] = (hm.bag[L.furnKey(t, v)] || 0) + int(bag[k], 0, 1e7, 0);
 if (!hm.bag[L.furnKey(t, v)]) delete hm.bag[L.furnKey(t, v)];
 });
 if (!hm.items.some(function (x) { return H.types[x.t].use === 'sleep'; })) {
@@ -10027,9 +10029,21 @@ var homeBeauty = L.homeBeauty;
 L.homeBeauty = function (s) { return homeBeauty(s) + (s.yard ? L.yardBeauty(s) : 0); };
 
 
+
+
+
 L.yardRuns = function (items) {
-var at = {}, out = [];
-items.forEach(function (it) { if (L.isYardTile(it.t)) at[it.x + ',' + it.y] = it.t; });
+var layers = [];
+items.forEach(function (it) {
+if (!L.isYardTile(it.t)) return;
+var k = it.x + ',' + it.y, i = 0;
+while (layers[i] && layers[i][k] != null) i++;
+(layers[i] = layers[i] || {})[k] = it.t;
+});
+return layers.reduce(function (out, at) { return out.concat(runsOf(at)); }, []);
+};
+var runsOf = function (at) {
+var out = [];
 var keys = Object.keys(at).map(function (k) { var p = k.split(','); return [Number(p[0]), Number(p[1])]; })
 .sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; });
 var used = {};
@@ -14541,7 +14555,14 @@ L.deserialize = function (o) {
 var s = deserialize(o);
 if (!s) return s;
 var ft = o.ft && typeof o.ft === 'object' ? o.ft : {};
-each(ft.s, function (k, v) { if (s.soil[k] && v >= 1 && v <= C.SPRINKLERS.length && !s.soil[k].c) { s.soil[k].sp = v; s.soil[k].w = 0; } });
+
+
+each(ft.s, function (k, v) {
+if (!(v >= 1 && v <= C.SPRINKLERS.length)) return;
+if (s.soil[k] && !s.soil[k].c) { s.soil[k].sp = v; s.soil[k].w = 0; return; }
+var id = C.SPRINKLERS[v - 1].id;
+if (L.addItem(s, id, 1) > 0) { s.basket = s.basket || {}; s.basket[id] = (s.basket[id] || 0) + 1; }
+});
 each(ft.f, function (k, v) { if (s.soil[k] && !s.soil[k].sp && v >= 1 && v <= C.FERTS.length) s.soil[k].f = v; });
 var mark = function (list, k, v) { if (list && list[k] && v >= 1 && v < Q.names.length && C.ITEMS[list[k].id] && C.ITEMS[list[k].id].sell) list[k].q = v; };
 each(ft.q, function (k, v) { mark(s.inv, k, v); });
@@ -21684,11 +21705,13 @@ delete c.p[id];
 
 
 
+
+
 (function (F) {
 'use strict';
 var C = F.Config;
 var L = F.Logic;
-C.SAVE_GEN = 2;
+C.SAVE_GEN = 3;
 
 L.saveGen = function (o) {
 if (!o || typeof o !== 'object') return 0;
@@ -21697,6 +21720,84 @@ return isFinite(g) && g > 0 ? g : o.ef ? 1 : 0;
 };
 var serialize = L.serialize;
 L.serialize = function (s) { var o = serialize(s); o.gg = C.SAVE_GEN; return o; };
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ-save-guard.js
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var O = C.OUTDOOR;
+
+
+L.savedYardCounts = function (o) {
+var N = O.types.length, n = new Array(N).fill(0), yd = o && Array.isArray(o.yd) ? o.yd : [];
+var flat = Array.isArray(yd[0]) ? yd[0] : [], bag = Array.isArray(yd[1]) ? yd[1] : [], runs = Array.isArray(yd[2]) ? yd[2] : [], t, i, k;
+for (i = 0; i + 2 < flat.length; i += 3) { t = flat[i]; if (t >= 0 && t < N) n[t]++; }
+for (i = 0; i + 1 < bag.length; i += 2) { t = Number(bag[i]); k = Math.floor(Number(bag[i + 1])) || 0; if (t >= 0 && t < N && k > 0) n[t] += k; }
+
+for (i = 0; i + 3 < runs.length; i += 4) {
+t = runs[i]; k = Math.min(120, Math.abs(Math.floor(Number(runs[i + 3])) || 0));
+if (t >= 0 && t < N && L.isYardTile(t) && runs[i + 1] >= 0 && runs[i + 2] >= 0) n[t] += k;
+}
+return n;
+};
+
+L.playYardCounts = function (s) {
+var N = O.types.length, n = new Array(N).fill(0), items = s.yard.items || [], bag = s.yard.bag || {}, i, t;
+for (i = 0; i < items.length; i++) { t = items[i].t; if (t >= 0 && t < N) n[t]++; }
+for (t in bag) if (bag[t] > 0 && t >= 0 && t < N) n[t] += bag[t];
+return n;
+};
+
+
+L.savedHomeCounts = function (o) {
+var n = {}, hm = o && Array.isArray(o.hm) ? o.hm : [], flat = Array.isArray(hm[5]) ? hm[5] : [], bag = hm[6] && typeof hm[6] === 'object' ? hm[6] : {};
+for (var i = 0; i + 4 < flat.length; i += 5) { var k = L.furnKey(flat[i], flat[i + 1]); n[k] = (n[k] || 0) + 1; }
+for (var b in bag) if (bag[b] > 0) n[b] = (n[b] || 0) + Math.floor(Number(bag[b]));
+return n;
+};
+L.playHomeCounts = function (s) {
+var n = {}, items = (s.home && s.home.items) || [], bag = (s.home && s.home.bag) || {};
+for (var i = 0; i < items.length; i++) { var k = L.furnKey(items[i].t, items[i].v); n[k] = (n[k] || 0) + 1; }
+for (var b in bag) if (bag[b] > 0) n[b] = (n[b] || 0) + bag[b];
+return n;
+};
+
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s), kept = 0;
+try {
+if (s && s.yard && o && Array.isArray(o.yd)) {
+var want = L.playYardCounts(s), got = L.savedYardCounts(o), bag = Array.isArray(o.yd[1]) ? o.yd[1] : (o.yd[1] = []);
+for (var t = 0; t < want.length; t++) {
+var miss = want[t] - got[t];
+if (!(miss > 0) || !O.types[t]) continue;
+kept += miss;
+for (var j = 0; j + 1 < bag.length && Number(bag[j]) !== t; j += 2);
+if (j + 1 < bag.length) bag[j + 1] = Number(bag[j + 1]) + miss; else bag.push(t, miss);
+}
+}
+} catch (e) {   }
+try {
+if (s && s.home && o && Array.isArray(o.hm) && L.furnKey) {
+var hw = L.playHomeCounts(s), hg = L.savedHomeCounts(o);
+if (!o.hm[6] || typeof o.hm[6] !== 'object') o.hm[6] = {};
+Object.keys(hw).forEach(function (k) {
+var m = hw[k] - (hg[k] || 0);
+if (m > 0) { kept += m; o.hm[6][k] = (Number(o.hm[6][k]) || 0) + m; }
+});
+}
+} catch (e) {   }
+if (kept) { o.yk = kept; if (typeof console !== 'undefined') console.warn('save guard: ' + kept + ' pieces kept in storage'); }
+return o;
+};
 })(window.Farm = window.Farm || {});
 
 // ---- src/02-host.js
