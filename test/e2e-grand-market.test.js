@@ -251,8 +251,9 @@ test('riding to Manila with the cart by the valley road (6 hearts, Horseshoes), 
   assert.ok(await page.evaluate(() => Farm.session.riding));
   await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(600); await page.keyboard.up('ArrowLeft');
   await frames(page, 3);
-  const trail = await page.evaluate(() => { const w = Farm.world, c = w.gmCart, h = w.horse; return Math.hypot(c.x - h.x, c.y - h.y) / 256; });
-  assert.ok(trail > 1.2 && trail < 1.8, 'the cart follows on its rope: ' + trail);
+  await page.waitForTimeout(500); // (it swings round to its new side in a moment)
+  const trail = await page.evaluate(() => { const w = Farm.world, c = w.gmCart, h = w.horse; return [(c.x - h.x) / 256, (c.y - h.y) / 256]; });
+  assert.ok(Math.abs(trail[0] - 2.15) < 0.1 && Math.abs(trail[1]) < 0.1, 'going left, the cart follows on its right: ' + trail);
   await go(page, 'town', 'from_farm');
   assert.ok(await page.evaluate(() => !!Farm.world.gmCart), 'in town behind the horse');
   const st0 = await page.evaluate(() => Farm.Logic.horseStamina(Farm.session.state));
@@ -265,6 +266,53 @@ test('riding to Manila with the cart by the valley road (6 hearts, Horseshoes), 
   await frames(page, 6);
   assert.ok(await page.evaluate(() => Farm.world.gmAtMarket()), 'the cart is at the Grand Market');
   await page.evaluate(() => Farm.ui.closeAll());
+  // the cart behind the horse whichever way it faces (coordinator, 18 Nov 2026): above it going down (drawn behind it),
+  // below it going up (drawn in front), beside it going left or right; never over the rider
+  // (out in the open, on the plaza, so nothing stands in front of it in the pictures)
+  const spot = await page.evaluate(() => {
+    const w = Farm.world, free = (x, y) => w.walkable(x, y) && !w.objects.some((o) => x >= o.x0 - 1 && x <= o.x1 + 1 && y >= o.y0 - 1 && y <= o.y1 + 1);
+    for (let y = 40; y < 60; y++) for (let x = 25; x < 55; x++) {
+      let ok = true;
+      for (let dy = -4; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 3 && ok; dx++) ok = free(x + dx, y + dy);
+      if (ok) return [x, y];
+    }
+    return null;
+  });
+  assert.ok(spot, 'an open spot');
+  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.sp.setVisible(false); }));
+  await teleport(page, spot[0], spot[1], 'down');
+  await page.waitForTimeout(600);
+  for (const [dir, n] of [['down', 'a'], ['left', 'b'], ['up', 'c'], ['right', 'd']]) {
+    await page.evaluate((d) => { Farm.world.dir = d; Farm.world.rideFlip = d === 'right'; Farm.world.idle(); }, dir); // (as riding that way leaves it)
+    await page.waitForTimeout(900);
+    await frames(page, 3);
+    const p = await page.evaluate(() => {
+      const w = Farm.world, c = w.gmCart, h = w.horse, b = c.img.getBounds();
+      return { dx: (c.x - h.x) / 256, dy: (c.y - h.y) / 256, behind: c.img.depth < h.sprite.depth, view: c.view, flip: c.flip,
+        box: [(b.x - h.x) / 256, (b.right - h.x) / 256, (b.y - h.y) / 256, (b.bottom - h.y) / 256] };
+    });
+    const rider = [-0.45, 0.45, -2.0, -0.9]; // (the rider on the horse: tiles from the horse's feet)
+    const overlaps = p.box[0] < rider[1] && p.box[1] > rider[0] && p.box[2] < rider[3] && p.box[3] > rider[2];
+    assert.ok(!overlaps, dir + ': clear of the rider ' + JSON.stringify(p));
+    if (dir === 'down') assert.ok(p.dy < -1.5 && Math.abs(p.dx) < 0.1 && p.behind && p.view === 'front', 'facing down: above, behind it ' + JSON.stringify(p));
+    if (dir === 'up') assert.ok(p.dy > 1 && Math.abs(p.dx) < 0.1 && !p.behind && p.view === 'back', 'facing up: below, in front ' + JSON.stringify(p));
+    if (dir === 'left') assert.ok(p.dx > 1.5 && Math.abs(p.dy) < 0.1 && p.view === 'side' && !p.flip, 'facing left: on its right ' + JSON.stringify(p));
+    if (dir === 'right') assert.ok(p.dx < -1.5 && Math.abs(p.dy) < 0.1 && p.view === 'side' && p.flip, 'facing right: on its left ' + JSON.stringify(p));
+    await shot(page, '07' + n + '-cart-behind-the-horse-facing-' + dir);
+  }
+  // it swings round, not through: halfway through a turn from down to up it is beside the horse
+  await page.evaluate(() => { Farm.world.dir = 'down'; Farm.world.idle(); });
+  await page.waitForTimeout(900);
+  const swing = await page.evaluate(async () => {
+    const w = Farm.world, h = w.horse, c = w.gmCart, seen = [];
+    w.dir = 'up';
+    for (let i = 0; i < 40; i++) { await new Promise((r) => requestAnimationFrame(r)); seen.push(Math.hypot(c.x - h.x, c.y - h.y) / 256); }
+    return Math.min(...seen);
+  });
+  assert.ok(swing > 1.4, 'never through the horse: nearest ' + swing);
+  await page.evaluate(() => Farm.world.mn.folk.forEach((v) => { v.sp.setVisible(true); }));
+  await teleport(page, 25, 45, 'up'); // (back at the price board)
+  await page.waitForTimeout(900);
   await shot(page, '07-horse-and-cart-at-the-grand-market');
   assert.strictEqual(await actionLabel(page), 'Board');
   await tapAction(page);

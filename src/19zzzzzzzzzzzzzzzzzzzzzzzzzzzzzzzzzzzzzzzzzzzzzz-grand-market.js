@@ -36,40 +36,77 @@
   var hours = function (mins) { return mins >= 120 ? Math.floor(mins / 60) + ' hours' : mins >= 60 ? '1 hour ' + (mins - 60) + ' min' : mins + ' min'; };
   var CART_MAPS = { farm: 1, town: 1, park: 1, manila: 1 }; // (where the cart goes with the horse)
 
-  // ---------- the cart's picture: drawn once on a canvas (a stand-in until its picture comes) ----------
-  var CW = 2.3, CH = 1.7; // its size in tiles
-  F.gmCartTex = function (scene, loaded) {
-    var key = 'gm-cart-' + (loaded ? 1 : 0);
-    if (scene.textures.exists(key)) return key;
-    var PX = 64, w = Math.round(CW * PX), h = Math.round(CH * PX), tex = scene.textures.createCanvas(key, w, h), g = tex.getContext();
-    var rr = function (x, y, ww, hh, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, ww, hh, r); else g.rect(x, y, ww, hh); };
-    // its shadow, the shafts (forward, to the left), the bed of planks, the load, the big wheel
-    g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.6, h * 0.93, w * 0.36, h * 0.06, 0, 0, 7); g.fill();
-    g.strokeStyle = '#6b4424'; g.lineWidth = h * 0.045; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(w * 0.3, h * 0.5); g.lineTo(w * 0.03, h * 0.62); g.stroke();
-    g.strokeStyle = '#7d522c'; g.beginPath(); g.moveTo(w * 0.3, h * 0.56); g.lineTo(w * 0.05, h * 0.7); g.stroke();
-    if (loaded) {
-      var heap = [['#e8d8a8', 0.42, 0.3, 0.12], ['#e8d8a8', 0.62, 0.27, 0.13], ['#d9c590', 0.82, 0.31, 0.11], ['#f0a030', 0.52, 0.23, 0.08],
-        ['#7cbc4a', 0.72, 0.2, 0.08], ['#f2d34a', 0.36, 0.22, 0.06], ['#c8402a', 0.88, 0.22, 0.06]];
-      heap.forEach(function (p) { g.fillStyle = p[0]; g.beginPath(); g.ellipse(w * p[1], h * p[2] + h * 0.08, w * p[3], h * 0.12, 0, 0, 7); g.fill(); });
-      g.strokeStyle = 'rgba(90,60,30,0.45)'; g.lineWidth = 2; [0.42, 0.62, 0.82].forEach(function (x) { g.beginPath(); g.moveTo(w * x, h * 0.26); g.lineTo(w * x, h * 0.36); g.stroke(); });
-    }
-    g.fillStyle = '#9a6a3c'; rr(w * 0.26, h * 0.34, w * 0.72, h * 0.3, 6); g.fill();
+  // ---------- the cart's pictures: drawn once each on a canvas (stand-ins until its picture comes) ----------
+  // Three views: 'side' (shafts to the left; mirrored for the right), 'front' (seen from where the horse is: the horse
+  // going down the screen, the cart above it, clear of the rider's head; its shafts come down towards the horse) and 'back' (the horse going up,
+  // the cart below it; its load on top, the shafts going up to the horse). Each loaded or empty.
+  var CW = 2.3, CH = 1.7; // the side view's size in tiles (its feet: the bottom)
+  var VIEW = { side: { w: CW, h: CH, foot: 1 }, front: { w: 1.5, h: 1.35, foot: 1 }, back: { w: 1.5, h: 1.6, foot: 1 } };
+  var heapOf = function (g, w, cx, top, span) { // the load: sacks and crops heaped over the bed
+    [['#e8d8a8', -0.28, 0.02, 0.17], ['#e8d8a8', 0.02, -0.02, 0.18], ['#d9c590', 0.3, 0.03, 0.16], ['#f0a030', -0.12, -0.1, 0.11],
+      ['#7cbc4a', 0.16, -0.13, 0.1], ['#f2d34a', -0.36, -0.08, 0.08], ['#c8402a', 0.38, -0.08, 0.08]].forEach(function (p) {
+      g.fillStyle = p[0]; g.beginPath(); g.ellipse(cx + p[1] * span, top + p[2] * span, p[3] * span, p[3] * span * 0.7, 0, 0, 7); g.fill();
+    });
+  };
+  var planks = function (g, x, y, w, h) {
+    g.fillStyle = '#9a6a3c'; g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, 6); else g.rect(x, y, w, h); g.fill();
     g.strokeStyle = '#5a3a1e'; g.lineWidth = 3; g.stroke();
-    g.fillStyle = '#b07a46'; g.fillRect(w * 0.28, h * 0.36, w * 0.68, h * 0.06);
+    g.fillStyle = '#b07a46'; g.fillRect(x + 2, y + 2, w - 4, h * 0.2);
     g.strokeStyle = 'rgba(60,35,15,0.45)'; g.lineWidth = 2;
-    for (var k = 1; k < 3; k++) { g.beginPath(); g.moveTo(w * 0.27, h * (0.34 + k * 0.1)); g.lineTo(w * 0.97, h * (0.34 + k * 0.1)); g.stroke(); }
-    var cx = w * 0.62, cy = h * 0.7, r = h * 0.25;
-    g.fillStyle = '#4a2e18'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
-    g.fillStyle = '#a8794a'; g.beginPath(); g.arc(cx, cy, r * 0.78, 0, 7); g.fill();
-    g.strokeStyle = '#5a3a1e'; g.lineWidth = 3;
-    for (var s = 0; s < 8; s++) { var a = s * Math.PI / 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); g.stroke(); }
-    g.fillStyle = '#3a2412'; g.beginPath(); g.arc(cx, cy, r * 0.18, 0, 7); g.fill();
+    for (var k = 1; k < 3; k++) { g.beginPath(); g.moveTo(x + 1, y + h * k / 3); g.lineTo(x + w - 1, y + h * k / 3); g.stroke(); }
+  };
+  var DRAW = {
+    side: function (g, w, h, loaded) {
+      g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.6, h * 0.93, w * 0.36, h * 0.06, 0, 0, 7); g.fill();
+      g.strokeStyle = '#6b4424'; g.lineWidth = h * 0.045; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(w * 0.3, h * 0.5); g.lineTo(w * 0.03, h * 0.62); g.stroke();
+      g.strokeStyle = '#7d522c'; g.beginPath(); g.moveTo(w * 0.3, h * 0.56); g.lineTo(w * 0.05, h * 0.7); g.stroke();
+      if (loaded) heapOf(g, w, w * 0.62, h * 0.34, w * 0.62);
+      planks(g, w * 0.26, h * 0.34, w * 0.72, h * 0.3);
+      var cx = w * 0.62, cy = h * 0.7, r = h * 0.25;
+      g.fillStyle = '#4a2e18'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+      g.fillStyle = '#a8794a'; g.beginPath(); g.arc(cx, cy, r * 0.78, 0, 7); g.fill();
+      g.strokeStyle = '#5a3a1e'; g.lineWidth = 3;
+      for (var s = 0; s < 8; s++) { var a = s * Math.PI / 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); g.stroke(); }
+      g.fillStyle = '#3a2412'; g.beginPath(); g.arc(cx, cy, r * 0.18, 0, 7); g.fill();
+    },
+    // seen end-on: the two wheels edge-on at its sides, the box between them
+    front: function (g, w, h, loaded) {
+      var fh = h; // (the wheels' bottom: its feet)
+      g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.5, fh - 3, w * 0.46, fh * 0.07, 0, 0, 7); g.fill();
+      if (loaded) heapOf(g, w, w * 0.5, fh * 0.4, w * 0.55);
+      planks(g, w * 0.14, fh * 0.36, w * 0.72, fh * 0.42);
+      g.strokeStyle = '#6b4424'; g.lineWidth = w * 0.05; g.lineCap = 'round';
+      [0.36, 0.64].forEach(function (x) { g.beginPath(); g.moveTo(w * x, fh * 0.7); g.lineTo(w * (x + (x < 0.5 ? -0.04 : 0.04)), h - 4); g.stroke(); });
+      [0.07, 0.93].forEach(function (x) { g.fillStyle = '#4a2e18'; g.fillRect(w * x - w * 0.055, fh * 0.42, w * 0.11, fh * 0.58); g.fillStyle = '#a8794a'; g.fillRect(w * x - w * 0.025, fh * 0.46, w * 0.05, fh * 0.5); });
+    },
+    back: function (g, w, h, loaded) {
+      g.fillStyle = 'rgba(40,25,10,0.28)'; g.beginPath(); g.ellipse(w * 0.5, h - 3, w * 0.46, h * 0.06, 0, 0, 7); g.fill();
+      g.strokeStyle = '#6b4424'; g.lineWidth = w * 0.05; g.lineCap = 'round';
+      [0.36, 0.64].forEach(function (x) { g.beginPath(); g.moveTo(w * x, h * 0.45); g.lineTo(w * (x + (x < 0.5 ? 0.03 : -0.03)), 4); g.stroke(); });
+      if (loaded) heapOf(g, w, w * 0.5, h * 0.42, w * 0.55);
+      planks(g, w * 0.14, h * 0.42, w * 0.72, h * 0.36);
+      [0.07, 0.93].forEach(function (x) { g.fillStyle = '#4a2e18'; g.fillRect(w * x - w * 0.055, h * 0.46, w * 0.11, h * 0.52); g.fillStyle = '#a8794a'; g.fillRect(w * x - w * 0.025, h * 0.5, w * 0.05, h * 0.44); });
+    },
+  };
+  F.gmCartTex = function (scene, loaded, view) {
+    view = VIEW[view] ? view : 'side';
+    var key = 'gm-cart-' + view + '-' + (loaded ? 1 : 0);
+    if (scene.textures.exists(key)) return key;
+    var PX = 64, V = VIEW[view], w = Math.round(V.w * PX), h = Math.round(V.h * PX), tex = scene.textures.createCanvas(key, w, h);
+    DRAW[view](tex.getContext(), w, h, loaded);
     tex.refresh();
     return key;
   };
 
   // ---------- the cart in the world ----------
+  // Hitched, it stays BEHIND the horse whichever way the horse faces: above it going down (drawn behind it), below it going
+  // up (drawn in front), beside it going left or right. Turning, it swings round the horse (never through it or the rider)
+  // on an oval: its angle eases to the new side. Where it stands from the horse's feet, in tiles, by that angle: across
+  // RX (the horse's half length and the cart's), above UP (clear of the rider's head), below DOWN (clear of the horse).
+  var RX = 2.15, UP = 2.05, DOWN = 1.5, BEHIND = { down: -Math.PI / 2, up: Math.PI / 2, left: 0, right: Math.PI };
+  var offsetOf = function (a) { var sn = Math.sin(a); return { x: Math.cos(a) * RX * T, y: sn * (sn < 0 ? UP : DOWN) * T }; };
+  var viewOf = function (a) { var sn = Math.sin(a); return sn < -0.72 ? 'front' : sn > 0.72 ? 'back' : 'side'; };
   // where it is parked on the farm: beside the Stable (its right side, or its left at the farm's edge)
   P.gmParkSpot = function () {
     var st = this.objects.filter(function (o) { return o.type === 'stable'; })[0], W = this.map ? this.map.width : C.FARM_W;
@@ -80,49 +117,78 @@
     var hp = this.points && this.points.horse;
     return hp ? { x: hp.x + 2 * T, y: hp.y } : null;
   };
+  // which way the horse faces: the rider's way; walking on its own, the way it went (h.face when it stopped)
+  P.gmHorseDir = function (h) {
+    if (F.session.riding) return this.dir;
+    var c = this.gmCart;
+    if (c && c.hx != null && (Math.abs(h.x - c.hx) > 2 || Math.abs(h.y - c.hy) > 2)) {
+      var dx = h.x - c.hx, dy = h.y - c.hy;
+      return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    }
+    if (c && c.dir) return c.dir;
+    return h.face === 'up' ? 'up' : h.face === 'side' ? (h.faceFlip ? 'right' : 'left') : 'down';
+  };
   P.gmCartSetup = function () {
     var S = F.session, s = this.state, c = this.gmCart;
     if (c) { c.img.destroy(); this.objects = this.objects.filter(function (o) { return o !== c.obj; }); }
     this.gmCart = null;
     if (visiting(this) || !L.gmHasCart(s)) return;
-    var h = this.horse, at = null;
-    if (S.gmHitch && h) at = { x: h.x + 1.5 * T, y: h.y };
+    var h = this.horse, at = null, hitched = !!(S.gmHitch && h), ang = 0;
+    if (hitched) { ang = BEHIND[this.gmHorseDir(h)] || 0; var o0 = offsetOf(ang); at = { x: h.x + o0.x, y: h.y + o0.y }; }
     else if (this.mapKey === 'farm' && !L.gmAway(s)) at = this.gmParkSpot();
     if (!at) return;
-    var img = this.add.image(at.x, at.y, F.gmCartTex(this, L.gmLoad(s) > 0)).setOrigin(0.5, 1).setDisplaySize(CW * T, CH * T);
-    c = this.gmCart = { img: img, x: at.x, y: at.y, flip: false, hx: null, hy: null, loaded: L.gmLoad(s) > 0,
+    var loaded = L.gmLoad(s) > 0, view = hitched ? viewOf(ang) : 'side';
+    var img = this.add.image(at.x, at.y, F.gmCartTex(this, loaded, view));
+    c = this.gmCart = { img: img, x: at.x, y: at.y, ang: ang, view: null, flip: false, hx: h ? h.x : null, hy: h ? h.y : null, dir: null, loaded: loaded,
       obj: { type: 'gm_cart', name: 'gm_cart', x0: 0, y0: 0, x1: 0, y1: 0, props: {} } };
     this.objects.push(c.obj);
+    this.gmCartView(view, hitched && Math.cos(ang) < -0.3);
     this.gmCartPlace(at.x, at.y);
   };
+  // its picture for a view (and mirrored or not): changed only when that changes
+  P.gmCartView = function (view, flip) {
+    var c = this.gmCart, V = VIEW[view];
+    if (c.view === view && c.flip === flip) return;
+    c.view = view;
+    c.flip = flip;
+    c.img.setTexture(F.gmCartTex(this, c.loaded, view)).setOrigin(0.5, V.foot).setDisplaySize(V.w * T, V.h * T).setFlipX(flip);
+  };
   P.gmCartPlace = function (x, y) {
-    var c = this.gmCart, o = c.obj;
+    var c = this.gmCart, o = c.obj, hw = VIEW[c.view].w * T / 2;
     c.x = x; c.y = y;
-    c.img.setPosition(x, y).setFlipX(c.flip);
-    F.depthTo(c.img, DEPTH.actor + y / 1e5 - 0.00005); // (just behind whoever stands on the same row)
-    o.x0 = Math.floor((x - CW * T / 2 + 0.3 * T) / T); o.x1 = Math.floor((x + CW * T / 2 - 0.3 * T) / T);
+    c.img.setPosition(x, y);
+    F.depthTo(c.img, DEPTH.actor + y / 1e5 - 0.00005); // (by its feet: behind the horse above it, in front below it)
+    o.x0 = Math.floor((x - hw + 0.3 * T) / T); o.x1 = Math.floor((x + hw - 0.3 * T) / T);
     o.y0 = o.y1 = Math.floor((y - 1) / T);
   };
   // loaded or empty (its picture changes only when that does)
   P.gmCartLook = function () {
     var c = this.gmCart, s = this.state;
     if (!c) return;
-    var loaded = L.gmLoad(s) > 0;
+    var loaded = L.gmLoad(s) > 0, view = c.view;
     if (loaded === c.loaded) return;
     c.loaded = loaded;
-    c.img.setTexture(F.gmCartTex(this, loaded)).setDisplaySize(CW * T, CH * T);
+    c.view = null;
+    this.gmCartView(view, c.flip);
   };
-  // hitched: it follows the horse on a 1.5-tile rope (only when the horse has moved)
-  P.gmTrail = function (h) {
-    var c = this.gmCart;
-    if (c.hx === h.x && c.hy === h.y) return;
+  // hitched: behind the horse (only while the horse moves or the cart is still swinging round to its new side)
+  P.gmTrail = function (h, dt) {
+    var c = this.gmCart, dir = this.gmHorseDir(h), want = BEHIND[dir];
+    c.dir = dir;
+    var moved = c.hx !== h.x || c.hy !== h.y;
     c.hx = h.x;
     c.hy = h.y;
-    var dx = c.x - h.x, dy = c.y - h.y, d = Math.hypot(dx, dy), rope = 1.5 * T, x = c.x, y = c.y;
-    if (d > 6 * T) { x = h.x + (c.flip ? -rope : rope); y = h.y; } // (the horse jumped: behind it again)
-    else if (d > rope) { x = h.x + dx / d * rope; y = h.y + dy / d * rope; }
-    if (Math.abs(x - h.x) > 0.3 * T) c.flip = x < h.x; // (its shafts towards the horse)
-    this.gmCartPlace(x, y);
+    if (want == null) want = c.ang;
+    // the short way round (angles kept in -pi..pi; half a turn, down <-> up, goes by the right-hand side)
+    var d = want - c.ang;
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+    if (!moved && Math.abs(d) < 0.001) return;
+    var far = Math.hypot(c.x - h.x, c.y - h.y) > 6 * T; // (the horse jumped: behind it at once)
+    c.ang = far || Math.abs(d) < 0.01 ? want : c.ang + d * (1 - Math.exp(-(dt || 16) / 110));
+    if (c.ang > Math.PI) c.ang -= 2 * Math.PI; else if (c.ang <= -Math.PI) c.ang += 2 * Math.PI;
+    var o = offsetOf(c.ang);
+    this.gmCartView(viewOf(c.ang), Math.cos(c.ang) < -0.3);
+    this.gmCartPlace(h.x + o.x, h.y + o.y);
   };
   // the cart is at the Grand Market (Manila, hitched, near Aling Rosa's door)
   P.gmAtMarket = function () {
@@ -183,7 +249,7 @@
       if (this.gmCart) this.gmCart.img.setVisible(true);
     }
     var r = updateExtras.apply(this, arguments);
-    if (this.gmCart && S.gmHitch && this.horse) this.gmTrail(this.horse);
+    if (this.gmCart && S.gmHitch && this.horse) this.gmTrail(this.horse, dt);
     return r;
   };
 
