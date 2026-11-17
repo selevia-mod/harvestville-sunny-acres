@@ -88,7 +88,7 @@ test('on foot from the train: every door, every person\'s spot, the plaza, the t
   Object.keys(M.spots).forEach((k) => { const t = tile(M.spots[k]); assert.ok(grid.ok(t[0], t[1]), k + ' is free'); });
 });
 
-test('the gates: the Plains Gate walks home to the town (from_manila); the Gorge and Jungle gates are shut and say "coming soon"', () => {
+test('the gates: the Plains Gate walks home to the town (from_manila); the Gorge gate says "coming soon", the Jungle gate when it opens (70 hunts); both shut', () => {
   const warp = objs.find((o) => o.name === 'plains_gate');
   assert.strictEqual(warp.type, 'warp');
   const pr = Object.fromEntries(warp.properties.map((p) => [p.name, p.value]));
@@ -97,7 +97,7 @@ test('the gates: the Plains Gate walks home to the town (from_manila); the Gorge
   ['gorge', 'jungle'].forEach((g) => {
     const o = objs.find((x) => x.name === 'mn_gate_' + g);
     assert.strictEqual(o.type, 'mn_gate');
-    assert.match(o.properties[0].value, /Coming soon/);
+    assert.match(o.properties[0].value, g === 'gorge' ? /Coming soon/ : /opens at 70 hunts/); // (the Bamboo Jungle is built: its gate says when)
     const x = o.x / 256, y = g === 'gorge' ? 1 : 88;
     for (let k = 0; k < 4; k++) assert.ok(!grid.ok(x + k, y), g + ': shut at ' + (x + k) + ',' + y);
   });
