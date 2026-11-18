@@ -297,13 +297,13 @@ test('every Javelin level, Basic to Moon, can be built from what the game drops:
   });
   assert.ok(A.baboydamo.drops.some((d) => d[0] === 'warty_tusk') && A.maral.drops.some((d) => d[0] === 'maral_pelt'));
   assert.ok(A.jg_tigma.drops.some((d) => d[0] === 'tigmamanukan_feather') && A.bamboogiant.drops.some((d) => d[0] === 'bamboo_heart'));
-  // every material each level lists is in the game now, but the Rocky Gorge's (galura_feather: not built yet)
+  // every material each level lists is in the game now (the Rocky Gorge's galura_feather too, since 18 Nov 2026)
   C.WEAPONS.javelin.buy.forEach((b, lv) => {
     b.needs.forEach((n) => assert.ok(C.ITEMS[n[0]] || n[0] === 'lumber' || n[0] === 'galura_feather', 'Javelin level ' + lv + ': ' + n[0]));
     L.weaponNeeds(b.needs).forEach((n) => assert.ok(got.has(n[0]), 'Javelin level ' + lv + ': ' + n[0] + ' comes from somewhere'));
   });
-  // the Moon level asks for the Plains' and the Lair's boss parts too, which are in the game
-  assert.deepStrictEqual(plain(L.weaponNeeds(C.WEAPONS.javelin.buy[5].needs)), [['bamboo_heart', 6], ['arimaonga_mane', 3], ['bakunawa_scale', 5]]);
+  // the Moon level asks for the Plains', the Gorge's and the Lair's boss parts too, which are in the game
+  assert.deepStrictEqual(plain(L.weaponNeeds(C.WEAPONS.javelin.buy[5].needs)), [['bamboo_heart', 6], ['arimaonga_mane', 3], ['galura_feather', 3], ['bakunawa_scale', 5]]);
   assert.strictEqual(C.ITEMS.arimaonga_mane.place, 'plains');
   const s = fresh();
   s.gold = 1e7;
@@ -406,7 +406,7 @@ test('Manila\'s Jungle Gate: south, on the turned-round city\'s bottom edge; shu
   assert.ok(g.box[1] + g.box[3] === M.H, 'on the south edge');
   assert.match(g.text, /opens at 70 hunts/);
   assert.ok(!/soon/i.test(g.text));
-  assert.ok(M.gates.filter((x) => x.key === 'gorge').every((x) => /Coming soon/.test(x.text)), 'the Gorge stays coming soon');
+  assert.ok(M.gates.filter((x) => x.key === 'gorge').every((x) => /opens at 110 hunts/.test(x.text)), 'the Gorge Gate: when it opens (the Rocky Gorge, 18 Nov 2026)');
   assert.ok(!M.pass.gate_jungle, 'shut, nothing about the gate changes: the world opens it (19zzz...z-jungle.js)');
   // the goal arrow: to the Jungle through the gate; out of it by the north gap
   assert.strictEqual(C.ROUTES.manila.jungle, 'jungle_gate');

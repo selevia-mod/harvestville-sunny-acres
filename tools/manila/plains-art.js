@@ -25,6 +25,7 @@ const keys = (id = 'plains') => {
   (C.WILD.more || []).forEach((k) => { const d = C.WILD.animals[k]; if (d.place === id && d.sheet) out.push(d.sheet, d.sheet + 'shade'); });
   C[id.toUpperCase()].kinds.forEach((k) => out.push('props/' + id + '_' + k));
   out.push('ground_' + id, 'ground_' + id + '_water', id + '_icons');
+  (C[id.toUpperCase()].grounds || []).forEach((k) => out.push(k)); // (the Gorge's cliffs: top and face)
   return [...new Set(out)];
 };
 

@@ -65,4 +65,6 @@ module.exports = {
   // The Bamboo Jungle (owner, 18 Nov 2026): the same, its own pack (node tools/manila/plains-import.js jungle,
   // node tools/art/animals3q-import.js jungle)
   jungle: require('./manila/plains-art').packed('jungle'),
+  // The Rocky Gorge (owner, 18 Nov 2026): the same (node tools/manila/plains-import.js gorge, node tools/art/animals3q-import.js gorge)
+  gorge: require('./manila/plains-art').packed('gorge'),
 };

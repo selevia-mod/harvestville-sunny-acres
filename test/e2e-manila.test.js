@@ -167,11 +167,11 @@ test('the train to Manila and back: the station\'s Manila tab, the first ride fr
   await tapAction(page);
   assert.match(await modalText(page), /Aling Rosa's Grand Market.*Prices.*Contracts/s);
   await page.evaluate(() => Farm.ui.closeAll());
-  // the Gorge Gate is shut for now
+  // the Gorge Gate is shut (it says when it opens: 110 hunts, the Rocky Gorge, 18 Nov 2026)
   await teleport(page, X(45), 2, 'up');
   assert.strictEqual(await actionLabel(page), 'Gate');
   await tapAction(page);
-  assert.match(await modalText(page), /Coming soon/);
+  assert.match(await modalText(page), /opens at 110 hunts/);
   await page.evaluate(() => Farm.ui.closeAll());
   // home: Manila Central's door, 250G
   await page.evaluate(() => { const v = Farm.world.mn.people.find((p) => p.key === 'tibo'); v.hold = 1e9; v.x = 19.5 * 256; v.y = 7.4 * 256; Farm.world.mnPlace(v); });

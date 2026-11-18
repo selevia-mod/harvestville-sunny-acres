@@ -11,13 +11,16 @@
 // node tools/manila/plains-import.js
 // The Bamboo Jungle's the same way (owner, 18 Nov 2026; art-src/manila/jungle/, its set row 2 of the gear icons, all
 // named jungle_* / ground_jungle*): node tools/manila/plains-import.js jungle
+// The Rocky Gorge's too (art-src/manila/gorge/, its set row 3), with two more ground textures: the cliffs' top
+// (ground_gorge_cliff_top.png, seamless both ways) and face (gorge_cliff_face.png, seamless left to right):
+// assets/ground_gorge_cliff.*, ground_gorge_face.*  node tools/manila/plains-import.js gorge
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const { config } = require('./plains-art');
 
 const ROOT = path.join(__dirname, '..', '..');
-const G = process.argv[2] || 'plains', GEAR_ROW = { plains: 0, jungle: 1 }[G];
+const G = process.argv[2] || 'plains', GEAR_ROW = { plains: 0, jungle: 1, gorge: 2 }[G];
 const SRC = path.join(ROOT, 'art-src', 'manila', G);
 const OUT = path.join(ROOT, 'assets');
 const C = config(), P = C.PLACES[G], ICONS = C[G.toUpperCase() + '_ICONS'];
@@ -95,15 +98,15 @@ const save = (name, r) => {
   }
 
   // ---------- the ground: two seamless textures ----------
-  for (const [file, key] of [['ground_' + G + '.png', 'ground_' + G], ['ground_' + G + '_water.png', 'ground_' + G + '_water']]) {
+  for (const [file, key, flat] of [['ground_' + G + '.png', 'ground_' + G], ['ground_' + G + '_water.png', 'ground_' + G + '_water'], ['ground_' + G + '_cliff_top.png', 'ground_' + G + '_cliff'], [G + '_cliff_face.png', 'ground_' + G + '_face', true]]) {
     const src = pic(file);
     if (!src) continue;
-    save(key, await p.evaluate(async ([s, S]) => {
+    save(key, await p.evaluate(async ([s, S, flat]) => {
       const img = await W.load(s), c = W.canvas(S, S), g = c.getContext('2d');
       g.imageSmoothingQuality = 'high';
       g.drawImage(img, 0, 0, S, S);
       const im = g.getImageData(0, 0, S, S), d = im.data, band = S / 4;
-      [true, false].forEach((along) => {
+      (flat ? [true] : [true, false]).forEach((along) => { // (a cliff face: seamless left to right only, its top and foot as drawn)
         for (let a = 0; a < S; a++) {
           const i0 = along ? (a * S) * 4 : a * 4, i1 = along ? (a * S + S - 1) * 4 : ((S - 1) * S + a) * 4;
           for (let ch = 0; ch < 3; ch++) {
@@ -118,7 +121,7 @@ const save = (name, r) => {
       });
       g.putImageData(im, 0, 0);
       return { png: c.toDataURL('image/png'), webp: c.toDataURL('image/webp', 0.85), w: S, h: S };
-    }, [src, 256]));
+    }, [src, 256, !!flat]));
     done.push(key);
   }
 

@@ -26,6 +26,7 @@
 // node tools/art/animals3q-import.js places     (only the hunting places' creatures)
 // node tools/art/animals3q-import.js plains     (only the Open Plains' creatures: art-src/manila/plains/)
 // node tools/art/animals3q-import.js jungle     (only the Bamboo Jungle's creatures: art-src/manila/jungle/)
+// node tools/art/animals3q-import.js gorge      (only the Rocky Gorge's creatures: art-src/manila/gorge/)
 // ONLY=winter node tools/art/animals3q-import.js battle2   (only Cozy Winter's riding sheets)
 const fs = require('fs');
 const path = require('path');
@@ -97,7 +98,7 @@ if (fs.existsSync(RIDE_PAD)) fs.readdirSync(RIDE_PAD).filter((f) => /^[a-z]+-(bo
   SETS.push({ name: n, shade: n + 'shade', dir: 'riding/_3x4', ground: 352, store: 0.75, battle2: true, rows: [[f.slice(0, -4), { front: 9, ground: true, fit: true, clean: true, k }]] });
 });
 const ONLY = process.env.ONLY ? 'ride_' + process.env.ONLY + '_' : ''; // (ONLY=<outfit> ... battle2: only that outfit's riding sheets)
-const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2 && (!ONLY || s.name.startsWith(ONLY))) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place && !s.pack) : ['plains', 'jungle'].includes(process.argv[2]) ? SETS.filter((s) => s.pack === process.argv[2]) : SETS;
+const RUN = process.argv[2] === 'battle2' ? SETS.filter((s) => s.battle2 && (!ONLY || s.name.startsWith(ONLY))) : process.argv[2] === 'raids' ? SETS.filter((s) => s.raid) : process.argv[2] === 'breeds' ? SETS.filter((s) => s.dir === 'breeds') : process.argv[2] === 'places' ? SETS.filter((s) => s.place && !s.pack) : ['plains', 'jungle', 'gorge'].includes(process.argv[2]) ? SETS.filter((s) => s.pack === process.argv[2]) : SETS;
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 
 (async () => {
