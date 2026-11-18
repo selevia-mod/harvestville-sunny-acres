@@ -24413,17 +24413,17 @@ var TOUR = 1 << K.length, ALL = (TOUR << 1) - 1;
 var act = function (s, fn) { return L.skillAct ? L.skillAct(s, fn) : fn(); };
 
 
-L.mcHeld = function (s) { var h = s && L.held(s), d = h && C.ITEMS[h.id]; return d && d.machine ? d.machine : null; };
-L.mcMade = function (s, k) { return K.indexOf(k) >= 0 && !!((s.mc || 0) & bit(k)); };
-L.mcHave = function (s, k) { return L.hasItem(s, k) || (s.store || []).some(function (x) { return x && x.id === k; }); };
-L.mcLost = function (s, k) { return L.mcMade(s, k) && !L.mcHave(s, k); };
-L.mcTourSeen = function (s) { return !!((s.mc || 0) & TOUR); };
-L.mcTourTake = function (s) { s.mc = (s.mc || 0) | TOUR; };
+L.mkHeld = function (s) { var h = s && L.held(s), d = h && C.ITEMS[h.id]; return d && d.machine ? d.machine : null; };
+L.mkMade = function (s, k) { return K.indexOf(k) >= 0 && !!((s.mk || 0) & bit(k)); };
+L.mkHave = function (s, k) { return L.hasItem(s, k) || (s.store || []).some(function (x) { return x && x.id === k; }); };
+L.mkLost = function (s, k) { return L.mkMade(s, k) && !L.mkHave(s, k); };
+L.mkTourSeen = function (s) { return !!((s.mk || 0) & TOUR); };
+L.mkTourTake = function (s) { s.mk = (s.mk || 0) | TOUR; };
 
-L.mcMake = function (s, k) {
+L.mkMake = function (s, k) {
 var R = M[k];
 if (K.indexOf(k) < 0) return 'none';
-if (L.mcMade(s, k) || L.mcHave(s, k)) return 'have';
+if (L.mkMade(s, k) || L.mkHave(s, k)) return 'have';
 if (s.gold < R.gold) return 'gold';
 if ((s.lumber || 0) < R.lumber) return 'lumber';
 if (!L.hasNeeds(s, R.needs)) return 'needs';
@@ -24432,18 +24432,18 @@ s.gold -= R.gold;
 s.lumber -= R.lumber;
 L.takeNeeds(s, R.needs);
 L.addItem(s, k, 1);
-s.mc = (s.mc || 0) | bit(k);
+s.mk = (s.mk || 0) | bit(k);
 return 'ok';
 };
 
-L.mcBack = function (s, k) {
-if (!L.mcLost(s, k)) return 'have';
+L.mkBack = function (s, k) {
+if (!L.mkLost(s, k)) return 'have';
 return L.addItem(s, k, 1) ? 'full' : 'ok';
 };
 
 
 
-L.mcTiles = function (fx, fy, dx, dy, row) {
+L.mkTiles = function (fx, fy, dx, dy, row) {
 var depth = row ? M.row : 3, half = row ? 0 : 1, out = [];
 for (var d = 0; d < depth; d++) for (var w = -half; w <= half; w++) out.push([fx + dx * d - dy * w, fy + dy * d + dx * w]);
 return out;
@@ -24451,12 +24451,12 @@ return out;
 
 
 
-L.mcHandEnergy = function (s, counts) {
+L.mkHandEnergy = function (s, counts) {
 var e = 0;
 Object.keys(counts).forEach(function (t) { var n = counts[t]; if (n > 0) e += Math.min(L.toolEnergy(s, t, n), n * L.toolEnergy(s, t, 1)); });
 return e;
 };
-L.mcEnergy = function (s, counts) { var h = L.mcHandEnergy(s, counts); return h ? Math.max(1, Math.floor(h * M.save + 1e-9)) : 0; };
+L.mkEnergy = function (s, counts) { var h = L.mkHandEnergy(s, counts); return h ? Math.max(1, Math.floor(h * M.save + 1e-9)) : 0; };
 
 
 
@@ -24469,7 +24469,7 @@ var tillOk = function (s, p, cleared) {
 var t = s.soil[p.idx];
 return !!p.till && (cleared || !s.debris[p.idx]) && (!t || (!t.sp && L.isWithered(t)));
 };
-L.mcTillPlan = function (s, plan) {
+L.mkTillPlan = function (s, plan) {
 var counts = { hoe: 0 }, todo = [];
 (plan || []).forEach(function (p) {
 var c = clearOk(s, p), t = (c || !p.clear) && tillOk(s, p, c);
@@ -24477,10 +24477,10 @@ if (c) { var tool = C.DEBRIS[p.clear].tool; counts[tool] = (counts[tool] || 0) +
 if (t) counts.hoe++;
 if (c || t) todo.push({ idx: p.idx, clear: c ? p.clear : null, deco: c && p.deco, till: t });
 });
-return { todo: todo, counts: counts, energy: L.mcEnergy(s, counts) };
+return { todo: todo, counts: counts, energy: L.mkEnergy(s, counts) };
 };
-L.mcTill = function (s, plan) {
-var w = L.mcTillPlan(s, plan);
+L.mkTill = function (s, plan) {
+var w = L.mkTillPlan(s, plan);
 if (!w.todo.length) return 'none';
 if (!L.spendEnergy(s, w.energy)) return 'tired';
 var r = { till: 0, clear: 0, lumber: 0, stone: 0, energy: w.energy, cleared: [], tilled: [] };
@@ -24498,7 +24498,7 @@ return r;
 
 
 
-L.mcSeedSlot = function (s, id) {
+L.mkSeedSlot = function (s, id) {
 var first = -1;
 for (var i = 0; i < s.inv.length; i++) {
 var x = s.inv[i], d = x && C.ITEMS[x.id];
@@ -24509,23 +24509,23 @@ if (first < 0) first = i;
 return first;
 };
 
-L.mcPlant = function (s, idxs, slot) { return act(s, function () { return L.plantBag(s, idxs, slot); }); };
+L.mkPlant = function (s, idxs, slot) { return act(s, function () { return L.plantBag(s, idxs, slot); }); };
 
 
 var basketRoom = function (s, id) { return Math.max(0, 999 - ((s.basket || {})[id] || 0)); };
 
-L.mcRoom = function (s, id, q) {
+L.mkRoom = function (s, id, q) {
 if (q && !L.canAddQ(s, id, 1, q)) return false;
 var room = basketRoom(s, id) + (L.isFarmCrop && L.isFarmCrop(id) ? Math.max(0, L.siloCap(s) - L.siloCount(s)) : 0);
 return room >= M.most || L.canAdd(s, id, M.most - room);
 };
 
 
-L.mcPick = function (s, idx, pick, out) {
+L.mkPick = function (s, idx, pick, out) {
 var t = s.soil[idx];
 if (!L.isRipe(t) || C.CROPS[t.c].sickle) return '!notripe';
 var id = C.CROPS[t.c].item, q = !s.isVisit && L.cropGrade ? L.cropGrade(s, idx) : 0;
-if (!L.mcRoom(s, id, q)) return '!full';
+if (!L.mkRoom(s, id, q)) return '!full';
 out = out || {};
 var bag = s.inv, tmp = [null, null, null, null, null, null, null, null], got;
 s.inv = tmp;
@@ -24541,11 +24541,11 @@ if (n > 0) { s.basket = s.basket || {}; s.basket[x.id] = (s.basket[x.id] || 0) +
 return got;
 };
 
-L.mcHarvest = function (s, idxs) {
+L.mkHarvest = function (s, idxs) {
 var out = { n: 0, silo: 0, bag: 0, basket: 0, items: {}, picked: [], full: 0 };
 act(s, function () {
 idxs.forEach(function (idx) {
-var got = L.mcPick(s, idx, null, out);
+var got = L.mkPick(s, idx, null, out);
 if (got === '!full') out.full++;
 if (got[0] === '!') return;
 out.n++;
@@ -24558,13 +24558,13 @@ return out;
 
 
 var newState = L.newState;
-L.newState = function (info) { var s = newState(info); s.mc = 0; return s; };
+L.newState = function (info) { var s = newState(info); s.mk = 0; return s; };
 var serialize = L.serialize;
-L.serialize = function (s) { var o = serialize(s); if (s.mc) o.mc = s.mc & ALL; return o; };
+L.serialize = function (s) { var o = serialize(s); if (s.mk) o.mk = s.mk & ALL; return o; };
 var deserialize = L.deserialize;
 L.deserialize = function (o) {
 var s = deserialize(o);
-if (s) s.mc = int(o.mc, 0, ALL, 0);
+if (s) s.mk = int(o.mk, 0, ALL, 0);
 return s;
 };
 })(window.Farm = window.Farm || {});
@@ -67620,12 +67620,12 @@ g.lineJoin = 'round'; g.lineCap = 'round';
 DRAW[k](g);
 g.restore();
 };
-F.mcDraw = paint;
+F.mkDraw = paint;
 
-F.mcTex = function (scene, k) {
+F.mkTex = function (scene, k) {
 var own = 'machine_' + k;
 if (F.images && F.images[own]) return F.ensureTexture(scene, own);
-var key = 'mc-' + k;
+var key = 'mk-' + k;
 if (!scene.textures.exists(key)) {
 var t = scene.textures.createCanvas(key, 192, 128);
 paint(t.getContext(), k);
@@ -67644,9 +67644,9 @@ K.forEach(function (k, i) {
 if (art) return g.drawImage(art, i * 128, 0, 128, 128, i * 128, 0, 128, 128);
 g.save(); g.translate(i * 128 + 4, 22); g.scale(0.62, 0.62); paint(g, k); g.restore();
 });
-var src = tex.mcSrc;
+var src = tex.mkSrc;
 if (src) { src.image = src.source = cv; src.update(); return; }
-src = tex.mcSrc = new Phaser.Textures.TextureSource(tex, cv, cv.width, cv.height);
+src = tex.mkSrc = new Phaser.Textures.TextureSource(tex, cv, cv.width, cv.height);
 tex.source.push(src);
 var at = tex.source.length - 1;
 K.forEach(function (k, i) { var key = C.MACHINE_ICON_BASE + i; if (tex.has(key)) tex.remove(key); tex.add(key, at, i * 128, 0, 128, 128); });
@@ -67660,7 +67660,7 @@ return out;
 
 
 
-P.mcWork = function (k, tiles) {
+P.mkWork = function (k, tiles) {
 var self = this, s = this.state, out = [];
 tiles.forEach(function (p) {
 var x = p[0], y = p[1];
@@ -67682,28 +67682,28 @@ seeder: 'The Seeder plants tilled, empty soil ahead, 3x3 (hold the button: a row
 harvester: 'Nothing ripe ahead. The Harvester picks the ripe crops on the 3x3 ahead (hold the button: a row of 9).',
 };
 
-P.mcAction = function (k) {
+P.mkAction = function (k) {
 var self = this, s = this.state, R = M[k], icon = C.ITEMS[k].icon;
 if (this.mapKey !== 'farm' || visiting(this) || F.session.riding) return null;
 var t = this.facing(), pt = this.front(0.7);
 if (!this.inMap(t.x, t.y)) return null;
 if ((this.villagers && this.villagers.at(pt.x, pt.y)) || (this.herd && this.herd.at(pt.x, pt.y)) || (this.dog && this.dog.near(pt.x, pt.y))) return null;
 if (this.objectAt(t.x, t.y) || (this.pieceAt && this.pieceAt(t.x, t.y) >= 0) || this.forage[this.idx(t.x, t.y)]) return null;
-var d = this.dirVec(), block = L.mcTiles(t.x, t.y, d[0], d[1]), row = L.mcTiles(t.x, t.y, d[0], d[1], true);
-var why = this.mcWork(k, block).length || this.mcWork(k, row).length ? null : WHY[k];
-if (!why && k === 'seeder' && L.mcSeedSlot(s, F.session.mcSeed) < 0) why = 'The Seeder needs seed packets in your bag. It plants the ones you held last.';
-if (why) return { label: R.verb, icon: icon, preview: block, disabled: true, why: why, mc: k, soft: true };
+var d = this.dirVec(), block = L.mkTiles(t.x, t.y, d[0], d[1]), row = L.mkTiles(t.x, t.y, d[0], d[1], true);
+var why = this.mkWork(k, block).length || this.mkWork(k, row).length ? null : WHY[k];
+if (!why && k === 'seeder' && L.mkSeedSlot(s, F.session.mkSeed) < 0) why = 'The Seeder needs seed packets in your bag. It plants the ones you held last.';
+if (why) return { label: R.verb, icon: icon, preview: block, disabled: true, why: why, mk: k, soft: true };
 return {
-label: R.verb, icon: icon, charge: 1, preview: block, mc: k,
+label: R.verb, icon: icon, charge: 1, preview: block, mk: k,
 area: function (lvl) { return lvl ? row : block; },
-run: function (lvl) { self.mcUse(k, t, lvl ? row : block); },
+run: function (lvl) { self.mkUse(k, t, lvl ? row : block); },
 };
 };
 var resolve = P.resolve;
 P.resolve = function () {
-var k = L.mcHeld(this.state);
+var k = L.mkHeld(this.state);
 if (!k) return resolve.call(this);
-var a = this.mcAction(k);
+var a = this.mkAction(k);
 if (a && !a.soft) return a;
 var r0 = resolve.call(this);
 if (r0 && !r0.disabled) return r0;
@@ -67713,68 +67713,77 @@ return a || r0 || { label: M[k].verb, icon: C.ITEMS[k].icon, disabled: true, why
 var showCharge = U.showCharge;
 U.showCharge = function (level) {
 var w = F.world, c = w && w.charge;
-if (level < 0 || !c || !c.action || !c.action.mc) return showCharge.apply(this, arguments);
+if (level < 0 || !c || !c.action || !c.action.mk) return showCharge.apply(this, arguments);
 this.chargeText.setVisible(true).setText((level ? 'Row of ' + M.row : '3 x 3') + '  ' + new Array(level + 2).join('\u25cf'));
 this.tweens.add({ targets: this.chargeText, scale: { from: 1.3, to: 1 }, duration: 160 });
 };
 
 
-P.mcUse = function (k, t, tiles) {
+P.mkUse = function (k, t, tiles) {
 var self = this, s = this.state;
-if (k === 'tractor') return this.mcTractor(t, tiles);
+if (k === 'tractor') return this.mkTractor(t, tiles);
 if (k === 'seeder') {
-var slot = L.mcSeedSlot(s, F.session.mcSeed), sel = s.sel;
+var slot = L.mkSeedSlot(s, F.session.mkSeed), sel = s.sel;
 if (slot < 0) return F.ui.toast('The Seeder needs seed packets in your bag.');
-if (!this.mcWork(k, tiles).length) return F.ui.toast(WHY.seeder);
+if (!this.mkWork(k, tiles).length) return F.ui.toast(WHY.seeder);
 s.sel = slot;
-this.mcUsing = k;
-try { this.plantArea(t, tiles); } finally { this.mcUsing = null; s.sel = sel; this.hintKey = null; F.bus.emit('hud'); }
+this.mkUsing = k;
+try { this.plantArea(t, tiles); } finally { this.mkUsing = null; s.sel = sel; this.hintKey = null; F.bus.emit('hud'); }
 return;
 }
-if (!this.mcWork(k, tiles).length) return F.ui.toast(WHY.harvester);
+if (!this.mkWork(k, tiles).length) return F.ui.toast(WHY.harvester);
 var out = {}, harvest = L.harvest, reach = L.chargeTiles;
-L.harvest = function (st, i) { return L.mcPick(st, i, harvest, out); };
+L.harvest = function (st, i) { return L.mkPick(st, i, harvest, out); };
 L.chargeTiles = function () { return tiles; };
-this.mcUsing = k;
-try { this.harvest(t, this.idx(t.x, t.y)); } finally { L.harvest = harvest; L.chargeTiles = reach; this.mcUsing = null; }
+this.mkUsing = k;
+try { this.harvest(t, this.idx(t.x, t.y)); } finally { L.harvest = harvest; L.chargeTiles = reach; this.mkUsing = null; }
 if (!out.silo && !out.bag && !out.basket) return;
-this.mcKick(tiles);
+this.mkKick(tiles);
 var f = this.feet();
 if (out.silo) this.time.delayedCall(420, function () { self.floatTextAt(f.x, f.y - 2.2 * T, '+' + out.silo + ' to the Silo'); });
 if (out.basket) F.ui.toast('Your Silo and bag are full: ' + out.basket + ' went to the basket by the farmhouse.', 3200);
 };
 
-P.mcTractor = function (t, tiles) {
-var self = this, s = this.state, plan = this.mcWork('tractor', tiles), r = L.mcTill(s, plan);
+P.mkTractor = function (t, tiles) {
+var self = this, s = this.state, plan = this.mkWork('tractor', tiles), r = L.mkTill(s, plan);
 if (r === 'tired') return this.tired();
 if (r === 'none' || !r) return F.ui.toast(WHY.tractor);
 var w = this.map.width, at = function (i) { return { x: i % w, y: Math.floor(i / w) }; }, deco = {};
 plan.forEach(function (p) { if (p.deco) deco[p.idx] = 1; });
-this.mcKick(tiles);
+this.mkKick(tiles);
+
+
+
+this.landing = (this.landing || 0) + 1;
+this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
+self.landing--;
+if (!self.layers) return;
+var walls = false;
 r.cleared.forEach(function (i) {
-var tile = at(i);
-self.popOut(deco[i] ? 'Walls' : 'Debris', tile);
-if (deco[i]) self.removeDeco(i); else self.removeDebrisTile(i);
+self.popOut(deco[i] ? 'Walls' : 'Debris', at(i));
+if (deco[i]) { self.removeDeco(i); walls = true; } else self.removeDebrisTile(i);
 });
-if (r.cleared.length) { this.recollide(); if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true }); sfx('leaves'); }
+if (walls) self.recollide();
+if (r.cleared.length) { if (self.layers.Debris) self.layers.Debris.setCollisionByProperty({ collides: true }); sfx('leaves'); }
 r.tilled.forEach(function (i) { self.refreshTile(i); if (self.soilPop) self.soilPop(at(i)); });
 sfx('till');
-this.bump(1);
+self.bump(1);
 var notes = [];
-if (r.lumber) { notes.push('+' + r.lumber + ' Lumber'); this.flyTile(t, C.ICON.lumber); }
-if (r.stone) { notes.push('+' + r.stone + ' Stone'); this.flyTile(t, C.ICON.stone); }
-if (notes.length) this.floatText(t, notes.join('  '));
+if (r.lumber) { notes.push('+' + r.lumber + ' Lumber'); self.flyTile(t, C.ICON.lumber); }
+if (r.stone) { notes.push('+' + r.stone + ' Stone'); self.flyTile(t, C.ICON.stone); }
+if (notes.length) self.floatText(t, notes.join('  '));
+});
 if (r.clear) this.progress('clear', r.clear);
 if (r.till) this.progress('till', r.till);
 this.changed();
 };
 
 var animateUse = P.animateUse;
-P.animateUse = function () { if (this.mcUsing) return this.mcKick(); return animateUse.apply(this, arguments); };
+P.animateUse = function () { if (this.mkUsing) return this.mkKick(); return animateUse.apply(this, arguments); };
 
-P.mcKick = function (tiles) {
+P.mkKick = function (tiles) {
 var self = this;
-this.mcT = 360;
+this.mkT = 360;
 this.acting = Math.max(this.acting || 0, 320);
 (tiles || []).forEach(function (p, i) { if (i % 2 === 0 && self.inMap(p[0], p[1])) self.puff({ x: p[0], y: p[1] }, 0x8a6a42, 1); });
 };
@@ -67782,23 +67791,23 @@ this.acting = Math.max(this.acting || 0, 320);
 
 var SPOT = { right: [0.95, 0.18], left: [-0.95, 0.18], down: [0, 0.98], up: [0, -0.3] };
 var create = P.create;
-P.create = function () { this.mcSpr = null; this.mcT = 0; return create.apply(this, arguments); };
+P.create = function () { this.mkSpr = null; this.mkT = 0; return create.apply(this, arguments); };
 var update = P.update;
 P.update = function (time, delta) {
 update.apply(this, arguments);
 var s = this.state, h = s && L.held(s), k = h && C.ITEMS[h.id] && C.ITEMS[h.id].machine;
-if (h && !k && C.ITEMS[h.id] && C.ITEMS[h.id].kind === 'seed') F.session.mcSeed = h.id;
+if (h && !k && C.ITEMS[h.id] && C.ITEMS[h.id].kind === 'seed') F.session.mkSeed = h.id;
 var on = !!k && this.mapKey === 'farm' && !this.busy && !F.session.riding && !!this.player && this.player.visible;
-if (!on) { if (this.mcSpr && this.mcSpr.visible) this.mcSpr.setVisible(false); return; }
-if (!this.mcSpr || this.mcSprK !== k) {
-if (this.mcSpr) this.mcSpr.destroy();
-this.mcSpr = this.add.image(0, 0, F.mcTex(this, k)).setOrigin(0.5, 1).setDisplaySize(1.5 * T, T);
-this.mcSprK = k;
+if (!on) { if (this.mkSpr && this.mkSpr.visible) this.mkSpr.setVisible(false); return; }
+if (!this.mkSpr || this.mkSprK !== k) {
+if (this.mkSpr) this.mkSpr.destroy();
+this.mkSpr = this.add.image(0, 0, F.mkTex(this, k)).setOrigin(0.5, 1).setDisplaySize(1.5 * T, T);
+this.mkSprK = k;
 }
 var f = this.feet(), o = SPOT[this.dir] || SPOT.down, d = this.dirVec(), jolt = 0, bob = 0;
-if (this.mcT > 0) { this.mcT -= delta || 16; var u = Math.max(0, this.mcT) / 360; jolt = Math.sin(u * Math.PI) * 0.35 * T; bob = Math.abs(Math.sin(u * 14)) * 10; }
+if (this.mkT > 0) { this.mkT -= delta || 16; var u = Math.max(0, this.mkT) / 360; jolt = Math.sin(u * Math.PI) * 0.35 * T; bob = Math.abs(Math.sin(u * 14)) * 10; }
 var x = f.x + o[0] * T + d[0] * jolt, y = f.y + o[1] * T + d[1] * jolt - bob;
-this.mcSpr.setVisible(true).setPosition(x, y).setFlipX(this.dir === 'left').setDepth(DEPTH.actor + y / 1e5 + (this.dir === 'up' ? -0.001 : 0));
+this.mkSpr.setVisible(true).setPosition(x, y).setFlipX(this.dir === 'left').setDepth(DEPTH.actor + y / 1e5 + (this.dir === 'up' ? -0.001 : 0));
 };
 
 
@@ -67813,10 +67822,10 @@ lumber: function (R) { return 'You need ' + R.lumber + ' lumber.'; },
 needs: function (R) { return 'You need ' + L.needsText(R.needs) + '. The Mixer makes Farm Cement and Rope; ore comes from the mine.'; },
 full: function () { return 'Your bag is full. Make room for it first.'; },
 };
-U.mcRows = function (s, at, per) {
+U.mkRows = function (s, at, per) {
 var self = this;
 return K.map(function (k, i) {
-var R = M[k], made = L.mcMade(s, k), lost = L.mcLost(s, k), page = Math.floor((at + i) / per);
+var R = M[k], made = L.mkMade(s, k), lost = L.mkLost(s, k), page = Math.floor((at + i) / per);
 var done = function (words) {
 sfx('anvil');
 if (F.world) { F.world.changed(); F.world.save(); }
@@ -67829,7 +67838,7 @@ icon: C.ITEMS[k].icon, name: R.name + (made ? ' (made)' : ''),
 desc: made ? (lost ? 'Bram kept it safe for you: take it back, free.' : 'Hold it in your bag and use it in your field.') : 'Also ' + R.lumber + ' lumber. ' + R.desc,
 reward: made ? null : { gold: R.gold, more: R.needs }, rewardPrefix: 'Cost', buttonsBelow: true,
 buttons: made && !lost ? [] : [{ label: made ? 'Take it' : 'Make', color: made ? GREEN : BLUE, cb: function () {
-var r = made ? L.mcBack(s, k) : L.mcMake(s, k);
+var r = made ? L.mkBack(s, k) : L.mkMake(s, k);
 if (r !== 'ok') { sfx('nope'); return self.toast((WHY_NOT[r] || function () { return 'Hmm.'; })(R), 3000); }
 done(made ? 'Here is your ' + R.name + ' again.' : 'Clang! Bram made you a ' + R.name + '. Hold it in your bag and face your field.');
 } }],
@@ -67840,26 +67849,26 @@ var openForge = U.openForge;
 U.openForge = function (page) {
 var self = this, s = F.session.state;
 if (!s || s.isVisit || F.session.visit) return openForge.call(this, page);
-if (!quiet() && !L.mcTourSeen(s) && L.tipSeen(s, 'sprinkler_tour')) {
-L.mcTourTake(s);
+if (!quiet() && !L.mkTourSeen(s) && L.tipSeen(s, 'sprinkler_tour')) {
+L.mkTourTake(s);
 F.Host.save(s);
 return this.tour('machines', function () { self.openForge(page); });
 }
 return withRows(this, function (o) {
 var at = o.rows.length;
-return self.mcRows(s, at, at + K.length > 5 ? 4 : 5);
+return self.mkRows(s, at, at + K.length > 5 ? 4 : 5);
 }, function () { return openForge.call(self, page); });
 };
 
 
 var machine = function (ui, sc, k, x, y, w) {
-var img = ui.add.image(x, y, F.mcTex(ui, k)).setOrigin(0.5, 1).setDisplaySize(w, w * 2 / 3);
+var img = ui.add.image(x, y, F.mkTex(ui, k)).setOrigin(0.5, 1).setDisplaySize(w, w * 2 / 3);
 sc.add(img);
 return img;
 };
 var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
 var soil = function (ui, sc, x, y, kind) {
-return ui.canvasImg(sc, x - 13, y - 13, 'mc-tour-' + kind, 26, 26, function (g) {
+return ui.canvasImg(sc, x - 13, y - 13, 'mk-tour-' + kind, 26, 26, function (g) {
 g.fillStyle = kind === 'grass' ? '#7cbc4a' : '#8a5a32'; g.fillRect(1, 1, 24, 24);
 g.fillStyle = 'rgba(40,20,8,0.25)'; if (kind !== 'grass') for (var k = 5; k < 24; k += 7) g.fillRect(3, k, 20, 2);
 if (kind === 'sprout') { g.fillStyle = '#5fa84a'; g.fillRect(12, 8, 3, 10); g.fillRect(8, 8, 5, 3); }
