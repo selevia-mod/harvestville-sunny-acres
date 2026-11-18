@@ -191,12 +191,33 @@ const play = (seed, steps, every) => {
     } else if (c === 7) L.coPay(s, [{ day: wk - 7 * vint(3), stars: 3, plaque: vrnd() < 0.3 }]);
     else L.gmFinish(s, L.nowMin());
   };
+  // Bram's farm machines (18 Nov 2026), on a random stream of their own too: one made, the Tractor's pass (a 3x3 or a row
+  // of 9: debris cleared, soil tilled), the Seeder's, the Harvester's (into the Silo, the bag, the basket), one put away in
+  // Storage, a made one taken back at the Forge
+  let r7 = seed ^ 0x5bd1e995;
+  const xrnd = () => { r7 = (r7 * 1103515245 + 12345) & 0x7fffffff; return r7 / 0x7fffffff; };
+  const xint = (n) => Math.floor(xrnd() * n), xpick = (xs) => xs[xint(xs.length)];
+  const MK = C.MACHINE_KINDS || [];
+  const machines = () => {
+    const c = xint(6), d = xpick([[0, 1], [0, -1], [1, 0], [-1, 0]]), k = xpick(MK);
+    const tiles = L.mkTiles(8 + xint(40), 8 + xint(28), d[0], d[1], xrnd() < 0.3).map((p) => p[1] * C.FARM_W + p[0]);
+    if (c === 0) { s.gold += C.MACHINES[k].gold; s.lumber = (s.lumber || 0) + C.MACHINES[k].lumber; C.MACHINES[k].needs.forEach((n) => L.addItem(s, n[0], n[1])); L.mkMake(s, k); }
+    else if (c === 1) { s.energy = Math.max(s.energy, 40); L.mkTill(s, tiles.map((idx) => ({ idx, clear: s.debris[idx] || null, till: 1 }))); }
+    else if (c === 2) { const id = xpick(seeds); L.addItem(s, id, 1); L.mkPlant(s, tiles, L.mkSeedSlot(s, id)); }
+    else if (c === 3) {
+      tiles.forEach((i) => { const t = s.soil[i]; if (t && t.c && !C.CROPS[t.c].sickle) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1 - xint(30); } });
+      L.mkHarvest(s, tiles);
+    }
+    else if (c === 4) { const i = s.inv.findIndex((x) => x && x.id === k); if (i >= 0 && s.store) L.storeIn(s, i); }
+    else L.mkBack(s, k);
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
     if (TRK && vrnd() < 0.1) trucks();
     if (MF && mrnd() < 0.1) manila();
     if (shops.length && trnd() < 0.1) trade();
     if (L.mcBeginTry && qrnd() < 0.1) cup();
+    if (MK.length && xrnd() < 0.1) machines();
     const k = rnd();
     if (k < 0.12) { // a line of fences, paths or hedges, as players lay them (lines cross: a fence over a path)
       const t = pick(tiles), n = 3 + int(13), down = rnd() < 0.5, x0 = 1 + int(73), y0 = 1 + int(62);
