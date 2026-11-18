@@ -146,8 +146,8 @@ test('the Marlin: after 5 minutes, at most once a trip; lost, back once 60 s lat
   assert.deepStrictEqual(plain(s.lastFish), { id: 'marlin', kg: 150, giant: false, record: false, sea: true });
   assert.strictEqual(s.sea.c.marlin, 1, 'the Marlin medal');
   assert.ok(C.HALL.FIRSTS.some((f) => f.key === 'sea_boss' && f.kind === 'marlin'), 'the Hall of Fame\'s first Marlin');
-  assert.ok(L.hallWant(s, 'sea_boss'));
-  assert.ok(!L.hallWant(s, 'sea_boss'), 'claimed once');
+  assert.strictEqual(s.sea.hf, 1, 'the first Marlin: waiting to be claimed (by its own call, 19zzz...z-sea.js)');
+  assert.strictEqual(roundTrip(s).sea.hf, 1, 'kept until the server answers');
 });
 
 test('landing: weighed, the biggest of each kept, counted; Seaweed is a snag, not a fish; a full bag', () => {
@@ -327,6 +327,10 @@ test('the server rows: the boat for Hunting now, the sea fish for the Biggest ca
   assert.match(out, /\('sea_boss', 'the Marlin, Manila Bay'\)/);
   assert.strictEqual(fs.readFileSync(path.join(ROOT, 'docs', 'sea-trips-server-rows.sql'), 'utf8').includes(out.trim()), true, 'docs/sea-trips-server-rows.sql is up to date');
   assert.ok(C.ONLINE_MORE_MAPS.includes('sea'));
+  // on the Hall of Fame: a sea fish's record by its name (More hunting records), the first Marlin on the new dungeons' plaque
+  const h = L.newState();
+  assert.deepStrictEqual(plain(L.hallShape('w7', { catches: [{ kind: 'tuna', kg10: 182, id: 'u', name: 'Bo' }], more: [] }, 'me', h).rows.map((r) => r[1])), ['Tuna: Bo, 18.2 kg']);
+  assert.deepStrictEqual(plain(L.hallShape('w8', { firsts: [{ key: 'sea_boss', id: 'u', name: 'Bo' }] }, 'me', h).rows.pop()[1]), 'First to beat the Marlin: Bo');
 });
 
 test('the save (\'sv\'): a trip, the book, the counts, the tasks and friends come back exactly; an old save has none; a save at sea is on the pier', () => {

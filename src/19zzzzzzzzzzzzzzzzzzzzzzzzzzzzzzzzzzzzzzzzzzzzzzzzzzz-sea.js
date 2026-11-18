@@ -484,7 +484,6 @@
     if (lf.id === 'marlin' && w && w.sea) w.seaMarlinWon(lf);
   };
   P.seaMarlinWon = function (lf) {
-    var s = me();
     this.seaShadow(null);
     this.sea.mOut = false;
     sfx('found');
@@ -492,8 +491,25 @@
     this.time.delayedCall(1400, function () {
       if (F.ui && self.sys && self.sys.isActive()) F.ui.dialog('THE MARLIN!\nYou landed the Marlin, ' + lf.kg + ' kg! The Marlin medal is in your Sea fish book, and your weight goes on the Biggest catch board.');
     });
-    if (L.hallWant && L.hallWant(s, 'sea_boss')) { F.session.dirty = true; if (O.claimFirsts) O.claimFirsts(); }
+    F.session.dirty = true;
+    O.seaFirst();
   };
+  // The first Marlin, claimed by its own call (not the Hall's queue: until the owner's SQL is in, the server says
+  // 'bad-key', and the claim waits for the next time instead of being dropped or holding the others up)
+  O.seaFirst = function () {
+    var s = me(), v = s && !s.isVisit && L.sea(s), f = L.hallFirst && L.hallFirst('sea_boss');
+    if (!v || v.hf !== 1 || !f || !O.on || O.seaFirstBusy || !F.Net || !F.Net.available || !F.Net.available()) return;
+    O.seaFirstBusy = true;
+    F.Net.rpc('farm_hall_first_v1', { p_key: 'sea_boss' }).then(function (r) {
+      O.seaFirstBusy = false;
+      if (!r || typeof r !== 'object' || r.ok === false) return;
+      v.hf = 2;
+      F.session.dirty = true;
+      O.hallCache = null;
+      if (r.first) setTimeout(function () { if (F.ui) { sfx('found'); F.ui.dialog(f.words); } }, 3200);
+    }, function () { O.seaFirstBusy = false; });
+  };
+  F.bus.on('online', function () { setTimeout(O.seaFirst, 3000); });
 
   // ---------- the sea dishes: their powers ----------
   var eat = P.eat;

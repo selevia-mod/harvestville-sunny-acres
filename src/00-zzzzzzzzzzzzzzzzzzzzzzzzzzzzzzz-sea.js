@@ -54,12 +54,12 @@
   var I = C.ITEMS;
   S.ids = S.fish.map(function (f) { return f[0]; });
   S.fish.forEach(function (f) {
-    I[f[0]] = { name: f[1], kind: 'fish', sell: f[3], sea: true, desc: f[6] };
+    I[f[0]] = { name: f[1], kind: 'fish', sell: f[3], sea: true, painted: true, desc: f[6] };
     C.FISH_GAME[f[0]] = f[4] === 'boss' ? { speed: S.marlin.speed, zone: S.marlin.zone } : S.games[f[4]];
   });
-  I.seaweed = { name: 'Seaweed', kind: 'goods', sell: 20, sea: true, desc: 'A wet bunch of sea weed. The Mixer makes Sea Fertilizer with 3 of it and a Fertilizer.' };
-  I.capiz = { name: 'Capiz Shell', kind: 'goods', sell: 150, sea: true, desc: 'A thin, pearly shell from Manila Bay. Manila Friends love it.' };
-  I.fert_sea = { name: 'Sea Fertilizer', kind: 'fert', level: 3, sell: 60, sea: true, desc: 'Spread it on a 3x3 tilled patch. Seaweed-rich: the best odds of Silver and Gold crops in the game.' };
+  I.seaweed = { name: 'Seaweed', kind: 'goods', sell: 20, sea: true, painted: true, desc: 'A wet bunch of sea weed. The Mixer makes Sea Fertilizer with 3 of it and a Fertilizer.' };
+  I.capiz = { name: 'Capiz Shell', kind: 'goods', sell: 150, sea: true, painted: true, desc: 'A thin, pearly shell from Manila Bay. Manila Friends love it.' };
+  I.fert_sea = { name: 'Sea Fertilizer', kind: 'fert', level: 3, sell: 80, sea: true, painted: true, desc: 'Spread it on a 3x3 tilled patch. Seaweed-rich: the best odds of Silver and Gold crops in the game.' };
   // the five sea dishes: [id, name, needs, energy, sell, powers [[key, minutes], ...], words]
   S.dishes = [
     ['fried_galunggong', 'Fried Galunggong', ['galunggong', 'rice'], 40, 140, [], 'Crispy fried galunggong with rice.'],
@@ -72,7 +72,7 @@
   S.powers = {};
   S.dishes.forEach(function (d) {
     S.powers[d[0]] = d[5];
-    I[d[0]] = { name: d[1], kind: 'dish', energy: d[3], sell: d[4], sea: true,
+    I[d[0]] = { name: d[1], kind: 'dish', energy: d[3], sell: d[4], sea: true, painted: true,
       desc: d[6] + ' +' + d[3] + ' energy' + (d[5].length ? '; ' + d[5].map(function (p) { return p[1] + ' minutes: ' + POW[p[0]]; }).join(', ') : '') + '.' };
     C.RECIPES.push({ dish: d[0], needs: d[2] });
   });
@@ -97,7 +97,8 @@
   // ---------- Capiz: loved by Kapitana Marisol, Lola Amparo and Bea (decided by me) ----------
   if (MF) ['mn_marisol', 'mn_amparo', 'mn_bea'].forEach(function (k) { if (MF.friends[k]) MF.friends[k].loves.push('capiz'); });
 
-  // ---------- the Hall of Fame: the first Marlin (the server's farm.hall_first_keys 'sea_boss') ----------
+  // ---------- the Hall of Fame: the first Marlin (the server's farm.hall_first_keys 'sea_boss', on the new dungeons' plaque;
+  // claimed by the sea's own call, so a server without the row yet never loses it: 19zzz...z-sea.js) ----------
   if (C.HALL) {
     C.HALL.FIRSTS.push({ key: 'sea_boss', map: 'sea', kind: 'marlin', name: 'the Marlin',
       words: 'A FIRST FOR HARVEST VILLE!\nYou are the first player ever to catch the Marlin! Your name is in the Hall of Fame for everyone to see.' });

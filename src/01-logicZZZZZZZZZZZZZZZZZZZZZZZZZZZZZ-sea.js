@@ -12,7 +12,7 @@
 //  - The sea dishes' powers: the crop potions' clocks (s.ptn 'charge', 'walk', 'shots'): a new one replaces, never adds.
 // The save: 'sv' = [the trip [start ms, shells, marlin caught, marlin lost, lost at ms, fish, seaweed, Gold paid] or 0,
 // biggest grams by C.SEA.fish, how many by C.SEA.fish, [trips, seaweed, capiz, free ticket day + 1, Marisol's task, its
-// kg done], friends aboard [[id, name, friendship, day + 1], ...]], only when there is anything (an old save has none).
+// kg done, the first Marlin claimed (1 waiting, 2 answered)], friends aboard [[id, name, friendship, day + 1], ...]], only when there is anything (an old save has none).
 // A save made at sea says the Manila pier (the trip is over when the game opens again).
 (function (F) {
   'use strict';
@@ -28,7 +28,7 @@
   var rng = function (seed) { var a = seed >>> 0; return function () { a = (a + 0x6d2b79f5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 
   L.seaIs = function (id) { return S.ids.indexOf(id) >= 0; };
-  L.seaNew = function () { return { t: null, b: {}, c: {}, tr: 0, w: 0, cp: 0, fd: 0, ti: 0, tk: 0, fr: [] }; };
+  L.seaNew = function () { return { t: null, b: {}, c: {}, tr: 0, w: 0, cp: 0, fd: 0, ti: 0, tk: 0, hf: 0, fr: [] }; };
   L.sea = function (s) { return s.sea || (s.sea = L.seaNew()); };
   L.seaKg = function (id, size) { return Math.max(0.1, Math.round((KG[id] || 1) * size * 10) / 10); };
 
@@ -119,6 +119,7 @@
     if (g > old) v.b[id] = g;
     v.c[id] = (v.c[id] || 0) + 1;
     if (v.t) { v.t.n++; if (id === 'marlin') v.t.mc = 1; }
+    if (id === 'marlin' && !v.hf) v.hf = 1; // (the Hall of Fame's first Marlin: to be claimed, 1; the server answered, 2)
     var task = L.seaTask(s);
     if (task[0] === 'kg' && task[1] === id && kg >= task[2]) v.tk = 1;
     s.lastFish = { id: id, kg: kg, giant: L.fishGiant(size), record: !!old && g > old, sea: true };
@@ -191,6 +192,16 @@
   var txItems = L.txItems;
   if (txItems) L.txItems = function (shop) { var out = txItems.apply(this, arguments); return shop === 'danny' ? out.filter(function (id) { return id !== 'fert_sea'; }) : out; };
 
+  // ---------- the Hall of Fame's plaques: a sea fish's record by its name (the server's Biggest catch, 'more') ----------
+  var hallShape = L.hallShape;
+  if (hallShape) L.hallShape = function () {
+    var r = hallShape.apply(this, arguments);
+    (r && Array.isArray(r.rows) ? r.rows : []).forEach(function (row) {
+      S.ids.forEach(function (id) { if (typeof row[1] === 'string' && row[1].indexOf(id + ':') === 0) { row[1] = C.ITEMS[id].name + row[1].slice(id.length); row[0] = C.ITEMS[id].icon; } });
+    });
+    return r;
+  };
+
   // ---------- the map: the deck (walkable, the boat's planks) on open water (solid, water: you fish from the rail) ----------
   L.seaMap = function (template) {
     var K = L.mapKit, sets = K.copySets(template, ['tiles', 'seasons', 'props']), tiles = sets.filter(function (t) { return t.name === 'tiles'; })[0];
@@ -218,7 +229,7 @@
     var o = serialize.call(this, s && s.map === 'sea' ? Object.assign({}, s, { map: 'manila', player: L.seaPier() }) : s), v = s && s.sea;
     if (!v) return o;
     var t = v.t, b = trim(S.ids.map(function (id) { return v.b[id] || 0; })), c = trim(S.ids.map(function (id) { return v.c[id] || 0; }));
-    var more = trim([v.tr, v.w, v.cp, v.fd, v.ti, v.tk]), fr = v.fr.map(function (f) { return f.slice(0, 4); });
+    var more = trim([v.tr, v.w, v.cp, v.fd, v.ti, v.tk, v.hf]), fr = v.fr.map(function (f) { return f.slice(0, 4); });
     if (t || b.length || c.length || more.length || fr.length) o.sv = [t ? [t.a, t.sh, t.mc, t.ml, t.lt, t.n, t.w, t.p] : 0, b, c, more, fr];
     return o;
   };
@@ -244,6 +255,7 @@
     v.fd = int(m[3], 0, 1e7, 0);
     v.ti = int(m[4], 0, 1e6, 0);
     v.tk = m[5] ? 1 : 0;
+    v.hf = int(m[6], 0, 2, 0);
     (Array.isArray(a[4]) ? a[4] : []).slice(0, 30).forEach(function (f) {
       if (Array.isArray(f) && typeof f[0] === 'string' && /^[0-9a-f-]{36}$/i.test(f[0])) v.fr.push([f[0].toLowerCase(), L.cleanText(f[1], 24) || 'Farmer', int(f[2], 0, 1e6, 0), int(f[3], 0, 1e7, 0)]);
     });

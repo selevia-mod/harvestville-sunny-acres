@@ -8,6 +8,7 @@ const SOURCES = { farm: 300, goods: 150, fish: 150, mine: 150, hunt: 150, help: 
 const TIERS = [300, 2000, 8000, 20000]; // (farm.rank_tiers)
 const FIRSTS = ['bakunawa', 'lair_10', 'lair_20', 'lair_30', 'lair_40', 'greatmammoth', // (farm.hall_first_keys)
   'banaue_boss', 'bohol_boss', 'taal_boss', 'sierra_boss', 'palawan_boss', // (part 23)
+  'sea_boss', // (the first Marlin: docs/sea-trips-server-rows.sql)
   ...[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((f) => 'tower_' + f)]; // (supabase/farm_tower_board.sql: First in Selebox)
 
 function install(rpc, db, { need, blocked }) {

@@ -236,7 +236,7 @@ test('the Marlin: after 5 minutes its shadow; lost once, it comes back 60 s late
   t = (await state(page)).sea;
   assert.strictEqual(t.t.mc, 1);
   assert.strictEqual(t.c.marlin, 1, 'the Marlin medal: one landed');
-  assert.ok(await page.evaluate(() => { const tr = Farm.session.state.tr; return !!tr && (tr.fq.includes('sea_boss') || tr.fd.includes('sea_boss')); }), 'the first Marlin: the Hall of Fame\'s claim waits to be sent');
+  assert.strictEqual(t.hf, 1, 'the first Marlin: the Hall of Fame\'s claim waits to be sent (offline)');
   await page.evaluate(() => Farm.ui.closeAll());
   await shot(page, 'sea-marlin');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.seaMarlinOut(Farm.session.state.sea.t, window.__now + 600000)), false, 'once a trip');
