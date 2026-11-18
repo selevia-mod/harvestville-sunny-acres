@@ -156,16 +156,16 @@ const play = (seed, steps, every) => {
   const MK = C.MACHINE_KINDS || [];
   const machines = () => {
     const c = xint(6), d = xpick([[0, 1], [0, -1], [1, 0], [-1, 0]]), k = xpick(MK);
-    const tiles = L.mcTiles(8 + xint(40), 8 + xint(28), d[0], d[1], xrnd() < 0.3).map((p) => p[1] * C.FARM_W + p[0]);
-    if (c === 0) { s.gold += C.MACHINES[k].gold; s.lumber = (s.lumber || 0) + C.MACHINES[k].lumber; C.MACHINES[k].needs.forEach((n) => L.addItem(s, n[0], n[1])); L.mcMake(s, k); }
-    else if (c === 1) { s.energy = Math.max(s.energy, 40); L.mcTill(s, tiles.map((idx) => ({ idx, clear: s.debris[idx] || null, till: 1 }))); }
-    else if (c === 2) { const id = xpick(seeds); L.addItem(s, id, 1); L.mcPlant(s, tiles, L.mcSeedSlot(s, id)); }
+    const tiles = L.mkTiles(8 + xint(40), 8 + xint(28), d[0], d[1], xrnd() < 0.3).map((p) => p[1] * C.FARM_W + p[0]);
+    if (c === 0) { s.gold += C.MACHINES[k].gold; s.lumber = (s.lumber || 0) + C.MACHINES[k].lumber; C.MACHINES[k].needs.forEach((n) => L.addItem(s, n[0], n[1])); L.mkMake(s, k); }
+    else if (c === 1) { s.energy = Math.max(s.energy, 40); L.mkTill(s, tiles.map((idx) => ({ idx, clear: s.debris[idx] || null, till: 1 }))); }
+    else if (c === 2) { const id = xpick(seeds); L.addItem(s, id, 1); L.mkPlant(s, tiles, L.mkSeedSlot(s, id)); }
     else if (c === 3) {
       tiles.forEach((i) => { const t = s.soil[i]; if (t && t.c && !C.CROPS[t.c].sickle) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1 - xint(30); } });
-      L.mcHarvest(s, tiles);
+      L.mkHarvest(s, tiles);
     }
     else if (c === 4) { const i = s.inv.findIndex((x) => x && x.id === k); if (i >= 0 && s.store) L.storeIn(s, i); }
-    else L.mcBack(s, k);
+    else L.mkBack(s, k);
   };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();

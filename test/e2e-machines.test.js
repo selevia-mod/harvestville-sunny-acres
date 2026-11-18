@@ -140,11 +140,11 @@ const release = async (page, cdp) => {
   await frames(page, 2);
 };
 const MATS = "s.lumber = 200; [['ore_copper', 10], ['ore_silver', 10], ['ore_gold', 10], ['farm_cement', 10], ['rope', 10]].forEach((n) => L.addItem(s, n[0], n[1]));";
-const MACHINES = "['tractor', 'seeder', 'harvester'].forEach((k) => { L.addItem(s, k, 1); s.mc |= 1 << C.MACHINE_KINDS.indexOf(k); }); s.mc |= 8;";
+const MACHINES = "['tractor', 'seeder', 'harvester'].forEach((k) => { L.addItem(s, k, 1); s.mk |= 1 << C.MACHINE_KINDS.indexOf(k); }); s.mk |= 8;";
 const shownSoil = (page, list) => page.evaluate((list) => list.filter((i) => Farm.world.layers.Soil.getTileAt(i % 75, Math.floor(i / 75))).length, list);
 
 test('Bram makes the Tractor, the Seeder and the Harvester (three new Forge rows), one of each', async () => {
-  const save = await makeSave(MATS + " s.mc = 8; s.map = 'town';");
+  const save = await makeSave(MATS + " s.mk = 8; s.map = 'town';");
   const { page, problems, context } = await open(save);
   await waitMap(page, 'town');
   await page.evaluate(() => Farm.ui.openForge());
@@ -158,14 +158,14 @@ test('Bram makes the Tractor, the Seeder and the Harvester (three new Forge rows
   await tapIn(page, 'Tractor', 'Make');
   let s = await state(page);
   assert.strictEqual(s.gold, 500000 - 80000);
-  assert.ok(s.inv.some((x) => x && x.id === 'tractor') && s.mc === 9);
+  assert.ok(s.inv.some((x) => x && x.id === 'tractor') && s.mk === 9);
   await tapIn(page, 'Seeder', 'Make');
   await tapIn(page, 'Harvester', 'Make');
   s = await state(page);
   assert.strictEqual(s.gold, 500000 - 80000 - 120000 - 200000);
   assert.strictEqual(s.lumber, 200 - 40 - 40 - 60);
   assert.deepStrictEqual(['ore_copper', 'ore_silver', 'ore_gold', 'farm_cement', 'rope'].map((id) => s.inv.filter((x) => x && x.id === id).reduce((n, x) => n + x.n, 0)), [0, 0, 0, 0, 0]);
-  assert.strictEqual(s.mc, 15);
+  assert.strictEqual(s.mk, 15);
   await slimTo(page, 'Harvester (made)');
   await frames(page, 3);
   assert.match(await modalText(page), /Tractor \(made\).*Seeder \(made\).*Harvester \(made\)/);
@@ -181,7 +181,7 @@ test('in the field: the Tractor tills the 3x3 ahead and clears it (the stump sta
   await teleport(page, 5, 11, 'down'); // (in the field: the fence runs along row 10)
   await hold(page, 'tractor');
   assert.strictEqual(await actionLabel(page), 'Till');
-  const shown = await page.evaluate(() => ({ spr: !!Farm.world.mcSpr && Farm.world.mcSpr.visible, cells: Farm.world.areaCells.filter((c) => c.visible).length }));
+  const shown = await page.evaluate(() => ({ spr: !!Farm.world.mkSpr && Farm.world.mkSpr.visible, cells: Farm.world.areaCells.filter((c) => c.visible).length }));
   assert.deepStrictEqual(shown, { spr: true, cells: 9 }, 'the machine in front, the 3x3 shown');
   await shot(page, '03-tractor-held-field-before');
   const s0 = await state(page);
@@ -217,7 +217,7 @@ test('in the field: the Tractor tills the 3x3 ahead and clears it (the stump sta
   // off the farm it does nothing (and says why)
   await go(page, 'town', 'from_farm');
   await hold(page, 'tractor');
-  assert.strictEqual(await page.evaluate(() => !!(Farm.world.mcSpr && Farm.world.mcSpr.visible)), false, 'not shown in town');
+  assert.strictEqual(await page.evaluate(() => !!(Farm.world.mkSpr && Farm.world.mkSpr.visible)), false, 'not shown in town');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -279,7 +279,7 @@ test('in the field: the Seeder plants the packet held last (one packet a pass); 
 });
 
 test('the first-time tour (centred, once), then the Forge with its machine rows', async () => {
-  const save = await makeSave(MATS + " s.mc = 0; s.map = 'town';");
+  const save = await makeSave(MATS + " s.mk = 0; s.map = 'town';");
   const { page, problems, context } = await open(save, false);
   await page.waitForTimeout(1500);
   await page.evaluate(() => Farm.ui.closeAll());
@@ -297,7 +297,7 @@ test('the first-time tour (centred, once), then the Forge with its machine rows'
   assert.match(await modalText(page), /Bram's Forge/);
   assert.match(await modalText(page), /Tractor/);
   const s = await state(page);
-  assert.strictEqual(s.mc, 8, 'seen');
+  assert.strictEqual(s.mk, 8, 'seen');
   await page.evaluate(() => Farm.ui.closeAll());
   await page.evaluate(() => Farm.ui.openForge());
   await frames(page, 4);
@@ -326,14 +326,16 @@ const work = (page, ms) => page.evaluate((ms) => new Promise((resolve) => {
 
 test('a slow phone (CPU x4): one 3x3 of each machine is one short burst; the frames after it, and holding one, within the budget', async () => {
   const debris = "for (let y = 12; y <= 22; y++) for (let x = 4; x <= 19; x++) if ((x + y) % 3 === 0) s.debris[y * 75 + x] = ['weed', 'branch', 'stone'][(x * 7 + y) % 3];";
-  const save = await makeSave(MACHINES + debris + " L.addItem(s, 'seed_potato', 20); s.energy = 100;");
+  // (past the starter goals, as a farm that can afford a machine is: a goal finished by the first tap shows its own reward
+  // card, which picking or tilling by hand shows too; measured on its own below)
+  const save = await makeSave(MACHINES + debris + " L.addItem(s, 'seed_potato', 20); s.energy = 100; s.goal = C.GOALS.length;");
   const { page, problems, context } = await open(save);
   const cdp = await context.newCDPSession(page);
-  // the burst: mcUse timed, many times over on fresh blocks (the page's timer is coarse: 0.1 ms)
+  // the burst: mkUse timed, many times over on fresh blocks (the page's timer is coarse: 0.1 ms)
   await page.evaluate(() => {
-    const P = Object.getPrototypeOf(Farm.world), use = P.mcUse;
+    const P = Object.getPrototypeOf(Farm.world), use = P.mkUse;
     window.__bursts = [];
-    P.mcUse = function () { const t0 = performance.now(); try { return use.apply(this, arguments); } finally { window.__bursts.push(performance.now() - t0); } };
+    P.mkUse = function () { const t0 = performance.now(); try { return use.apply(this, arguments); } finally { window.__bursts.push(performance.now() - t0); } };
   });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.waitForTimeout(800);

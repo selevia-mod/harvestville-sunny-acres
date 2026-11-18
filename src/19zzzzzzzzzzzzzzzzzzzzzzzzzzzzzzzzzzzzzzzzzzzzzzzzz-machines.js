@@ -3,7 +3,7 @@
 // - Held in a bag slot, on your own farm: the action button works the 3x3 block ahead (the tiles show first); held down,
 //   a row of 9. Each tile goes through the hand's own world action, so everything it shows and counts is the same:
 //   the Seeder is the seed bag's plantArea (the packet you held last), the Harvester the hand's harvest (its crops into
-//   the Silo: L.mcPick), the Tractor the hoe's till and the hand tools' clearing in one pass (L.mcTill).
+//   the Silo: L.mkPick), the Tractor the hoe's till and the hand tools' clearing in one pass (L.mkTill).
 // - The machine stands in front of the farmer while it is held, and jolts forward as it works. No picture yet: drawn
 //   here once on a canvas (the icons too, into frames of the items texture), the owner's 'machine_<kind>' and
 //   'machine_icons' are used once they are in.
@@ -76,12 +76,12 @@
     DRAW[k](g);
     g.restore();
   };
-  F.mcDraw = paint;
+  F.mkDraw = paint;
   // the machine's picture as a texture (the owner's when it is in)
-  F.mcTex = function (scene, k) {
+  F.mkTex = function (scene, k) {
     var own = 'machine_' + k;
     if (F.images && F.images[own]) return F.ensureTexture(scene, own);
-    var key = 'mc-' + k;
+    var key = 'mk-' + k;
     if (!scene.textures.exists(key)) {
       var t = scene.textures.createCanvas(key, 192, 128);
       paint(t.getContext(), k);
@@ -100,9 +100,9 @@
       if (art) return g.drawImage(art, i * 128, 0, 128, 128, i * 128, 0, 128, 128);
       g.save(); g.translate(i * 128 + 4, 22); g.scale(0.62, 0.62); paint(g, k); g.restore();
     });
-    var src = tex.mcSrc;
+    var src = tex.mkSrc;
     if (src) { src.image = src.source = cv; src.update(); return; }
-    src = tex.mcSrc = new Phaser.Textures.TextureSource(tex, cv, cv.width, cv.height);
+    src = tex.mkSrc = new Phaser.Textures.TextureSource(tex, cv, cv.width, cv.height);
     tex.source.push(src);
     var at = tex.source.length - 1;
     K.forEach(function (k, i) { var key = C.MACHINE_ICON_BASE + i; if (tex.has(key)) tex.remove(key); tex.add(key, at, i * 128, 0, 128, 128); });
@@ -115,8 +115,8 @@
   };
 
   // ---------- what it would do on these tiles ----------
-  // tractor: [{ idx, clear, deco, till }] (L.mcTill's plan); seeder: tilled empty tiles; harvester: ripe crops
-  P.mcWork = function (k, tiles) {
+  // tractor: [{ idx, clear, deco, till }] (L.mkTill's plan); seeder: tilled empty tiles; harvester: ripe crops
+  P.mkWork = function (k, tiles) {
     var self = this, s = this.state, out = [];
     tiles.forEach(function (p) {
       var x = p[0], y = p[1];
@@ -138,28 +138,28 @@
     harvester: 'Nothing ripe ahead. The Harvester picks the ripe crops on the 3x3 ahead (hold the button: a row of 9).',
   };
   // the action button with a machine in your hands (null: not here, the button does what it would anyway)
-  P.mcAction = function (k) {
+  P.mkAction = function (k) {
     var self = this, s = this.state, R = M[k], icon = C.ITEMS[k].icon;
     if (this.mapKey !== 'farm' || visiting(this) || F.session.riding) return null;
     var t = this.facing(), pt = this.front(0.7);
     if (!this.inMap(t.x, t.y)) return null;
     if ((this.villagers && this.villagers.at(pt.x, pt.y)) || (this.herd && this.herd.at(pt.x, pt.y)) || (this.dog && this.dog.near(pt.x, pt.y))) return null;
     if (this.objectAt(t.x, t.y) || (this.pieceAt && this.pieceAt(t.x, t.y) >= 0) || this.forage[this.idx(t.x, t.y)]) return null;
-    var d = this.dirVec(), block = L.mcTiles(t.x, t.y, d[0], d[1]), row = L.mcTiles(t.x, t.y, d[0], d[1], true);
-    var why = this.mcWork(k, block).length || this.mcWork(k, row).length ? null : WHY[k];
-    if (!why && k === 'seeder' && L.mcSeedSlot(s, F.session.mcSeed) < 0) why = 'The Seeder needs seed packets in your bag. It plants the ones you held last.';
-    if (why) return { label: R.verb, icon: icon, preview: block, disabled: true, why: why, mc: k, soft: true };
+    var d = this.dirVec(), block = L.mkTiles(t.x, t.y, d[0], d[1]), row = L.mkTiles(t.x, t.y, d[0], d[1], true);
+    var why = this.mkWork(k, block).length || this.mkWork(k, row).length ? null : WHY[k];
+    if (!why && k === 'seeder' && L.mkSeedSlot(s, F.session.mkSeed) < 0) why = 'The Seeder needs seed packets in your bag. It plants the ones you held last.';
+    if (why) return { label: R.verb, icon: icon, preview: block, disabled: true, why: why, mk: k, soft: true };
     return {
-      label: R.verb, icon: icon, charge: 1, preview: block, mc: k,
+      label: R.verb, icon: icon, charge: 1, preview: block, mk: k,
       area: function (lvl) { return lvl ? row : block; },
-      run: function (lvl) { self.mcUse(k, t, lvl ? row : block); },
+      run: function (lvl) { self.mkUse(k, t, lvl ? row : block); },
     };
   };
   var resolve = P.resolve;
   P.resolve = function () {
-    var k = L.mcHeld(this.state);
+    var k = L.mkHeld(this.state);
     if (!k) return resolve.call(this);
-    var a = this.mcAction(k);
+    var a = this.mkAction(k);
     if (a && !a.soft) return a;
     var r0 = resolve.call(this); // (nothing for it ahead: what the button does anyway, a ripe crop by hand...)
     if (r0 && !r0.disabled) return r0;
@@ -169,44 +169,44 @@
   var showCharge = U.showCharge;
   U.showCharge = function (level) {
     var w = F.world, c = w && w.charge;
-    if (level < 0 || !c || !c.action || !c.action.mc) return showCharge.apply(this, arguments);
+    if (level < 0 || !c || !c.action || !c.action.mk) return showCharge.apply(this, arguments);
     this.chargeText.setVisible(true).setText((level ? 'Row of ' + M.row : '3 x 3') + '  ' + new Array(level + 2).join('●'));
     this.tweens.add({ targets: this.chargeText, scale: { from: 1.3, to: 1 }, duration: 160 });
   };
 
   // ---------- using it ----------
-  P.mcUse = function (k, t, tiles) {
+  P.mkUse = function (k, t, tiles) {
     var self = this, s = this.state;
-    if (k === 'tractor') return this.mcTractor(t, tiles);
+    if (k === 'tractor') return this.mkTractor(t, tiles);
     if (k === 'seeder') {
-      var slot = L.mcSeedSlot(s, F.session.mcSeed), sel = s.sel;
+      var slot = L.mkSeedSlot(s, F.session.mkSeed), sel = s.sel;
       if (slot < 0) return F.ui.toast('The Seeder needs seed packets in your bag.');
-      if (!this.mcWork(k, tiles).length) return F.ui.toast(WHY.seeder);
+      if (!this.mkWork(k, tiles).length) return F.ui.toast(WHY.seeder);
       s.sel = slot;
-      this.mcUsing = k;
-      try { this.plantArea(t, tiles); } finally { this.mcUsing = null; s.sel = sel; this.hintKey = null; F.bus.emit('hud'); } // (the hotbar: back on the Seeder)
+      this.mkUsing = k;
+      try { this.plantArea(t, tiles); } finally { this.mkUsing = null; s.sel = sel; this.hintKey = null; F.bus.emit('hud'); } // (the hotbar: back on the Seeder)
       return;
     }
-    if (!this.mcWork(k, tiles).length) return F.ui.toast(WHY.harvester);
+    if (!this.mkWork(k, tiles).length) return F.ui.toast(WHY.harvester);
     var out = {}, harvest = L.harvest, reach = L.chargeTiles;
-    L.harvest = function (st, i) { return L.mcPick(st, i, harvest, out); };
+    L.harvest = function (st, i) { return L.mkPick(st, i, harvest, out); };
     L.chargeTiles = function () { return tiles; };
-    this.mcUsing = k;
-    try { this.harvest(t, this.idx(t.x, t.y)); } finally { L.harvest = harvest; L.chargeTiles = reach; this.mcUsing = null; }
+    this.mkUsing = k;
+    try { this.harvest(t, this.idx(t.x, t.y)); } finally { L.harvest = harvest; L.chargeTiles = reach; this.mkUsing = null; }
     if (!out.silo && !out.bag && !out.basket) return;
-    this.mcKick(tiles);
+    this.mkKick(tiles);
     var f = this.feet();
     if (out.silo) this.time.delayedCall(420, function () { self.floatTextAt(f.x, f.y - 2.2 * T, '+' + out.silo + ' to the Silo'); });
     if (out.basket) F.ui.toast('Your Silo and bag are full: ' + out.basket + ' went to the basket by the farmhouse.', 3200);
   };
   // the Tractor's pass: the clearing and the tilling at once
-  P.mcTractor = function (t, tiles) {
-    var self = this, s = this.state, plan = this.mcWork('tractor', tiles), r = L.mcTill(s, plan);
+  P.mkTractor = function (t, tiles) {
+    var self = this, s = this.state, plan = this.mkWork('tractor', tiles), r = L.mkTill(s, plan);
     if (r === 'tired') return this.tired();
     if (r === 'none' || !r) return F.ui.toast(WHY.tractor);
     var w = this.map.width, at = function (i) { return { x: i % w, y: Math.floor(i / w) }; }, deco = {};
     plan.forEach(function (p) { if (p.deco) deco[p.idx] = 1; });
-    this.mcKick(tiles);
+    this.mkKick(tiles);
     r.cleared.forEach(function (i) {
       var tile = at(i);
       self.popOut(deco[i] ? 'Walls' : 'Debris', tile);
@@ -226,11 +226,11 @@
   };
   // (the seed bag's own pour is the Seeder's jolt instead)
   var animateUse = P.animateUse;
-  P.animateUse = function () { if (this.mcUsing) return this.mcKick(); return animateUse.apply(this, arguments); };
+  P.animateUse = function () { if (this.mkUsing) return this.mkKick(); return animateUse.apply(this, arguments); };
   // the machine jolts forward and back, dust over the tiles it worked
-  P.mcKick = function (tiles) {
+  P.mkKick = function (tiles) {
     var self = this;
-    this.mcT = 360;
+    this.mkT = 360;
     this.acting = Math.max(this.acting || 0, 320);
     (tiles || []).forEach(function (p, i) { if (i % 2 === 0 && self.inMap(p[0], p[1])) self.puff({ x: p[0], y: p[1] }, 0x8a6a42, 1); });
   };
@@ -238,23 +238,23 @@
   // ---------- held: in front of the farmer ----------
   var SPOT = { right: [0.95, 0.18], left: [-0.95, 0.18], down: [0, 0.98], up: [0, -0.3] };
   var create = P.create;
-  P.create = function () { this.mcSpr = null; this.mcT = 0; return create.apply(this, arguments); };
+  P.create = function () { this.mkSpr = null; this.mkT = 0; return create.apply(this, arguments); };
   var update = P.update;
   P.update = function (time, delta) {
     update.apply(this, arguments);
     var s = this.state, h = s && L.held(s), k = h && C.ITEMS[h.id] && C.ITEMS[h.id].machine;
-    if (h && !k && C.ITEMS[h.id] && C.ITEMS[h.id].kind === 'seed') F.session.mcSeed = h.id; // (the Seeder plants these)
+    if (h && !k && C.ITEMS[h.id] && C.ITEMS[h.id].kind === 'seed') F.session.mkSeed = h.id; // (the Seeder plants these)
     var on = !!k && this.mapKey === 'farm' && !this.busy && !F.session.riding && !!this.player && this.player.visible;
-    if (!on) { if (this.mcSpr && this.mcSpr.visible) this.mcSpr.setVisible(false); return; }
-    if (!this.mcSpr || this.mcSprK !== k) {
-      if (this.mcSpr) this.mcSpr.destroy();
-      this.mcSpr = this.add.image(0, 0, F.mcTex(this, k)).setOrigin(0.5, 1).setDisplaySize(1.5 * T, T);
-      this.mcSprK = k;
+    if (!on) { if (this.mkSpr && this.mkSpr.visible) this.mkSpr.setVisible(false); return; }
+    if (!this.mkSpr || this.mkSprK !== k) {
+      if (this.mkSpr) this.mkSpr.destroy();
+      this.mkSpr = this.add.image(0, 0, F.mkTex(this, k)).setOrigin(0.5, 1).setDisplaySize(1.5 * T, T);
+      this.mkSprK = k;
     }
     var f = this.feet(), o = SPOT[this.dir] || SPOT.down, d = this.dirVec(), jolt = 0, bob = 0;
-    if (this.mcT > 0) { this.mcT -= delta || 16; var u = Math.max(0, this.mcT) / 360; jolt = Math.sin(u * Math.PI) * 0.35 * T; bob = Math.abs(Math.sin(u * 14)) * 10; }
+    if (this.mkT > 0) { this.mkT -= delta || 16; var u = Math.max(0, this.mkT) / 360; jolt = Math.sin(u * Math.PI) * 0.35 * T; bob = Math.abs(Math.sin(u * 14)) * 10; }
     var x = f.x + o[0] * T + d[0] * jolt, y = f.y + o[1] * T + d[1] * jolt - bob;
-    this.mcSpr.setVisible(true).setPosition(x, y).setFlipX(this.dir === 'left').setDepth(DEPTH.actor + y / 1e5 + (this.dir === 'up' ? -0.001 : 0));
+    this.mkSpr.setVisible(true).setPosition(x, y).setFlipX(this.dir === 'left').setDepth(DEPTH.actor + y / 1e5 + (this.dir === 'up' ? -0.001 : 0));
   };
 
   // ---------- Bram's Forge ----------
@@ -269,10 +269,10 @@
     needs: function (R) { return 'You need ' + L.needsText(R.needs) + '. The Mixer makes Farm Cement and Rope; ore comes from the mine.'; },
     full: function () { return 'Your bag is full. Make room for it first.'; },
   };
-  U.mcRows = function (s, at, per) {
+  U.mkRows = function (s, at, per) {
     var self = this;
     return K.map(function (k, i) {
-      var R = M[k], made = L.mcMade(s, k), lost = L.mcLost(s, k), page = Math.floor((at + i) / per);
+      var R = M[k], made = L.mkMade(s, k), lost = L.mkLost(s, k), page = Math.floor((at + i) / per);
       var done = function (words) {
         sfx('anvil');
         if (F.world) { F.world.changed(); F.world.save(); }
@@ -285,7 +285,7 @@
         desc: made ? (lost ? 'Bram kept it safe for you: take it back, free.' : 'Hold it in your bag and use it in your field.') : 'Also ' + R.lumber + ' lumber. ' + R.desc,
         reward: made ? null : { gold: R.gold, more: R.needs }, rewardPrefix: 'Cost', buttonsBelow: true,
         buttons: made && !lost ? [] : [{ label: made ? 'Take it' : 'Make', color: made ? GREEN : BLUE, cb: function () {
-          var r = made ? L.mcBack(s, k) : L.mcMake(s, k);
+          var r = made ? L.mkBack(s, k) : L.mkMake(s, k);
           if (r !== 'ok') { sfx('nope'); return self.toast((WHY_NOT[r] || function () { return 'Hmm.'; })(R), 3000); }
           done(made ? 'Here is your ' + R.name + ' again.' : 'Clang! Bram made you a ' + R.name + '. Hold it in your bag and face your field.');
         } }],
@@ -296,26 +296,26 @@
   U.openForge = function (page) {
     var self = this, s = F.session.state;
     if (!s || s.isVisit || F.session.visit) return openForge.call(this, page);
-    if (!quiet() && !L.mcTourSeen(s) && L.tipSeen(s, 'sprinkler_tour')) {
-      L.mcTourTake(s);
+    if (!quiet() && !L.mkTourSeen(s) && L.tipSeen(s, 'sprinkler_tour')) {
+      L.mkTourTake(s);
       F.Host.save(s);
       return this.tour('machines', function () { self.openForge(page); });
     }
     return withRows(this, function (o) {
       var at = o.rows.length;
-      return self.mcRows(s, at, at + K.length > 5 ? 4 : 5);
+      return self.mkRows(s, at, at + K.length > 5 ? 4 : 5);
     }, function () { return openForge.call(self, page); });
   };
 
   // ---------- the first-time tour ----------
   var machine = function (ui, sc, k, x, y, w) {
-    var img = ui.add.image(x, y, F.mcTex(ui, k)).setOrigin(0.5, 1).setDisplaySize(w, w * 2 / 3);
+    var img = ui.add.image(x, y, F.mkTex(ui, k)).setOrigin(0.5, 1).setDisplaySize(w, w * 2 / 3);
     sc.add(img);
     return img;
   };
   var tw = function (ui, move, cfg) { if (move) ui.tweens.add(cfg); };
   var soil = function (ui, sc, x, y, kind) { // a 26 px square: grass, tilled soil, or soil with a sprout / a ripe crop
-    return ui.canvasImg(sc, x - 13, y - 13, 'mc-tour-' + kind, 26, 26, function (g) {
+    return ui.canvasImg(sc, x - 13, y - 13, 'mk-tour-' + kind, 26, 26, function (g) {
       g.fillStyle = kind === 'grass' ? '#7cbc4a' : '#8a5a32'; g.fillRect(1, 1, 24, 24);
       g.fillStyle = 'rgba(40,20,8,0.25)'; if (kind !== 'grass') for (var k = 5; k < 24; k += 7) g.fillRect(3, k, 20, 2);
       if (kind === 'sprout') { g.fillStyle = '#5fa84a'; g.fillRect(12, 8, 3, 10); g.fillRect(8, 8, 5, 3); }
