@@ -9,7 +9,7 @@ const path = require('path');
 
 // key -> the files allowed to write it, and why
 const SHARED = {
-  gm: ['01-logicZZZZZZZZZZZZZZZZZZZZZZZ-grand-market.js', '01-logicZZZZZZZZZZZZZZZZZZZZZZZZZ-manila-friends.js'], // Manila Friends appends Aling Rosa's 4th contract to the Grand Market's list
+  gm: ['01-logicZZZZZZZZZZZZZZZZZZZZZZZ-grand-market.js', '01-logicZZZZZZZZZZZZZZZZZZZZZZZZZ-manila-friends.js', '01-logicZZZZZZZZZZZZZZZZZZZZZZZZZZZ-trucks.js'], // Manila Friends (Aling Rosa's 4th contract) and the trucks (vehicles, City Order deliveries) append to the Grand Market's list
   hg: ['01-logicL.js', '01-logicZZZZ-places.js'], // the same gear data, written again with the places' pieces
   hs: ['01-logic2.js', '01-logicZZZZZZZZZZZZZZ-horse.js'], // the horse's own list, extended (gear, stamina, its regen time)
   m: ['01-logicZZZ-park.js', '01-logicZZZZ-places.js'], // the map: saved as the town from the park and the places
