@@ -90,8 +90,17 @@
       [0.07, 0.93].forEach(function (x) { g.fillStyle = '#4a2e18'; g.fillRect(w * x - w * 0.055, h * 0.46, w * 0.11, h * 0.52); g.fillStyle = '#a8794a'; g.fillRect(w * x - w * 0.025, h * 0.5, w * 0.05, h * 0.44); });
     },
   };
+  // the owner's picture (18 Nov 2026, the 'vehicles' pack: tools/art/vehicles-import.js) when it is on the phone
+  var artOf = function (loaded, view) { var k = 'veh_cart_' + view + '_' + (loaded ? 'full' : 'empty'); return F.images && F.images[k] ? k : null; };
+  // its height in tiles for a view: the picture's own shape at the view's width, else the stand-in's
+  F.gmCartH = function (view) {
+    var V = VIEW[view] || VIEW.side, a = F.images && F.images['veh_cart_' + (VIEW[view] ? view : 'side') + '_empty'];
+    return a ? V.w * (a.naturalHeight || a.height) / (a.naturalWidth || a.width) : V.h;
+  };
   F.gmCartTex = function (scene, loaded, view) {
     view = VIEW[view] ? view : 'side';
+    var own = artOf(loaded, view);
+    if (own) return F.ensureTexture(scene, own);
     var key = 'gm-cart-' + view + '-' + (loaded ? 1 : 0);
     if (scene.textures.exists(key)) return key;
     var PX = 64, V = VIEW[view], w = Math.round(V.w * PX), h = Math.round(V.h * PX), tex = scene.textures.createCanvas(key, w, h);
@@ -152,7 +161,7 @@
     if (c.view === view && c.flip === flip) return;
     c.view = view;
     c.flip = flip;
-    c.img.setTexture(F.gmCartTex(this, c.loaded, view)).setOrigin(0.5, V.foot).setDisplaySize(V.w * T, V.h * T).setFlipX(flip);
+    c.img.setTexture(F.gmCartTex(this, c.loaded, view)).setOrigin(0.5, V.foot).setDisplaySize(V.w * T, F.gmCartH(view) * T).setFlipX(flip);
   };
   P.gmCartPlace = function (x, y) {
     var c = this.gmCart, o = c.obj, hw = VIEW[c.view].w * T / 2;
@@ -395,7 +404,7 @@
   };
   F.gmKit = { icon: icon, words: words, tw: tw, fit: fit, person: person }; // (the trucks' tours draw with these too)
   var cart = function (ui, sc, cx, bottom, w, loaded, flip) {
-    var img = ui.add.image(cx, bottom, F.gmCartTex(ui, loaded)).setOrigin(0.5, 1).setDisplaySize(w, w * CH / CW).setFlipX(!!flip);
+    var img = ui.add.image(cx, bottom, F.gmCartTex(ui, loaded)).setOrigin(0.5, 1).setDisplaySize(w, w * F.gmCartH('side') / CW).setFlipX(!!flip);
     sc.add(img);
     return img;
   };

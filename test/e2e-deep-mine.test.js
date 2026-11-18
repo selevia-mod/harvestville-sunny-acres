@@ -126,7 +126,8 @@ test('floor 1,250 and 2,500: a tough rock cracks for free, then breaks for its e
   await floor(page, 2500);
   const here = await page.evaluate(() => (Farm.world.deep || []).map((a) => a.kind + ' ' + a.hp + ' ' + a.img.texture.key));
   assert.strictEqual(here.length, 3, 'three critters on floor 2,500: ' + here);
-  assert.ok(here.every((x) => /fx-critter-/.test(x)), 'without the Wild Lands\' pack: the drawn stand-ins ' + here);
+  // (18 Nov 2026: the owner's own critters, the 'vehicles' pack, are fetched on the deep floors as you go: by now in)
+  assert.ok(here.every((x) => x.split(' ')[2] === 'critter_' + x.split(' ')[0]), 'without the Wild Lands\' pack: the owner\'s own critters ' + here);
   const r2 = await atRock(page);
   await tapAction(page);
   await page.waitForTimeout(300);
@@ -143,9 +144,9 @@ test('floor 1,250 and 2,500: a tough rock cracks for free, then breaks for its e
 test('a grumpy critter: Bonk is free, a charge that reaches you takes its energy, bonked down it scampers off with an ore', async () => {
   const { page, problems, context } = await open('', { packs: true });
   await floor(page, 2251);
-  await page.waitForFunction(() => Farm.packReady('wild'), null, SLOW); // (opened from the phone on the first deep floor)
+  await page.waitForFunction(() => Farm.packReady('wild') && ['mole', 'bat', 'piglet'].every((k) => Farm.images['critter_' + k]), null, SLOW); // (opened from the phone on the first deep floor)
   await floor(page, 2252);
-  assert.ok(await page.evaluate(() => Farm.world.deep.every((a) => a.art && a.img.texture.key === 'wild')), 'the Wild Lands\' pictures, in their own colours');
+  assert.ok(await page.evaluate(() => Farm.world.deep.every((a) => !a.art && a.img.texture.key === 'critter_' + a.kind)), 'the owner\'s own critters, before the Wild Lands\' rows');
   const c = await page.evaluate(() => {
     const w = Farm.world, s = w.state, T = 256, L = Farm.Logic;
     s.sel = s.inv.findIndex((x) => x && x.id === 'hammer');

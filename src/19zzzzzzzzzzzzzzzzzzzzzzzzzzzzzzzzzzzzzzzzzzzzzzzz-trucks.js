@@ -100,9 +100,20 @@
       box(g, w * 0.38, h * 0.67, w * 0.24, h * 0.08, 2, '#f4efe6'); // the plate
     },
   };
-  var size = function (i, view) { var R = V[i]; return view === 'side' ? [R.w, R.h] : [R.fw, R.fh]; };
+  // the owner's pictures (18 Nov 2026, the 'vehicles' pack: tools/art/vehicles-import.js) when they are on the phone: the
+  // view's width as the stand-in's, its height the picture's own shape
+  var ART = [null, 'pickup', 'farmtruck', 'bigtruck'];
+  var artOf = function (i, view, loaded) { var k = ART[i] && 'veh_' + ART[i] + '_' + view + '_' + (loaded ? 'full' : 'empty'); return k && F.images && F.images[k] ? k : null; };
+  var size = function (i, view) {
+    var R = V[i], wd = view === 'side' ? R.w : R.fw, a = F.images && F.images[artOf(i, DRAW[view] ? view : 'side', false)];
+    return [wd, a ? wd * (a.naturalHeight || a.height) / (a.naturalWidth || a.width) : view === 'side' ? R.h : R.fh];
+  };
+  F.trkSize = size;
+  F.trkArt = function (i) { return ART[i] || null; };
   F.trkTex = function (scene, i, view, loaded) {
     view = DRAW[view] ? view : 'side';
+    var own = artOf(i, view, loaded);
+    if (own) return F.ensureTexture(scene, own);
     var key = 'trk-' + i + '-' + view + '-' + (loaded ? 1 : 0);
     if (scene.textures.exists(key)) return key;
     var sz = size(i, view), w = Math.round(sz[0] * PX), h = Math.round(sz[1] * PX), tex = scene.textures.createCanvas(key, w, h);

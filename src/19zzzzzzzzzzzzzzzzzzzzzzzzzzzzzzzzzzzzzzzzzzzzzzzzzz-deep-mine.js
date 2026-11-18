@@ -58,7 +58,11 @@
   // from the phone, for the next floor); until then a small drawn stand-in, one picture each, grumpy brows and all.
   var frameOf = function (def, k) { return WI.order.indexOf(def.row) * 12 + k; };
   var art = function () { return !!(F.images && F.images.wild); };
+  // the owner's own picture of each (18 Nov 2026, the 'vehicles' pack: tools/art/vehicles-import.js; 160 x 150 as the
+  // stand-in, facing left) is used first once it is on the phone
+  var own = function (kind) { return !!(F.images && F.images['critter_' + kind]); };
   var standIn = function (scene, kind) {
+    if (own(kind)) return F.ensureTexture(scene, 'critter_' + kind);
     var key = 'fx-critter-' + kind;
     if (scene.textures.exists(key)) return key;
     var Wd = 160, Hd = 150, c = scene.textures.createCanvas(key, Wd, Hd), g = c.getContext(), col = '#' + ('00000' + D.critters[kind].tint.toString(16)).slice(-6);
@@ -79,6 +83,7 @@
     var floor = F.session.mineFloor, n = L.critterCount(floor), kinds = L.critterKinds(floor), rect = this.zones.minefloor[0];
     if (!n || F.session.visit) return;
     if (!art() && F.packOnPhone && F.packOnPhone('wild') && !F.packReady('wild')) F.loadPack('wild');
+    if (F.needImage && F.canFetch && F.canFetch()) D.critterOrder.forEach(function (k) { if (!own(k) && F.packedFile && F.packedFile('critter_' + k)) F.needImage('critter_' + k); }); // (for the next floor)
     var f = this.feet(), free = [];
     for (var y = rect.y0; y <= rect.y1; y++) for (var x = rect.x0; x <= rect.x1; x++) {
       if (this.walkable(x, y) && Math.hypot((x + 0.5) * T - f.x, (y + 0.5) * T - f.y) > 4 * T) free.push([x, y]);
@@ -87,10 +92,10 @@
     this.deep = [];
     for (var i = 0; i < n && free.length; i++) {
       var kind = kinds[Math.floor(Math.random() * kinds.length)], def = D.critters[kind], at = free.splice(Math.floor(Math.random() * free.length), 1)[0];
-      var scale = drawn ? def.w * T / WI.animals[def.row].px : def.w * T / 160, px = (at[0] + 0.5) * T, py = (at[1] + 0.7) * T;
+      var wild = drawn && !own(kind), scale = wild ? def.w * T / WI.animals[def.row].px : def.w * T / 160, px = (at[0] + 0.5) * T, py = (at[1] + 0.7) * T;
       var a = { kind: kind, def: def, x: px, y: py, hp: L.critterHp(kind, floor), max: L.critterHp(kind, floor), mode: 'idle', t: rand(800, 2500), vx: 0, vy: 0,
-        cool: 2500, dir: 'side', left: true, step: 0, hitT: 0, scale: scale, art: drawn,
-        img: drawn ? this.add.image(px, py, key, frameOf(def, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setTint(def.tint)
+        cool: 2500, dir: 'side', left: true, step: 0, hitT: 0, scale: scale, art: wild,
+        img: wild ? this.add.image(px, py, key, frameOf(def, FACING.side)).setOrigin(0.5, FEET / FRAME_H).setScale(scale).setTint(def.tint)
           : this.add.image(px, py, standIn(this, kind)).setOrigin(0.5, 0.95).setScale(scale),
         sh: this.add.ellipse(px, py, def.w * T * 0.8, def.w * T * 0.28, 0x000000, 0.32).setDepth(DEPTH.shadow) };
       this.deep.push(a);
@@ -251,7 +256,7 @@
           var key = art() ? F.ensureTexture(ui, 'wild') : null;
           D.critterOrder.forEach(function (k, i) {
             var def = D.critters[k], x = 64 + i * 72;
-            var im = key ? ui.add.image(x, 104, key, frameOf(def, 9)).setOrigin(0.5, 1).setScale(0.32).setTint(def.tint) : ui.add.image(x, 104, standIn(ui, k)).setOrigin(0.5, 1).setScale(0.42);
+            var im = key && !own(k) ? ui.add.image(x, 104, key, frameOf(def, 9)).setOrigin(0.5, 1).setScale(0.32).setTint(def.tint) : ui.add.image(x, 104, standIn(ui, k)).setOrigin(0.5, 1).setScale(0.42);
             sc.add(im);
             tw(ui, move, { targets: im, y: im.y - 8, duration: 320, delay: i * 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
           });
