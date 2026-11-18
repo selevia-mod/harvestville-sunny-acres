@@ -72131,6 +72131,9 @@ self.solids.add(z);
 });
 if (have('sea/sea_crate')) this.add.image((S.crate[0] + 0.5) * T, (S.crate[1] + 1) * T, F.ensureTexture(this, 'sea/sea_crate') || 'sea/sea_crate').setOrigin(0.5, 1).setDisplaySize(1.1 * T, 1.1 * T).setDepth(DEPTH.actor + (S.crate[1] + 1) * T / 1e5);
 this.tweens.add({ targets: water, tilePositionX: 512, duration: 24000, repeat: -1 });
+
+var rod = s.inv.findIndex(function (x) { return x && x.id === 'rod'; });
+if (rod >= 0 && s.sel !== rod) { s.sel = rod; if (F.ui && F.ui.refresh) F.ui.refresh(); }
 st.timer = this.time.addEvent({ delay: 500, loop: true, callback: function () { self.seaTick(); } });
 this.seaTick();
 if (O && O.tellHunt) this.time.delayedCall(450, O.tellHunt);
