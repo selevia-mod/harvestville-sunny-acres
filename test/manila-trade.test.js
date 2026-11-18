@@ -23,7 +23,7 @@ const count = (s, id) => L.countItem(s, id);
 
 test('Mang Danny sells every Mixer good at 2x what he pays, and pays the sell price (Farm Cement 120, Rope 170, Sili Powder 65, Beeswax 260)', () => {
   assert.deepStrictEqual(plain(L.txItems('danny')), ['farm_cement', 'rope', 'sili_powder', 'beeswax']);
-  assert.deepStrictEqual(plain(L.txItems('danny')), plain(C.WORKSHOPS.mixer.recipes.map((r) => r.out)), 'every Mixer output');
+  assert.deepStrictEqual(plain(L.txItems('danny')), plain(C.WORKSHOPS.mixer.recipes.map((r) => r.out).filter((id) => id !== 'fert_sea')), 'every Mixer output (but Sea Fertilizer, 18 Nov 2026: not his)');
   const pays = { farm_cement: 120, rope: 170, sili_powder: 65, beeswax: 260 };
   Object.keys(pays).forEach((id) => {
     assert.strictEqual(L.txPays(id), pays[id], id + ' pays');

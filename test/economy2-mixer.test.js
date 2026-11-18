@@ -22,7 +22,7 @@ const withMixer = () => { const s = L.newState(); s.gold = 1e6; s.yard.items.pus
 test("the Mixer: the owner's table (Farm Cement, Rope, Sili Powder, Beeswax), 3 at a time, its own building, one per farm", () => {
   const w = C.WORKSHOPS.mixer;
   assert.strictEqual(w.slots, 3);
-  assert.deepStrictEqual(plain(w.recipes), [
+  assert.deepStrictEqual(plain(w.recipes.slice(0, 4)), [ // (appended after them, 18 Nov 2026: Sea Fertilizer, test/sea-trips.test.js)
     { out: 'farm_cement', mins: 60, needs: [['corn', 3], ['wheat', 3], ['carrot', 3]] },
     { out: 'rope', mins: 45, needs: [['cotton', 3], ['sugarcane', 2]] },
     { out: 'sili_powder', mins: 45, needs: [['chili', 3], ['garlic', 2]] },
