@@ -162,19 +162,18 @@
       if (this.mapKey !== 'farm' && L.trkUse(s)) this.time.delayedCall(600, function () { if (F.ui) F.ui.toast('Your ' + L.gmVehName(s) + ' drove itself home to the farm. Its load is safe.', 2800); });
     }
     setupExtras.apply(this, arguments);
-    this.trkCullMs = 0;
     var c = this.gmCart;
     if (S.trkArrive && mineHere) {
       S.trkArrive = false;
       if (c && c.truck) { this.setFeet(c.x, c.y + (this.mapKey === 'manila' ? 1.2 : 0.9) * T); this.dir = 'up'; this.idle(); }
     }
   };
-  // (drawn only while on the screen: looked at every 0.3 s)
-  var updateExtras = P.updateExtras;
-  P.updateExtras = function (dt) {
-    var r = updateExtras.apply(this, arguments), c = this.gmCart;
-    if (c && c.truck && (this.trkCullMs -= dt) <= 0) {
-      this.trkCullMs = 300;
+  // (drawn only while on the screen: looked at with the camera, every frame, a few sums. Not in updateExtras: that one
+  // stops while a panel is open, and the camera still moves then)
+  var updateCamera = P.updateCamera;
+  P.updateCamera = function () {
+    var r = updateCamera.apply(this, arguments), c = this.gmCart;
+    if (c && c.truck) {
       var v = this.cameras.main.worldView, m = 2 * T, on = c.x + c.sz[0] * T > v.x - m && c.x - c.sz[0] * T < v.right + m && c.y > v.y - m && c.y - c.sz[1] * T < v.bottom + m;
       if (on !== c.img.visible) c.img.setVisible(on);
     }
@@ -492,8 +491,8 @@
   if (furnTexture) F.furnTexture = function (scene, v) {
     var key = furnTexture.apply(this, arguments), t = C.HOME.typeIndex.trophy_city_order, tex = scene.textures.exists(key) && scene.textures.get(key);
     if (tex && !tex.coPlaque && window.Phaser && Phaser.Textures.TextureSource) {
-      tex.coPlaque = true;
       var cv = document.createElement('canvas');
+      tex.coPlaque = cv; // (its own picture: the tests look for it)
       cv.width = cv.height = 128;
       plaque(cv.getContext('2d'));
       tex.remove(t);

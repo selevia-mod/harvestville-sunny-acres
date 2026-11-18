@@ -27,7 +27,9 @@
   G.tours.push('trucks', 'city'); // (bits 2 and 3 of the tours seen: append only)
   // the City Order plaque (a house trophy, appended last: a piece's number is its place)
   var H = C.HOME;
-  H.wagonN = H.types.length; // (Marco's wagon picks from the pieces it always did)
+  // (Marco's wagon picks from the pieces it always did: those before the Manila Cup's cups and this plaque)
+  for (var n = 0; n < H.types.length && !H.types[n].mc; n++);
+  H.wagonN = n;
   H.types.push({ key: 'trophy_city_order', name: 'City Order Plaque', w: 1, h: 1, foot: 0, place: 'wall', price: 0, beauty: 30, trophy: true,
     what: 'a round brass plaque on dark wood: a truck under a city skyline, "City Order"' });
   H.typeIndex.trophy_city_order = H.types.length - 1;
