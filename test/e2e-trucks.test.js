@@ -125,7 +125,7 @@ const scrollTo = (page, text) => page.evaluate((t) => { const m = Farm.ui.modals
 // stand below the vehicle on the farm, facing it
 async function toTruck(page) {
   await page.evaluate(() => { const w = Farm.world, c = w.gmCart.obj; w.setFeet(((c.x0 + c.x1) / 2 + 0.5) * 256, (c.y1 + 1.5) * 256); w.dir = 'up'; w.idle(); });
-  await page.waitForTimeout(450); // (a parked truck is looked at every 0.3 s: drawn once it is on the screen)
+  await page.waitForTimeout(450); // (the camera eases over)
   await frames(page, 3);
 }
 // the server in the page (the SQL applied, or not there): Farm.Net answers like the real farm_city_*_v1 would
@@ -384,8 +384,13 @@ test('the City Order with the SQL applied: the barangay\'s order, Deliver at the
   const plaque = await page.evaluate(() => Farm.Config.HOME.typeIndex.trophy_city_order);
   assert.strictEqual(s.home.bag[plaque + '.0'], 1, 'the plaque in storage');
   // the plaque, drawn in the house's furniture sheet (its own frame)
-  const px = await page.evaluate((t) => { const key = Farm.furnTexture(Farm.ui, 0), f = Farm.ui.textures.getFrame(key, t); return { w: f.width, h: f.height, src: f.sourceIndex }; }, plaque);
-  assert.deepStrictEqual(px, { w: 128, h: 128, src: 1 });
+  // (its own picture, the canvas drawn for it, not another piece's: every furniture piece has a frame of its own)
+  const px = await page.evaluate((t) => {
+    const H = Farm.Config.HOME, tex = Farm.ui.textures.get(Farm.furnTexture(Farm.ui, 0)), f = tex.get(t);
+    const at = H.types.map((x, i) => { const g = tex.get(i); return g.sourceIndex + ':' + g.cutX + ':' + g.cutY; });
+    return { w: f.width, h: f.height, own: !!tex.coPlaque && f.source.image === tex.coPlaque, extra: f.sourceIndex > 0, shared: at.length - new Set(at).size };
+  }, plaque);
+  assert.deepStrictEqual(px, { w: 128, h: 128, own: true, extra: true, shared: 0 });
   await page.evaluate((t) => { Farm.ui.closeAll(); const c = Farm.ui.openModal(); Farm.ui.panelImg(c, 60, 200, 240, 200); c.add(Farm.ui.add.image(180, 300, Farm.furnTexture(Farm.ui, 0), t).setScale(1)); }, plaque);
   await frames(page, 3);
   await shot(page, '17-city-order-plaque');
@@ -443,16 +448,16 @@ test('the frame: a parked truck costs almost nothing and is not drawn off the sc
   await waitMap(page, 'farm');
   await toTruck(page);
   const m = await page.evaluate(async () => {
-    const w = Farm.world, P = Object.getPrototypeOf(w), up = P.updateExtras, times = [];
-    // this file's work a frame: the whole updateExtras chain timed with and without the truck
-    const time = async (n) => { const t = []; for (let i = 0; i < n; i++) { await new Promise((r) => requestAnimationFrame(r)); const t0 = performance.now(); for (let k = 0; k < 200; k++) { w.trkCullMs = 0; up.call(w, 16, 0); } t.push((performance.now() - t0) / 200); } t.sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
+    const w = Farm.world, P = Object.getPrototypeOf(w), up = P.updateCamera;
+    // this file's work a frame (the truck's on-screen check rides on the camera's update): timed with and without the truck
+    const time = async (n) => { const t = []; for (let i = 0; i < n; i++) { await new Promise((r) => requestAnimationFrame(r)); const t0 = performance.now(); for (let k = 0; k < 200; k++) up.call(w, 0.15); t.push((performance.now() - t0) / 200); } t.sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
     const withTruck = await time(20);
     const c = w.gmCart; w.gmCart = null;
     const without = await time(20);
     w.gmCart = c;
     return { withTruck: Math.round(withTruck * 1e4) / 1e4, without: Math.round(without * 1e4) / 1e4 };
   });
-  console.log('truck frame cost (ms per updateExtras, its check forced every frame):', JSON.stringify(m));
+  console.log('truck frame cost (ms per camera update, with its on-screen check):', JSON.stringify(m));
   assert.ok(m.withTruck - m.without < 0.05, 'the truck adds under 0.05 ms a frame: ' + JSON.stringify(m));
   await page.evaluate(() => Farm.world.setFeet(2 * 256, 2 * 256)); // (the farm's far corner)
   await page.waitForTimeout(800);
@@ -460,6 +465,11 @@ test('the frame: a parked truck costs almost nothing and is not drawn off the sc
   await toTruck(page);
   await page.waitForTimeout(800);
   assert.strictEqual(await page.evaluate(() => Farm.world.gmCart.img.visible), true);
+  // a panel open (the world's own update stops, the camera still moves): still only drawn on the screen
+  await page.evaluate(() => { Farm.ui.dialog('A PANEL\nOpen.'); Farm.world.setFeet(2 * 256, 2 * 256); });
+  await page.waitForTimeout(800);
+  assert.deepStrictEqual(await page.evaluate(() => [Farm.ui.modals.length > 0, Farm.world.gmCart.img.visible]), [true, false], 'off the screen behind a panel: not drawn');
+  await page.evaluate(() => Farm.ui.closeAll());
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

@@ -310,7 +310,7 @@ test('the order filled: +3 Market Stars for each who delivered, the plaque only 
   // a broken answer pays nothing
   assert.deepStrictEqual(plain(L.coClaimRead([null, { week: 'x', stars: 3 }, { week: '2026-11-23', stars: 50 }])), [{ day: wk + 7, stars: 10, plaque: false }]);
   // Marco's wagon picks from the pieces it always did
-  assert.strictEqual(H.wagonN, H.types.length - 1);
+  assert.strictEqual(H.wagonN, 42, 'the 42 pieces before the Manila Cup and the plaque');
 });
 
 test('reading the server: an order, no barangay, the week closed, or nonsense', () => {
