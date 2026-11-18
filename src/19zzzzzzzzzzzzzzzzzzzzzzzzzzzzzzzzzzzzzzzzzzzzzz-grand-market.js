@@ -35,6 +35,7 @@
   var horseName = function (s) { return s.horse ? s.horse.name : 'your horse'; };
   var hours = function (mins) { return mins >= 120 ? Math.floor(mins / 60) + ' hours' : mins >= 60 ? '1 hour ' + (mins - 60) + ' min' : mins + ' min'; };
   var CART_MAPS = { farm: 1, town: 1, park: 1, manila: 1 }; // (where the cart goes with the horse)
+  var vehWord = function (s) { return L.trkUse && L.trkUse(s) ? L.gmVehName(s) : 'cart'; }; // (a truck: its name)
 
   // ---------- the cart's pictures: drawn once each on a canvas (stand-ins until its picture comes) ----------
   // Three views: 'side' (shafts to the left; mirrored for the right), 'front' (seen from where the horse is: the horse
@@ -273,11 +274,11 @@
     var rows = [], c = r.k >= 0;
     var crops = {};
     r.lots.forEach(function (l) { var id = L.gmSplit(l.key).id; crops[id] = (crops[id] || 0) + l.n; });
-    Object.keys(crops).forEach(function (id) { rows.push([iconOf(id), (c ? 'Delivered ' : 'Sold ') + crops[id] + ' ' + name(id) + (c ? ' for the contract.' : ' at the Grand Market.')]); });
+    Object.keys(crops).forEach(function (id) { rows.push([iconOf(id), (c || r.co ? 'Delivered ' : 'Sold ') + crops[id] + ' ' + name(id) + (r.co ? ' for the City Order.' : c ? ' for the contract.' : ' at the Grand Market.')]); });
     rows.push([C.ICON.coin, 'Aling Rosa paid ' + fmt(r.gold) + 'G. Mang Kardo kept his ' + Math.round((r.rate != null ? r.rate : G.driver.fee) * 100) + '%: ' + fmt(r.fee) + 'G.']);
     rows.push([C.ICON.coin, 'You got ' + fmt(r.net) + 'G!']);
     if (r.star) rows.push([C.ICON.star, 'Contract done: +1 Market Star!']);
-    rows.push([C.ICON.crate, 'Your cart is back by the Stable.']);
+    rows.push([C.ICON.crate, 'Your ' + vehWord(F.session.state) + ' is back by the Stable.']);
     this.dialog('MANG KARDO IS BACK!\n' + rows.map(function (x) { return x[1]; }).join('\n'), null, { rows: rows });
   };
 
@@ -323,7 +324,7 @@
     try { return fn(); } finally { if (ui.hasOwnProperty('listPanel')) delete ui.listPanel; }
   };
   U.gmCartRow = function (s, page) {
-    var self = this, R = G.cart, have = L.gmHasCart(s);
+    var self = this, R = G.cart, have = L.gmCartMade(s);
     return {
       icon: C.ICON.crate, name: have ? 'Horse Cart (made)' : 'Horse Cart',
       desc: have ? 'By your Stable. It carries ' + R.cap + ' crops.' : 'Also ' + R.lumber + ' lumber. It carries ' + R.cap + ' crops.',
@@ -348,8 +349,8 @@
     var self = this, s = F.session.state;
     if (!s || s.isVisit || F.session.visit) return openForge.call(this, page);
     return withRows(this, function (o) {
-      var at = o.rows.length, per = at + 1 > 5 ? 4 : 5;
-      return [self.gmCartRow(s, Math.floor(at / per))];
+      var at = o.rows.length, more = self.trkForgeRows ? 3 : 0, per = at + 1 + more > 5 ? 4 : 5; // (the trucks' rows after the cart's)
+      return [self.gmCartRow(s, Math.floor(at / per))].concat(more ? self.trkForgeRows(s, at + 1, per) : []);
     }, function () { return openForge.call(self, page); });
   };
 
@@ -392,6 +393,7 @@
     if (img && !own) img.setTint(def.look[1]);
     return img;
   };
+  F.gmKit = { icon: icon, words: words, tw: tw, fit: fit, person: person }; // (the trucks' tours draw with these too)
   var cart = function (ui, sc, cx, bottom, w, loaded, flip) {
     var img = ui.add.image(cx, bottom, F.gmCartTex(ui, loaded)).setOrigin(0.5, 1).setDisplaySize(w, w * CH / CW).setFlipX(!!flip);
     sc.add(img);
@@ -514,10 +516,10 @@
       });
     }
     this.listPanel({ title: "Aling Rosa's Grand Market", rows: rows, tab: tab, page: page || 0,
-      tabs: [['prices', 'Prices'], ['contracts', 'Contracts']], reopen: function (t, p) { self.gmOpenMarket(t, p); },
+      tabs: [['prices', 'Prices'], ['contracts', 'Contracts']].concat(this.coTab ? [this.coTab] : []), reopen: function (t, p) { self.gmOpenMarket(t, p); },
       sub: function () {
         var stars = L.gmStars(s) ? '   ·   Market Stars: ' + L.gmStars(s) : '';
-        return (here ? 'Your cart is here: ' + L.gmLoad(s) + ' crops.' : 'New prices every day. She buys ' + G.minLoad + '+ of a crop, from a Horse Cart.') + stars;
+        return (here ? 'Your ' + vehWord(s) + ' is here: ' + L.gmLoad(s) + ' crops.' : 'New prices every day. She buys ' + G.minLoad + '+ of a crop, from a Horse Cart.') + stars;
       } });
   };
 
@@ -525,7 +527,7 @@
   var WHY = { cart: 'You have no cart.', full: 'The cart is full: ' + G.cart.cap + ' crops.' };
   // Mang Kardo's fee for this farm (a friend's price: 01-logicZ...Z-manila-friends.js)
   var feeRate = function (s) { return L.gmFeeRate ? L.gmFeeRate(s) : G.driver.fee; };
-  var awayText = function (s) { return 'Mang Kardo has the cart on the road: back in ' + L.gmLeft(s, L.nowMin()) + ' min.'; };
+  var awayText = function (s) { return 'Mang Kardo has the ' + vehWord(s) + ' on the road: back in ' + L.gmLeft(s, L.nowMin()) + ' min.'; };
   U.gmOpenCart = function (tab, page) {
     var self = this, s = mine(), w = F.world, S = F.session;
     if (!s || !w || !L.gmHasCart(s)) return;
@@ -534,12 +536,12 @@
     var farm = w.mapKey === 'farm', away = L.gmAway(s), rows = [];
     tab = farm ? tab || 'cargo' : 'cargo';
     var again = function (msg) { sfx('pick'); w.changed(); w.save(); w.gmCartLook(); self.closeModal(); self.gmOpenCart(tab, page); if (msg) self.toast(msg, 2200, DARK_GREEN); };
-    var why = function () { var y = L.gmWhyNot(s); sfx('nope'); self.toast(y === 'away' ? awayText(s) : WHY[y] || 'Not now.', 2400); };
+    var why = function () { var y = L.gmWhyNot(s); sfx('nope'); self.toast(y === 'away' ? awayText(s) : y === 'full' && vehWord(s) !== 'cart' ? 'The ' + vehWord(s) + ' is full: ' + fmt(L.gmCap(s)) + ' crops.' : WHY[y] || 'Not now.', 2400); };
     if (tab === 'cargo') {
       if (farm) {
         rows.push({ icon: C.ICON.horse, name: 'Send to the Grand Market', desc: away ? awayText(s) : 'He sells it in Manila. Gold in ' + G.driver.mins + ' min, less ' + Math.round(feeRate(s) * 100) + '%.',
           buttons: away ? [] : [{ label: 'Send', color: BLUE, cb: function () { self.closeModal(); self.gmOpenSend(); } }] });
-        rows.push({ icon: C.ICON.horseshoes != null ? C.ICON.horseshoes : C.ICON.horse, name: S.gmHitch ? 'Hitched to ' + horseName(s) : 'Drive it yourself',
+        if (!(self.trkRows && self.trkRows(s, rows, away, again))) rows.push({ icon: C.ICON.horseshoes != null ? C.ICON.horseshoes : C.ICON.horse, name: S.gmHitch ? 'Hitched to ' + horseName(s) : 'Drive it yourself',
           desc: S.gmHitch ? 'It follows ' + horseName(s) + '. Ride east out of town.' : 'Ride it to Manila: ' + M.horseHearts + ' hearts and Horseshoes.',
           buttons: away ? [] : [{ label: S.gmHitch ? 'Unhitch' : 'Hitch', color: S.gmHitch ? GREY : GREEN, cb: function () {
             if (!S.gmHitch && !w.horse) { sfx('nope'); return self.toast(horseName(s) + ' is not here.'); }
@@ -585,17 +587,17 @@
         }) });
       });
     }
-    this.listPanel({ title: 'Horse Cart', rows: rows, tab: tab, page: page || 0,
+    this.listPanel({ title: L.gmVehName(s), rows: rows, tab: tab, page: page || 0,
       tabs: farm ? [['cargo', 'Cargo'], ['silo', 'From Silo'], ['bag', 'From bag']] : null,
       reopen: function (t, p) { self.gmOpenCart(t, p); },
       empty: tab === 'silo' ? 'No crops in the Silo.' : tab === 'bag' ? 'No farm crops in your bag.' : '',
-      sub: function () { return 'Cargo ' + L.gmLoad(s) + ' / ' + G.cart.cap + ' crops' + (away ? '   ·   ' + awayText(s) : ''); } });
+      sub: function () { return 'Cargo ' + L.gmLoad(s) + ' / ' + L.gmCap(s) + ' crops' + (away ? '   ·   ' + awayText(s) : ''); } });
   };
   // Mang Kardo: sell at today's board, or fill a contract
   U.gmOpenSend = function () {
     var self = this, s = mine(), w = F.world;
     if (!s || !w) return;
-    var WHY_SEND = { empty: 'The cart is empty.', min: 'Load ' + G.minLoad + ' or more of a crop first.', none: 'Load its crop first.', done: 'Already finished.', away: 'He is on the road.' };
+    var WHY_SEND = { empty: 'The ' + vehWord(s) + ' is empty.', min: 'Load ' + G.minLoad + ' or more of a crop first.', none: 'Load its crop first.', done: 'Already finished.', away: 'He is on the road.', busy: 'A City Order delivery is waiting for its answer.' };
     var go = function (how) {
       var r = L.gmSend(s, how, L.nowMin());
       if (!r.ok) { sfx('nope'); return self.toast(WHY_SEND[r.why] || 'Not now.', 2400); }
@@ -616,6 +618,7 @@
       rows.push({ icon: iconOf(c.crop), name: 'Contract: ' + c.need + ' ' + name(c.crop), progress: [c.got, c.need], desc: why,
         buttons: q.why ? [] : [{ label: 'Send', color: BLUE, cb: function () { go(c.k); } }] });
     });
+    if (this.coSendRow) { var cr = this.coSendRow(s); if (cr) rows.push(cr); }
     this.listPanel({ title: 'Send Mang Kardo', rows: rows, reopen: function () { self.gmOpenSend(); },
       sub: function () { return 'He takes the load, sells it at the Grand Market, and brings the gold in ' + G.driver.mins + ' minutes.'; } });
   };
