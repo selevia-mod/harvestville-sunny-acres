@@ -231,7 +231,7 @@
   var placeIn = function (a, lead) { // a's place behind the one leading now
     var i = a.flk.slots.indexOf(a.slot) - lead.flk.slots.indexOf(lead.slot);
     var ang = lead.vx || lead.vy ? Math.atan2(lead.vy, lead.vx) : (lead.left ? Math.PI : 0);
-    return L.flockSpot(lead.x, lead.y, ang, Math.max(1, i), T, a.def.w, a.def.flock); // (a pair stands side by side: the Jungle's rules)
+    return L.flockSpot(lead.x, lead.y, ang, Math.max(1, i), T, a.def.w, a.def.flock, a.def); // (a pair stands side by side: the Jungle's rules; a row abreast: the Gorge's)
   };
   // set up: a flock together, round its leader
   var setupWild = P.setupWild;
