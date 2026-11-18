@@ -6,7 +6,8 @@
 //   - the gate down (lair_gate / dungeon_gate), which is not ground for a monster (19zt-lair.js wildFree).
 // A city (Manila: C.MANILA) has no file in maps/: the game builds its map from its layout at run time (L.manilaMap, from
 // the town's sheets), and so does this; and so are The Lost Tower's floors (L.towerMap, from the Lair's), the Open
-// Plains and its cave (L.plainsMap, L.plainsCaveMap), and the Bamboo Jungle and its cave (L.jungleMap, L.jungleCaveMap).
+// Plains and its cave (L.plainsMap, L.plainsCaveMap), the Bamboo Jungle and its cave (L.jungleMap, L.jungleCaveMap), and
+// the Rocky Gorge and its cave (L.gorgeMap, L.gorgeCaveMap).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -33,7 +34,10 @@ const cityMap = (R, key) => (R.C.MANILA && key === R.C.MANILA.key && R.L.manilaM
     : key === 'plains_cave' && R.L.plainsCaveMap ? R.L.plainsCaveMap(fileOf(R, 'palawan_cave'))
       // and the Bamboo Jungle and the Bamboo Hollows (L.jungleMap, L.jungleCaveMap)
       : key === 'jungle' && R.L.jungleMap ? R.L.jungleMap(fileOf(R, 'pulag'))
-        : key === 'jungle_cave' && R.L.jungleCaveMap ? R.L.jungleCaveMap(fileOf(R, 'palawan_cave')) : null);
+        : key === 'jungle_cave' && R.L.jungleCaveMap ? R.L.jungleCaveMap(fileOf(R, 'palawan_cave'))
+          // and the Rocky Gorge and the Echo Caves (L.gorgeMap, L.gorgeCaveMap)
+          : key === 'gorge' && R.L.gorgeMap ? R.L.gorgeMap(fileOf(R, 'pulag'))
+            : key === 'gorge_cave' && R.L.gorgeCaveMap ? R.L.gorgeCaveMap(fileOf(R, 'palawan_cave')) : null);
 
 function readMap(R, key, built) {
   const T = R.T, raw = built || cityMap(R, key) || fileOf(R, key);
