@@ -465,31 +465,17 @@
     this.tweens.add({ targets: img, alpha: 0, delay: ms, duration: 250, onComplete: function () { img.destroy(); } });
     return false;
   };
-  // The boomerang: out to its reach and back in a loop, spinning; it hits the first animal it touches (the Moon one: that
-  // one and the one beside it), then only flies home. Caught: done (the last throw: it breaks in your hands).
+  // The boomerang: out to its reach and back in a loop, spinning; it hits the first animal it touches on the way out and the
+  // first on the way back, the first one again (L.boomStep; the Moon one: that one and the one beside it, each way). Caught:
+  // done (the last throw: it breaks in your hands).
   P.wpnBoomerang = function (sh, dt) {
-    var trip = SHOT.boomerang.trip, R = sh.range, n = Math.max(1, Math.ceil(dt / 16)), tau = 0, x = sh.x, y = sh.y;
-    var home = sh.shown ? (sh.back && sh.back.active ? { x: sh.back.x, y: sh.back.y } : { x: sh.x0, y: sh.y0 }) : (this.player && this.player.active ? { x: this.player.x, y: this.player.y } : { x: sh.x0, y: sh.y0 });
-    for (var i = 0; i < n; i++) {
-      sh.t += dt / n;
-      tau = Math.min(1, sh.t / trip);
-      var along = R / 2 * (1 - Math.cos(2 * Math.PI * tau)), side = R * 0.14 * Math.sin(2 * Math.PI * tau);
-      var pull = tau < 0.5 ? 0 : (tau - 0.5) * 2; // (back to where the thrower is now)
-      pull = pull * pull * (3 - 2 * pull);
-      x = sh.x0 + sh.c * along - sh.s * side + (home.x - sh.x0) * pull;
-      y = sh.y0 + sh.s * along + sh.c * side + (home.y - sh.y0) * pull;
-      sh.went += Math.hypot(x - sh.x, y - sh.y);
-      sh.x = x;
-      sh.y = y;
-      if (sh.hit || tau >= 1) continue;
-      var hit = touching(this, sh, x, y, sh.through, 0.15 * T); // (a wide spinning thing: a little more room)
-      if (!hit) continue;
-      sh.hit = true;
-      var pair = sh.moon === 'pair' ? beside(this, hit, sh.through) : null;
-      this.wpnStrike(sh, hit);
-      if (pair) this.wpnStrike(sh, pair);
-      if (tau < 0.5) sh.t = trip - sh.t; // (it turns back from what it hit)
-    }
+    var self = this, home = sh.shown ? (sh.back && sh.back.active ? { x: sh.back.x, y: sh.back.y } : { x: sh.x0, y: sh.y0 }) : (this.player && this.player.active ? { x: this.player.x, y: this.player.y } : { x: sh.x0, y: sh.y0 });
+    var tau = L.boomStep(sh, dt, { trip: SHOT.boomerang.trip, home: home, T: T,
+      touch: function (x, y, only) { return touching(self, sh, x, y, only ? self.wild.animals.filter(function (b) { return b !== only; }) : [], 0.15 * T); }, // (a wide spinning thing: a little more room)
+      beside: function (a) { return beside(self, a, []); },
+      // (hit going out, it is dazed until the boomerang is back: it neither runs nor charges, so the way back finds it)
+      strike: function (a) { if (!sh.shown) a.dazed = sh.backHit ? 0 : self.time.now + SHOT.boomerang.trip - sh.t + 150; self.wpnStrike(sh, a); } });
+    var x = sh.x, y = sh.y;
     sh.img.setPosition(x, y - 0.15 * T).setRotation(sh.img.rotation + dt * 0.022);
     sh.shade.setPosition(x, y + 0.2 * T);
     if (tau < 1) return true;
@@ -498,6 +484,16 @@
     if (sh.broke) this.wpnBroke(x, y);
     else sfx('catch');
     return false;
+  };
+  var wildFlee = P.wildFlee, wildCharge = P.wildCharge, updateWild = P.updateWild;
+  var dazed = function (w, a) { return a.dazed > w.time.now; };
+  P.wildFlee = function (a) { if (dazed(this, a)) return; return wildFlee.apply(this, arguments); };
+  P.wildCharge = function (a) { if (dazed(this, a)) return; return wildCharge.apply(this, arguments); };
+  P.updateWild = function (a, dt, frozen) {
+    if (!dazed(this, a)) return updateWild.apply(this, arguments);
+    a.vx = a.vy = 0;
+    a.t = Math.max(a.t, 300);
+    return updateWild.call(this, a, dt, true);
   };
   P.wpnBroke = function (x, y) {
     sfx('woodbreak');

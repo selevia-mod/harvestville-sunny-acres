@@ -143,6 +143,48 @@
     return h && W[h.k] ? L.weaponHit(h.k, h.lv) + (s.skHit || 0) : bowDamage(s);
   };
 
+  // ---------- the boomerang's flight (owner, 18 Nov 2026: "double hit") ----------
+  // Out to its reach and back in a loop, spinning. On the way out it hits the first animal it touches; it flies on, and on
+  // the way back it hits the first one it touches, and that is the first one again: it swings back through where that one
+  // stands now (when it is still up and in reach). The Moon one hits the one beside it too, each way (up to 4 a throw).
+  // sh: the shot ({ x0, y0, c, s, range, t, x, y, went, moon }: world units, ms); o: { trip (ms), home { x, y }, T (a tile),
+  // touch(x, y, only) -> the animal there (only that one, when given) or null, beside(a) -> the one next to it or null, strike(a) }. Returns how far round.
+  var ease = function (u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
+  L.boomStep = function (sh, dt, o) {
+    var trip = o.trip, R = sh.range, home = o.home, n = Math.max(1, Math.ceil(dt / 16)), tau = 0, p;
+    var at = function (u) {
+      var along = R / 2 * (1 - Math.cos(2 * Math.PI * u)), side = R * 0.14 * Math.sin(2 * Math.PI * u), pull = ease(u < 0.5 ? 0 : (u - 0.5) * 2);
+      return { x: sh.x0 + sh.c * along - sh.s * side + (home.x - sh.x0) * pull, y: sh.y0 + sh.s * along + sh.c * side + (home.y - sh.y0) * pull };
+    };
+    for (var i = 0; i < n; i++) {
+      sh.t += dt / n;
+      tau = Math.min(1, sh.t / trip);
+      p = at(tau);
+      var f = sh.first, back = tau >= 0.5, only = null;
+      if (back && f && !sh.backHit && f.hp > 0) { // (back to the first one: through where it stands now)
+        var m = Math.max(0.55, 1 - sh.firstTau), aim = { x: f.x, y: f.y - 0.3 * f.def.w * o.T }, q = at(m);
+        if (Math.hypot(aim.x - home.x, aim.y - home.y) <= R + 1.5 * o.T) {
+          var k = tau <= m ? ease((tau - 0.5) / (m - 0.5)) : 1 - ease((tau - m) / Math.max(0.05, 1 - m));
+          only = f; // (on its way to the first one it hits only that one)
+          p.x += (aim.x - q.x) * k;
+          p.y += (aim.y - q.y) * k;
+        }
+      }
+      sh.went += Math.hypot(p.x - sh.x, p.y - sh.y);
+      sh.x = p.x;
+      sh.y = p.y;
+      if (tau >= 1 || (back ? sh.backHit : sh.outHit)) continue;
+      var hit = o.touch(p.x, p.y, only);
+      if (!hit) continue;
+      if (back) sh.backHit = true;
+      else { sh.outHit = true; sh.first = hit; sh.firstTau = tau; }
+      var pair = sh.moon === 'pair' ? o.beside(hit) : null;
+      o.strike(hit);
+      if (pair) o.strike(pair);
+    }
+    return tau;
+  };
+
   // ---------- friends see it ----------
   // A shot goes out as the Bow's 'ar' (the game server passes x, y, a, l, b on, nothing else): its range `l` is rounded
   // down to 8 world units and the weapon's number (1, 2, 3) put in the low bits. A bow's range is whole tiles (256
