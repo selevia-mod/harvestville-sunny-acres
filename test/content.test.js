@@ -337,8 +337,8 @@ test('every item has a picture in the items sheet (wheat, fruit and workshop goo
     // (the new weapons' icons are painted at load into frames past the sheet, until their pack is in: 19zzz...-weapons-art.js)
     // (and The Lost Tower's, 19zzz...-tower-shop.js)
     // (and the Tower's food, 19zzz...-tower-food.js)
-    // (and the Open Plains', 19zzz...-plains.js; and the Bamboo Jungle's, 19zzz...-jungle.js)
-    if (C.ITEMS[id].painted) return assert.ok(i >= C.WPN_ICON_BASE && (C.WPN_ICONS[i - C.WPN_ICON_BASE] || C.TOWER_ICONS[i - C.TOWER_ICON_BASE] || C.FOOD_ICONS[i - C.FOOD_ICON_BASE] === id || C.PLAINS_ICONS[i - C.PLAINS_ICON_BASE] === id || C.JUNGLE_ICONS[i - C.JUNGLE_ICON_BASE] === id), id + ' has a painted icon');
+    // (and the Open Plains', 19zzz...-plains.js; the Bamboo Jungle's, 19zzz...-jungle.js; the Rocky Gorge's, 19zzz...-gorge.js)
+    if (C.ITEMS[id].painted) return assert.ok(i >= C.WPN_ICON_BASE && (C.WPN_ICONS[i - C.WPN_ICON_BASE] || C.TOWER_ICONS[i - C.TOWER_ICON_BASE] || C.FOOD_ICONS[i - C.FOOD_ICON_BASE] === id || C.PLAINS_ICONS[i - C.PLAINS_ICON_BASE] === id || C.JUNGLE_ICONS[i - C.JUNGLE_ICON_BASE] === id || C.GORGE_ICONS[i - C.GORGE_ICON_BASE] === id), id + ' has a painted icon');
     // (farm economy v2's potions and materials: painted at load into their own frames, from the 'econ' pack or drawn,
     // until the page has room for them in the sheet: 19zzz...-economy2.js, tools/art/economy2-icons.js)
     if (C.ECON2_ICONS.includes(id) && !C.ECON2_ICONS_IN) return assert.ok(i === C.ICON_ORDER.indexOf(id) && fs.existsSync(path.join(__dirname, '..', 'art-src', 'icons', id + '.png')), id + ' has its source picture');

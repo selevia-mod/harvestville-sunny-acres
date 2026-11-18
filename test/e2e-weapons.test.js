@@ -218,7 +218,8 @@ test('the Rifle, the Javelin and the Boomerang hit an animal in Pulag with their
   for (let t = 0; t < 900; t += 100) { await pin(page); await page.waitForTimeout(100); }
   assert.deepStrictEqual(await hps(page), [56], 'a Gold Javelin hits 4');
   assert.strictEqual(await page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'javelins')), 4);
-  // the Boomerang (Silver: reach 3, hits 2): out and back to your hand
+  // the Boomerang (Silver: reach 3, hits 2): out and back to your hand, hitting it going out and again coming back (the
+  // owner's double hit, 18 Nov 2026)
   await standStill(page, 2);
   await hold(page, 'boomerang');
   await page.waitForTimeout(300);
@@ -227,7 +228,7 @@ test('the Rifle, the Javelin and the Boomerang hit an animal in Pulag with their
   await page.waitForTimeout(350);
   await shot(page, 'wpn-boomerang');
   for (let t = 0; t < 1300; t += 100) { await pin(page); await page.waitForTimeout(100); }
-  assert.deepStrictEqual(await hps(page), [58], 'a Silver Boomerang hits 2');
+  assert.deepStrictEqual(await hps(page), [56], 'a Silver Boomerang hits 2, twice');
   assert.strictEqual(await page.evaluate(() => Farm.world.wpnShots.length), 0, 'back in your hand');
   assert.strictEqual(await page.evaluate(() => Farm.ui.wpnChipText.text), '299/300');
   // a friend's shot (as their 'ar' comes: the weapon in its range): it flies here and hits nothing
@@ -240,7 +241,7 @@ test('the Rifle, the Javelin and the Boomerang hit an animal in Pulag with their
   });
   assert.deepStrictEqual([seen.k, seen.shown, seen.moon, seen.arrows], ['javelin', true, 'pair', 0]);
   for (let t = 0; t < 700; t += 100) { await pin(page); await page.waitForTimeout(100); }
-  assert.deepStrictEqual(await hps(page), [58], "a friend's shot is theirs to count");
+  assert.deepStrictEqual(await hps(page), [56], "a friend's shot is theirs to count (the Boomerang's two hits stay)");
   // your shot went out for the others with its weapon (P.tellArrow)
   const told = await page.evaluate(() => {
     const w = Farm.world, out = [];
