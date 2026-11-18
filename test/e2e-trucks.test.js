@@ -399,7 +399,8 @@ test('the City Order with the SQL applied: the barangay\'s order, Deliver at the
 });
 
 test('the first-time tours: Trucks (Mang Kardo, the market) and City Orders (Aling Rosa), centred', async () => {
-  const save = await makeSave("s.gm.tour = 3; s.map = 'town';");
+  // (the farm machines' tour is seen first at the Forge, one tour a visit: e2e-machines.test.js; here it is already seen)
+  const save = await makeSave("s.gm.tour = 3; s.map = 'town'; s.mk = 8;");
   const { page, problems, context } = await open(save, START, false);
   await page.waitForTimeout(1500);
   await page.evaluate(() => Farm.ui.closeAll());
