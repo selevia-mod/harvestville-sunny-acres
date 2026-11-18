@@ -88,7 +88,7 @@
   L.wagonDeals = function (s) {
     var out = [], seen = {};
     for (var k = 0; out.length < C.WAGON.deals && k < 40; k++) {
-      var t = Math.floor(L.rand(s.seed, s.day, 900 + k) * H.types.length);
+      var t = Math.floor(L.rand(s.seed, s.day, 900 + k) * (H.wagonN || H.types.length)); // (the pieces it always picked from)
       var v = 1 + Math.floor(L.rand(s.seed, s.day, 950 + k) * (H.styles.length - 1));
       if (H.types[t].needs || H.types[t].trophy || seen[t + '.' + v]) continue;
       seen[t + '.' + v] = 1;

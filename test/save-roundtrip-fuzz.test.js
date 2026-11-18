@@ -62,7 +62,7 @@ const play = (seed, steps, every) => {
   const int = (n) => Math.floor(rnd() * n);
   const pick = (a) => a[int(a.length)];
   const yardKinds = O.types.map((t, i) => i).filter((i) => O.types[i].cat !== 'none');
-  const furnKinds = H.types.map((t, i) => i);
+  const furnKinds = H.types.map((t, i) => i).filter((i) => H.types[i].key !== 'trophy_city_order'); // (the plaque, 18 Nov: the stream plays as before)
   const items = Object.keys(C.ITEMS).filter((k) => C.ITEMS[k].kind !== 'tool');
   const seeds = items.filter((k) => C.ITEMS[k].kind === 'seed');
   const sprinklers = (C.SPRINKLERS || []).map((sp) => sp.id);
@@ -165,8 +165,35 @@ const play = (seed, steps, every) => {
     else if (c === 6) L.mcWeekly(s, at);
     else L.mcTourTake(s, qrnd() < 0.5 ? 'cup' : 'race');
   };
+  // the trucks and the City Order (18 Nov 2026), on a random stream of their own: making one (the Market Stars it needs),
+  // switching (a load bigger than the new one leaves some parked), loading, unloading a parked one, a City Order delivery
+  // started and answered (taken in part, "not there", refused, or no answer yet: it waits in the save), Mang Kardo taking
+  // it, and the week's prizes
+  let r6 = seed ^ 0x68e31da4;
+  const vrnd = () => { r6 = (r6 * 1103515245 + 12345) & 0x7fffffff; return r6 / 0x7fffffff; };
+  const vint = (n) => Math.floor(vrnd() * n), vpick = (xs) => xs[vint(xs.length)];
+  const vhex = () => { let h = ''; for (let i = 0; i < 32; i++) h += vint(16).toString(16); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' + h.slice(17, 20) + '-' + h.slice(20, 32); };
+  const TRK = C.TRUCKS;
+  const trucks = () => {
+    const c = vint(9), i = 1 + vint(3), crop = vpick(farmCrops), wk = L.coWeek(L.clock()).day;
+    if (c === 0) {
+      const R = TRK.list[i];
+      s.gm.ms = Math.max(s.gm.ms, R.stars); s.gold += R.gold; s.lumber = (s.lumber || 0) + R.lumber;
+      R.needs.forEach((n) => L.addItem(s, n[0], n[1]));
+      L.trkMake(s, i);
+    } else if (c === 1) L.trkSwitch(s, vint(4));
+    else if (c === 2) { L.siloPut(s, crop, 1 + vint(400)); L.gmLoadSilo(s, crop, 1 + vint(400)); }
+    else if (c === 3) L.trkUnloadParked(s, vint(4));
+    else if (c === 4) { const ks = L.gmCargoCrops(s); if (ks.length) L.coBegin(s, vpick(ks), 1 + vint(300), vrnd() < 0.3 ? 'k' : 's', vhex(), wk); }
+    else if (c === 5 || c === 6) {
+      const k = vint(5);
+      L.coAnswer(s, k === 0 ? 'missing' : k === 1 ? { ok: false, code: 'done' } : k === 2 ? null : { ok: true, took: vint(250), done: vrnd() < 0.2 }, L.nowMin() - vint(40));
+    } else if (c === 7) L.coPay(s, [{ day: wk - 7 * vint(3), stars: 3, plaque: vrnd() < 0.3 }]);
+    else L.gmFinish(s, L.nowMin());
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
+    if (TRK && vrnd() < 0.1) trucks();
     if (MF && mrnd() < 0.1) manila();
     if (shops.length && trnd() < 0.1) trade();
     if (L.mcBeginTry && qrnd() < 0.1) cup();

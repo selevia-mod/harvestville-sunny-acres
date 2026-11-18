@@ -82,11 +82,14 @@
   // a cargo key: the crop, and its quality after a '~' (Silver 1, Gold 2)
   L.gmKey = function (id, q) { return q ? id + '~' + q : id; };
   L.gmSplit = function (key) { var i = key.indexOf('~'); return i < 0 ? { id: key, q: 0 } : { id: key.slice(0, i), q: int(key.slice(i + 1), 0, 2, 0) }; };
-  L.gmHasCart = function (s) { return !!(s && s.gm && s.gm.cart); };
+  L.gmCartMade = function (s) { return !!(s && s.gm && s.gm.cart); };
+  L.gmHasCart = L.gmCartMade; // (a vehicle of any kind: the trucks widen it)
+  L.gmCap = function () { return G.cart.cap; }; // (what the farm's vehicle carries: the trucks' is bigger)
+  L.gmVehName = function () { return 'Horse Cart'; };
   L.gmAway = function (s) { return !!(s && s.gm && s.gm.trip); };
   var total = function (c) { var n = 0; for (var k in c) n += c[k]; return n; };
   L.gmLoad = function (s) { return s && s.gm ? total(s.gm.cargo) : 0; };
-  L.gmRoom = function (s) { return Math.max(0, G.cart.cap - L.gmLoad(s)); };
+  L.gmRoom = function (s) { return Math.max(0, L.gmCap(s) - L.gmLoad(s)); };
   // how many of a crop (every quality) are in the cart; and its keys, plain first
   var keysOf = function (cargo, id) { return [0, 1, 2].map(function (q) { return L.gmKey(id, q); }).filter(function (k) { return cargo[k] > 0; }); };
   L.gmCropLoad = function (s, id) { var c = (s && s.gm && s.gm.cargo) || {}; return keysOf(c, id).reduce(function (n, k) { return n + c[k]; }, 0); };
@@ -104,7 +107,7 @@
   // Bram makes it: 'ok' | 'have' | 'horse' (no horse yet) | 'gold' | 'lumber' | 'needs'
   L.gmMakeCart = function (s) {
     var R = G.cart;
-    if (L.gmHasCart(s)) return 'have';
+    if (L.gmCartMade(s)) return 'have';
     if (!s.horse) return 'horse';
     if (s.gold < R.gold) return 'gold';
     if ((s.lumber || 0) < R.lumber) return 'lumber';
