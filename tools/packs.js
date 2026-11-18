@@ -70,4 +70,7 @@ module.exports = {
   jungle: require('./manila/plains-art').packed('jungle'),
   // The Rocky Gorge (owner, 18 Nov 2026): the same (node tools/manila/plains-import.js gorge, node tools/art/animals3q-import.js gorge)
   gorge: require('./manila/plains-art').packed('gorge'),
+  // Sea Trips (owner, 18 Nov 2026: boats step 1): the 10 pictures of art-src/SEA-TRIPS-PROMPTS.md, each once it is in
+  // assets/sea/ (with its .webp copy); until then the game draws stand-ins (src/19zzz...z-sea.js), so the pack is empty
+  sea: fs.existsSync(path.join(ASSETS, 'sea')) ? fs.readdirSync(path.join(ASSETS, 'sea')).filter((f) => /^[a-z_]+\.png$/.test(f)).map((f) => 'sea/' + f.slice(0, -4)).sort() : [],
 };
