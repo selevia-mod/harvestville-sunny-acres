@@ -466,6 +466,7 @@
     this.mnCal = null;
     this.player.body.enable = true;
     this.setFeet(w[0] * T, w[1] * T);
+    if (P.mnSettle) P.mnSettle(this); // (as off the jeep: 19z...-manila-life.js)
     this.dir = 'down';
     this.idle();
     if (F.ui) F.ui.toast('Salamat po! Back at the calesa stand.', 2000);

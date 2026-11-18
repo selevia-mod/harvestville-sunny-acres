@@ -523,12 +523,17 @@
     this.player.body.enable = true;
     this.player.setScale(1);
     this.setFeet(w[0] * T, w[1] * T);
+    P.mnSettle(this);
     this.dir = 'down';
     this.idle();
     if (F.ui) F.ui.toast('Salamat po! ' + J.stops[i].name + '.', 2000);
     sfx('door');
     this.save();
   };
+  // Off at a stop from inside the world's update: setFeet's body.reset leaves the body's last-frame spot a body offset
+  // away, and when this frame has a physics step the body's after-step moved the farmer that far (about a tile down,
+  // a fifth right: off by the Talipapa shed at [4,41], not [4,40]; 18 Nov 2026). The body starts again where it stands.
+  P.mnSettle = function (w) { var b = w.player.body; b.prev.copy(b.position); b.prevFrame.copy(b.position); };
   var JEEP_NEAR = 8; // (tiles from a stop's wait spot: within, the jeep picks you up; further, you walked off and get the fare back)
   var JEEP_BACK = 1.45; // (tiles from its middle to its back step, side on: it is drawn 3.6 tiles long)
   P.mnRideUpdate = function (st) {

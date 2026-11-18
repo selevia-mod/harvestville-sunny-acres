@@ -50,7 +50,8 @@ test('each band keeps the stone, drops its cheapest ore and adds its own', () =>
   assert.strictEqual(L.mineDrop(250, 0.8), 'crystal');
   assert.strictEqual(L.mineDrop(250, 0.86), 'amethyst');
   assert.strictEqual(L.mineDrop(250, 0.9), null);
-  assert.strictEqual(L.mineDrop(9000, 0.86), 'diamond');
+  assert.strictEqual(L.mineDrop(1200, 0.86), 'diamond'); // (past 1,200 the deep Mine adds Starstone and Diamond: deep-mine.test.js)
+  assert.strictEqual(L.mineDrop(9000, 0.86), 'starstone');
 });
 
 test('chests pay the same gold, once, with the band\'s gem from floor 201 down', () => {
