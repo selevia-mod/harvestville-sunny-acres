@@ -4,8 +4,10 @@
 // training is not there yet: it walks out of the camp when it is ready. The ones a raid used are gone until you train
 // more. On your own farm only (not on a visit, not in a raid).
 // A cheap phone (4 GB or less: the OPPO A5 bar) shows at most C.CAMP_ARMY.cheap of them, every kind you have among them,
-// and "+N" for the rest; it draws them from the battle picture already in the page and never fetches the animation
-// sheets. Other phones fetch only the sheets of the kinds they have (the 'raiders' pack), the battle picture until then.
+// and "+N" for the rest; it draws them from the battle picture and never fetches the animation sheets. Other phones fetch
+// only the sheets of the kinds they have (the 'raiders' pack), the battle picture until then. (18 Nov 2026: the battle
+// picture, raid_moves, is in the 'raiders' pack too, out of the page: fetched once, and until it is here a raider with no
+// sheet of its own waits out of sight.)
 (function (F) {
   'use strict';
   var C = F.Config, L = F.Logic, O = C.OUTDOOR, T = C.TILE, R = C.FRAID;
@@ -53,6 +55,11 @@
     if (!F.cheapPhone() && F.needImage && Date.now() - (asked[key] || 0) > 10000) { asked[key] = Date.now(); F.needImage(key); } // (only the kinds this farm has)
     return null;
   };
+  var movesFor = function (w) { // the battle picture, or null (asked for, every 10 s at most, until it comes)
+    if (F.images && F.images.raid_moves) return F.ensureTexture(w, 'raid_moves');
+    if (F.needImage && Date.now() - (asked.raid_moves || 0) > 10000) { asked.raid_moves = Date.now(); F.needImage('raid_moves'); }
+    return null;
+  };
   P.campArmyAdd = function (k, fromCamp) {
     var it = this.campArmy.camp, type = O.types[it.t], spots = this.campArmy.spots;
     if (!spots.length) return null;
@@ -60,7 +67,8 @@
     var u = { k: k, x: at.x, y: at.y, wait: fromCamp ? 0 : Math.random() * 2500, tx: at.x, ty: at.y, dir: 'side', face: Math.random() < 0.5 ? -1 : 1, ph: Math.random() * 10, base: base, fly: !!R.raiders[k].flies, alpha: 0 };
     if (fromCamp) { var to = pick(spots); u.tx = to.x; u.ty = to.y; }
     u.sh = this.add.ellipse(u.x, u.y, 0.7 * base * T, 0.22 * base * T, 0x000000, 0.25).setDepth(DEPTH.shadow).setAlpha(0);
-    u.img = this.add.image(u.x, u.y, F.ensureTexture(this, 'raid_moves'), row * 4).setOrigin(0.5, 0.9).setScale(base * 1.45 * T / C.RAID_MOVES.run[row] * SIZE).setAlpha(0);
+    var mk = movesFor(this);
+    u.img = this.add.image(u.x, u.y, mk || '__DEFAULT', mk ? row * 4 : undefined).setOrigin(0.5, 0.9).setScale(base * 1.45 * T / C.RAID_MOVES.run[row] * SIZE).setAlpha(0);
     this.campArmy.units.push(u);
     return u;
   };
@@ -71,6 +79,7 @@
       this.campArmyClear();
       ca = this.campArmy = { camp: it, at: it.x + ',' + it.y, spots: spotsOf(this, it), units: [], label: null };
     }
+    if (F.needImage && F.images && !F.images.battle_fx && Date.now() - (asked.battle_fx || 0) > 10000) { asked.battle_fx = Date.now(); F.needImage('battle_fx'); } // (the battle's effects, for the next raid)
     var want = this.campArmyWant(), have = {}, need = {};
     ca.units.forEach(function (u) { if (!u.gone) have[u.k] = (have[u.k] || 0) + 1; });
     want.list.forEach(function (k) { need[k] = (need[k] || 0) + 1; });
@@ -116,12 +125,15 @@
         if (u.img.texture.key !== key) u.img.setTexture(key).setScale(u.base * 1.45 * T / C.RAID_ANIM.runW[u.k] * SIZE);
         var row = moving || u.fly ? 0 : 3, col = moving || u.fly ? Math.floor(time / (u.fly ? 80 : 110) + u.ph) % 4 : 3;
         u.img.setFrame((DIRROW[u.dir] + row) * 4 + col).setFlipX(u.dir === 'side' && u.face > 0);
-      } else { // the battle picture (one pose a raider, sideways): a hop as it walks
+      } else if (movesFor(self)) { // the battle picture (one pose a raider, sideways): a hop as it walks
+        var r0 = R.raiderOrder.indexOf(u.k);
+        if (u.img.texture.key !== 'raid_moves') u.img.setTexture('raid_moves', r0 * 4).setScale(u.base * 1.45 * T / C.RAID_MOVES.run[r0] * SIZE);
         lift += moving && !u.fly ? Math.abs(Math.sin(time / 110 + u.ph)) * 0.1 * T : 0;
         u.img.setFlipX(u.face > 0);
       }
-      u.img.setPosition(u.x, u.y - lift).setAlpha(u.alpha);
-      u.sh.setPosition(u.x, u.y + 4).setAlpha(u.alpha * (u.fly ? 0.6 : 1));
+      var seen = !!key || u.img.texture.key === 'raid_moves'; // (no picture yet: out of sight)
+      u.img.setPosition(u.x, u.y - lift).setAlpha(seen ? u.alpha : 0);
+      u.sh.setPosition(u.x, u.y + 4).setAlpha(seen ? u.alpha * (u.fly ? 0.6 : 1) : 0);
       F.depthTo(u.img, DEPTH.actor + u.y / 1e5);
       return true;
     });

@@ -30,6 +30,20 @@
     F.SHEETS.battle_fx = { frameWidth: 160, frameHeight: 160 };
   }
   var on = function () { return !!(F.images.raid_moves && F.images.battle_fx); };
+  // (18 Nov 2026: both pictures came out of the page into the 'raiders' pack) a raid waits a moment for them, from the
+  // phone or downloaded, at most WAIT; offline or slow it starts without them, as the older battle
+  var WAIT = 4000, waiting = false, farmStart = F.raidFarmStart;
+  if (farmStart) F.raidFarmStart = function () {
+    var self = this, args = arguments;
+    if (on() || !F.needImage || !F.canFetch || !F.canFetch()) return farmStart.apply(self, args);
+    if (waiting) return null;
+    waiting = true;
+    if (F.ui && F.ui.toast) F.ui.toast('Getting the raiders ready...', 1500);
+    var went = false, go = function () { if (went) return; went = true; waiting = false; farmStart.apply(self, args); };
+    setTimeout(go, WAIT);
+    Promise.all([F.needImage('raid_moves'), F.needImage('battle_fx')]).then(go, go);
+    return null;
+  };
   var MOVE = { run: 0, hit: 1, loot: 2, out: 3 };
   // the owner's animation sheets (10 Nov 2026: "there should also front and back"; tools/art/raider-anim-import.js, the
   // 'raiders' pack): ranim_<k>, 4 frames a row; rows 0-3 sideways (facing left), 4-7 toward you, 8-11 away; in each: run,
@@ -89,6 +103,9 @@
   var setup = P.raidSetup;
   P.raidSetup = function () {
     setup.call(this);
+    // (18 Nov 2026: both pictures are in the 'raiders' pack: not here yet, this raid is the older battle and they are asked
+    // for, for the next one)
+    if (!on() && F.needImage) { F.needImage('raid_moves'); F.needImage('battle_fx'); }
     if (!on() || !this.raidB) return;
     var self = this, f = this.raidB.farm, cam = this.cameras.main;
     cam.setZoom(cam.zoom / 0.62 * 0.8); // (closer than before: the raiders big enough to see what they do)

@@ -31,7 +31,10 @@ module.exports = {
   // (the farm clothes' riding, ride_default_*, stays in the page: what anyone rides in until theirs is in)
   // the raiders' animations, side / front / back (owner's art, 10 Nov 2026; tools/art/raider-anim-import.js): fetched as a
   // raid starts (raid_moves, in the page, stands in until they are here)
-  raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  // (18 Nov 2026: the page was 19.79 MiB of its 19.5, owner: "move the raid pictures to download": the battle picture
+  // raid_moves and the battle's effects battle_fx came out of it too; until they are here the battle is the older one,
+  // 19zzz...z-raid-battle-v2.js, and the camp's raiders wait out of sight, 19zzz...z-camp-army.js)
+  raiders: fs.readdirSync(ASSETS).filter((f) => /^ranim_[a-z]+\.png$/.test(f)).map((f) => f.slice(0, -4)).concat(['raid_moves', 'battle_fx']).sort(),
   // Manila (owner, 11 Nov 2026): its ground textures, buildings, props and people, each once its picture is in
   // (tools/manila/manila-import.js; until then the game draws stand-ins)
   manila: require('./manila/manila-art').packed(),
