@@ -279,7 +279,7 @@
     if (tool === 'sickle') return soil && L.isRipe(soil) && C.CROPS[soil.c].sickle ? { kind: 'cut', idx: idx } : null;
     if (tool === 'hammer') {
       var wt = this.tileAt('Walls', x, y);
-      if (wt && wt.properties.name === 'mine_rock') return { kind: 'rock', idx: idx };
+      if (wt && wt.properties.name === 'mine_rock') return { kind: 'rock', idx: idx, hits: L.rockHitsAt(s, F.session.mineFloor, idx, this.mine && this.mine.seed) }; // (past floor 1,200, tougher)
       if (soil && !soil.c) return { kind: 'untill', idx: idx };
     }
     return null;
@@ -332,7 +332,11 @@
     }
     if (!effects.length) return F.ui.toast(this.toolWhy(tool, t));
     var rocks = effects.filter(function (e) { return e.kind === 'rock'; }).length;
-    var cost = rocks ? rocks * L.mineEnergy(s, F.session.mineFloor) : L.toolEnergy(s, tool, effects.length);
+    // a rock's energy is paid once, on the swing that breaks it; a swing that only cracks a tough one (past floor 1,200) is free
+    var cracks = rocks ? (this.mine.cracks = this.mine.cracks || {}) : null;
+    var breaking = rocks ? effects.filter(function (e) { return e.kind === 'rock' && (cracks[e.idx] || 0) + 1 >= e.hits; }).length : 0;
+    var cost = rocks ? L.rockSwingEnergy(s, F.session.mineFloor, breaking) : L.toolEnergy(s, tool, effects.length);
+    if (rocks && !breaking && !L.powered(s) && s.energy < L.mineEnergy(s, F.session.mineFloor)) return this.tired();
     if (!L.spendEnergy(s, cost)) return this.tired();
     var gotLumber = 0, gotStone = 0, items = {}, counts = { till: 0, water: 0, clear: 0, cut: 0 };
     var kind = tool === 'can' ? 'pour' : 'swing';
@@ -388,12 +392,17 @@
           if (r.stone) self.flyTile(tile, C.ICON.stone);
         });
       } else if (e.kind === 'rock') {
+        if (!L.strikeRock(cracks, e.idx, e.hits)) {
+          heavy = Math.max(heavy, 1);
+          fx.push(function () { self.impact(tool, e, tile, false); if (self.crackRock) self.crackRock(e.idx, tile, e.hits); });
+          return;
+        }
         var show = self.breakRock(e.idx, tile, items);
         if (show) {
           counts.clear++; // (a mine rock is a stone cleared: quests, 5 Nov 2026)
           heavy = 2;
           fx.push(function () { show(); self.impact(tool, e, tile, true); sfx('stonebreak'); });
-        }
+        } else if (e.hits > 1) cracks[e.idx] = e.hits - 1; // (a full bag: it stays one swing from breaking)
       }
     });
     var area = effects.map(function (e) { return [e.idx % self.map.width, Math.floor(e.idx / self.map.width)]; });
