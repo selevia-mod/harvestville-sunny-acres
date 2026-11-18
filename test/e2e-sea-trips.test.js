@@ -96,6 +96,12 @@ async function toPier(page) {
 async function board(page) {
   await toPier(page);
   assert.strictEqual(await actionLabel(page), 'Sea trip', 'berth 1: Kapitana Marisol\'s boat');
+  const boat = await page.evaluate(() => {
+    const w = Farm.world, v = w.cameras.main.worldView, b = w.children.list.find((o) => o.texture && /^(fx-sea-side|sea\/boat_marisol_side)$/.test(o.texture.key));
+    return b ? { key: b.texture.key, seen: b.visible && b.x > v.x && b.x < v.right && b.y - b.displayHeight > v.y && b.y < v.bottom } : null;
+  });
+  assert.ok(boat && boat.seen, 'the boat at berth 1, in view: ' + JSON.stringify(boat));
+  if (SHOTS) { await page.waitForTimeout(600); await shot(page, 'sea-berth'); } // (the arrival's fade over)
   await tapAction(page);
   assert.match(await modalText(page), /Kapitana Marisol's Boat/);
   await tapText(page, 'Ticket 3,000G');
@@ -135,6 +141,24 @@ test('a ticket at berth 1, a cast at a spot, one off the spots, a snag, a clump 
   assert.strictEqual(st.energy, 500, 'riding the boat costs no energy');
   assert.ok(st.sea.t && st.sea.t.p === 3000, 'a trip on');
   assert.match(await page.evaluate(() => Farm.ui.seaChip.t1.text), /^At sea {2}(10:00|9:5\d)$/);
+  assert.strictEqual(await page.evaluate(() => Farm.Logic.held(Farm.session.state).id), 'rod', 'the rod in your hands as you come aboard');
+  // the farm's tools on a deck: greyed out, and free (as in the hunting grounds)
+  const tools = await page.evaluate(() => {
+    const w = Farm.world, s = Farm.session.state, out = [], sel = s.sel;
+    ['hoe', 'axe', 'hammer', 'sickle'].forEach((id) => {
+      if (!s.inv.some((x) => x && x.id === id)) Farm.Logic.addItem(s, id, 1);
+      s.sel = s.inv.findIndex((x) => x && x.id === id);
+      const a = w.resolve(), e = s.energy;
+      if (a && a.run && !a.disabled) a.run(1);
+      out.push(id + ':' + (a ? a.label + (a.disabled ? ' (off)' : '') : '-') + ':' + (e - s.energy));
+    });
+    s.sel = sel;
+    return out;
+  });
+  assert.deepStrictEqual(tools, ['hoe:Till (off):0', 'axe:Chop (off):0', 'hammer:Smash (off):0', 'sickle:Cut (off):0']);
+  await atSpot(page, 0); // (already the rod)
+  await frames(page, 3);
+  assert.strictEqual(await actionLabel(page), 'Fish', 'at a spot with the rod: Fish');
   await shot(page, 'sea-deck');
   // a cast where no spot is: nothing bites, and it costs nothing
   await atSpot(page, 0, true);
@@ -176,8 +200,11 @@ test('a ticket at berth 1, a cast at a spot, one off the spots, a snag, a clump 
   assert.match(await modalText(page), /BACK TO THE PIER\?/);
   await tapText(page, 'Yes');
   await page.waitForFunction(() => Farm.world.mapKey === 'manila' && !Farm.world.busy && Farm.ui.modals.length, null, SLOW);
+  // (its pop-in done: every part of it solid)
+  await page.waitForFunction(() => Farm.ui.modals[Farm.ui.modals.length - 1].c.list.slice(1).every((o) => o.alpha === 1), null, SLOW);
   const text = await modalText(page);
   assert.match(text, /BACK AT THE PIER/);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals[Farm.ui.modals.length - 1].c.list.filter((o) => o.type === 'Image' && o.texture && /sea/.test(o.texture.key)).length), 0, 'no picture over its words');
   assert.match(text, new RegExp('The crate: ' + shells + ' Capiz Shell'));
   st = await state(page);
   assert.strictEqual(st.sea.t, null);
