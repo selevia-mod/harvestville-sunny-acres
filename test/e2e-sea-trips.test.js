@@ -17,6 +17,15 @@ const ACTION_BTN = { x: 294, y: 512 };
 const SLOW = { timeout: 90000 };
 const DAY = new Date(2026, 10, 18, 10, 0).getTime();
 
+// the 'sea' pack on the phone (as the trucks' test does): the game asks for a file, the test hands it dist/packs/'s copy
+const assetFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file);
+  const p = m ? path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp') : null;
+  return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+};
+const allPackFiles = () => fs.readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
 let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
@@ -37,6 +46,11 @@ async function open(edit, opts = {}) {
     window.__now = now;
     window.gameHost = { state: save ? JSON.parse(save) : null, quiet: !loud, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
   }, [opts.now || DAY, !!opts.loud, opts.save || null]);
+  if (opts.packs) {
+    await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+    await page.addInitScript((here) => { window.__here = here; }, allPackFiles());
+    await page.addInitScript(HOST_ASSETS);
+  }
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
   if (opts.save) return { page, problems, context };
@@ -344,8 +358,11 @@ const work = (page, ms) => page.evaluate((ms) => new Promise((resolve) => {
   requestAnimationFrame(tick);
 }), ms);
 
-test('a slow phone (CPU x4): walking the deck with the spots, the gulls and a clump, against Manila\'s pier (budget 13-14 ms at 60 Hz)', async () => {
-  const { page, problems, context } = await open();
+// (twice: the stand-ins, and the owner's pictures from the 'sea' pack)
+for (const art of [false, true]) {
+test('a slow phone (CPU x4): walking the deck with the spots, the gulls and a clump, against Manila\'s pier (budget 13-14 ms at 60 Hz)' + (art ? ', with the owner\'s pictures' : ''), async () => {
+  const { page, problems, context } = await open('', { packs: art });
+  if (art) await page.evaluate(() => Farm.loadPack('sea'));
   const cdp = await context.newCDPSession(page);
   const rows = {};
   const walk = async () => { for (const [k, ms] of [['ArrowLeft', 900], ['ArrowDown', 500], ['ArrowRight', 1400], ['ArrowUp', 700]]) { await page.keyboard.down(k); await page.waitForTimeout(ms); await page.keyboard.up(k); } };
@@ -366,10 +383,47 @@ test('a slow phone (CPU x4): walking the deck with the spots, the gulls and a cl
   rows.sea = await m;
   rows.sea.marks = await page.evaluate(() => Farm.world.sea.marks.length);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
-  console.log('[CPU x4] world work per frame (ms), and frame gaps:', JSON.stringify(rows));
+  console.log('[CPU x4' + (art ? ', the owner\'s pictures' : ', stand-ins') + '] world work per frame (ms), and frame gaps:', JSON.stringify(rows));
   assert.strictEqual(rows.sea.marks, 8, 'four spots, each with its gull');
   assert.ok(rows.sea.world.avg <= 14, 'within the 60 Hz budget on average: ' + rows.sea.world.avg);
   assert.ok(rows.sea.world.p50 <= Math.max(14, rows.pier.world.p50 * 1.3), 'about as light as the pier');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+}
+
+test("the owner's pictures (the 'sea' pack on the phone): the boat at berth 1, the water, the deck, the spots, the crate, the gulls and the bag's icons", async () => {
+  const { page, problems, context } = await open('', { packs: true });
+  assert.ok(await page.evaluate(() => Farm.packFiles('sea').length === 10), 'the sea pack: 10 pictures');
+  await toPier(page);
+  await page.waitForFunction(() => { const b = Farm.world.seaBoat; return b && b.texture.key === 'sea/boat_marisol_side'; }, null, SLOW); // (in the stand-in's place once it comes)
+  const boat = await page.evaluate(() => { const b = Farm.world.seaBoat; return { w: b.displayWidth / 256, h: b.displayHeight / 256 }; });
+  assert.ok(Math.abs(boat.w - 4) < 0.01 && boat.h > 1.5 && boat.h < 2, 'the boat 4 tiles wide, its own shape: ' + JSON.stringify(boat));
+  if (SHOTS) { await page.waitForTimeout(600); await shot(page, 'art-berth'); }
+  await board(page);
+  await page.waitForFunction(() => Farm.packReady('sea'), null, SLOW);
+  if (!(await page.evaluate(() => Farm.world.textures.exists('sea/ground_sea_open') && (Farm.world.sea.water.displayTexture || Farm.world.sea.water.texture).key === 'sea/ground_sea_open'))) {
+    // (the pack came while the deck was being drawn: the next trip has it; go back and board again)
+    await page.evaluate(() => Farm.world.seaBack('early'));
+    await page.waitForFunction(() => Farm.world.mapKey === 'manila' && !Farm.world.busy, null, SLOW);
+    await page.evaluate(() => { Farm.ui.closeAll(); Farm.session.state.gold += 3000; });
+    await board(page);
+  }
+  const used = await page.evaluate(() => {
+    const w = Farm.world, keys = {};
+    w.children.list.forEach((o) => { if (o.texture && /^sea\//.test(o.texture.key)) keys[o.texture.key] = (keys[o.texture.key] || 0) + 1; });
+    return { keys, water: (w.sea.water.displayTexture || w.sea.water.texture).key, scale: w.sea.water.tileScaleX }; // (a TileSprite draws through a texture of its own: what it repeats is displayTexture)
+  });
+  ['sea/boat_marisol_deck', 'sea/sea_crate', 'sea/sea_spot', 'sea/sea_gull', 'sea/sea_skyline'].forEach((k) => assert.ok(used.keys[k], k + ' on the screen: ' + JSON.stringify(used)));
+  assert.strictEqual(used.water, 'sea/ground_sea_open');
+  assert.strictEqual(used.scale, 2, 'the 512 px water repeats every 4 tiles, as the stand-in');
+  await atSpot(page, 0);
+  await frames(page, 4);
+  await shot(page, 'art-deck');
+  // the bag's sea icons from the owner's two sheets
+  assert.ok(await page.evaluate(() => Farm.world.textures.get('items').seaArt === 2), 'the icons painted from both sheets');
+  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic; ['galunggong', 'sea_pusit', 'maya_maya', 'lapu_lapu', 'tanigue', 'tuna', 'marlin', 'seaweed'].forEach((id) => L.addItem(s, id, 1)); Farm.ui.refresh(); });
+  if (SHOTS) { await frames(page, 6); await page.waitForTimeout(400); await shot(page, 'art-bag'); } // (the toolbar: the new sea things in its slots)
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

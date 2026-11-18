@@ -190,7 +190,15 @@
     var img = this.add.image((b[0] + 0.5) * T, (b[1] - 0.1) * T, key).setOrigin(0.5, 1).setDepth(DEPTH.Walls + 0.2);
     if (have('sea/boat_marisol_side')) img.setDisplaySize(4 * T, 4 * T * img.height / img.width); else img.setDisplaySize(3.6 * T, 1.6 * T);
     this.tweens.add({ targets: img, y: img.y + 0.06 * T, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.seaBoat = img;
   };
+  // the owner's boat came while you are in Manila: in the stand-in's place at once
+  F.bus.on('packart', function (k) {
+    var w = F.world, img = w && w.seaBoat;
+    if (k !== 'sea/boat_marisol_side' || !img || !img.active || w.mapKey !== 'manila' || !have(k)) return;
+    img.setTexture(F.ensureTexture(w, k) || k);
+    img.setDisplaySize(4 * T, 4 * T * img.height / img.width);
+  });
   var objectAction = P.objectAction;
   P.objectAction = function (o) {
     if (o && o.name === 'mn_berth1' && this.mapKey === 'manila' && !visiting(this)) return { label: 'Sea trip', icon: C.ICON.tuna, run: function () { F.ui.seaPanel(); } };
@@ -243,7 +251,7 @@
     this.seaLeaving = false;
     create.apply(this, arguments);
     var self = this, s = me();
-    ['sea/sea_fish_icons', 'sea/sea_items_icons'].forEach(function (k) { var f = F.packedFile && F.packedFile(k); if (f && !have(k) && F.needImage && F.onPhone && F.onPhone(f.file)) F.needImage(k); }); // (the bag's sea icons)
+    ['sea/sea_fish_icons', 'sea/sea_items_icons', 'sea/boat_marisol_side'].forEach(function (k) { var f = F.packedFile && F.packedFile(k); if (f && !have(k) && F.needImage && F.onPhone && F.onPhone(f.file)) F.needImage(k); }); // (the bag's sea icons, and the boat at berth 1 next time Manila opens)
     if (this.mapKey === 'sea') return this.seaSetup();
     chip(false);
     if (this.mapKey === 'manila' && !visiting(this)) this.seaBerth();
@@ -266,7 +274,7 @@
     var M = this.map, MW = M.widthInPixels, MH = M.heightInPixels;
     var wk = have('sea/ground_sea_open') ? F.ensureTexture(this, 'sea/ground_sea_open') || 'sea/ground_sea_open' : canvasTex(this, 'fx-sea-water', 256, 256, drawWater);
     var water = this.add.tileSprite(0, 0, MW, MH, wk).setOrigin(0).setDepth(DEPTH.Ground + 0.4);
-    water.setTileScale(have('sea/ground_sea_open') ? 1 : 4);
+    water.setTileScale(have('sea/ground_sea_open') ? 2 : 4); // (the owner's water is 512 px, the stand-in 256: both repeat every 4 tiles)
     st.water = water;
     if (this.layers.Ground) this.layers.Ground.setVisible(false); // (under the sea's own water: drawn for nothing on a slow phone)
     if (have('sea/sea_skyline')) {
