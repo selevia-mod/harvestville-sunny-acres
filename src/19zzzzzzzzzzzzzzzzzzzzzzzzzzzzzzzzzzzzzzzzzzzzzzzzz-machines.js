@@ -207,19 +207,28 @@
     var w = this.map.width, at = function (i) { return { x: i % w, y: Math.floor(i / w) }; }, deco = {};
     plan.forEach(function (p) { if (p.deco) deco[p.idx] = 1; });
     this.mkKick(tiles);
-    r.cleared.forEach(function (i) {
-      var tile = at(i);
-      self.popOut(deco[i] ? 'Walls' : 'Debris', tile);
-      if (deco[i]) self.removeDeco(i); else self.removeDebrisTile(i);
+    // what you see lands a moment later, as a tool's swing does (the rules happened now): the work of one tap is two
+    // short frames, not one long one. Only an old decoration needs the map's collisions rebuilt; field debris has its own
+    // layer, as the hand tools leave it.
+    this.landing = (this.landing || 0) + 1;
+    this.time.delayedCall(this.IMPACT ? this.IMPACT.swing : 110, function () {
+      self.landing--;
+      if (!self.layers) return;
+      var walls = false;
+      r.cleared.forEach(function (i) {
+        self.popOut(deco[i] ? 'Walls' : 'Debris', at(i));
+        if (deco[i]) { self.removeDeco(i); walls = true; } else self.removeDebrisTile(i);
+      });
+      if (walls) self.recollide();
+      if (r.cleared.length) { if (self.layers.Debris) self.layers.Debris.setCollisionByProperty({ collides: true }); sfx('leaves'); }
+      r.tilled.forEach(function (i) { self.refreshTile(i); if (self.soilPop) self.soilPop(at(i)); });
+      sfx('till');
+      self.bump(1);
+      var notes = [];
+      if (r.lumber) { notes.push('+' + r.lumber + ' Lumber'); self.flyTile(t, C.ICON.lumber); }
+      if (r.stone) { notes.push('+' + r.stone + ' Stone'); self.flyTile(t, C.ICON.stone); }
+      if (notes.length) self.floatText(t, notes.join('  '));
     });
-    if (r.cleared.length) { this.recollide(); if (this.layers.Debris) this.layers.Debris.setCollisionByProperty({ collides: true }); sfx('leaves'); }
-    r.tilled.forEach(function (i) { self.refreshTile(i); if (self.soilPop) self.soilPop(at(i)); });
-    sfx('till');
-    this.bump(1);
-    var notes = [];
-    if (r.lumber) { notes.push('+' + r.lumber + ' Lumber'); this.flyTile(t, C.ICON.lumber); }
-    if (r.stone) { notes.push('+' + r.stone + ' Stone'); this.flyTile(t, C.ICON.stone); }
-    if (notes.length) this.floatText(t, notes.join('  '));
     if (r.clear) this.progress('clear', r.clear);
     if (r.till) this.progress('till', r.till);
     this.changed();
