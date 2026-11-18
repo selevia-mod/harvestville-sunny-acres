@@ -91,4 +91,4 @@ A small round Pebble Piglet: a chubby grey piglet whose back is covered in smoot
 ```
 
 ## Not yet
-Boats: wait until you choose which boats (docs/manila-boats-plan.md).
+Boats: the sea trips art is in SEA-TRIPS-PROMPTS.md (10 pictures).

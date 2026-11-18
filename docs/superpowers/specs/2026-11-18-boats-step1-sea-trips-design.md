@@ -5,6 +5,7 @@ cruise, 3 islands, 4 your own boat, 5 bay events); tickets first, a yacht later;
 no energy, fishing costs what it costs today. Owner: "how can we make this boat ideas turn into something useful":
 answered by the uses below, approved ("Yes, write the step 1 plan"). Nothing here is built until the owner approves this
 plan. It ships only after the 2.7.0 store build is approved, and never by OTA without the owner's word.
+**APPROVED by the owner, 18 Nov 2026: "Yes approve then give me all the prompts".** Art prompts: art-src/SEA-TRIPS-PROMPTS.md (10 pictures).
 
 ## Why it matters (what the sea gives that nothing else does)
 Fishing today: 4 river fish (Small, Medium, Large, King Trout), one dish (Grilled Fish, +45 energy), sold or given as gifts.
