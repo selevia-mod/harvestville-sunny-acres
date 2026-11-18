@@ -243,6 +243,7 @@
     this.seaLeaving = false;
     create.apply(this, arguments);
     var self = this, s = me();
+    ['sea/sea_fish_icons', 'sea/sea_items_icons'].forEach(function (k) { var f = F.packedFile && F.packedFile(k); if (f && !have(k) && F.needImage && F.onPhone && F.onPhone(f.file)) F.needImage(k); }); // (the bag's sea icons)
     if (this.mapKey === 'sea') return this.seaSetup();
     chip(false);
     if (this.mapKey === 'manila' && !visiting(this)) this.seaBerth();
