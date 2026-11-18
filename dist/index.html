@@ -8405,7 +8405,9 @@ city: { kinds: 4, per5: 600, pay: 2, stars: 3, open: 8 * 60, close: 19 * 60, mos
 G.tours.push('trucks', 'city');
 
 var H = C.HOME;
-H.wagonN = H.types.length;
+
+for (var n = 0; n < H.types.length && !H.types[n].mc; n++);
+H.wagonN = n;
 H.types.push({ key: 'trophy_city_order', name: 'City Order Plaque', w: 1, h: 1, foot: 0, place: 'wall', price: 0, beauty: 30, trophy: true,
 what: 'a round brass plaque on dark wood: a truck under a city skyline, "City Order"' });
 H.typeIndex.trophy_city_order = H.types.length - 1;
@@ -69273,7 +69275,6 @@ S.trkAt = null;
 if (this.mapKey !== 'farm' && L.trkUse(s)) this.time.delayedCall(600, function () { if (F.ui) F.ui.toast('Your ' + L.gmVehName(s) + ' drove itself home to the farm. Its load is safe.', 2800); });
 }
 setupExtras.apply(this, arguments);
-this.trkCullMs = 0;
 var c = this.gmCart;
 if (S.trkArrive && mineHere) {
 S.trkArrive = false;
@@ -69281,11 +69282,11 @@ if (c && c.truck) { this.setFeet(c.x, c.y + (this.mapKey === 'manila' ? 1.2 : 0.
 }
 };
 
-var updateExtras = P.updateExtras;
-P.updateExtras = function (dt) {
-var r = updateExtras.apply(this, arguments), c = this.gmCart;
-if (c && c.truck && (this.trkCullMs -= dt) <= 0) {
-this.trkCullMs = 300;
+
+var updateCamera = P.updateCamera;
+P.updateCamera = function () {
+var r = updateCamera.apply(this, arguments), c = this.gmCart;
+if (c && c.truck) {
 var v = this.cameras.main.worldView, m = 2 * T, on = c.x + c.sz[0] * T > v.x - m && c.x - c.sz[0] * T < v.right + m && c.y > v.y - m && c.y - c.sz[1] * T < v.bottom + m;
 if (on !== c.img.visible) c.img.setVisible(on);
 }
@@ -69603,8 +69604,8 @@ var furnTexture = F.furnTexture;
 if (furnTexture) F.furnTexture = function (scene, v) {
 var key = furnTexture.apply(this, arguments), t = C.HOME.typeIndex.trophy_city_order, tex = scene.textures.exists(key) && scene.textures.get(key);
 if (tex && !tex.coPlaque && window.Phaser && Phaser.Textures.TextureSource) {
-tex.coPlaque = true;
 var cv = document.createElement('canvas');
+tex.coPlaque = cv;
 cv.width = cv.height = 128;
 plaque(cv.getContext('2d'));
 tex.remove(t);
