@@ -7,6 +7,8 @@
 //       loading never moves it), PPT px a tile across the game's width for that view (C.TRUCKS, the cart's VIEW)
 //   assets/machine_<kind>.*   240 x 160 (the game shows it 1.5 x 1 tiles), feet on the bottom, facing right
 //   assets/machine_icons.*    3 icons of 128 in C.MACHINE_KINDS' order
+//   assets/machine_<kind>_<side|front|back>.*   driven (owner, 20 Nov 2026): its own shape at C.MACHINES.drive's width
+//       in tiles (side: facing right; front: coming at you; back: going away), PPT px a tile, wheels on the bottom
 //   assets/critter_<kind>.*   160 x 150 (the stand-in's canvas: the game's scale is def.w tiles for 160 px), feet at 95%
 // node tools/art/vehicles-import.js   then node build.js
 const fs = require('fs');
@@ -20,6 +22,8 @@ const PPT = 160;
 // the width in tiles of each view (the stand-ins' own: src/*grand-market.js VIEW, src/00-*-trucks.js w / fw)
 const WIDE = { cart: [2.3, 1.5, 1.5], pickup: [2.7, 1.6, 1.6], farmtruck: [3.3, 1.9, 1.9], bigtruck: [4.1, 2.2, 2.2] };
 const VIEWS = ['side', 'front', 'back'];
+// the driven machines' widths in tiles, [side, front and back] (src/00-*-machines.js C.MACHINES.drive)
+const DRIVE = { tractor: [2.8, 2.2], seeder: [2.4, 1.9], harvester: [3.4, 3.0] };
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const pic = (name) => { const f = path.join(SRC, name + '.png'); return fs.existsSync(f) ? data(f) : null; };
@@ -75,6 +79,19 @@ const save = (name, r) => {
       return Object.assign(W.out(o, 0.85), { w: W0, h: H0 });
     }, [s, 240, 160]));
     done.push('machine ' + k);
+  }
+  // ---------- the machines you drive: side, front, back at their own shape ----------
+  for (const k of Object.keys(DRIVE)) {
+    for (const view of VIEWS) {
+      const s = pic(view === 'side' ? 'machine_' + k : 'machine_' + k + '_' + view);
+      if (!s) continue;
+      save('machine_' + k + '_' + view, await p.evaluate(async ([s, ow]) => {
+        const c = await W.clean(s), bx = W.box(c), oh = Math.round(bx.h * ow / bx.w), o = W.canvas(ow, oh);
+        W.draw(o.getContext('2d'), c, bx, ow / bx.w, ow / 2, oh);
+        return Object.assign(W.out(o, 0.85), { w: ow, h: oh });
+      }, [s, Math.round(DRIVE[k][view === 'side' ? 0 : 1] * PPT)]));
+      done.push('machine ' + k + ' ' + view);
+    }
   }
   const icons = ['tractor', 'seeder', 'harvester'].map((k) => pic('icon_' + k));
   if (icons.every(Boolean)) {
