@@ -16,6 +16,7 @@
   var FADE_MS = 260; // a friend arriving or leaving
   var MAPS = { farm: 1, house: 1, town: 1, mine: 1, pulag: 1, makiling: 1, magayon: 1, lair: 1, park: 1, hall: 1 }; // (lair: Bakunawa's Lair, 19zt-lair.js; park: Central Park, owner 6 Nov 2026; hall: the Hall of Fame, 19zzzz-rank.js)
   (C.PLACE_ORDER || []).forEach(function (id) { var p = C.PLACES[id]; MAPS[p.map] = 1; if (p.dungeon) MAPS[p.dungeon.key] = 1; }); // (the hunting places and their caves, 6 Nov 2026)
+  (C.ONLINE_MORE_MAPS || []).forEach(function (k) { MAPS[k] = 1; }); // (more maps seen online: Kapitana Marisol's boat 'sea', 18 Nov 2026)
   var DIRS = { down: 1, up: 1, left: 1, right: 1 };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
   var noop = function () {};

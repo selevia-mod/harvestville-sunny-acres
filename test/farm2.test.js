@@ -38,7 +38,7 @@ test('wheat: a 20-minute crop sold by Lily in spring, summer and fall; everythin
 });
 
 test('every workshop good sells for more than what goes into it', () => {
-  const value = (need) => Math.min(...L.ingredientItems(need).map((id) => C.ITEMS[id].sell));
+  const value = (need) => Math.min(...L.ingredientItems(need).map((id) => C.ITEMS[id].sell || C.ITEMS[id].price)); // (a bag of Fertilizer, in Sea Fertilizer: what Lily sells it for)
   C.WORKSHOP_KEYS.forEach((k) => C.WORKSHOPS[k].recipes.forEach((r) => {
     const cost = r.needs.reduce((n, e) => n + value(e[0]) * e[1], 0);
     assert.ok(C.ITEMS[r.out].sell > cost, r.out + ': ' + C.ITEMS[r.out].sell + ' > ' + cost);

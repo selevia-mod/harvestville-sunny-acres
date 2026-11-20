@@ -36,6 +36,14 @@ list('assets/props', '.png').forEach((f) => {
     : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', 'props', f)).toString('base64');
 });
 
+// The sea trips' pictures (owner, 18 Nov 2026: tools/art/sea-import.js), keyed "sea/<name>", all in the 'sea' pack.
+if (fs.existsSync(path.join(ROOT, 'assets', 'sea'))) list('assets/sea', '.png').forEach((f) => {
+  const name = path.basename(f, '.png'), webp = path.join(ROOT, 'assets', 'sea', name + '.webp');
+  images['sea/' + name] = fs.existsSync(webp)
+    ? 'data:image/webp;base64,' + fs.readFileSync(webp).toString('base64')
+    : 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'assets', 'sea', f)).toString('base64');
+});
+
 // Packs (tools/packs.js): out of the page, each its own file named by what is in it, so a phone never keeps old art.
 const PACKS = require('./tools/packs');
 const crypto = require('crypto');

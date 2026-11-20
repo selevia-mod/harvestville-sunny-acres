@@ -63,7 +63,7 @@ const play = (seed, steps, every) => {
   const pick = (a) => a[int(a.length)];
   const yardKinds = O.types.map((t, i) => i).filter((i) => O.types[i].cat !== 'none');
   const furnKinds = H.types.map((t, i) => i).filter((i) => H.types[i].key !== 'trophy_city_order'); // (the plaque, 18 Nov: the stream plays as before)
-  const items = Object.keys(C.ITEMS).filter((k) => C.ITEMS[k].kind !== 'tool');
+  const items = Object.keys(C.ITEMS).filter((k) => C.ITEMS[k].kind !== 'tool' && !C.ITEMS[k].sea); // (the sea's: their own stream, below)
   const seeds = items.filter((k) => C.ITEMS[k].kind === 'seed');
   const sprinklers = (C.SPRINKLERS || []).map((sp) => sp.id);
   const kinds = Object.keys(C.ANIMALS);
@@ -228,7 +228,29 @@ const play = (seed, steps, every) => {
     }
     if (c === 3) L.mkUnload(s);
   };
+  // Sea trips (18 Nov 2026), on a random stream of their own too: a ticket (Kapitana Marisol's free one as well), sea fish
+  // landed (weighed: the sea's fish book), a snag, a clump scooped, the Marlin lost or landed, her task handed in, a friend
+  // aboard, the trip's end (the crate's Capiz Shells, into the bag or the basket); a sea fish or a dish now and then
+  let r9 = seed ^ 0x7feb352d;
+  const zrnd = () => { r9 = (r9 * 1103515245 + 12345) & 0x7fffffff; return r9 / 0x7fffffff; };
+  const zint = (n) => Math.floor(zrnd() * n);
+  const SEA = C.SEA;
+  const seaItems = Object.keys(C.ITEMS).filter((k) => C.ITEMS[k].sea);
+  const sea = () => {
+    const c = zint(10);
+    if (c === 0) { if (zrnd() < 0.3) L.friend(s, 'mn_marisol').pts = 80; if (!L.hasRod(s)) L.addItem(s, 'rod', 1); s.gold += SEA.ticket; L.seaStart(s, clock.ms - zint(600000), zrnd() < 0.5, zrnd); }
+    else if (c === 1) L.landFish(s, SEA.ids[zint(6)], zrnd);
+    else if (c === 2) L.landFish(s, 'seaweed');
+    else if (c === 3) L.seaScoop(s);
+    else if (c === 4) { if (zrnd() < 0.5) L.seaMarlinLost(s, clock.ms - zint(60000)); else L.landFish(s, 'marlin', zrnd); }
+    else if (c === 5) { const t = L.seaTaskNow(s); if (t.kind === 'bring') L.addItem(s, t.id, t.n); else s.sea.tk = 1; L.seaTaskDo(s); }
+    else if (c === 6) L.seaFriend(s, 'a1b2c3d4-0000-4000-8000-0000000000' + String(zint(40)).padStart(2, '0'), 'Friend ' + zint(9), s.day + zint(3));
+    else if (c === 7) L.addItem(s, seaItems[zint(seaItems.length)], 1 + zint(5));
+    else L.seaEnd(s, clock.ms);
+    delete s.lastFish; // (the last catch's weight on screen: never saved, as the river's)
+  };
   for (let a = 1; a <= steps; a++) {
+    if (SEA && zrnd() < 0.1) sea();
     if (L.gmMakeCart && crnd() < 0.12) cart();
     if (L.mkStrip && yrnd() < 0.1) driving();
     if (TRK && vrnd() < 0.1) trucks();

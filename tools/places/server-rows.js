@@ -24,6 +24,14 @@ ids.forEach((id) => {
   const f = C.HALL.FIRSTS.find((x) => x.key === id + '_boss');
   if (f) firsts.push('(' + q(f.key) + ', ' + q(f.name + ', ' + p.dungeon.name) + ')');
 });
+// Kapitana Marisol's boat (Sea Trips, 18 Nov 2026): not a hunting place, but "Hunting now" lists it ('sea'), its fish go
+// on the Biggest catch board and the first Marlin on the Hall of Fame ('sea_boss'): node tools/places/server-rows.js sea
+if (want.includes('sea') && C.SEA) {
+  maps.push("('sea')");
+  C.SEA.fish.forEach((f) => kinds.push('(' + q(f[0]) + ', ' + f[5] + ')'));
+  const f = C.HALL.FIRSTS.find((x) => x.key === 'sea_boss');
+  if (f) firsts.push('(' + q(f.key) + ', ' + q(f.name + ', Manila Bay') + ')');
+}
 console.log('insert into farm.hunt_maps (map) values ' + maps.join(', ') + ' on conflict (map) do nothing;');
 console.log('insert into farm.catch_kinds (kind, kg) values\n  ' + kinds.join(', ') + '\non conflict (kind) do nothing;');
 console.log('insert into farm.hall_first_keys (key, what) values\n  ' + firsts.join(',\n  ') + '\non conflict (key) do nothing;');

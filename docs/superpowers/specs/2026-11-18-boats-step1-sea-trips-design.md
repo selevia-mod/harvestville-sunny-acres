@@ -108,3 +108,27 @@ most once (one retry); group bonus +10% a friend; the fish table and prices abov
 
 ## Later steps (not now)
 2 the sunset cruise, 3 island trips, 4 the yacht (no tickets, faster trips, more room, a house trophy), 5 bay events.
+
+## Built (18 Nov 2026, branch manila/sea-trips): the choices made where the plan left room
+- **Files:** content src/00-zzz...z-sea.js, rules and save src/01-logicZ...Z-sea.js, world src/19zzz...z-sea.js. Save key
+  **'sv'** (new; old saves load unchanged; generation stays 3). A save made at sea says the Manila pier; the trip ends
+  when the game opens again (the catch and the crate kept).
+- **New ids, the river untouched:** the sea's squid is 'sea_pusit' ("Sea Pusit": the Lost Tower already has a Pusit) and
+  its dish 'adobo_pusit_dagat' ("Adobong Pusit Dagat": the Tower already has an Adobong Pusit). "sili" is the farm's
+  Chili Pepper. C.FISH_ORDER and the Derby are as before: the sea's biggest of each is kept in 'sv' (the Sea fish book,
+  from the boat's panel) and sea catches never go to the Derby.
+- **The ticket is bought at berth 1's sign** (Kapitana Marisol's Boat panel), not in her talk; the panel also has her
+  sea tasks, the fish book, her hearts' unlocks and Hunting now. The tour shows the first time the panel opens.
+- **Spots:** you cast only at a spot (elsewhere: "nothing bites", free). Spots are worked out from the trip's start, so
+  friends aboard see the same ones. The 5th spot (6 hearts) stays by the stern.
+- **The group bonus:** each extra player aboard gives a +10% chance that a bite becomes the next bigger fish.
+- **The Marlin with friends:** each phone has its own Marlin; each other player aboard makes its zone 3% wider.
+- **Friends:** the boat is shared through the farm's room (like the hunting grounds' Join): Hunting now lists 'sea',
+  Join walks you to their farm and aboard on your own ticket (your own game, in their room, as their town is). No game
+  server change: the boat has no server-run animals. "+1 friendship" is kept per player in 'sv' (shown in the book).
+- **Marisol's tasks:** 6 in turn, then round again; each gives +10 friendship (a heart) and 600 Gold.
+- **The first Marlin** is on the Hall's "FIRSTS: THE NEW DUNGEONS" plaque, claimed by the sea's own call so it is never
+  lost before the owner's SQL is in. Manila's Hall of Fame building has no inside yet.
+- **Sea Fertilizer** is level 3 of the fertilizers ([Silver, Gold] 0.45, 0.32 against Rich's 0.4, 0.25), sells 80, and
+  is not on Mang Danny's shelves. The fish stall's new "Sell sea fish" tab pays each fish's price.
+- **Capiz** is loved by Kapitana Marisol, Lola Amparo and Bea.

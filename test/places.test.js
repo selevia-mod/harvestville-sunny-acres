@@ -389,5 +389,5 @@ test('part 23: its rows are the game\'s own (tools/places/server-rows.js): every
     assert.ok(sql.includes("('" + id + "_boss'"), id + ': its boss in the Hall');
     assert.ok(C.HALL.FIRSTS.some((f) => f.key === id + '_boss' && f.map === C.PLACES[id].dungeon.key && f.kind === C.PLACES[id].dungeon.boss), id + ': and in the game');
   });
-  assert.deepStrictEqual(plain(C.HALL.spots.w8.keys), plain(news.map((id) => id + '_boss')), 'all on one plaque');
+  assert.deepStrictEqual(plain(C.HALL.spots.w8.keys), plain(news.map((id) => id + '_boss').concat(C.SEA ? ['sea_boss'] : [])), 'all on one plaque (and the first Marlin, Sea Trips)');
 });
