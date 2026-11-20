@@ -8,14 +8,19 @@
 //  - The Harvester's crops: plain farm crops into the Silo while it has room, then the bag, then the basket; a Silver or
 //    Gold one keeps its star in the bag. A tile is only picked when there is room for all it can give (a quality crop:
 //    room in the bag), so nothing is ever lost: what has no room stays ripe in the field.
-// The save: 'mk' = bits (1 Tractor, 2 Seeder, 4 Harvester made; 8 the tour seen); only when not 0, an old save has none.
+//  - Driven (owner, 20 Nov 2026): it works a strip of M.strip tiles across its way (L.mkStrip) as it goes, through the
+//    same rules; the Tractor's energy is paid as it goes, 8/9 of the hand's over the whole drive (L.mkDue carries the
+//    part of a point not paid yet). The Harvester's crops go into its tank (L.mkTankPick, M.tank crops) and are unloaded
+//    at the Silo (L.mkUnload): plain farm crops into the Silo, the rest into the bag; what has no room stays in the tank.
+// The save: 'mk' = bits (1 Tractor, 2 Seeder, 4 Harvester made; 8 the tour seen; 16 the driving tour seen); only when
+// not 0, an old save has none. 'mkt' = the Harvester's tank, [[item, quality, n]], only when not empty.
 (function (F) {
   'use strict';
   var C = F.Config, L = F.Logic, M = C.MACHINES, K = C.MACHINE_KINDS;
   if (!M) return;
   var int = function (v, lo, hi, def) { v = Math.floor(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
   var bit = function (k) { return 1 << K.indexOf(k); };
-  var TOUR = 1 << K.length, ALL = (TOUR << 1) - 1;
+  var TOUR = 1 << K.length, DRIVE_TOUR = TOUR << 1, ALL = (DRIVE_TOUR << 1) - 1;
   var act = function (s, fn) { return L.skillAct ? L.skillAct(s, fn) : fn(); };
 
   // ---------- owning one ----------
@@ -24,7 +29,9 @@
   L.mkHave = function (s, k) { return L.hasItem(s, k) || (s.store || []).some(function (x) { return x && x.id === k; }); };
   L.mkLost = function (s, k) { return L.mkMade(s, k) && !L.mkHave(s, k); };
   L.mkTourSeen = function (s) { return !!((s.mk || 0) & TOUR); };
-  L.mkTourTake = function (s) { s.mk = (s.mk || 0) | TOUR; };
+  L.mkTourTake = function (s) { s.mk = (s.mk || 0) | TOUR | DRIVE_TOUR; }; // (it tells of driving too)
+  L.mkDriveTourSeen = function (s) { return !!((s.mk || 0) & DRIVE_TOUR); };
+  L.mkDriveTourTake = function (s) { s.mk = (s.mk || 0) | DRIVE_TOUR; };
   // Bram makes it: 'ok' | 'have' | 'gold' | 'lumber' | 'needs' | 'full' (the bag) | 'none'
   L.mkMake = function (s, k) {
     var R = M[k];
@@ -85,11 +92,14 @@
     });
     return { todo: todo, counts: counts, energy: L.mkEnergy(s, counts) };
   };
-  L.mkTill = function (s, plan) {
+  // due (driven): { c: the part of a point carried over }, paid as it goes (L.mkDue)
+  L.mkTill = function (s, plan, due) {
     var w = L.mkTillPlan(s, plan);
     if (!w.todo.length) return 'none';
-    if (!L.spendEnergy(s, w.energy)) return 'tired';
-    var r = { till: 0, clear: 0, lumber: 0, stone: 0, energy: w.energy, cleared: [], tilled: [] };
+    var d = due ? L.mkDue(s, w.counts, due) : null, cost = d ? d.pay : w.energy;
+    if (cost && !L.spendEnergy(s, cost)) return 'tired';
+    if (d) due.c = d.left;
+    var r = { till: 0, clear: 0, lumber: 0, stone: 0, energy: cost, cleared: [], tilled: [] };
     act(s, function () {
       w.todo.forEach(function (p) {
         if (p.clear) {
@@ -162,15 +172,77 @@
     return out;
   };
 
+  // ---------- driven ----------
+  // the M.strip tiles side by side across its way, (x, y) in the middle, going (dx, dy)
+  L.mkStrip = function (x, y, dx, dy) {
+    var h = (M.strip - 1) / 2, out = [];
+    for (var w = -h; w <= h; w++) out.push([x - dy * w, y + dx * w]);
+    return out;
+  };
+  // what to pay now for this work: { pay, left } (left: carried to the next, so a whole drive costs 8/9 of the hand's)
+  L.mkDue = function (s, counts, due) {
+    var e = L.mkHandEnergy(s, counts) * M.save + ((due && due.c) || 0), pay = Math.floor(e + 1e-9);
+    return { pay: pay, left: Math.max(0, e - pay) };
+  };
+  // the Harvester's tank
+  L.mkTankN = function (s) { return (s.mkTank || []).reduce(function (a, x) { return a + x[2]; }, 0); };
+  L.mkTankFull = function (s) { return L.mkTankN(s) + M.most > M.tank; };
+  var tankAdd = function (s, id, q, n) {
+    s.mkTank = s.mkTank || [];
+    for (var i = 0; i < s.mkTank.length; i++) if (s.mkTank[i][0] === id && s.mkTank[i][1] === q) { s.mkTank[i][2] += n; return; }
+    s.mkTank.push([id, q, n]);
+  };
+  // Picks one tile with `pick` (L.harvest) into the tank: only with room for all a tile can give (M.most), so nothing
+  // is ever lost. out (optional) counts { n }. The item id, or '!notripe' / '!full'.
+  L.mkTankPick = function (s, idx, pick, out) {
+    var t = s.soil[idx];
+    if (!L.isRipe(t) || C.CROPS[t.c].sickle) return '!notripe';
+    if (L.mkTankFull(s)) return '!full';
+    var bag = s.inv, tmp = [null, null, null, null, null, null, null, null], got;
+    s.inv = tmp;
+    try { got = (pick || L.harvest)(s, idx); } finally { s.inv = bag; }
+    tmp.forEach(function (x) {
+      if (!x) return;
+      tankAdd(s, x.id, x.q || 0, x.n);
+      if (out) out.n = (out.n || 0) + x.n;
+    });
+    return got;
+  };
+  // At the Silo: plain farm crops into the Silo, the rest (Silver, Gold, anything else) into the bag; what has no room
+  // stays in the tank. { silo, bag, left }
+  L.mkUnload = function (s) {
+    var r = { silo: 0, bag: 0, left: 0 }, keep = [];
+    (s.mkTank || []).forEach(function (x) {
+      var id = x[0], q = x[1], n = x[2], k;
+      if (!q && L.siloPut && L.isFarmCrop(id)) { k = n - L.siloPut(s, id, n); r.silo += k; n -= k; }
+      else { k = n - (q ? L.addItemQ(s, id, n, q) : L.addItem(s, id, n)); r.bag += k; n -= k; }
+      if (n > 0) { keep.push([id, q, n]); r.left += n; }
+    });
+    s.mkTank = keep;
+    return r;
+  };
+
   // ---------- the save ----------
   var newState = L.newState;
-  L.newState = function (info) { var s = newState(info); s.mk = 0; return s; };
+  L.newState = function (info) { var s = newState(info); s.mk = 0; s.mkTank = []; return s; };
   var serialize = L.serialize;
-  L.serialize = function (s) { var o = serialize(s); if (s.mk) o.mk = s.mk & ALL; return o; };
+  L.serialize = function (s) {
+    var o = serialize(s);
+    if (s.mk) o.mk = s.mk & ALL;
+    if (s.mkTank && s.mkTank.length) o.mkt = s.mkTank.map(function (x) { return [x[0], x[1], x[2]]; });
+    return o;
+  };
   var deserialize = L.deserialize;
   L.deserialize = function (o) {
     var s = deserialize(o);
-    if (s) s.mk = int(o.mk, 0, ALL, 0);
+    if (!s) return s;
+    s.mk = int(o.mk, 0, ALL, 0);
+    s.mkTank = [];
+    if (Array.isArray(o.mkt)) o.mkt.forEach(function (x) {
+      if (!Array.isArray(x) || typeof x[0] !== 'string' || !C.ITEMS.hasOwnProperty(x[0])) return;
+      var n = int(x[2], 0, 999, 0);
+      if (n) tankAdd(s, x[0], int(x[1], 0, 3, 0), n);
+    });
     return s;
   };
 })(window.Farm = window.Farm || {});

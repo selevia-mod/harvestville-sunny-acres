@@ -396,13 +396,13 @@ test('the save: \'mk\' only when something is made, appended; old saves load unc
   L.mkMake(s, 'harvester');
   L.mkTourTake(s);
   const o = plain(L.serialize(s));
-  assert.strictEqual(o.mk, 4 | 8);
+  assert.strictEqual(o.mk, 4 | 8 | 16, 'made; the Forge tour seen, which tells of driving too (16: 20 Nov 2026)');
   assert.strictEqual(o.gg, 3);
   const back = roundTrip(s);
   assert.ok(L.mkMade(back, 'harvester') && !L.mkMade(back, 'tractor') && L.mkTourSeen(back) && L.hasItem(back, 'harvester'));
   // a broken number: only the known bits
   assert.strictEqual(L.deserialize(Object.assign(plain(o), { mk: 'x' })).mk, 0);
-  assert.strictEqual(L.deserialize(Object.assign(plain(o), { mk: 1e9 })).mk, 15);
+  assert.strictEqual(L.deserialize(Object.assign(plain(o), { mk: 1e9 })).mk, 31);
   // every old save in test/old-saves: no 'mk', loads with nothing made and writes no 'mk'
   const dir = path.join(__dirname, 'old-saves');
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));

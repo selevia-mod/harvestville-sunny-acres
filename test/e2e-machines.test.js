@@ -1,7 +1,9 @@
-// Browser playthroughs of Bram's farm machines (the last part of the truck plan, owner 18 Nov 2026; src/19zzz...-machines.js):
-// Bram makes each one at the Forge; each held in the field: the Tractor's 3x3 (debris cleared, the stump left) and its row of 9
-// (held button), the Seeder (the packet held last), the Harvester (into the Silo); the field's edge; the first-time tour,
-// centred; and the burst of one 3x3 on a slow phone (CPU x4). Run alone, after node build.js:
+// Browser playthroughs of Bram's farm machines (the last part of the truck plan, owner 18 Nov 2026; src/19zzz...-machines.js),
+// driven since 20 Nov 2026 (src/19zzz...z-machines-drive.js): Bram makes each one at the Forge; Get in and drive each in the
+// field with the joystick: the Tractor (weeds pushed aside at its nose, 3 across tilled behind, a stump stops it, a growing
+// crop left as it was), the Seeder pushed (the packet held last, until it runs out), the Harvester (its tank, full, Unload
+// at the Silo, kept in the save); getting out on its own (another slot, a door); the owner's pictures each way; both
+// first-time tours, centred; and driving on a slow phone (CPU x4). Run alone, after node build.js:
 // node --test --test-concurrency=1 test/e2e-machines.test.js   (SHOTS=/some/dir saves the screenshots)
 const test = require('node:test');
 const assert = require('node:assert');
@@ -21,7 +23,17 @@ let browser;
 test.before(async () => { browser = await chromium.launch(); });
 test.after(async () => { await browser.close(); });
 
-async function open(savedState, quiet = true) {
+// The app's side of the packs (as test/e2e-deep-mine.test.js): with `packs`, the 'vehicles' pack is on the phone
+const fs = require('fs');
+const assetFile = (file) => {
+  const m = /^packs\/([a-z0-9_-]+\.[0-9a-f]{8})$/.exec(file);
+  const p = m ? path.join(__dirname, '..', 'dist', 'packs', m[1] + '.webp') : null;
+  return p && fs.existsSync(p) ? 'data:image/webp;base64,' + fs.readFileSync(p).toString('base64') : null;
+};
+const allPackFiles = () => fs.readdirSync(path.join(__dirname, '..', 'dist', 'packs')).map((f) => 'packs/' + f.replace(/\.webp$/, ''));
+const HOST_ASSETS = 'window.gameHost.here = window.__here || []; window.gameHost.asset = function (f, save) { window.__testAsset(f).then(function (url) { if (save) window.__gameAssetSaved(f, !!url); else window.__gameAsset(f, url); }); };';
+
+async function open(savedState, quiet = true, packs = false) {
   const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   const problems = [];
@@ -33,14 +45,19 @@ async function open(savedState, quiet = true) {
     problems.push('network: ' + url);
     return route.abort();
   });
-  await page.addInitScript(([state, now, quiet]) => {
+  await context.exposeBinding('__testAsset', (src, file) => assetFile(file));
+  await page.addInitScript(([state, now, quiet, here]) => {
     window.__now = now;
+    window.__here = here;
     window.gameHost = { state: state, quiet: quiet, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
-  }, [savedState || null, at(START), quiet]);
+  }, [savedState || null, at(START), quiet, packs ? allPackFiles() : []]);
+  await page.addInitScript(HOST_ASSETS);
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
   await page.evaluate(() => { Farm.Logic.weather = () => 'sunny'; });
   await page.waitForTimeout(300);
+  // the machines' pictures in (on the phone: fetched as the farm shows them)
+  if (packs) await page.waitForFunction(() => !Farm.Logic.mkMade(Farm.session.state, 'harvester') || ['side', 'front', 'back'].every((v) => Farm.images['machine_harvester_' + v]), null, SLOW);
   return { page, problems, context };
 }
 // a farm with its field clear, the three machines' materials and plenty of gold: `edit` runs in the page (s, L, C)
@@ -128,20 +145,8 @@ async function tapButton(page, label) {
   await page.touchscreen.tap(pos.x, pos.y);
   await frames(page, 4);
 }
-// holds the action button down until the charge reaches `level`, then lets go
-async function holdAction(page, cdp, level) {
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: ACTION_BTN.x, y: ACTION_BTN.y, id: 7 }] });
-  await page.waitForFunction((lv) => Farm.world.charge && Farm.world.charge.level === lv, level, SLOW);
-  await frames(page, 2);
-}
-const release = async (page, cdp) => {
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await page.waitForFunction(() => !Farm.world.charge, null, SLOW);
-  await frames(page, 2);
-};
 const MATS = "s.lumber = 200; [['ore_copper', 10], ['ore_silver', 10], ['ore_gold', 10], ['farm_cement', 10], ['rope', 10]].forEach((n) => L.addItem(s, n[0], n[1]));";
 const MACHINES = "['tractor', 'seeder', 'harvester'].forEach((k) => { L.addItem(s, k, 1); s.mk |= 1 << C.MACHINE_KINDS.indexOf(k); }); s.mk |= 8;";
-const shownSoil = (page, list) => page.evaluate((list) => list.filter((i) => Farm.world.layers.Soil.getTileAt(i % 75, Math.floor(i / 75))).length, list);
 
 test('Bram makes the Tractor, the Seeder and the Harvester (three new Forge rows), one of each', async () => {
   const save = await makeSave(MATS + " s.mk = 8; s.map = 'town';");
@@ -151,7 +156,7 @@ test('Bram makes the Tractor, the Seeder and the Harvester (three new Forge rows
   await frames(page, 4);
   const t = await modalText(page);
   assert.match(t, /Tractor/);
-  assert.match(t, /Also 40 lumber\. Tills the 3x3 ahead/);
+  assert.match(t, /Also 40 lumber\. Drive it over your field/);
   await slimTo(page, 'Tractor');
   await frames(page, 3);
   await shot(page, '01-forge-rows');
@@ -174,106 +179,176 @@ test('Bram makes the Tractor, the Seeder and the Harvester (three new Forge rows
   await context.close();
 });
 
-test('in the field: the Tractor tills the 3x3 ahead and clears it (the stump stays); held down, a row of 9; at the field\'s edge, only field soil', async () => {
-  const save = await makeSave(MACHINES + " s.debris[13 * 75 + 5] = 'weed'; s.debris[14 * 75 + 4] = 'branch'; s.debris[14 * 75 + 6] = 'stone'; s.debris[12 * 75 + 6] = 'stump';");
-  const { page, problems, context } = await open(save);
-  const cdp = await context.newCDPSession(page);
-  await teleport(page, 5, 11, 'down'); // (in the field: the fence runs along row 10)
+// ---------- driving (20 Nov 2026) ----------
+// the joystick pushed (jx, jy) for ms, then let go and settled
+async function steer(page, jx, jy, ms) {
+  await page.evaluate(([jx, jy, ms]) => new Promise((r) => { Farm.input.jx = jx; Farm.input.jy = jy; setTimeout(() => { Farm.input.jx = 0; Farm.input.jy = 0; r(); }, ms); }), [jx, jy, ms]);
+  await frames(page, 8);
+}
+const feetTile = (page) => page.evaluate(() => { const f = Farm.world.feet(); return [f.x / 256, f.y / 256]; });
+const driving = (page) => page.evaluate(() => Farm.world.drive && Farm.world.drive.k);
+// every toast shown from now on
+const toasts = (page) => page.evaluate(() => { window.__toasts = []; const t = Farm.ui.toast; Farm.ui.toast = function (m) { window.__toasts.push(String(m)); return t.apply(this, arguments); }; });
+const said = (page) => page.evaluate(() => window.__toasts.slice());
+const RIPE = (y0, y1) => `for (let y = ${y0}; y <= ${y1}; y++) for (let x = 4; x <= 19; x++) s.soil[y * 75 + x] = { w: 1, c: 'corn', p: L.nowMin() - C.CROPS.corn.mins - 1, r: 0, h: 1 };`;
+const TILLED = (y0, y1) => `for (let y = ${y0}; y <= ${y1}; y++) for (let x = 4; x <= 19; x++) s.soil[y * 75 + x] = { w: 0, c: null, p: 0, r: 0 };`;
+
+test('the Tractor driven: Get in; weeds pushed aside at its nose, 3 across tilled behind; a stump stops it; a growing crop left; Get out', async () => {
+  // row 16 from x 5: a weed at 9, a branch at 11, a stump at 16; a growing turnip at (8, 15)
+  const save = await makeSave(MACHINES + " s.energy = 200; s.debris[16 * 75 + 9] = 'weed'; s.debris[16 * 75 + 11] = 'branch'; s.debris[16 * 75 + 16] = 'stump'; s.soil[15 * 75 + 8] = { w: 1, c: 'turnip', p: L.nowMin(), r: 0, h: 1 };");
+  const { page, problems, context } = await open(save, true, true);
   await hold(page, 'tractor');
-  assert.strictEqual(await actionLabel(page), 'Till');
-  const shown = await page.evaluate(() => ({ spr: !!Farm.world.mkSpr && Farm.world.mkSpr.visible, cells: Farm.world.areaCells.filter((c) => c.visible).length }));
-  assert.deepStrictEqual(shown, { spr: true, cells: 9 }, 'the machine in front, the 3x3 shown');
-  await shot(page, '03-tractor-held-field-before');
-  const s0 = await state(page);
+  await teleport(page, 5, 16, 'right');
+  assert.strictEqual(await actionLabel(page), 'Get in');
   await tapAction(page);
-  await page.waitForTimeout(60);
-  await shot(page, '04-tractor-in-use');
-  await page.waitForTimeout(600);
-  let s = await state(page);
-  const block = []; for (let y = 12; y <= 14; y++) for (let x = 4; x <= 6; x++) block.push(idx(x, y));
-  assert.deepStrictEqual(block.filter((i) => s.soil[i]).length, 8, 'tilled all but the stump');
-  assert.ok(!s.debris[idx(5, 13)] && !s.debris[idx(4, 14)] && !s.debris[idx(6, 14)] && s.debris[idx(6, 12)] === 'stump');
-  assert.deepStrictEqual([s.lumber - s0.lumber, s.stone - s0.stone], [1, 1], 'the branch\'s lumber, the stone\'s stone');
-  assert.strictEqual(s0.energy - s.energy, Math.floor((8 * 2 + 1 + 3 + 3) * 8 / 9), 'by hand 23 (8 tilled, a weed, a branch, a stone): the Tractor 20');
-  assert.strictEqual(await shownSoil(page, block), 8, 'the soil is drawn');
-  await shot(page, '05-tractor-field-after');
-  // held down: a row of 9
-  await teleport(page, 8, 11, 'down');
-  await holdAction(page, cdp, 1);
-  assert.match(await page.evaluate(() => Farm.ui.chargeText.text), /Row of 9/);
-  assert.strictEqual(await page.evaluate(() => Farm.world.areaCells.filter((c) => c.visible).length), 9);
-  await shot(page, '06-tractor-row-held');
-  await release(page, cdp);
-  await page.waitForTimeout(500);
-  s = await state(page);
-  assert.strictEqual([12, 13, 14, 15, 16, 17, 18, 19, 20].filter((y) => s.soil[idx(8, y)]).length, 9, 'a row of 9');
-  // the field's edge: only the field soil of the block
-  await teleport(page, 5, 16, 'left'); // the block ahead: x 4 (field), 3 and 2 (not)
-  assert.strictEqual(await actionLabel(page), 'Till');
+  assert.strictEqual(await driving(page), 'tractor');
+  assert.strictEqual(await actionLabel(page), 'Get out');
+  const e0 = (await state(page)).energy;
+  await steer(page, 1, 0, 6000);
+  const [fx, fy] = await feetTile(page);
+  assert.ok(Math.abs(fy - 16.5) < 0.05, 'it kept to its row: ' + fy);
+  assert.ok(fx > 13 && fx < 16 - 1.35 + 0.2, 'the stump stopped its nose: ' + fx);
+  await page.waitForTimeout(300);
+  await shot(page, '03-tractor-driven');
+  const s = await state(page);
+  assert.ok(!s.debris[16 * 75 + 9] && !s.debris[16 * 75 + 11], 'the weed and the branch pushed aside');
+  assert.strictEqual(s.debris[16 * 75 + 16], 'stump', 'the stump stays for the axe');
+  const tilled = [];
+  for (let x = 4; x <= 19; x++) for (const y of [15, 16, 17]) if (s.soil[y * 75 + x] && !s.soil[y * 75 + x].c) tilled.push([x, y]);
+  assert.ok(tilled.length >= 18, '3 across tilled behind it: ' + tilled.length);
+  assert.ok(tilled.every(([x]) => x <= fx - 1.0), 'only behind it, under the plough: ' + JSON.stringify(tilled.slice(-3)));
+  assert.deepStrictEqual(s.soil[15 * 75 + 8].c, 'turnip', 'the growing turnip rolled over, as it was');
+  const spent = e0 - s.energy;
+  const hand = await page.evaluate((n) => { const C = Farm.Config, c = { hoe: n }; ['weed', 'branch'].forEach((k) => { const t = C.DEBRIS[k].tool; c[t] = (c[t] || 0) + 1; }); return Farm.Logic.mkHandEnergy(Farm.session.state, c); }, tilled.length);
+  assert.ok(spent > 0 && spent <= Math.floor(hand * 8 / 9) + 1 && spent < hand, 'energy: 8/9 of the hand\'s (' + spent + ' of ' + hand + ' for ' + tilled.length + ' tilled and 2 cleared)');
+  // the action button gets you out: it is back in the bag, the farmer on foot where the seat was
   await tapAction(page);
-  await page.waitForTimeout(500);
-  s = await state(page);
-  assert.deepStrictEqual([15, 16, 17].map((y) => [!!s.soil[idx(4, y)], !!s.soil[idx(3, y)], !!s.soil[idx(2, y)]]), [[true, false, false], [true, false, false], [true, false, false]]);
-  // off the farm it does nothing (and says why)
-  await go(page, 'town', 'from_farm');
-  await hold(page, 'tractor');
-  assert.strictEqual(await page.evaluate(() => !!(Farm.world.mkSpr && Farm.world.mkSpr.visible)), false, 'not shown in town');
+  assert.strictEqual(await driving(page), null);
+  assert.strictEqual(await actionLabel(page), 'Get in');
+  assert.ok(await page.evaluate(() => Farm.world.player.visible));
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
 
-test('in the field: the Seeder plants the packet held last (one packet a pass); the Harvester picks the 3x3 into the Silo, and a row of 9', async () => {
-  const till = 'for (let y = 11; y <= 20; y++) for (let x = 4; x <= 8; x++) s.soil[y * 75 + x] = { w: 1, c: null, p: 0, r: 0 };';
-  const save = await makeSave(MACHINES + till + " s.inv = s.inv.map((x) => (x && C.ITEMS[x.id].kind === 'seed' ? null : x)); L.addItem(s, 'seed_turnip', 3); L.addItem(s, 'seed_potato', 3);");
-  const { page, problems, context } = await open(save);
-  const cdp = await context.newCDPSession(page);
-  await teleport(page, 5, 11, 'down');
-  await hold(page, 'seed_potato'); // held last
+test('the Seeder pushed: the packet held last, 9 tiles a packet as by hand, 3 across; out of seeds it says so; Let go', async () => {
+  const save = await makeSave(MACHINES + TILLED(15, 17) + " L.addItem(s, 'seed_turnip', 30); L.addItem(s, 'seed_potato', 2);");
+  const { page, problems, context } = await open(save, true, true);
+  await toasts(page);
+  await hold(page, 'seed_potato'); // (held last: the Seeder plants these)
   await hold(page, 'seeder');
-  assert.strictEqual(await actionLabel(page), 'Plant');
-  await shot(page, '07-seeder-held');
+  await teleport(page, 4, 16, 'right');
+  assert.strictEqual(await actionLabel(page), 'Push');
   await tapAction(page);
-  await page.waitForTimeout(60);
-  await shot(page, '08-seeder-in-use');
-  await page.waitForTimeout(600);
+  assert.strictEqual(await driving(page), 'seeder');
+  assert.strictEqual(await actionLabel(page), 'Let go');
+  assert.ok(await page.evaluate(() => Farm.world.player.visible), 'the farmer walks behind it');
+  await steer(page, 1, 0, 4000);
+  await shot(page, '04-seeder-pushed');
+  const s = await state(page);
+  const planted = Object.keys(s.soil).filter((i) => s.soil[i].c);
+  assert.strictEqual(planted.filter((i) => s.soil[i].c === 'potato').length, 18, '2 packets of potato seeds: 9 tiles each, as by hand');
+  assert.strictEqual(planted.length, 18, 'nothing else: the turnips held before were not the last');
+  assert.strictEqual(s.inv.filter((x) => x && x.id === 'seed_potato').length, 0, 'the packet used up');
+  assert.ok(planted.every((i) => [15, 16, 17].includes(Math.floor(i / 75))), 'in its strip');
+  assert.ok((await said(page)).some((m) => /^Out of Potato/.test(m)), 'out of them, it says so: ' + JSON.stringify(await said(page)));
+  await tapAction(page);
+  assert.strictEqual(await driving(page), null);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the Harvester: ripe crops into its tank, not the Silo; full, it stops and says so; Unload next to the Silo; the tank saved', async () => {
+  const save = await makeSave(MACHINES + RIPE(13, 22) + " s.mkTank = [['corn', 0, 40]];");
+  const { page, problems, context } = await open(save, true, true);
+  await toasts(page);
+  const silo0 = (await state(page)).silo.c.corn || 0;
+  await hold(page, 'harvester');
+  await teleport(page, 4, 14, 'right');
+  await tapAction(page);
+  assert.strictEqual(await driving(page), 'harvester');
+  await steer(page, 1, 0, 7000);
+  await shot(page, '05-harvester-full');
   let s = await state(page);
-  const block = []; for (let y = 12; y <= 14; y++) for (let x = 4; x <= 6; x++) block.push(idx(x, y));
-  assert.ok(block.every((i) => s.soil[i].c === 'potato'), 'the 3x3 planted with potatoes');
-  assert.deepStrictEqual(['seed_potato', 'seed_turnip'].map((id) => s.inv.filter((x) => x && x.id === id).reduce((n, x) => n + x.n, 0)), [2, 3], 'one packet');
-  assert.strictEqual(s.inv[s.sel].id, 'seeder', 'still holding the Seeder');
-  await shot(page, '09-seeder-field-after');
-  // the crops ripen; the Harvester picks them into the Silo
-  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic, C = Farm.Config; Object.keys(s.soil).forEach((i) => { const t = s.soil[i]; if (t.c) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1; } }); Farm.world.refreshAllSoil(); });
-  await hold(page, 'harvester');
-  assert.strictEqual(await actionLabel(page), 'Harvest');
-  await shot(page, '10-harvester-held-ripe');
-  const before = await state(page);
+  const tank = s.mkTank.reduce((a, x) => a + x[2], 0);
+  assert.ok(tank + 6 > 60 && tank <= 60, 'full (no room for all a tile can give): ' + tank);
+  assert.strictEqual(s.silo.c.corn || 0, silo0, 'nothing into the Silo as it cuts');
+  assert.ok((await said(page)).some((m) => /^The tank is full/.test(m)));
+  assert.match(await page.evaluate(() => Farm.ui.mkTankText.text), /^Tank full \d+ \/ 60$/);
+  const left = [13, 14, 15].reduce((a, y) => a + [...Array(16).keys()].filter((i) => { const t = s.soil[y * 75 + 4 + i]; return t && t.c; }).length, 0);
+  assert.ok(left > 0, 'what it had no room for stays ripe in the field');
+  // next to the Silo (x 21-23, y 4-7): Unload
+  await teleport(page, 22, 9, 'down');
+  assert.strictEqual(await actionLabel(page), 'Unload');
+  await shot(page, '06-harvester-unload');
   await tapAction(page);
-  await page.waitForTimeout(60);
-  await shot(page, '11-harvester-in-use');
-  await page.waitForTimeout(700);
   s = await state(page);
-  assert.ok(block.every((i) => !s.soil[i].c), 'all 9 picked');
-  const silo = (st) => (st.silo && st.silo.c.potato) || 0, bag = (st) => st.inv.filter((x) => x && x.id === 'potato').reduce((n, x) => n + x.n, 0);
-  assert.ok(silo(s) - silo(before) >= 1 && silo(s) - silo(before) + bag(s) - bag(before) >= 9, 'into the Silo (Silver and Gold ones in the bag): ' + [silo(s), bag(s)]);
-  assert.strictEqual(s.inv.filter((x) => x && x.id === 'potato' && !x.q).length, 0, 'no plain potatoes in the bag: the Silo had room');
-  await shot(page, '12-harvester-field-after');
-  // a row of 9: planted by the Seeder held down, ripened, picked by the Harvester held down
-  await teleport(page, 8, 11, 'down');
-  await hold(page, 'seeder');
-  await holdAction(page, cdp, 1);
-  await release(page, cdp);
-  await page.waitForTimeout(500);
-  s = await state(page);
-  const r = [12, 13, 14, 15, 16, 17, 18, 19, 20].map((y) => idx(8, y));
-  assert.ok(r.every((i) => s.soil[i].c === 'potato'), 'a row of 9 planted');
-  await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic, C = Farm.Config; Object.keys(s.soil).forEach((i) => { const t = s.soil[i]; if (t.c) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1; } }); Farm.world.refreshAllSoil(); });
+  assert.strictEqual((s.silo.c.corn || 0) - silo0 + s.mkTank.reduce((a, x) => a + x[2], 0) + s.inv.filter((x) => x && x.id === 'corn').reduce((a, x) => a + x.n, 0), tank, 'every crop somewhere');
+  assert.ok((s.silo.c.corn || 0) > silo0, 'into the Silo');
+  // saved as it was unloaded (getting out saves it too): what is left in the tank, as mkt
+  const saved = await page.evaluate(() => JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1] || 'null'));
+  assert.deepStrictEqual(saved.mkt || [], s.mkTank, 'saved: ' + JSON.stringify(saved.mkt));
+  await page.evaluate(() => { Farm.session.state.mkTank = [['corn', 0, 7]]; });
+  await page.evaluate(() => Farm.world.getOut());
+  const saved2 = await page.evaluate(() => JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]));
+  assert.deepStrictEqual(saved2.mkt, [['corn', 0, 7]], 'getting out saves the tank');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('getting out on its own: another bag slot, a door; the owner\'s pictures each way (the side one stands in until a front or back comes)', async () => {
+  const save = await makeSave(MACHINES);
+  const { page, problems, context } = await open(save, true, true);
   await hold(page, 'harvester');
-  await holdAction(page, cdp, 1);
-  await release(page, cdp);
-  await page.waitForTimeout(600);
-  s = await state(page);
-  assert.ok(r.every((i) => !s.soil[i].c), 'a row of 9 picked');
+  await teleport(page, 10, 18, 'right');
+  await tapAction(page);
+  const keys = {};
+  for (const [dir, jx, jy] of [['right', 1, 0], ['down', 0, 1], ['left', -1, 0], ['up', 0, -1]]) {
+    await steer(page, jx * 0.3, jy * 0.3, 150);
+    keys[dir] = await page.evaluate(() => [Farm.world.drive.img.texture.key, Farm.world.drive.img.flipX]);
+  }
+  assert.deepStrictEqual(keys, { right: ['machine_harvester_side', false], down: ['machine_harvester_front', false], left: ['machine_harvester_side', true], up: ['machine_harvester_back', false] });
+  // no front picture yet: the side one
+  const stand = await page.evaluate(() => { const im = Farm.images.machine_harvester_front; delete Farm.images.machine_harvester_front; const k = Farm.world.driveTex('harvester', 'front')[0]; Farm.images.machine_harvester_front = im; return k; });
+  assert.strictEqual(stand, 'machine_harvester_side');
+  // another slot: out
+  await hold(page, 'tractor');
+  assert.strictEqual(await driving(page), null);
+  // through a door: out first
+  await hold(page, 'harvester');
+  await tapAction(page);
+  assert.strictEqual(await driving(page), 'harvester');
+  await page.evaluate(() => Farm.world.travel('house'));
+  await waitMap(page, 'house');
+  assert.strictEqual(await driving(page), null);
+  assert.strictEqual(await page.evaluate(() => Farm.session.driving), null);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('the driving tour: the first Get in (centred, 4 steps, once), then in', async () => {
+  const save = await makeSave(MACHINES.replace('s.mk |= 8;', 's.mk |= 8; s.mk &= ~16;'));
+  const { page, problems, context } = await open(save, false, true);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await hold(page, 'tractor');
+  await teleport(page, 8, 18, 'right');
+  await tapAction(page);
+  await page.waitForFunction(() => Farm.ui.modals.length > 0, null, SLOW);
+  await page.waitForTimeout(800);
+  assert.match(await modalText(page), /DRIVING MACHINES/);
+  const box = await page.evaluate(() => { const m = Farm.ui.modals[Farm.ui.modals.length - 1].c.getBounds(); return { x: m.centerX, w: m.width }; });
+  assert.ok(Math.abs(box.x - 180) < 12, 'centred: ' + JSON.stringify(box));
+  await shot(page, '07-drive-tour-1');
+  for (let i = 2; i <= 4; i++) { await tapButton(page, 'Next'); await page.waitForTimeout(1200); await shot(page, '07-drive-tour-' + i); }
+  await tapButton(page, 'Got it');
+  await page.waitForTimeout(300);
+  assert.strictEqual(await driving(page), 'tractor', 'then in');
+  assert.ok((await state(page)).mk & 16, 'seen');
+  await tapAction(page);
+  await tapAction(page);
+  await page.waitForTimeout(300);
+  assert.strictEqual(await page.evaluate(() => Farm.ui.modals.length), 0, 'once only');
+  assert.strictEqual(await driving(page), 'tractor');
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
@@ -297,7 +372,7 @@ test('the first-time tour (centred, once), then the Forge with its machine rows'
   assert.match(await modalText(page), /Bram's Forge/);
   assert.match(await modalText(page), /Tractor/);
   const s = await state(page);
-  assert.strictEqual(s.mk, 8, 'seen');
+  assert.strictEqual(s.mk, 8 | 16, 'seen (it tells of driving: the driving tour too)');
   await page.evaluate(() => Farm.ui.closeAll());
   await page.evaluate(() => Farm.ui.openForge());
   await frames(page, 4);
@@ -324,51 +399,36 @@ const work = (page, ms) => page.evaluate((ms) => new Promise((resolve) => {
   requestAnimationFrame(tick);
 }), ms);
 
-test('a slow phone (CPU x4): one 3x3 of each machine is one short burst; the frames after it, and holding one, within the budget', async () => {
+test('a slow phone (CPU x4): driving each machine over a full field, the world\'s frame within the budget', async () => {
   const debris = "for (let y = 12; y <= 22; y++) for (let x = 4; x <= 19; x++) if ((x + y) % 3 === 0) s.debris[y * 75 + x] = ['weed', 'branch', 'stone'][(x * 7 + y) % 3];";
-  // (past the starter goals, as a farm that can afford a machine is: a goal finished by the first tap shows its own reward
-  // card, which picking or tilling by hand shows too; measured on its own below)
-  const save = await makeSave(MACHINES + debris + " L.addItem(s, 'seed_potato', 20); s.energy = 100; s.goal = C.GOALS.length;");
-  const { page, problems, context } = await open(save);
+  // (past the starter goals, as a farm that can afford a machine is: a goal's reward card is measured on its own elsewhere)
+  const save = await makeSave(MACHINES + debris + " L.addItem(s, 'seed_potato', 99); s.energy = 500; s.goal = C.GOALS.length;");
+  const { page, problems, context } = await open(save, true, true);
   const cdp = await context.newCDPSession(page);
-  // the burst: mkUse timed, many times over on fresh blocks (the page's timer is coarse: 0.1 ms)
-  await page.evaluate(() => {
-    const P = Object.getPrototypeOf(Farm.world), use = P.mkUse;
-    window.__bursts = [];
-    P.mkUse = function () { const t0 = performance.now(); try { return use.apply(this, arguments); } finally { window.__bursts.push(performance.now() - t0); } };
-  });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.waitForTimeout(800);
-  const rows = {};
-  const idle = await work(page, 1500);
-  rows.idle = idle;
+  const rows = { idle: (await work(page, 1500)).world };
   for (const k of ['tractor', 'seeder', 'harvester']) {
     if (k === 'harvester') await page.evaluate(() => { const s = Farm.session.state, L = Farm.Logic, C = Farm.Config; Object.keys(s.soil).forEach((i) => { const t = s.soil[i]; if (t.c) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1; } }); Farm.world.refreshAllSoil(); });
     await hold(page, k);
-    await page.evaluate(() => { window.__bursts = []; });
-    const held = await work(page, 1200);
-    const after = [];
-    for (const x of [5, 8, 11, 14, 17]) {
-      await teleport(page, x, 11, 'down');
-      await page.evaluate(() => { Farm.session.state.energy = 100; });
-      await tapAction(page);
-      after.push(await work(page, 700));
-      await page.waitForTimeout(150);
-    }
-    const b = await page.evaluate(() => window.__bursts.slice());
-    b.sort((x, y) => x - y);
-    rows[k] = { held: held.frame, heldWorld: held.world, burst: { n: b.length, p50: +b[Math.floor(b.length / 2)].toFixed(1), worst: +b[b.length - 1].toFixed(1) }, after: after.map((a) => a.world.worst), afterP50: after.map((a) => a.world.p50) };
-    assert.strictEqual(b.length, 5, k + ': 5 uses');
+    await teleport(page, 4, 16, 'right');
+    await page.evaluate(() => { const a = Farm.world.resolve(); a.run(); });
+    await frames(page, 4);
+    const m = page.evaluate(() => new Promise((r) => { Farm.input.jx = 1; setTimeout(() => { Farm.input.jx = 0; r(); }, 3200); }));
+    const w = await work(page, 3000);
+    await m;
+    rows[k] = w.world;
+    await page.evaluate(() => Farm.world.getOut());
+    await frames(page, 4);
   }
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
-  console.log('machines on a slow phone (CPU x4), ms:', JSON.stringify(rows, null, 1));
+  console.log('driving on a slow phone (CPU x4), the world\'s work a frame, ms:', JSON.stringify(rows));
   ['tractor', 'seeder', 'harvester'].forEach((k) => {
-    assert.ok(rows[k].burst.worst < 40, k + ': the burst ' + JSON.stringify(rows[k].burst));
-    assert.ok(rows[k].heldWorld.p50 <= rows.idle.world.p50 + 2, k + ': held, a frame of the world ' + JSON.stringify([rows[k].heldWorld, rows.idle.world]));
+    assert.ok(rows[k].p50 <= rows.idle.p50 + 3, k + ': a frame while driving ' + JSON.stringify([rows[k], rows.idle]));
+    assert.ok(rows[k].p95 < 13, k + ': within the 60 Hz budget ' + JSON.stringify(rows[k]));
   });
   const s = await state(page);
-  assert.ok(Object.keys(s.soil).length >= 40);
+  assert.ok(Object.keys(s.soil).length >= 20, 'it worked as it went: ' + Object.keys(s.soil).length);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
-

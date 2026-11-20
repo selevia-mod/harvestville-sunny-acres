@@ -26,7 +26,7 @@
     var out = ['machine_icons'];
     if (L.gmCartMade && L.gmCartMade(s)) out = out.concat(views('cart'));
     if (L.trkOwns && F.trkArt) [1, 2, 3].forEach(function (i) { if (L.trkOwns(s, i) && F.trkArt(i)) out = out.concat(views(F.trkArt(i))); });
-    if (L.mkMade) (C.MACHINE_KINDS || []).forEach(function (k) { if (L.mkMade(s, k)) out.push('machine_' + k); });
+    if (L.mkMade) (C.MACHINE_KINDS || []).forEach(function (k) { if (L.mkMade(s, k)) out.push('machine_' + k, 'machine_' + k + '_side', 'machine_' + k + '_front', 'machine_' + k + '_back'); });
     return out;
   };
   var create = P.create;
@@ -54,7 +54,6 @@
   F.bus.on('packart', function (k) {
     if (/^veh_/.test(k) && !redraw) redraw = setTimeout(swap, 120); // (the six views come close together: once for them all)
     if (k === 'machine_icons' && F.world && F.world.textures && F.world.textures.exists('items') && F.paintMachineIcons) F.paintMachineIcons(F.world);
-    var w = F.world, m = /^machine_([a-z]+)$/.exec(k);
-    if (m && m[1] !== 'icons' && w && w.mkSpr && w.mkSpr.active && L.mkHeld && L.mkHeld(w.state) === m[1]) w.mkSpr.setTexture(F.mkTex(w, m[1])).setDisplaySize(1.5 * C.TILE, C.TILE);
+    // (a driven machine's pictures: 19zzz...z-machines-drive.js takes each the frame after it comes)
   });
 })(window.Farm = window.Farm || {});

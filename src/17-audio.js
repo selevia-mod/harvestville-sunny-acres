@@ -164,6 +164,9 @@
     hammer: function () { [0, 0.18, 0.36].forEach(function (d) { noise(0.08, 'lowpass', 900, 0.4, d); }); },
     boom: function () { noise(0.7, 'lowpass', 320, 0.5); },
     thunder: function () { noise(1.6, 'lowpass', 220, 0.6); noise(0.6, 'lowpass', 600, 0.25, 0.1); },
+    // a farm machine you drive (owner, 20 Nov 2026): one chug of its engine; the Seeder's wheels and drills
+    engine: function () { noise(0.11, 'lowpass', 170, 0.2); tone(52 + Math.random() * 6, 0.1, 'sawtooth', 0.035, 44); },
+    rattle: function () { noise(0.05, 'bandpass', 1300 + Math.random() * 400, 0.05); },
   };
 
   A.sfx = function (name) {

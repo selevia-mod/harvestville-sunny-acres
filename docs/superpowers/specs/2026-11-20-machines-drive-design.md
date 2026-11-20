@@ -55,3 +55,18 @@ Seeder, an engine sound (the Seeder: wheels only). Drawn only while on the scree
 ## Art (the owner makes it): 6 pictures
 Front and back of each machine, 1024x1024, 30-degree camera, no driver:
 ~/Documents/machines-realistic-2026-11-19/MACHINES-FRONT-BACK-PROMPTS.md (copy: art-src/MACHINES-FRONT-BACK-PROMPTS.md).
+
+## Built (20 Nov 2026, branch manila/machines-drive, worktree ~/Documents/hv-drive): what I decided while building
+- The owner's 6 front/back pictures came the same day ("check this and start building"); checked (see-through, same
+  machines and colours as the side pictures) and cut into the 'vehicles' pack: machine_<kind>_<side|front|back>, at
+  C.MACHINES.drive's widths (side 2.8 / 2.4 / 3.4 tiles; front and back 2.2 / 1.9 / 3.0).
+- Where each works, realistic: the Harvester's header in front; the Tractor pushes weeds, branches and stones aside at
+  its nose and tills with its plough behind (the plough is at its back in the owner's picture); the Seeder's drills under
+  its hopper. Still a 3-tile strip each.
+- The Seeder's button says Push / Let go (the Tractor and Harvester: Get in / Get out).
+- Seeds: a packet plants 9 tiles from the Seeder, as a packet does by hand (the 3x3), so driving never costs more seeds.
+  It plants only the packet held last; when that runs out it stops and says "Out of <seeds>" (no other crop mid-row).
+- The tank: a tile is cut only with room for all it can give (6, as the Silo's rule), so it reads "Tank full" from 55.
+  Saved (key mkt) when you get out, unload, travel, and by the game's own autosave.
+- The Tractor's energy is paid as it goes: 8/9 of the hand's over the whole drive (a point carried between strips).
+- Machines only turn in 4 directions (no sideways crab), and stop when the nose meets a wall.

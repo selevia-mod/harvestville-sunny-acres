@@ -278,16 +278,18 @@
     }
     var len = Math.sqrt(vx * vx + vy * vy);
     if (len < 0.2) { vx = vy = 0; len = 0; } else if (len > 1) { vx /= len; vy /= len; len = 1; }
-    var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1) * (F.Logic.power(F.session.state, 'walk') ? 1.2 : 1);
+    var drive = this.drive; // (a farm machine you drive: 19zzz...z-machines-drive.js)
+    var speed = C.SPEED * (F.session.riding ? C.HORSE.speed : 1) * (drive ? drive.R.speed : F.Logic.power(F.session.state, 'walk') ? 1.2 : 1);
     // ease toward the wanted velocity instead of jumping to it
     var dt = Math.min(this.game.loop.delta, 100), going = len > 0;
     var ease = 1 - Math.exp(-dt / (going ? ACCEL_MS : STOP_MS));
     var nx = body.velocity.x + (vx * speed - body.velocity.x) * ease;
     var ny = body.velocity.y + (vy * speed - body.velocity.y) * ease;
     if (!going && Math.abs(nx) < 30 && Math.abs(ny) < 30) nx = ny = 0;
+    if (drive) { var dv = this.driveLimit(nx, ny, going ? this.pickDir(vx, vy) : this.dir); nx = dv[0]; ny = dv[1]; }
     body.setVelocity(nx, ny);
     if (going) this.dir = this.pickDir(vx, vy);
-    if (F.session.riding) {
+    if (F.session.riding || (drive && !drive.R.push)) {
       if (vx) this.rideFlip = vx > 0;
       this.moving = going;
       return;

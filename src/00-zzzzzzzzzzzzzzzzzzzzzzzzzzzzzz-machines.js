@@ -1,5 +1,6 @@
 // Bram's farm machines: the Tractor, the Seeder and the Harvester (the last part of the truck plan, owner 13 Nov 2026:
-// "trucks, harvester and farm machines ... for a better planting"; 18 Nov: "build it now and I will create an art later").
+// "trucks, harvester and farm machines ... for a better planting"; 18 Nov: "build it now and I will create an art later";
+// 20 Nov: driven, "realistic, like a real harvester in real world": 19zzz...z-machines-drive.js).
 // The numbers; the rules in 01-logicZZZZZZZZZZZZZZZZZZZZZZZZZZZ-machines.js; the Forge rows, the world and the tour in
 // 19zzz...-machines.js. Each is held in a bag slot like a tool and used with the action button: a tap works the 3x3
 // block ahead (as a Silver tool's charged swing), a held button a row of 9. A machine saves time, never energy: it costs
@@ -16,12 +17,24 @@
     row: 9, // a held button: a row of up to 9 ahead
     clears: ['weed', 'branch', 'stone'], // what the Tractor clears on its way (stumps and boulders stay for the axe and hammer)
     most: 6, // room kept for one picked tile: the crop and up to 4 more (crop stars, a dish power, a skill, Double Drops)
+    // Driven (owner, 20 Nov 2026: "Yes approve", docs/superpowers/specs/2026-11-20-machines-drive-design.md): the
+    // pictures' widths in tiles (side; front and back), how fast against walking, and where along its way it works, in
+    // tiles from its middle (+ ahead): the Harvester's header in front, the Tractor's plough behind, the Seeder's drills
+    // under its hopper. `push`: the Seeder goes this far ahead of the farmer, who walks behind it holding the handle.
+    drive: {
+      tractor: { side: 2.8, ends: 2.2, speed: 0.8, work: -1.15, nose: 1.35, tail: 1.4 },
+      seeder: { side: 2.4, ends: 1.9, speed: 0.85, work: 0, nose: 1.0, tail: 1.2, push: 1.25 },
+      harvester: { side: 3.4, ends: 3.0, speed: 0.6, work: 1.35, nose: 1.65, tail: 1.7 },
+    },
+    strip: 3, // tiles worked side by side across its way
+    tank: 60, // the Harvester's tank, in crops
+    sow: 9, // tiles a seed packet plants from the Seeder, as by hand (a packet plants the 3x3): never more seeds than by hand
     tractor: { name: 'Tractor', verb: 'Till', gold: 80000, lumber: 40, needs: [['ore_copper', 10], ['farm_cement', 4]],
-      desc: 'Tills the 3x3 ahead in one go (hold: a row of 9), and clears its weeds, branches and stones.' },
+      desc: 'Drive it over your field: it pushes weeds, branches and stones aside and tills 3 tiles across behind it.' },
     seeder: { name: 'Seeder', verb: 'Plant', gold: 120000, lumber: 40, needs: [['ore_silver', 10], ['rope', 4]],
-      desc: 'Plants the seeds you held last on the 3x3 ahead (hold: a row of 9), one packet a pass.' },
+      desc: 'Push it along tilled soil: it plants the seeds you held last, 3 tiles across.' },
     harvester: { name: 'Harvester', verb: 'Harvest', gold: 200000, lumber: 60, needs: [['ore_gold', 10], ['farm_cement', 6], ['rope', 6]],
-      desc: 'Picks every ripe crop on the 3x3 ahead (hold: a row of 9) straight into the Silo.' },
+      desc: 'Drive it over ripe crops: it cuts 3 tiles across into its tank of 60. Unload it at the Silo.' },
   };
   C.MACHINE_ICON_BASE = 2700;
   C.machineIcon = function (k) { var i = C.MACHINE_KINDS.indexOf(k); return i < 0 ? -1 : C.MACHINE_ICON_BASE + i; };

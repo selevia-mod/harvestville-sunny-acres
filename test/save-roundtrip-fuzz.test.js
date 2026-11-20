@@ -211,8 +211,26 @@ const play = (seed, steps, every) => {
     else if (c === 4) { const i = s.inv.findIndex((x) => x && x.id === k); if (i >= 0 && s.store) L.storeIn(s, i); }
     else L.mkBack(s, k);
   };
+  // driving them (20 Nov 2026), on a random stream of its own: a strip at a time along a row (the Tractor's energy paid as it
+  // goes, the Seeder's packet, the Harvester's tank), unloading at the Silo (a Silo with no room too)
+  let r8 = seed ^ 0x2545f491;
+  const yrnd = () => { r8 = (r8 * 1103515245 + 12345) & 0x7fffffff; return r8 / 0x7fffffff; };
+  const yint = (n) => Math.floor(yrnd() * n), ypick = (xs) => xs[yint(xs.length)];
+  const due = { c: 0 };
+  const driving = () => {
+    const c = yint(4), d = ypick([[0, 1], [0, -1], [1, 0], [-1, 0]]), n = 1 + yint(8);
+    let x = 8 + yint(40), y = 8 + yint(28);
+    for (let j = 0; j < n; j++, x += d[0], y += d[1]) {
+      const tiles = L.mkStrip(x, y, d[0], d[1]).map((p) => p[1] * C.FARM_W + p[0]);
+      if (c === 0) { s.energy = Math.max(s.energy, 20); L.mkTill(s, tiles.map((idx) => ({ idx, clear: s.debris[idx] || null, till: 1 })), due); }
+      else if (c === 1) { const id = ypick(seeds); L.addItem(s, id, 1); L.mkPlant(s, tiles, L.mkSeedSlot(s, id)); }
+      else if (c === 2) tiles.forEach((i) => { const t = s.soil[i]; if (t && t.c && !C.CROPS[t.c].sickle) { t.w = 1; t.p = L.nowMin() - C.CROPS[t.c].mins - 1; } L.mkTankPick(s, i); });
+    }
+    if (c === 3) L.mkUnload(s);
+  };
   for (let a = 1; a <= steps; a++) {
     if (L.gmMakeCart && crnd() < 0.12) cart();
+    if (L.mkStrip && yrnd() < 0.1) driving();
     if (TRK && vrnd() < 0.1) trucks();
     if (MF && mrnd() < 0.1) manila();
     if (shops.length && trnd() < 0.1) trade();
