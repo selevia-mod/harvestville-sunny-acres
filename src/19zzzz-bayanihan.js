@@ -376,6 +376,33 @@
       g.save(); g.translate(22, 40); g.rotate(0.3); rectTo(g, -10, -4, 20, 8, '#a06a36'); g.restore();
     });
   };
+  // The Market Hall: the owner's painted hall (22 Nov 2026: art-src/town/bh_market_hall.png, in the 'vehicles' pack,
+  // tools/art/vehicles-import.js) once it is on the phone, with "MARKET HALL" written on its blank sign by the game; its
+  // two back posts are a picture of their own, stood by their stones, so the plaza's stalls under the roof stand in front
+  // of them. Until it comes (and offline with nothing on the phone): the drawn roof below, in the same place.
+  var HALL = ['bh_market_hall', 'bh_market_hall_back'];
+  var HALL_W = 4.9, HALL_H = 3.05; // (tiles: its width; from its top-left point down to the ground its posts stand on)
+  var HALL_SIGN = [0.5, 0.277, 0.33]; // (the sign's middle across and down the picture, and the most its words may fill)
+  var HALL_FOOT = 0.772; // (the back posts' stones, down the picture)
+  var hallArt = function () { return HALL.every(function (k) { return !!(F.images && F.images[k]); }); };
+  P.bhHall = function () {
+    var b = this.bh, h = b && b.hall;
+    if (!h) return;
+    (b.hallParts || []).forEach(function (o) { o.destroy(); });
+    var parts = b.hallParts = [], ground = h.y + HALL_H * T, d = DEPTH.actor + (h.y + 3 * T) / 1e5 + 0.001;
+    if (!hallArt()) {
+      parts.push(this.add.image(h.x, h.y, hallTex(this)).setOrigin(0).setDisplaySize(HALL_W * T, HALL_H * T).setDepth(d));
+      if (F.needImage && F.packedFile && F.canFetch && F.canFetch()) HALL.forEach(function (k) { if (F.packedFile(k)) F.needImage(k); });
+      return;
+    }
+    var im = F.images.bh_market_hall, w = HALL_W * T, ht = w * im.height / im.width, top = ground - ht;
+    parts.push(this.add.image(h.x, top, F.ensureTexture(this, 'bh_market_hall_back')).setOrigin(0).setDisplaySize(w, ht).setDepth(DEPTH.actor + (top + HALL_FOOT * ht) / 1e5));
+    parts.push(this.add.image(h.x, top, F.ensureTexture(this, 'bh_market_hall')).setOrigin(0).setDisplaySize(w, ht).setDepth(d));
+    var sign = this.add.text(h.x + HALL_SIGN[0] * w, top + HALL_SIGN[1] * ht, 'MARKET HALL', { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '64px', fontStyle: 'bold', color: '#5a3a1e' })
+      .setOrigin(0.5).setDepth(d + 0.0001);
+    if (sign.width > HALL_SIGN[2] * w) sign.setScale(HALL_SIGN[2] * w / sign.width);
+    parts.push(sign);
+  };
   // the Market Hall's roof: a striped awning with its sign, on two posts (5 x 3 tiles at a quarter)
   var hallTex = function (w) {
     return canvas(w, 'bh-hall', 316, 196, function (g) {
@@ -432,8 +459,11 @@
     this.bhApply(false);
     if (O.on && !O.bhOff && Date.now() - tried > RETRY) O.bhRetry().then(O.bhLoad);
     var onBh = function () { if (self.bh) self.bhBoard(); };
+    // the owner's Market Hall came down: in the drawn roof's place at once
+    var onArt = function (k) { if (HALL.indexOf(k) >= 0 && self.bh && self.bh.shown.market && hallArt() && !self.busy) self.bhHall(); };
     F.bus.on('bh', onBh);
-    this.events.once('shutdown', function () { F.bus.off('bh', onBh); });
+    F.bus.on('packart', onArt);
+    this.events.once('shutdown', function () { F.bus.off('bh', onBh); F.bus.off('packart', onArt); });
   };
 
   // The board's bar (when the town's progress is known).
@@ -479,7 +509,7 @@
     // the Market Hall
     if (b.hall && !b.shown.market && L.bhBuilt(s, 'market')) {
       b.shown.market = true;
-      add(this.add.image(b.hall.x, b.hall.y, hallTex(this)).setOrigin(0).setDisplaySize(4.9 * T, 3.05 * T).setDepth(DEPTH.actor + (b.hall.y + 3 * T) / 1e5 + 0.001));
+      this.bhHall();
       sparkle(b.hall.x / T + 1.5, b.hall.y / T + 1);
     }
     // the Plaza Fountain: flowers each side, and a twinkle on the water

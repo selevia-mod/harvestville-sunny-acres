@@ -61,7 +61,7 @@ Everything below is a drawn stand-in today. A picture of the same size can repla
 
 - **The Bayanihan board** (2 x 2 tiles): it uses the order board's picture with a red "BAYANIHAN" text sign. A board of its own would look better: a bamboo frame with a woven banner and a little progress bar painted on.
 - **The broken Old Bridge** (1 x 2 tiles over the water): drawn posts and a floating plank. Nicer would be a painted broken footbridge and a repaired one (bamboo rails, rope), so the mended bridge is more than plain planks.
-- **The Market Hall roof** (about 5 x 3 tiles over the stall): a drawn striped awning with a sign. A painted open-air market hall (wooden posts, a nipa or tin roof, hanging baskets) would be much better.
+- **The Market Hall roof** (about 5 x 3 tiles over the stall): DONE 22 Nov 2026, the owner's painted hall (art-src/town/bh_market_hall.png, the 'vehicles' pack; the drawn roof shows until it is on the phone).
 - **The Plaza Fountain**: today it gets flower beds and sparkles. A "before" (dry, cracked) and "after" (repaired, lit at night) fountain pair would show the change best.
 - **The Chapel Bell** (1 x 2 tiles): a drawn wooden frame and a bell. A painted belfry (kampanaryo) with a bronze bell.
 - **The Old Pier**: uses the dock tiles and the boat already on the beach. A painted bangka with outriggers, and a boatman villager (for the island trips later).

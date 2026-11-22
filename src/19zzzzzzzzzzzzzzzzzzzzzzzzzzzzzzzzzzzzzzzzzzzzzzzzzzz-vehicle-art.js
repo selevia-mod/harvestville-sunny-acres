@@ -8,7 +8,7 @@
   var L = F.Logic;
   var P = F.WorldScene.prototype;
   var packHas = function () { return !!(F.packFiles && F.packFiles('vehicles').length); };
-  if (F.PACK_INFO && packHas()) F.PACK_INFO.vehicles = { name: 'Vehicles', icon: 'crate', desc: "The horse cart and the trucks, Bram's farm machines and the deep Mine's critters." };
+  if (F.PACK_INFO && packHas()) F.PACK_INFO.vehicles = { name: 'Vehicles', icon: 'crate', desc: "The horse cart and the trucks, Bram's farm machines, the deep Mine's critters and the town's Market Hall." };
   var VIEWS = ['side', 'front', 'back'];
   var have = function (k) { return !!(F.images && F.images[k]); };
   var need = function (keys) {

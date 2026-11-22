@@ -24,6 +24,9 @@ const WIDE = { cart: [2.3, 1.5, 1.5], pickup: [2.7, 1.6, 1.6], farmtruck: [3.3, 
 const VIEWS = ['side', 'front', 'back'];
 // the driven machines' widths in tiles, [side, front and back] (src/00-*-machines.js C.MACHINES.drive)
 const DRIVE = { tractor: [2.8, 2.2], seeder: [2.4, 1.9], harvester: [3.4, 3.0] };
+// the Market Hall: its width in tiles, and its back posts' boxes [x0, y0, x1, y1] in the owner's picture
+const HALL_W = 4.9;
+const HALL_BACK = [[292, 622, 384, 764], [334, 470, 368, 622], [1153, 622, 1245, 764], [1168, 470, 1199, 622]];
 
 const data = (f) => 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 const pic = (name) => { const f = path.join(SRC, name + '.png'); return fs.existsSync(f) ? data(f) : null; };
@@ -116,6 +119,29 @@ const save = (name, r) => {
       return Object.assign(W.out(o, 0.85), { w: 160, h: 150 });
     }, s));
     done.push('critter ' + k);
+  }
+
+  // ---------- the town's Market Hall (owner, 22 Nov 2026: art-src/town/bh_market_hall.png, art-src/MARKET-HALL-PROMPT.md) ----------
+  // HALL_W tiles across (the drawn roof's place, src/19zzzz-bayanihan.js), cut in two: the hall, and its two back posts
+  // alone (bh_market_hall_back) so the game can stand those behind the plaza's stalls. HALL_BACK: the back posts' boxes in
+  // the owner's 1536 x 1024 picture (below the hanging baskets the whole post and its stone, above them the post's free side).
+  const hall = path.join(ROOT, 'art-src', 'town', 'bh_market_hall.png');
+  if (fs.existsSync(hall)) {
+    const r = await p.evaluate(async ([s, ow, back]) => {
+      const c = await W.clean(s), bx = W.box(c), k = ow / bx.w, oh = Math.round(bx.h * k);
+      const front = W.canvas(ow, oh), rear = W.canvas(ow, oh), g = front.getContext('2d'), gr = rear.getContext('2d');
+      W.draw(g, c, bx, k, ow / 2, oh);
+      back.forEach((q) => {
+        const x = Math.floor((q[0] - bx.x) * k), y = Math.floor((q[1] - bx.y) * k), w = Math.ceil((q[2] - q[0]) * k), h = Math.ceil((q[3] - q[1]) * k);
+        gr.drawImage(front, x, y, w, h, x, y, w, h);
+        g.clearRect(x, y, w, h);
+      });
+      return [Object.assign(W.out(front, 0.85), { w: ow, h: oh, box: bx }), Object.assign(W.out(rear, 0.85), { w: ow, h: oh })];
+    }, [data(hall), Math.round(HALL_W * PPT), HALL_BACK]);
+    save('bh_market_hall', r[0]);
+    save('bh_market_hall_back', r[1]);
+    console.log('  (the hall\'s box in the picture: ' + JSON.stringify(r[0].box) + ')');
+    done.push('market hall');
   }
 
   await b.close();

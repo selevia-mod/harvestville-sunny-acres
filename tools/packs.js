@@ -72,7 +72,7 @@ module.exports = {
   gorge: require('./manila/plains-art').packed('gorge'),
   // The owner's vehicles (the horse cart, the 3 trucks: 6 views each), Bram's 3 farm machines and their icons, and the deep
   // Mine's 3 critters (18 Nov 2026: node tools/art/vehicles-import.js); fetched as the farm needs each (src/19zzz...z-vehicle-art.js)
-  vehicles: fs.readdirSync(ASSETS).filter((f) => /^(veh_[a-z]+_(side|front|back)_(empty|full)|machine_[a-z]+(_(side|front|back))?|critter_[a-z]+)\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
+  vehicles: fs.readdirSync(ASSETS).filter((f) => /^(veh_[a-z]+_(side|front|back)_(empty|full)|machine_[a-z]+(_(side|front|back))?|critter_[a-z]+|bh_market_hall(_back)?)\.png$/.test(f)).map((f) => f.slice(0, -4)).sort(),
   // Sea Trips (owner, 18 Nov 2026: boats step 1): the 10 pictures of art-src/SEA-TRIPS-PROMPTS.md, each once it is in
   // assets/sea/ (with its .webp copy); until then the game draws stand-ins (src/19zzz...z-sea.js), so the pack is empty
   sea: fs.existsSync(path.join(ASSETS, 'sea')) ? fs.readdirSync(path.join(ASSETS, 'sea')).filter((f) => /^[a-z_]+\.png$/.test(f)).map((f) => 'sea/' + f.slice(0, -4)).sort() : [],
