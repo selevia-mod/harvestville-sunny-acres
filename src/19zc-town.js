@@ -92,9 +92,7 @@
       if (b) {
         var mine = b.last && O.me && b.last.id === O.me.id;
         rows.push({
-          // (noCrown: the crown is for the winner's own row in the farm lists; here it sat on the "B" of the title,
-          // iPhone test 22 Nov 2026)
-          id: b.last ? b.last.id : null, noCrown: true, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
+          id: b.last ? b.last.id : null, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
           desc: b.last ? (mine ? 'You' : b.last.name) + ' won last week with ' + b.last.likes + (b.last.likes === 1 ? ' like.' : ' likes.') : 'The farm with the most likes each week wins.',
           buttons: b.last && !mine ? [{ label: 'Visit', color: BLUE, cb: function () { O.visit(b.last.id); } }] : [],
         });
@@ -167,17 +165,25 @@
     g.arc(14, 15, 2.2, 0, Math.PI * 2);
     g.fill();
   };
-  var winner = function (row) { return row && row.id && !row.noCrown && O.best && O.best.last && O.best.last.id === row.id; };
+  var winner = function (row) { return row && row.id && O.best && O.best.last && O.best.last.id === row.id; };
   var lookListRow = U.lookListRow;
   U.lookListRow = function (c, y, row) {
     var out = lookListRow.call(this, c, y, row);
-    if (winner(row)) this.canvasImg(c, 58, y + 2, 'ui-crown', 28, 24, crownDraw);
+    // (on top of the row's round badge, its own picture: at x 58 it sat on the first letter of the row's name, the "B" of
+    // "Best Farm of the Week", iPhone test 22 Nov 2026)
+    if (winner(row)) {
+      var badge = c.list.filter(function (o) { return o.texture && o.texture.key.indexOf('ui-rowbadge') === 0; }).pop();
+      var bx = badge ? badge.x + badge.displayWidth / 2 : 61, by = badge ? badge.y : y + 14;
+      this.canvasImg(c, bx - 17, by - 11, 'ui-crown', 28, 24, crownDraw).setRotation(-0.25);
+    }
     return out;
   };
   var slimRow = U.slimRow;
   U.slimRow = function (parent, y, row) {
     var r = slimRow.apply(this, arguments);
-    if (r && winner(row)) this.canvasImg(r, 49, -6, 'ui-crown', 28, 24, crownDraw).setRotation(0.3); // (on its picture's shoulder)
+    // (on top of its round picture, at 46 across: on its right shoulder it reached the name at 70 and sat on the "B" of
+    // "Best Farm of the Week", iPhone test 22 Nov 2026)
+    if (r && winner(row)) this.canvasImg(r, 31, -8, 'ui-crown', 28, 24, crownDraw).setRotation(-0.12);
     return r;
   };
 })(window.Farm = window.Farm || {});

@@ -4,7 +4,7 @@
 //   3 the pause menu's Rank link: a blank circle, sitting on "Medals 0" (a link's width was kept in Phaser's own `w`)
 //   4 Decorate showed plain green past the map's top with the farmer behind the house
 //   5 Gear: every empty slot showed the bag; Change with nothing to wear did nothing
-//   6 Online, Town: a crown on the "B" of "Best Farm of the Week"
+//   6 Online, Town: a crown on the "B" of "Best Farm of the Week" (it goes on the row's badge now)
 //   7 What's new stopped at 2.13
 //   8 the Calendar's "December 2026 (Winter)" ran into its X
 // Run alone, after node build.js: node --test --test-concurrency=1 test/e2e-iphone-fixes.test.js   (SHOTS=/some/dir)
@@ -144,18 +144,27 @@ test('5: Gear with nothing yet: each slot its own faint picture, not "Yours", no
   await context.close();
 });
 
-test('6, 7, 8: no crown on the Best Farm row; What\'s new tells 2.14 and 2.15; December\'s title clear of the X', async () => {
+test('6, 7, 8: the Best Farm row\'s crown on its badge, not its words; What\'s new tells 2.14 and 2.15; December\'s title clear of the X', async () => {
   const { page, problems, context } = await open(await makeSave(''));
   await page.evaluate(() => Farm.ui.closeAll());
-  // 6: the crown goes on last week's winner in the farm lists, not on the Best Farm of the Week row
-  const crowns = await page.evaluate(() => {
+  // 6: the Best Farm of the Week row keeps its crown, on its round picture, clear of the words (the slim rows the
+  // Online lists use, and the older big rows)
+  const crown = await page.evaluate(() => {
     const O = Farm.Online, U = Farm.ui; O.best = O.best || {}; const was = O.best.last; O.best.last = { id: 'abc' };
-    const c = U.add.container(0, 0), n = (r) => r.list.filter((o) => o.texture && o.texture.key === 'ui-crown').length;
-    const out = [n(U.slimRow(c, 0, { id: 'abc', name: 'A farm', desc: '' })), n(U.slimRow(c, 80, { id: 'abc', noCrown: true, name: 'Best Farm of the Week', desc: '' }))];
+    const row = { id: 'abc', icon: Farm.Config.ICON.star, name: 'Best Farm of the Week', reward: { gold: 5000, stars: 5 }, rewardPrefix: 'Prize', buttonsBelow: true, desc: 'Nadya won last week with 24 likes.', buttons: [{ label: 'Visit', cb: () => {} }] };
+    const look = (list) => {
+      const cr = list.filter((o) => o.texture && o.texture.key === 'ui-crown'), name = list.find((o) => o.type === 'Text' && o.text === 'Best Farm of the Week');
+      const k = cr[0] && cr[0].getBounds(), n = name.getBounds();
+      return { crowns: cr.length, clear: !!k && (k.right <= n.x + 1 || k.bottom <= n.y + 1) };
+    };
+    const c = U.add.container(0, 0);
+    const slim = look(U.slimRow(c, 100, row).list);
+    U.lookListRow(c, 300, row);
+    const big = look(c.list);
     c.destroy(); O.best.last = was;
-    return out;
+    return { slim, big };
   });
-  assert.deepStrictEqual(crowns, [1, 0]);
+  assert.deepStrictEqual(crown, { slim: { crowns: 1, clear: true }, big: { crowns: 1, clear: true } });
   // 7
   const news = await page.evaluate(() => Farm.Config.NEWS.slice(0, 3).map((n) => n.v));
   assert.deepStrictEqual(news, ['2.15', '2.14', '2.13']);
