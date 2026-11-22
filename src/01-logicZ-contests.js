@@ -22,6 +22,16 @@
   // The contest held at a festival, or null.
   L.ctOf = function (fest) { return fest ? C.CONTESTS.filter(function (c) { return c.fest === fest.key; })[0] || null : null; };
   L.ctFest = function (ct) { return C.FESTIVALS.filter(function (f) { return f.key === ct.fest; })[0]; };
+  // Every contest, the next one first, with the days until it (0: today). (The Ribbons page listed them as written,
+  // Nov 20 first on 22 Nov, after it was over: owner, 22 Nov 2026.)
+  L.ctUpcoming = function (s) {
+    var today = L.date(s.day);
+    return C.CONTESTS.map(function (ct) {
+      var f = L.ctFest(ct), y = today.year;
+      if (f.date[0] < today.month || (f.date[0] === today.month && f.date[1] < today.day)) y++;
+      return { ct: ct, fest: f, days: L.dayOf(new Date(y, f.date[0] - 1, f.date[1], 12).getTime()) - s.day };
+    }).sort(function (a, b) { return a.days - b.days; });
+  };
   // The contest you can enter right now (its festival is on, in its hours), or null.
   L.ctNow = function (s) { return L.ctOf(L.festivalNow(s)); };
   var rec = function (s) { s.cn = s.cn || { r: [] }; return s.cn.r; };

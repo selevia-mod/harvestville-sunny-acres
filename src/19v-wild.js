@@ -1089,7 +1089,7 @@
       title: "Kanor's Lodge", tab: tab, page: page, rows: rows,
       tabs: [['buy', 'Buy'], ['sell', 'Sell'], ['job', 'Request'], ['make', 'Trophies']],
       corner: { label: 'Book', color: GREY_BTN, cb: function () { self.closeModal(); self.openBook(s, null, function () { self.openKanor(tab, page); }); } },
-      sub: function () { return 'Gold ' + s.gold + '     Hunts ' + s.wild.n; },
+      sub: function () { return 'Gold ' + s.gold.toLocaleString('en-US') + '     Hunts ' + s.wild.n; },
       empty: 'Bring meat, feathers, furs, antlers, tusks, pelts and fangs from your hunts.',
       reopen: function (t, p) { self.openKanor(t, p); },
     });

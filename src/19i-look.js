@@ -263,7 +263,12 @@
   };
 
   // Gold as a plain number with thousands commas (the coin says what it is); 100,000 and up as "123k".
-  var money = function (n) { return n < 100000 ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : Math.floor(n / 1000) + 'k'; };
+  // (a million and up: "1.5M", not "1500k": the Big Truck's price, owner 22 Nov 2026)
+  var money = function (n) {
+    if (n < 100000) return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    if (n < 1000000) return Math.floor(n / 1000) + 'k';
+    return String(Math.floor(n / 10000) / 100) + 'M';
+  };
   U.showGold = function (gold) {
     var self = this, set = function (n) { self.goldText.setText(money(n)); fit(self.goldText, 313 - 272); };
     if (this.goldShown == null || gold <= this.goldShown) {
@@ -397,6 +402,7 @@
   // o.slim: the same rows (icon, name, tag, progress, reward, desc, buttons, done), each a 56 px card, every one of them
   // in the panel at once, scrolled with a finger (or the mouse wheel), no pages. A row out of view takes no taps.
   var SLIM = { h: 56, step: 60 };
+  var TWO_LINES = 0.68; // a slim row's prize chips: on two lines at this size when one line would be smaller than it
   var slimPanel = function (o) {
     var self = this, c = this.openModal(), rows = o.rows;
     var y0 = o.tabs ? 178 : 140, full = y0 + rows.length * SLIM.step + 10;
@@ -777,7 +783,7 @@
       r.add(this.add.circle(ox, 13, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
       r.add(this.txt(ox + 7, 13, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
     }
-    var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
+    var ly = 25, lx = x, desc = row.desc || '', progress = row.progress, chipLines = 1;
     var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
     if (m && Number(m[2]) > 0) { progress = [Number(m[1]), Number(m[2])]; desc = desc.slice(m[0].length); }
     if (progress && progress[1] > 0 && !row.done) {
@@ -793,15 +799,23 @@
       // chip was dropped from Bram's list)
       var tmp = this.add.container(lx, ly - 3), room = x + textW - lx;
       this.rewardChips(tmp, 0, 0, 10000, row.reward, row.rewardPrefix);
-      var cw = 0;
-      tmp.list.forEach(function (o2) { cw = Math.max(cw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); });
-      if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
+      var cw = 0, wide = function (box) { var w = 0; box.list.forEach(function (o2) { w = Math.max(w, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); }); return w; };
+      cw = wide(tmp);
+      if (cw > room && room / cw < TWO_LINES) {
+        // too many to read on one line (the Big Truck's 10 Obsidian went under its Make button, owner 22 Nov 2026: "A"):
+        // two lines of chips, each a little bigger than one squeezed line, and the description moves down under them
+        tmp.destroy();
+        tmp = this.add.container(lx, ly - 4);
+        var tall = this.rewardChips(tmp, 0, 0, room / TWO_LINES, row.reward, row.rewardPrefix);
+        tmp.setScale(Math.min(TWO_LINES, room / wide(tmp)));
+        chipLines = tall > 20 ? 2 : 1;
+      } else if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
       r.add(tmp);
     }
     if (desc) { // (under the bar and prize; right under the name when the row has neither)
-      var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
+      var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : chipLines > 1 ? 46 : 40, desc, 10, '#7a5a3a');
       // a little smaller first (down to 80%: "20 a day, 60G a work day" whole, 9 Nov 2026), then cut with …
-      var fit = Math.max(0.8, Math.min(1, textW / d.width));
+      var fit = Math.max(0.8, Math.min(chipLines > 1 ? 0.82 : 1, textW / d.width));
       d.setScale(fit);
       var words = desc.split(' ');
       while (d.width * fit > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '…'); }

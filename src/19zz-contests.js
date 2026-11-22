@@ -355,7 +355,7 @@
       c.add(t);
     });
     if (!list.length) {
-      var next = C.CONTESTS.map(function (ct) { var f = L.ctFest(ct); return C.MONTHS[f.date[0] - 1].slice(0, 3) + ' ' + f.date[1] + '  ' + ct.name + ' (' + f.name + ')'; });
+      var next = L.ctUpcoming(s).map(function (u) { var f = u.fest; return (u.days ? C.MONTHS[f.date[0] - 1].slice(0, 3) + ' ' + f.date[1] : 'Today!') + '  ' + u.ct.name + ' (' + f.name + ')'; });
       c.add(this.txt(W / 2, gy + 30, 'No ribbons yet!\n\nEnter a contest at a festival:\n' + next.join('\n') + '\n\nTalk to Mayor Hollis in the plaza on the day.', 13, INK,
         { align: 'center', lineSpacing: 4, wordWrap: { width: 290 } }).setOrigin(0.5, 0));
     }

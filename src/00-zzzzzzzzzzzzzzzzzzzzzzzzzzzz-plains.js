@@ -185,6 +185,11 @@
   C.MANILA.buildings.forEach(function (b) {
     if (b.key === 'armory') b.text = "Panday Lando's Armory in the old fort: the Rifle, the Javelin and the Boomerang, bullets and javelins, and boomerang repairs.";
   });
+  // the Plains Gate's sign said the Open Plains was "coming soon" (owner, 22 Nov 2026: the words OK). Its way in is the
+  // road east out of Willowbrook (L.routes: town -> road_east). (Written after the city's flip: "west" as it reads.)
+  C.MANILA.gates.forEach(function (g) {
+    if (g.key === 'plains') g.text = 'PLAINS GATE\nThe valley road home to Willowbrook goes west from here.\nThe Open Plains: take the east road out of Willowbrook.';
+  });
   var lando = C.MANILA.people.lando;
   if (lando) {
     lando.lines = ['My Armory is open! The Rifle, the Javelin and the Boomerang. Step inside: tap my door.',

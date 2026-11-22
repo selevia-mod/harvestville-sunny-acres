@@ -15,10 +15,12 @@
     s.time = L.minuteOf(now);
     L.regen(s, Math.floor(now / 60000));
     if (today <= s.day) return null; // (a clock set back does not undo days)
+    var away = today - s.day; // (the days really gone by: the title says them, though only the last 30 are played, 22 Nov 2026)
     if (today - s.day > MAX_DAYS) s.day = today - MAX_DAYS;
     var days = [];
     while (s.day < today) days.push(L.endDay(s, false, info));
     var r = L.mergeReports(days);
+    r.away = away;
     L.regen(s, Math.floor(now / 60000));
     return r;
   };

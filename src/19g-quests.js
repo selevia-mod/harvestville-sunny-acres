@@ -445,7 +445,7 @@
     o = this.listPanel({
       title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap']].concat(hasRare ? [['rare', 'Rare']] : []),
       reopen: function (t, p) { self.openTrader(t, p); },
-      sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
     });
     var tip = hasRare && L.takeTip(s, 'rare'); // (its tip is about the Rare tab)
     if (tip) { world().save(); this.toast(tip, 4500, 0x7a4d12); }

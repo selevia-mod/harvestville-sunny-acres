@@ -36,17 +36,21 @@
     if (F.packOnPhone(pack) || (F.canFetch() && F.packCount(pack))) { // on the phone already (or most of it, a download cut short: the rest comes now, else the card): only a moment to open it
       this.packGate = true;
       if (F.ui) F.ui.toast(OPENING[pack], 1500);
-      return F.loadPack(pack).then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack(pack); } });
+      return F.loadPack(pack).then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack(pack, null, to); } });
     }
-    F.ui.askPack(pack, function () { /* downloaded: you walk on in yourself */ });
+    F.ui.askPack(pack, function () { /* downloaded: you walk on in yourself */ }, to);
   };
 
   // A centred card: what it is, how big, Download or Not now. then() runs when it is all on the phone.
-  U.askPack = function (pack, then) {
-    var self = this, info = F.PACK_INFO[pack];
-    if (!F.canFetch()) return this.dialog(info.name.toUpperCase() + '\nThis part of the game needs a download, and it can only come through the Selebox app.');
+  // `to`: the map you were going to. The Lost Tower needs the Wild Lands' animals: its card says the Tower, not the
+  // Wild Lands' Pulag and Kanor (owner, 22 Nov 2026: the words OK).
+  U.askPack = function (pack, then, to) {
+    var self = this, info = F.PACK_INFO[pack], area = to && C.WILD && C.WILD.areas && C.WILD.areas[to];
+    var place = area && area.tower ? area.name : null;
+    var head = place ? place.toUpperCase() + '\nThis needs the ' + info.name + ' download (the animals in it)' : null;
+    if (!F.canFetch()) return this.dialog(head ? head + ', and it can only come through the Selebox app.' : info.name.toUpperCase() + '\nThis part of the game needs a download, and it can only come through the Selebox app.');
     if (F.packProgress(pack)) return this.toast(info.name + ' is downloading. You can keep playing.', 2200);
-    this.dialog(info.name.toUpperCase() + '\n' + info.desc + '\nA one-time download of ' + mb(F.packBytesLeft(pack) || F.packBytes(pack)) + '. You can keep playing while it comes.', [
+    this.dialog((head ? head + '.' : info.name.toUpperCase() + '\n' + info.desc) + '\nA one-time download of ' + mb(F.packBytesLeft(pack) || F.packBytes(pack)) + '. You can keep playing while it comes.', [
       { label: 'Not now', color: GREY },
       { label: 'Download', color: GREEN, cb: function () { self.startPack(pack, then); } },
     ]);

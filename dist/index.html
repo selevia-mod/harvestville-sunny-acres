@@ -8199,6 +8199,11 @@ C.MANILA.armory = { on: true, who: 'lando' };
 C.MANILA.buildings.forEach(function (b) {
 if (b.key === 'armory') b.text = "Panday Lando's Armory in the old fort: the Rifle, the Javelin and the Boomerang, bullets and javelins, and boomerang repairs.";
 });
+
+
+C.MANILA.gates.forEach(function (g) {
+if (g.key === 'plains') g.text = 'PLAINS GATE\nThe valley road home to Willowbrook goes west from here.\nThe Open Plains: take the east road out of Willowbrook.';
+});
 var lando = C.MANILA.people.lando;
 if (lando) {
 lando.lines = ['My Armory is open! The Rifle, the Javelin and the Boomerang. Step inside: tap my door.',
@@ -12472,10 +12477,12 @@ var today = L.dayOf(now);
 s.time = L.minuteOf(now);
 L.regen(s, Math.floor(now / 60000));
 if (today <= s.day) return null;
+var away = today - s.day;
 if (today - s.day > MAX_DAYS) s.day = today - MAX_DAYS;
 var days = [];
 while (s.day < today) days.push(L.endDay(s, false, info));
 var r = L.mergeReports(days);
+r.away = away;
 L.regen(s, Math.floor(now / 60000));
 return r;
 };
@@ -15104,6 +15111,16 @@ L.ctDef = function (key) { return C.CONTESTS.filter(function (c) { return c.key 
 
 L.ctOf = function (fest) { return fest ? C.CONTESTS.filter(function (c) { return c.fest === fest.key; })[0] || null : null; };
 L.ctFest = function (ct) { return C.FESTIVALS.filter(function (f) { return f.key === ct.fest; })[0]; };
+
+
+L.ctUpcoming = function (s) {
+var today = L.date(s.day);
+return C.CONTESTS.map(function (ct) {
+var f = L.ctFest(ct), y = today.year;
+if (f.date[0] < today.month || (f.date[0] === today.month && f.date[1] < today.day)) y++;
+return { ct: ct, fest: f, days: L.dayOf(new Date(y, f.date[0] - 1, f.date[1], 12).getTime()) - s.day };
+}).sort(function (a, b) { return a.days - b.days; });
+};
 
 L.ctNow = function (s) { return L.ctOf(L.festivalNow(s)); };
 var rec = function (s) { s.cn = s.cn || { r: [] }; return s.cn.r; };
@@ -30950,7 +30967,8 @@ if (result.lunch && s.spouse) row('lunch', C.VILLAGERS[s.spouse].name + ' packed
 if (result.horse) row('horse', 'The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
 if (result.mail) row('letter', 'You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
 if (result.goalDone) row('star', 'Goal complete! Check the next one at the top of the screen.');
-var title = result.days > 1 ? 'WELCOME BACK! ' + result.days + ' DAYS WENT BY' : 'A NEW DAY! ' + L.formatDate(s.day).toUpperCase();
+var gone = Math.max(result.days, result.away || 0);
+var title = gone > 1 ? 'WELCOME BACK! ' + gone.toLocaleString('en-US') + ' DAYS WENT BY' : 'A NEW DAY! ' + L.formatDate(s.day).toUpperCase();
 this.dialog(title + '\n' + lines.map(function (l) { return l[1]; }).join('\n'), null, { rows: lines });
 sfx('morning');
 };
@@ -31327,7 +31345,7 @@ C.SHOP_SUPPLIES.forEach(function (id) { rows.push(itemRow(id, [1])); });
 o = this.listPanel({
 title: "Lily's Seed Stand", tab: tab, page: page,
 tabs: [['seeds', 'Seeds'], ['animals', 'Animals'], ['supplies', 'Supplies']],
-sub: function () { return 'You have ' + s.gold + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
+sub: function () { return 'You have ' + s.gold.toLocaleString('en-US') + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
 rows: rows, reopen: this.openShop.bind(this), talk: 'lily',
 empty: 'LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, see the Animals tab for feed.',
 });
@@ -31414,7 +31432,7 @@ o = this.listPanel({
 title: "Bram's Forge", rows: rows, page: page || 0, talk: 'bram', reopen: function (t, p) { self.openForge(p); },
 rowH: rows.some(function (r) { return r.reward && r.reward.more && r.reward.more.length; }) ? 92 : undefined,
 sub: function () {
-return s.gold + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
+return s.gold.toLocaleString('en-US') + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
 },
 });
 };
@@ -31484,7 +31502,7 @@ world().changed();
 o = this.listPanel({
 title: "Mira's Woodshop", tab: tab, page: page, rows: rows, talk: 'mira', reopen: this.openWoodshop.bind(this),
 tabs: [['build', 'Build'], ['furniture', 'Furniture'], ['materials', 'Materials']],
-sub: function () { return s.gold + 'G   Lumber ' + s.lumber + '   Stone ' + s.stone; },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Lumber ' + s.lumber + '   Stone ' + s.stone; },
 });
 };
 
@@ -31511,7 +31529,7 @@ self.toast('Delicious! +' + item.energy + ' energy.');
 });
 o = this.listPanel({
 title: inn ? 'Sunny Inn' : "Ivy's Clinic", rows: rows, talk: inn ? 'rosa' : 'ivy', reopen: function () { self.openFoodShop(key); },
-sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s) + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s) + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
 });
 };
 
@@ -34015,7 +34033,7 @@ self.openSurfaces(kind, page);
 });
 this.listPanel({
 title: kind === 'wall' ? 'Wallpaper' : 'Floor', rows: rows, page: page, reopen: function (tab, p) { self.openSurfaces(kind, p); },
-sub: function () { return s.gold + 'G   Festival editions are sold in their season.'; },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Festival editions are sold in their season.'; },
 });
 };
 
@@ -34107,7 +34125,7 @@ var o = this.listPanel({
 title: v == null ? "Mira's Woodshop" : H.styles[v].name + ' Furniture', tab: 'furniture', page: page, rows: rows, talk: v == null ? 'mira' : null,
 tabs: v == null ? TABS : null,
 reopen: function (tab, p) { if (v != null && tab === 'furniture') self.openCatalog(v, p); else self.openWoodshop(tab, p); },
-sub: function () { return s.gold + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
 corner: v != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openCatalog(null, 0); } } : null,
 });
 return o;
@@ -34402,7 +34420,7 @@ self.toast('Delicious! +' + item.energy + ' energy.');
 });
 o = this.listPanel({
 title: b.name, rows: rows, talk: b.owner,
-sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s); },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s); },
 });
 };
 
@@ -34428,7 +34446,7 @@ self.toast('Poppy will send it to your storage. Place it with Decorate at home.'
 }],
 };
 }));
-o = this.listPanel({ title: "Poppy's Flowers", rows: rows, page: page, talk: 'poppy', reopen: function (tab, p) { self.openFlorist(p); }, sub: function () { return s.gold + 'G'; } });
+o = this.listPanel({ title: "Poppy's Flowers", rows: rows, page: page, talk: 'poppy', reopen: function (tab, p) { self.openFlorist(p); }, sub: function () { return s.gold.toLocaleString('en-US') + 'G'; } });
 };
 
 U.openVet = function () {
@@ -34448,7 +34466,7 @@ self.say('owen', 'Owen', lines.length ? lines.join('\n') : "You don't have any a
 },
 }],
 });
-o = this.listPanel({ title: "Owen's Animal Clinic", rows: rows, talk: 'owen', sub: function () { return s.gold + 'G   A treat a day keeps them happy.'; } });
+o = this.listPanel({ title: "Owen's Animal Clinic", rows: rows, talk: 'owen', sub: function () { return s.gold.toLocaleString('en-US') + 'G   A treat a day keeps them happy.'; } });
 };
 
 
@@ -34549,7 +34567,7 @@ self.toast("Marco: \"A fine choice!\" It's in your storage. Place it with Decora
 }],
 };
 });
-o = this.listPanel({ title: "Marco's Wagon", rows: rows, talk: 'marco', sub: function () { return s.gold + 'G   New pieces every day, from all over the kingdom.'; } });
+o = this.listPanel({ title: "Marco's Wagon", rows: rows, talk: 'marco', sub: function () { return s.gold.toLocaleString('en-US') + 'G   New pieces every day, from all over the kingdom.'; } });
 };
 })(window.Farm = window.Farm || {});
 
@@ -35100,7 +35118,7 @@ var title = cat == null ? "Mira's Woodshop" : O.cats.filter(function (c) { retur
 o = this.listPanel({
 title: title, tab: 'outdoor', page: page, rows: rows, talk: cat == null ? 'mira' : null, tabs: cat == null ? TABS : null,
 reopen: function (tab, p) { if (cat != null && tab === 'outdoor') self.openOutdoor(cat, p); else self.openWoodshop(tab, p); },
-sub: function () { return s.gold + 'G   ' + (cat == null ? 'Fences, paths, gardens and more for your yard.' : 'Bought pieces go to your yard storage.'); },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   ' + (cat == null ? 'Fences, paths, gardens and more for your yard.' : 'Bought pieces go to your yard storage.'); },
 corner: cat != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openOutdoor(null, 0); } } : null,
 });
 return o;
@@ -35671,7 +35689,7 @@ return row;
 o = this.listPanel({
 title: "Saffron's Tent", tab: tab, page: page, rows: rows, tabs: [['sell', 'Sell'], ['swap', 'Swap']].concat(hasRare ? [['rare', 'Rare']] : []),
 reopen: function (t, p) { self.openTrader(t, p); },
-sub: function () { return s.gold + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Sunbeams: ' + s.stars + (tab === 'sell' ? '   She pays best for WANTED goods.' : tab === 'rare' ? '   Out of season, so they cost more.' : '   Rare things for goods or Sunbeams.'); },
 });
 var tip = hasRare && L.takeTip(s, 'rare');
 if (tip) { world().save(); this.toast(tip, 4500, 0x7a4d12); }
@@ -37403,7 +37421,12 @@ fit(this.weatherText, CHIP_END - 6 - 49);
 };
 
 
-var money = function (n) { return n < 100000 ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : Math.floor(n / 1000) + 'k'; };
+
+var money = function (n) {
+if (n < 100000) return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+if (n < 1000000) return Math.floor(n / 1000) + 'k';
+return String(Math.floor(n / 10000) / 100) + 'M';
+};
 U.showGold = function (gold) {
 var self = this, set = function (n) { self.goldText.setText(money(n)); fit(self.goldText, 313 - 272); };
 if (this.goldShown == null || gold <= this.goldShown) {
@@ -37537,6 +37560,7 @@ var GREY_BTN = 0xa08a68;
 
 
 var SLIM = { h: 56, step: 60 };
+var TWO_LINES = 0.68;
 var slimPanel = function (o) {
 var self = this, c = this.openModal(), rows = o.rows;
 var y0 = o.tabs ? 178 : 140, full = y0 + rows.length * SLIM.step + 10;
@@ -37917,7 +37941,7 @@ var ox = x + name.displayWidth + 8;
 r.add(this.add.circle(ox, 13, 4, 0x3fa535).setStrokeStyle(1.5, 0xffffff));
 r.add(this.txt(ox + 7, 13, 'online', 10, '#2f7a22', { fontStyle: 'bold' }).setOrigin(0, 0.5));
 }
-var ly = 25, lx = x, desc = row.desc || '', progress = row.progress;
+var ly = 25, lx = x, desc = row.desc || '', progress = row.progress, chipLines = 1;
 var m = !progress && /^(\d+)\s*\/\s*(\d+)\.?\s*/.exec(desc);
 if (m && Number(m[2]) > 0) { progress = [Number(m[1]), Number(m[2])]; desc = desc.slice(m[0].length); }
 if (progress && progress[1] > 0 && !row.done) {
@@ -37933,15 +37957,23 @@ if (row.reward && !row.done) {
 
 var tmp = this.add.container(lx, ly - 3), room = x + textW - lx;
 this.rewardChips(tmp, 0, 0, 10000, row.reward, row.rewardPrefix);
-var cw = 0;
-tmp.list.forEach(function (o2) { cw = Math.max(cw, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); });
-if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
+var cw = 0, wide = function (box) { var w = 0; box.list.forEach(function (o2) { w = Math.max(w, o2.x + (o2.displayWidth || o2.width || 0) * (o2.originX != null && o2.originX === 0.5 ? 0.5 : 1)); }); return w; };
+cw = wide(tmp);
+if (cw > room && room / cw < TWO_LINES) {
+
+
+tmp.destroy();
+tmp = this.add.container(lx, ly - 4);
+var tall = this.rewardChips(tmp, 0, 0, room / TWO_LINES, row.reward, row.rewardPrefix);
+tmp.setScale(Math.min(TWO_LINES, room / wide(tmp)));
+chipLines = tall > 20 ? 2 : 1;
+} else if (cw > room) tmp.setScale(Math.max(0.55, room / cw));
 r.add(tmp);
 }
 if (desc) {
-var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : 40, desc, 10, '#7a5a3a');
+var d = this.txt(x, lx === x && !(row.reward && !row.done) ? 26 : chipLines > 1 ? 46 : 40, desc, 10, '#7a5a3a');
 
-var fit = Math.max(0.8, Math.min(1, textW / d.width));
+var fit = Math.max(0.8, Math.min(chipLines > 1 ? 0.82 : 1, textW / d.width));
 d.setScale(fit);
 var words = desc.split(' ');
 while (d.width * fit > textW && words.length > 2) { words.pop(); d.setText(words.join(' ').replace(/[,.;:]$/, '') + '\u2026'); }
@@ -41873,7 +41905,7 @@ this.listPanel({
 title: "Kanor's Lodge", tab: tab, page: page, rows: rows,
 tabs: [['buy', 'Buy'], ['sell', 'Sell'], ['job', 'Request'], ['make', 'Trophies']],
 corner: { label: 'Book', color: GREY_BTN, cb: function () { self.closeModal(); self.openBook(s, null, function () { self.openKanor(tab, page); }); } },
-sub: function () { return 'Gold ' + s.gold + '     Hunts ' + s.wild.n; },
+sub: function () { return 'Gold ' + s.gold.toLocaleString('en-US') + '     Hunts ' + s.wild.n; },
 empty: 'Bring meat, feathers, furs, antlers, tusks, pelts and fangs from your hunts.',
 reopen: function (t, p) { self.openKanor(t, p); },
 });
@@ -44373,17 +44405,21 @@ var go = function () { self.packGate = false; if (self.sys && self.sys.isActive(
 if (F.packOnPhone(pack) || (F.canFetch() && F.packCount(pack))) {
 this.packGate = true;
 if (F.ui) F.ui.toast(OPENING[pack], 1500);
-return F.loadPack(pack).then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack(pack); } });
+return F.loadPack(pack).then(function (ok) { if (ok) go(); else { self.packGate = false; F.ui.askPack(pack, null, to); } });
 }
-F.ui.askPack(pack, function () {   });
+F.ui.askPack(pack, function () {   }, to);
 };
 
 
-U.askPack = function (pack, then) {
-var self = this, info = F.PACK_INFO[pack];
-if (!F.canFetch()) return this.dialog(info.name.toUpperCase() + '\nThis part of the game needs a download, and it can only come through the Selebox app.');
+
+
+U.askPack = function (pack, then, to) {
+var self = this, info = F.PACK_INFO[pack], area = to && C.WILD && C.WILD.areas && C.WILD.areas[to];
+var place = area && area.tower ? area.name : null;
+var head = place ? place.toUpperCase() + '\nThis needs the ' + info.name + ' download (the animals in it)' : null;
+if (!F.canFetch()) return this.dialog(head ? head + ', and it can only come through the Selebox app.' : info.name.toUpperCase() + '\nThis part of the game needs a download, and it can only come through the Selebox app.');
 if (F.packProgress(pack)) return this.toast(info.name + ' is downloading. You can keep playing.', 2200);
-this.dialog(info.name.toUpperCase() + '\n' + info.desc + '\nA one-time download of ' + mb(F.packBytesLeft(pack) || F.packBytes(pack)) + '. You can keep playing while it comes.', [
+this.dialog((head ? head + '.' : info.name.toUpperCase() + '\n' + info.desc) + '\nA one-time download of ' + mb(F.packBytesLeft(pack) || F.packBytes(pack)) + '. You can keep playing while it comes.', [
 { label: 'Not now', color: GREY },
 { label: 'Download', color: GREEN, cb: function () { self.startPack(pack, then); } },
 ]);
@@ -47619,7 +47655,7 @@ if (t.width > cw - 12) t.setScale((cw - 12) / t.width);
 c.add(t);
 });
 if (!list.length) {
-var next = C.CONTESTS.map(function (ct) { var f = L.ctFest(ct); return C.MONTHS[f.date[0] - 1].slice(0, 3) + ' ' + f.date[1] + '  ' + ct.name + ' (' + f.name + ')'; });
+var next = L.ctUpcoming(s).map(function (u) { var f = u.fest; return (u.days ? C.MONTHS[f.date[0] - 1].slice(0, 3) + ' ' + f.date[1] : 'Today!') + '  ' + u.ct.name + ' (' + f.name + ')'; });
 c.add(this.txt(W / 2, gy + 30, 'No ribbons yet!\n\nEnter a contest at a festival:\n' + next.join('\n') + '\n\nTalk to Mayor Hollis in the plaza on the day.', 13, INK,
 { align: 'center', lineSpacing: 4, wordWrap: { width: 290 } }).setOrigin(0.5, 0));
 }
@@ -48139,7 +48175,7 @@ return r;
 o = this.listPanel({
 title: 'Sunny Inn', tabs: TABS, tab: 'hands', fhTabs: true, rows: rows, talk: 'rosa',
 reopen: function (tab) { if (tab === 'hands') self.openFarmhands(); else self.openFoodShop('inn'); },
-sub: function () { return s.gold + 'G   Work hours: 6 AM to 9 PM'; },
+sub: function () { return s.gold.toLocaleString('en-US') + 'G   Work hours: 6 AM to 9 PM'; },
 });
 return o;
 };

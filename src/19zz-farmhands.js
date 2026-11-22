@@ -439,7 +439,7 @@
     o = this.listPanel({
       title: 'Sunny Inn', tabs: TABS, tab: 'hands', fhTabs: true, rows: rows, talk: 'rosa',
       reopen: function (tab) { if (tab === 'hands') self.openFarmhands(); else self.openFoodShop('inn'); },
-      sub: function () { return s.gold + 'G   Work hours: 6 AM to 9 PM'; },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Work hours: 6 AM to 9 PM'; },
     });
     return o;
   };

@@ -136,7 +136,8 @@
     if (result.horse) row('horse', 'The stable is done, and ' + s.horse.name + ' the horse is waiting there! Walk up to ride.');
     if (result.mail) row('letter', 'You have ' + (result.mail > 1 ? result.mail + ' new letters' : 'a new letter') + ' in the mailbox by the house.');
     if (result.goalDone) row('star', 'Goal complete! Check the next one at the top of the screen.');
-    var title = result.days > 1 ? 'WELCOME BACK! ' + result.days + ' DAYS WENT BY' : 'A NEW DAY! ' + L.formatDate(s.day).toUpperCase();
+    var gone = Math.max(result.days, result.away || 0); // (40 days away: 40, not the 30 the farm played)
+    var title = gone > 1 ? 'WELCOME BACK! ' + gone.toLocaleString('en-US') + ' DAYS WENT BY' : 'A NEW DAY! ' + L.formatDate(s.day).toUpperCase();
     this.dialog(title + '\n' + lines.map(function (l) { return l[1]; }).join('\n'), null, { rows: lines });
     sfx('morning');
   };
@@ -513,7 +514,7 @@
     o = this.listPanel({
       title: "Lily's Seed Stand", tab: tab, page: page,
       tabs: [['seeds', 'Seeds'], ['animals', 'Animals'], ['supplies', 'Supplies']],
-      sub: function () { return 'You have ' + s.gold + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
+      sub: function () { return 'You have ' + s.gold.toLocaleString('en-US') + 'G' + (L.weekendMarket(s.day) && tab === 'seeds' ? '   Weekend Market: seeds ' + Math.round(C.WEEKEND.seedOff * 100) + '% off!' : ''); },
       rows: rows, reopen: this.openShop.bind(this), talk: 'lily',
       empty: 'LILY: Nothing grows in winter!\nCome back in spring for seeds.\nMeanwhile, see the Animals tab for feed.',
     });
@@ -600,7 +601,7 @@
       title: "Bram's Forge", rows: rows, page: page || 0, talk: 'bram', reopen: function (t, p) { self.openForge(p); },
       rowH: rows.some(function (r) { return r.reward && r.reward.more && r.reward.more.length; }) ? 92 : undefined, // (room for a third cost chip)
       sub: function () {
-        return s.gold + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
+        return s.gold.toLocaleString('en-US') + 'G   Ore: ' + ['ore_copper', 'ore_silver', 'ore_gold'].map(function (id) { return L.countItem(s, id) + ' ' + C.ITEMS[id].name.split(' ')[0]; }).join(', ');
       },
     });
   };
@@ -670,7 +671,7 @@
     o = this.listPanel({
       title: "Mira's Woodshop", tab: tab, page: page, rows: rows, talk: 'mira', reopen: this.openWoodshop.bind(this),
       tabs: [['build', 'Build'], ['furniture', 'Furniture'], ['materials', 'Materials']],
-      sub: function () { return s.gold + 'G   Lumber ' + s.lumber + '   Stone ' + s.stone; },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Lumber ' + s.lumber + '   Stone ' + s.stone; },
     });
   };
 
@@ -697,7 +698,7 @@
     });
     o = this.listPanel({
       title: inn ? 'Sunny Inn' : "Ivy's Clinic", rows: rows, talk: inn ? 'rosa' : 'ivy', reopen: function () { self.openFoodShop(key); },
-      sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s) + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s) + (inn ? '' : '\nIvy: "Rest well and eat well, farmer!"'); },
     });
   };
 

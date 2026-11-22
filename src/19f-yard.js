@@ -544,7 +544,7 @@
     o = this.listPanel({
       title: title, tab: 'outdoor', page: page, rows: rows, talk: cat == null ? 'mira' : null, tabs: cat == null ? TABS : null,
       reopen: function (tab, p) { if (cat != null && tab === 'outdoor') self.openOutdoor(cat, p); else self.openWoodshop(tab, p); },
-      sub: function () { return s.gold + 'G   ' + (cat == null ? 'Fences, paths, gardens and more for your yard.' : 'Bought pieces go to your yard storage.'); },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   ' + (cat == null ? 'Fences, paths, gardens and more for your yard.' : 'Bought pieces go to your yard storage.'); },
       corner: cat != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openOutdoor(null, 0); } } : null,
     });
     return o;

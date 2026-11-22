@@ -501,7 +501,7 @@
     });
     this.listPanel({
       title: kind === 'wall' ? 'Wallpaper' : 'Floor', rows: rows, page: page, reopen: function (tab, p) { self.openSurfaces(kind, p); },
-      sub: function () { return s.gold + 'G   Festival editions are sold in their season.'; },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Festival editions are sold in their season.'; },
     });
   };
 
@@ -593,7 +593,7 @@
       title: v == null ? "Mira's Woodshop" : H.styles[v].name + ' Furniture', tab: 'furniture', page: page, rows: rows, talk: v == null ? 'mira' : null,
       tabs: v == null ? TABS : null,
       reopen: function (tab, p) { if (v != null && tab === 'furniture') self.openCatalog(v, p); else self.openWoodshop(tab, p); },
-      sub: function () { return s.gold + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   ' + (v == null ? 'Pick a style. Festival editions come with their season.' : 'Bought pieces go to your storage.'); },
       corner: v != null ? { label: 'Back', color: GREY, cb: function () { self.closeModal(); self.openCatalog(null, 0); } } : null,
     });
     return o;

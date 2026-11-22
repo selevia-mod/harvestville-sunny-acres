@@ -274,7 +274,7 @@
     });
     o = this.listPanel({
       title: b.name, rows: rows, talk: b.owner,
-      sub: function () { return s.gold + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s); },
+      sub: function () { return s.gold.toLocaleString('en-US') + 'G   Energy ' + s.energy + '/' + L.maxEnergy(s); },
     });
   };
 
@@ -300,7 +300,7 @@
         }],
       };
     }));
-    o = this.listPanel({ title: "Poppy's Flowers", rows: rows, page: page, talk: 'poppy', reopen: function (tab, p) { self.openFlorist(p); }, sub: function () { return s.gold + 'G'; } });
+    o = this.listPanel({ title: "Poppy's Flowers", rows: rows, page: page, talk: 'poppy', reopen: function (tab, p) { self.openFlorist(p); }, sub: function () { return s.gold.toLocaleString('en-US') + 'G'; } });
   };
 
   U.openVet = function () {
@@ -320,7 +320,7 @@
         },
       }],
     });
-    o = this.listPanel({ title: "Owen's Animal Clinic", rows: rows, talk: 'owen', sub: function () { return s.gold + 'G   A treat a day keeps them happy.'; } });
+    o = this.listPanel({ title: "Owen's Animal Clinic", rows: rows, talk: 'owen', sub: function () { return s.gold.toLocaleString('en-US') + 'G   A treat a day keeps them happy.'; } });
   };
 
   // Send what you're holding to someone you know.
@@ -421,6 +421,6 @@
         }],
       };
     });
-    o = this.listPanel({ title: "Marco's Wagon", rows: rows, talk: 'marco', sub: function () { return s.gold + 'G   New pieces every day, from all over the kingdom.'; } });
+    o = this.listPanel({ title: "Marco's Wagon", rows: rows, talk: 'marco', sub: function () { return s.gold.toLocaleString('en-US') + 'G   New pieces every day, from all over the kingdom.'; } });
   };
 })(window.Farm = window.Farm || {});
