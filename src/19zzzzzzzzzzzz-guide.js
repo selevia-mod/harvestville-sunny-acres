@@ -24,9 +24,18 @@
 
   // ---------- your dog's name ----------
   var WHY = { empty: 'Type a name for your dog.', rude: "Let's keep Harvest Ville friendly. Try another name." };
+  // The box starts with the dog's name as it is (Biscuit until you name him). Cancel keeps that name for good, so the
+  // question is asked once (iPhone test, 22 Nov 2026: Cancel was forgotten and every quest's Go asked again).
   U.askDogName = function (done) {
     var self = this, s = F.session.state;
-    this.askText('Name your dog', L.dogNamed(s) ? L.dogName(s) : '', C.FARMER_NAME, function (text) {
+    var keep = function () {
+      if (!L.dogNamed(s) && L.setDogName(s, L.dogName(s)) === 'ok') {
+        F.session.dirty = true;
+        if (world() && world().save) world().save();
+      }
+      if (done) done();
+    };
+    this.askText('Name your dog', L.dogName(s), C.FARMER_NAME, function (text) {
       var r = L.setDogName(s, text);
       if (r !== 'ok') {
         sfx('nope');
@@ -38,7 +47,7 @@
       sfx('woof');
       self.toast(L.dogName(s) + ' wags happily!', 1800, 0x2f5a22);
       if (done) done();
-    }, { hint: 'Up to ' + C.FARMER_NAME + ' letters. Your dog leads you to your quests.', cancel: done });
+    }, { hint: 'Up to ' + C.FARMER_NAME + ' letters. Your dog leads you to your quests.', cancel: keep });
   };
   // asked once on your farm, when it is quiet (after the farmer's own name: 19n-name.js)
   var create = P.create;

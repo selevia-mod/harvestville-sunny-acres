@@ -7,6 +7,29 @@
   var C = F.Config;
 
   C.NEWS = [
+    // (iPhone test, 22 Nov 2026: the list stopped at 2.13 though the updates of 9-14 Nov had come out; 2.14 tells those,
+    // 2.15 what comes with the Manila update, manila/all)
+    {
+      v: '2.15', date: 'November 2026', lines: [
+        ['bow', 'Manila\'s hunting grounds', 'The Open Plains, the Bamboo Jungle and the Rocky Gorge, each with its own animals, weapon and records.'],
+        ['heart', 'Manila Friends', 'Ten people of the city can be your friends: Aling Rosa, Mang Tibo, Lola Amparo, Father Ramon, Bea, Aling Nena and more.'],
+        ['crate', 'The Grand Market', 'Bram makes a Horse Cart and trucks at his Forge: carry your crops to Manila, and fill your barangay\'s weekly City Order.'],
+        ['hoe', 'Farm machines you drive', 'A Tractor, a Seeder and a Harvester: get in and drive them over your field. They work 3 rows at a time.'],
+        ['rod', 'Sea trips', 'Kapitana Marisol\'s boat takes you out on Manila Bay: sea fish, snags, and the Marlin.'],
+        ['star', 'The Manila Cup', 'Mang Kardo\'s weekly race: ride laps of the oval. Your best time of the week counts, and the first try each day is free.'],
+        ['ember_shard', 'The deep halls', 'The Mine goes deeper, with new critters on the deep floors.'],
+        ['crate', 'A new Market Hall', 'Once the town builds it, a painted market hall stands over the plaza stall.'],
+      ],
+    },
+    {
+      v: '2.14', date: 'November 14, 2026', lines: [
+        ['bow', 'Farm Raids', 'Train raiders at your Raid Camp, and raid a real farm near your power. You see its loot first.'],
+        ['star', 'Daily adventures', 'Each day: 3 everyday quests and 3 adventures. Finish any 5 to open the day\'s chest.'],
+        ['letter', 'Friendship book', 'Every friend in Willowbrook has a little story. A new part opens at 2, 4, 6 and 8 hearts.'],
+        ['chest', 'Move your buildings', 'Edit your farm: pick up a building and put it where you like.'],
+        ['crate', 'Manila and the Lost Tower', 'The city of Manila opens, with its shops, food and the Lost Tower to climb.'],
+      ],
+    },
     {
       v: '2.13', date: 'November 8, 2026', lines: [
         // (owner, 8 Nov 2026: e43)

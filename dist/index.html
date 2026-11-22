@@ -885,6 +885,29 @@ C.HOME.styles.forEach(function (st, i) { C.HOME.styleIndex[st.key] = i; });
 var C = F.Config;
 
 C.NEWS = [
+
+
+{
+v: '2.15', date: 'November 2026', lines: [
+['bow', 'Manila\'s hunting grounds', 'The Open Plains, the Bamboo Jungle and the Rocky Gorge, each with its own animals, weapon and records.'],
+['heart', 'Manila Friends', 'Ten people of the city can be your friends: Aling Rosa, Mang Tibo, Lola Amparo, Father Ramon, Bea, Aling Nena and more.'],
+['crate', 'The Grand Market', 'Bram makes a Horse Cart and trucks at his Forge: carry your crops to Manila, and fill your barangay\'s weekly City Order.'],
+['hoe', 'Farm machines you drive', 'A Tractor, a Seeder and a Harvester: get in and drive them over your field. They work 3 rows at a time.'],
+['rod', 'Sea trips', 'Kapitana Marisol\'s boat takes you out on Manila Bay: sea fish, snags, and the Marlin.'],
+['star', 'The Manila Cup', 'Mang Kardo\'s weekly race: ride laps of the oval. Your best time of the week counts, and the first try each day is free.'],
+['ember_shard', 'The deep halls', 'The Mine goes deeper, with new critters on the deep floors.'],
+['crate', 'A new Market Hall', 'Once the town builds it, a painted market hall stands over the plaza stall.'],
+],
+},
+{
+v: '2.14', date: 'November 14, 2026', lines: [
+['bow', 'Farm Raids', 'Train raiders at your Raid Camp, and raid a real farm near your power. You see its loot first.'],
+['star', 'Daily adventures', 'Each day: 3 everyday quests and 3 adventures. Finish any 5 to open the day\'s chest.'],
+['letter', 'Friendship book', 'Every friend in Willowbrook has a little story. A new part opens at 2, 4, 6 and 8 hearts.'],
+['chest', 'Move your buildings', 'Edit your farm: pick up a building and put it where you like.'],
+['crate', 'Manila and the Lost Tower', 'The city of Manila opens, with its shops, food and the Lost Tower to climb.'],
+],
+},
 {
 v: '2.13', date: 'November 8, 2026', lines: [
 
@@ -4234,6 +4257,11 @@ names: { lumber: 'Lumber', stone: 'Stone' },
 
 islands: null,
 };
+
+
+C.BH.projects.forEach(function (p) {
+if (p.key === 'market') p.benefit = 'Market stall shelves hold ' + C.BH.hallShelf + ' more, and every lot sold at the stall pays ' + Math.round((C.BH.hallPay - 1) * 100) + '% more.';
+});
 
 
 C.FISH_TABLE.bridge = { fish_s: 0.2, fish_m: 0.4, fish_l: 0.3, fish_k: 0.1 };
@@ -31047,27 +31075,32 @@ if (!row) return;
 var order = ['medals-link', 'rank-link', 'skills-link', 'frame-link'];
 var links = order.map(function (n) { return c.list.filter(function (o) { return o.name === n; })[0]; }).filter(Boolean);
 if (!links.length) return;
-var total = links.reduce(function (a, l) { return a + l.w; }, 0), span = row.x1 - row.x0;
+
+
+var total = links.reduce(function (a, l) { return a + l.linkW; }, 0), span = row.x1 - row.x0;
 var gap = links.length > 1 ? Math.max(8, (span - total) / (links.length - 1)) : 0;
-var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2;
+var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2, k = 1;
 if (total + gap * (links.length - 1) > span) {
-var k = span / (total + gap * (links.length - 1));
-links.forEach(function (l) { l.setScale(k); });
+k = span / (total + gap * (links.length - 1));
 gap *= k;
-links.forEach(function (l) { l.w *= k; });
 }
-links.forEach(function (l) { l.setPosition(x, row.y); x += l.w + gap; });
+links.forEach(function (l) { l.setScale(k); l.setPosition(x, row.y); x += l.linkW * k + gap; });
 };
 
 M.pauseLink = function (c, name, icon, word, onTap) {
 var self = this, link = this.add.container(0, 0);
 var t = this.txt(18, 0, word, 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(0, 0.5);
-var mark = icon && icon.dot != null ? this.add.circle(7, 0, 6, icon.dot).setStrokeStyle(1.5, 0x3d2614) : this.add.image(7, 0, 'items', icon).setScale(0.13);
+
+
+var mark = icon && icon.dot != null
+? this.add.container(7, 0, [this.add.circle(0, 0, 7, icon.dot).setStrokeStyle(1.5, 0x3d2614),
+this.add.star(0, 0.5, 5, 2, 4.6, icon.none ? 0xe9a91c : 0xfffbf0).setStrokeStyle(0.8, 0x5a3a1e)])
+: this.add.image(7, 0, 'items', icon).setScale(0.13);
 var z = this.add.zone((18 + t.width) / 2, 0, 18 + t.width + 10, 28).setInteractive({ useHandCursor: true });
 F.tapOn(z, function () { self.closeModal(); onTap(); });
 link.add([t, mark, z]);
 link.name = name;
-link.w = 18 + t.width;
+link.linkW = 18 + t.width;
 c.add(link);
 this.pauseLinks(c);
 return link;
@@ -31635,7 +31668,10 @@ var first = L.dayOf(new Date(y, m, 1, 12).getTime()), n = L.dayOf(new Date(y, m 
 var lead = (L.date(first).weekday + 6) % 7;
 var c = this.openModal();
 this.panelImg(c, 12, 70, W - 24, 520);
-c.add(this.txt(W / 2, 88, C.MONTHS[m] + ' ' + y + '  (' + L.date(first).name + ')', 18, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+var title = this.txt(W / 2, 88, C.MONTHS[m] + ' ' + y + '  (' + L.date(first).name + ')', 18, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+var room = 2 * (W - 48 - 23 - 8 - W / 2);
+if (title.width > room) title.setScale(room / title.width);
+c.add(title);
 this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
 var cw = 44, ch = 44, x0 = (W - 7 * cw) / 2, y0 = 120;
 ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (name, k) {
@@ -34658,6 +34694,18 @@ P.updateCamera = function (lerp) {
 if (!this.yd) updateCamera.call(this, lerp);
 };
 
+
+
+
+P.yardKeep = function () {
+var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+var hw = cam.width / cam.zoom / 2, hh = cam.height / cam.zoom / 2;
+var mx = cam.scrollX + cam.width / 2, my = cam.scrollY + cam.height / 2;
+var cx = mw <= 2 * hw ? mw / 2 : Math.min(Math.max(mx, hw), mw - hw);
+var cy = mh <= 2 * hh ? mh / 2 : Math.min(Math.max(my, hh), mh - hh);
+if (cx !== mx || cy !== my) cam.centerOn(cx, cy);
+};
+
 P.startYard = function () {
 if (this.mapKey !== 'farm' || this.yd) return;
 (this.yardBacks || []).forEach(function (b) { b.setVisible(false); });
@@ -34668,6 +34716,7 @@ this.yd = { sel: null, drag: null, pan: null, brush: null, zoom: cam.zoom };
 this.renderYard();
 cam.setZoom(cam.zoom * 0.6);
 cam.centerOn(Math.max(f.x, 22 * T), f.y + T);
+this.yardKeep();
 this.ydBox = this.add.graphics().setDepth(DEPTH.fx + 1);
 this.input.on('pointerdown', this.yardDown, this);
 this.input.on('pointermove', this.yardMove, this);
@@ -34845,7 +34894,7 @@ img.setPosition(x * T, (y + type.h) * T).setAlpha(0.85).setDepth(DEPTH.fx).setTi
 this.yardChanged(!!why, true);
 } else if (pan && p.id === pan.id) {
 if (Math.abs(p.x - pan.x) + Math.abs(p.y - pan.y) > 8) pan.moved = true;
-if (pan.moved) cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom);
+if (pan.moved) { cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom); this.yardKeep(); }
 }
 };
 
@@ -37711,7 +37760,7 @@ g.fillStyle(0xf2d79a, 0.9).fillCircle(w / 2, 36, 27);
 });
 r.add(this.add.image(0, 0, bg).setOrigin(0).setDisplaySize(w, h + 3));
 var pic = this.tilePicture(row, w / 2, 36, 48);
-if (pic) { if (state === 'have') pic.setAlpha(0.6); r.add(pic); }
+if (pic) { if (state === 'have') pic.setAlpha(0.6); else if (row.faint) pic.setAlpha(0.35); r.add(pic); }
 var name = this.txt(w / 2, 68, row.name || '', 10, state === 'have' ? '#8a7a5a' : INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 10 } }).setOrigin(0.5, 0);
 if (name.height > 26) name.setScale(26 / name.height);
 r.add(name);
@@ -42885,7 +42934,9 @@ desc: t.mine >= t.min ? 'You are in, if the town gets there.' : 'Give ' + (t.min
 if (b) {
 var mine = b.last && O.me && b.last.id === O.me.id;
 rows.push({
-id: b.last ? b.last.id : null, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
+
+
+id: b.last ? b.last.id : null, noCrown: true, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
 desc: b.last ? (mine ? 'You' : b.last.name) + ' won last week with ' + b.last.likes + (b.last.likes === 1 ? ' like.' : ' likes.') : 'The farm with the most likes each week wins.',
 buttons: b.last && !mine ? [{ label: 'Visit', color: BLUE, cb: function () { O.visit(b.last.id); } }] : [],
 });
@@ -42958,7 +43009,7 @@ g.beginPath();
 g.arc(14, 15, 2.2, 0, Math.PI * 2);
 g.fill();
 };
-var winner = function (row) { return row && row.id && O.best && O.best.last && O.best.last.id === row.id; };
+var winner = function (row) { return row && row.id && !row.noCrown && O.best && O.best.last && O.best.last.id === row.id; };
 var lookListRow = U.lookListRow;
 U.lookListRow = function (c, y, row) {
 var out = lookListRow.call(this, c, y, row);
@@ -54077,7 +54128,7 @@ openPause.apply(this, arguments);
 var self = this, m = this.modals[this.modals.length - 1];
 if (!m || F.session.visit || !m.c.pauseLinks) return;
 var me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
-this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xd8c8a8 }).color }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
+this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xf3e6c8 }).color, none: !d && !best }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
 };
 
 
@@ -55166,18 +55217,23 @@ if (g.old) return g.desc;
 return L.pieceLess(F.session.state, g.id) + ' less energy when something of ' + C.PLACES[g.place].name + ' charges you.';
 };
 var pieceName = function (g) { return g.old ? g.name : L.pieceName(F.session.state, g.id); };
+
+var SLOT_ICON = { head: C.ICON.ranger_hat, body: C.ICON.gear_cloak, feet: C.ICON.gear_boots, charm: C.ICON.gear_charm };
 U.openGear = function (back) {
 var self = this, s = F.session.state;
 if (L.takeTip(s, 'gear_slots_tour') && !quiet()) { F.Host.save(s); return this.tour('gear_slots', function () { self.openGear(back); }); }
+
+
 var rows = C.GEAR_SLOTS.map(function (slot) {
 var id = L.worn(s, slot), g = id ? L.gearPiece(id) : null, have = L.piecesFor(s, slot).length;
-return { icon: g ? g.icon : C.ICON.bag, name: C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? pieceName(g) : 'nothing'),
-desc: g ? pieceText(g) : have ? 'You have ' + have + ' to wear.' : 'Kanor makes pieces from what you hunt.',
-buttons: [{ label: 'Change', color: have ? GREEN : GREY, cb: function () {
-if (!have) return self.toast('Kanor makes gear in his Make tab, from what each place gives.', 2600);
+var empty = SLOT_ICON[slot] != null ? SLOT_ICON[slot] : C.ICON.bag;
+return { icon: g ? g.icon : empty, faint: !g, state: 'can', name:
+C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? pieceName(g) : 'nothing'),
+desc: g ? pieceText(g) : have ? 'You have ' + have + ' to wear.' : 'None yet. Kanor makes gear in his Make tab, from what you hunt in each place.',
+buttons: have || g ? [{ label: 'Change', color: GREEN, cb: function () {
 self.closeModal();
 self.openGearSlot(slot, back);
-} }] };
+} }] : [] };
 });
 var set = L.wornSet(s), less = L.gearLess(s, null);
 this.listPanel({
@@ -57425,9 +57481,18 @@ var G = F.GUIDE = { card: { x: 8, y: 104, w: 186, h: 42 }, ahead: 1.6, lead: 1.8
 
 
 var WHY = { empty: 'Type a name for your dog.', rude: "Let's keep Harvest Ville friendly. Try another name." };
+
+
 U.askDogName = function (done) {
 var self = this, s = F.session.state;
-this.askText('Name your dog', L.dogNamed(s) ? L.dogName(s) : '', C.FARMER_NAME, function (text) {
+var keep = function () {
+if (!L.dogNamed(s) && L.setDogName(s, L.dogName(s)) === 'ok') {
+F.session.dirty = true;
+if (world() && world().save) world().save();
+}
+if (done) done();
+};
+this.askText('Name your dog', L.dogName(s), C.FARMER_NAME, function (text) {
 var r = L.setDogName(s, text);
 if (r !== 'ok') {
 sfx('nope');
@@ -57439,7 +57504,7 @@ if (world() && world().save) world().save();
 sfx('woof');
 self.toast(L.dogName(s) + ' wags happily!', 1800, 0x2f5a22);
 if (done) done();
-}, { hint: 'Up to ' + C.FARMER_NAME + ' letters. Your dog leads you to your quests.', cancel: done });
+}, { hint: 'Up to ' + C.FARMER_NAME + ' letters. Your dog leads you to your quests.', cancel: keep });
 };
 
 var create = P.create;

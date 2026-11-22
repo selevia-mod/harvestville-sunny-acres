@@ -210,6 +210,9 @@ test('the reward: Gold as the server says (never more than the top), the title a
 test('the benefits: the Market Hall\'s stall, the fountain\'s wish, the Chapel Bell, the boatman, the bridge\'s fish', () => {
   const s = fresh();
   // the Market Hall: a sale pays 10% more; shelves hold C.BH.hallShelf more (50), and keep them through the save
+  // (iPhone test, 22 Nov 2026: its words said "10 more"; they tell the game's own numbers now)
+  const hall = C.BH.projects.find((p) => p.key === 'market');
+  assert.ok(hall.benefit.includes('hold ' + C.BH.hallShelf + ' more') && hall.benefit.includes(Math.round((C.BH.hallPay - 1) * 100) + '% more'), hall.benefit);
   const cap = L.twShelfCap(s);
   s.shelves[0] = { id: 'turnip', n: 10, price: 1, left: 0, coins: 0 };
   const plainSale = L.sellLot(s, 0, 'lily').coins;

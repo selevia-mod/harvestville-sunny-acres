@@ -261,27 +261,32 @@
     var order = ['medals-link', 'rank-link', 'skills-link', 'frame-link'];
     var links = order.map(function (n) { return c.list.filter(function (o) { return o.name === n; })[0]; }).filter(Boolean);
     if (!links.length) return;
-    var total = links.reduce(function (a, l) { return a + l.w; }, 0), span = row.x1 - row.x0;
+    // (each link's width is its own `linkW`: it was kept in `w`, which Phaser's setPosition sets back to 0, so a link
+    // placed once counted as no width the next time a link came: "Medals 0" under the Rank medal, iPhone test 22 Nov 2026)
+    var total = links.reduce(function (a, l) { return a + l.linkW; }, 0), span = row.x1 - row.x0;
     var gap = links.length > 1 ? Math.max(8, (span - total) / (links.length - 1)) : 0;
-    var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2;
+    var x = links.length > 1 ? row.x0 : row.x0 + (span - total) / 2, k = 1;
     if (total + gap * (links.length - 1) > span) { // (too long: one scale for all, so they still fit)
-      var k = span / (total + gap * (links.length - 1));
-      links.forEach(function (l) { l.setScale(k); });
+      k = span / (total + gap * (links.length - 1));
       gap *= k;
-      links.forEach(function (l) { l.w *= k; });
     }
-    links.forEach(function (l) { l.setPosition(x, row.y); x += l.w + gap; });
+    links.forEach(function (l) { l.setScale(k); l.setPosition(x, row.y); x += l.linkW * k + gap; });
   };
   // A link for the card: a small icon (an items frame, or a coloured dot: { dot: color }), its blue word, the tap.
   M.pauseLink = function (c, name, icon, word, onTap) {
     var self = this, link = this.add.container(0, 0);
     var t = this.txt(18, 0, word, 12, '#2f6fae', { fontStyle: 'bold' }).setOrigin(0, 0.5);
-    var mark = icon && icon.dot != null ? this.add.circle(7, 0, 6, icon.dot).setStrokeStyle(1.5, 0x3d2614) : this.add.image(7, 0, 'items', icon).setScale(0.13);
+    // a dot is a little medal: its colour with a star on it (no rank yet: a pale one with a gold star; the iPhone test,
+    // 22 Nov 2026, found a plain blank circle there)
+    var mark = icon && icon.dot != null
+      ? this.add.container(7, 0, [this.add.circle(0, 0, 7, icon.dot).setStrokeStyle(1.5, 0x3d2614),
+        this.add.star(0, 0.5, 5, 2, 4.6, icon.none ? 0xe9a91c : 0xfffbf0).setStrokeStyle(0.8, 0x5a3a1e)])
+      : this.add.image(7, 0, 'items', icon).setScale(0.13);
     var z = this.add.zone((18 + t.width) / 2, 0, 18 + t.width + 10, 28).setInteractive({ useHandCursor: true });
     F.tapOn(z, function () { self.closeModal(); onTap(); });
     link.add([t, mark, z]); // (the word first: tests read list[0])
     link.name = name;
-    link.w = 18 + t.width;
+    link.linkW = 18 + t.width; // (not `w`: Phaser's own, zeroed by setPosition)
     c.add(link);
     this.pauseLinks(c);
     return link;
@@ -849,7 +854,10 @@
     var lead = (L.date(first).weekday + 6) % 7; // empty cells before the 1st (Monday first)
     var c = this.openModal();
     this.panelImg(c, 12, 70, W - 24, 520);
-    c.add(this.txt(W / 2, 88, C.MONTHS[m] + ' ' + y + '  (' + L.date(first).name + ')', 18, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+    var title = this.txt(W / 2, 88, C.MONTHS[m] + ' ' + y + '  (' + L.date(first).name + ')', 18, INK, { fontStyle: 'bold' }).setOrigin(0.5, 0);
+    var room = 2 * (W - 48 - 23 - 8 - W / 2); // (centred, clear of the X: "December 2026 (Winter)" ran into it, iPhone test 22 Nov 2026)
+    if (title.width > room) title.setScale(room / title.width);
+    c.add(title);
     this.button(c, W - 48, 100, 46, 34, 'X', function () { self.closeModal(); }, RED);
     var cw = 44, ch = 44, x0 = (W - 7 * cw) / 2, y0 = 120;
     ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (name, k) {

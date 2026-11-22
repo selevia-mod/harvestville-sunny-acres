@@ -62,6 +62,11 @@
     // The hook for later (owner, 6 Nov 2026): the boat will carry players to island hunting places. Until then it says so.
     islands: null,
   };
+  // The Market Hall's benefit told from its own numbers (iPhone test, 22 Nov 2026: the words said "10 more" long after
+  // the shelves took 50 more), so the words never drift from what the game gives.
+  C.BH.projects.forEach(function (p) {
+    if (p.key === 'market') p.benefit = 'Market stall shelves hold ' + C.BH.hallShelf + ' more, and every lot sold at the stall pays ' + Math.round((C.BH.hallPay - 1) * 100) + '% more.';
+  });
 
   // The bridge's fishing spot: bigger fish more often than the river (C.FISH_TABLE.river is 35/40/20/5).
   C.FISH_TABLE.bridge = { fish_s: 0.2, fish_m: 0.4, fish_l: 0.3, fish_k: 0.1 };

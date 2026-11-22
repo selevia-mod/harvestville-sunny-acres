@@ -138,6 +138,18 @@
     if (!this.yd) updateCamera.call(this, lerp);
   };
 
+  // Decorate's camera stays over the farm: zoomed out with the farmer near an edge (behind the house, say) it showed a
+  // third of the screen of plain green past the map (iPhone test, 22 Nov 2026). (Phaser zooms round the camera's middle:
+  // the middle is scrollX + width / 2 at any zoom.)
+  P.yardKeep = function () {
+    var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+    var hw = cam.width / cam.zoom / 2, hh = cam.height / cam.zoom / 2;
+    var mx = cam.scrollX + cam.width / 2, my = cam.scrollY + cam.height / 2;
+    var cx = mw <= 2 * hw ? mw / 2 : Math.min(Math.max(mx, hw), mw - hw);
+    var cy = mh <= 2 * hh ? mh / 2 : Math.min(Math.max(my, hh), mh - hh);
+    if (cx !== mx || cy !== my) cam.centerOn(cx, cy);
+  };
+
   P.startYard = function () {
     if (this.mapKey !== 'farm' || this.yd) return;
     (this.yardBacks || []).forEach(function (b) { b.setVisible(false); }); // (one picture to drag; drawn again on Done)
@@ -148,6 +160,7 @@
     this.renderYard(); // (decorating: the field plots and the animals' patch show, 11 Nov 2026)
     cam.setZoom(cam.zoom * 0.6);
     cam.centerOn(Math.max(f.x, 22 * T), f.y + T);
+    this.yardKeep();
     this.ydBox = this.add.graphics().setDepth(DEPTH.fx + 1);
     this.input.on('pointerdown', this.yardDown, this);
     this.input.on('pointermove', this.yardMove, this);
@@ -325,7 +338,7 @@
       this.yardChanged(!!why, true);
     } else if (pan && p.id === pan.id) {
       if (Math.abs(p.x - pan.x) + Math.abs(p.y - pan.y) > 8) pan.moved = true;
-      if (pan.moved) cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom);
+      if (pan.moved) { cam.setScroll(pan.sx - (p.x - pan.x) / cam.zoom, pan.sy - (p.y - pan.y) / cam.zoom); this.yardKeep(); }
     }
   };
 

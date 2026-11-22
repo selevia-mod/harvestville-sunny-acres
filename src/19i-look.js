@@ -620,7 +620,7 @@
     });
     r.add(this.add.image(0, 0, bg).setOrigin(0).setDisplaySize(w, h + 3));
     var pic = this.tilePicture(row, w / 2, 36, 48);
-    if (pic) { if (state === 'have') pic.setAlpha(0.6); r.add(pic); }
+    if (pic) { if (state === 'have') pic.setAlpha(0.6); else if (row.faint) pic.setAlpha(0.35); r.add(pic); } // (faint: an empty slot)
     var name = this.txt(w / 2, 68, row.name || '', 10, state === 'have' ? '#8a7a5a' : INK, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 10 } }).setOrigin(0.5, 0);
     if (name.height > 26) name.setScale(26 / name.height);
     r.add(name);

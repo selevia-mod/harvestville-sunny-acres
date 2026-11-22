@@ -540,18 +540,23 @@
     return L.pieceLess(F.session.state, g.id) + ' less energy when something of ' + C.PLACES[g.place].name + ' charges you.'; // (its stars too)
   };
   var pieceName = function (g) { return g.old ? g.name : L.pieceName(F.session.state, g.id); };
+  // an empty slot's picture: a piece of its kind, shown faint
+  var SLOT_ICON = { head: C.ICON.ranger_hat, body: C.ICON.gear_cloak, feet: C.ICON.gear_boots, charm: C.ICON.gear_charm };
   U.openGear = function (back) {
     var self = this, s = F.session.state;
     if (L.takeTip(s, 'gear_slots_tour') && !quiet()) { F.Host.save(s); return this.tour('gear_slots', function () { self.openGear(back); }); }
+    // (iPhone test, 22 Nov 2026: an empty slot showed the bag's picture, and with nothing to wear its Change only said
+    // where gear comes from: now an empty slot shows its own kind, faint, and says so itself, with no button)
     var rows = C.GEAR_SLOTS.map(function (slot) {
       var id = L.worn(s, slot), g = id ? L.gearPiece(id) : null, have = L.piecesFor(s, slot).length;
-      return { icon: g ? g.icon : C.ICON.bag, name: C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? pieceName(g) : 'nothing'),
-        desc: g ? pieceText(g) : have ? 'You have ' + have + ' to wear.' : 'Kanor makes pieces from what you hunt.',
-        buttons: [{ label: 'Change', color: have ? GREEN : GREY, cb: function () {
-          if (!have) return self.toast('Kanor makes gear in his Make tab, from what each place gives.', 2600);
+      var empty = SLOT_ICON[slot] != null ? SLOT_ICON[slot] : C.ICON.bag;
+      return { icon: g ? g.icon : empty, faint: !g, state: 'can', name: // (state: one group of tiles; a tile with no button is not "Yours")
+        C.GEAR_SLOT_NAMES[slot] + ': ' + (g ? pieceName(g) : 'nothing'),
+        desc: g ? pieceText(g) : have ? 'You have ' + have + ' to wear.' : 'None yet. Kanor makes gear in his Make tab, from what you hunt in each place.',
+        buttons: have || g ? [{ label: 'Change', color: GREEN, cb: function () {
           self.closeModal();
           self.openGearSlot(slot, back);
-        } }] };
+        } }] : [] };
     });
     var set = L.wornSet(s), less = L.gearLess(s, null);
     this.listPanel({

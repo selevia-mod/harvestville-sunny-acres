@@ -520,7 +520,7 @@
     var self = this, m = this.modals[this.modals.length - 1];
     if (!m || F.session.visit || !m.c.pauseLinks) return;
     var me = O.rankMine(), d = L.rankTierDef(me.tier), best = L.rankTierDef(me.best);
-    this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xd8c8a8 }).color }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
+    this.pauseLink(m.c, 'rank-link', { dot: (d || best || { color: 0xf3e6c8 }).color, none: !d && !best }, d ? d.name : best ? 'Best: ' + best.name : 'Rank', function () { self.openTownRank(0, function () { self.openPause(); }); });
   };
 
   // ---------- the first-time tours (owner, 4 Oct 2026: every new feature gets one; the card: 19ze-tours.js) ----------

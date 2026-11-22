@@ -92,7 +92,9 @@
       if (b) {
         var mine = b.last && O.me && b.last.id === O.me.id;
         rows.push({
-          id: b.last ? b.last.id : null, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
+          // (noCrown: the crown is for the winner's own row in the farm lists; here it sat on the "B" of the title,
+          // iPhone test 22 Nov 2026)
+          id: b.last ? b.last.id : null, noCrown: true, icon: C.ICON.star, name: 'Best Farm of the Week', reward: { gold: b.gold, stars: b.stars }, rewardPrefix: 'Prize', buttonsBelow: true,
           desc: b.last ? (mine ? 'You' : b.last.name) + ' won last week with ' + b.last.likes + (b.last.likes === 1 ? ' like.' : ' likes.') : 'The farm with the most likes each week wins.',
           buttons: b.last && !mine ? [{ label: 'Visit', color: BLUE, cb: function () { O.visit(b.last.id); } }] : [],
         });
@@ -165,7 +167,7 @@
     g.arc(14, 15, 2.2, 0, Math.PI * 2);
     g.fill();
   };
-  var winner = function (row) { return row && row.id && O.best && O.best.last && O.best.last.id === row.id; };
+  var winner = function (row) { return row && row.id && !row.noCrown && O.best && O.best.last && O.best.last.id === row.id; };
   var lookListRow = U.lookListRow;
   U.lookListRow = function (c, y, row) {
     var out = lookListRow.call(this, c, y, row);
