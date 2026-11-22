@@ -433,7 +433,7 @@ test('v2.13 is the newest (talk in the caves, a new greenhouse, visiting out hun
   // (22 Nov 2026, the iPhone test: the list had stopped at 2.13; 2.14 tells the updates of 9-14 Nov, 2.15 the Manila update)
   assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS.slice(0, 3).map((n) => n.v))), ['2.15', '2.14', '2.13']);
   assert.strictEqual(C.NEWS_LATEST, '2.15');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Manila\'s hunting grounds', 'Manila Friends', 'The Grand Market', 'Farm machines you drive', 'Sea trips', 'The Manila Cup', 'The deep halls', 'A new Market Hall']);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[0].lines.map((l) => l[1]))), ['Manila\'s hunting grounds', 'The Armory opens', 'Manila Friends', 'The Grand Market', 'Farm machines you drive', 'Sea trips', 'The Manila Cup', 'The deep halls', 'A new Market Hall']);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(C.NEWS[1].lines.map((l) => l[1]))), ['Farm Raids', 'Daily adventures', 'Friendship book', 'Move your buildings', 'Manila and the Lost Tower']);
   const OLD = C.NEWS.slice(2); // (2.13 down, as they were)
   assert.strictEqual(OLD[0].v, '2.13');

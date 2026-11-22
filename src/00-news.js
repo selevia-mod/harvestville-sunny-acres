@@ -12,6 +12,8 @@
     {
       v: '2.15', date: 'November 2026', lines: [
         ['bow', 'Manila\'s hunting grounds', 'The Open Plains, the Bamboo Jungle and the Rocky Gorge, each with its own animals, weapon and records.'],
+        // (owner, 23 Nov 2026: the new weapons get their own line)
+        ['arrows', 'The Armory opens', 'Panday Lando sells a Rifle, a Javelin and a Boomerang that hits twice: one for each hunting ground.'],
         ['heart', 'Manila Friends', 'Ten people of the city can be your friends: Aling Rosa, Mang Tibo, Lola Amparo, Father Ramon, Bea, Aling Nena and more.'],
         ['crate', 'The Grand Market', 'Bram makes a Horse Cart and trucks at his Forge: carry your crops to Manila, and fill your barangay\'s weekly City Order.'],
         ['hoe', 'Farm machines you drive', 'A Tractor, a Seeder and a Harvester: get in and drive them over your field. They work 3 rows at a time.'],
