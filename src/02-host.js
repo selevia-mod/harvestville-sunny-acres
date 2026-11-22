@@ -91,6 +91,20 @@
     else Host.game.loop.wake();
   };
 
+  // The page put away saves too (owner, 23 Nov 2026: "it should save the game when the users close the app or the
+  // game"): the app's sleep message saves as above, but a phone can stop the page before it comes (the app swiped off,
+  // iOS freezing the web view), and the 15-second save may be up to 15 seconds behind. Asleep: saved already.
+  var hideSave = function () {
+    try {
+      if (Host.sleeping || !F.session || !F.session.state) return;
+      if (Host.save(F.session.state)) F.session.dirty = false;
+    } catch (e) { /* (never an error on the way out) */ }
+  };
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') hideSave(); });
+    window.addEventListener('pagehide', hideSave);
+  }
+
   // Returns true when the game handled Back (closed a panel or opened the pause menu).
   window.__gameBack = function () {
     if (!F.ui) return false;

@@ -26655,6 +26655,20 @@ else Host.game.loop.wake();
 };
 
 
+
+
+var hideSave = function () {
+try {
+if (Host.sleeping || !F.session || !F.session.state) return;
+if (Host.save(F.session.state)) F.session.dirty = false;
+} catch (e) {   }
+};
+if (typeof document !== 'undefined' && document.addEventListener) {
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') hideSave(); });
+window.addEventListener('pagehide', hideSave);
+}
+
+
 window.__gameBack = function () {
 if (!F.ui) return false;
 return F.ui.back();
@@ -73282,7 +73296,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = '35a570cc';
+window.Farm.BUILD = 'a9818877';
 </script>
 </body>
 </html>
