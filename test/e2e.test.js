@@ -5008,18 +5008,27 @@ test('downloads by themselves: a few seconds after the game opens, every pack co
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, { timeout: 90000 });
   assert.deepStrictEqual(await page.evaluate(() => ['wild', 'looks', 'party'].map((p) => Farm.packOnPhone(p))), [false, false, false], 'nothing on the phone yet');
-  assert.strictEqual(await page.evaluate(() => window.__asked.length), 0, 'not straight away: the farm opens first');
+  // (the farm's own pictures come into the page at once, as the farm needs them: the machines' icons, 19 Nov, 24ff3fd.
+  // Those are not the downloads onto the phone this is about.)
+  const own = await page.evaluate(() => Farm.vehWanted(Farm.session.state).map((k) => Farm.packedFile(k)).filter(Boolean).map((f) => f.file));
+  const pageOnly = (list) => list.filter((a) => !a[1] && own.indexOf(a[0]) >= 0);
+  assert.ok(own.length > 0, 'the farm wants its machines\' icons');
+  assert.deepStrictEqual(await page.evaluate(() => window.__asked.filter((a) => a[1])), [], 'not straight away: the farm opens first');
   await page.waitForFunction(() => Farm.anyDownloading() && Farm.ui.packBadge.visible, null, SLOW);
   await shot(page, 'packs-auto-badge');
   await page.waitForFunction(() => ['wild', 'looks', 'party', 'styles', 'places'].every((p) => Farm.packOnPhone(p)) && !Farm.anyDownloading(), null, { timeout: 180000 });
   const asked = await page.evaluate(() => window.__asked);
-  assert.ok(asked.length > 0 && asked.every((a) => a[1] === true), 'onto the phone only, not into the page');
+  const rest = asked.filter((a) => pageOnly([a]).length === 0);
+  assert.ok(rest.length > 0 && rest.every((a) => a[1] === true), 'onto the phone only, not into the page (but the farm\'s own pictures): ' + JSON.stringify(asked.filter((a) => !a[1])));
   assert.strictEqual(await page.evaluate(() => Farm.packReady('wild')), false, 'the Wild Lands go into the page when you go there');
   assert.strictEqual(await page.evaluate(() => Farm.ui.packBadge.visible), false, 'the badge goes when it is all done');
   await page.evaluate(() => Farm.ui.openDownloads());
   await frames(page, 3);
   const text = await modalText(page);
-  assert.ok(!/Get all/.test(text) && (text.match(/On your phone/g) || []).length === 6, text); // (Furniture styles too, and the Hunting places: 6 Nov; Manila: 11 Nov)
+  // every pack listed is on the phone (Furniture styles too, the Hunting places: 6 Nov; Manila: 11 Nov; the Plains, the
+  // Jungle, the Gorge after): as many "On your phone" as packs with a size
+  const listed = (text.match(/ · /g) || []).length;
+  assert.ok(!/Get all/.test(text) && listed >= 9 && (text.match(/On your phone/g) || []).length === listed, text);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

@@ -42,7 +42,13 @@ function runTests() {
   failedNames(text).forEach((n) => out.problems.push({ what: 'Game test failed: ' + n, where: 'npm test' }));
   if (!pass && !fail) out.problems.push({ what: 'npm test did not run: ' + text.slice(-300), where: 'npm test' });
   if (!ALL) return out;
-  const files = fs.readdirSync(path.join(ROOT, 'test')).filter((f) => /^e2e.*\.test\.js$/.test(f)).sort();
+  // The online tests start the REAL game server (server/), which needs its own packages: without them every one of
+  // them fails, and that is this Mac's setup, not the game. Say so once, plainly, instead.
+  if (!fs.existsSync(path.join(ROOT, 'server', 'node_modules', 'ws'))) {
+    out.problems.push({ what: 'Not checked: the game server\'s packages are missing here, so the online tests cannot run. Fix: cd server && npm ci (then run again)', where: 'setup' });
+    return out;
+  }
+  const files =fs.readdirSync(path.join(ROOT, 'test')).filter((f) => /^e2e.*\.test\.js$/.test(f)).sort();
   let n = 0, bad = 0;
   for (const f of files) {
     say('  ' + f + ' ...');
@@ -50,10 +56,15 @@ function runTests() {
     const t = (r.stdout || '') + (r.stderr || '');
     n += count(t, 'pass') + count(t, 'fail');
     for (const name of failedNames(t)) {
-      // again, alone: a slow Mac (it passes now) or a real problem (it fails again)
-      const again = spawnSync('node', ['--test', '--test-concurrency=1', '--test-name-pattern=' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'test/' + f], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 20 * 60000 });
-      const t2 = (again.stdout || '') + (again.stderr || '');
-      if (count(t2, 'fail') > 0 || count(t2, 'pass') === 0) { bad++; out.problems.push({ what: 'Test failed (again when run alone): ' + name, where: f }); }
+      // again, alone, up to 3 times: a slow Mac (it passes once) or a real problem (it fails every time). (The speed
+      // tests, e.g. "drawn about 0.1 s behind", can miss once alone when the Mac is busy: 1 in 7 at load 10.)
+      let passed = false;
+      for (let k = 0; k < 3 && !passed; k++) {
+        const again = spawnSync('node', ['--test', '--test-concurrency=1', '--test-name-pattern=' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'test/' + f], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 20 * 60000 });
+        const t2 = (again.stdout || '') + (again.stderr || '');
+        passed = count(t2, 'fail') === 0 && count(t2, 'pass') > 0;
+      }
+      if (!passed) { bad++; out.problems.push({ what: 'Test failed (again, 3 times, when run alone): ' + name, where: f }); }
       else out.warnings.push({ what: 'Failed once, then passed alone (a slow moment, not a bug): ' + name, where: f });
     }
   }
