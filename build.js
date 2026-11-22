@@ -103,6 +103,10 @@ const game = list('src', '.js').map((f) => {
   try { new Function(out); } catch (e) { throw new Error(`src/${f} without its comments does not parse (${e.message}): tools/strip-js.js`); } // eslint-disable-line no-new-func
   return `// ---- src/${f}\n` + out;
 }).join('\n');
+// The build's stamp (8 letters of the code's md5): an error report says which page it came from (src/02-report-errors.js).
+// At the end, so no line of the code above moves.
+const BUILD = require('crypto').createHash('md5').update(game).digest('hex').slice(0, 8);
+const gameStamped = game + `\nwindow.Farm.BUILD = '${BUILD}';\n`;
 
 // Characters outside ASCII in scripts become \uXXXX escapes (the same string at run time).
 const ascii = (js) => js.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
@@ -126,7 +130,7 @@ const html = `<!DOCTYPE html>
 <div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#f3e2b8;font:bold 20px 'Trebuchet MS',Verdana,sans-serif;pointer-events:none">Loading your farm&hellip;</div>
 <script>${inline(ascii(phaser))}</script>
 <script>${inline(ascii(assets))}</script>
-<script>${inline(ascii(game))}</script>
+<script>${inline(ascii(gameStamped))}</script>
 </body>
 </html>
 `;
