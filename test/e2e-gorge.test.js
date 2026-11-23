@@ -332,6 +332,10 @@ test('the Echo Caves: in by the north cliff\'s door, floor 1 (fireflies three to
   await walk(page, 'ArrowUp', () => Farm.world.busy || Farm.world.mapKey !== 'gorge');
   await page.waitForFunction(() => Farm.world.mapKey === 'gorge_cave' && !Farm.world.busy && Farm.world.wild && Farm.world.lair, null, SLOW);
   await page.waitForTimeout(800);
+  // in at the door: the last lift reached (floor 50 reached: the lift's last stop is 41; owner, 23 Nov 2026, "A")
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.floor), 41);
+  await go(page, 'gorge_cave', 'entrance', 1);
+  await page.waitForTimeout(800);
   const f1 = await page.evaluate(() => ({ floor: Farm.world.lair.floor, kinds: Farm.world.wild.animals.map((a) => a.kind), name: Farm.world.lair.cfg.name, flocks: Farm.world.wild.animals.map((a) => a.flk && a.flk.lead) }));
   assert.strictEqual(f1.floor, 1);
   assert.strictEqual(f1.name, 'The Echo Caves');

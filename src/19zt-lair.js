@@ -149,6 +149,13 @@
   var travel = P.travel;
   P.travel = function (to, spawn, floor) {
     var tc = F.dungeonOf(to);
+    // In at a place cave's door (no floor asked): the last lift you reached, as the Lost Tower does (owner, 23 Nov 2026,
+    // "A", after a player: "hindi narerecord iyong progress, back to lv. 1 lagi"). The lift still goes back up to floor 1.
+    // (The Lair keeps its way in; a visit to a friend's farm too.)
+    if (tc && !this.busy && floor == null && !tc.lair && !F.session.visit) {
+      var stops = tc.stops(this.state);
+      floor = stops[stops.length - 1] || 1;
+    }
     if (tc && !this.busy) F.session.lairFloor = Math.max(1, Math.min(tc.floors, Math.floor(floor) || 1));
     // off this floor: its "gate down is open" note goes too (it stayed up on the next floor)
     if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && words(this.lair.cfg).note.test(F.ui.toastText.text)) F.ui.hideToast();

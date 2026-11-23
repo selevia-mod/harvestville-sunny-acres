@@ -46091,6 +46091,13 @@ return o ? { x0: Math.floor(o.x / T), y0: Math.floor(o.y / T), x1: Math.ceil((o.
 var travel = P.travel;
 P.travel = function (to, spawn, floor) {
 var tc = F.dungeonOf(to);
+
+
+
+if (tc && !this.busy && floor == null && !tc.lair && !F.session.visit) {
+var stops = tc.stops(this.state);
+floor = stops[stops.length - 1] || 1;
+}
 if (tc && !this.busy) F.session.lairFloor = Math.max(1, Math.min(tc.floors, Math.floor(floor) || 1));
 
 if (this.lair && F.ui && F.ui.toastText && F.ui.toastText.visible && words(this.lair.cfg).note.test(F.ui.toastText.text)) F.ui.hideToast();
@@ -73558,7 +73565,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = 'b2017b02';
+window.Farm.BUILD = 'c836193a';
 </script>
 </body>
 </html>

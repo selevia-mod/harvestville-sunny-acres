@@ -316,6 +316,10 @@ test("Sarangay's Halls: in by the mesa's door, the first floor, the Rifle in the
   await walk(page, 'ArrowUp', () => Farm.world.busy || Farm.world.mapKey !== 'plains');
   await page.waitForFunction(() => Farm.world.mapKey === 'plains_cave' && !Farm.world.busy && Farm.world.wild && Farm.world.lair, null, SLOW);
   await page.waitForTimeout(800);
+  // in at the door: the last lift reached (floor 50 reached: the lift's last stop is 41; owner, 23 Nov 2026, "A")
+  assert.strictEqual(await page.evaluate(() => Farm.world.lair.floor), 41);
+  await go(page, 'plains_cave', 'entrance', 1);
+  await page.waitForTimeout(800);
   const f1 = await page.evaluate(() => ({ floor: Farm.world.lair.floor, kinds: Farm.world.wild.animals.map((a) => a.kind), name: Farm.world.lair.cfg.name }));
   assert.strictEqual(f1.floor, 1);
   assert.strictEqual(f1.name, "Sarangay's Halls");
@@ -432,6 +436,33 @@ test('the Plains at dusk: the Kuwago are out', async () => {
   await teleport(page, 24, 26, 'right');
   await page.waitForTimeout(800);
   await shot(page, 'plains-02-dusk');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+// Owner, 23 Nov 2026 ("A", after a player: "back to lv. 1 lagi"): a place cave's door takes you to the last lift you
+// reached, as the Lost Tower's does; the lift still goes up to floor 1; with no lift yet (under floor 11), floor 1.
+test("a cave's door: in at the last lift you reached; the lift still goes up to floor 1; none yet: floor 1", async () => {
+  const { page, problems, context } = await open('s.energy = 999;');
+  await go(page, 'plains', 'from_town');
+  const inAtDoor = async () => {
+    await page.evaluate(() => Farm.world.travel('plains_cave', 'entrance')); // (as the door's warp does: no floor)
+    await page.waitForFunction(() => Farm.world.mapKey === 'plains_cave' && !Farm.world.busy && Farm.world.lair, null, SLOW);
+    return page.evaluate(() => Farm.world.lair.floor);
+  };
+  assert.strictEqual(await inAtDoor(), 1, 'nothing reached: floor 1');
+  await page.evaluate(() => { Farm.Logic.dunReach(Farm.session.state, 'plains_cave', 9); });
+  await go(page, 'plains', 'from_dungeon');
+  assert.strictEqual(await inAtDoor(), 1, 'floor 9 reached, no lift stop past 1 yet: floor 1');
+  await page.evaluate(() => { Farm.Logic.dunReach(Farm.session.state, 'plains_cave', 27); });
+  await go(page, 'plains', 'from_dungeon');
+  assert.strictEqual(await inAtDoor(), 21, 'floor 27 reached: in at the lift\'s floor 21');
+  await page.waitForTimeout(700);
+  await shot(page, 'plains-cave-door-last-lift');
+  await page.evaluate(() => Farm.ui.openLairLift());
+  assert.match(await modalText(page), /Floor 21 \| You have been this far\. \| Here.*Floor 11.*Go.*Floor 1 \| The way in\. \| Go/);
+  await tapButton(page, 'Go', 1); // (Floor 1)
+  await page.waitForFunction(() => Farm.world.mapKey === 'plains_cave' && !Farm.world.busy && Farm.world.lair && Farm.world.lair.floor === 1, null, SLOW);
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
