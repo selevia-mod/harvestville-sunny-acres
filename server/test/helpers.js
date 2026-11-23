@@ -23,7 +23,7 @@ const fakeAuth = { check: async (token, topic) => {
 function world(opts) {
   const o = opts || {};
   let t = o.t || 1800000000000; // (Fri 15 Jan 2027, 4 PM in the Philippines)
-  const game = new Game({ auth: o.auth || fakeAuth, now: () => t, rand: dice(o.seed || 7), pubCap: o.pubCap });
+  const game = new Game({ auth: o.auth || fakeAuth, now: () => t, rand: dice(o.seed || 7), pubCap: o.pubCap, leash: !!o.leash });
   const flush = () => new Promise((r) => setImmediate(r));
   const w = {
     game,

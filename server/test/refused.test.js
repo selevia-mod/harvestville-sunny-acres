@@ -31,3 +31,27 @@ test('a refused hit is written down: gone (never here, or killed a moment ago), 
   assert.deepStrictEqual(JSON.parse(JSON.stringify(r.refused)), { far: 1, soon: 1, gone: 1 });
   void Game;
 });
+
+test('a phone that says it is beside each monster in turn (security check, 23 Nov 2026): its hits count no faster than a gallop takes it there', async () => {
+  const w = world({ leash: true });
+  const T = w.game.R.T;
+  const a = await w.pub('ann', 'pulag', { x: 2 * T, y: 2 * T });
+  const room = w.pubRoom('pulag', 1);
+  const far = room.mons.filter((x) => Math.hypot(x.x - 2 * T, x.y - 2 * T) > 24 * T)[0];
+  assert.ok(far, 'a monster far from Ann');
+  // straight there in one message, and the hit at once: not counted (she could not be there yet)
+  a.say({ t: 'mv', x: far.x + T, y: far.y, dir: 'left', m: 0 });
+  a.say({ t: 'hit', s: far.slot, d: 1, n: 1 });
+  assert.strictEqual(w.game.report().hitsOk || 0, 0, 'a jump across the map is not a hit');
+  // walking there (messages as she goes, the time it takes at walking speed): counted
+  const steps = Math.ceil(Math.hypot(far.x - 2 * T, far.y - 2 * T) / (4 * T));
+  a.say({ t: 'mv', x: 2 * T, y: 2 * T, dir: 'left', m: 1 });
+  for (let i = 1; i <= steps; i++) {
+    w.run(1000);
+    const k = i / steps, m = room.mons.find((x) => x.slot === far.slot) || far;
+    a.say({ t: 'mv', x: Math.round(2 * T + (m.x + T - 2 * T) * k), y: Math.round(2 * T + (m.y - 2 * T) * k), dir: 'left', m: 1 });
+  }
+  const m = room.mons.find((x) => x.slot === far.slot);
+  if (m) { a.say({ t: 'mv', x: m.x + T, y: m.y, dir: 'left', m: 0 }); a.say({ t: 'hit', s: m.slot, d: 1, n: 2 }); }
+  assert.strictEqual(w.game.report().hitsOk, 1, 'walking there, the hit counts');
+});

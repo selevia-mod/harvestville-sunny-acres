@@ -11,6 +11,11 @@ const EMOTES = { wave: 1, laugh: 1, wow: 1, yay: 1, aww: 1, heart: 1 };
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 const HIT_GAP = 150; // ms: at most one hit per phone per monster in this time
 const HIT_REACH = 12; // tiles: a hit from further than this from the monster is not counted (the longest bow is 7 + 1)
+// Where a hit is measured from (security check, 23 Nov 2026: a phone could say it was beside each monster in turn, 26
+// tiles a message, and take every last hit in a public place): the place they say, but reached no faster than 3 times
+// walking (a horse at a gallop); a hit counts within 12 tiles of the place they say AND 18 of that one (the network's
+// jitter). Only hits use it; everyone still sees where they say.
+const LEASH_SPEED = 3, LEASH_SLACK = 6, LEASH_GAP = 1500;
 const DIRS = { down: 1, up: 1, left: 1, right: 1, side: 1 };
 
 const num = (v, lo, hi, def) => { v = Number(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
@@ -23,6 +28,14 @@ const lookOf = (lk) => {
   const bw = Math.floor(Number(o.bw));
   return { cs: clean(o.cs, 64), pt: o.pt ? 1 : 0, rd: o.rd ? 1 : 0, bw: bw >= 1 && bw <= 9 ? bw : 0 };
 };
+
+// the hit place follows the said place, at most `most` world units a message
+function leash(p, x, y, most) {
+  const hx = p.hx != null ? p.hx : x, hy = p.hy != null ? p.hy : y, d = Math.hypot(x - hx, y - hy);
+  if (d <= most) { p.hx = x; p.hy = y; return; }
+  p.hx = hx + (x - hx) * most / d;
+  p.hy = hy + (y - hy) * most / d;
+}
 
 class Room {
   constructor(game, key, topic, map, floor, cfg, mapData) {
@@ -65,7 +78,7 @@ class Room {
   pack(a) { return this.R.L.wildPack(a); }
   // [id, name, look, x, y, dir, m] as in step 1, and an 8th, how they look (`lk`), when their phone said
   pplRow(p) { const r = [p.id, p.name, p.look, Math.round(p.x), Math.round(p.y), p.dir, p.m]; if (p.lk) r.push(p.lk); return r; }
-  dirOf(v, def) { return typeof v === 'string' && DIRS[v] ? v : def; }
+  dirOf(v, def) { return typeof v === 'string' && Object.prototype.hasOwnProperty.call(DIRS, v) ? v : def; }
 
   send(p, msg) { if (p.conn) this.game.send(p.conn, msg); }
   broadcast(msg, except) {
@@ -90,9 +103,9 @@ class Room {
     p.conn = conn;
     p.name = typeof hi.name === 'string' ? hi.name.slice(0, 24) : 'Farmer';
     p.look = hi.look === 'girl' ? 'girl' : 'boy';
-    p.x = x;
-    p.y = y;
-    p.dir = typeof hi.dir === 'string' && DIRS[hi.dir] ? hi.dir : 'down';
+    p.x = p.hx = x;
+    p.y = p.hy = y;
+    p.dir = typeof hi.dir === 'string' && Object.prototype.hasOwnProperty.call(DIRS, hi.dir) ? hi.dir : 'down';
     p.m = 0;
     p.hg = num(hi.hg, 0, 0xffff, 0) | 0;
     p.sk = hi.sk ? 1 : 0;
@@ -158,14 +171,15 @@ class Room {
   move(p, msg) {
     const T = this.R.T, now = this.game.now();
     const x = num(msg.x, 0, this.fl.W * T, p.x), y = num(msg.y, 0, this.fl.H * T, p.y);
-    const m = msg.m ? 1 : 0, gap = Math.max(50, now - p.mvAt);
+    const m = msg.m ? 1 : 0, gap = Math.max(50, now - p.mvAt), since = Math.max(0, Math.min(LEASH_GAP, now - p.mvAt));
     // how fast they go (a shy one hears you rush): from their reports, smoothed a little against the network's jitter
     const v = m ? Math.min(this.R.C.SPEED * 3, Math.hypot(x - p.x, y - p.y) * 1000 / gap) : 0;
     p.speed = m ? (p.speed + v) / 2 : 0;
     p.mvAt = now;
     p.x = x;
     p.y = y;
-    if (typeof msg.dir === 'string' && DIRS[msg.dir]) p.dir = msg.dir;
+    leash(p, x, y, since * this.R.C.SPEED * LEASH_SPEED / 1000);
+    if (typeof msg.dir === 'string' && Object.prototype.hasOwnProperty.call(DIRS, msg.dir)) p.dir = msg.dir;
     p.m = m;
     if (msg.hg != null) p.hg = num(msg.hg, 0, 0xffff, 0) | 0;
     if (msg.sk != null) p.sk = msg.sk ? 1 : 0;
@@ -196,7 +210,7 @@ class Room {
   emote(p, msg) {
     const sec = Math.floor(this.game.now() / 1000);
     if (sec !== p.emSec) { p.emSec = sec; p.emN = 0; }
-    if (++p.emN > 2 || typeof msg.k !== 'string' || !EMOTES[msg.k]) return;
+    if (++p.emN > 2 || typeof msg.k !== 'string' || !Object.prototype.hasOwnProperty.call(EMOTES, msg.k)) return;
     this.broadcast({ t: 'em', id: p.id, k: msg.k }, p);
   }
   say(p, msg) {
@@ -220,8 +234,8 @@ class Room {
     const d = Math.max(1, Math.min(R.maxDamage, Math.floor(raw)));
     const last = p.lastHit[slot] || 0;
     // too soon after this phone's last hit on it, or from too far: not counted (the phone's bar is put right)
-    const dist = Math.hypot(a.x - p.x, a.y - p.y);
-    if (now - last < HIT_GAP || dist > HIT_REACH * R.T) {
+    const dist = Math.hypot(a.x - p.x, a.y - p.y), lag = p.hx != null && this.game.leash !== false ? Math.hypot(a.x - p.hx, a.y - p.hy) : dist;
+    if (now - last < HIT_GAP || dist > HIT_REACH * R.T || lag > (HIT_REACH + LEASH_SLACK) * R.T) {
       this.game.refused(this, p, now - last < HIT_GAP ? 'soon' : 'far', { slot, kind: a.kind, gap: now - last, tiles: Math.round(dist / R.T * 10) / 10,
         you: [Math.round(p.x / R.T), Math.round(p.y / R.T)], it: [Math.round(a.x / R.T), Math.round(a.y / R.T)], mode: a.mode, mvAgo: now - (p.mvAt || 0) });
       this.send(p, { t: 'hp', s: a.slot, hp: a.hp, by: p.id, n });

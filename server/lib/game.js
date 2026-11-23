@@ -33,6 +33,7 @@ class Game {
     this.rand = o.rand || Math.random;
     this.cap = o.cap || 8;
     this.pubCap = o.pubCap || 0; // (0: PUB_CAP)
+    this.leash = o.leash !== false; // (where a hit is measured from: lib/room.js leash; the older room tests place phones by hand)
     this.pub = new Map(); // a hunting place -> its public rooms (n -> room)
     this.tickMs = 50;
     this.log = o.log || (() => {});

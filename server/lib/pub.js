@@ -164,8 +164,8 @@ class PubRoom extends Room {
     p.conn = conn;
     p.name = clean(hi.name, 24) || 'Farmer';
     p.look = hi.look === 'girl' ? 'girl' : 'boy';
-    p.x = num(hi.x, 0, this.fl.W * T, this.fl.W * T / 2);
-    p.y = num(hi.y, 0, this.fl.H * T, this.fl.H * T / 2);
+    p.x = p.hx = num(hi.x, 0, this.fl.W * T, this.fl.W * T / 2);
+    p.y = p.hy = num(hi.y, 0, this.fl.H * T, this.fl.H * T / 2);
     p.dir = this.dirOf(hi.dir, 'down');
     p.m = 0;
     p.hg = num(hi.hg, 0, 0xffff, 0) | 0;
@@ -249,7 +249,7 @@ class PubRoom extends Room {
   emote(p, msg) {
     const sec = Math.floor(this.game.now() / 1000);
     if (sec !== p.emSec) { p.emSec = sec; p.emN = 0; }
-    if (++p.emN > 2 || typeof msg.k !== 'string' || !EMOTES[msg.k]) return;
+    if (++p.emN > 2 || typeof msg.k !== 'string' || !Object.prototype.hasOwnProperty.call(EMOTES, msg.k)) return;
     const s = JSON.stringify({ t: 'em', id: p.id, k: msg.k });
     this.players.forEach((q) => { if (q !== p && q.conn && q.view.has(p.id)) this.game.sendRaw(q.conn, s); });
   }
