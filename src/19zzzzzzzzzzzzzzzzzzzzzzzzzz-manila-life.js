@@ -453,8 +453,20 @@
   }
   // someone the jeep must not run over: in front of it on its way (you, friends online, a city folk on a crosswalk)
   var near = function (x, y, a, b) { return Math.abs(x - a) < 1.1 * T && Math.abs(y - b) < 1.1 * T; };
-  P.mnJeepBlocked = function (st, ahead) {
+  // The stretch a vehicle would drive in one long frame (a busy phone, 24 Nov 2026): its points from half a second past
+  // where it was (not where it stands: a friend riding it is there) to where it is now, at most the last 3 s. at(ms) -> point.
+  P.mnPassed = function (at, back, t, moving) {
+    var out = [];
+    if (back == null) return out;
+    for (var k = Math.max(back + 500, t - 3000); k < t; k += 500) { var a = at(k); if (moving(a)) out.push(a); }
+    return out;
+  };
+  // Held for someone: it stays where it was the frame before. (The time really gone, not the frame's step: on a busy phone
+  // that step is shorter, and a held jeep crept on into the one it waited for, a little each frame. 24 Nov 2026.)
+  P.mnHeldLag = function (lag, now, back, dt) { return back != null ? Math.max(lag, now - back) : lag + dt; };
+  P.mnJeepBlocked = function (st, ahead, passed) {
     var self = this, pts = [[ahead.x * T, ahead.y * T], [(st.x + ahead.x) / 2 * T, (st.y + ahead.y) / 2 * T]];
+    (passed || []).forEach(function (a) { pts.push([a.x * T, a.y * T]); });
     var hit = function (x, y) { return pts.some(function (p) { return near(x, y, p[0], p[1]); }); };
     if (!this.mnRide || this.mnRide.stage !== 'on') { var f = this.feet(); if (hit(f.x, f.y)) return true; }
     var rs = this.remotes || {};
@@ -464,20 +476,22 @@
   P.mnJeepUpdate = function (dt) {
     var J0 = this.mn.jeep;
     if (!J0) return;
-    var now = jeepNow(), st = L.jeepAt(now - J0.lag);
+    var now = jeepNow(), back = J0.t, st = L.jeepAt(now - J0.lag);
     if (st.on && st.stop < 0) {
       var ahead = L.jeepAt(now - J0.lag + 700);
       if (ahead.stop < 0 || ahead.d !== st.d) {
         J0.held = false;
-        if (this.mnJeepBlocked(st, ahead)) {
+        var passed = this.mnPassed(L.jeepAt, back, now - J0.lag, function (a) { return a.on && a.stop < 0; });
+        if (this.mnJeepBlocked(st, ahead, passed)) {
           J0.held = true;
-          J0.lag += dt;
+          J0.lag = this.mnHeldLag(J0.lag, now, back, dt);
           st = L.jeepAt(now - J0.lag);
           J0.honkMs -= dt;
           if (J0.honkMs <= 0) { J0.honkMs = 2500; sfx('nope'); if (this.floatTextAt) this.floatTextAt(st.x * T, st.y * T - 1.8 * T, 'Beep beep!'); }
         } else if (J0.lag > 0) J0.lag = Math.max(0, J0.lag - dt * 0.5); // (it catches up, a little faster)
       }
     }
+    J0.t = now - J0.lag;
     // (owner, 12 Nov 2026: at night it rests every other loop; with you on board it keeps driving and stopping until you are off)
     if (!st.on && this.mnRide && this.mnRide.stage === 'on') st.on = true;
     J0.at = st;

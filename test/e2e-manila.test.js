@@ -496,6 +496,46 @@ test('the jeepney stops and honks for someone in front of it, never through them
   assert.deepStrictEqual(problems, []);
   await context.close();
 });
+// (24 Nov 2026: on a busy phone a frame's step is shorter than the time really gone, and a jeep held for you crept on into
+// you, a little each frame; one long frame let it jump past the 0.7 s it looks ahead. The jeepney and the calesa.)
+test('a slow phone: the jeepney and the calesa held for you never creep into you, and one long frame never jumps them through you', async () => {
+  const { page, problems, context } = await openCity([2026, 4, 1, 10, 0], 63, 28);
+  const seen = await page.evaluate(() => {
+    const w = Farm.world, L = Farm.Logic, M = Farm.Config.MANILA, T = 256, out = {};
+    w.scene.pause(); // (the frames below are the only ones: each says 16 ms while 100 ms go by)
+    for (const kind of ['jeep', 'calesa']) {
+      const at = kind === 'jeep' ? L.jeepAt : L.calesaAt, v = kind === 'jeep' ? w.mn.jeep : w.mn.cal;
+      const upd = (dt) => (kind === 'jeep' ? w.mnJeepUpdate(dt) : w.mnCalesaUpdate(dt));
+      const moving = (s) => s.on && (kind === 'jeep' ? s.stop < 0 : !s.stop);
+      const drives = (t) => { for (let k = 0; k <= 8000; k += 200) if (!moving(at(t + k))) return false; return true; };
+      let now = Date.UTC(2026, 3, 1, 3, 0);
+      while (!drives(now)) now += 500;
+      M.jeepNow = () => now;
+      w.setFeet(5 * T, 5 * T); v.lag = 0; delete v.t; upd(16);
+      // 1. held for you, the frames short
+      let p = at(now + 1200), min = 1e9;
+      w.setFeet(p.x * T, p.y * T + 64);
+      for (let i = 0; i < 150; i++) { now += 100; upd(16); const f = w.feet(); min = Math.min(min, Math.hypot(v.at.x * T - f.x, v.at.y * T - f.y)); }
+      // 2. one long frame (2.5 s) with you 1.5 s ahead of it
+      w.setFeet(5 * T, 5 * T); v.lag = 0; delete v.t;
+      while (!drives(now)) now += 500;
+      upd(16);
+      p = at(now + 1500);
+      w.setFeet(p.x * T, p.y * T + 64);
+      now += 2500; upd(16);
+      const f = w.feet();
+      out[kind] = { creep: Math.round(min), jump: Math.round(Math.hypot(v.at.x * T - f.x, v.at.y * T - f.y)), held: v.held };
+    }
+    w.scene.resume();
+    return out;
+  });
+  for (const kind of ['jeep', 'calesa']) {
+    assert.ok(seen[kind].creep > 0.6 * 256, kind + ' never crept into you: ' + JSON.stringify(seen[kind]));
+    assert.ok(seen[kind].jump > 0.6 * 256 && seen[kind].held, kind + ' never jumped through you: ' + JSON.stringify(seen[kind]));
+  }
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
 test('the Mall: in by its door, a guard and a sales lady and people inside, the food court for energy, out the same door', async () => {
   const { page, problems, context } = await toManila(NOON);
   // (a role is out only once its own sheet is in: owner, 11 Nov 2026; here, as the pack would bring them)

@@ -399,8 +399,9 @@
     mn.cal = { sp: sp, lag: 0, at: null, ms: 0, last: null, neighMs: 0, held: false };
     this.mnCalesaUpdate(0);
   };
-  P.mnCalesaBlocked = function (st, ahead) {
+  P.mnCalesaBlocked = function (st, ahead, passed) {
     var pts = [[ahead.x * T, ahead.y * T], [(st.x + ahead.x) / 2 * T, (st.y + ahead.y) / 2 * T]];
+    (passed || []).forEach(function (a) { pts.push([a.x * T, a.y * T]); }); // (a long frame's stretch: mnPassed)
     var hit = function (x, y) { return pts.some(function (p) { return Math.abs(x - p[0]) < 1.1 * T && Math.abs(y - p[1]) < 1.0 * T; }); };
     if (!(this.mnCal && this.mnCal.stage === 'on')) { var f = this.feet(); if (hit(f.x, f.y)) return true; }
     var rs = this.remotes || {};
@@ -410,18 +411,19 @@
   P.mnCalesaUpdate = function (dt) {
     var c = this.mn.cal;
     if (!c) return;
-    var now = clock(), st = L.calesaAt(now - c.lag);
+    var now = clock(), back = c.t, st = L.calesaAt(now - c.lag);
     if (st.on && !st.stop) {
       var ahead = L.calesaAt(now - c.lag + 700);
       c.held = false;
-      if (this.mnCalesaBlocked(st, ahead)) {
+      if (this.mnCalesaBlocked(st, ahead, this.mnPassed(L.calesaAt, back, now - c.lag, function (a) { return a.on && !a.stop; }))) {
         c.held = true;
-        c.lag += dt;
+        c.lag = this.mnHeldLag(c.lag, now, back, dt); // (held where it was: the jeep's rule, 24 Nov 2026)
         st = L.calesaAt(now - c.lag);
         c.neighMs -= dt;
         if (c.neighMs <= 0) { c.neighMs = 3000; if (this.floatTextAt) this.floatTextAt(st.x * T, st.y * T - 2.2 * T, 'Neigh!'); }
       } else if (c.lag > 0) c.lag = Math.max(0, c.lag - dt * 0.5);
     }
+    c.t = now - c.lag;
     c.at = st;
     var x = st.x * T, y = st.y * T, side = st.dir === 'left' || st.dir === 'right', row = st.dir === 'down' ? 0 : st.dir === 'up' ? 1 : 2;
     c.ms += dt;

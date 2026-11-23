@@ -177,6 +177,10 @@ async function type(page, text) {
 }
 
 const remotes = (page) => page.evaluate(() => Object.keys(Farm.world.remotes || {}).map((id) => Farm.world.remotes[id].tag.text).sort());
+// The moment a player really left the room they were in (their game joined another): "gone at once" is timed from there,
+// not from before a walk out or a map loading, which a busy machine makes slow (24 Nov 2026: the 3 s checks failed under load)
+const watchLeave = (page) => page.evaluate(() => { const from = Farm.Online.topic; window.__leftAt = 0; const t = setInterval(() => { if (Farm.Online.topic !== from) { window.__leftAt = Date.now(); clearInterval(t); } }, 20); });
+const leftAt = (page) => page.waitForFunction(() => window.__leftAt || 0, null, SLOW).then((h) => h.jsonValue());
 const waitRemotes = (page, names) => page.waitForFunction((want) => {
   const r = Farm.world.remotes || {};
   return JSON.stringify(Object.keys(r).map((id) => r[id].tag.text).sort()) === JSON.stringify(want);
@@ -1133,10 +1137,11 @@ test('online: a friend who really leaves is gone at once, not after the wait for
   await waitWorld(guest.page, true);
   await waitRemotes(owner.page, ['Ana Acres']);
   server.db.presenceLagMs = 500;
-  const t0 = Date.now();
+  await watchLeave(guest.page);
   await guest.page.evaluate(() => Farm.Online.leaveVisit(''));
   await waitRemotes(owner.page, []);
-  assert.ok(Date.now() - t0 < 3000, 'gone after ' + (Date.now() - t0) + ' ms');
+  const gone = Date.now() - (await leftAt(guest.page));
+  assert.ok(gone < 3000, 'gone after ' + gone + ' ms');
   await waitToast(owner.page, /Ana Acres went home/);
   assert.deepStrictEqual(owner.problems, []);
   assert.deepStrictEqual(guest.problems, []);
@@ -3020,13 +3025,14 @@ test('online: Central Park: two walk in from town and see each other and chat; a
   assert.deepStrictEqual(await remotes(cy.page), [], 'still not drawn after the next presence and moves');
 
   // ----- Ana leaves the park: her seat is free at once, and Ben sees her go
-  const leftAt = Date.now();
+  await watchLeave(ana.page);
   await walkOutOfPark(ana.page);
   await until(() => !server.db.parkSeats.has(ana.uid), 'Ana\'s seat freed');
   assert.deepStrictEqual(seats(server), [1, 2, 0]);
   await waitRemotes(ben.page, []);
   // gone from Ben's park at once (she said bye), not after the wait for a dropped line (owner, 7 Nov 2026: "stuck at the exit")
-  assert.ok(Date.now() - leftAt < 3000, 'gone in ' + (Date.now() - leftAt) + ' ms');
+  const gone = Date.now() - (await leftAt(ana.page));
+  assert.ok(gone < 3000, 'gone in ' + gone + ' ms');
   assert.ok(server.db.sends.some((x) => x.uid === ana.uid && x.event === 'bye' && x.room === 'park:1'), 'she said bye in the park');
   await waitChip(ben.page, 'Park 1 · 1/30');
   assert.strictEqual(await ana.page.evaluate(() => Farm.Online.topic), 'farm:' + ana.uid, 'back in her own farm\'s room');
