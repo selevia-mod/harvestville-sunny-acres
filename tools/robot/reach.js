@@ -182,9 +182,16 @@ const followBoxes = (page, things) => page.evaluate((things) => {
   const toL = (wx, wy) => ({ x: (cam.x + (wx - (cam.scrollX + cam.width / 2 - cam.width / (2 * cam.zoom))) * cam.zoom) / R, y: (cam.y + (wy - (cam.scrollY + cam.height / 2 - cam.height / (2 * cam.zoom))) * cam.zoom) / R });
   const place = (fx, fy) => { w.feet = () => ({ x: fx, y: fy }); for (let k = 0; k < 3; k++) w.updateCamera(1); };
   const me = [], use = [];
+  // (only the tiles you can walk to from where you came in: a walkable patch shut off by water or walls is not yours)
+  const f0 = w.feet(), seen = new Uint8Array(W * H), q = [Math.floor(f0.y / T) * W + Math.floor(f0.x / T)];
+  seen[q[0]] = 1;
+  for (let i = 0; i < q.length; i++) {
+    const x = q[i] % W, y = (q[i] - x) / W;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const nx = x + dx, ny = y + dy, k = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[k] && w.walkable(nx, ny)) { seen[k] = 1; q.push(k); } });
+  }
   try {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (!w.walkable(x, y)) continue;
+      if (!seen[y * W + x]) continue;
       place(x * T + T / 2, y * T + T / 2);
       // the farmer: a tile wide, from a tile and a half above the feet to a quarter tile below
       const a = toL(x * T + T * 0.2, y * T - T), b = toL(x * T + T * 0.8, y * T + T * 0.75);
@@ -196,7 +203,7 @@ const followBoxes = (page, things) => page.evaluate((things) => {
       const cx = Math.floor((o.x0 + o.x1) / 2), cy = Math.floor((o.y0 + o.y1) / 2);
       const spots = [[cx, o.y1 + 1, cx, o.y1], [o.x0 - 1, cy, o.x0, cy], [o.x1 + 1, cy, o.x1, cy], [cx, o.y0 - 1, cx, o.y0]];
       spots.forEach(([sx, sy, fx, fy]) => {
-        if (sx < 0 || sy < 0 || sx >= W || sy >= H || !w.walkable(sx, sy)) return;
+        if (sx < 0 || sy < 0 || sx >= W || sy >= H || !seen[sy * W + sx]) return;
         place(sx * T + T / 2, sy * T + T / 2);
         const a = toL(fx * T, fy * T), b = toL(fx * T + T, fy * T + T), p = toL(sx * T + T * 0.2, sy * T - T), q = toL(sx * T + T * 0.8, sy * T + T * 0.75);
         use.push([k, sx, sy, a.x, a.y, b.x, b.y, p.x, p.y, q.x, q.y]);

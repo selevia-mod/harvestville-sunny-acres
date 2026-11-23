@@ -32,7 +32,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
-const { ROOT } = require('./robot/page');
+const { ROOT, DIST } = require('./robot/page');
 const checks = require('./robot/checks');
 const { reach } = require('./robot/reach');
 const { panelsFit } = require('./robot/panels-fit');
@@ -130,7 +130,7 @@ function page(results, meta) {
     const b = spawnSync('node', ['build.js'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26 });
     if (b.status !== 0) { say((b.stdout || '') + (b.stderr || '')); process.exit(2); }
   }
-  const html = fs.readFileSync(path.join(ROOT, 'dist', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8'); // (ROBOT_DIST: another build, e.g. an older one)
   const meta = {
     build: (/window\.Farm\.BUILD = '([0-9a-f]+)'/.exec(html) || [])[1] || '?',
     version: (/NEWS_LATEST\s*=\s*'([^']+)'/.exec(html) || [])[1] || '?',

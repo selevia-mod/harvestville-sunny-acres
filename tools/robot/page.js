@@ -39,11 +39,13 @@ const CALM = `
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 const IPAD_UA = 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+// (All at 2x: the game's layout follows the screen's shape only, never its density, and a 3x iPhone drawn in software
+// here takes twice as long for the same answers. The density only makes the pictures sharper.)
 const SIZES = [
   { name: '360x640 small Android', w: 360, h: 640, dpr: 2, ua: null },
   { name: '375x667 iPhone SE', w: 375, h: 667, dpr: 2, ua: IPHONE_UA },
-  { name: '390x844 iPhone 12-15', w: 390, h: 844, dpr: 3, ua: IPHONE_UA },
-  { name: '412x915 big Android', w: 412, h: 915, dpr: 2.625, ua: ANDROID_UA },
+  { name: '390x844 iPhone 12-15', w: 390, h: 844, dpr: 2, ua: IPHONE_UA },
+  { name: '412x915 big Android', w: 412, h: 915, dpr: 2, ua: ANDROID_UA },
   { name: '360x800 tall cheap Android', w: 360, h: 800, dpr: 2, ua: ANDROID_UA },
   { name: '768x1024 tablet', w: 768, h: 1024, dpr: 2, ua: IPAD_UA },
 ];
