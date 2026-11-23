@@ -270,7 +270,7 @@ async function reach(browser, out, opts = {}) {
       // Decorate on the farm
       if (await go(page, 'farm')) {
         await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openDecor(); });
-        await page.waitForTimeout(1200); // (the quest card and the side buttons fade out first)
+        await page.waitForTimeout(opts.slow ? 3000 : 1200); // (the quest card and the side buttons fade out first)
         if (!(await page.evaluate(() => !!Farm.world.yd))) found.push({ what: 'Decorate did not start on the farm', where: 'Decorate (farm)' + fname + sz });
         else {
           dbg('decorate farm');
@@ -284,7 +284,7 @@ async function reach(browser, out, opts = {}) {
       // Decorate at home
       if (await go(page, 'house')) {
         await page.evaluate(() => { Farm.ui.closeAll(); Farm.ui.openDecor(); });
-        await page.waitForTimeout(1200); // (the quest card and the side buttons fade out first)
+        await page.waitForTimeout(opts.slow ? 3000 : 1200); // (the quest card and the side buttons fade out first)
         if (await page.evaluate(() => !!Farm.world.decor)) {
           dbg('decorate home');
           const r = await draggedCamera(page, out, 'Decorate (home)' + fname + sz, { maxDrags: 3 });

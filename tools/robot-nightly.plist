@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The robot check every night at 2:30 AM (a macOS user LaunchAgent; the Mac must be awake: it runs at the next wake if
+  it slept through). It writes ~/Downloads/robot-check-<date>/report.png. NOT switched on by itself. To switch it on:
+
+    cp tools/robot-nightly.plist ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist && launchctl load ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist
+
+  To switch it off: launchctl unload ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist
+  (The path below is this worktree's: change it if the game lives elsewhere.)
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.harvestville.robot-nightly</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/arcaracalague/Documents/hv-robot2/tools/robot-nightly.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/robot-nightly.out</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/robot-nightly.err</string>
+</dict>
+</plist>
