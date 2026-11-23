@@ -322,21 +322,23 @@
       if (event === 'drt' && who && O.me && p.to === O.me.id) { O.dropTaken(who, Math.floor(Number(p.k)) || 0); return; }
       onMessage.call(O, event, payload);
     };
-    // A friend walked onto something you dropped: it goes to them as a gift; if the server says no, it stays.
+    // A friend walked onto something you dropped: it goes to them as a gift; if the server says no, it stays. Off the
+    // ground while it is asked (security check, 23 Nov 2026: you could walk back onto it while the gift went through, and
+    // both of you had it), and an answer lost waits as a gift on its way (19zzz...-sends.js), never back on the ground.
     O.dropTaken = function (who, k) {
       var d = G.mine.filter(function (x) { return x.k === k; })[0];
       if (!d || d.taking) return;
       d.taking = 1;
-      F.Net.rpc('farm_give_v1', { p_to: who.id, p_item: d.id, p_n: d.n }).then(function (r) {
-        d.taking = 0;
-        if (!(r && r.ok)) return;
-        G.mine = G.mine.filter(function (x) { return x !== d; });
+      G.mine = G.mine.filter(function (x) { return x !== d; });
+      if (world()) world().drawGround();
+      var s = F.session.state, ground = function () { d.taking = 0; G.mine.push(d); tellDrops(); if (world()) world().drawGround(); };
+      O.sendItems({ k: 'g', to: who.id, id: d.id, n: d.n, q: d.q || 0, keep: true }).then(function (r) {
+        if (r && r.waiting) { tellDrops(); return; } // (on its way: asked again later; refused then, it comes to your bag)
+        if (!(r && r.ok)) return ground();
         tellDrops();
         O.send('give', { to: who.id });
-        F.Host.save(F.session.state);
-        if (world()) world().drawGround();
-        if (F.ui) F.ui.toast(who.name + ' picked up your ' + L.itemName(F.session.state, d.id) + '.', 2400, 0x2f5a22);
-      }, function () { d.taking = 0; });
+        if (F.ui) F.ui.toast(who.name + ' picked up your ' + L.itemName(s, d.id) + '.', 2400, 0x2f5a22);
+      }, ground); // (the old call, no answer: on the ground as before)
     };
     // every 20 s, so a friend who just came sees it too
     setInterval(function () { if (G.mine.length) tellDrops(); }, 20000);

@@ -45,27 +45,24 @@
     sfx('pick');
     F.bus.emit('hud');
     if (F.ui) F.ui.refresh();
-    var back = function () {
-      var left = q && L.addItemQ ? L.addItemQ(s, id, took, q) : L.addItem(s, id, took); // (a Silver or Gold crop comes back as it was)
-      if (left) s.basket[id] = Math.min(999, (s.basket[id] || 0) + left);
-      if (F.ui) F.ui.refresh();
-    };
-    F.Net.rpc('farm_give_v1', { p_to: p.id, p_item: id, p_n: took }).then(function (r) {
+    var shown = function () { F.bus.emit('hud'); if (F.ui) F.ui.refresh(); };
+    // (sent with an id kept in the save: an answer lost waits and is asked again, never refunded on the spot: 19zzz...-sends.js)
+    O.sendItems({ k: 'g', to: p.id, id: id, n: took, q: q }).then(function (r) {
       self.giving = false;
+      shown();
       if (r && r.ok) {
-        F.Host.save(s);
         O.send('give', { to: p.id });
         sfx('coin');
         return F.ui.toast('You gave ' + p.name + ' ' + (took > 1 ? took + ' ' : 'your ') + name + '. How kind!', 2400, 0x2f5a22);
       }
-      back();
-      var code = r && r.code;
+      if (r && r.waiting) return F.ui.toast('No answer yet. Your gift waits, and is checked when you are online again.', 3000);
+      var code = r && r.code; // (refused: it is back in your bag)
       if (code === 'friends') F.ui.toast('Only friends can give things. Add ' + p.name + ' as a friend in Online first.', 2800);
       else if (code === 'limit') F.ui.toast('You gave ' + p.name + ' a lot today! Come back tomorrow.', 2600);
       else F.ui.toast('Could not give right now. Try again in a moment.');
     }).catch(function (e) {
       self.giving = false;
-      back();
+      shown();
       if (/Could not find the function/i.test((e && e.message) || '')) { O.giveOff = true; return F.ui.toast('Giving to friends opens soon!'); }
       F.ui.toast('Could not reach the online world. Check your connection.');
     });

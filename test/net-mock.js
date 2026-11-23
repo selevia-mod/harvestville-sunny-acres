@@ -242,6 +242,17 @@ function createServer() {
       (db.gives = db.gives || []).push({ giver: uid, taker: a.p_to, day: today(), item: a.p_item, n: a.p_n, claimed: false });
       return { ok: true, left: Math.min(9 - them, 29 - mine.length) };
     },
+    // SQL 56 (security check, 23 Nov 2026): the same, with a request id: a known id is answered as the first time
+    farm_give_req_v1(uid, a) {
+      if (db.noSends) throw new Error('Could not find the function public.farm_give_req_v1');
+      need(uid);
+      const done = (db.giveIds = db.giveIds || new Map()).get(uid + ':' + a.p_request_id);
+      if (done) return Object.assign({ duplicate: true }, done);
+      const r = rpc.farm_give_v1(uid, a);
+      if (r.ok) db.giveIds.set(uid + ':' + a.p_request_id, r);
+      if (db.loseAnswer) throw new Error('timeout'); // (the server has it; the answer never reaches the phone)
+      return r;
+    },
     farm_gives_v1(uid) {
       need(uid);
       const taken = (db.gives || []).filter((g) => g.taker === uid && !g.claimed);
@@ -256,6 +267,16 @@ function createServer() {
       const m = { id: ++db.lotId, seller: uid, item: a.p_item, qty: a.p_qty, price: a.p_price, expires: Date.now() + 2 * 864e5, buyer: null, sold: 0, claimed: false };
       db.market.push(m);
       return { ok: true, id: m.id };
+    },
+    farm_market_list_req_v1(uid, a) {
+      if (db.noSends) throw new Error('Could not find the function public.farm_market_list_req_v1');
+      need(uid);
+      const done = (db.lotIds = db.lotIds || new Map()).get(uid + ':' + a.p_request_id);
+      if (done) return { ok: true, id: done, duplicate: true };
+      const r = rpc.farm_market_list_v1(uid, a);
+      if (r.ok) db.lotIds.set(uid + ':' + a.p_request_id, r.id);
+      if (db.loseAnswer) throw new Error('timeout');
+      return r;
     },
     farm_market_cancel_v1(uid, a) {
       need(uid);

@@ -30,6 +30,21 @@
     s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[key]);
     return 'ok';
   };
+  // The Coins and Stars looks the server does NOT say you own come off (security check, 23 Nov 2026: a save written from
+  // outside the game could set every look's bit). Only with the server's whole list (farm_looks_v1, online); Gold looks,
+  // prizes and the free one stay as the save has them. Returns how many came off (and what you wore, if it was one).
+  L.dropUnpaidLooks = function (s, keys) {
+    var own = {}, n = 0;
+    (Array.isArray(keys) ? keys : []).forEach(function (k) { own[k] = 1; });
+    C.LOOKS.forEach(function (d, i) {
+      var paid = (d.coins || d.stars) && !d.gold && !d.free && !d.reward;
+      if (!paid || own[d.key] || !(((s.lk || 0) >> i) & 1)) return;
+      s.lk = (s.lk || 0) & ~(1 << i);
+      if (s.cw === d.key) s.cw = '';
+      n++;
+    });
+    return n;
+  };
   // What the server says you own (farm_looks_v1): those looks are yours, on this phone too.
   L.ownLooks = function (s, keys) {
     var n = 0;

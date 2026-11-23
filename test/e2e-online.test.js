@@ -659,6 +659,59 @@ test('online: hold food, face a friend: Give puts it in their bag at once; not f
   for (const p of [host, friend]) await p.context.close();
 });
 
+test('online: a gift or a stall lot whose answer is lost waits; it is never refunded while the server has it (security check, 23 Nov 2026)', async () => {
+  const server = createServer();
+  const host = await open(server), friend = await open(server);
+  await nameFarm(host.page, 'Moon Meadow');
+  await nameFarm(friend.page, 'Ana Acres');
+  server.db.follows.push({ by: host.uid, who: friend.uid }, { by: friend.uid, who: host.uid });
+  await host.page.evaluate(() => Farm.Online.publish(true));
+  await friend.page.evaluate((id) => Farm.Online.visit(id), host.uid);
+  await friend.page.waitForFunction((id) => Farm.world && Farm.world.state && Farm.world.state.isVisit && Farm.world.remotes && Farm.world.remotes[id], host.uid, { timeout: 60000 });
+  await friend.page.evaluate(() => { const s = Farm.session.state; s.inv[8] = { id: 'grilled_fish', n: 99 }; s.sel = 8; });
+  // the server stores the gift, the answer is lost
+  server.db.loseAnswer = true;
+  await friend.page.evaluate((id) => Farm.world.give(Farm.Online.others[id], 8, 99), host.uid);
+  await friend.page.waitForFunction(() => !Farm.world.giving, null, { timeout: 60000 });
+  assert.strictEqual(server.db.gives.filter((g) => g.item === 'grilled_fish').length, 1, 'the server has it');
+  assert.strictEqual(await friend.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'grilled_fish')), 0, 'not refunded: it waits');
+  assert.deepStrictEqual(await friend.page.evaluate(() => Farm.Logic.sendsOf(Farm.session.state).map((e) => [e.k, e.id, e.n])), [['g', 'grilled_fish', 99]]);
+  // kept through a reload of the save
+  assert.strictEqual(await friend.page.evaluate(() => Farm.Logic.deserialize(JSON.parse(JSON.stringify(Farm.Logic.serialize(Farm.session.state)))).ps.length), 1);
+  // later, online again: asked with the same id, answered as the first time; done, nothing refunded, nothing sent twice
+  server.db.loseAnswer = false;
+  await friend.page.evaluate(() => { Farm.session.state.ps.forEach((e) => { e.at -= 60000; }); return Farm.Online.settleSends(); });
+  assert.strictEqual(await friend.page.evaluate(() => Farm.Logic.sendsOf(Farm.session.state).length), 0, 'settled');
+  assert.strictEqual(await friend.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'grilled_fish')), 0, 'still given, once');
+  assert.strictEqual(server.db.gives.filter((g) => g.item === 'grilled_fish').length, 1, 'one gift');
+  // a stall lot, the same: the lot is up, the items are not back in the bag
+  await host.page.evaluate(() => { const s = Farm.session.state; s.inv[9] = { id: 'corn', n: 10 }; });
+  server.db.loseAnswer = true;
+  await host.page.evaluate(() => Farm.ui.putUp('corn', 10, 500));
+  await host.page.waitForFunction(() => !Farm.ui.listing, null, { timeout: 60000 });
+  assert.strictEqual(server.db.market.filter((m) => m.seller === host.uid && m.item === 'corn').length, 1, 'the lot is up');
+  assert.strictEqual(await host.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'corn')), 0, 'not refunded');
+  server.db.loseAnswer = false;
+  await host.page.evaluate(() => { Farm.session.state.ps.forEach((e) => { e.at -= 60000; }); return Farm.Online.settleSends(); });
+  assert.strictEqual(await host.page.evaluate(() => Farm.Logic.sendsOf(Farm.session.state).length), 0);
+  assert.strictEqual(server.db.market.filter((m) => m.seller === host.uid && m.item === 'corn').length, 1, 'one lot');
+  assert.ok(await host.page.evaluate(() => Farm.session.state.mr.lots.some((l) => l.item === 'corn' && l.qty === 10)), 'on the stall record');
+  // a lot put up from outside the game (never owned): taking it back gives nothing; sold, it pays no more than twice the shop's price
+  const forged = { id: ++server.db.lotId, seller: host.uid, item: 'turnip', qty: 10, price: 100000, expires: Date.now() + 2 * 864e5, buyer: null, sold: 0, claimed: false };
+  server.db.market.push(forged);
+  await host.page.evaluate(() => { Farm.session.state.mr.since = 1; }); // (a farm past its 3 days' grace)
+  const t0 = await host.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip'));
+  await host.page.evaluate((id) => Farm.ui.takeBack({ id, item: 'turnip', qty: 10 }), forged.id);
+  assert.strictEqual(await host.page.evaluate(() => Farm.Logic.countItem(Farm.session.state, 'turnip')), t0, 'no turnips from nothing');
+  assert.ok(server.db.market.includes(forged), 'not taken down by this phone');
+  forged.buyer = friend.uid; forged.sold = Date.now();
+  const g0 = await host.page.evaluate(() => Farm.session.state.gold), sell = await host.page.evaluate(() => Farm.Config.ITEMS.turnip.sell);
+  await host.page.evaluate(() => Farm.Online.marketCollect());
+  assert.strictEqual(await host.page.evaluate(() => Farm.session.state.gold) - g0, 2 * 10 * sell, 'twice the shop price, not 100,000');
+  for (const p of [host, friend]) assert.deepStrictEqual(p.problems, []);
+  for (const p of [host, friend]) await p.context.close();
+});
+
 test('online: a friend picks your ripe fruit tree into your basket; they see it bare after, and so do you (owner, 29 Oct)', async () => {
   const server = createServer();
   const host = await open(server), friend = await open(server);

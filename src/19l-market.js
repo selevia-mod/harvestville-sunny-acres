@@ -195,20 +195,24 @@
     this.listing = true;
     L.removeItem(s, id, n); // off the bag first: if the app closes now, nothing is copied
     save();
-    var putBack = function () { L.addItem(s, id, n); save(); };
-    F.Net.rpc('farm_market_list_v1', { p_item: id, p_qty: n, p_price: price }).then(function (r) {
+    // (sent with an id kept in the save: an answer lost waits and is asked again, never refunded on the spot, security
+    // check 23 Nov 2026: refunded here while the lot was up at the stall, the items were twice: 19zzz...-sends.js)
+    O.sendItems({ k: 'm', id: id, n: n, price: price }).then(function (r) {
       self.listing = false;
+      save();
       if (r && r.ok) {
+        L.mrAdd(s, id, n, price, r.id); // (this farm's own lot: 01-logicZZ...-sends.js)
+        save();
         sfx('coin');
         self.closeModal();
         return self.openMarket(0, function () { self.toast(lot(id, n) + (n > 1 ? ' are' : ' is') + ' up at your stall for ' + fmt(price) + 'G.', 2600, 0x2f5a22); });
       }
-      putBack();
-      sfx('nope');
+      if (r && r.waiting) return self.toast('No answer yet. Your lot waits, and is checked when you are online again.');
+      sfx('nope'); // (refused: back in your bag)
       self.toast(r && r.code === 'full' ? 'Your stall is full: ' + M.lots + ' lots at a time.' : 'That could not go up for sale.');
     }).catch(function (e) {
       self.listing = false;
-      putBack();
+      save();
       if (missing(e)) return soon(self);
       self.toast('Could not reach the online world. Check your connection.');
     });
@@ -217,10 +221,11 @@
   U.takeBack = function (r) {
     var self = this, s = F.session.state;
     if (!L.canAdd(s, r.item, r.qty)) { sfx('nope'); return this.toast('Make room in your bag first.'); }
+    if (!L.mrHas(s, r.item, r.qty, Number(r.id) || 0)) { sfx('nope'); return this.toast('That lot went up from another phone. Take it back there, or it comes back by itself when its 2 days end.', 3400); }
     F.Net.rpc('farm_market_cancel_v1', { p_id: r.id }).then(function (res) {
-      var back = res && res.ok && C.ITEMS[res.item];
-      if (back) {
-        L.addItem(s, res.item, Math.max(1, Math.min(M.most, Number(res.qty) || 1)));
+      var back = res && res.ok && C.ITEMS[res.item], qty = Math.max(1, Math.min(M.most, Number(res.qty) || 1));
+      if (back && L.mrTake(s, res.item, qty, null, Number(r.id) || 0)) { // (only a lot this farm put up)
+        L.addItem(s, res.item, qty);
         save();
         sfx('pick');
       }
@@ -244,13 +249,20 @@
       var s = F.session.state, gold = 0, who = [], lines = [], boxed = 0;
       (r && Array.isArray(r.sold) ? r.sold : []).forEach(function (x) {
         if (!x || !C.ITEMS[x.item]) return;
-        gold += Math.max(0, Math.min(100000, Number(x.price) || 0));
+        var price = Math.max(0, Math.min(100000, Number(x.price) || 0));
+        var q = Math.max(1, Math.min(M.most, Number(x.qty) || 1));
+        // a lot this farm did not put up (from outside the game, or another phone of yours that had not saved yet): no more
+        // than twice what the shop pays for it (01-logicZZ...-sends.js)
+        if (!L.mrTake(s, x.item, q, price, Number(x.id) || 0)) price = Math.min(price, 2 * q * Math.max(0, Number(C.ITEMS[x.item].sell) || 0));
+        gold += price;
         var b = L.cleanText(x.buyer, 24);
         if (b && who.indexOf(b) < 0) who.push(b);
       });
       (r && Array.isArray(r.returned) ? r.returned : []).forEach(function (x) {
         if (!x || !C.ITEMS[x.item]) return;
-        var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1)), left = L.addItem(s, x.item, n);
+        var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1));
+        L.mrTake(s, x.item, n, null, Number(x.id) || 0); // (off the record; one not on it still comes back: it took its 2 days)
+        var left = L.addItem(s, x.item, n);
         if (left > 0) { // a full bag: it goes in the shipping box (sold in the morning)
           var e = s.box.filter(function (b) { return b.id === x.item && !b.q; })[0]; // (not a Silver/Gold entry: these are normal)
           if (e) e.n += left; else s.box.push({ id: x.item, n: left });

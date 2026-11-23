@@ -151,7 +151,7 @@
       (offers[o.look] = offers[o.look] || []).push({ currency: o.currency, price: price, version: version });
     });
     var owned = (Array.isArray(r.owned) ? r.owned : []).filter(function (k) { return C.LOOK_INDEX[k] != null; });
-    return { offers: offers, owned: owned, at: Date.now() };
+    return { offers: offers, owned: owned, listed: Array.isArray(r.owned), at: Date.now() };
   };
   var canPay = function () { return !!(host().shop && F.Net && F.Net.available() && O.on); };
   O.loadLooks = function () {
@@ -159,7 +159,8 @@
     return F.Net.rpc('farm_looks_v1', {}).then(readLooks, function () { return null; }).then(function (l) {
       if (!l) return O.looks;
       O.looks = l;
-      if (L.ownLooks(F.session.state, l.owned)) { F.Host.save(F.session.state); F.bus.emit('hud'); }
+      var gone = l.listed ? L.dropUnpaidLooks(F.session.state, l.owned) : 0; // (the server's whole list: a paid look it does not know comes off)
+      if (L.ownLooks(F.session.state, l.owned) || gone) { F.Host.save(F.session.state); F.bus.emit('hud'); }
       return l;
     });
   };

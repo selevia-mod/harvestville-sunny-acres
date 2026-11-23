@@ -134,3 +134,15 @@ test('riding v2 on a busy screen (owner, 11 Nov 2026): the others\' outfit sheet
   assert.strictEqual(L.ride2Pick(held, 'ride2_fiesta_boy', keep, 32000, 4), 'ride2_fiesta_boy', 'room again');
   assert.strictEqual(L.ride2Pick(held, null, keep, 32000, 4), null);
 });
+
+test('a Coins or Stars look the server does not list comes off; Gold looks, prizes and the free one stay (security check, 23 Nov 2026)', () => {
+  const s = L.newState({});
+  const bit = (k) => 1 << C.LOOK_INDEX[k];
+  s.lk = bit('santa') | bit('fiesta') | bit('straw') | bit('fire');
+  s.cw = 'santa';
+  assert.strictEqual(L.dropUnpaidLooks(s, ['fiesta']), 1, 'santa was never bought');
+  assert.strictEqual(L.ownsLook(s, 'santa'), false);
+  assert.strictEqual(s.cw, '', 'not worn any more');
+  for (const k of ['fiesta', 'straw', 'fire', 'elf']) assert.strictEqual(L.ownsLook(s, k), true, k);
+  assert.strictEqual(L.dropUnpaidLooks(s, ['fiesta']), 0, 'nothing more');
+});
