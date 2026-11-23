@@ -14459,6 +14459,21 @@ s.lk = (s.lk || 0) | (1 << C.LOOK_INDEX[key]);
 return 'ok';
 };
 
+
+
+L.dropUnpaidLooks = function (s, keys) {
+var own = {}, n = 0;
+(Array.isArray(keys) ? keys : []).forEach(function (k) { own[k] = 1; });
+C.LOOKS.forEach(function (d, i) {
+var paid = (d.coins || d.stars) && !d.gold && !d.free && !d.reward;
+if (!paid || own[d.key] || !(((s.lk || 0) >> i) & 1)) return;
+s.lk = (s.lk || 0) & ~(1 << i);
+if (s.cw === d.key) s.cw = '';
+n++;
+});
+return n;
+};
+
 L.ownLooks = function (s, keys) {
 var n = 0;
 (Array.isArray(keys) ? keys : []).forEach(function (k) {
@@ -20467,7 +20482,29 @@ have[d.t] = (have[d.t] || 0) + 1;
 });
 if (bad) return bad;
 var miss = Object.keys(want).filter(function (k) { return k !== 'fence' && (have[k] || 0) < Math.ceil(want[k] * 0.8); });
-return miss.length ? 'missing ' + miss.join(',') : '';
+if (miss.length) return 'missing ' + miss.join(',');
+return L.frGhostPlaced(copy, g);
+};
+
+
+
+
+var GHOST_SIDE = { w: [16, 96], h: [16, 64] }, GHOST_NEAR = 18;
+L.frGhostPlaced = function (copy, g) {
+var w = copy.w, h = copy.h;
+if (w !== Math.floor(w) || h !== Math.floor(h) || w < GHOST_SIDE.w[0] || w > GHOST_SIDE.w[1] || h < GHOST_SIDE.h[0] || h > GHOST_SIDE.h[1]) return 'size';
+var open = function (o) {
+return !!o && o.x === Math.floor(o.x) && o.y === Math.floor(o.y) && o.x >= 0 && o.y >= 0 && o.x < w && o.y < h && copy.solid.charCodeAt(o.y * w + o.x) !== 49;
+};
+if (!copy.defs.every(open)) return 'place';
+if (!copy.loot.length || !copy.loot.every(function (p) { return open(p) && R.lootValue[p.kind] != null && p.n >= 0 && p.n === Math.floor(p.n); })) return 'loot';
+var most = L.frGhostLoot(g), sum = { crops: 0, produce: 0, stall: 0, gold: 0 }, tiles = 0;
+copy.loot.forEach(function (p) { sum[p.kind] += p.n; if (p.kind === 'crops') { tiles++; if (p.n !== 1) sum.crops = Infinity; } });
+if (tiles > most.crops || Object.keys(sum).some(function (k) { return sum[k] > (most[k] || 0); })) return 'loot';
+var far = copy.defs.some(function (d) {
+return d.t !== 'fence' && !copy.loot.some(function (p) { return Math.abs(p.x - d.x) <= GHOST_NEAR && Math.abs(p.y - d.y) <= GHOST_NEAR; });
+});
+return far ? 'place' : '';
 };
 
 
@@ -24100,7 +24137,7 @@ return { mult: mult, ev: ev };
 };
 
 
-var fresh = function () { return { wk: 0, wr: 0, wb: 0, wl: null, ev: 0, fd: -1, q: null, sent: 0, bets: [], bd: 0, bs: 0, bw: 0, bl: 0, tour: 0, paid: [] }; };
+var fresh = function () { return { wk: 0, wr: 0, wb: 0, wl: null, ev: 0, fd: -1, q: null, sent: 0, bets: [], bd: 0, bs: 0, bw: 0, bl: 0, tour: 0, paid: [], rk: -1 }; };
 var rec = function (s) { return s.mc || (s.mc = fresh()); };
 L.mcRec = rec;
 
@@ -24283,13 +24320,16 @@ return D * (f + a * Math.sin(6.283 * k * f + ph) * f * (1 - f));
 
 
 var today = function (m, ms) { var d = mday(ms); if (m.bd !== d) { m.bd = d; m.bs = 0; m.bw = 0; m.bl = 0; } return m; };
-L.rdToday = function (s, ms) { var m = today(rec(s), ms); return { staked: m.bs, won: m.bw, lost: m.bl, left: Math.max(0, RD.day - m.bs) }; };
+
+
+var seen = function (m, ms) { var n = L.rdNext(now(ms)) - 1; if (n > (m.rk == null ? -1 : m.rk)) m.rk = n; return m; };
+L.rdToday = function (s, ms) { var m = seen(today(rec(s), ms), ms); return { staked: m.bs, won: m.bw, lost: m.bl, left: Math.max(0, RD.day - m.bs) }; };
 L.rdBetOn = function (s, n) { return rec(s).bets.filter(function (b) { return b.n === n; })[0] || null; };
 
 L.rdBet = function (s, n, h, a, ms) {
-var m = today(rec(s), ms);
+var m = seen(today(rec(s), ms), ms);
 a = Number(a);
-if (!L.rdOpen(n, ms)) return { why: 'closed' };
+if (!L.rdOpen(n, ms) || n <= m.rk) return { why: 'closed' };
 if (h !== Math.floor(h) || h < 0 || h > 5) return { why: 'horse' };
 if (!(a === Math.floor(a)) || a < RD.min) return { why: 'min' };
 if (a > RD.max) return { why: 'max' };
@@ -24306,7 +24346,7 @@ L.rdPay = function (a, odds) { return Math.floor(a * Math.round(odds * 10) / 10)
 
 
 L.rdSettle = function (s, ms) {
-var m = rec(s), t = now(ms), out = [], d = mday(t);
+var m = seen(rec(s), ms), t = now(ms), out = [], d = mday(t);
 if (!m.bets.length) return out;
 today(m, t);
 m.bets = m.bets.filter(function (b) {
@@ -24339,6 +24379,7 @@ if (m.bets.length) x.b = [].concat.apply([], m.bets.map(function (b) { return [b
 if (m.bd) x.t = [m.bd, m.bs, m.bw, m.bl];
 if (m.tour) x.u = m.tour;
 if (m.paid.length) x.p = m.paid.slice();
+if (m.rk >= 0) x.k = m.rk;
 if (Object.keys(x).length) o.mc = x;
 return o;
 };
@@ -24366,6 +24407,7 @@ if (n >= 0 && h >= 0 && h <= 5 && a >= RD.min && a <= RD.max && !m.bets.some(fun
 }
 if (Array.isArray(x.t)) { m.bd = int(x.t[0], 0, 1e7, 0); m.bs = int(x.t[1], 0, 1e9, 0); m.bw = int(x.t[2], 0, 1e9, 0); m.bl = int(x.t[3], 0, 1e9, 0); }
 m.tour = int(x.u, 0, 255, 0);
+m.rk = int(x.k, -1, 1e9, -1);
 m.paid = (Array.isArray(x.p) ? x.p : []).filter(function (id) { return typeof id === 'string' && ID.test(id); }).slice(-12);
 s.mc = m;
 return s;
@@ -26559,6 +26601,98 @@ if (m > 0) { kept += m; o.hm[6][k] = (Number(o.hm[6][k]) || 0) + m; }
 } catch (e) {   }
 if (kept) { o.yk = kept; if (typeof console !== 'undefined') console.warn('save guard: ' + kept + ' pieces kept in storage'); }
 return o;
+};
+})(window.Farm = window.Farm || {});
+
+// ---- src/01-logicZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ-sends.js
+
+
+
+
+
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+var MOST = 20;
+var int = function (v, lo, hi, d) { v = Math.floor(Number(v)); return isFinite(v) && v >= lo && v <= hi ? v : d; };
+var ok = function (id) { return !!(C.ITEMS[id] && C.ITEMS[id].kind !== 'tool'); };
+
+L.sendsOf = function (s) { return s.ps || (s.ps = []); };
+var giveBack = function (s, e) {
+var left = e.q && L.addItemQ ? L.addItemQ(s, e.id, e.n, e.q) : L.addItem(s, e.id, e.n);
+if (left) s.basket[e.id] = Math.min(999, (s.basket[e.id] || 0) + left);
+};
+L.sendAdd = function (s, e) {
+var list = L.sendsOf(s);
+list.push({ r: e.r, k: e.k === 'm' ? 'm' : 'g', to: e.to || '', id: e.id, n: e.n, q: e.q || 0, price: e.price || 0, at: e.at || Date.now() });
+while (list.length > MOST) giveBack(s, list.shift());
+return e;
+};
+L.sendDone = function (s, r) { s.ps = L.sendsOf(s).filter(function (e) { return e.r !== r; }); };
+L.sendBack = function (s, r) {
+var e = L.sendsOf(s).filter(function (x) { return x.r === r; })[0];
+if (!e) return null;
+L.sendDone(s, r);
+giveBack(s, e);
+return e;
+};
+
+
+
+
+
+var MR_GRACE = 3 * 86400000, MR_MOST = 12;
+L.mrOf = function (s) { return s.mr || (s.mr = { since: 1, lots: [] }); };
+L.mrAdd = function (s, item, qty, price, id) {
+var m = L.mrOf(s);
+m.lots.push({ item: item, qty: qty, price: price, id: Number(id) || 0 });
+if (m.lots.length > MR_MOST) m.lots.shift();
+};
+
+L.mrHas = function (s, item, qty, id, now) {
+var m = L.mrOf(s);
+return m.lots.some(function (l) { return id && l.id ? l.id === id : l.item === item && l.qty === qty; }) || (now == null ? Date.now() : now) - m.since < MR_GRACE;
+};
+
+L.mrTake = function (s, item, qty, price, id, now) {
+var m = L.mrOf(s), i = -1;
+m.lots.some(function (l, k) { if (id && l.id === id ? true : (!id || !l.id) && l.item === item && l.qty === qty && (price == null || l.price === price)) { i = k; return true; } return false; });
+if (i >= 0) { m.lots.splice(i, 1); return true; }
+return (now == null ? Date.now() : now) - m.since < MR_GRACE;
+};
+
+var serialize = L.serialize;
+L.serialize = function (s) {
+var o = serialize(s), list = s.ps || [];
+if (list.length) o.ps = list.map(function (e) { return [e.r, e.k, e.to, e.id, e.n, e.q, e.price, e.at]; });
+var m = L.mrOf(s);
+o.mr = [m.since].concat.apply([m.since], m.lots.map(function (l) { return [l.item, l.qty, l.price, l.id]; }));
+return o;
+};
+var deserialize = L.deserialize;
+L.deserialize = function (o) {
+var s = deserialize(o);
+if (!s) return s;
+s.ps = (o && Array.isArray(o.ps) ? o.ps : []).filter(function (a) {
+return Array.isArray(a) && UUID.test(String(a[0])) && (a[1] === 'g' || a[1] === 'm') && typeof a[3] === 'string' && ok(a[3]);
+}).slice(-MOST).map(function (a) {
+return { r: String(a[0]), k: a[1], to: typeof a[2] === 'string' ? a[2].slice(0, 40) : '', id: a[3], n: int(a[4], 1, 99, 1), q: int(a[5], 0, 9, 0),
+price: int(a[6], 0, 100000, 0), at: int(a[7], 0, 1e14, 0) };
+});
+var mr = o && Array.isArray(o.mr) ? o.mr : null, lots = [];
+for (var i = 1; mr && i + 3 < mr.length && lots.length < MR_MOST; i += 4) {
+if (typeof mr[i] === 'string' && C.ITEMS[mr[i]]) lots.push({ item: mr[i], qty: int(mr[i + 1], 1, 99, 1), price: int(mr[i + 2], 0, 100000, 0), id: int(mr[i + 3], 0, 9e15, 0) });
+}
+var older = !mr && o && typeof o === 'object' && Object.keys(o).length > 0;
+s.mr = { since: mr ? int(mr[0], 0, 1e14, 1) : older ? Date.now() : 1, lots: lots };
+return s;
 };
 })(window.Farm = window.Farm || {});
 
@@ -39407,20 +39541,24 @@ if (L.countItem(s, id) < n || this.listing) return;
 this.listing = true;
 L.removeItem(s, id, n);
 save();
-var putBack = function () { L.addItem(s, id, n); save(); };
-F.Net.rpc('farm_market_list_v1', { p_item: id, p_qty: n, p_price: price }).then(function (r) {
+
+
+O.sendItems({ k: 'm', id: id, n: n, price: price }).then(function (r) {
 self.listing = false;
+save();
 if (r && r.ok) {
+L.mrAdd(s, id, n, price, r.id);
+save();
 sfx('coin');
 self.closeModal();
 return self.openMarket(0, function () { self.toast(lot(id, n) + (n > 1 ? ' are' : ' is') + ' up at your stall for ' + fmt(price) + 'G.', 2600, 0x2f5a22); });
 }
-putBack();
+if (r && r.waiting) return self.toast('No answer yet. Your lot waits, and is checked when you are online again.');
 sfx('nope');
 self.toast(r && r.code === 'full' ? 'Your stall is full: ' + M.lots + ' lots at a time.' : 'That could not go up for sale.');
 }).catch(function (e) {
 self.listing = false;
-putBack();
+save();
 if (missing(e)) return soon(self);
 self.toast('Could not reach the online world. Check your connection.');
 });
@@ -39429,10 +39567,11 @@ self.toast('Could not reach the online world. Check your connection.');
 U.takeBack = function (r) {
 var self = this, s = F.session.state;
 if (!L.canAdd(s, r.item, r.qty)) { sfx('nope'); return this.toast('Make room in your bag first.'); }
+if (!L.mrHas(s, r.item, r.qty, Number(r.id) || 0)) { sfx('nope'); return this.toast('That lot went up from another phone. Take it back there, or it comes back by itself when its 2 days end.', 3400); }
 F.Net.rpc('farm_market_cancel_v1', { p_id: r.id }).then(function (res) {
-var back = res && res.ok && C.ITEMS[res.item];
-if (back) {
-L.addItem(s, res.item, Math.max(1, Math.min(M.most, Number(res.qty) || 1)));
+var back = res && res.ok && C.ITEMS[res.item], qty = Math.max(1, Math.min(M.most, Number(res.qty) || 1));
+if (back && L.mrTake(s, res.item, qty, null, Number(r.id) || 0)) {
+L.addItem(s, res.item, qty);
 save();
 sfx('pick');
 }
@@ -39456,13 +39595,20 @@ O.collectingMarket = false;
 var s = F.session.state, gold = 0, who = [], lines = [], boxed = 0;
 (r && Array.isArray(r.sold) ? r.sold : []).forEach(function (x) {
 if (!x || !C.ITEMS[x.item]) return;
-gold += Math.max(0, Math.min(100000, Number(x.price) || 0));
+var price = Math.max(0, Math.min(100000, Number(x.price) || 0));
+var q = Math.max(1, Math.min(M.most, Number(x.qty) || 1));
+
+
+if (!L.mrTake(s, x.item, q, price, Number(x.id) || 0)) price = Math.min(price, 2 * q * Math.max(0, Number(C.ITEMS[x.item].sell) || 0));
+gold += price;
 var b = L.cleanText(x.buyer, 24);
 if (b && who.indexOf(b) < 0) who.push(b);
 });
 (r && Array.isArray(r.returned) ? r.returned : []).forEach(function (x) {
 if (!x || !C.ITEMS[x.item]) return;
-var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1)), left = L.addItem(s, x.item, n);
+var n = Math.max(1, Math.min(M.most, Number(x.qty) || 1));
+L.mrTake(s, x.item, n, null, Number(x.id) || 0);
+var left = L.addItem(s, x.item, n);
 if (left > 0) {
 var e = s.box.filter(function (b) { return b.id === x.item && !b.q; })[0];
 if (e) e.n += left; else s.box.push({ id: x.item, n: left });
@@ -40814,27 +40960,24 @@ this.giving = true;
 sfx('pick');
 F.bus.emit('hud');
 if (F.ui) F.ui.refresh();
-var back = function () {
-var left = q && L.addItemQ ? L.addItemQ(s, id, took, q) : L.addItem(s, id, took);
-if (left) s.basket[id] = Math.min(999, (s.basket[id] || 0) + left);
-if (F.ui) F.ui.refresh();
-};
-F.Net.rpc('farm_give_v1', { p_to: p.id, p_item: id, p_n: took }).then(function (r) {
+var shown = function () { F.bus.emit('hud'); if (F.ui) F.ui.refresh(); };
+
+O.sendItems({ k: 'g', to: p.id, id: id, n: took, q: q }).then(function (r) {
 self.giving = false;
+shown();
 if (r && r.ok) {
-F.Host.save(s);
 O.send('give', { to: p.id });
 sfx('coin');
 return F.ui.toast('You gave ' + p.name + ' ' + (took > 1 ? took + ' ' : 'your ') + name + '. How kind!', 2400, 0x2f5a22);
 }
-back();
+if (r && r.waiting) return F.ui.toast('No answer yet. Your gift waits, and is checked when you are online again.', 3000);
 var code = r && r.code;
 if (code === 'friends') F.ui.toast('Only friends can give things. Add ' + p.name + ' as a friend in Online first.', 2800);
 else if (code === 'limit') F.ui.toast('You gave ' + p.name + ' a lot today! Come back tomorrow.', 2600);
 else F.ui.toast('Could not give right now. Try again in a moment.');
 }).catch(function (e) {
 self.giving = false;
-back();
+shown();
 if (/Could not find the function/i.test((e && e.message) || '')) { O.giveOff = true; return F.ui.toast('Giving to friends opens soon!'); }
 F.ui.toast('Could not reach the online world. Check your connection.');
 });
@@ -44097,7 +44240,7 @@ if (!(price > 0 && price <= 100000) || !(version > 0)) return;
 (offers[o.look] = offers[o.look] || []).push({ currency: o.currency, price: price, version: version });
 });
 var owned = (Array.isArray(r.owned) ? r.owned : []).filter(function (k) { return C.LOOK_INDEX[k] != null; });
-return { offers: offers, owned: owned, at: Date.now() };
+return { offers: offers, owned: owned, listed: Array.isArray(r.owned), at: Date.now() };
 };
 var canPay = function () { return !!(host().shop && F.Net && F.Net.available() && O.on); };
 O.loadLooks = function () {
@@ -44105,7 +44248,8 @@ if (!F.Net || !F.Net.available() || !O.on) return Promise.resolve(null);
 return F.Net.rpc('farm_looks_v1', {}).then(readLooks, function () { return null; }).then(function (l) {
 if (!l) return O.looks;
 O.looks = l;
-if (L.ownLooks(F.session.state, l.owned)) { F.Host.save(F.session.state); F.bus.emit('hud'); }
+var gone = l.listed ? L.dropUnpaidLooks(F.session.state, l.owned) : 0;
+if (L.ownLooks(F.session.state, l.owned) || gone) { F.Host.save(F.session.state); F.bus.emit('hud'); }
 return l;
 });
 };
@@ -51188,20 +51332,22 @@ if (event === 'drt' && who && O.me && p.to === O.me.id) { O.dropTaken(who, Math.
 onMessage.call(O, event, payload);
 };
 
+
+
 O.dropTaken = function (who, k) {
 var d = G.mine.filter(function (x) { return x.k === k; })[0];
 if (!d || d.taking) return;
 d.taking = 1;
-F.Net.rpc('farm_give_v1', { p_to: who.id, p_item: d.id, p_n: d.n }).then(function (r) {
-d.taking = 0;
-if (!(r && r.ok)) return;
 G.mine = G.mine.filter(function (x) { return x !== d; });
+if (world()) world().drawGround();
+var s = F.session.state, ground = function () { d.taking = 0; G.mine.push(d); tellDrops(); if (world()) world().drawGround(); };
+O.sendItems({ k: 'g', to: who.id, id: d.id, n: d.n, q: d.q || 0, keep: true }).then(function (r) {
+if (r && r.waiting) { tellDrops(); return; }
+if (!(r && r.ok)) return ground();
 tellDrops();
 O.send('give', { to: who.id });
-F.Host.save(F.session.state);
-if (world()) world().drawGround();
-if (F.ui) F.ui.toast(who.name + ' picked up your ' + L.itemName(F.session.state, d.id) + '.', 2400, 0x2f5a22);
-}, function () { d.taking = 0; });
+if (F.ui) F.ui.toast(who.name + ' picked up your ' + L.itemName(s, d.id) + '.', 2400, 0x2f5a22);
+}, ground);
 };
 
 setInterval(function () { if (G.mine.length) tellDrops(); }, 20000);
@@ -73240,6 +73386,102 @@ draw: function (ui, sc, move) { field(ui, sc, move, 'seeder', 'soil', 'sprout');
 void K;
 })(window.Farm = window.Farm || {});
 
+// ---- src/19zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-sends.js
+
+
+
+
+
+(function (F) {
+'use strict';
+var C = F.Config;
+var L = F.Logic;
+var O = F.Online;
+if (!O) return;
+var SETTLE_AFTER = 30000;
+var missing = function (e) { return /Could not find the function/i.test((e && e.message) || ''); };
+var uuid = function () {
+var c = window.crypto;
+if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+var b = new Uint8Array(16);
+if (c && c.getRandomValues) c.getRandomValues(b); else for (var i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+var h = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join('');
+return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+};
+O.sendsOld = false;
+var call = function (e) {
+if (e.k === 'm') {
+return O.sendsOld ? F.Net.rpc('farm_market_list_v1', { p_item: e.id, p_qty: e.n, p_price: e.price })
+: F.Net.rpc('farm_market_list_req_v1', { p_item: e.id, p_qty: e.n, p_price: e.price, p_request_id: e.r });
+}
+return O.sendsOld ? F.Net.rpc('farm_give_v1', { p_to: e.to, p_item: e.id, p_n: e.n })
+: F.Net.rpc('farm_give_req_v1', { p_to: e.to, p_item: e.id, p_n: e.n, p_request_id: e.r });
+};
+
+
+O.sendItems = function (e) {
+var s = F.session.state;
+e.r = uuid();
+L.sendAdd(s, e);
+F.Host.save(s);
+var once = function () {
+var old = O.sendsOld;
+return call(e).then(function (r) {
+if ((r && r.ok) || e.keep) L.sendDone(s, e.r); else L.sendBack(s, e.r);
+F.Host.save(s);
+return r || { ok: false };
+}, function (err) {
+if (!old && missing(err)) { O.sendsOld = true; return once(); }
+if (old) {
+L.sendDone(s, e.r);
+if (!e.keep) giveBackNow(s, e);
+F.Host.save(s);
+throw err;
+}
+F.Host.save(s);
+return { ok: false, waiting: true, error: err };
+});
+};
+return once();
+};
+var giveBackNow = function (s, e) {
+var left = e.q && L.addItemQ ? L.addItemQ(s, e.id, e.n, e.q) : L.addItem(s, e.id, e.n);
+if (left) s.basket[e.id] = Math.min(999, (s.basket[e.id] || 0) + left);
+};
+O.settleSends = function () {
+var s = F.session.state, now = Date.now();
+if (!O.on || O.settlingSends || O.sendsOld) return Promise.resolve(0);
+var old = L.sendsOf(s).filter(function (e) { return now - e.at >= SETTLE_AFTER || e.at > now; });
+if (!old.length) return Promise.resolve(0);
+O.settlingSends = true;
+var back = 0, sent = 0;
+return old.reduce(function (p, e) {
+return p.then(function () {
+return call(e).then(function (r) {
+if (r && r.ok) { L.sendDone(s, e.r); if (e.k === 'm') L.mrAdd(s, e.id, e.n, e.price, r.id); sent++; } else if (L.sendBack(s, e.r)) back++;
+}, function (err) { if (missing(err)) O.sendsOld = true; });
+});
+}, Promise.resolve()).then(function () {
+O.settlingSends = false;
+if (back || sent) {
+F.Host.save(s);
+F.bus.emit('hud');
+if (F.ui && F.ui.toast) {
+if (back) F.ui.toast('Something you sent could not go through. It is back in your bag.', 3000);
+else F.ui.toast('What you sent earlier went through.', 2400, 0x2f5a22);
+}
+}
+return back + sent;
+});
+};
+var prizes = O.prizes;
+O.prizes = function () {
+return prizes.call(O).then(function (won) { return O.settleSends().then(function () { return won; }, function () { return won; }); });
+};
+void C;
+})(window.Farm = window.Farm || {});
+
 // ---- src/20-main.js
 
 (function (F) {
@@ -73298,7 +73540,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = '87a9908d';
+window.Farm.BUILD = '280cb31e';
 </script>
 </body>
 </html>

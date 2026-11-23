@@ -212,7 +212,10 @@ test('Giant medals of the tiny animals come only with a real giant; a medal alre
 
 // ---------- saves ----------
 test('nothing new is saved: the same save keys as before, generation 3, old saves load the same', () => {
-  const a = L.serialize(fresh()), b = OLD.L.serialize(fresh(OLD));
+  // (the security check's keys, 23 Nov 2026, are new on purpose: 'mr' the stall's record, 'ps' things on their way;
+  // the deep Mine itself still adds none)
+  const NEW = ['mr', 'ps'], bare = (o) => { NEW.forEach((k) => delete o[k]); return o; };
+  const a = bare(L.serialize(fresh())), b = bare(OLD.L.serialize(fresh(OLD)));
   assert.deepStrictEqual(Object.keys(a).sort(), Object.keys(b).sort());
   assert.strictEqual(a.gg, 3);
   const dir = path.join(__dirname, 'old-saves');
@@ -220,6 +223,7 @@ test('nothing new is saved: the same save keys as before, generation 3, old save
     const raw = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')), save = raw.save || raw;
     const x = plain(L.serialize(L.deserialize(plain(save)))), y = plain(OLD.L.serialize(OLD.L.deserialize(plain(save))));
     delete x.t; delete y.t; // (when it was written)
+    bare(x); bare(y);
     assert.deepStrictEqual(x, y, f + ' loads exactly as without the deep Mine');
   });
 });
