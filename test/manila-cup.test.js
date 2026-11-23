@@ -411,3 +411,15 @@ test('the save: an old save loads unchanged, mc round trips, bad values are clea
   assert.deepStrictEqual(plain(c.mc.paid), [ID]);
   assert.ok(JSON.stringify(L.serialize(s)).length < 400 + JSON.stringify(L.serialize(old)).length, 'small in the save');
 });
+
+test('a race already run can never be bet on, with the phone clock set back (security check, 23 Nov 2026), and the save keeps it', () => {
+  const s = fresh();
+  const n = L.rdNext(clock.ms), after = L.rdStart(n) + RD.resultMs + 1000; // (that race run and its result out)
+  L.rdToday(s, after); // (Race Day open on the phone: the farm has seen its bets close)
+  const back = L.rdClose(n) - 60000; // the phone's clock set back to a minute before its bets closed
+  assert.strictEqual(L.rdOpen(n, back), true, 'by the clock alone it would be open');
+  assert.strictEqual(L.rdBet(s, n, 0, 100, back).why, 'closed', 'the farm saw it close');
+  const again = roundTrip(s);
+  assert.strictEqual(L.rdBet(again, n, 0, 100, back).why, 'closed', 'after the game is closed and opened again');
+  assert.strictEqual(L.rdBet(again, L.rdNext(after), 0, 100, after).ok, true, 'the next race as before');
+});

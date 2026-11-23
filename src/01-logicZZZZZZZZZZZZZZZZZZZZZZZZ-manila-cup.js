@@ -152,7 +152,7 @@
   };
 
   // ---------- the save's record ----------
-  var fresh = function () { return { wk: 0, wr: 0, wb: 0, wl: null, ev: 0, fd: -1, q: null, sent: 0, bets: [], bd: 0, bs: 0, bw: 0, bl: 0, tour: 0, paid: [] }; };
+  var fresh = function () { return { wk: 0, wr: 0, wb: 0, wl: null, ev: 0, fd: -1, q: null, sent: 0, bets: [], bd: 0, bs: 0, bw: 0, bl: 0, tour: 0, paid: [], rk: -1 }; };
   var rec = function (s) { return s.mc || (s.mc = fresh()); };
   L.mcRec = rec;
 
@@ -335,13 +335,16 @@
 
   // ---------- Race Day: bets ----------
   var today = function (m, ms) { var d = mday(ms); if (m.bd !== d) { m.bd = d; m.bs = 0; m.bw = 0; m.bl = 0; } return m; };
-  L.rdToday = function (s, ms) { var m = today(rec(s), ms); return { staked: m.bs, won: m.bw, lost: m.bl, left: Math.max(0, RD.day - m.bs) }; };
+  // The last race whose bets this farm has seen close (security check, 23 Nov 2026: the phone's clock set back a few
+  // minutes opened bets again on a race already run, its winner known). Kept in the save ('k'): never betting on it again.
+  var seen = function (m, ms) { var n = L.rdNext(now(ms)) - 1; if (n > (m.rk == null ? -1 : m.rk)) m.rk = n; return m; };
+  L.rdToday = function (s, ms) { var m = seen(today(rec(s), ms), ms); return { staked: m.bs, won: m.bw, lost: m.bl, left: Math.max(0, RD.day - m.bs) }; };
   L.rdBetOn = function (s, n) { return rec(s).bets.filter(function (b) { return b.n === n; })[0] || null; };
   // A bet of a Gold on lane h of race n: { ok, odds, win } or { why: 'closed' | 'horse' | 'min' | 'max' | 'one' | 'day' | 'gold' }
   L.rdBet = function (s, n, h, a, ms) {
-    var m = today(rec(s), ms);
+    var m = seen(today(rec(s), ms), ms);
     a = Number(a);
-    if (!L.rdOpen(n, ms)) return { why: 'closed' };
+    if (!L.rdOpen(n, ms) || n <= m.rk) return { why: 'closed' };
     if (h !== Math.floor(h) || h < 0 || h > 5) return { why: 'horse' };
     if (!(a === Math.floor(a)) || a < RD.min) return { why: 'min' };
     if (a > RD.max) return { why: 'max' };
@@ -358,7 +361,7 @@
   // Pays every bet whose result is out by now (closing the game never loses one: it is in the save until it is paid).
   // Returns [{ n, h, a, win, pay, winner (name), odds }]
   L.rdSettle = function (s, ms) {
-    var m = rec(s), t = now(ms), out = [], d = mday(t);
+    var m = seen(rec(s), ms), t = now(ms), out = [], d = mday(t);
     if (!m.bets.length) return out;
     today(m, t);
     m.bets = m.bets.filter(function (b) {
@@ -391,6 +394,7 @@
     if (m.bd) x.t = [m.bd, m.bs, m.bw, m.bl];
     if (m.tour) x.u = m.tour;
     if (m.paid.length) x.p = m.paid.slice();
+    if (m.rk >= 0) x.k = m.rk;
     if (Object.keys(x).length) o.mc = x;
     return o;
   };
@@ -418,6 +422,7 @@
     }
     if (Array.isArray(x.t)) { m.bd = int(x.t[0], 0, 1e7, 0); m.bs = int(x.t[1], 0, 1e9, 0); m.bw = int(x.t[2], 0, 1e9, 0); m.bl = int(x.t[3], 0, 1e9, 0); }
     m.tour = int(x.u, 0, 255, 0);
+    m.rk = int(x.k, -1, 1e9, -1);
     m.paid = (Array.isArray(x.p) ? x.p : []).filter(function (id) { return typeof id === 'string' && ID.test(id); }).slice(-12);
     s.mc = m;
     return s;
