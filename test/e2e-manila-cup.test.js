@@ -379,17 +379,22 @@ test('Race Day on the server: the winner only from its secret number, a clock tr
   await page.evaluate(() => Farm.world.save());
   const saved = await page.evaluate(() => JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]));
   assert.deepStrictEqual(saved.mc.v, [pick.n], 'the save knows the server took it');
+  await page.evaluate(() => { window.gameHost.quiet = true; Farm.ui.closeAll(); }); // (the window and its first-time tour away, for the pictures)
   // the clock trick: the phone set back before the next race closed, the server's clock past it: refused, nothing taken
   await page.evaluate((p) => { window.__toasts.length = 0; window.__srv.now = Farm.Logic.rdStart(p.n + 1) + 5000; window.__now = Farm.Logic.rdClose(p.n + 1) - 60000; }, pick);
   await page.evaluate((p) => Farm.ui.rdPlace(p.n + 1, 0, 500), pick);
   await page.waitForFunction(() => window.__toasts.length, null, SLOW);
   assert.match(await page.evaluate(() => window.__toasts.join(' | ')), /Bets on this race are closed/);
+  await page.waitForTimeout(200);
+  await shot(page, '17-race-day-closed-by-server-clock');
   assert.strictEqual((await state(page)).gold, g0 - 1000, 'nothing taken');
   // offline: needs the internet, nothing taken
   await page.evaluate((p) => { window.__toasts.length = 0; window.__srv.down = true; window.__now = window.__srv.now = Farm.Logic.rdClose(p.n + 2) - 60000; }, pick);
   await page.evaluate((p) => Farm.ui.rdPlace(p.n + 2, 0, 500), pick);
   await page.waitForFunction(() => window.__toasts.length, null, SLOW);
   assert.match(await page.evaluate(() => window.__toasts.join(' | ')), /Betting needs the internet/);
+  await page.waitForTimeout(200);
+  await shot(page, '16-race-day-needs-internet');
   s = await state(page);
   assert.strictEqual(s.gold, g0 - 1000);
   assert.strictEqual(s.mc.bets.length, 1);
