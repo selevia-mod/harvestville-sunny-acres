@@ -307,18 +307,34 @@
     });
     return { n: n, start: L.rdStart(n), horses: horses };
   };
+  // The server's word on each race (owner, 24 Nov 2026: "Approve"): the result once was the race number's own hash, so
+  // anyone who read the game could work out every winner ahead. Now the server keeps a secret number for each race and
+  // tells it only once that race has started (farm_race_v1, supabase/farm_race_day.sql); the result mixes it in. Until
+  // the game has it, there is no result. L.rdServerOn() says whether this game plays that way: in the app, once the
+  // server has the functions (19z...manila-cup.js sets it); opened on its own, the old way, as before.
+  L.rdSeeds = {};
+  L.rdServerOn = function () { return false; };
+  L.rdSeedSet = function (n, seed) { if (n === Math.floor(n) && seed === Math.floor(seed) && seed >= 0 && seed < 2147483648) L.rdSeeds[n] = seed; };
   // The result, only once the race has started (never before, so nothing can show it): { order: [places by lane],
-  // times: [s by lane], photo }. ms: now (left out: the clock)
-  L.rdResult = function (n, ms) {
+  // times: [s by lane], photo }. ms: now (left out: the clock). seed: the server's number for it (left out: the one this
+  // game was told, if any).
+  L.rdResult = function (n, ms, seed) {
     if (now(ms) < L.rdStart(n)) return null;
+    if (seed == null) seed = L.rdSeeds[n];
+    if (seed == null && L.rdServerOn()) return null; // (not told yet)
+    return result(n, seed == null ? n : (n ^ seed) >>> 0);
+  };
+  // (the old way, for a bet made before this game asked the server: the race number's own hash)
+  L.rdResultOld = function (n) { return result(n, n); };
+  var result = function (n, key) {
     var race = L.rdRace(n), left = [0, 1, 2, 3, 4, 5], order = [];
     for (var k = 0; k < 6; k++) {
-      var tot = left.reduce(function (a, j) { return a + race.horses[j].p; }, 0), u = hash(n, 101 + k) * tot, at = 0;
+      var tot = left.reduce(function (a, j) { return a + race.horses[j].p; }, 0), u = hash(key, 101 + k) * tot, at = 0;
       while (at < left.length - 1 && u >= race.horses[left[at]].p) { u -= race.horses[left[at]].p; at++; }
       order.push(left.splice(at, 1)[0]);
     }
-    var times = [], t = RD.run[0] + hash(n, 201) * (RD.run[1] - RD.run[0]);
-    order.forEach(function (j, k) { if (k) { t += 0.05 + hash(n, 211 + k) * 1.1; } times[j] = t; });
+    var times = [], t = RD.run[0] + hash(key, 201) * (RD.run[1] - RD.run[0]);
+    order.forEach(function (j, k) { if (k) { t += 0.05 + hash(key, 211 + k) * 1.1; } times[j] = t; });
     return { order: order, times: times, photo: times[order[1]] - times[order[0]] < RD.photo };
   };
   // How far along (tiles, 0 to RD.laps laps) each lane's horse is, t s after the start: each runs at its own pace with a
@@ -340,8 +356,9 @@
   var seen = function (m, ms) { var n = L.rdNext(now(ms)) - 1; if (n > (m.rk == null ? -1 : m.rk)) m.rk = n; return m; };
   L.rdToday = function (s, ms) { var m = seen(today(rec(s), ms), ms); return { staked: m.bs, won: m.bw, lost: m.bl, left: Math.max(0, RD.day - m.bs) }; };
   L.rdBetOn = function (s, n) { return rec(s).bets.filter(function (b) { return b.n === n; })[0] || null; };
-  // A bet of a Gold on lane h of race n: { ok, odds, win } or { why: 'closed' | 'horse' | 'min' | 'max' | 'one' | 'day' | 'gold' }
-  L.rdBet = function (s, n, h, a, ms) {
+  // Whether a bet of a Gold on lane h of race n may be made: null (yes) or { why: 'closed' | 'horse' | 'min' | 'max' |
+  // 'one' | 'day' | 'gold' }. Nothing changes.
+  L.rdCheck = function (s, n, h, a, ms) {
     var m = seen(today(rec(s), ms), ms);
     a = Number(a);
     if (!L.rdOpen(n, ms) || n <= m.rk) return { why: 'closed' };
@@ -351,29 +368,63 @@
     if (L.rdBetOn(s, n)) return { why: 'one' };
     if (m.bs + a > RD.day) return { why: 'day' };
     if (s.gold < a) return { why: 'gold' };
+    return null;
+  };
+  // A bet of a Gold on lane h of race n: { ok, odds, win } or { why } as L.rdCheck. server: the server took it already
+  // (farm_race_bet_v1, by its own clock), so the phone's clock is not asked again; it is paid only by the server's word.
+  L.rdBet = function (s, n, h, a, ms, server) {
+    var m = seen(today(rec(s), ms), ms), no = L.rdCheck(s, n, h, a, ms);
+    a = Number(a);
+    if (no && !(server && no.why === 'closed' && !L.rdBetOn(s, n))) return no;
+    if (server && (s.gold < a || h !== Math.floor(h) || h < 0 || h > 5)) return { why: 'gold' };
     var odds = L.rdRace(n).horses[h].odds;
     s.gold -= a;
     m.bs += a;
-    m.bets.push({ n: n, h: h, a: a });
+    m.bets.push(server ? { n: n, h: h, a: a, v: 1 } : { n: n, h: h, a: a });
     return { ok: true, odds: odds, win: L.rdPay(a, odds) };
   };
   L.rdPay = function (a, odds) { return Math.floor(a * Math.round(odds * 10) / 10); };
   // Pays every bet whose result is out by now (closing the game never loses one: it is in the save until it is paid).
   // Returns [{ n, h, a, win, pay, winner (name), odds }]
+  // (A bet the server took ('v') waits here for the server's word: L.rdPayBet. A bet from before, on this phone only, is
+  // paid the old way.)
   L.rdSettle = function (s, ms) {
-    var m = seen(rec(s), ms), t = now(ms), out = [], d = mday(t);
+    var m = seen(rec(s), ms), t = now(ms), out = [];
     if (!m.bets.length) return out;
     today(m, t);
     m.bets = m.bets.filter(function (b) {
-      if (t < L.rdStart(b.n) + RD.resultMs) return true;
-      var race = L.rdRace(b.n), res = L.rdResult(b.n, t), win = res.order[0] === b.h, odds = race.horses[b.h].odds, pay = win ? L.rdPay(b.a, odds) : 0;
-      s.gold += pay;
-      if (Math.floor((L.rdStart(b.n) + MANILA) / DAY) === d) { if (win) m.bw += pay - b.a; else m.bl += b.a; }
-      out.push({ n: b.n, h: b.h, a: b.a, win: win, pay: pay, odds: odds, horse: race.horses[b.h].name, winner: race.horses[res.order[0]].name, photo: res.photo });
+      if (b.v || t < L.rdStart(b.n) + RD.resultMs) return true;
+      out.push(pay(s, m, b, L.rdResultOld(b.n), t));
       return false;
     });
     return out;
   };
+  var pay = function (s, m, b, res, t) {
+    var race = L.rdRace(b.n), win = res.order[0] === b.h, odds = race.horses[b.h].odds, p = win ? L.rdPay(b.a, odds) : 0;
+    s.gold += p;
+    if (Math.floor((L.rdStart(b.n) + MANILA) / DAY) === mday(t)) { if (win) m.bw += p - b.a; else m.bl += b.a; }
+    return { n: b.n, h: b.h, a: b.a, win: win, pay: p, odds: odds, horse: race.horses[b.h].name, winner: race.horses[res.order[0]].name, photo: res.photo };
+  };
+  // The server's word on a bet it took (farm_race_settle_v1): { ok, seed } pays it by the race's real result;
+  // 'settled' (paid already, on another phone) drops it; 'none' (the server never had it) gives the Gold back.
+  // Returns the paid line (as L.rdSettle's), { back: a } or null (nothing to do: not this phone's bet, not out yet).
+  L.rdPayBet = function (s, n, r, ms) {
+    var m = rec(s), t = now(ms), b = m.bets.filter(function (x) { return x.n === n && x.v; })[0];
+    if (!b || !r || typeof r !== 'object') return null;
+    var drop = function () { m.bets = m.bets.filter(function (x) { return x !== b; }); };
+    if (r.ok === true && r.seed === Math.floor(r.seed) && r.seed >= 0) {
+      if (t < L.rdStart(n) + RD.resultMs) return null;
+      L.rdSeedSet(n, r.seed);
+      today(m, t);
+      drop();
+      return pay(s, m, b, L.rdResult(n, Math.max(t, L.rdStart(n)), r.seed), t);
+    }
+    if (r.why === 'settled') { drop(); return { gone: true }; }
+    if (r.why === 'none') { drop(); s.gold += b.a; m.bs = Math.max(0, m.bs - b.a); return { back: b.a }; }
+    return null;
+  };
+  // The bets the server took whose result is out by now: [n]
+  L.rdDue = function (s, ms) { var t = now(ms); return rec(s).bets.filter(function (b) { return b.v && t >= L.rdStart(b.n) + RD.resultMs; }).map(function (b) { return b.n; }); };
 
   // ---------- the day and the save ----------
   var newState = L.newState;
@@ -391,6 +442,8 @@
     if (m.q) x.q = [m.q.id, m.q.wk, m.q.k].concat(m.q.laps);
     if (m.sent) x.s = m.sent;
     if (m.bets.length) x.b = [].concat.apply([], m.bets.map(function (b) { return [b.n, b.h, b.a]; }));
+    var took = m.bets.filter(function (b) { return b.v; }).map(function (b) { return b.n; });
+    if (took.length) x.v = took; // (the races whose bet the server took: paid by its word, 24 Nov 2026)
     if (m.bd) x.t = [m.bd, m.bs, m.bw, m.bl];
     if (m.tour) x.u = m.tour;
     if (m.paid.length) x.p = m.paid.slice();
@@ -419,6 +472,7 @@
         var n = int(x.b[i], -1, 1e9, -1), h = int(x.b[i + 1], -1, 99, -1), a = int(x.b[i + 2], 0, 1e9, 0);
         if (n >= 0 && h >= 0 && h <= 5 && a >= RD.min && a <= RD.max && !m.bets.some(function (b) { return b.n === n; })) m.bets.push({ n: n, h: h, a: a });
       }
+      if (Array.isArray(x.v)) m.bets.forEach(function (b) { if (x.v.indexOf(b.n) >= 0) b.v = 1; });
     }
     if (Array.isArray(x.t)) { m.bd = int(x.t[0], 0, 1e7, 0); m.bs = int(x.t[1], 0, 1e9, 0); m.bw = int(x.t[2], 0, 1e9, 0); m.bl = int(x.t[3], 0, 1e9, 0); }
     m.tour = int(x.u, 0, 255, 0);

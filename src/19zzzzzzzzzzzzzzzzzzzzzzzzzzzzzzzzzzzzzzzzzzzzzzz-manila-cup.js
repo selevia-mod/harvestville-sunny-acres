@@ -147,12 +147,56 @@
   };
   setInterval(function () { F.mcSend(); F.mcPrize(); }, MC.sendEvery);
 
+  // ---------- Race Day on the server (owner, 24 Nov 2026: "Approve"; supabase/farm_race_day.sql) ----------
+  // In the app, the server keeps each race's secret number and tells it once the race has started (farm_race_v1); a bet
+  // goes to the server first, which takes it only while bets are open by its own clock (farm_race_bet_v1); a bet is paid
+  // only by the server's word (farm_race_settle_v1). So no clock trick and no reading of the game shows a winner ahead.
+  // Betting needs the internet. Until the SQL is in (the functions missing), Race Day plays the old way, as before.
+  var RNET = { off: false, asked: {}, settling: {}, betting: false };
+  F.rdNet = RNET;
+  L.rdServerOn = function () { return !!(F.Net && F.Net.available && F.Net.available()) && !RNET.off; };
+  var rdMissing = function (e) { if (missing(e)) { RNET.off = true; return true; } return false; };
+  // the secret numbers of race n and the few before it, once n has started (asked at most every 2 s a race)
+  F.rdSeedFetch = function (n) {
+    if (!L.rdServerOn() || L.rdSeeds[n] != null || (RNET.asked[n] && Date.now() - RNET.asked[n] < 2000)) return;
+    RNET.asked[n] = Date.now();
+    F.Net.rpc('farm_race_v1', { p_from: n - 6, p_to: n }).then(function (r) {
+      var seeds = r && typeof r === 'object' && r.seeds && typeof r.seeds === 'object' ? r.seeds : {};
+      Object.keys(seeds).forEach(function (k) { L.rdSeedSet(Number(k), Number(seeds[k])); });
+    }, function (e) { rdMissing(e); });
+  };
+  // the bets the server took whose result is out: asked one by one, again a while later when there is no answer
+  F.rdSettleNet = function (s) {
+    if (!s || !L.rdServerOn()) return;
+    L.rdDue(s).forEach(function (n) {
+      var k = String(n);
+      if (RNET.settling[k] && Date.now() - RNET.settling[k] < 15000) return;
+      RNET.settling[k] = Date.now();
+      F.Net.rpc('farm_race_settle_v1', { p_n: n }).then(function (r) {
+        delete RNET.settling[k];
+        if (mine() !== s) return;
+        var out = L.rdPayBet(s, n, r);
+        if (!out) return;
+        dirty(); F.bus.emit('hud');
+        if (out.back) whenFree(function () { F.ui.toast('Your ' + fmt(out.back) + ' Gold bet on the ' + raceTime(n) + ' race did not reach Mang Kardo. It is back with you.', 3200); });
+        else if (!out.gone) whenFree(function () { F.ui.rdPaid(out); });
+      }, function (e) {
+        if (!rdMissing(e)) return;
+        // (the server lost its Race Day: what this phone bet comes back)
+        delete RNET.settling[k];
+        var out = mine() === s && L.rdPayBet(s, n, { why: 'none' });
+        if (out && out.back) { dirty(); F.bus.emit('hud'); }
+      });
+    });
+  };
+
   // ---------- once a second, on any map of your own game: the 3-runs reward, bets paid by the clock ----------
   var tickClock = P.tickClock;
   P.tickClock = function (dt) {
     var r = tickClock.apply(this, arguments);
     if (r || this.clockMs !== 0 || visiting(this)) return r;
     var s = this.state, now = L.clock(), ev = L.mcWeekly(s, now), paid = L.rdSettle(s, now);
+    F.rdSettleNet(s);
     if (ev || paid.length) { this.changed(); this.save(); F.bus.emit('hud'); }
     if (ev) whenFree(function () {
       sfx('fanfare');
@@ -257,8 +301,8 @@
     }
     if (n < 0) return;
     var t = (now - L.rdStart(n)) / 1000, along;
-    if (t >= 0 && !rd.res) rd.res = L.rdResult(n, now); // (never before the start)
-    if (t < 0) along = [0, 0, 0, 0, 0, 0].map(function (z, j) { return -1.2 - (j % 2) * 0.4; });
+    if (t >= 0 && !rd.res) { rd.res = L.rdResult(n, now); if (!rd.res) F.rdSeedFetch(n); } // (never before the start; on the server's word)
+    if (t < 0 || !rd.res) along = [0, 0, 0, 0, 0, 0].map(function (z, j) { return -1.2 - (j % 2) * 0.4; }); // (at the start until the word comes)
     else along = L.rdAlong(n, rd.res, t);
     var LEN = L.mcLen(), A = F.Anim;
     rd.horses.forEach(function (o, j) {
@@ -741,14 +785,32 @@
     var self = this, s = mine();
     if (h < 0) { sfx('nope'); return this.toast('Pick a horse first: tap its row.'); }
     var race = L.rdRace(n), horse = race.horses[h];
+    var no = function (why) {
+      sfx('nope');
+      var day = L.rdToday(s);
+      return self.toast({ closed: 'Bets on this race are closed.', min: 'At least ' + RD.min + ' Gold.', max: 'At most ' + fmt(RD.max) + ' Gold a race.', one: 'One bet a race.',
+        day: 'Up to ' + fmt(RD.day) + ' Gold a day: ' + fmt(day.left) + ' left today.', gold: 'Not enough Gold.',
+        net: 'Betting needs the internet. Try again when you are online.' }[why] || 'Not now.', 2800);
+    };
     var go = function () {
-      var r = L.rdBet(s, n, h, a, L.clock());
-      if (!r.ok) {
-        sfx('nope');
-        var day = L.rdToday(s);
-        return self.toast({ closed: 'Bets on this race are closed.', min: 'At least ' + RD.min + ' Gold.', max: 'At most ' + fmt(RD.max) + ' Gold a race.', one: 'One bet a race.',
-          day: 'Up to ' + fmt(RD.day) + ' Gold a day: ' + fmt(day.left) + ' left today.', gold: 'Not enough Gold.' }[r.why] || 'Not now.', 2800);
-      }
+      var first = L.rdCheck(s, n, h, a, L.clock());
+      if (first) return no(first.why);
+      if (!L.rdServerOn()) return placed(L.rdBet(s, n, h, a, L.clock()));
+      if (RNET.betting) return;
+      RNET.betting = true;
+      F.Net.rpc('farm_race_bet_v1', { p_n: n, p_h: h, p_a: a }).then(function (r) {
+        RNET.betting = false;
+        if (mine() !== s) return;
+        if (r && r.ok === true) return placed(L.rdBet(s, n, h, a, L.clock(), true));
+        no(r && typeof r.why === 'string' ? r.why : '');
+      }, function (e) {
+        RNET.betting = false;
+        if (rdMissing(e)) return placed(L.rdBet(s, n, h, a, L.clock())); // (no Race Day on the server yet: the old way)
+        no('net');
+      });
+    };
+    var placed = function (r) {
+      if (!r.ok) return no(r.why);
       sfx('coin');
       dirty();
       F.bus.emit('hud');

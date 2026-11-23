@@ -323,6 +323,96 @@ test('Race Day: the tour, the window and its odds, a big bet confirmed, the race
   await again.context.close();
 });
 
+// (owner, 24 Nov 2026: "Approve": the server picks the winners and takes the bets; betting needs the internet)
+test('Race Day on the server: the winner only from its secret number, a clock trick refused, offline "needs the internet", paid by its word; before the SQL, the old way', async () => {
+  const save = await makeSave('');
+  const { page, problems, context } = await open(save, START, false);
+  await page.evaluate(() => Farm.ui.closeAll());
+  await waitMap(page, 'town');
+  // the server, as supabase/farm_race_day.sql: its own clock, a secret number per race, bets only while open by its clock
+  await page.evaluate(() => {
+    const L = Farm.Logic, RD = Farm.Config.RACE_DAY;
+    const srv = window.__srv = { now: window.__now, bets: {}, calls: [], down: false, missing: false };
+    const seed = (n) => (Math.imul(n, 2654435761) ^ 0x5bd1e995) >>> 1;
+    window.__toasts = [];
+    const toast = Farm.ui.toast; Farm.ui.toast = function (t) { window.__toasts.push(String(t)); return toast.apply(this, arguments); };
+    Farm.Online.on = true; Farm.Net.available = () => true;
+    Farm.Net.rpc = (fn, a) => {
+      srv.calls.push(fn);
+      if (srv.missing) return Promise.reject(new Error('Could not find the function public.' + fn + ' in the schema cache'));
+      if (srv.down) return Promise.reject(new Error('Network request failed'));
+      const t = srv.now;
+      if (fn === 'farm_race_v1') { const seeds = {}; for (let n = Math.max(a.p_from, a.p_to - 20); n <= a.p_to; n++) if (L.rdStart(n) <= t) seeds[n] = seed(n); return Promise.resolve({ now: t, seeds }); }
+      if (fn === 'farm_race_bet_v1') {
+        if (t >= L.rdStart(a.p_n) - RD.closeMs || t < L.rdStart(a.p_n) - RD.every * 60000) return Promise.resolve({ ok: false, why: 'closed' });
+        if (srv.bets[a.p_n]) return Promise.resolve({ ok: false, why: 'one' });
+        srv.bets[a.p_n] = { h: a.p_h, a: a.p_a, settled: false };
+        return Promise.resolve({ ok: true });
+      }
+      if (fn === 'farm_race_settle_v1') {
+        const b = srv.bets[a.p_n];
+        if (t < L.rdStart(a.p_n) + RD.resultMs) return Promise.resolve({ ok: false, why: 'early' });
+        if (!b) return Promise.resolve({ ok: false, why: 'none', seed: seed(a.p_n) });
+        if (b.settled) return Promise.resolve({ ok: false, why: 'settled', seed: seed(a.p_n) });
+        b.settled = true;
+        return Promise.resolve({ ok: true, h: b.h, a: b.a, seed: seed(a.p_n) });
+      }
+      return Promise.resolve(null);
+    };
+    window.__seed = seed;
+  });
+  // a race whose real winner is not the one the race number alone gives (what reading the game once showed)
+  const pick = await page.evaluate((now) => {
+    const L = Farm.Logic;
+    for (let n = L.rdNext(now); ; n++) { const a = L.rdResultOld(n).order[0], b = L.rdResult(n, 1e15, window.__seed(n)).order[0]; if (a !== b) return { n, old: a, win: b, start: L.rdStart(n) }; }
+  }, START);
+  await page.evaluate((t) => { window.__now = t; window.__srv.now = t; }, pick.start - 300000);
+  assert.strictEqual(await page.evaluate((n) => Farm.Logic.rdResult(n, 1e15), pick.n), null, 'no winner on this phone until the server tells it');
+  // a bet: to the server first, then the Gold
+  const g0 = (await state(page)).gold;
+  await page.evaluate((p) => Farm.ui.rdPlace(p.n, p.win, 1000), pick);
+  await page.waitForFunction(() => window.__toasts.some((t) => /Bet placed/.test(t)), null, SLOW);
+  let s = await state(page);
+  assert.deepStrictEqual(s.mc.bets, [{ n: pick.n, h: pick.win, a: 1000, v: 1 }], 'a bet the server took');
+  assert.strictEqual(s.gold, g0 - 1000);
+  assert.ok(await page.evaluate((n) => !!window.__srv.bets[n], pick.n), 'the server has it');
+  await page.evaluate(() => Farm.world.save());
+  const saved = await page.evaluate(() => JSON.parse(window.gameHost.saves[window.gameHost.saves.length - 1]));
+  assert.deepStrictEqual(saved.mc.v, [pick.n], 'the save knows the server took it');
+  // the clock trick: the phone set back before the next race closed, the server's clock past it: refused, nothing taken
+  await page.evaluate((p) => { window.__toasts.length = 0; window.__srv.now = Farm.Logic.rdStart(p.n + 1) + 5000; window.__now = Farm.Logic.rdClose(p.n + 1) - 60000; }, pick);
+  await page.evaluate((p) => Farm.ui.rdPlace(p.n + 1, 0, 500), pick);
+  await page.waitForFunction(() => window.__toasts.length, null, SLOW);
+  assert.match(await page.evaluate(() => window.__toasts.join(' | ')), /Bets on this race are closed/);
+  assert.strictEqual((await state(page)).gold, g0 - 1000, 'nothing taken');
+  // offline: needs the internet, nothing taken
+  await page.evaluate((p) => { window.__toasts.length = 0; window.__srv.down = true; window.__now = window.__srv.now = Farm.Logic.rdClose(p.n + 2) - 60000; }, pick);
+  await page.evaluate((p) => Farm.ui.rdPlace(p.n + 2, 0, 500), pick);
+  await page.waitForFunction(() => window.__toasts.length, null, SLOW);
+  assert.match(await page.evaluate(() => window.__toasts.join(' | ')), /Betting needs the internet/);
+  s = await state(page);
+  assert.strictEqual(s.gold, g0 - 1000);
+  assert.strictEqual(s.mc.bets.length, 1);
+  // the race run: paid by the server's word, by the real winner
+  await page.evaluate((p) => { window.__srv.down = false; window.__now = window.__srv.now = p.start + 40000; }, pick);
+  await page.evaluate(() => Farm.ui.closeAll()); // (the Race Day window closed: the world ticks again)
+  await page.waitForFunction(() => Farm.session.state.mc.bets.length === 0, null, SLOW);
+  const odds = await page.evaluate((p) => Farm.Logic.rdRace(p.n).horses[p.win].odds, pick);
+  s = await state(page);
+  assert.strictEqual(s.gold, g0 - 1000 + Math.floor(1000 * Math.round(odds * 10) / 10), 'paid as the server\'s winner');
+  assert.ok(await page.evaluate((n) => window.__srv.bets[n].settled, pick.n), 'settled once');
+  assert.strictEqual(await page.evaluate((p) => Farm.Logic.rdResult(p.n, 1e15).order[0], pick), pick.win, 'and the race shows the same winner');
+  // before the SQL is in: the old way, as before (a bet on this phone)
+  await page.evaluate((p) => { window.__toasts.length = 0; window.__srv.missing = true; Farm.rdNet.off = false; window.__now = window.__srv.now = Farm.Logic.rdClose(p.n + 3) - 60000; }, pick);
+  await page.evaluate((p) => Farm.ui.rdPlace(p.n + 3, 1, 500), pick);
+  await page.waitForFunction(() => window.__toasts.some((t) => /Bet placed/.test(t)), null, SLOW);
+  s = await state(page);
+  assert.deepStrictEqual(s.mc.bets, [{ n: pick.n + 3, h: 1, a: 500 }], 'a bet on this phone, the old way');
+  assert.strictEqual(await page.evaluate(() => Farm.rdNet.off), true);
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('the cups and the ribbon in the house: the owner\'s cups (or their stand-ins), placed and shown', async () => {
   const save = await makeSave("s.map = 'farm'; s.home.level = 6; const H = C.HOME; ['mc_cup_gold', 'mc_cup_silver', 'mc_cup_bronze', 'mc_ribbon'].forEach((k) => { const t = H.typeIndex[k], at = L.findSpot(s, t, 2 + Object.keys(s.home.bag).length * 2, 3, null); s.home.bag[L.furnKey(t, 0)] = 1; L.placeFurn(s, t, 0, at.x, at.y, 0); });");
   const { page, problems, context } = await open(save);
