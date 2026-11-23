@@ -110,14 +110,36 @@ test('4: Decorate with the farmer behind the house: the camera stays over the fa
   await frames(page, 6);
   await page.evaluate(() => Farm.world.startYard());
   await frames(page, 6);
-  const v = await page.evaluate(() => { const wv = Farm.world.cameras.main.worldView, m = Farm.world.map; return { x: wv.x, y: wv.y, r: wv.right, b: wv.bottom, w: m.widthInPixels, h: m.heightInPixels }; });
-  assert.ok(v.y >= -1 && v.x >= -1 && v.r <= v.w + 1 && v.b <= v.h + 1, 'inside the map: ' + JSON.stringify(v));
+  // (inside the map; at the bottom, what is under the Decorate panel may be past it: test 4b)
+  const v = await page.evaluate(() => { const wv = Farm.world.cameras.main.worldView, m = Farm.world.map; return { x: wv.x, y: wv.y, r: wv.right, b: wv.bottom, w: m.widthInPixels, h: m.heightInPixels, cover: Farm.world.yardCover() }; });
+  assert.ok(v.y >= -1 && v.x >= -1 && v.r <= v.w + 1 && v.b <= v.h + v.cover + 1, 'inside the map: ' + JSON.stringify(v));
   await shot(page, '4-decorate');
   // dragging the grass far up and left: still inside
   await page.evaluate(() => { const cam = Farm.world.cameras.main; cam.setScroll(-5000, -5000); Farm.world.yardKeep(); });
   const v2 = await page.evaluate(() => { const wv = Farm.world.cameras.main.worldView; Farm.world.cameras.main.preRender(); return { x: Math.round(Farm.world.cameras.main.worldView.x), y: Math.round(Farm.world.cameras.main.worldView.y) }; });
   assert.ok(v2.x >= -1 && v2.y >= -1, JSON.stringify(v2));
   await page.evaluate(() => Farm.world.endYard());
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
+test('4b: Decorate: the farm\'s last rows (the pen, the stand, the road) come up above the Decorate panel (a player, 23 Nov 2026)', async () => {
+  const { page, problems, context } = await open(await makeSave(''));
+  await page.evaluate(() => { Farm.ui.closeAll(); const w = Farm.world; w.setFeet(30 * 256 + 128, 20 * 256 + 128); w.idle(); });
+  await frames(page, 6);
+  await page.evaluate(() => Farm.ui.openDecor());
+  await frames(page, 6);
+  assert.ok(await page.evaluate(() => !!(Farm.world.yd && Farm.ui.decorating)), 'decorating the yard, the panel up');
+  // the grass dragged far down: the map's bottom edge reaches the panel's top, no further
+  await page.evaluate(() => { const cam = Farm.world.cameras.main; cam.setScroll(0, 1e6); Farm.world.yardKeep(); cam.preRender(); });
+  const v = await page.evaluate(() => { const w = Farm.world, wv = w.cameras.main.worldView; return { b: wv.bottom, y: wv.y, cover: w.yardCover(), h: w.map.heightInPixels }; });
+  assert.ok(v.cover > 256, 'the panel hides the bottom of the screen: ' + JSON.stringify(v));
+  assert.ok(Math.abs(v.b - v.cover - v.h) <= 2, 'the last row sits just above the panel: ' + JSON.stringify(v));
+  await shot(page, '4b-decorate-bottom');
+  // and up: the top edge still stops at the top
+  await page.evaluate(() => { const cam = Farm.world.cameras.main; cam.setScroll(0, -1e6); Farm.world.yardKeep(); cam.preRender(); });
+  assert.ok(await page.evaluate(() => Farm.world.cameras.main.worldView.y >= -1), 'the top stays inside the farm');
+  await page.evaluate(() => Farm.ui.back());
   assert.deepStrictEqual(problems, []);
   await context.close();
 });

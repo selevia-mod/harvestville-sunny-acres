@@ -16,6 +16,9 @@
   var world = function () { return F.world; };
   var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
 
+  // where the panel's top is, in the UI's layout units (the yard's camera lets the farm's last rows come up above it)
+  U.decorTop = function () { return C.EXTRA + TOP; };
+
   // the panel itself, its header, and the room's taps kept off it
   U.decorFrame = function (label) {
     if (this.decorBar) this.decorBar.destroy();

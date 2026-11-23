@@ -141,12 +141,22 @@
   // Decorate's camera stays over the farm: zoomed out with the farmer near an edge (behind the house, say) it showed a
   // third of the screen of plain green past the map (iPhone test, 22 Nov 2026). (Phaser zooms round the camera's middle:
   // the middle is scrollX + width / 2 at any zoom.)
+  // The Decorate panel covers the bottom of the screen: the farm's last rows (the pen, the stand, the road) must still come
+  // up above it (a player, 23 Nov 2026: "hindi makita ang lower part ... ayaw mababa"), so the camera may go that much
+  // further down. yardCover: how much of the world (world units) the panel hides at the bottom now (0: no panel).
+  P.yardCover = function () {
+    var ui = F.ui, cam = this.cameras.main;
+    if (!ui || !ui.decorating || !ui.decorTop || !ui.cameras) return 0;
+    // (the panel's top on the screen: Phaser zooms a camera round its origin, the middle)
+    var uc = ui.cameras.main, oh = uc.originY * uc.height, top = uc.y + (ui.decorTop() - uc.scrollY - oh) * uc.zoom + oh;
+    return Math.max(0, cam.y + cam.height - top) / cam.zoom;
+  };
   P.yardKeep = function () {
-    var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+    var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels, cover = this.yardCover();
     var hw = cam.width / cam.zoom / 2, hh = cam.height / cam.zoom / 2;
     var mx = cam.scrollX + cam.width / 2, my = cam.scrollY + cam.height / 2;
     var cx = mw <= 2 * hw ? mw / 2 : Math.min(Math.max(mx, hw), mw - hw);
-    var cy = mh <= 2 * hh ? mh / 2 : Math.min(Math.max(my, hh), mh - hh);
+    var cy = mh <= 2 * hh - cover ? (mh + cover) / 2 : Math.min(Math.max(my, hh), mh - hh + cover);
     if (cx !== mx || cy !== my) cam.centerOn(cx, cy);
   };
 
@@ -166,6 +176,9 @@
     this.input.on('pointermove', this.yardMove, this);
     this.input.on('pointerup', this.yardUp, this);
     this.yardChanged();
+    // (the panel is up now: the farmer's spot is shown above it, not under it)
+    var cover = this.yardCover();
+    if (cover) { cam.centerOn(cam.scrollX + cam.width / 2, cam.scrollY + cam.height / 2 + cover / 2); this.yardKeep(); }
     sfx('pick');
   };
 

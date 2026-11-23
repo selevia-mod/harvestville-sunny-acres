@@ -34922,12 +34922,22 @@ if (!this.yd) updateCamera.call(this, lerp);
 
 
 
+
+
+
+P.yardCover = function () {
+var ui = F.ui, cam = this.cameras.main;
+if (!ui || !ui.decorating || !ui.decorTop || !ui.cameras) return 0;
+
+var uc = ui.cameras.main, oh = uc.originY * uc.height, top = uc.y + (ui.decorTop() - uc.scrollY - oh) * uc.zoom + oh;
+return Math.max(0, cam.y + cam.height - top) / cam.zoom;
+};
 P.yardKeep = function () {
-var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels;
+var cam = this.cameras.main, mw = this.map.widthInPixels, mh = this.map.heightInPixels, cover = this.yardCover();
 var hw = cam.width / cam.zoom / 2, hh = cam.height / cam.zoom / 2;
 var mx = cam.scrollX + cam.width / 2, my = cam.scrollY + cam.height / 2;
 var cx = mw <= 2 * hw ? mw / 2 : Math.min(Math.max(mx, hw), mw - hw);
-var cy = mh <= 2 * hh ? mh / 2 : Math.min(Math.max(my, hh), mh - hh);
+var cy = mh <= 2 * hh - cover ? (mh + cover) / 2 : Math.min(Math.max(my, hh), mh - hh + cover);
 if (cx !== mx || cy !== my) cam.centerOn(cx, cy);
 };
 
@@ -34947,6 +34957,9 @@ this.input.on('pointerdown', this.yardDown, this);
 this.input.on('pointermove', this.yardMove, this);
 this.input.on('pointerup', this.yardUp, this);
 this.yardChanged();
+
+var cover = this.yardCover();
+if (cover) { cam.centerOn(cam.scrollX + cam.width / 2, cam.scrollY + cam.height / 2 + cover / 2); this.yardKeep(); }
 sfx('pick');
 };
 
@@ -58630,6 +58643,9 @@ var world = function () { return F.world; };
 var sfx = function (name) { if (F.Audio) F.Audio.sfx(name); };
 
 
+U.decorTop = function () { return C.EXTRA + TOP; };
+
+
 U.decorFrame = function (label) {
 if (this.decorBar) this.decorBar.destroy();
 this.decorating = true;
@@ -73542,7 +73558,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = '86939a4a';
+window.Farm.BUILD = 'b2017b02';
 </script>
 </body>
 </html>
