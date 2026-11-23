@@ -9,7 +9,7 @@
 // made-up farm's copy, SQL part 28: the phone lays it out, the server checks it has the defenses its numbers say)
 'use strict';
 
-const CALL_WAIT = 5000, MOVES_MOST = 300;
+const CALL_WAIT = 5000, MOVES_MOST = 300, CELLS_MOST = 96 * 64, TRIES_MOST = 3;
 
 function makeFraid(opts) {
   const o = opts || {};
@@ -32,6 +32,15 @@ function makeFraid(opts) {
     Array.isArray(m) && m.length === 4 && Number.isInteger(m[0]) && m[0] >= 0 && typeof m[1] === 'string' && Number.isInteger(m[2]) && Number.isInteger(m[3]) &&
     (i === 0 || m[0] >= moves[i - 1][0]));
 
+  // checks per raid (security check, 23 Nov 2026: a refused check left the raid open, so one raid could be sent again and
+  // again, each a full replay on the one thread every room shares): a few, for a lost answer; then 'tries'
+  const tries = new Map();
+  const tried = (raid) => {
+    const n = (tries.get(raid) || 0) + 1;
+    tries.set(raid, n);
+    if (tries.size > 20000) tries.delete(tries.keys().next().value);
+    return n > TRIES_MOST;
+  };
   return {
     // the check, without the network (the tests, and settle below): { stars, taken } from a raid row and the drops
     // (played: a made-up farm's copy as the phone laid it out, SQL part 28; checked against the server's own numbers)
@@ -43,7 +52,11 @@ function makeFraid(opts) {
         const why = L.frGhostOk(played, copy.ghost);
         if (why) return { code: 'ghost' };
         copy = Object.assign({}, played, { value: copy.value });
+        // the drop zone as the rules make it (no closer than R.battle.keepReal to anything), never wider than the phone's
+        const own = L.frDropCells({ w: copy.w, h: copy.h, solid: copy.solid, loot: copy.loot, defs: copy.defs, keep: R.C.FRAID.battle.keepReal });
+        copy.drop = Array.prototype.map.call(own, (c, i) => (c === '1' && copy.drop.charCodeAt(i) === 49 ? '1' : '0')).join('');
       }
+      if (!(copy.w * copy.h <= CELLS_MOST)) return { code: 'copy' }; // (a replay's time grows with the farm: one thread for every room)
       // the crops ripe by the end of the raid's lock (the phone uses the same: farm_fraid_start_v1's expires_at)
       const cut = Date.parse(row.expires_at) || null;
       const farm = L.frRealFarm(copy, row.cap, row.seed, cut);
@@ -58,6 +71,7 @@ function makeFraid(opts) {
       if (typeof token !== 'string' || !token || token.length > 4096) return { ok: false, code: 'auth' };
       if (typeof raid !== 'string' || !/^[0-9a-f-]{36}$/i.test(raid)) return { ok: false, code: 'raid' };
       if (!goodMoves(moves)) return { ok: false, code: 'moves' };
+      if (tried(raid)) return { ok: false, code: 'tries' };
       let row;
       try { row = await rpc(token, 'farm_fraid_raid_v1', { p_raid: raid }); } catch (e) { return { ok: false, code: 'read' }; }
       if (!row) return { ok: false, code: 'none' };

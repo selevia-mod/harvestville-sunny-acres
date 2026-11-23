@@ -128,7 +128,29 @@
     });
     if (bad) return bad;
     var miss = Object.keys(want).filter(function (k) { return k !== 'fence' && (have[k] || 0) < Math.ceil(want[k] * 0.8); });
-    return miss.length ? 'missing ' + miss.join(',') : '';
+    if (miss.length) return 'missing ' + miss.join(',');
+    return L.frGhostPlaced(copy, g);
+  };
+  // Where things stand on it (security check, 23 Nov 2026: a phone could send its made-up farm with every defense
+  // parked off the map and its loot on the drop zone, and win 3 stars every time). The phone lays a made-up farm out on
+  // a farm map (L.banditLayout): a farm's size, everything on open ground inside it, the loot no more than its numbers
+  // (L.frGhostLoot: one crop a tile), and every defense but the fences within 18 tiles of the loot it guards.
+  var GHOST_SIDE = { w: [16, 96], h: [16, 64] }, GHOST_NEAR = 18;
+  L.frGhostPlaced = function (copy, g) {
+    var w = copy.w, h = copy.h;
+    if (w !== Math.floor(w) || h !== Math.floor(h) || w < GHOST_SIDE.w[0] || w > GHOST_SIDE.w[1] || h < GHOST_SIDE.h[0] || h > GHOST_SIDE.h[1]) return 'size';
+    var open = function (o) {
+      return !!o && o.x === Math.floor(o.x) && o.y === Math.floor(o.y) && o.x >= 0 && o.y >= 0 && o.x < w && o.y < h && copy.solid.charCodeAt(o.y * w + o.x) !== 49;
+    };
+    if (!copy.defs.every(open)) return 'place';
+    if (!copy.loot.length || !copy.loot.every(function (p) { return open(p) && R.lootValue[p.kind] != null && p.n >= 0 && p.n === Math.floor(p.n); })) return 'loot';
+    var most = L.frGhostLoot(g), sum = { crops: 0, produce: 0, stall: 0, gold: 0 }, tiles = 0;
+    copy.loot.forEach(function (p) { sum[p.kind] += p.n; if (p.kind === 'crops') { tiles++; if (p.n !== 1) sum.crops = Infinity; } });
+    if (tiles > most.crops || Object.keys(sum).some(function (k) { return sum[k] > (most[k] || 0); })) return 'loot';
+    var far = copy.defs.some(function (d) {
+      return d.t !== 'fence' && !copy.loot.some(function (p) { return Math.abs(p.x - d.x) <= GHOST_NEAR && Math.abs(p.y - d.y) <= GHOST_NEAR; });
+    });
+    return far ? 'place' : '';
   };
 
   // ---------- the attacker's prize ----------

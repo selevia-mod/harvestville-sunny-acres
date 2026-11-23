@@ -82,6 +82,30 @@ test('a phone cannot claim more: odd drops, a drop the rules refuse, an army no 
   assert.strictEqual((await makeFraid({ rules: R }).settle('tok:att', RAID, b.moves)).code, 'off', 'no key set: nothing recorded');
 });
 
+test('one raid is checked a few times at most (security check, 23 Nov 2026: a refused check could be sent again forever)', async () => {
+  const row = fresh(), fr = makeFraid({ url: 'https://sb.test', anonKey: 'anon', key: 'server-key', fetch: fakeSupabase(row).fetch, rules: R });
+  const mid = [[0, 'goat', 10, 6]]; // (refused by the rules: the raid stays open)
+  for (let i = 0; i < 3; i++) assert.strictEqual((await fr.settle('tok:att', RAID, mid)).code, 'moves', 'try ' + (i + 1));
+  assert.strictEqual((await fr.settle('tok:att', RAID, play(row).moves)).code, 'tries', 'then no more replays of that raid');
+});
+
+test('a made-up farm sent with its defenses off the map, or its drop zone on the loot, is not counted (security check, 23 Nov 2026)', async () => {
+  const g = { seed: 7, name: 'x', look: 'boy', power: 300, tier: 3, lv: 5, value: 5000, home: 8 };
+  const row = { raid: RAID, copy: { ghost: g, value: g.value }, army: { goat: { n: 20, lv: 5 }, crow: { n: 20, lv: 5 } }, seed: 12345, cap: 0.3, state: 'open', expires_at: '2026-11-23T09:00:00Z' };
+  const fr = makeFraid({ url: 'https://sb.test', anonKey: 'anon', key: 'server-key', fetch: fakeSupabase(row).fetch, rules: R });
+  const w = 16, h = 22, want = L.frGhostDefs(g), defs = [], loot = [], moves = [];
+  Object.keys(want).forEach((t) => { for (let i = 0; i < want[t]; i++) defs.push({ t, x: 900 + i, y: 900, lv: g.lv }); });
+  for (let i = 0; i < 12; i++) loot.push({ kind: 'crops', x: i, y: 0, n: 1 });
+  for (let i = 0; i < 20; i++) moves.push([0, 'goat', i % 12, 1]);
+  const played = { w, h, solid: '0'.repeat(w * h), drop: '1'.repeat(w * h), defs, loot, name: 'x' };
+  assert.strictEqual((await fr.settle('tok:att', RAID, moves, played)).code, 'ghost', 'defenses off the map');
+  // on the map by the loot, but the drop zone right on the loot: the rules' own zone wins, so those drops are refused
+  const near = Object.assign({}, played, { defs: defs.map((d, i) => ({ t: d.t, x: 2 + (i % 12), y: 12 + Math.floor(i / 12), lv: g.lv })) });
+  assert.strictEqual(L.frGhostOk(near, g), '');
+  assert.strictEqual((await fr.settle('tok:att', RAID, moves, near)).code, 'moves', 'no drops on the loot');
+  assert.strictEqual(row.state, 'open', 'nothing recorded');
+});
+
 test("on the line: a phone sends 'fr' and hears 'frr' (no room needed)", async () => {
   const row = fresh(), b = play(row);
   const fraid = makeFraid({ url: 'https://sb.test', anonKey: 'anon', key: 'server-key', fetch: fakeSupabase(row).fetch, rules: R });
