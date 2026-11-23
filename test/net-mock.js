@@ -427,6 +427,16 @@ function createServer() {
       }
       return out;
     },
+    // SQL 60 (security check #8): the app's game pass for the game server. Off unless a test turns it on (db.passes = new
+    // Map()): without it the bridge hands the old access token, which the other tests' game servers check.
+    game_pass_v1(uid) {
+      if (!db.passes) throw new Error('Could not find the function public.game_pass_v1 without parameters in the schema cache');
+      if (!uid) throw new Error('not signed in');
+      if (db.passBanned && db.passBanned.has(uid)) return null;
+      const pass = 'hvp_' + require('crypto').randomBytes(32).toString('hex');
+      db.passes.set(pass, uid);
+      return { pass, expires_at: new Date(Date.now() + 12 * 3600 * 1000).toISOString() };
+    },
     farm_shop_v1(uid) {
       if (!uid) throw new Error('not signed in');
       const w = db.wallets.get(uid);

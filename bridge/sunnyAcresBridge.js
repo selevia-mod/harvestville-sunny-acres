@@ -19,6 +19,15 @@ const TOPIC = /^(farm:[0-9a-f-]{36}|park:[1-3])$/;
 const EVENT = /^[a-z]{1,16}$/;
 const MAX_JSON = 256 * 1024; // the biggest call is publishing a farm (tens of KB)
 const TIMEOUT_MS = 15000; // a call with no answer by then fails, so the game never waits forever on a bad network
+// Security check #8 (owner, 23 Nov 2026: "build number 8"):
+// - the game server is handed a GAME PASS (game_pass_v1, SQL 60), never the player's Selebox sign-in: a pass only says
+//   who plays, to the game server's own 4 functions. Before SQL 60 is applied, the sign-in, as before.
+// - Selebox Coins and Stars leave only after the APP asks the player (confirmPay, the app's own card, outside the game
+//   page): what is asked is read from the shop by the app, not from the game.
+const PASS = /^hvp_[0-9a-f]{64}$/;
+const PASS_EARLY_MS = 2 * 60 * 60 * 1000; // a pass with less than this left is replaced (a pass lasts 12 hours)
+const PAY = { farm_buy_v1: 'energy', farm_buy_many_v1: 'energy', farm_look_buy_v1: 'look' };
+const missingFn = (error) => !!error && (error.code === 'PGRST202' || /Could not find the function/i.test(String(error.message || '')));
 
 // Runs inside the WebView before the game loads (ES5: works in old Android WebViews too).
 const GAME_NET_SCRIPT = `(function () {
@@ -48,8 +57,8 @@ const GAME_NET_SCRIPT = `(function () {
   window.gameHost = window.gameHost || {};
   window.gameHost.net = {
     session: function () { return call('session', []); },
-    // the signed-in account's access token, for the game server (docs/game-server.md: the game page connects to it
-    // itself, and the server checks who it is with this), or null
+    // a game pass for the game server (docs/game-server.md: the game page connects to it itself, and the server
+    // checks who it is with this; never the player's sign-in once SQL 60 is in), or null
     token: function () { return call('token', []); },
     rpc: function (name, args) { return call('rpc', [name, args || {}]); },
     join: function (topic, me, on) {
@@ -149,7 +158,15 @@ const canon = (v) => {
 const signedText = (topic, event, from, body) => topic + '\n' + event + '\n' + from + '\n' + canon(body);
 const without = (o, names) => { const c = {}; Object.keys(o).forEach((k) => { if (names.indexOf(k) < 0) c[k] = o[k]; }); return c; };
 
-function createSunnyAcresBridge({ supabase, webViewRef }) {
+function createSunnyAcresBridge({ supabase, webViewRef, confirmPay = null }) {
+  let pass = null; // { pass, uid, until }: the game pass in hand
+  let passAsk = null; // (one request for a pass at a time)
+  const okayed = new Set(); // request ids the player said yes to (the same tap sent again is not asked twice)
+  const limit = (p) => {
+    let timer;
+    const t = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS); });
+    return Promise.race([p, t]).finally(() => clearTimeout(timer));
+  };
   const channels = new Map(); // ch (the game's number) -> { topic, state }
   const rooms = new Map(); // topic -> one live channel per farm room: { channel, uid, owner (ch) | null, subscribed, ready }
   let disposed = false;
@@ -420,19 +437,61 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     return room;
   }
 
+  // Before Selebox Coins or Stars are paid: the app asks the player, with the shop's own numbers (read here, not from
+  // the game). A call the server refuses before any payment (a price or version the shop does not have, not enough in
+  // the wallet, a look already owned, a bad number) is not asked about: the server answers it. true = go ahead.
+  const askPay = async (name, a) => {
+    const id = String(a.p_request_id || '');
+    if (id && okayed.has(id)) return true;
+    const kind = PAY[name];
+    const { data, error } = await limit(Promise.resolve(supabase.rpc(kind === 'look' ? 'farm_looks_v1' : 'farm_shop_v1', {})));
+    if (error) throw new Error(error.message || 'failed');
+    const d = data || {};
+    const offer = (Array.isArray(d.offers) ? d.offers : []).find((o) => o && o.currency === a.p_currency && (kind === 'look' ? o.look === a.p_look : o.item === a.p_item));
+    if (!offer || !(offer.price > 0) || offer.price !== a.p_price || offer.version !== a.p_version) return true;
+    const qty = name === 'farm_buy_many_v1' ? a.p_qty : 1;
+    if (!Number.isInteger(qty) || qty < 1 || qty > 100) return true;
+    if (kind === 'look' && Array.isArray(d.owned) && d.owned.indexOf(a.p_look) >= 0) return true;
+    const price = offer.price * qty, have = Number(d.wallet && d.wallet[offer.currency]);
+    if (Number.isFinite(have) && have < price) return true;
+    const info = kind === 'look' ? { kind, look: offer.look, currency: offer.currency, price }
+      : { kind, item: offer.item, currency: offer.currency, price, amount: (Number(offer.amount) || 0) * qty, qty };
+    let yes = false;
+    try { yes = (await confirmPay(info)) === true; } catch (e) { yes = false; }
+    if (yes && id) okayed.add(id);
+    return yes;
+  };
+
   const ops = {
     session: () => userId(),
 
-    // The game server (docs/game-server.md) needs to know who is connecting: the page hands it this token, which the
-    // server checks with Supabase. Only the current session's access token, never the refresh token.
+    // The game server (docs/game-server.md) needs to know who is connecting: the page hands it a game pass (SQL 60),
+    // which the server checks with Supabase. Until SQL 60 is in: the current session's access token (never the refresh
+    // token), as before.
     async token() {
       const { data } = await supabase.auth.getSession();
-      return (data && data.session && data.session.access_token) || null;
+      const session = data && data.session;
+      if (!session || !session.access_token) return null;
+      const uid = (session.user && session.user.id) || null;
+      if (pass && pass.uid === uid && pass.until - Date.now() > PASS_EARLY_MS) return pass.pass;
+      if (!passAsk) {
+        passAsk = Promise.resolve(supabase.rpc('game_pass_v1', {})).finally(() => { passAsk = null; });
+      }
+      const { data: got, error } = await passAsk;
+      if (error) {
+        if (missingFn(error)) return session.access_token; // (SQL 60 not applied yet: the old way)
+        throw new Error(error.message || 'failed');
+      }
+      if (!got || typeof got.pass !== 'string' || !PASS.test(got.pass)) return null; // (banned or suspended: no pass)
+      pass = { pass: got.pass, uid, until: Date.parse(got.expires_at) || Date.now() + PASS_EARLY_MS * 2 };
+      return got.pass;
     },
 
     async rpc(name, args) {
       if (!RPC_NAME.test(String(name)) && name !== 'invite_collect_game_rewards_v1') throw new Error('not allowed');
-      const { data, error } = await supabase.rpc(name, args && typeof args === 'object' ? args : {});
+      const a = args && typeof args === 'object' ? args : {};
+      if (PAY[name] && confirmPay && !(await askPay(name, a))) return { ok: false, code: 'cancelled' }; // (nothing sent)
+      const { data, error } = await limit(Promise.resolve(supabase.rpc(name, a)));
       if (error) throw new Error(error.message || 'failed');
       return data;
     },
@@ -509,11 +568,10 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     try { msg = JSON.parse(raw); } catch (e) { return false; }
     if (!msg || msg.__sunnyNet !== 1 || !ops[msg.op] || !Array.isArray(msg.args)) return false;
     if (raw.length > MAX_JSON) { reply(msg.id, false, 'too big'); return true; }
-    let timer;
-    const timeout = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS); });
-    Promise.race([Promise.resolve().then(() => ops[msg.op](...msg.args)), timeout])
-      .finally(() => clearTimeout(timer))
-      .then((value) => reply(msg.id, true, value), (e) => reply(msg.id, false, (e && e.message) || 'failed'));
+    // (a payment waits for the player's answer, however long: its own calls have the time limit inside)
+    const run = Promise.resolve().then(() => ops[msg.op](...msg.args));
+    const asks = msg.op === 'rpc' && confirmPay && PAY[msg.args[0]];
+    (asks ? run : limit(run)).then((value) => reply(msg.id, true, value), (e) => reply(msg.id, false, (e && e.message) || 'failed'));
     return true;
   };
 
@@ -535,7 +593,9 @@ function createSunnyAcresBridge({ supabase, webViewRef }) {
     });
   };
 
-  return { injectedJavaScriptBeforeContentLoaded: GAME_NET_SCRIPT, onMessage, dispose, wake };
+  // (the game: the app asks before a payment, so the game does not ask too: gameHost.net.payAsk)
+  const injected = confirmPay ? GAME_NET_SCRIPT + '\n(function () { if (window.gameHost && window.gameHost.net) window.gameHost.net.payAsk = true; })();\ntrue;' : GAME_NET_SCRIPT;
+  return { injectedJavaScriptBeforeContentLoaded: injected, onMessage, dispose, wake };
 }
 
 module.exports = { createSunnyAcresBridge, GAME_NET_SCRIPT, signing: { sha256, hmac, canon } };

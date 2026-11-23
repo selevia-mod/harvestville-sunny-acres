@@ -460,3 +460,78 @@ test('signed: leaving a room while a presence update waits for a key never shows
   assert.ok(!seenByB.includes(a), 'B no longer sees A: ' + JSON.stringify(seenByB));
   for (const v of [A, B, C]) v.bridge.dispose();
 });
+
+// ---------- security check #8 (owner, 23 Nov 2026: "build number 8") ----------
+function payView(server, uid, confirmPay) {
+  const supabase = server.supabaseFor(uid);
+  const ctx = { console };
+  ctx.window = ctx;
+  const bridge = createSunnyAcresBridge({ supabase, webViewRef: { current: { injectJavaScript: (code) => vm.runInContext(code, ctx) } }, confirmPay });
+  ctx.ReactNativeWebView = { postMessage: (data) => setTimeout(() => bridge.onMessage({ nativeEvent: { data } }), 0) };
+  vm.createContext(ctx);
+  vm.runInContext(bridge.injectedJavaScriptBeforeContentLoaded, ctx);
+  return { ctx, net: ctx.gameHost.net, bridge };
+}
+
+test('the game server gets a game pass (SQL 60), never the sign-in; one pass kept; the sign-in only before SQL 60', async () => {
+  const server = createServer(), uid = server.newUser();
+  assert.strictEqual(await webview(server, uid).net.token(), 'test-token:' + uid, 'before SQL 60: the old way');
+  server.db.passes = new Map();
+  const v = webview(server, uid);
+  const [p1, p2] = await Promise.all([v.net.token(), v.net.token()]);
+  assert.match(p1, /^hvp_[0-9a-f]{64}$/);
+  assert.strictEqual(p2, p1, 'asked together: one pass');
+  assert.strictEqual(await v.net.token(), p1, 'kept, not a new pass each time');
+  assert.strictEqual(server.db.passes.size, 1);
+  assert.strictEqual(server.db.passes.get(p1), uid);
+  assert.strictEqual(await webview(server, null).net.token(), null, 'nobody signed in: null');
+  server.db.passBanned = new Set([uid]);
+  assert.strictEqual(await webview(server, uid).net.token(), null, 'banned or suspended: no pass, and never the sign-in');
+});
+
+test('Coins or Stars: the app asks the player first, with the shop\'s own numbers; no = nothing paid; a yes is not asked twice', async () => {
+  const server = createServer(), uid = server.newUser();
+  server.db.wallets.set(uid, { coins: 100, stars: 100 });
+  const asked = [];
+  let answer = false;
+  const v = payView(server, uid, async (info) => { asked.push(info); return answer; });
+  assert.strictEqual(v.net.payAsk, true, 'the game is told the app asks');
+  assert.strictEqual(webview(server, uid).net.payAsk, undefined, 'an app that does not ask: the game asks itself, as before');
+  const buy = { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_request_id: '11111111-1111-4111-8111-111111111111' };
+  assert.deepStrictEqual(plain(await v.net.rpc('farm_buy_v1', buy)), { ok: false, code: 'cancelled' });
+  assert.deepStrictEqual(asked, [{ kind: 'energy', item: 'energy', currency: 'coins', price: 5, amount: 100, qty: 1 }]);
+  assert.deepStrictEqual(server.db.wallets.get(uid), { coins: 100, stars: 100 }, 'no: nothing paid');
+  answer = true;
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', buy)).ok, true);
+  assert.strictEqual(server.db.wallets.get(uid).coins, 95);
+  answer = false;
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', buy)).duplicate, true, 'the same tap again (a lost answer): not asked, not paid again');
+  assert.strictEqual(asked.length, 2);
+  // many refills: the whole price and energy
+  answer = true;
+  await v.net.rpc('farm_buy_many_v1', Object.assign({}, buy, { p_currency: 'stars', p_price: 10, p_qty: 3, p_request_id: '22222222-2222-4222-8222-222222222222' }));
+  assert.deepStrictEqual(asked[2], { kind: 'energy', item: 'energy', currency: 'stars', price: 30, amount: 300, qty: 3 });
+  assert.strictEqual(server.db.wallets.get(uid).stars, 70);
+  // a look; then the same look again (owned: the server never pays it twice, so not asked)
+  server.db.wallets.get(uid).coins = 500;
+  const look = { p_look: 'flower', p_currency: 'coins', p_price: 100, p_version: 1, p_request_id: '33333333-3333-4333-8333-333333333333' };
+  assert.strictEqual(plain(await v.net.rpc('farm_look_buy_v1', look)).ok, true);
+  assert.deepStrictEqual(asked[3], { kind: 'look', look: 'flower', currency: 'coins', price: 100 });
+  assert.strictEqual(server.db.wallets.get(uid).coins, 400);
+  assert.strictEqual(plain(await v.net.rpc('farm_look_buy_v1', Object.assign({}, look, { p_request_id: '44444444-4444-4444-8444-444444444444' }))).code, 'owned');
+  assert.strictEqual(asked.length, 4);
+});
+
+test('nothing to ask when the server refuses before paying: a settle (price 0), a wrong price, not enough, a look already owned', async () => {
+  const server = createServer(), uid = server.newUser();
+  server.db.wallets.set(uid, { coins: 3, stars: 0 });
+  const asked = [];
+  const v = payView(server, uid, async (info) => { asked.push(info); return true; });
+  const id = (n) => n + '0000000-0000-4000-8000-000000000000';
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: 'coins', p_price: 0, p_version: 1, p_request_id: id(1) })).code, 'offer-changed');
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: 'coins', p_price: 4, p_version: 1, p_request_id: id(2) })).code, 'offer-changed');
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_request_id: id(3) })).code, 'insufficient-coins');
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_many_v1', { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_qty: 0, p_request_id: id(4) })).code, 'qty');
+  assert.deepStrictEqual(asked, [], 'none of these could take anything: not asked');
+  assert.deepStrictEqual(server.db.wallets.get(uid), { coins: 3, stars: 0 });
+});

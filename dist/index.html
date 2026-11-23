@@ -38916,7 +38916,10 @@ if (L.refillFits && !L.refillFits(s, gain, o.currency)) {
 return this.toast(o.currency === 'coins' ? 'You have lots of energy already. Use some first!' : 'With Stars, energy goes up to ' + C.ENERGY_MOST.toLocaleString('en-US') + '. Use some first, or refill with Coins.', 3000);
 }
 if (this.buying) return;
-this.confirm('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
+
+
+var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); };
+ask('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
 self.buying = true;
 L.settleRefills().then(function (state) {
 if (state !== 'clear') {
@@ -38933,6 +38936,7 @@ if (qty > 1) args.p_qty = qty;
 return F.Net.rpc(qty > 1 ? 'farm_buy_many_v1' : 'farm_buy_v1', args).then(function (r) {
 self.buying = false;
 s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; });
+if (r && r.code === 'cancelled') { save(s); return; }
 if (!r || !r.ok) {
 save(s);
 self.closeAll();
@@ -44340,7 +44344,8 @@ this.dialog('IT IS YOURS!\n' + d.name + ' is in My looks. Wear it now?', [{ labe
 };
 U.buyLookPaid = function (d, o) {
 var self = this, what = o.price + (o.currency === 'coins' ? ' Coins' : ' Stars');
-this.confirm('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
+var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); };
+ask('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
 if (self.tailorBusy) return;
 self.tailorBusy = true;
 F.Net.rpc('farm_look_buy_v1', { p_look: d.key, p_currency: o.currency, p_price: o.price, p_version: o.version, p_request_id: requestId() }).then(function (r) {
@@ -44353,6 +44358,7 @@ if (typeof host().spent === 'function') host().spent();
 sfx('coin');
 return self.lookBought(d);
 }
+if (r && r.code === 'cancelled') return;
 var code = r && r.code, say = {
 'insufficient-coins': 'Not enough Coins.', 'insufficient-stars': 'Not enough Stars.', 'offer-changed': 'The price just changed. Have a look again.',
 'offer-unavailable': 'That look is not for sale right now.', limit: 'That is all the shopping for today. Come back tomorrow.',
@@ -73540,7 +73546,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = '280cb31e';
+window.Farm.BUILD = 'ba7337f4';
 </script>
 </body>
 </html>
