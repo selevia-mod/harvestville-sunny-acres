@@ -489,37 +489,37 @@ test('the game server gets a game pass (SQL 60), never the sign-in; one pass kep
   assert.strictEqual(await webview(server, uid).net.token(), null, 'banned or suspended: no pass, and never the sign-in');
 });
 
-test('Coins or Stars: the app asks the player first, with the shop\'s own numbers; no = nothing paid; a yes is not asked twice', async () => {
+test('Coins or Stars: checked quietly (the game asks, as before); the app asks itself only past 200 in 10 minutes; no = nothing paid', async () => {
   const server = createServer(), uid = server.newUser();
-  server.db.wallets.set(uid, { coins: 100, stars: 100 });
+  server.db.wallets.set(uid, { coins: 1000, stars: 1000 });
   const asked = [];
   let answer = false;
   const v = payView(server, uid, async (info) => { asked.push(info); return answer; });
-  assert.strictEqual(v.net.payAsk, true, 'the game is told the app asks');
-  assert.strictEqual(webview(server, uid).net.payAsk, undefined, 'an app that does not ask: the game asks itself, as before');
-  const buy = { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_request_id: '11111111-1111-4111-8111-111111111111' };
-  assert.deepStrictEqual(plain(await v.net.rpc('farm_buy_v1', buy)), { ok: false, code: 'cancelled' });
-  assert.deepStrictEqual(asked, [{ kind: 'energy', item: 'energy', currency: 'coins', price: 5, amount: 100, qty: 1 }]);
-  assert.deepStrictEqual(server.db.wallets.get(uid), { coins: 100, stars: 100 }, 'no: nothing paid');
+  assert.strictEqual(v.net.payAsk, undefined, 'the game keeps its own question (owner: "as before")');
+  const id = (n) => n + '1111111-1111-4111-8111-111111111111';
+  // normal play: quiet
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_request_id: id(1) })).ok, true);
+  assert.strictEqual(plain(await v.net.rpc('farm_look_buy_v1', { p_look: 'flower', p_currency: 'coins', p_price: 100, p_version: 1, p_request_id: id(2) })).ok, true);
+  assert.deepStrictEqual(asked, [], 'a refill and a look: no card');
+  assert.deepStrictEqual(server.db.wallets.get(uid), { coins: 895, stars: 1000 });
+  // past 200 within 10 minutes (105 + 100): the app asks, with the shop's numbers; no = nothing paid
+  const many = { p_item: 'energy', p_currency: 'stars', p_price: 10, p_version: 1, p_qty: 10, p_request_id: id(3) };
+  assert.deepStrictEqual(plain(await v.net.rpc('farm_buy_many_v1', many)), { ok: false, code: 'cancelled' });
+  assert.deepStrictEqual(asked, [{ kind: 'energy', item: 'energy', currency: 'stars', price: 100, amount: 1000, qty: 10 }]);
+  assert.deepStrictEqual(server.db.wallets.get(uid), { coins: 895, stars: 1000 }, 'no: nothing paid');
   answer = true;
-  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', buy)).ok, true);
-  assert.strictEqual(server.db.wallets.get(uid).coins, 95);
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_many_v1', Object.assign({}, many, { p_request_id: id(4) }))).ok, true);
+  assert.strictEqual(server.db.wallets.get(uid).stars, 900);
   answer = false;
-  assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', buy)).duplicate, true, 'the same tap again (a lost answer): not asked, not paid again');
+  assert.strictEqual(plain(await v.net.rpc('farm_buy_many_v1', Object.assign({}, many, { p_request_id: id(4) }))).duplicate, true, 'the same tap again: not asked, not paid again');
   assert.strictEqual(asked.length, 2);
-  // many refills: the whole price and energy
-  answer = true;
-  await v.net.rpc('farm_buy_many_v1', Object.assign({}, buy, { p_currency: 'stars', p_price: 10, p_qty: 3, p_request_id: '22222222-2222-4222-8222-222222222222' }));
-  assert.deepStrictEqual(asked[2], { kind: 'energy', item: 'energy', currency: 'stars', price: 30, amount: 300, qty: 3 });
-  assert.strictEqual(server.db.wallets.get(uid).stars, 70);
-  // a look; then the same look again (owned: the server never pays it twice, so not asked)
-  server.db.wallets.get(uid).coins = 500;
-  const look = { p_look: 'flower', p_currency: 'coins', p_price: 100, p_version: 1, p_request_id: '33333333-3333-4333-8333-333333333333' };
-  assert.strictEqual(plain(await v.net.rpc('farm_look_buy_v1', look)).ok, true);
-  assert.deepStrictEqual(asked[3], { kind: 'look', look: 'flower', currency: 'coins', price: 100 });
-  assert.strictEqual(server.db.wallets.get(uid).coins, 400);
-  assert.strictEqual(plain(await v.net.rpc('farm_look_buy_v1', Object.assign({}, look, { p_request_id: '44444444-4444-4444-8444-444444444444' }))).code, 'owned');
-  assert.strictEqual(asked.length, 4);
+  // 10 minutes later: quiet again
+  const real = Date.now;
+  Date.now = () => real() + 11 * 60 * 1000;
+  try {
+    assert.strictEqual(plain(await v.net.rpc('farm_buy_v1', { p_item: 'energy', p_currency: 'coins', p_price: 5, p_version: 1, p_request_id: id(5) })).ok, true);
+  } finally { Date.now = real; }
+  assert.strictEqual(asked.length, 2);
 });
 
 test('nothing to ask when the server refuses before paying: a settle (price 0), a wrong price, not enough, a look already owned', async () => {

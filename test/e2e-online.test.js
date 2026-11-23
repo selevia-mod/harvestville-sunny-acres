@@ -1915,10 +1915,9 @@ test('online: Selebox follows count as friends; staff review a report; share my 
   await b.context.close();
 });
 
-test('online: the app asks before Coins or Stars are paid (security check #8): the game does not ask too; no = nothing paid', async () => {
+test('online: a refill is checked quietly by the app (security check #8): the game asks as before, no card from the app', async () => {
   const server = createServer(), asked = [];
-  let answer = false;
-  const me = await open(server, { confirmPay: async (info) => { asked.push(info); return answer; } });
+  const me = await open(server, { confirmPay: async (info) => { asked.push(info); return false; } });
   server.db.noPart24 = true; // (one refill: no number picker)
   server.db.wallets.set(me.uid, { coins: 12, stars: 5 });
   await me.page.evaluate(() => {
@@ -1930,21 +1929,11 @@ test('online: the app asks before Coins or Stars are paid (security check #8): t
   });
   await waitModal(me.page, /Refill energy.*\+100 energy for 5 Selebox Coins/);
   await tapButton(me.page, 'Buy');
-  for (let i = 0; i < 50 && !asked.length; i++) await new Promise((r) => setTimeout(r, 100));
-  await new Promise((r) => setTimeout(r, 400));
-  assert.deepStrictEqual(asked, [{ kind: 'energy', item: 'energy', currency: 'coins', price: 5, amount: 100, qty: 1 }], 'the app asked, with the shop\'s numbers');
-  const after = await me.page.evaluate(() => ({ e: Farm.session.state.energy, pb: Farm.session.state.net.pb.length }));
-  after.text = await modalText(me.page);
-  assert.strictEqual(after.e, 40, 'no: no energy');
-  assert.strictEqual(after.pb, 0, 'no: nothing left to settle');
-  assert.doesNotMatch(after.text, /REFILL ENERGY\?/, 'the game did not ask too');
-  assert.match(after.text, /Refill energy/, 'still in the shop');
-  assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 12, stars: 5 }, 'no: nothing paid');
-  answer = true;
-  await tapButton(me.page, 'Buy');
+  await waitModal(me.page, /REFILL ENERGY\?.*\+100 energy \(40 to 140\) for 5 Selebox Coins\./);
+  await tapButton(me.page, 'Yes');
   await me.page.waitForFunction(() => Farm.session.state.energy === 140, null, SLOW);
+  assert.deepStrictEqual(asked, [], 'normal play: the app does not ask');
   assert.deepStrictEqual(server.db.wallets.get(me.uid), { coins: 7, stars: 5 });
-  assert.strictEqual(asked.length, 2);
   assert.deepStrictEqual(me.problems, []);
   await me.context.close();
 });

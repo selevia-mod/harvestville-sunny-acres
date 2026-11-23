@@ -302,10 +302,7 @@
       return this.toast(o.currency === 'coins' ? 'You have lots of energy already. Use some first!' : 'With Stars, energy goes up to ' + C.ENERGY_MOST.toLocaleString('en-US') + '. Use some first, or refill with Coins.', 3000);
     }
     if (this.buying) return;
-    // (security check #8, 23 Nov 2026: an app that asks the player itself before Coins or Stars are paid says so,
-    // gameHost.net.payAsk; then only the app asks, not the game too)
-    var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); };
-    ask('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
+    this.confirm('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
       self.buying = true;
       L.settleRefills().then(function (state) {
         if (state !== 'clear') {
@@ -322,7 +319,7 @@
         return F.Net.rpc(qty > 1 ? 'farm_buy_many_v1' : 'farm_buy_v1', args).then(function (r) {
           self.buying = false;
           s.net.pb = s.net.pb.filter(function (x) { return x[0] !== b[0]; }); // answered: nothing left to settle
-          if (r && r.code === 'cancelled') { save(s); return; } // (the player said no in the app's own question: nothing paid)
+          if (r && r.code === 'cancelled') { save(s); return; } // (no, in the app's own card, security check #8: nothing paid)
           if (!r || !r.ok) {
             save(s);
             self.closeAll();

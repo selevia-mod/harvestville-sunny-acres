@@ -22,11 +22,15 @@ const TIMEOUT_MS = 15000; // a call with no answer by then fails, so the game ne
 // Security check #8 (owner, 23 Nov 2026: "build number 8"):
 // - the game server is handed a GAME PASS (game_pass_v1, SQL 60), never the player's Selebox sign-in: a pass only says
 //   who plays, to the game server's own 4 functions. Before SQL 60 is applied, the sign-in, as before.
-// - Selebox Coins and Stars leave only after the APP asks the player (confirmPay, the app's own card, outside the game
-//   page): what is asked is read from the shop by the app, not from the game.
+// - Selebox Coins and Stars: the game asks as before (owner, 23 Nov 2026: "as before ... less hassle"); the app checks
+//   every payment quietly against the shop's own numbers, and only when spending looks wrong (more than ASK_ABOVE Coins
+//   and Stars within ASK_WINDOW_MS) does the APP ask the player itself (confirmPay, its own card, outside the game page).
+//   Every payment is on record on the server either way (coin_transactions / star_transactions).
 const PASS = /^hvp_[0-9a-f]{64}$/;
 const PASS_EARLY_MS = 2 * 60 * 60 * 1000; // a pass with less than this left is replaced (a pass lasts 12 hours)
 const PAY = { farm_buy_v1: 'energy', farm_buy_many_v1: 'energy', farm_look_buy_v1: 'look' };
+const ASK_ABOVE = 200; // Coins and Stars together; normal play (a refill 5-10, a look 100-200) stays under it
+const ASK_WINDOW_MS = 10 * 60 * 1000;
 const missingFn = (error) => !!error && (error.code === 'PGRST202' || /Could not find the function/i.test(String(error.message || '')));
 
 // Runs inside the WebView before the game loads (ES5: works in old Android WebViews too).
@@ -161,7 +165,8 @@ const without = (o, names) => { const c = {}; Object.keys(o).forEach((k) => { if
 function createSunnyAcresBridge({ supabase, webViewRef, confirmPay = null }) {
   let pass = null; // { pass, uid, until }: the game pass in hand
   let passAsk = null; // (one request for a pass at a time)
-  const okayed = new Set(); // request ids the player said yes to (the same tap sent again is not asked twice)
+  const okayed = new Set(); // request ids let through (the same tap sent again is not checked twice)
+  let paid = []; // [{ at, price }]: payments let through lately (what "spending looks wrong" is measured on)
   const limit = (p) => {
     let timer;
     const t = new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS); });
@@ -437,9 +442,10 @@ function createSunnyAcresBridge({ supabase, webViewRef, confirmPay = null }) {
     return room;
   }
 
-  // Before Selebox Coins or Stars are paid: the app asks the player, with the shop's own numbers (read here, not from
-  // the game). A call the server refuses before any payment (a price or version the shop does not have, not enough in
-  // the wallet, a look already owned, a bad number) is not asked about: the server answers it. true = go ahead.
+  // Before Selebox Coins or Stars are paid: checked with the shop's own numbers (read here, not from the game). A call
+  // the server refuses before any payment (a price or version the shop does not have, not enough in the wallet, a look
+  // already owned, a bad number) goes on: the server answers it. A real payment goes on quietly, unless it takes what was
+  // paid in the last 10 minutes over ASK_ABOVE: then the app asks the player. true = go ahead.
   const askPay = async (name, a) => {
     const id = String(a.p_request_id || '');
     if (id && okayed.has(id)) return true;
@@ -456,9 +462,17 @@ function createSunnyAcresBridge({ supabase, webViewRef, confirmPay = null }) {
     if (Number.isFinite(have) && have < price) return true;
     const info = kind === 'look' ? { kind, look: offer.look, currency: offer.currency, price }
       : { kind, item: offer.item, currency: offer.currency, price, amount: (Number(offer.amount) || 0) * qty, qty };
-    let yes = false;
-    try { yes = (await confirmPay(info)) === true; } catch (e) { yes = false; }
-    if (yes && id) okayed.add(id);
+    const now = Date.now();
+    paid = paid.filter((x) => now - x.at < ASK_WINDOW_MS);
+    const lately = paid.reduce((t, x) => t + x.price, 0);
+    let yes = lately + price <= ASK_ABOVE;
+    if (!yes) {
+      try { yes = (await confirmPay(info)) === true; } catch (e) { yes = false; }
+    }
+    if (yes) {
+      paid.push({ at: Date.now(), price });
+      if (id) okayed.add(id);
+    }
     return yes;
   };
 
@@ -593,9 +607,7 @@ function createSunnyAcresBridge({ supabase, webViewRef, confirmPay = null }) {
     });
   };
 
-  // (the game: the app asks before a payment, so the game does not ask too: gameHost.net.payAsk)
-  const injected = confirmPay ? GAME_NET_SCRIPT + '\n(function () { if (window.gameHost && window.gameHost.net) window.gameHost.net.payAsk = true; })();\ntrue;' : GAME_NET_SCRIPT;
-  return { injectedJavaScriptBeforeContentLoaded: injected, onMessage, dispose, wake };
+  return { injectedJavaScriptBeforeContentLoaded: GAME_NET_SCRIPT, onMessage, dispose, wake };
 }
 
 module.exports = { createSunnyAcresBridge, GAME_NET_SCRIPT, signing: { sha256, hmac, canon } };

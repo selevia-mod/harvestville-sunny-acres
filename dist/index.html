@@ -38916,10 +38916,7 @@ if (L.refillFits && !L.refillFits(s, gain, o.currency)) {
 return this.toast(o.currency === 'coins' ? 'You have lots of energy already. Use some first!' : 'With Stars, energy goes up to ' + C.ENERGY_MOST.toLocaleString('en-US') + '. Use some first, or refill with Coins.', 3000);
 }
 if (this.buying) return;
-
-
-var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); };
-ask('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
+this.confirm('REFILL ENERGY?\n' + (qty > 1 ? qty + ' refills: ' : '') + '+' + gain.toLocaleString('en-US') + ' energy (' + e.toLocaleString('en-US') + ' to ' + (e + gain).toLocaleString('en-US') + ') for ' + curName(o.currency, total) + '.', function () {
 self.buying = true;
 L.settleRefills().then(function (state) {
 if (state !== 'clear') {
@@ -44344,8 +44341,7 @@ this.dialog('IT IS YOURS!\n' + d.name + ' is in My looks. Wear it now?', [{ labe
 };
 U.buyLookPaid = function (d, o) {
 var self = this, what = o.price + (o.currency === 'coins' ? ' Coins' : ' Stars');
-var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); };
-ask('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
+this.confirm('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
 if (self.tailorBusy) return;
 self.tailorBusy = true;
 F.Net.rpc('farm_look_buy_v1', { p_look: d.key, p_currency: o.currency, p_price: o.price, p_version: o.version, p_request_id: requestId() }).then(function (r) {
@@ -73546,7 +73542,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = 'ba7337f4';
+window.Farm.BUILD = '86939a4a';
 </script>
 </body>
 </html>

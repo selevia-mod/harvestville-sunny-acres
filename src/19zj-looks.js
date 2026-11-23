@@ -251,8 +251,7 @@
   };
   U.buyLookPaid = function (d, o) {
     var self = this, what = o.price + (o.currency === 'coins' ? ' Coins' : ' Stars');
-    var ask = function (q, go) { if (host().net && host().net.payAsk) go(); else self.confirm(q, go); }; // (the app asks: security check #8)
-    ask('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
+    this.confirm('BUY THIS LOOK?\n' + d.name + ' for ' + what + '. One purchase dresses your boy and your girl.', function () {
       if (self.tailorBusy) return;
       self.tailorBusy = true;
       F.Net.rpc('farm_look_buy_v1', { p_look: d.key, p_currency: o.currency, p_price: o.price, p_version: o.version, p_request_id: requestId() }).then(function (r) {
@@ -265,7 +264,7 @@
           sfx('coin');
           return self.lookBought(d);
         }
-        if (r && r.code === 'cancelled') return; // (no, in the app's own question: nothing paid)
+        if (r && r.code === 'cancelled') return; // (no, in the app's own card, security check #8: nothing paid)
         var code = r && r.code, say = {
           'insufficient-coins': 'Not enough Coins.', 'insufficient-stars': 'Not enough Stars.', 'offer-changed': 'The price just changed. Have a look again.',
           'offer-unavailable': 'That look is not for sale right now.', limit: 'That is all the shopping for today. Come back tomorrow.',
