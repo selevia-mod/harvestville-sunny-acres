@@ -83,3 +83,53 @@ test('Supabase not answering: refused (the phone plays the old way), and asked a
 test('no Supabase settings: it will not start', () => {
   assert.throws(() => makeSupabaseAuth({ url: '', anonKey: '' }));
 });
+
+// A game pass (SQL 60, security check #8, 23 Nov 2026): the page holds a pass, never the player's sign-in.
+const PASS = 'hvp_' + 'ab'.repeat(32);
+function passSupabase(owner, rooms) {
+  const calls = [];
+  const fetch = async (url, init) => {
+    const name = url.split('/rpc/')[1], args = JSON.parse(init.body);
+    calls.push({ name, args, headers: init.headers });
+    const json = (v) => ({ ok: true, status: 200, json: async () => v });
+    if (name === 'hvs_who_v1') return json(args.p_pass === PASS ? owner : null);
+    if (name === 'hvs_topic_ok_v1') return json(args.p_pass === PASS && rooms.includes(args.p_topic));
+    return { ok: false, status: 404, json: async () => null };
+  };
+  return { fetch, calls };
+}
+
+test('a game pass: its player, asked with the public key only (no sign-in sent), the farm through the pass; kept a minute', async () => {
+  const sb = passSupabase('pass-owner-1', [TOPIC]);
+  const auth = makeSupabaseAuth({ url: URL, anonKey: 'anon-test-key', fetch: sb.fetch, keys: {} });
+  assert.deepStrictEqual(await auth.check(PASS, TOPIC), { uid: 'pass-owner-1' });
+  assert.deepStrictEqual(sb.calls.map((c) => c.name), ['hvs_who_v1', 'hvs_topic_ok_v1']);
+  assert.strictEqual(sb.calls[1].args.p_topic, TOPIC);
+  for (const c of sb.calls) {
+    assert.strictEqual(c.args.p_pass, PASS);
+    assert.strictEqual(c.headers.apikey, 'anon-test-key');
+    assert.strictEqual(c.headers.Authorization, undefined, 'no Authorization header');
+  }
+  assert.deepStrictEqual(await auth.check(PASS, 'pub'), { uid: 'pass-owner-1' });
+  assert.deepStrictEqual(await auth.check(PASS, TOPIC), { uid: 'pass-owner-1' });
+  assert.strictEqual(sb.calls.length, 2, 'the pass and the farm are kept a minute');
+  assert.deepStrictEqual(await auth.check(PASS, 'farm:99999999-0000-4000-8000-000000000000'), { why: 'topic' });
+});
+
+test('a pass nobody holds (made up, run out, banned) is refused; a look-alike is not a pass', async () => {
+  const sb = passSupabase('pass-owner-1', [TOPIC]);
+  const auth = makeSupabaseAuth({ url: URL, anonKey: 'k', fetch: sb.fetch, keys: {} });
+  assert.deepStrictEqual(await auth.check('hvp_' + 'cd'.repeat(32), 'pub'), { why: 'auth' });
+  assert.deepStrictEqual(await auth.check('hvp_' + 'ZZ'.repeat(32), 'pub'), { why: 'auth' });
+  assert.deepStrictEqual(sb.calls.map((c) => c.name), ['hvs_who_v1'], 'a look-alike never reaches Supabase as a pass');
+});
+
+test('the old sign-in turned off (HV_JWT=off): a good sign-in is refused, a pass still plays', async () => {
+  const { auth: onAuth, sign } = await setup(true);
+  const token = await sign('u1');
+  assert.deepStrictEqual(await onAuth.check(token, 'pub'), { uid: 'u1' }, 'on: as before');
+  const sb = passSupabase('pass-owner-1', [TOPIC]);
+  const off = makeSupabaseAuth({ url: URL, anonKey: 'k', fetch: sb.fetch, keys: {}, jwt: false });
+  assert.deepStrictEqual(await off.check(token, 'pub'), { why: 'auth' });
+  assert.deepStrictEqual(await off.check(PASS, 'pub'), { uid: 'pass-owner-1' });
+});

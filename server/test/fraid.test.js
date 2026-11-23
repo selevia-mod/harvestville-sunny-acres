@@ -119,3 +119,26 @@ test("on the line: a phone sends 'fr' and hears 'frr' (no room needed)", async (
   assert.strictEqual(ans.stars, L.frStars(b));
   void C;
 });
+
+// A game pass (SQL 60): the raid is read and settled through the pass's own functions, with the public key only.
+test('a game pass: read and settled through hvs_fraid_*_v1 with the pass, no sign-in sent; the old sign-in can be turned off', async () => {
+  const PASS = 'hvp_' + '7e'.repeat(32), row = fresh(), calls = [];
+  const fetch = async (url, init) => {
+    const name = url.split('/rpc/')[1], args = JSON.parse(init.body);
+    calls.push({ name, args, headers: init.headers });
+    const json = (v) => ({ ok: true, status: 200, json: async () => v });
+    if (args.p_pass !== PASS) return json(null);
+    if (name === 'hvs_fraid_raid_v1') return json(args.p_raid === row.raid ? row : null);
+    if (name === 'hvs_fraid_settle_v1') { row.state = 'done'; return json({ ok: true, stars: args.p_stars, prize: 1, points: 2 }); }
+    return { ok: false, status: 404, json: async () => null };
+  };
+  const fr = makeFraid({ url: 'https://sb.test', anonKey: 'anon', key: 'server-key', fetch, rules: R });
+  const b = play(row);
+  const r = await fr.settle(PASS, RAID, b.moves);
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.deepStrictEqual(calls.map((c) => c.name), ['hvs_fraid_raid_v1', 'hvs_fraid_settle_v1']);
+  for (const c of calls) { assert.strictEqual(c.headers.Authorization, undefined); assert.strictEqual(c.headers.apikey, 'anon'); }
+  assert.strictEqual(calls[1].args.p_key, 'server-key');
+  const off = makeFraid({ url: 'https://sb.test', anonKey: 'anon', key: 'server-key', fetch: fakeSupabase(fresh()).fetch, rules: R, jwt: false });
+  assert.strictEqual((await off.settle('tok:att', RAID, b.moves)).code, 'auth', 'the old sign-in, turned off');
+});

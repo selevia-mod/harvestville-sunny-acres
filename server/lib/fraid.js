@@ -10,6 +10,8 @@
 'use strict';
 
 const CALL_WAIT = 5000, MOVES_MOST = 300, CELLS_MOST = 96 * 64, TRIES_MOST = 3;
+const { isPass } = require('./auth');
+const PASS_FN = { farm_fraid_raid_v1: 'hvs_fraid_raid_v1', farm_fraid_settle_v1: 'hvs_fraid_settle_v1' };
 
 function makeFraid(opts) {
   const o = opts || {};
@@ -17,11 +19,15 @@ function makeFraid(opts) {
   const anonKey = o.anonKey, key = o.key;
   const doFetch = o.fetch || globalThis.fetch;
   const R = o.rules; // lib/rules.js load(): { C, L }
+  // (a game pass, SQL 60, 23 Nov 2026: the app hands the page a pass, not the player's sign-in; the server asks with the
+  // public key and the pass, through the pass's own functions. An older app still sends the sign-in: the old way.)
   const rpc = async (token, name, args) => {
-    const res = await doFetch(url + '/rest/v1/rpc/' + name, {
+    const pass = isPass(token);
+    const res = await doFetch(url + '/rest/v1/rpc/' + (pass ? PASS_FN[name] : name), {
       method: 'POST',
-      headers: { apikey: anonKey, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(args),
+      headers: pass ? { apikey: anonKey, 'Content-Type': 'application/json', Accept: 'application/json' }
+        : { apikey: anonKey, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(pass ? Object.assign({ p_pass: token }, args) : args),
       signal: AbortSignal.timeout(CALL_WAIT),
     });
     if (!res.ok) throw new Error(name + ': ' + res.status);
@@ -69,6 +75,7 @@ function makeFraid(opts) {
     async settle(token, raid, moves, played) {
       if (!url || !anonKey || !key) return { ok: false, code: 'off' };
       if (typeof token !== 'string' || !token || token.length > 4096) return { ok: false, code: 'auth' };
+      if (!isPass(token) && o.jwt === false) return { ok: false, code: 'auth' }; // (the old sign-in turned off)
       if (typeof raid !== 'string' || !/^[0-9a-f-]{36}$/i.test(raid)) return { ok: false, code: 'raid' };
       if (!goodMoves(moves)) return { ok: false, code: 'moves' };
       if (tried(raid)) return { ok: false, code: 'tries' };

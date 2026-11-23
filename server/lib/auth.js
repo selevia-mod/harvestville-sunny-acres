@@ -7,6 +7,11 @@
 'use strict';
 
 const OK_KEEP = 60000, NO_KEEP = 10000, CALL_WAIT = 3000;
+// A game pass (SQL 60, security check #8, 23 Nov 2026): the app hands the page 'hvp_' + 64 hex, never the player's
+// Selebox sign-in. Who it belongs to is asked with the public key (hvs_who_v1), kept a minute; the farm rule through
+// hvs_topic_ok_v1. An older app still sends its sign-in (a JWT): checked the old way until `jwt: false` (HV_JWT=off).
+const PASS = /^hvp_[0-9a-f]{64}$/;
+const isPass = (t) => typeof t === 'string' && PASS.test(t);
 
 function makeSupabaseAuth(opts) {
   const o = opts || {};
@@ -24,6 +29,26 @@ function makeSupabaseAuth(opts) {
     return payload;
   });
   const seen = new Map(); // uid|topic -> { ok, until }
+  const passes = new Map(); // pass -> { uid, until }
+  const anonCall = async (name, args) => {
+    const res = await doFetch(url + '/rest/v1/rpc/' + name, {
+      method: 'POST',
+      headers: { apikey: anonKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(CALL_WAIT),
+    });
+    if (!res.ok) throw new Error(name + ': ' + res.status);
+    return res.json();
+  };
+  const passUser = async (pass) => {
+    const t = now(), had = passes.get(pass);
+    if (had && had.until > t) return had.uid;
+    const uid = await anonCall('hvs_who_v1', { p_pass: pass });
+    const good = typeof uid === 'string' && uid ? uid : null;
+    passes.set(pass, { uid: good, until: t + (good ? OK_KEEP : NO_KEEP) });
+    if (passes.size > 5000) passes.forEach((v, k) => { if (v.until <= t) passes.delete(k); });
+    return good;
+  };
 
   const topicOk = async (token, topic) => {
     const res = await doFetch(url + '/rest/v1/rpc/farm_topic_ok_v1', {
@@ -38,15 +63,22 @@ function makeSupabaseAuth(opts) {
 
   return {
     async check(token, topic) {
-      let payload;
-      try { payload = await verify(token); } catch (e) { return { why: 'auth' }; }
-      const uid = payload && typeof payload.sub === 'string' ? payload.sub : null;
+      const pass = isPass(token);
+      let uid = null;
+      if (pass) {
+        try { uid = await passUser(token); } catch (e) { return { why: 'auth' }; }
+      } else {
+        if (o.jwt === false) return { why: 'auth' };
+        let payload;
+        try { payload = await verify(token); } catch (e) { return { why: 'auth' }; }
+        uid = payload && typeof payload.sub === 'string' ? payload.sub : null;
+      }
       if (!uid) return { why: 'auth' };
       if (topic === 'pub') return { uid }; // (a hunting place is open to everyone: a good token is all)
       const key = uid + '|' + topic, t = now(), had = seen.get(key);
       if (had && had.until > t) return had.ok ? { uid } : { why: 'topic' };
       let ok;
-      try { ok = await topicOk(token, topic); } catch (e) { return { why: 'auth' }; } // (Supabase did not answer: the old way)
+      try { ok = pass ? (await anonCall('hvs_topic_ok_v1', { p_pass: token, p_topic: topic })) === true : await topicOk(token, topic); } catch (e) { return { why: 'auth' }; } // (Supabase did not answer: the old way)
       seen.set(key, { ok, until: t + (ok ? OK_KEEP : NO_KEEP) });
       if (seen.size > 5000) seen.forEach((v, k) => { if (v.until <= t) seen.delete(k); });
       return ok ? { uid } : { why: 'topic' };
@@ -54,4 +86,4 @@ function makeSupabaseAuth(opts) {
   };
 }
 
-module.exports = { makeSupabaseAuth };
+module.exports = { makeSupabaseAuth, isPass };
