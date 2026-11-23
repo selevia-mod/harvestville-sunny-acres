@@ -27,9 +27,44 @@ const RICH = `
   ['rod', 'seed_turnip', 'egg', 'milk', 'ore_copper', 'rope', 'farm_cement'].forEach((k) => { try { if (C.ITEMS[k]) L.addItem(s, k, 10); } catch (e) {} });
   Farm.bus.emit('hud'); Farm.ui.closeAll();`;
 
+// A real farm as it is (its gold, its yard), only the first-time tips and the news already read, the weather fine, and
+// any panel the start opened (welcome back, a new day) closed: the robot looks at the farm, not at the greetings.
+const CALM = `
+  const s = Farm.session.state, L = Farm.Logic, C = Farm.Config;
+  L.weather = () => 'sunny'; s.tips = -1 >>> 1; s.tq = -1; s.tq2 = -1; s.wv = C.NEWS_LATEST;
+  Farm.bus.emit('hud'); Farm.ui.closeAll(); const d = document.getElementById('farm-ask'); if (d) d.remove();`;
+
+// Real phone sizes (--sizes): the page's size in CSS px, its pixel density, and the phone's browser (the game draws at 2x on
+// Android, up to 3x on an iPhone: 20-main.js). The first is the robot's usual phone.
+const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 13; SM-A145F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const IPAD_UA = 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const SIZES = [
+  { name: '360x640 small Android', w: 360, h: 640, dpr: 2, ua: null },
+  { name: '375x667 iPhone SE', w: 375, h: 667, dpr: 2, ua: IPHONE_UA },
+  { name: '390x844 iPhone 12-15', w: 390, h: 844, dpr: 3, ua: IPHONE_UA },
+  { name: '412x915 big Android', w: 412, h: 915, dpr: 2.625, ua: ANDROID_UA },
+  { name: '360x800 tall cheap Android', w: 360, h: 800, dpr: 2, ua: ANDROID_UA },
+  { name: '768x1024 tablet', w: 768, h: 1024, dpr: 2, ua: IPAD_UA },
+];
+
+// opts: save (a save's JSON: the farm to start on), now, rich (false: the save as it is), packs, size (one of SIZES),
+// slow (a busy phone: the CPU this many times slower, and now and then a long frame)
 async function open(browser, opts = {}) {
-  const context = await browser.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const size = opts.size || SIZES[0];
+  const context = await browser.newContext({ viewport: { width: size.w, height: size.h }, deviceScaleFactor: size.dpr, hasTouch: true, isMobile: true, ...(size.ua ? { userAgent: size.ua } : {}) });
   const page = await context.newPage();
+  if (opts.slow) {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: opts.slow });
+    page.__cdp = cdp;
+    // (now and then a long frame, as a phone busy with something else: 120-400 ms with nothing drawn)
+    await page.addInitScript(() => {
+      let seed = 7;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      setInterval(() => { if (rnd() < 0.35) { const end = performance.now() + 120 + rnd() * 280; while (performance.now() < end) { /* busy */ } } }, 1500);
+    });
+  }
   const problems = [];
   page.on('pageerror', (e) => problems.push('page error: ' + e.message + ' ' + String(e.stack || '').split('\n').slice(1, 2).join('').replace(/file:\/\/[^\s)]*/g, 'page').trim()));
   page.on('console', (m) => { if (m.type() === 'error' && !NOISE.test(m.text())) problems.push('console error: ' + m.text()); });
@@ -46,9 +81,12 @@ async function open(browser, opts = {}) {
     window.gameHost = { state: save ? JSON.parse(save) : null, quiet: true, saves: [], save(s) { this.saves.push(JSON.stringify(s)); this.state = s; }, now: () => window.__now };
   }, [opts.now || Date.now(), opts.save || null, opts.packs === false ? [] : allPackFiles()]);
   if (opts.packs !== false) await page.addInitScript(HOST_ASSETS);
+  // (seeded: the same farm every run, its stones and weeds where they were last night: a change in the report is the game's)
+  if (opts.seeded) await page.addInitScript(() => { let seed = 12345; Math.random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; });
   await page.goto(PAGE, { timeout: 90000 });
   await page.waitForFunction(() => window.Farm && Farm.world && Farm.world.player && Farm.ui && Farm.ui.refresh, null, SLOW);
   if (!opts.save && opts.rich !== false) await page.evaluate(RICH);
+  if (opts.calm) await page.evaluate(CALM);
   await page.waitForTimeout(200);
   return { page, problems, context };
 }
@@ -88,4 +126,4 @@ const layout = (page) => page.evaluate(() => {
 });
 const fresh = (problems, from) => problems.slice(from);
 
-module.exports = { ROOT, DIST, ACTION_BTN, open, frames, go, words, layout, fresh };
+module.exports = { ROOT, DIST, ACTION_BTN, SIZES, open, frames, go, words, layout, fresh };
