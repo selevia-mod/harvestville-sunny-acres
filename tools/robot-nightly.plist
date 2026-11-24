@@ -7,7 +7,8 @@
     cp tools/robot-nightly.plist ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist && launchctl load ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist
 
   To switch it off: launchctl unload ~/Library/LaunchAgents/com.harvestville.robot-nightly.plist
-  (The path below is this worktree's: change it if the game lives elsewhere.)
+  (It runs in ~/Documents/hv-nightly, the robot's own worktree, at ROBOT_BRANCH's latest commit: change the branch when
+  the game's newest work moves to another one.)
 -->
 <plist version="1.0">
 <dict>
@@ -16,8 +17,13 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/arcaracalague/Documents/hv-robot2/tools/robot-nightly.sh</string>
+    <string>/Users/arcaracalague/Documents/hv-nightly/tools/robot-nightly.sh</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ROBOT_BRANCH</key>
+    <string>fix/security-2</string>
+  </dict>
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
