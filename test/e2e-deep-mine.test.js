@@ -240,6 +240,20 @@ const work = (page, ms) => page.evaluate((ms) => new Promise((resolve) => {
   requestAnimationFrame(tick);
 }), ms);
 
+// (owner, 24 Nov 2026, a phone picture of floor 3,101: "the enemies on mine looks like hasnt an art yet": the first deep
+// floor of a visit kept the drawn stand-ins, the owner's pictures fetched only for the next floor)
+test('the first deep floor of a visit: the owner\'s critter pictures come in while you are there, never the drawn stand-ins for long', async () => {
+  const { page, problems, context } = await open('');
+  assert.ok(await page.evaluate(() => ['mole', 'bat', 'piglet'].every((k) => !Farm.images['critter_' + k])), 'not in the page yet');
+  await floor(page, 3101);
+  await page.waitForFunction(() => (Farm.world.deep || []).length && Farm.world.deep.every((a) => a.img.texture.key === 'critter_' + a.kind), null, { timeout: 8000 });
+  const seen = await page.evaluate(() => Farm.world.deep.map((a) => ({ kind: a.kind, key: a.img.texture.key, art: a.art, w: Math.round(a.img.displayWidth) })));
+  assert.ok(seen.every((a) => a.key === 'critter_' + a.kind && !a.art && a.w > 100), JSON.stringify(seen));
+  await pose(page, 'deep-3101-first-floor');
+  assert.deepStrictEqual(problems, []);
+  await context.close();
+});
+
 test('a slow phone (CPU x4): floor 2,500 with its three critters, against floor 1,000 (budget 13-14 ms at 60 Hz)', async () => {
   const { page, problems, context } = await open('', { packs: true });
   await floor(page, 2499);

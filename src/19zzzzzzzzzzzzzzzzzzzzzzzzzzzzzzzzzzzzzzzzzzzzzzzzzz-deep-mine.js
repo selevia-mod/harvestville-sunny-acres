@@ -79,11 +79,34 @@
     c.refresh();
     return key;
   };
+  // The owner's picture of a kind just came in (owner, 24 Nov 2026, floor 3,101: "the enemies on mine looks like hasnt an
+  // art yet": the first deep floor of a visit kept the drawn stand-ins, the pictures fetched only for the next floor).
+  // The critters on this floor take it at once, the stand-in or the Wild Lands' row put away.
+  P.deepOwnArt = function (kind) {
+    if (!this.deep || !own(kind) || !this.sys || !this.sys.isActive()) return;
+    var key = F.ensureTexture(this, 'critter_' + kind);
+    this.deep.forEach(function (a) {
+      if (a.kind !== kind || (a.img.texture && a.img.texture.key === key)) return;
+      a.art = false;
+      a.scale = a.def.w * T / 160;
+      a.img.setTexture(key).setOrigin(0.5, 0.95).setScale(a.scale).clearTint().setFlipX(false);
+    });
+  };
+  if (F.bus) F.bus.on('packart', function (k) {
+    var m = /^critter_([a-z]+)$/.exec(String(k || ''));
+    if (m && F.world && F.world.deepOwnArt) F.world.deepOwnArt(m[1]);
+  });
+  // (asked for as soon as you are in the Mine with the deep floors reached: they are small, about 8 KB each)
+  var askOwnArt = function () {
+    if (!F.needImage || !F.canFetch || !F.canFetch()) return;
+    D.critterOrder.forEach(function (k) { if (!own(k) && F.packedFile && F.packedFile('critter_' + k)) F.needImage('critter_' + k); });
+  };
   P.deepSetup = function () {
     var floor = F.session.mineFloor, n = L.critterCount(floor), kinds = L.critterKinds(floor), rect = this.zones.minefloor[0];
+    var s = F.session.state;
+    if (!F.session.visit && (n || (s && s.stats && s.stats.deepest >= D.from - 100))) askOwnArt();
     if (!n || F.session.visit) return;
     if (!art() && F.packOnPhone && F.packOnPhone('wild') && !F.packReady('wild')) F.loadPack('wild');
-    if (F.needImage && F.canFetch && F.canFetch()) D.critterOrder.forEach(function (k) { if (!own(k) && F.packedFile && F.packedFile('critter_' + k)) F.needImage('critter_' + k); }); // (for the next floor)
     var f = this.feet(), free = [];
     for (var y = rect.y0; y <= rect.y1; y++) for (var x = rect.x0; x <= rect.x1; x++) {
       if (this.walkable(x, y) && Math.hypot((x + 0.5) * T - f.x, (y + 0.5) * T - f.y) > 4 * T) free.push([x, y]);
