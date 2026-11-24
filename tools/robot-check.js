@@ -17,8 +17,8 @@
 //           every panel and tab has its middle on the screen and takes the tap itself (tools/robot/panels-fit.js)
 //   sizes   reach and lists on real phone sizes: 375x667 iPhone SE, 390x844 iPhone 12-15, 412x915 big Android,
 //           360x800 tall cheap Android, 768x1024 tablet (360x640 is the usual one); --all-sizes: lists on all of them
-//   farms   reach and lists on copies of the biggest real farms (ROBOT_FARMS, else ~/Documents/hv-robot-farms/*.json,
-//           names taken out; never in git)
+//   farms   reach on copies of the biggest real farms (ROBOT_FARMS, else ~/Documents/hv-robot-farms/*.json, names
+//           taken out; never in git), lists on the first (--all-farms: on each)
 //   slow    a busy phone (CPU 5x slower, long frames): Manila's jeepney and calesa with you in the road, random play,
 //           reach (tools/robot/slow.js)
 //   The full run does them all (about 40 minutes without --all-tests); --quick does reach and lists on the usual phone;
@@ -37,7 +37,7 @@ const checks = require('./robot/checks');
 const { reach } = require('./robot/reach');
 const { panelsFit } = require('./robot/panels-fit');
 const { slowPhone } = require('./robot/slow');
-const { SIZES } = require('./robot/page');
+const { SIZES, launch } = require('./robot/page');
 
 const argv = process.argv.slice(2);
 const has = (f) => argv.includes(f);
@@ -137,7 +137,7 @@ function page(results, meta) {
     branch: git(['rev-parse', '--abbrev-ref', 'HEAD']), commit: git(['rev-parse', '--short', 'HEAD']) + (git(['status', '--porcelain', 'src']) ? ' + changes' : ''),
     when: new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }),
   };
-  const browser = await chromium.launch();
+  const browser = await launch(chromium);
   const results = [];
   const step = async (label, fn) => {
     say(label + ' ...');
@@ -163,8 +163,9 @@ function page(results, meta) {
   if (runs('sizes')) {
     const others = SIZES.slice(1);
     await step('Phone sizes: reach', timed(async () => { const r = await reach(browser, PICS, { sizes: others }); r.name = 'Phone sizes: reach every part of the map'; return r; }));
-    // (lists on every size: --all-sizes; else the short iPhone, a tall phone and the tablet: the three shapes)
-    const listSizes = has('--all-sizes') ? others : others.filter((z) => /iPhone SE|iPhone 12|tablet/.test(z.name));
+    // (lists on every size: --all-sizes; else one tall phone (panels centred in a taller view): the iPhone SE and the
+    // tablet lay out their panels as the 360x640 does, the tall ones as each other; 24 Nov: all five clean)
+    const listSizes = has('--all-sizes') ? others : others.filter((z) => /iPhone 12/.test(z.name));
     await steps('Phone sizes: lists and buttons', timed(async () => { const rs = await panelsFit(browser, PICS, { sizes: listSizes }); rs.forEach((r) => { r.name = 'Phone sizes: ' + r.name.toLowerCase(); }); return rs; }));
   }
   if (runs('farms')) {
@@ -174,7 +175,7 @@ function page(results, meta) {
     if (!saves.length) results.push({ name: 'Big real farms', did: 'not checked', problems: [], warnings: [{ what: 'No copies of real farms in ' + dir + ' (see tools/robot-check.js)', where: 'setup' }] });
     else {
       await step('Big real farms: reach', timed(async () => { const r = await reach(browser, PICS, { saves }); r.name = 'Big real farms: reach every part of the map'; return r; }));
-      await steps('Big real farms: lists and buttons', timed(async () => { const rs = await panelsFit(browser, PICS, { saves: saves.slice(0, QUICK ? 1 : 2) }); rs.forEach((r) => { r.name = 'Big real farms: ' + r.name.toLowerCase(); }); return rs; }));
+      await steps('Big real farms: lists and buttons', timed(async () => { const rs = await panelsFit(browser, PICS, { saves: saves.slice(0, has('--all-farms') ? saves.length : 1) }); rs.forEach((r) => { r.name = 'Big real farms: ' + r.name.toLowerCase(); }); return rs; }));
     }
   }
   if (runs('slow')) await steps('Slow phone', timed(() => slowPhone(browser, PICS, { quick: QUICK })));
@@ -188,7 +189,7 @@ function page(results, meta) {
   meta.version = (results.find((x) => x.version) || {}).version || meta.version;
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ meta, results }, null, 1));
   fs.writeFileSync(path.join(OUT, 'report.html'), page(results, meta));
-  const b2 = await chromium.launch(), p = await b2.newPage({ viewport: { width: 1000, height: 300 } });
+  const b2 = await launch(chromium), p = await b2.newPage({ viewport: { width: 1000, height: 300 } });
   await p.goto('file://' + path.join(OUT, 'report.html'));
   await p.waitForTimeout(400);
   await p.screenshot({ path: path.join(OUT, 'report.png'), fullPage: true });

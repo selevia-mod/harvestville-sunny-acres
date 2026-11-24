@@ -203,8 +203,8 @@ async function panelsFit(browser, out, opts = {}) {
   }
   const n = saves.length * sizes.length;
   return [
-    { name: 'Every list to its end', did: stats.lists + ' lists scrolled to the end (' + stats.rows + ' rows)' + (n > 1 ? ' on ' + n + ' farm x phone' : ''), problems: results.lists },
-    { name: 'Every button can be pressed', did: stats.buttons + ' buttons on ' + stats.panels + ' panels and tabs' + (n > 1 ? ' on ' + n + ' farm x phone' : ''), problems: results.buttons },
+    { name: 'Every list to its end', did: stats.lists + ' lists scrolled to the end (' + stats.rows + ' rows)' + (n > 1 ? ' (' + saves.length + ' farm' + (saves.length > 1 ? 's' : '') + ' x ' + sizes.length + ' phone size' + (sizes.length > 1 ? 's' : '') + ')' : ''), problems: results.lists },
+    { name: 'Every button can be pressed', did: stats.buttons + ' buttons on ' + stats.panels + ' panels and tabs' + (n > 1 ? ' (' + saves.length + ' farm' + (saves.length > 1 ? 's' : '') + ' x ' + sizes.length + ' phone size' + (sizes.length > 1 ? 's' : '') + ')' : ''), problems: results.buttons },
   ];
 }
 

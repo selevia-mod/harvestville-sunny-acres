@@ -128,4 +128,14 @@ const layout = (page) => page.evaluate(() => {
 });
 const fresh = (problems, from) => problems.slice(from);
 
-module.exports = { ROOT, DIST, ACTION_BTN, SIZES, open, frames, go, words, layout, fresh };
+// Chromium as Playwright brings it; if its download is not on this Mac (a cleaned cache), the Mac's own Google Chrome,
+// headless with an empty profile of its own (never the owner's): the page's network is blocked all the same.
+async function launch(chromium) {
+  try { return await chromium.launch(); } catch (e) {
+    if (!/Executable doesn't exist/.test(e.message)) throw e;
+    process.stdout.write('  (Playwright\'s Chromium is missing here: using Google Chrome)\n');
+    return chromium.launch({ channel: 'chrome' });
+  }
+}
+
+module.exports = { ROOT, DIST, ACTION_BTN, SIZES, launch, open, frames, go, words, layout, fresh };
