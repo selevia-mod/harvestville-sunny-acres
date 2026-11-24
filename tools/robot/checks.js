@@ -170,11 +170,13 @@ async function fullBag(browser, out) {
 
 // ---- 5. random play: taps, walks, the action button, the bag, closing panels ----
 const PLAY_MAPS = ['farm', 'town', 'manila', 'mine', 'mall', 'plains', 'jungle', 'gorge', 'tower'];
-async function randomPlay(browser, out, actions) {
+// opts: maps (else every place), slow (a busy phone: page.js), size, name (the report's line)
+async function randomPlay(browser, out, actions, opts = {}) {
   const found = [];
   let total = 0;
-  for (const [k, map] of PLAY_MAPS.entries()) {
-    const { page, problems, context } = await open(browser);
+  const maps = opts.maps || PLAY_MAPS;
+  for (const [k, map] of maps.entries()) {
+    const { page, problems, context } = await open(browser, { slow: opts.slow, size: opts.size });
     await page.evaluate(() => { const s = Farm.session.state; window.__keep = setInterval(() => { s.energy = Math.max(s.energy, 300); }, 2000); });
     if (!(await go(page, map))) { found.push({ what: 'Could not get there to play', where: 'Random play: ' + map }); await context.close(); continue; }
     let seed = 1000 + k;
@@ -196,14 +198,14 @@ async function randomPlay(browser, out, actions) {
       log.push(act);
       total++;
       if (problems.length > seenErr) {
-        const where = 'Random play: ' + map + ', after ' + log.slice(-4).join(', ');
+        const where = (opts.slow ? 'Slow phone, random play: ' : 'Random play: ') + map + ', after ' + log.slice(-4).join(', ');
         found.push(...(await report(page, problems, seenErr, where, out)));
         seenErr = problems.length;
       }
     }
     await context.close();
   }
-  return { name: 'Random play', did: total + ' random taps and walks on ' + PLAY_MAPS.length + ' maps', problems: found };
+  return { name: opts.name || 'Random play', did: total + ' random taps and walks on ' + maps.length + ' maps', problems: found };
 }
 
-module.exports = { panels, places, days, fullBag, randomPlay };
+module.exports = { panels, places, days, fullBag, randomPlay, ARGS, SKIP, picture, slug };
