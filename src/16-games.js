@@ -150,6 +150,14 @@
       done(ok);
     };
     var c = this.openModal(function () { finish(false); });
+    // closed some other way (every panel closed at once): the fish got away, and the game stops at once (the robot check,
+    // 24 Nov 2026: the game went on drawing a meter already gone, "Cannot read properties of null (reading 'setSize')")
+    c.once('destroy', function () {
+      if (finished) return;
+      finished = true;
+      if (self.game2 === game) self.game2 = null;
+      done(false);
+    });
     var TX = 268, TY = 140, TW = 44, TH = 320;
     this.panelImg(c, 24, 110, W - 48, 380);
     c.add(this.txt(40, 136, 'Reel it in!', 20, INK, { fontStyle: 'bold' }));
@@ -170,9 +178,10 @@
     hold.on('pointerdown', function () { st.held = true; });
     hold.on('pointerup', function () { st.held = false; });
     hold.on('pointerout', function () { st.held = false; });
-    this.game2 = {
+    var game = this.game2 = {
       press: function (down) { st.held = down; },
       update: function (dt) {
+        if (finished || !c.active) return;
         var sec = dt / 1000, up = st.held || F.input.holding;
         st.zv += (up ? 3.2 : -2.6) * sec;
         st.zv = Phaser.Math.Clamp(st.zv, -1.4, 1.4);

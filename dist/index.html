@@ -28019,6 +28019,21 @@ self.scene.restart();
 });
 }
 
+
+
+
+clearOfAction(f, cx, cy) {
+var ui = F.ui, a = ui && ui.actionBtn, uc = ui && ui.cameras && ui.cameras.main, cam = this.cameras.main;
+if (!a || !a.visible || !uc) return 0;
+var ow = cam.width * cam.originX, oh = cam.height * cam.originY, z = cam.zoom;
+var fx = cam.x + ow + (f.x - cx) * z, top = cam.y + oh + (f.y - 1.6 * T - cy) * z, bot = cam.y + oh + (f.y - cy) * z;
+var uow = uc.width * uc.originX, uoh = uc.height * uc.originY, uz = uc.zoom;
+var bx = uc.x + uow + (a.x - uc.scrollX - uow) * uz, by = uc.y + uoh + (a.y - uc.scrollY - uoh) * uz, br = 48 * uz;
+if (bot < by - br || top > by + br) return 0;
+var need = fx + 0.45 * T * z - (bx - br);
+return need > 0 ? Math.min(3.5 * T, need / z) : 0;
+}
+
 updateCamera(lerp) {
 var cam = this.cameras.main, f = this.feet();
 var vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
@@ -28026,6 +28041,7 @@ var mw = this.map.widthInPixels, mh = this.map.heightInPixels;
 var cx = f.x, cy = f.y - T;
 cx = mw <= vw ? mw / 2 : Phaser.Math.Clamp(cx, vw / 2, mw - vw / 2);
 cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(cy, vh / 2 - 2 * T, mh - vh / 2 + 3 * T);
+if (mw > vw && cx >= mw - vw / 2) cx += this.clearOfAction(f, cx, cy);
 var cur = cam.midPoint;
 cam.centerOn(cur.x + (cx - cur.x) * lerp, cur.y + (cy - cur.y) * lerp);
 }
@@ -30957,6 +30973,14 @@ self.closeModal();
 done(ok);
 };
 var c = this.openModal(function () { finish(false); });
+
+
+c.once('destroy', function () {
+if (finished) return;
+finished = true;
+if (self.game2 === game) self.game2 = null;
+done(false);
+});
 var TX = 268, TY = 140, TW = 44, TH = 320;
 this.panelImg(c, 24, 110, W - 48, 380);
 c.add(this.txt(40, 136, 'Reel it in!', 20, INK, { fontStyle: 'bold' }));
@@ -30977,9 +31001,10 @@ var st = { zy: 0, zv: 0, fy: 0.5, target: 0.5, timer: 0, meter: G.start, held: f
 hold.on('pointerdown', function () { st.held = true; });
 hold.on('pointerup', function () { st.held = false; });
 hold.on('pointerout', function () { st.held = false; });
-this.game2 = {
+var game = this.game2 = {
 press: function (down) { st.held = down; },
 update: function (dt) {
+if (finished || !c.active) return;
 var sec = dt / 1000, up = st.held || F.input.holding;
 st.zv += (up ? 3.2 : -2.6) * sec;
 st.zv = Phaser.Math.Clamp(st.zv, -1.4, 1.4);
@@ -37891,6 +37916,20 @@ if (span > 0) {
 bar = this.add.rectangle(W - 21, top, 4, Math.max(30, view * view / (view + span)), 0x7a4d26, 0.45).setOrigin(0.5, 0);
 c.add(bar);
 }
+
+
+
+var inView = function (go, lx, ly) {
+var p = go.getWorldTransformMatrix().transformPoint(lx - go.displayOriginX, ly - go.displayOriginY);
+var cm = c.getWorldTransformMatrix(), a = cm.transformPoint(0, top), b = cm.transformPoint(0, bottom);
+return p.y >= a.y && p.y <= b.y;
+};
+var clip = function (x) {
+if (!x.input || x.input.inViewOnly) return;
+var hit = x.input.hitAreaCallback;
+x.input.inViewOnly = true;
+x.input.hitAreaCallback = function (area, lx, ly, go) { return hit(area, lx, ly, go) && inView(go, lx, ly); };
+};
 var place = function (y) {
 at = Math.max(-span, Math.min(0, y));
 c.slimAt = at;
@@ -37898,7 +37937,7 @@ list.y = at;
 if (bar) bar.y = top + (view - bar.height) * (span ? -at / span : 0);
 list.list.forEach(function (r) {
 var h = r.rowH || rowH, ry = r.y + at, on = ry + h / 2 > top && ry + h / 2 < bottom;
-var walk = function (x) { if (x.input) x.input.enabled = on; if (x.list) x.list.forEach(walk); };
+var walk = function (x) { if (x.input) { x.input.enabled = on; clip(x); } if (x.list) x.list.forEach(walk); };
 walk(r);
 });
 };
@@ -73697,7 +73736,7 @@ console.error(err);
 });
 })(window.Farm = window.Farm || {});
 
-window.Farm.BUILD = '0bf1c9ac';
+window.Farm.BUILD = 'ed599618';
 </script>
 </body>
 </html>

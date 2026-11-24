@@ -459,6 +459,20 @@
       bar = this.add.rectangle(W - 21, top, 4, Math.max(30, view * view / (view + span)), 0x7a4d26, 0.45).setOrigin(0.5, 0);
       c.add(bar);
     }
+    // A row half out of view takes taps only on its part in view (the robot check, 24 Nov 2026: in "What to sell?" scrolled
+    // down, a tile half under the filter row took the tap meant for "All" and opened that tile's sale). The point is
+    // turned back to the panel's own units and must lie between top and bottom.
+    var inView = function (go, lx, ly) {
+      var p = go.getWorldTransformMatrix().transformPoint(lx - go.displayOriginX, ly - go.displayOriginY);
+      var cm = c.getWorldTransformMatrix(), a = cm.transformPoint(0, top), b = cm.transformPoint(0, bottom);
+      return p.y >= a.y && p.y <= b.y;
+    };
+    var clip = function (x) {
+      if (!x.input || x.input.inViewOnly) return;
+      var hit = x.input.hitAreaCallback;
+      x.input.inViewOnly = true;
+      x.input.hitAreaCallback = function (area, lx, ly, go) { return hit(area, lx, ly, go) && inView(go, lx, ly); };
+    };
     var place = function (y) {
       at = Math.max(-span, Math.min(0, y));
       c.slimAt = at; // (where it is scrolled to: a panel drawn again can go back there)
@@ -466,7 +480,7 @@
       if (bar) bar.y = top + (view - bar.height) * (span ? -at / span : 0);
       list.list.forEach(function (r) {
         var h = r.rowH || rowH, ry = r.y + at, on = ry + h / 2 > top && ry + h / 2 < bottom;
-        var walk = function (x) { if (x.input) x.input.enabled = on; if (x.list) x.list.forEach(walk); };
+        var walk = function (x) { if (x.input) { x.input.enabled = on; clip(x); } if (x.list) x.list.forEach(walk); };
         walk(r);
       });
     };

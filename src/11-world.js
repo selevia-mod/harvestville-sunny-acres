@@ -527,6 +527,21 @@
       });
     }
 
+    // At a map's right edge the camera stops, so a farmer in its bottom corner stood under the round action button (the
+    // robot check, 24 Nov 2026: town's beach corner). How much further right the camera goes there (world px, at most
+    // 3.5 tiles), so the farmer shows just left of the button; 0 anywhere else.
+    clearOfAction(f, cx, cy) {
+      var ui = F.ui, a = ui && ui.actionBtn, uc = ui && ui.cameras && ui.cameras.main, cam = this.cameras.main;
+      if (!a || !a.visible || !uc) return 0;
+      var ow = cam.width * cam.originX, oh = cam.height * cam.originY, z = cam.zoom;
+      var fx = cam.x + ow + (f.x - cx) * z, top = cam.y + oh + (f.y - 1.6 * T - cy) * z, bot = cam.y + oh + (f.y - cy) * z;
+      var uow = uc.width * uc.originX, uoh = uc.height * uc.originY, uz = uc.zoom;
+      var bx = uc.x + uow + (a.x - uc.scrollX - uow) * uz, by = uc.y + uoh + (a.y - uc.scrollY - uoh) * uz, br = 48 * uz;
+      if (bot < by - br || top > by + br) return 0;
+      var need = fx + 0.45 * T * z - (bx - br);
+      return need > 0 ? Math.min(3.5 * T, need / z) : 0;
+    }
+
     updateCamera(lerp) {
       var cam = this.cameras.main, f = this.feet();
       var vw = cam.width / cam.zoom, vh = cam.height / cam.zoom;
@@ -534,6 +549,7 @@
       var cx = f.x, cy = f.y - T; // a little above the feet, since the HUD covers the bottom
       cx = mw <= vw ? mw / 2 : Phaser.Math.Clamp(cx, vw / 2, mw - vw / 2);
       cy = mh <= vh - 3 * T ? mh / 2 + T : Phaser.Math.Clamp(cy, vh / 2 - 2 * T, mh - vh / 2 + 3 * T);
+      if (mw > vw && cx >= mw - vw / 2) cx += this.clearOfAction(f, cx, cy);
       var cur = cam.midPoint;
       cam.centerOn(cur.x + (cx - cur.x) * lerp, cur.y + (cy - cur.y) * lerp);
     }
